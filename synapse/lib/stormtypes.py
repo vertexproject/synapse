@@ -2823,7 +2823,6 @@ class Str(Prim):
     async def _methStrReverse(self):
         return self.valu[::-1]
 
-
 @registry.registerType
 class Bytes(Prim):
     '''
@@ -2954,7 +2953,6 @@ class Dict(Prim):
 
     async def value(self):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
-
 
 @registry.registerType
 class CmdOpts(Dict):
@@ -3189,7 +3187,6 @@ class List(Prim):
     async def iter(self):
         for item in self.valu:
             yield item
-
 
 @registry.registerType
 class Bool(Prim):
@@ -3678,7 +3675,6 @@ class NodeData(Prim):
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
 
-
 @registry.registerType
 class Node(Prim):
     '''
@@ -3911,7 +3907,6 @@ class PathVars(Prim):
         # prevent "edit while iter" issues
         for item in list(self.path.vars.items()):
             yield item
-
 
 @registry.registerType
 class Path(Prim):
@@ -5569,7 +5564,6 @@ class Role(Prim):
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
-
 
 @registry.registerLib
 class LibCron(Lib):
