@@ -2161,11 +2161,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getCellInfo(self):
         '''
-        Return version metadata specific for this Cell.
+        Return metadata specific for the Cell.
 
         Notes:
             By default, this function returns information about the base Cell
-            implementation, which relects the base information in the Synapse
+            implementation, which reflects the base information in the Synapse
             Cell.
 
             It is expected that implementers override the following Class
@@ -2176,7 +2176,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ``VERSTRING`` - A Version string.
 
         Returns:
-            Dict: A Dictionary of version metadata.
+            Dict: A Dictionary of metadata.
         '''
         ret = {
             'synapse': {
