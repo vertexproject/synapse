@@ -4129,7 +4129,7 @@ class LibLayer(Lib):
                   'args': (
                       {'name': 'iden', 'type': 'str', 'default': None,
                        'desc': 'The iden of the layer to get. '
-                               'If not set, this defaults to the default layer of the Cortex.', },
+                               'If not set, this defaults to the top layer of the current View.', },
                   ),
                   'returns': {'type': 'storm:layer', 'desc': 'The storm layer object.', }}},
         {'name': 'list', 'desc': 'List the layers in a Cortex',
@@ -4177,8 +4177,12 @@ class LibLayer(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libLayerGet(self, iden=None):
-        todo = s_common.todo('getLayerDef', iden)
-        ldef = await self.runt.dyncall('cortex', todo)
+
+        iden = await tostr(iden, noneok=True)
+        if iden is None:
+            iden = self.runt.snap.view.layers[0].iden
+
+        ldef = await self.runt.snap.core.getLayerDef(iden=iden)
         if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
