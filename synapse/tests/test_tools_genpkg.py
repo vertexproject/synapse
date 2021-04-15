@@ -30,6 +30,8 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['version'], (0, 0, 1))
             self.eq(pdef['modules'][0]['name'], 'testmod')
             self.eq(pdef['modules'][0]['storm'], 'inet:ipv4\n')
+            self.eq(pdef['modules'][1]['name'], 'testext')
+            self.eq(pdef['modules'][1]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 

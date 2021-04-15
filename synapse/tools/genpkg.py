@@ -9,6 +9,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
 
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
@@ -50,6 +51,15 @@ def loadPkgProto(path, opticdir=None):
         name = mod.get('name')
         with s_common.genfile(protodir, 'storm', 'modules', name) as fd:
             mod['storm'] = fd.read().decode()
+
+    for extmod in pkgdef.get('external_modules', ()):
+        name = extmod.get('name')
+        path = extmod.get('path')
+        extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
+        extmod['storm'] = extpkg.getAssetStr(path)
+
+        pkgdef.setdefault('modules', [])
+        pkgdef['modules'].append(extmod)
 
     for cmd in pkgdef.get('commands', ()):
         name = cmd.get('name')

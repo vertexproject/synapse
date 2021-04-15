@@ -4,6 +4,11 @@ version: 0.0.1
 modules:
     - name: testmod
 
+external_modules:
+    - name: testext
+      path: stormmod/common
+      package: synapse.tests.files
+
 commands:
     - name: testcmd
 
