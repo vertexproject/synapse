@@ -46,6 +46,7 @@ def loadPkgProto(path, opticdir=None):
         pkgdef['version'] = chopSemVer(pkgdef['version'])
 
     protodir = os.path.dirname(full)
+    pkgname = pkgdef.get('name')
 
     for mod in pkgdef.get('modules', ()):
         name = mod.get('name')
@@ -53,10 +54,12 @@ def loadPkgProto(path, opticdir=None):
             mod['storm'] = fd.read().decode()
 
     for extmod in pkgdef.get('external_modules', ()):
-        name = extmod.get('name')
         path = extmod.get('path')
         extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
         extmod['storm'] = extpkg.getAssetStr(path)
+
+        extname = extmod.get('name')
+        extmod['name'] = f'{pkgname}.{extname}'
 
         pkgdef.setdefault('modules', [])
         pkgdef['modules'].append(extmod)
