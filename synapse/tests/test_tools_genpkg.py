@@ -2,6 +2,7 @@ import os
 
 import synapse.common as s_common
 import synapse.tests.utils as s_test
+import synapse.tests.files as s_files
 
 import synapse.tools.genpkg as s_genpkg
 
@@ -30,9 +31,20 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['version'], (0, 0, 1))
             self.eq(pdef['modules'][0]['name'], 'testmod')
             self.eq(pdef['modules'][0]['storm'], 'inet:ipv4\n')
-            self.eq(pdef['modules'][1]['name'], 'testext')
+            self.eq(pdef['modules'][1]['name'], 'testpkg.testext')
             self.eq(pdef['modules'][1]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
+
+    def test_files(self):
+        assets = s_files.getAssets()
+        self.isin('test.dat', assets)
+
+        s = s_files.getAssetStr('stormmod/common')
+        self.isinstance(s, str)
+
+        self.raises(ValueError, s_files.getAssetPath, 'newp.bin')
+        self.raises(ValueError, s_files.getAssetPath,
+                    '../../../../../../../../../etc/passwd')
