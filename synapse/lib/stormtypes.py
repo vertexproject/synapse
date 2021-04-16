@@ -223,6 +223,7 @@ class StormType:
     The base type for storm runtime value objects.
     '''
     _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
+    _ismutable = True
 
     def __init__(self, path=None):
         self.path = path
@@ -278,10 +279,14 @@ class StormType:
     async def _derefGet(self, name):
         return s_common.novalu
 
+    def ismutable(self):
+        return self._ismutable
+
 class Lib(StormType):
     '''
     A collection of storm methods under a name
     '''
+    _ismutable = False
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -2734,6 +2739,7 @@ class Str(Prim):
                   'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
     )
     _storm_typename = 'str'
+    _ismutable = False
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -2876,6 +2882,7 @@ class Bytes(Prim):
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
     )
     _storm_typename = 'bytes'
+    _ismutable = False
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -2953,6 +2960,7 @@ class CmdOpts(Dict):
     ( This allows late-evaluation of command arguments rather than forcing capture )
     '''
     _storm_typename = 'storm:cmdopts'
+    _ismutable = False
 
     def __len__(self):
         valu = vars(self.valu.opts)
@@ -3181,8 +3189,9 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
+    _ismutable = False
     '''
-    Implements the Storm API for a List instance.
+    Implements the Storm API for a boolean instance.
     '''
     _storm_typename = 'bool'
 
@@ -3472,6 +3481,7 @@ class Query(Prim):
     )
 
     _storm_typename = 'storm:query'
+    _ismutable = False
 
     def __init__(self, text, varz, runt, path=None):
 
@@ -4119,7 +4129,7 @@ class LibLayer(Lib):
                   'args': (
                       {'name': 'iden', 'type': 'str', 'default': None,
                        'desc': 'The iden of the layer to get. '
-                               'If not set, this defaults to the default layer of the Cortex.', },
+                               'If not set, this defaults to the top layer of the current View.', },
                   ),
                   'returns': {'type': 'storm:layer', 'desc': 'The storm layer object.', }}},
         {'name': 'list', 'desc': 'List the layers in a Cortex',
@@ -4167,8 +4177,12 @@ class LibLayer(Lib):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _libLayerGet(self, iden=None):
-        todo = s_common.todo('getLayerDef', iden)
-        ldef = await self.runt.dyncall('cortex', todo)
+
+        iden = await tostr(iden, noneok=True)
+        if iden is None:
+            iden = self.runt.snap.view.layers[0].iden
+
+        ldef = await self.runt.snap.core.getLayerDef(iden=iden)
         if ldef is None:
             mesg = f'No layer with iden: {iden}'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -6175,6 +6189,13 @@ def fromprim(valu, path=None, basetypes=True):
         raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
 
     return valu
+
+def ismutable(valu):
+    if isinstance(valu, StormType):
+        return valu.ismutable()
+
+    # N.B. In Python, tuple is immutable, but in Storm, gets converted in toprim to a storm List
+    return isinstance(valu, (set, dict, list, tuple))
 
 async def tostr(valu, noneok=False):
 

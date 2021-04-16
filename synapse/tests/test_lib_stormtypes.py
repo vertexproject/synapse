@@ -1899,6 +1899,10 @@ class StormTypesTest(s_test.SynTest):
 
             mainlayr = core.view.layers[0].iden
 
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+            forklayr = await core.callStorm('return($lib.layer.get().iden)', opts={'view': forkview})
+            self.eq(forklayr, core.views.get(forkview).layers[0].iden)
+
             q = '$lib.print($lib.layer.get().iden)'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint(mainlayr, mesgs)

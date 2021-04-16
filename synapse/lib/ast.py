@@ -3564,7 +3564,10 @@ class FuncArgs(AstNode):
 
         for kid in self.kids:
             valu = await kid.compute(runt, path)
-            if not isinstance(kid, CallKwarg):
+            if isinstance(kid, CallKwarg):
+                if s_stormtypes.ismutable(valu[1]):
+                    raise s_exc.StormRuntimeError(mesg='Mutable default parameter value not allowed')
+            else:
                 valu = (valu, s_common.novalu)
             retn.append(valu)
 
