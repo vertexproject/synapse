@@ -226,6 +226,9 @@ class CellApi(s_base.Base):
     def getCellUser(self):
         return self.user.pack()
 
+    async def getCellInfo(self):
+        return await self.cell.getCellInfo()
+
     def setCellUser(self, iden):
         '''
         Switch to another user (admin only).
@@ -703,6 +706,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
 
     BACKUP_SPAWN_TIMEOUT = 60.0
+
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -2151,3 +2158,40 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         perm = '.'.join(perm)
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(user), perm=perm)
+
+    async def getCellInfo(self):
+        '''
+        Return metadata specific for the Cell.
+
+        Notes:
+            By default, this function returns information about the base Cell
+            implementation, which reflects the base information in the Synapse
+            Cell.
+
+            It is expected that implementers override the following Class
+            attributes in order to provide meaningful version information:
+
+            ``COMMIT``  - A Git Commit
+            ``VERSION`` - A Version tuple.
+            ``VERSTRING`` - A Version string.
+
+        Returns:
+            Dict: A Dictionary of metadata.
+        '''
+        ret = {
+            'synapse': {
+                'commit': s_version.commit,
+                'version': s_version.version,
+                'verstring': s_version.verstring,
+            },
+            'cell': {
+                'type': self.getCellType(),
+                'iden': self.getCellIden(),
+                'active': self.isactive,
+                'commit': self.COMMIT,
+                'version': self.VERSION,
+                'verstring': self.VERSTRING,
+                'cellvers': dict(self.cellvers.items()),
+            }
+        }
+        return ret
