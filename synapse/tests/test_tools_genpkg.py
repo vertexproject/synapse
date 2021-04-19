@@ -12,7 +12,7 @@ class GenPkgTest(s_test.SynTest):
 
     async def test_tools_genpkg(self):
 
-        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yml')
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
             savepath = s_common.genpath(core.dirn, 'testpkg.json')
@@ -33,6 +33,8 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['modules'][0]['storm'], 'inet:ipv4\n')
             self.eq(pdef['modules'][1]['name'], 'testpkg.testext')
             self.eq(pdef['modules'][1]['storm'], 'inet:fqdn\n')
+            self.eq(pdef['modules'][2]['name'], 'testpkg.testextfile')
+            self.eq(pdef['modules'][2]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 

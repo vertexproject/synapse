@@ -14,6 +14,13 @@ import synapse.lib.dyndeps as s_dyndeps
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
 
+def getStormStr(fn):
+    if not os.path.isfile(fn):
+        raise ValueError('Storm file {} not found'.format(fn))
+
+    with open(fn, 'rb') as f:
+        return f.read().decode()
+
 def loadOpticFiles(pkgdef, path):
 
     pkgfiles = pkgdef['optic']['files']
@@ -54,9 +61,13 @@ def loadPkgProto(path, opticdir=None):
             mod['storm'] = fd.read().decode()
 
     for extmod in pkgdef.get('external_modules', ()):
-        path = extmod.get('path')
-        extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
-        extmod['storm'] = extpkg.getAssetStr(path)
+        fpth = extmod.get('file_path')
+        if fpth is not None:
+            extmod['storm'] = getStormStr(fpth)
+        else:
+            path = extmod.get('package_path')
+            extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
+            extmod['storm'] = extpkg.getAssetStr(path)
 
         extname = extmod.get('name')
         extmod['name'] = f'{pkgname}.{extname}'
