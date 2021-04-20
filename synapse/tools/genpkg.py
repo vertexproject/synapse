@@ -75,6 +75,8 @@ def loadPkgProto(path, opticdir=None):
         pkgdef.setdefault('modules', [])
         pkgdef['modules'].append(extmod)
 
+    pkgdef.pop('external_modules', None)
+
     for cmd in pkgdef.get('commands', ()):
         name = cmd.get('name')
         with s_common.genfile(protodir, 'storm', 'commands', name) as fd:
