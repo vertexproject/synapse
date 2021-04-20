@@ -5,6 +5,40 @@ Synapse Changelog
 *****************
 
 
+v2.34.0 - 2021-04-20
+====================
+
+Features and Enhancements
+-------------------------
+- Storm function definitions now allow keyword arguments which may have
+  default values. These must be read-only values.
+  (`#2155 <https://github.com/vertexproject/synapse/pull/2155>`_)
+  (`#2157 <https://github.com/vertexproject/synapse/pull/2157>`_)
+- Add a ``getCellInfo()`` API to the ``Cell`` and ``CellAPI`` classes. This
+  returns metadata about the cell, its version, and the currently installed
+  Synapse version. Cell implementers who wish to expose Cell specific version
+  information must adhere to conventiosn documented in the API docstrings of
+  the function.
+  (`#2151 <https://github.com/vertexproject/synapse/pull/2151>`_)
+- Allow external Storm modules to be added in genpkg definitions.
+  (`#2159 <https://github.com/vertexproject/synapse/pull/2159>`_)
+
+Bugfixes
+--------
+- The ``$lib.layer.get()`` Stormtypes returned the top layer of the default
+  view in the Cortex when called with no arguments, instead of the top layer
+  of the current view. This now returns the top layer of the current view.
+  (`#2156 <https://github.com/vertexproject/synapse/pull/2156>`_)
+- Avoid calling ``applyNodeEdit`` when editing a tag on a Node and there are
+  no edits to make.
+  (`#2161 <https://github.com/vertexproject/synapse/pull/2161>`_)
+
+Improved Documentation
+----------------------
+- Fix typo in docstrings from ``$lib.model.tags`` Stormtypes.
+  (`#2160 <https://github.com/vertexproject/synapse/pull/2160>`_)
+
+
 v2.33.1 - 2021-04-13
 ====================
 
