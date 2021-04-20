@@ -575,8 +575,9 @@ class Node:
         Delete a tag from the node.
         '''
         edits = await self._getTagDelEdits(tag, init=init)
-        nodeedit = (self.buid, self.form.name, edits)
-        await self.snap.applyNodeEdit(nodeedit)
+        if edits:
+            nodeedit = (self.buid, self.form.name, edits)
+            await self.snap.applyNodeEdit(nodeedit)
 
     def _getTagPropDel(self, tag):
 
