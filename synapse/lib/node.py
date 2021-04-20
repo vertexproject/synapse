@@ -484,9 +484,10 @@ class Node:
             return
 
         edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
-        if edits:
-            nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit)
+
+        nodeedit = (self.buid, self.form.name, edits)
+
+        await self.snap.applyNodeEdit(nodeedit)
 
     def _getTagTree(self):
 
