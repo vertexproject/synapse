@@ -382,11 +382,12 @@ class Parser:
         mesg = regex.split('[\n!]', str(e))[0]
         at = len(self.text)
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in sorted(set(e.allowed)))}'
+            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
+            mesg += f'.  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
         elif isinstance(e, lark.exceptions.UnexpectedEOF):
-            expected = sorted(set(e.expected))
-            mesg += ' ' + ', '.join(terminalEnglishMap[t] for t in expected)
+            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
+            mesg += ' ' + ', '.join(expected)
         elif isinstance(e, lark.exceptions.VisitError):
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
