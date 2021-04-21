@@ -6,6 +6,8 @@
 Welcome to the Synapse documentation!
 =====================================
 
+`Star us on GitHub <https://github.com/vertexproject/synapse/>`__ \| `Attend A Synapse 101 Training <https://lu.ma/vertexproject>`__
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
