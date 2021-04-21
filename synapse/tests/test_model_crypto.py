@@ -135,11 +135,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$icert
                     :subject="CN=issuer.link"
+                    :issuer:cert=$icert
                     :selfsigned=$lib.true
                 ]
             ''', opts={'vars': {'icert': icert}})
             self.eq(nodes[0].ndef, ('crypto:x509:cert', icert))
             self.eq(nodes[0].get('subject'), "CN=issuer.link")
+            self.eq(nodes[0].get('issuer:cert'), icert)
             self.eq(nodes[0].get('selfsigned'), True)
 
             nodes = await core.nodes('''
