@@ -129,13 +129,27 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             crl = s_common.guid()
             cert = s_common.guid()
+            icert = s_common.guid()
             fileguid = 'guid:' + s_common.guid()
+
+            nodes = await core.nodes('''
+                [ crypto:x509:cert=$icert
+                    :subject="CN=issuer.link"
+                    :issuer:cert=$icert
+                    :selfsigned=$lib.true
+                ]
+            ''', opts={'vars': {'icert': icert}})
+            self.eq(nodes[0].ndef, ('crypto:x509:cert', icert))
+            self.eq(nodes[0].get('subject'), "CN=issuer.link")
+            self.eq(nodes[0].get('issuer:cert'), icert)
+            self.eq(nodes[0].get('selfsigned'), True)
 
             nodes = await core.nodes('''
                 [ crypto:x509:cert=$cert
 
                     :subject="CN=vertex.link"
                     :issuer="DN FOO THING"
+                    :issuer:cert=$icert
 
                     :serial=12345
                     :version=v3
@@ -161,11 +175,12 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :identities:ipv6s=(ff::11, ff::aa)
                     :identities:emails=(visi@vertex.link, v@vtx.lk)
                 ]
-            ''', opts={'vars': {'cert': cert, 'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
+            ''', opts={'vars': {'icert': icert, 'cert': cert, 'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 
             self.eq(nodes[0].ndef, ('crypto:x509:cert', cert))
             self.eq(nodes[0].get('subject'), "CN=vertex.link")
             self.eq(nodes[0].get('issuer'), "DN FOO THING")
+            self.eq(nodes[0].get('issuer:cert'), icert)
             self.eq(nodes[0].get('serial'), "12345")
             self.eq(nodes[0].get('version'), 2)
 
