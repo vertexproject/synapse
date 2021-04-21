@@ -173,6 +173,10 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
                     }),
 
+                    ('issuer:cert', ('crypto:x509:cert', {}), {
+                        'doc': 'The certificate used by the issuer to sign this certificate.',
+                    }),
+
                     ('serial', ('str', {}), {
                         'doc': 'The serial number string in the certificate.',
                     }),
@@ -243,6 +247,10 @@ class CryptoModule(s_module.CoreModule):
 
                     ('crl:urls', ('array', {'type': 'inet:url'}), {
                         'doc': 'The extracted URL values from the CRLs extension.',
+                    }),
+
+                    ('selfsigned', ('bool', {}), {
+                        'doc': 'Whether this is a self-signed certificate.',
                     }),
 
                 )),
