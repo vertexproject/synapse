@@ -1394,22 +1394,19 @@ class Layer(s_nexus.Pusher):
             for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
                 byts = self.layrslab.get(buid, db=self.bybuidv3)
                 if byts is not None:
+                    sode.clear()
                     sode.update(s_msgpack.un(byts))
 
                 pval = sode['props'].get(prop)
                 if pval is None:
-                    sode.clear()
                     continue
 
                 valu, stortype = pval
                 if not stortype & STOR_FLAG_ARRAY:
-                    sode.clear()
                     break
 
                 for indx in self.getStorIndx(stortype, valu):
                     self.layrslab.put(abrv + indx, buid, db=self.byarray)
-
-                sode.clear()
 
         self.meta.set('version', 5)
         self.layrvers = 5
