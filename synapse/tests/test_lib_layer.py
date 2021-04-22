@@ -539,6 +539,10 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
+        longfqdn = '.'.join(('a' * 63,) * 5)
+        indx = stor.indx(longfqdn)
+        self.eq(s_common.novalu, stor.decodeIndx(indx[0]))
+
     async def test_layer_stortype_hugenum(self):
         stor = s_layer.StorTypeHugeNum(self, None)
 
@@ -1419,7 +1423,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             opts = {'vars': {
-                'longfqdn': '.'.join(['a' * 63 for y in range(5)]),
+                'longfqdn': '.'.join(('a' * 63,) * 5),
                 'longname': 'a' * 256,
             }}
 
@@ -1477,7 +1481,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             opts = {'vars': {
-                'longfqdn': '.'.join(['a' * 63 for y in range(5)]),
+                'longfqdn': '.'.join(('a' * 63,) * 5),
                 'longname': 'a' * 256,
             }}
 
