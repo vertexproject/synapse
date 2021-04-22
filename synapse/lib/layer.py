@@ -596,6 +596,11 @@ class StorTypeFqdn(StorTypeUtf8):
             self._getIndxByts(norm[::-1]),
         )
 
+    def decodeIndx(self, bytz):
+        if len(bytz) >= 256:
+            return s_common.novalu
+        return bytz.decode('utf8', 'surrogatepass')[::-1]
+
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
         self.lifters.update({

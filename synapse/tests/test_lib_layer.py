@@ -531,6 +531,14 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
+    async def test_layer_stortype_fqdn(self):
+        stor = s_layer.StorTypeFqdn(None)
+
+        vals = ('vertex.link', 'www.vertex.link')
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
     async def test_layer_stortype_hugenum(self):
         stor = s_layer.StorTypeHugeNum(self, None)
 
