@@ -71,6 +71,7 @@ class HandlerBase:
 
         self.clear_header('Server')
         self.add_header('X-XSS-Protection', '1; mode=block')
+        self.add_header('X-Content-Type-Options', 'nosniff')
         self.add_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload')
 
         origin = self.request.headers.get('origin')
