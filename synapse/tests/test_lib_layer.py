@@ -1216,7 +1216,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('syn:tag~=foo'))
 
             for layr in core.layers.values():
-                self.eq(layr.layrvers, 4)
+                self.eq(layr.layrvers, 5)
 
     async def test_layer_logedits_default(self):
 
@@ -1382,7 +1382,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_reindex_byarray(self):
 
-        async with self.getRegrCore('reindex-byarray') as core:
+        async with self.getRegrCore('reindex-byarray2') as core:
 
             layr = core.getView().layers[0]
 
@@ -1418,5 +1418,80 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
             self.len(1, nodes)
 
+            opts = {'vars': {
+                'longfqdn': '.'.join(['a' * 63 for y in range(5)]),
+                'longname': 'a' * 256,
+            }}
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=foo]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
+            self.len(1, nodes)
+
             for layr in core.layers.values():
-                self.eq(layr.layrvers, 4)
+                self.eq(layr.layrvers, 5)
+
+    async def test_rebuild_byarray(self):
+
+        async with self.getRegrCore('reindex-byarray3') as core:
+
+            layr = core.getView().layers[0]
+
+            nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('transport:air:flightnum:stops*[=stop4]')
+            self.len(1, nodes)
+
+            prop = core.model.prop('transport:air:flightnum:stops')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop1')
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            prop = core.model.prop('transport:air:flightnum:stops')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:http:request:headers*[=(header3, valu3)]')
+            self.len(1, nodes)
+
+            prop = core.model.prop('inet:http:request:headers')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header1', 'valu1'))
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            prop = core.model.prop('inet:http:request:headers')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header3', 'valu3'))
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            opts = {'vars': {
+                'longfqdn': '.'.join(['a' * 63 for y in range(5)]),
+                'longname': 'a' * 256,
+            }}
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=foo]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
+            self.len(1, nodes)
+
+            for layr in core.layers.values():
+                self.eq(layr.layrvers, 5)

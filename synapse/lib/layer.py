@@ -1336,7 +1336,7 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'...complete! ({count} nodes)')
 
-    async def _layrV3toV4(self):
+    async def _layrV3toV5(self):
 
         sode = collections.defaultdict(dict)
 
@@ -1363,24 +1363,56 @@ class Layer(s_nexus.Pusher):
             indxbyts = lkey[8:]
             valu, stortype = pval
             realtype = stortype & 0x7fff
+            realstor = self.stortypes[realtype]
 
-            if realtype == STOR_TYPE_MSGP:
-                for aval in valu:
-                    if s_common.buid(aval) == indxbyts:
-                        break
-                else:
-                    self.layrslab.delete(lkey, lval, db=self.byarray)
-                    sode.clear()
-                    continue
+            for aval in valu:
+                if indxbyts in realstor.indx(aval):
+                    break
             else:
-                indxvalu = self.stortypes[realtype].decodeIndx(indxbyts)
-                if indxvalu not in valu:
-                    self.layrslab.delete(lkey, lval, db=self.byarray)
+                self.layrslab.delete(lkey, lval, db=self.byarray)
 
             sode.clear()
 
-        self.meta.set('version', 4)
-        self.layrvers = 4
+        self.meta.set('version', 5)
+        self.layrvers = 5
+
+        logger.warning(f'...complete!')
+
+    async def _layrV4toV5(self):
+
+        sode = collections.defaultdict(dict)
+
+        logger.warning(f'Rebuilding layer byarray index: {self.dirn}')
+
+        self.propabrv = self.layrslab.getNameAbrv('propabrv')
+        for byts, abrv in self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv):
+
+            form, prop = s_msgpack.un(byts)
+            if form is None or prop is None:
+                continue
+
+            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+                byts = self.layrslab.get(buid, db=self.bybuidv3)
+                if byts is not None:
+                    sode.update(s_msgpack.un(byts))
+
+                pval = sode['props'].get(prop)
+                if pval is None:
+                    sode.clear()
+                    continue
+
+                valu, stortype = pval
+                if not stortype & STOR_FLAG_ARRAY:
+                    sode.clear()
+                    break
+
+                for indx in self.getStorIndx(stortype, valu):
+                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+
+                sode.clear()
+
+        self.meta.set('version', 5)
+        self.layrvers = 5
 
         logger.warning(f'...complete!')
 
@@ -1446,7 +1478,10 @@ class Layer(s_nexus.Pusher):
             await self._layrV2toV3()
 
         if self.layrvers < 4:
-            await self._layrV3toV4()
+            await self._layrV3toV5()
+
+        if self.layrvers < 5:
+            await self._layrV4toV5()
 
     async def getLayerSize(self):
         '''
