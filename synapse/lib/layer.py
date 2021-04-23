@@ -1384,7 +1384,6 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'Rebuilding layer byarray index: {self.dirn}')
 
-        self.propabrv = self.layrslab.getNameAbrv('propabrv')
         for byts, abrv in self.propabrv.slab.scanByFull(db=self.propabrv.name2abrv):
 
             form, prop = s_msgpack.un(byts)
