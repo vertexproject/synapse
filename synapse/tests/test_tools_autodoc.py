@@ -1,5 +1,6 @@
 import synapse.common as s_common
 
+import synapse.tests.files as s_t_files
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.autodoc as s_autodoc
@@ -100,6 +101,38 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('``test:comp``', s)
             self.isin('nodedata with the following keys', s)
             self.isin('``foo`` on ``inet:ipv4``', s)
+
+    async def test_tools_autodoc_stormpkg(self):
+
+        with self.getTestDir() as path:
+
+            ymlpath = s_t_files.getAssetPath('stormpkg/testpkg.yaml')
+
+            argv = ['--savedir', path, '--doc-stormpkg', ymlpath]
+
+            outp = self.getTestOutp()
+            self.eq(await s_autodoc.main(argv, outp=outp), 0)
+
+            with s_common.genfile(path, 'stormpkg_testpkg.rst') as fd:
+                buf = fd.read()
+            s = buf.decode()
+
+            self.isin('Testpkg Storm Package', s)
+            self.isin('This documentation is generated for version 0.0.1 of the package.', s)
+            self.isin('The Storm Package name is ``testpkg``.', s)
+            self.isin('This package implements the following Storm Commands.', s)
+            self.isin('.. _stormcmd-testpkg-testcmd', s)
+
+            self.isin('testcmd does some stuff', s)
+            self.isin('Help on foo opt', s)
+            self.isin('Help on bar opt', s)
+
+            self.isin('forms as input nodes', s)
+            self.isin('``test:str``', s)
+            self.isin('nodes in the graph', s)
+            self.isin('``test:int``', s)
+            self.isin('nodedata with the following keys', s)
+            self.isin('``testnd`` on ``inet:ipv4``', s)
 
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:
