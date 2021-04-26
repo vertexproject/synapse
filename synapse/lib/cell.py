@@ -662,6 +662,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A config-driven way to specify the HTTPS port.',
             'type': ['integer', 'null'],
         },
+        'https:headers': {
+            'description': 'Headers to add to all HTTPS server responses.',
+            'type': 'object',
+            'hidecmdl': True,
+        },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved.',
             'type': 'string',
@@ -1649,6 +1654,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def initSslCtx(self, certpath, keypath):
 
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
         if not os.path.isfile(keypath):
             raise s_exc.NoSuchFile(name=keypath)
@@ -1690,6 +1696,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _initCellHttpApis(self):
 
+        self.addHttpApi('/robots.txt', s_httpapi.RobotHandler, {'cell': self})
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
         self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
         self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
