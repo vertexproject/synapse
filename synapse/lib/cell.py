@@ -665,7 +665,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'https:headers': {
             'description': 'Headers to add to all HTTPS server responses.',
             'type': 'object',
-            'hideconf': True,
+            'hidecmdl': True,
         },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved.',
