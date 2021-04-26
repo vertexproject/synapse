@@ -742,7 +742,6 @@ workflows:
             branches:
               only:
                 - master
-                - visi-burp
 
       - gh-release/dorelease:
           requires:
