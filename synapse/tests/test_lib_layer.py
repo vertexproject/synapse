@@ -22,6 +22,19 @@ async def iterPropForm(self, form=None, prop=None):
     for buid, valu in bad_valu:
         yield buid, valu
 
+class WrapLayer(s_layer.Layer):
+    _layrvers = None
+    _layrversvals = []
+
+    @property
+    def layrvers(self):
+        return self._layrvers
+
+    @layrvers.setter
+    def layrvers(self, valu):
+        self._layrvers = valu
+        self._layrversvals.append(valu)
+
 class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_abrv(self):
@@ -1221,6 +1234,12 @@ class LayerTest(s_t_utils.SynTest):
 
             for layr in core.layers.values():
                 self.eq(layr.layrvers, 5)
+
+    async def test_layer_fresh_layrvers(self):
+
+        with self.getTestDir() as dirn:
+            layr = await WrapLayer.anit({}, dirn)
+            self.len(1, layr._layrversvals)
 
     async def test_layer_logedits_default(self):
 
