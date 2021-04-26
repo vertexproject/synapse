@@ -643,11 +643,14 @@ async def docStormpkg(pkgpath):
     # Disable default python highlighting
     rst.addLines('.. highlight:: none\n')
 
-    rst.addHead(f'{pkgname.title()} Storm Package')
+    hname = pkgname
+    if ':' in pkgname:
+        hname = pkgname.replace(':', raw_back_slash_colon)
+
+    rst.addHead(f'Storm Package\\: {hname}')
     lines = ['The following Commands are available from this package.',
              f'This documentation is generated for version '
              f'{s_version.fmtVersion(*pkgdef.get("version"))} of the package.',
-             f'The Storm Package name is ``{pkgname}``.',
              ]
     rst.addLines(*lines)
 

@@ -117,9 +117,8 @@ class TestAutoDoc(s_t_utils.SynTest):
                 buf = fd.read()
             s = buf.decode()
 
-            self.isin('Testpkg Storm Package', s)
+            self.isin('Storm Package\\: testpkg', s)
             self.isin('This documentation is generated for version 0.0.1 of the package.', s)
-            self.isin('The Storm Package name is ``testpkg``.', s)
             self.isin('This package implements the following Storm Commands.', s)
             self.isin('.. _stormcmd-testpkg-testcmd', s)
 
