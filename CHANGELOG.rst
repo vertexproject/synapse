@@ -5,6 +5,42 @@ Synapse Changelog
 *****************
 
 
+v2.35.0 - TDB
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:issuer:cert`` and ``:selfsigned`` properties to the
+  ``crypto:x509:cert`` form to enable modeling X509 certificate chains.
+  (`#2163 <https://github.com/vertexproject/synapse/pull/2163>`_)
+- Add a ``https:headers`` configuration option to the Cell to allow setting
+  arbitrary HTTP headers for the Cell HTTPAPI server.
+  (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
+- Update the Cell HTTPAPI server to have a minimum TLS version of v1.2. Add a
+  default ``/robots.txt`` route. Add ``X-XSS=Protection`` and
+  ``X-Content-Type-Options`` headers to the default HTTPAPI responses.
+  (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
+- Update the minimum version of LMDB to ``1.2.1``.
+  (`#2169 <https://github.com/vertexproject/synapse/pull/2169>`_)
+
+Bugfixes
+--------
+- Improve the error message for Storm syntax error handling.
+  (`#2162 <https://github.com/vertexproject/synapse/pull/2162>`_)
+- Update the layer byarray index migration to account for arrays of
+  ``inet:fqdn`` values.
+  (`#2165 <https://github.com/vertexproject/synapse/pull/2165>`_)
+  (`#2166 <https://github.com/vertexproject/synapse/pull/2166>`_)
+- Update the ``vertexproject/synapse-aha``, ``vertexproject/synapse-axon``,
+  ``vertexproject/synapse-cortex``, and ``vertexproject/synapse-cryotank``
+  Docker images to use ``tini`` as a default entrypoint. This fixes an issue
+  where signals were not properly being propagated to the Cells.
+  (`#2168 <https://github.com/vertexproject/synapse/pull/2168>`_)
+- Fix an issue with enfanged indicators which were not properly being lifted
+  by Storm when operating in ``lookup`` mode.
+  (`#2170 <https://github.com/vertexproject/synapse/pull/2170>`_)
+
+
 v2.34.0 - 2021-04-20
 ====================
 
