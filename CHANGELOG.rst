@@ -18,7 +18,7 @@ Features and Enhancements
   (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
 - Update the Cell HTTPAPI server to have a minimum TLS version of v1.2. Add a
   default ``/robots.txt`` route. Add ``X-XSS=Protection`` and
-  ``X-Content-Type-Options`` headers to the
+  ``X-Content-Type-Options`` headers to the default HTTPAPI responses.
   (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
 - Update the minimum version of LMDB to ``1.2.1``.
   (`#2169 <https://github.com/vertexproject/synapse/pull/2169>`_)
