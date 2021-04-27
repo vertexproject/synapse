@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.35.0 - TDB
+v2.35.0 - 2021-04-27
 ====================
 
 Features and Enhancements
