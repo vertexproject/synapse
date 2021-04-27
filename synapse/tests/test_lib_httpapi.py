@@ -1,3 +1,4 @@
+import ssl
 import json
 
 import aiohttp
@@ -5,6 +6,7 @@ import aiohttp.client_exceptions as a_exc
 
 import synapse.cortex as s_cortex
 
+import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
@@ -884,19 +886,57 @@ class HttpApiTest(s_tests.SynTest):
                         self.eq(data.get('status'), 'err')
                         self.eq(data.get('code'), 'NotAuthenticated')
 
-    async def test_healthcheck(self):
+    async def test_tls_ciphers(self):
+
         async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            with self.raises(ssl.SSLError):
+                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
+                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
+
+            with self.raises(ssl.SSLError):
+                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_1)
+                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
+
+            with self.raises(ssl.SSLError):
+                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+                sslctx.set_ciphers('ADH-AES256-SHA')
+                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
+
+            with self.raises(ssl.SSLError):
+                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+                sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
+                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
+
+    async def test_healthcheck(self):
+        conf = {
+            'https:headers': {
+                'X-Hehe-Haha': 'wootwoot!',
+            }
+        }
+        async with self.getTestCore(conf=conf) as core:
             # Run http instead of https for this test
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             root = await core.auth.getUserByName('root')
 
             async with self.getHttpSess(auth=None, port=port) as sess:
+
+                url = f'https://localhost:{port}/robots.txt'
+                async with sess.get(url) as resp:
+                    self.eq('User-agent: *\nDisallow: /\n', await resp.text())
+
                 url = f'https://localhost:{port}/api/v1/active'
                 async with sess.get(url) as resp:
+                    self.none(resp.headers.get('server'))
+                    self.eq('wootwoot!', resp.headers.get('x-hehe-haha'))
                     result = await resp.json()
                     self.eq(result.get('status'), 'ok')
                     self.true(result['result']['active'])
+                    self.eq('1; mode=block', resp.headers.get('x-xss-protection'))
+                    self.eq('nosniff', resp.headers.get('x-content-type-options'))
 
             await root.setPasswd('secret')
 
