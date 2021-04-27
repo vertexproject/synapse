@@ -47,6 +47,8 @@ boom3 = '''
 
 class RStormTest(s_test.SynTest):
 
+    # TODO: Tests for HTTP, pkg load, and some command opts
+
     async def test_rstorm(self):
 
         with self.getTestDir() as dirn:
