@@ -171,6 +171,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
+            # check lookup refang
+            q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(4, nodes)
+            self.eq(ndefs, [n.ndef for n in nodes])
+
             q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]'
             nodes = await core.nodes(q, opts=opts)
             self.len(4, nodes)
