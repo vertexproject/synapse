@@ -98,17 +98,20 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
         hide_unknown = True
 
-        showtext = opts.get('show')
-        if showtext is not None:
-            stormopts['show'] = showtext.split(',')
+        # TODO
+        # showtext = opts.get('show')
+        # if showtext is not None:
+        #     stormopts['show'] = showtext.split(',')
+        #
+        # editformat = opts['editformat']
+        # if editformat != 'nodeedits':
+        #     stormopts['editformat'] = editformat
 
-        editformat = opts['editformat']
-        if editformat != 'nodeedits':
-            stormopts['editformat'] = editformat
+        stormopts['editformat'] = 'nodeedits'
 
         # Let this raise on any errors
         with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
-            async for mesg in self.core.storm(text, opts=self.stormopts):
+            async for mesg in self.core.storm(text, opts=stormopts):
 
                 if opts.get('debug'):
                     self.printf(pprint.pformat(mesg))
@@ -116,7 +119,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
                 try:
                     func = self.cmdmeths[mesg[0]]
-                except KeyError:
+                except KeyError:  # pragma: no cover
                     if hide_unknown:
                         continue
                     self.printf(repr(mesg), color=s_cmds_cortex.UNKNOWN_COLOR)
