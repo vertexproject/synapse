@@ -36,6 +36,9 @@ Bugfixes
   Docker images to use ``tini`` as a default entrypoint. This fixes an issue
   where signals were not properly being propagated to the Cells.
   (`#2168 <https://github.com/vertexproject/synapse/pull/2168>`_)
+- Fix an issue with enfanged indicators which were not properly being lifted
+  by Storm when operating in ``lookup`` mode.
+  (`#2170 <https://github.com/vertexproject/synapse/pull/2170>`_)
 
 
 v2.34.0 - 2021-04-20
