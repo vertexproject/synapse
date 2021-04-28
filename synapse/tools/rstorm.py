@@ -34,6 +34,10 @@ class StormOutput(s_cmds_cortex.StormCmd):
     '''
     # TODO: Eventually make this obey all cmdr options and swap it in
 
+    _cmd_syntax = (
+        ('--hide-query', {}),
+    ) + s_cmds_cortex.StormCmd._cmd_syntax
+
     def __init__(self, core, ctx, stormopts=None, opts=None):
         if opts is None:
             opts = {}
@@ -52,7 +56,6 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
     async def runCmdLine(self, line):
         opts = self.getCmdOpts(f'storm {line}')
-        self.printf(f'> {opts.get("query")}')
         return await self.runCmdOpts(opts)
 
     async def _mockHttp(self, *args, **kwargs):
@@ -90,6 +93,9 @@ class StormOutput(s_cmds_cortex.StormCmd):
     async def runCmdOpts(self, opts):
 
         text = opts.get('query')
+
+        if not opts.get('hide-query'):
+            self.printf(f'> {text}')
 
         stormopts = copy.deepcopy(self.stormopts)
 

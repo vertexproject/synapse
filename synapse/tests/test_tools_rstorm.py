@@ -16,6 +16,8 @@ HI
 .. storm-pre:: [ inet:ipv6=0 ]
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
 .. storm:: --hide-props testcmd foo
+.. storm:: --hide-query $lib.print(secret)
+.. storm:: --hide-query file:bytes
 '''
 
 rst_out = '''
@@ -31,6 +33,14 @@ HI
 
     > testcmd foo
     inet:ipv6=::ffff:0
+
+::
+
+    secret
+
+::
+
+
 
 '''
 
