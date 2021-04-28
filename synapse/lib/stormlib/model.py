@@ -7,7 +7,7 @@ import synapse.lib.stormtypes as s_stormtypes
 stormcmds = [
     {
         'name': 'model.edge.set',
-        'descr': 'Set an key-value for an edge verb that exists in the current view.',
+        'descr': 'Set a key-value for an edge verb that exists in the current view.',
         'cmdargs': (
             ('verb', {'help': 'The edge verb to add a key to.'}),
             ('key', {'help': 'The key name (e.g. doc).'}),
@@ -22,7 +22,7 @@ stormcmds = [
     },
     {
         'name': 'model.edge.get',
-        'descr': 'Retrieve key-value pairs an edge verb in the current view.',
+        'descr': 'Retrieve key-value pairs for an edge verb in the current view.',
         'cmdargs': (
             ('verb', {'help': 'The edge verb to retrieve.'}),
         ),
@@ -175,7 +175,7 @@ class LibModelTags(s_stormtypes.Lib):
         Examples:
             Get the tag model specification for ``cno.threat``::
 
-                $dict = $lib.model.tag.get(cno.threat)''',
+                $dict = $lib.model.tags.get(cno.threat)''',
          'type': {'type': 'function', '_funcname': '_getTagModel',
                   'args': (
                     {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
@@ -188,21 +188,21 @@ class LibModelTags(s_stormtypes.Lib):
             Create a tag model for the ``cno.cve`` tag::
 
                 $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
-                $lib.model.tag.set(cno.cve, regex, $regx)''',
+                $lib.model.tags.set(cno.cve, regex, $regx)''',
          'type': {'type': 'function', '_funcname': '_setTagModel',
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The name of the tag model property.', },
                       {'name': 'propvalu', 'type': 'prim', 'desc': 'The value to set.', },
                   ),
-                  'returns': {'type': 'none', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'pop', 'desc': '''
             Pop and return a tag model property.
 
             Examples:
                 Remove the regex list from the ``cno.threat`` tag model::
 
-                    $regxlist = $lib.model.tag.pop(cno.threat, regex)''',
+                    $regxlist = $lib.model.tags.pop(cno.threat, regex)''',
          'type': {'type': 'function', '_funcname': '_popTagModel',
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
@@ -215,19 +215,19 @@ class LibModelTags(s_stormtypes.Lib):
         Examples:
             Delete the tag model specification for ``cno.threat``::
 
-                $lib.model.tag.del(cno.threat)''',
+                $lib.model.tags.del(cno.threat)''',
          'type': {'type': 'function', '_funcname': '_delTagModel',
                   'args': (
                       {'name': 'tagname', 'type': 'str', 'desc': 'The name of the tag.', },
                   ),
-                  'returns': {'type': 'none', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': '''
         List all tag model specifications.
 
         Examples:
             Iterate over the tag model specifications in the Cortex::
 
-                for ($name, $info) in $lib.model.tag.list() {
+                for ($name, $info) in $lib.model.tags.list() {
                     ...
                 }''',
          'type': {'type': 'function', '_funcname': '_listTagModel',
@@ -325,19 +325,19 @@ class LibModel(s_stormtypes.Lib):
             'tagprop': self._methTagProp,
         }
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methType(self, name):
         type_ = self.model.type(name)
         if type_ is not None:
             return ModelType(type_)
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methProp(self, name):
         prop = self.model.prop(name)
         if prop is not None:
             return ModelProp(prop)
 
-    @s_cache.memoize(size=100)
+    @s_cache.memoizemethod(size=100)
     async def _methForm(self, name):
         form = self.model.form(name)
         if form is not None:
@@ -513,7 +513,7 @@ class LibModelEdge(s_stormtypes.Lib):
                       {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edge verb to remove a key from.', },
                       {'name': 'key', 'type': 'str', 'desc': 'The name of the key to remove from the key-value store.', },
                   ),
-                  'returns': {'type': 'none', }}},
+                  'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
          'type': {'type': 'function', '_funcname': '_methEdgeList',
                   'returns': {'type': 'list', 'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.', }}},

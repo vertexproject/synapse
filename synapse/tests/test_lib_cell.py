@@ -14,6 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 
@@ -22,11 +23,9 @@ def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     time.sleep(3.0)
 
 def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
-    pipe.send('ready')
     time.sleep(2.0)
 
 def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
-    pipe.send('ready')
     pipe.send('captured')
     sys.exit(1)
 
@@ -178,6 +177,26 @@ class CellTest(s_t_utils.SynTest):
                     # cannot change a password for a non existent user
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
+
+                # setRoles() allows arbitrary role ordering
+                extra_role = await echo.auth.addRole('extrarole')
+                await visi.setRoles((extra_role.iden, testrole.iden, echo.auth.allrole.iden))
+                visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
+                async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('roles'), ('extrarole', 'testrole', 'all',))
+
+                    # setRoles are wholesale replacements
+                    await visi.setRoles((echo.auth.allrole.iden, testrole.iden))
+                    uatm = await proxy.getUserInfo('visi')
+                    self.eq(uatm.get('roles'), ('all', 'testrole'))
+
+                # coverage test - nops short circuit
+                await visi.setRoles((echo.auth.allrole.iden, testrole.iden))
+
+                # grants must have the allrole in place
+                with self.raises(s_exc.BadArg):
+                    await visi.setRoles((extra_role.iden, testrole.iden))
 
                 # New password works
                 visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
@@ -422,6 +441,29 @@ class CellTest(s_t_utils.SynTest):
 
             self.eq(cell00.iden, cell01.iden)
 
+    async def test_cell_getinfo(self):
+        async with self.getTestCore() as cell:
+            cell.COMMIT = 'mycommit'
+            cell.VERSION = (1, 2, 3)
+            cell.VERSTRING = '1.2.3'
+            async with cell.getLocalProxy() as prox:
+                info = await prox.getCellInfo()
+                # Cell information
+                cnfo = info.get('cell')
+                snfo = info.get('synapse')
+                self.eq(cnfo.get('commit'), 'mycommit')
+                self.eq(cnfo.get('version'), (1, 2, 3))
+                self.eq(cnfo.get('verstring'), '1.2.3')
+                self.eq(cnfo.get('type'), 'cortex')
+                self.true(cnfo.get('active'))
+                # A Cortex populated cellvers
+                self.isin('cortex:defaults', cnfo.get('cellvers', {}))
+
+                # Synapse information
+                self.eq(snfo.get('version'), s_version.version)
+                self.eq(snfo.get('verstring'), s_version.verstring),
+                self.eq(snfo.get('commit'), s_version.commit)
+
     async def test_cell_dyncall(self):
 
         with self.getTestDir() as dirn:
@@ -434,6 +476,12 @@ class CellTest(s_t_utils.SynTest):
 
                 todo = s_common.todo('stream', doraise=True)
                 await self.agenraises(s_exc.BadTime, await prox.dyncall('self', todo))
+
+                items = []
+                todo = s_common.todo('stream', doraise=False)
+                async for item in prox.dyniter('self', todo):
+                    items.append(item)
+                self.eq(items, [1, 2])
 
     async def test_cell_promote(self):
 
@@ -644,9 +692,8 @@ class CellTest(s_t_utils.SynTest):
                     # Test runners can take an unusually long time to spawn a process
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
-                        with mock.patch.object(s_cell.Cell, 'BACKUP_ACQUIRE_TIMEOUT', 0.1):
-                            with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                                await self.asyncraises(s_exc.SynErr, proxy.runBackup())
+                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup())
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
                             await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())

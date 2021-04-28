@@ -333,6 +333,10 @@ class TelcoModule(s_module.CoreModule):
                     ('time', ('time', {}), {}),
                     ('latlong', ('geo:latlong', {}), {}),
 
+                    ('http:request', ('inet:http:request', {}), {
+                        'doc': 'The HTTP request that the telemetry was extracted from.',
+                    }),
+
                     ('host', ('it:host', {}), {
                         'doc': 'The host that generated the mobile telemetry data.'}),
 

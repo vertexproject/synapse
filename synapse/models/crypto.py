@@ -161,12 +161,20 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:cert', {}, (
 
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file that the certificate metadata was parsed from.',
+                    }),
+
                     ('subject', ('str', {}), {
                         'doc': 'The subject identifier, commonly in X.500/LDAP format, to which the certificate was issued.',
                     }),
 
                     ('issuer', ('str', {}), {
                         'doc': 'The Distinguished Name (DN) of the Certificate Authority (CA) which issued the certificate.',
+                    }),
+
+                    ('issuer:cert', ('crypto:x509:cert', {}), {
+                        'doc': 'The certificate used by the issuer to sign this certificate.',
                     }),
 
                     ('serial', ('str', {}), {
@@ -239,6 +247,10 @@ class CryptoModule(s_module.CoreModule):
 
                     ('crl:urls', ('array', {'type': 'inet:url'}), {
                         'doc': 'The extracted URL values from the CRLs extension.',
+                    }),
+
+                    ('selfsigned', ('bool', {}), {
+                        'doc': 'Whether this is a self-signed certificate.',
                     }),
 
                 )),

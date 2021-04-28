@@ -1,0 +1,30 @@
+name: testpkg
+version: 0.0.1
+
+modules:
+    - name: testmod
+
+external_modules:
+    - name: testext
+      package: synapse.tests.files
+      package_path: stormmod/common
+
+    - name: testextfile
+      # This can be either an absolute path or relative path from where
+      # the genpkg tool is executed from.
+      file_path: synapse/tests/files/stormmod/common
+
+commands:
+    - name: testcmd
+
+optic:
+    title: woot
+
+    actions:
+
+        - name: hehe
+          storm: dofoo
+
+        - name: barbar
+          callback: dobar
+    

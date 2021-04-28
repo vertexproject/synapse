@@ -61,7 +61,18 @@ class HandlerBase:
         self._web_sess = None
         self._web_user = None
 
+        # this can't live in set_default_headers() due to call ordering in tornado
+        headers = self.cell.conf.get('https:headers')
+        if headers is not None:
+            for name, valu in headers.items():
+                self.add_header(name, valu)
+
     def set_default_headers(self):
+
+        self.clear_header('Server')
+        self.add_header('X-XSS-Protection', '1; mode=block')
+        self.add_header('X-Content-Type-Options', 'nosniff')
+
         origin = self.request.headers.get('origin')
         if origin is not None and self.isOrigHost(origin):
             self.add_header('Access-Control-Allow-Origin', origin)
@@ -302,6 +313,11 @@ class Handler(HandlerBase, t_web.RequestHandler):
                 return None
 
         return opts
+
+class RobotHandler(HandlerBase, t_web.RequestHandler):
+    async def get(self):
+        self.write('User-agent: *\n')
+        self.write('Disallow: /\n')
 
 @t_web.stream_request_body
 class StreamHandler(Handler):

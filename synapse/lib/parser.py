@@ -152,8 +152,8 @@ class AstConverter(lark.Transformer):
     def baresubquery(self, kids, meta):
         assert len(kids) == 1
 
-        epos = getattr(meta, 'end_pos', 0)
-        spos = getattr(meta, 'start_pos', 0)
+        epos = meta.end_pos
+        spos = meta.start_pos
 
         subq = s_ast.SubQuery(kids)
         subq.text = self.text[spos:epos]
@@ -164,17 +164,13 @@ class AstConverter(lark.Transformer):
     def argvquery(self, kids, meta):
         assert len(kids) == 1
 
-        epos = getattr(meta, 'end_pos', 0)
-        spos = getattr(meta, 'start_pos', 0)
+        epos = meta.end_pos
+        spos = meta.start_pos
 
         argq = s_ast.ArgvQuery(kids)
         argq.text = self.text[spos:epos]
 
         return argq
-
-    def looklist(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.Lookup(kids)
 
     def yieldvalu(self, kids):
         kid = self._convert_child(kids[-1])
@@ -190,8 +186,11 @@ class AstConverter(lark.Transformer):
     def query(self, kids, meta):
         kids = self._convert_children(kids)
 
-        epos = getattr(meta, 'end_pos', 0)
-        spos = getattr(meta, 'start_pos', 0)
+        if kids:
+            epos = meta.end_pos
+            spos = meta.start_pos
+        else:
+            epos = spos = 0
 
         quer = s_ast.Query(kids=kids)
         quer.text = self.text[spos:epos]
@@ -205,13 +204,30 @@ class AstConverter(lark.Transformer):
         ast = s_ast.EmbedQuery(text, kids)
         return ast
 
-    def funccall(self, kids):
+    @lark.v_args(meta=True)
+    def funccall(self, kids, meta):
         kids = self._convert_children(kids)
-        arglist = [k for k in kids[1:] if not isinstance(k, s_ast.CallKwarg)]
-        args = s_ast.CallArgs(kids=arglist)
+        argkids = []
+        kwargkids = []
+        kwnames = set()
 
-        kwarglist = [k for k in kids[1:] if isinstance(k, s_ast.CallKwarg)]
-        kwargs = s_ast.CallKwargs(kids=kwarglist)
+        for kid in kids[1:]:
+            if isinstance(kid, s_ast.CallKwarg):
+                name = kid.kids[0].valu
+                if name in kwnames:
+                    mesg = f"Duplicate keyword argument '{name}' in function call"
+                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+
+                kwnames.add(name)
+                kwargkids.append(kid)
+            else:
+                if kwargkids:
+                    mesg = 'Positional argument follows keyword argument in function call'
+                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+                argkids.append(kid)
+
+        args = s_ast.CallArgs(kids=argkids)
+        kwargs = s_ast.CallKwargs(kids=kwargkids)
         return s_ast.FuncCall(kids=[kids[0], args, kwargs])
 
     def varlist(self, kids):
@@ -231,15 +247,41 @@ class AstConverter(lark.Transformer):
 
     def stormcmdargs(self, kids):
         kids = self._convert_children(kids)
-        argv = []
+
+        return s_ast.List(kids=kids)
+
+    @lark.v_args(meta=True)
+    def funcargs(self, kids, meta):
+        '''
+        A list of function parameters (as part of a function definition)
+        '''
+        newkids = []
+
+        names = set()
+        kwfound = False
 
         for kid in kids:
-            if isinstance(kid, s_ast.SubQuery):
-                argv.append(s_ast.Const(kid.text))
-            else:
-                argv.append(self._convert_child(kid))
+            kid = self._convert_child(kid)
+            newkids.append(kid)
 
-        return s_ast.List(kids=argv)
+            if isinstance(kid, s_ast.CallKwarg):
+                name = kid.kids[0].valu
+                kwfound = True
+                # Make sure no repeated kwarg
+            else:
+                name = kid.valu
+                # Make sure no positional follows a kwarg
+                if kwfound:
+                    mesg = f"Positional parameter '{name}' follows keyword parameter in definition"
+                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+
+            if name in names:
+                mesg = f"Duplicate parameter '{name}' in function definition"
+                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+
+            names.add(name)
+
+        return s_ast.FuncArgs(newkids)
 
     def cmdrargs(self, kids):
         argv = []
@@ -285,14 +327,6 @@ class AstConverter(lark.Transformer):
             newkid = self._convert_child(kids[1])
         return s_ast.VarDeref(kids=(kids[0], newkid))
 
-    def tagprop(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.TagProp(kids=kids)
-
-    def formtagprop(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.FormTagProp(kids=kids)
-
     def tagname(self, kids):
         assert kids and len(kids) == 1
         kid = kids[0]
@@ -301,14 +335,6 @@ class AstConverter(lark.Transformer):
 
         kids = self._tagsplit(kid.value)
         return s_ast.TagName(kids=kids)
-
-    def valulist(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.List(kids=kids)
-
-    def univpropvalu(self, kids):
-        kids = self._convert_children(kids)
-        return s_ast.UnivPropValue(kids=kids)
 
     def switchcase(self, kids):
         newkids = []
@@ -338,8 +364,6 @@ QueryParser = lark.Lark(_grammar, regex=True, start='query', propagate_positions
 LookupParser = lark.Lark(_grammar, regex=True, start='lookup', propagate_positions=True)
 CmdrParser = lark.Lark(_grammar, regex=True, start='cmdrargs', propagate_positions=True)
 
-_eofre = regex.compile(r'''Terminal\('(\w+)'\)''')
-
 class Parser:
     '''
     Storm query parser
@@ -351,25 +375,26 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
-    def _eofParse(self, mesg):
-        '''
-        Takes a string like "Unexpected end of input! Expecting a terminal of: [Terminal('FOR'), ...] and returns
-        a unique'd set of terminal names.
-        '''
-        return sorted(set(_eofre.findall(mesg)))
-
     def _larkToSynExc(self, e):
         '''
-        Convert lark exception to synapse badGrammar exception
+        Convert lark exception to synapse BadSyntax exception
         '''
-        mesg = regex.split('[\n!]', e.args[0])[0]
+        mesg = regex.split('[\n!]', str(e))[0]
         at = len(self.text)
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in sorted(set(e.allowed)))}'
+            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
+            mesg += f'.  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
-        elif isinstance(e, lark.exceptions.ParseError):
-            if mesg == 'Unexpected end of input':
-                mesg += f'.  Expecting one of: {", ".join(terminalEnglishMap[t] for t in self._eofParse(e.args[0]))}'
+        elif isinstance(e, lark.exceptions.UnexpectedEOF):
+            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
+            mesg += ' ' + ', '.join(expected)
+        elif isinstance(e, lark.exceptions.VisitError):
+            # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
+            origexc = e.orig_exc
+            if not isinstance(origexc, s_exc.SynErr):
+                raise  # pragma: no cover
+            origexc.errinfo['text'] = self.text
+            return s_exc.BadSyntax(**origexc.errinfo)
 
         return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
 
@@ -381,9 +406,11 @@ class Parser:
         '''
         try:
             tree = QueryParser.parse(self.text)
+            newtree = AstConverter(self.text).transform(tree)
+
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
-        newtree = AstConverter(self.text).transform(tree)
+
         newtree.text = self.text
         return newtree
 
@@ -483,7 +510,7 @@ ruleClassMap = {
     'formpivot_pivottotags': s_ast.PivotToTags,
     'formpivotin_': s_ast.PivotIn,
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
-    'funcargs': s_ast.FuncArgs,
+    'formtagprop': s_ast.FormTagProp,
     'hasabspropcond': s_ast.HasAbsPropCond,
     'hasrelpropcond': s_ast.HasRelPropCond,
     'hastagpropcond': s_ast.HasTagPropCond,
@@ -498,6 +525,7 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
+    'looklist': s_ast.Lookup,
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
@@ -516,13 +544,16 @@ ruleClassMap = {
     'stormcmd': lambda kids: s_ast.CmdOper(kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(tuple()))),
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
+    'tagprop': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
     'tagpropcond': s_ast.TagPropCond,
+    'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
-    'univprop': s_ast.UnivProp
+    'univprop': s_ast.UnivProp,
+    'univpropvalu': s_ast.UnivPropValue,
 }
 
 def unescape(valu):
@@ -556,7 +587,7 @@ CmdStringParser = lark.Lark(CmdStringGrammar,
 
 def parse_cmd_string(text, off):
     '''
-    Parse in a command line string which may be quoted.
+    Parse a command line string which may be quoted.
     '''
     tree = CmdStringParser.parse(text[off:])
     valu, newoff = CmdStringer().transform(tree)

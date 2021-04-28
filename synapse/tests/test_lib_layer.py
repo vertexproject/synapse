@@ -22,6 +22,19 @@ async def iterPropForm(self, form=None, prop=None):
     for buid, valu in bad_valu:
         yield buid, valu
 
+class WrapLayer(s_layer.Layer):
+    _layrvers = None
+    _layrversvals = []
+
+    @property
+    def layrvers(self):
+        return self._layrvers
+
+    @layrvers.setter
+    def layrvers(self, valu):
+        self._layrvers = valu
+        self._layrversvals.append(valu)
+
 class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_abrv(self):
@@ -531,6 +544,18 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
+    async def test_layer_stortype_fqdn(self):
+        stor = s_layer.StorTypeFqdn(None)
+
+        vals = ('vertex.link', 'www.vertex.link')
+
+        for valu, indx in ((v, stor.indx(v)) for v in vals):
+            self.eq(valu, stor.decodeIndx(indx[0]))
+
+        longfqdn = '.'.join(('a' * 63,) * 5)
+        indx = stor.indx(longfqdn)
+        self.eq(s_common.novalu, stor.decodeIndx(indx[0]))
+
     async def test_layer_stortype_hugenum(self):
         stor = s_layer.StorTypeHugeNum(self, None)
 
@@ -974,62 +999,45 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=1.2.3.4 test:str=foo | delnode')
 
             mdef = {'forms': ['test:str']}
-            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
-            self.len(2, events)
-            expectadd = (baseoff, (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD,
-                                   ('foo', s_layer.STOR_TYPE_UTF8), ()))
-            expectdel = (baseoff + 19, (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL,
-                                        ('foo', s_layer.STOR_TYPE_UTF8), ()))
-            self.eq(events, [expectadd, expectdel])
+            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
+            self.eq(events, [
+                (strnode.buid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+                (strnode.buid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8), ()),
+            ])
 
             mdef = {'props': ['.seen']}
-            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
-            self.len(2, events)
+            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
-            expectadd = (baseoff + 3, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET,
-                                       ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()))
-            expectdel = (baseoff + 16, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL,
-                                        ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()))
-            self.eq(events, [expectadd, expectdel])
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL), ()),
+            ])
 
             mdef = {'props': ['inet:ipv4:asn']}
-            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
+            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
-            expectadd = (baseoff + 2, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET,
-                                       ('asn', 42, None, s_layer.STOR_TYPE_I64), ()))
-            expectdel = (baseoff + 15, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL,
-                                        ('asn', 42, s_layer.STOR_TYPE_I64), ()))
-            self.eq(events, [expectadd, expectdel])
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64), ()),
+            ])
 
             mdef = {'tags': ['foo.bar']}
-            events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
-            self.len(2, events)
-            expectadd = (baseoff + 9, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET,
-                                       ('foo.bar', ival, None), ()))
-            expectdel = (baseoff + 10, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL,
-                                        ('foo.bar', ival), ()))
-            self.eq(events, [expectadd, expectdel])
+            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
+            self.eq(events, [
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None), ()),
+                (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAG_DEL, ('foo.bar', ival), ()),
+            ])
 
             mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
+            events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             for mdef in mdefs:
-                events = await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))
-                self.len(2, events)
-                expectadd = (baseoff + 6, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
-                                           ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()))
-                expectdel = (baseoff + 11, (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
-                                            ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()))
-                self.eq(events, [expectadd, expectdel])
-
-            mdef = {'forms': ['test:str', 'inet:ipv4'], 'tags': ['foo', ]}
-            count = 0
-            async for item in layr.syncIndexEvents(baseoff, mdef):
-                count += 1
-                if count == 4:
-                    await core.nodes('test:str=bar')
-                if count == 5:
-                    break
-
-            self.eq(count, 5)
+                events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
+                self.eq(events, [
+                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_SET,
+                        ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64), ()),
+                    (ipv4node.buid, 'inet:ipv4', s_layer.EDIT_TAGPROP_DEL,
+                        ('mytag', 'score', 99, s_layer.STOR_TYPE_I64), ()),
+                ])
 
     async def test_layer_form_by_buid(self):
 
@@ -1225,7 +1233,13 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('syn:tag~=foo'))
 
             for layr in core.layers.values():
-                self.eq(layr.layrvers, 4)
+                self.eq(layr.layrvers, 5)
+
+    async def test_layer_fresh_layrvers(self):
+
+        with self.getTestDir() as dirn:
+            layr = await WrapLayer.anit({}, dirn)
+            self.len(1, layr._layrversvals)
 
     async def test_layer_logedits_default(self):
 
@@ -1391,7 +1405,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_reindex_byarray(self):
 
-        async with self.getRegrCore('reindex-byarray') as core:
+        async with self.getRegrCore('reindex-byarray2') as core:
 
             layr = core.getView().layers[0]
 
@@ -1427,5 +1441,80 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
             self.len(1, nodes)
 
+            opts = {'vars': {
+                'longfqdn': '.'.join(('a' * 63,) * 5),
+                'longname': 'a' * 256,
+            }}
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=foo]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
+            self.len(1, nodes)
+
             for layr in core.layers.values():
-                self.eq(layr.layrvers, 4)
+                self.eq(layr.layrvers, 5)
+
+    async def test_rebuild_byarray(self):
+
+        async with self.getRegrCore('reindex-byarray3') as core:
+
+            layr = core.getView().layers[0]
+
+            nodes = await core.nodes('transport:air:flightnum:stops*[=stop1]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('transport:air:flightnum:stops*[=stop4]')
+            self.len(1, nodes)
+
+            prop = core.model.prop('transport:air:flightnum:stops')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop1')
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            prop = core.model.prop('transport:air:flightnum:stops')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', 'stop4')
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:http:request:headers*[=(header1, valu1)]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:http:request:headers*[=(header3, valu3)]')
+            self.len(1, nodes)
+
+            prop = core.model.prop('inet:http:request:headers')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header1', 'valu1'))
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            prop = core.model.prop('inet:http:request:headers')
+            cmprvals = prop.type.arraytype.getStorCmprs('=', ('header3', 'valu3'))
+            nodes = await alist(layr.liftByPropArray(prop.form.name, prop.name, cmprvals))
+            self.len(1, nodes)
+
+            opts = {'vars': {
+                'longfqdn': '.'.join(('a' * 63,) * 5),
+                'longname': 'a' * 256,
+            }}
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=vertex.link]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert:identities:fqdns*[=$longfqdn]', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=foo]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
+            self.len(1, nodes)
+
+            for layr in core.layers.values():
+                self.eq(layr.layrvers, 5)

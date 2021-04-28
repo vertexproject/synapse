@@ -226,6 +226,9 @@ class CellApi(s_base.Base):
     def getCellUser(self):
         return self.user.pack()
 
+    async def getCellInfo(self):
+        return await self.cell.getCellInfo()
+
     def setCellUser(self, iden):
         '''
         Switch to another user (admin only).
@@ -410,6 +413,10 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def addUserRole(self, useriden, roleiden):
         return await self.cell.addUserRole(useriden, roleiden)
+
+    @adminapi(log=True)
+    async def setUserRoles(self, useriden, roleidens):
+        return await self.cell.setUserRoles(useriden, roleidens)
 
     @adminapi(log=True)
     async def delUserRole(self, useriden, roleiden):
@@ -655,6 +662,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'A config-driven way to specify the HTTPS port.',
             'type': ['integer', 'null'],
         },
+        'https:headers': {
+            'description': 'Headers to add to all HTTPS server responses.',
+            'type': 'object',
+            'hidecmdl': True,
+        },
         'backup:dir': {
             'description': 'A directory outside the service directory where backups will be saved.',
             'type': 'string',
@@ -698,8 +710,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         }
     }
 
-    BACKUP_SPAWN_TIMEOUT = 30.0
-    BACKUP_ACQUIRE_TIMEOUT = 0.5
+    BACKUP_SPAWN_TIMEOUT = 60.0
+
+    COMMIT = s_version.commit
+    VERSION = s_version.version
+    VERSTRING = s_version.verstring
 
     async def __anit__(self, dirn, conf=None, readonly=False):
 
@@ -1198,74 +1213,68 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
         loglevel = logger.getEffectiveLevel()
-
-        def spawnproc():
-            logger.debug('Starting multiprocessing target')
-            proc = ctx.Process(target=self._backupProc, args=(child_pipe, self.dirn, dirn, paths, loglevel))
-            proc.start()
-            hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
-            if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck starting')
-            data = mypipe.recv()
-            assert data == 'ready'
-            return proc
-
-        proc = await s_coro.executor(spawnproc)
-
-        logger.debug('Syncing LMDB Slabs')
-        while True:
-            await s_lmdbslab.Slab.syncLoopOnce()
-            if not any(slab.dirty for slab in slabs):
-                break
+        proc = None
 
         try:
 
-            logger.debug('Acquiring LMDB txns')
-            mypipe.send('proceed')
+            async with self.nexsroot.applylock:
 
-            # This is technically pending the ioloop waiting for the backup process to acquire a bunch of
-            # transactions.  We're effectively locking out new write requests the brute force way.
-            hasdata = mypipe.poll(timeout=self.BACKUP_ACQUIRE_TIMEOUT)
-            if not hasdata:
-                raise s_exc.SynErr(mesg='backup subprocess stuck acquiring LMDB txns')
+                logger.debug('Syncing LMDB Slabs')
 
-            data = mypipe.recv()
-            assert data == 'captured'
+                while True:
+                    await s_lmdbslab.Slab.syncLoopOnce()
+                    if not any(slab.dirty for slab in slabs):
+                        break
 
-            logger.debug('Acquired LMDB txns')
+                logger.debug('Starting backup process')
 
-            def waitforproc():
+                args = (child_pipe, self.dirn, dirn, paths, loglevel)
+
+                def waitforproc1():
+                    nonlocal proc
+                    proc = ctx.Process(target=self._backupProc, args=args)
+                    proc.start()
+                    hasdata = mypipe.poll(timeout=self.BACKUP_SPAWN_TIMEOUT)
+                    if not hasdata:
+                        raise s_exc.SynErr(mesg='backup subprocess start timed out')
+                    data = mypipe.recv()
+                    assert data == 'captured'
+
+                await s_coro.executor(waitforproc1)
+
+            def waitforproc2():
                 proc.join()
                 if proc.exitcode:
                     raise s_exc.SpawnExit(code=proc.exitcode)
 
-            retn = await s_coro.executor(waitforproc)
+            await s_coro.executor(waitforproc2)
+            proc = None
+
+            logger.info(f'Backup completed to [{dirn}]')
+            return
 
         except (asyncio.CancelledError, Exception):
             logger.exception(f'Error performing backup to [{dirn}]')
-            proc.terminate()
             raise
 
-        else:
-            logger.info(f'Backup completed to [{dirn}]')
-            return retn
+        finally:
+            if proc:
+                proc.terminate()
 
     @staticmethod
     def _backupProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
         '''
         (In a separate process) Actually do the backup
         '''
-        # This logging call is okay to run since we're executing in
-        # our own process space and no logging has been configured.
+        # This is a new process: configure logging
         s_common.setlogging(logger, loglevel)
-        pipe.send('ready')
-        data = pipe.recv()
-        assert data == 'proceed'
-        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
-            # Let parent know we have the transactions so he can resume the ioloop
-            pipe.send('captured')
 
+        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
+            pipe.send('captured')
+            logger.debug('Acquired LMDB transactions')
             s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+
+        logger.debug('Backup process completed')
 
     def _reqBackConf(self):
         if self.backdirn is None:
@@ -1479,6 +1488,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.grant(roleiden)
         await self.fire('user:mod', act='grant', user=useriden, role=roleiden)
 
+    async def setUserRoles(self, useriden, roleidens):
+        user = await self.auth.reqUser(useriden)
+        await user.setRoles(roleidens)
+        await self.fire('user:mod', act='setroles', user=useriden, roles=roleidens)
+
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
         await user.revoke(roleiden)
@@ -1640,6 +1654,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def initSslCtx(self, certpath, keypath):
 
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
         if not os.path.isfile(keypath):
             raise s_exc.NoSuchFile(name=keypath)
@@ -1681,6 +1696,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _initCellHttpApis(self):
 
+        self.addHttpApi('/robots.txt', s_httpapi.RobotHandler, {'cell': self})
         self.addHttpApi('/api/v1/login', s_httpapi.LoginV1, {'cell': self})
         self.addHttpApi('/api/v1/active', s_httpapi.ActiveV1, {'cell': self})
         self.addHttpApi('/api/v1/healthcheck', s_httpapi.HealthCheckV1, {'cell': self})
@@ -2149,3 +2165,40 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         perm = '.'.join(perm)
         raise s_exc.AuthDeny(mesg=f'User must have permission {perm} or own the task',
                              task=iden, user=str(user), perm=perm)
+
+    async def getCellInfo(self):
+        '''
+        Return metadata specific for the Cell.
+
+        Notes:
+            By default, this function returns information about the base Cell
+            implementation, which reflects the base information in the Synapse
+            Cell.
+
+            It is expected that implementers override the following Class
+            attributes in order to provide meaningful version information:
+
+            ``COMMIT``  - A Git Commit
+            ``VERSION`` - A Version tuple.
+            ``VERSTRING`` - A Version string.
+
+        Returns:
+            Dict: A Dictionary of metadata.
+        '''
+        ret = {
+            'synapse': {
+                'commit': s_version.commit,
+                'version': s_version.version,
+                'verstring': s_version.verstring,
+            },
+            'cell': {
+                'type': self.getCellType(),
+                'iden': self.getCellIden(),
+                'active': self.isactive,
+                'commit': self.COMMIT,
+                'version': self.VERSION,
+                'verstring': self.VERSTRING,
+                'cellvers': dict(self.cellvers.items()),
+            }
+        }
+        return ret

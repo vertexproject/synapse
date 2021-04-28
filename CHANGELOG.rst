@@ -5,6 +5,188 @@ Synapse Changelog
 *****************
 
 
+v2.35.0 - 2021-04-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:issuer:cert`` and ``:selfsigned`` properties to the
+  ``crypto:x509:cert`` form to enable modeling X509 certificate chains.
+  (`#2163 <https://github.com/vertexproject/synapse/pull/2163>`_)
+- Add a ``https:headers`` configuration option to the Cell to allow setting
+  arbitrary HTTP headers for the Cell HTTPAPI server.
+  (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
+- Update the Cell HTTPAPI server to have a minimum TLS version of v1.2. Add a
+  default ``/robots.txt`` route. Add ``X-XSS=Protection`` and
+  ``X-Content-Type-Options`` headers to the default HTTPAPI responses.
+  (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
+- Update the minimum version of LMDB to ``1.2.1``.
+  (`#2169 <https://github.com/vertexproject/synapse/pull/2169>`_)
+
+Bugfixes
+--------
+- Improve the error message for Storm syntax error handling.
+  (`#2162 <https://github.com/vertexproject/synapse/pull/2162>`_)
+- Update the layer byarray index migration to account for arrays of
+  ``inet:fqdn`` values.
+  (`#2165 <https://github.com/vertexproject/synapse/pull/2165>`_)
+  (`#2166 <https://github.com/vertexproject/synapse/pull/2166>`_)
+- Update the ``vertexproject/synapse-aha``, ``vertexproject/synapse-axon``,
+  ``vertexproject/synapse-cortex``, and ``vertexproject/synapse-cryotank``
+  Docker images to use ``tini`` as a default entrypoint. This fixes an issue
+  where signals were not properly being propagated to the Cells.
+  (`#2168 <https://github.com/vertexproject/synapse/pull/2168>`_)
+- Fix an issue with enfanged indicators which were not properly being lifted
+  by Storm when operating in ``lookup`` mode.
+  (`#2170 <https://github.com/vertexproject/synapse/pull/2170>`_)
+
+
+v2.34.0 - 2021-04-20
+====================
+
+Features and Enhancements
+-------------------------
+- Storm function definitions now allow keyword arguments which may have
+  default values. These must be read-only values.
+  (`#2155 <https://github.com/vertexproject/synapse/pull/2155>`_)
+  (`#2157 <https://github.com/vertexproject/synapse/pull/2157>`_)
+- Add a ``getCellInfo()`` API to the ``Cell`` and ``CellAPI`` classes. This
+  returns metadata about the cell, its version, and the currently installed
+  Synapse version. Cell implementers who wish to expose Cell specific version
+  information must adhere to conventiosn documented in the API docstrings of
+  the function.
+  (`#2151 <https://github.com/vertexproject/synapse/pull/2151>`_)
+- Allow external Storm modules to be added in genpkg definitions.
+  (`#2159 <https://github.com/vertexproject/synapse/pull/2159>`_)
+
+Bugfixes
+--------
+- The ``$lib.layer.get()`` Stormtypes returned the top layer of the default
+  view in the Cortex when called with no arguments, instead of the top layer
+  of the current view. This now returns the top layer of the current view.
+  (`#2156 <https://github.com/vertexproject/synapse/pull/2156>`_)
+- Avoid calling ``applyNodeEdit`` when editing a tag on a Node and there are
+  no edits to make.
+  (`#2161 <https://github.com/vertexproject/synapse/pull/2161>`_)
+
+Improved Documentation
+----------------------
+- Fix typo in docstrings from ``$lib.model.tags`` Stormtypes.
+  (`#2160 <https://github.com/vertexproject/synapse/pull/2160>`_)
+
+
+v2.33.1 - 2021-04-13
+====================
+
+Bugfixes
+--------
+
+- Fix a regression when expanding list objects in Storm.
+  (`#2154 <https://github.com/vertexproject/synapse/pull/2154>`_)
+
+
+v2.33.0 - 2021-04-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add CWE and CVSS support to the ``risk:vuln`` form.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add a new Stormtypes library, ``$lib.infosec.cvss``, to assist with
+  parsing CVSS data, computing scores, and updating ``risk:vuln`` nodes.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add ATT&CK, CWD, and CPE support to the IT model.
+  (`#2143 <https://github.com/vertexproject/synapse/pull/2143>`_)
+- Add ``it:network``, ``it:domain``, ``it:account``, ``it:group`` and
+  ``it:login`` guid forms to model common IT concepts.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Add a new model, ``project``, to model projects, tickets, sprints and epics.
+  The preliminary forms for this model include ``proj:project``,
+  ``proj:sprint``, ``proj:ticket``, ``proj:comment``, and ``projec:project``.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Add a new Stormtypes library, ``$lib.project``, to assist with using the
+  project model. The API is provisional.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Allow lifting ``guid`` types with the prefix (``^=``) operator.
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Add ``ou:contest:result:url`` to record where to find contest results.
+  (`#2144 <https://github.com/vertexproject/synapse/pull/2144>`_)
+- Allow subquery as a value in additional places in Storm. This use must yield
+  exactly one node. Secondary property assignments to array types may yield
+  multiple nodes.
+  (`#2137 <https://github.com/vertexproject/synapse/pull/2137>`_)
+- Tighten up Storm iterator behavior on the backend. This should not have have
+  user-facing changes in Storm behavior.
+  (`#2148 <https://github.com/vertexproject/synapse/pull/2148>`_)
+  (`#2096 <https://github.com/vertexproject/synapse/pull/2096>`_)
+- Update the Cell backup routine so that it blocks the ioloop less.
+  (`#2145 <https://github.com/vertexproject/synapse/pull/2145>`_)
+- Expose the remote name and version of Storm Services in the ``service.list``
+  command.
+  (`#2149 <https://github.com/vertexproject/synapse/pull/2149>`_)
+- Move test deprecated model elements into their own Coremodule.
+  (`#2150 <https://github.com/vertexproject/synapse/pull/2150>`_)
+- Update ``lark`` dependency.
+  (`#2146 <https://github.com/vertexproject/synapse/pull/2146>`_)
+
+Bugfixes
+--------
+- Fix incorrect grammer in model.edge commands.
+  (`#2147 <https://github.com/vertexproject/synapse/pull/2147>`_)
+- Reduce unit test memory usage.
+  (`#2152 <https://github.com/vertexproject/synapse/pull/2152>`_)
+- Pin ``jupyter-client`` library.
+  (`#2153 <https://github.com/vertexproject/synapse/pull/2153>`_)
+
+
+v2.32.1 - 2021-04-01
+====================
+
+Features and Enhancements
+-------------------------
+- The Storm ``$lib.exit()`` function now takes message arguments similar to
+  ``$lib.warn()`` and fires that message into the run time as a ``warn`` prior
+  to stopping the runtime.
+  (`#2138 <https://github.com/vertexproject/synapse/pull/2138>`_)
+- Update ``pygments`` minimum version to ``v2.7.4``.
+  (`#2139 <https://github.com/vertexproject/synapse/pull/2139>`_)
+
+Bugfixes
+--------
+- Do not allow light edge creation on runt nodes.
+  (`#2136 <https://github.com/vertexproject/synapse/pull/2136>`_)
+- Fix backup test timeout issues.
+  (`#2141 <https://github.com/vertexproject/synapse/pull/2141>`_)
+- Fix the ``synapse.lib.msgpack.en()`` function so that now raises the correct
+  exceptions when operating in fallback mode.
+  (`#2140 <https://github.com/vertexproject/synapse/pull/2140>`_)
+- Fix the ``Snap.addNodes()`` API handling of deprecated model elements when
+  doing bulk data ingest.
+  (`#2142 <https://github.com/vertexproject/synapse/pull/2142>`_)
+
+
+v2.32.0 - 2021-03-30
+====================
+
+Features and Enhancements
+-------------------------
+- Increase the verbosity of logging statements related to Cell backup
+  operations. This allows for better visibility into what is happening
+  while a backup is occurring.
+  (`#2124 <https://github.com/vertexproject/synapse/pull/2124>`_)
+- Add Telepath and Storm APIs for setting all the roles of a User at once.
+  (`#2127 <https://github.com/vertexproject/synapse/pull/2127>`_)
+- Expose the Synapse package commit hash over Telepath and Stormtypes.
+  (`#2133 <https://github.com/vertexproject/synapse/pull/2133>`_)
+
+Bugfixes
+--------
+- Increase the process spawn timeout for Cell backup operations. Prevent the
+  Cell backup from grabbing lmdb transactions for slabs in the cell local tmp
+  directory.
+  (`#2124 <https://github.com/vertexproject/synapse/pull/2124>`_)
+
+
 v2.31.1 - 2021-03-25
 ====================
 
