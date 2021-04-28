@@ -11,6 +11,7 @@ import datetime
 import functools
 import contextlib
 import multiprocessing
+import concurrent.futures
 
 import tornado.web as t_web
 
@@ -818,6 +819,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'cell': self
         }
 
+        # Process Pool
+        _ctx = multiprocessing.get_context('spawn')
+        self._procPool = concurrent.futures.ProcessPoolExecutor(mp_context=_ctx)
+        self.onfini(self._procPool.shutdown)
+
         # a tuple of (vers, func) tuples
         # it is expected that this is set by
         # initServiceStorage
@@ -988,6 +994,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initServiceRuntime(self):
         pass
+
+    async def procTask(self, func, *args, **kwargs):
+        '''
+        Execute a function in a process pool.
+
+        Args:
+            func: Function to execute. This must be able to be pickled.
+            *args: Arguments to the function.
+            **kwargs: Keyword arguments to the function.
+
+        Returns:
+            The function result.
+        '''
+        real = functools.partial(func, *args, **kwargs)
+        loop = asyncio.get_event_loop()
+        fut = loop.run_in_executor(self._procPool, real)
+        result = await fut
+        return result
 
     async def _ctorNexsRoot(self):
         '''
