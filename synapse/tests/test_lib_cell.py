@@ -29,17 +29,17 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
     pipe.send('captured')
     sys.exit(1)
 
-def _backupSleep(path, linkinfo, done):
+def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
-async def _iterBackupEOF(path, linkinfo, done):
+async def _iterBackupEOF(path, linkinfo):
     link = await s_link.fromspawn(linkinfo)
     link.writer.write_eof()
     await link.fini()
-    await s_coro.executor(done.put, True)
+    return True
 
-def _backupEOF(path, linkinfo, done):
-    asyncio.run(_iterBackupEOF(path, linkinfo, done))
+def _backupEOF(path, linkinfo):
+    return asyncio.run(_iterBackupEOF(path, linkinfo))
 
 def work(a, b, stuff=True):
     c = a + b

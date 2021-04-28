@@ -106,14 +106,13 @@ async def _doIterBackup(path, chunksize=1024):
     await coro
     await link0.fini()
 
-async def _iterBackupWork(path, linkinfo, done):
+async def _iterBackupWork(path, linkinfo):
     '''
     Inner setup for backup streaming.
 
     Args:
         path (str): Path to the backup.
         linkinfo(dict): Link info dictionary.
-        done (multiprocessing.Queue): TX Queue.
 
     Returns:
         None: Returns None.
@@ -123,10 +122,9 @@ async def _iterBackupWork(path, linkinfo, done):
 
     wasfini = link.isfini
     await link.fini()
+    return wasfini
 
-    await s_coro.executor(done.put, wasfini)
-
-def _iterBackupProc(path, linkinfo, done):
+def _iterBackupProc(path, linkinfo):
     '''
     Multiprocessing target for streaming a backup.
     '''
@@ -134,7 +132,8 @@ def _iterBackupProc(path, linkinfo, done):
     # our own process space and no logging has been configured.
     s_common.setlogging(logger, linkinfo.get('loglevel'))
 
-    asyncio.run(_iterBackupWork(path, linkinfo, done))
+    resp = asyncio.run(_iterBackupWork(path, linkinfo))
+    return resp
 
 class CellApi(s_base.Base):
 
@@ -1353,35 +1352,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
-        ctx = multiprocessing.get_context('spawn')
-        done = ctx.Queue()
-
-        proc = None
         mesg = 'Streaming complete'
 
-        def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
-            proc.start()
-            return proc
-
         try:
-            proc = await s_coro.executor(getproc)
+            fut = self.procTask(_iterBackupProc, path, linkinfo)
 
-            def waitproc():
-                proc.join()
-                return done.get()
-
-            if await s_coro.executor(waitproc):
+            wasfini = await fut
+            if wasfini:
                 await link.fini()
 
         except (asyncio.CancelledError, Exception) as e:
 
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
-
-            if proc:
-                await s_coro.executor(done.put, False)
-                proc.terminate()
 
             mesg = repr(e)
             raise
@@ -1400,7 +1383,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Backup with name already exists'
             raise s_exc.BadArg(mesg=mesg)
 
-        proc = None
         mesg = 'Streaming complete'
 
         try:
@@ -1411,31 +1393,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await self.boss.promote('backup:stream', user=user, info={'name': name})
 
-            ctx = multiprocessing.get_context('spawn')
-            done = ctx.Queue()
+            fut = self.procTask(_iterBackupProc, path, linkinfo)
 
-            def getproc():
-                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
-                proc.start()
-                return proc
-
-            proc = await s_coro.executor(getproc)
-
-            def waitproc():
-                proc.join()
-                return done.get()
-
-            if await s_coro.executor(waitproc):
+            wasfini = await fut
+            if wasfini:
                 await link.fini()
 
         except (asyncio.CancelledError, Exception) as e:
 
             if not isinstance(e, asyncio.CancelledError):
                 logger.exception('Error during backup streaming.')
-
-            if proc:
-                await s_coro.executor(done.put, False)
-                proc.terminate()
 
             mesg = repr(e)
             raise
