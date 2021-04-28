@@ -18,6 +18,8 @@ HI
 .. storm:: --hide-props testcmd foo
 .. storm:: --hide-query $lib.print(secret)
 .. storm:: --hide-query file:bytes
+.. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
+.. storm:: testsvc.test
 '''
 
 rst_out = '''
@@ -41,6 +43,11 @@ HI
 ::
 
 
+
+::
+
+    > testsvc.test
+    jupiter
 
 '''
 
@@ -102,6 +109,19 @@ boom3 = '''
 boom4 = '''
 
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
+
+'''
+
+boom5 = '''
+
+.. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
+
+'''
+
+boom6 = '''
+
+.. storm-cortex:: synapse.tools.rstorm.cortex
+.. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test
 
 '''
 
@@ -201,4 +221,20 @@ class RStormTest(s_test.SynTest):
                 fd.write(boom4.encode())
 
             with self.raises(s_exc.NoSuchVar):
+                await s_rstorm.main(('--save', outpath, path))
+
+            # boom5 test
+            path = s_common.genpath(dirn, 'boom5.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(boom5.encode())
+
+            with self.raises(s_exc.NoSuchVar):
+                await s_rstorm.main(('--save', outpath, path))
+
+            # boom6 test
+            path = s_common.genpath(dirn, 'boom6.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(boom6.encode())
+
+            with self.raises(s_exc.NeedConfValu):
                 await s_rstorm.main(('--save', outpath, path))

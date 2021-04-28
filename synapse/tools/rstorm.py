@@ -27,6 +27,23 @@ async def cortex():
     core.onfini(base.fini)
     return core
 
+async def addSvcToCore(core, ctor, svcname, svcconf):
+    dirn = s_common.genpath(core.dirn, 'svcs', svcname)
+    loc = s_dyndeps.getDynLocal(ctor)
+    svc = await loc.anit(dirn, conf=svcconf)
+    core.onfini(svc.fini)
+
+    svc.dmon.share('svc', svc)
+    root = await svc.auth.getUserByName('root')
+    await root.setPasswd('root')
+    info = await svc.dmon.listen('tcp://127.0.0.1:0/')
+    svc.dmon.test_addr = info
+    host, port = info
+    surl = f'tcp://root:root@127.0.0.1:{port}/svc'
+    await core.nodes(f'service.add {svcname} {surl}')
+    await core.nodes(f'$lib.service.wait({svcname})')
+
+
 class StormOutput(s_cmds_cortex.StormCmd):
     '''
     Produce standard output from a stream of storm runtime messages.
@@ -140,6 +157,13 @@ async def genStormRst(path, debug=False):
     outp = []
     context = {}
 
+    def reqCore():
+        core_ = context.get('cortex')
+        if core_ is None:
+            mesg_ = 'No cortex set.  Use .. storm-cortex::'
+            raise s_exc.NoSuchVar(mesg=mesg_)
+        return core_
+
     with open(path, 'r') as fd:
         lines = fd.readlines()
 
@@ -151,6 +175,18 @@ async def genStormRst(path, debug=False):
             if context.get('cortex') is not None:
                 await (context.pop('cortex')).fini()
             context['cortex'] = core
+            continue
+
+        if line.startswith('.. storm-svc::'):
+            core = reqCore()
+
+            svcdef = line.split('::', 1)[1].strip()
+
+            confline = svcdef.split(' ', 2)
+            ctor, svcname = [x.strip() for x in confline[:2]]
+            svcconf = json.loads(confline[2].strip()) if len(confline) == 3 else {}
+
+            await addSvcToCore(core, ctor, svcname, svcconf)
             continue
 
         if line.startswith('.. storm-opts::'):
@@ -167,10 +203,7 @@ async def genStormRst(path, debug=False):
 
             text = line.split('::', 1)[1].strip()
 
-            core = context.get('cortex')
-            if core is None:
-                mesg = 'No cortex set.  Use .. storm-cortex::'
-                raise s_exc.NoSuchVar(mesg=mesg)
+            core = reqCore()
 
             soutp = StormOutput(core, context, stormopts=context.get('storm-opts'))
             await soutp.runCmdLine(text)
@@ -181,10 +214,7 @@ async def genStormRst(path, debug=False):
 
             yamlpath = line.split('::', 1)[1].strip()
 
-            core = context.get('cortex')
-            if core is None:
-                mesg = 'No cortex set.  Use .. storm-cortex::'
-                raise s_exc.NoSuchVar(mesg=mesg)
+            core = reqCore()
 
             pkg = s_genpkg.loadPkgProto(yamlpath)
             await core.addStormPkg(pkg)
@@ -200,10 +230,7 @@ async def genStormRst(path, debug=False):
 
             text = line.split('::', 1)[1].strip()
 
-            core = context.get('cortex')
-            if core is None:
-                mesg = 'No cortex set.  Use .. storm-cortex::'
-                raise s_exc.NoSuchVar(mesg=mesg)
+            core = reqCore()
 
             outp.append('::\n')
             outp.append('\n')
