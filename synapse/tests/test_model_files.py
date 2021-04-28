@@ -309,24 +309,92 @@ class FileTest(s_t_utils.SynTest):
             fileguid = s_common.guid()
             opts = {'vars': {'fileguid': f'guid:{fileguid}'}}
 
+            def testexif(n):
+                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(0, n.get('file:offs'))
+                self.eq(('foo', 'bar'), n.get('file:data'))
+                self.eq('aaaa', n.get('desc'))
+                self.eq('bbbb', n.get('comment'))
+                self.eq(1578236238000, n.get('created'))
+                self.eq('a6b4', n.get('imageid'))
+                self.eq('0232', n.get('version'))
+                self.eq('foobar', n.get('artist'))
+                self.eq(1578250638000, n.get('gpstime'))
+                self.eq((38.9582839, -77.358946), n.get('latlong'))
+                self.eq(6371137800, n.get('altitude'))
+
             nodes = await core.nodes('''[
                 file:mime:jpg=*
                     :file=$fileguid
                     :file:offs=0
                     :file:data=(foo, bar)
                     :desc=aaaa
+                    :comment=bbbb
                     :created="2020-01-05 14:57:18"
+                    :imageid=a6b4
+                    :version=0232
+                    :artist=foobar
                     :gpstime="2020-01-05 18:57:18"
-                    :loc="38.9582839,-77.358946"
+                    :latlong="38.9582839,-77.358946"
                     :altitude="129 meters"
             ]''', opts=opts)
 
             self.len(1, nodes)
-            self.eq(f'guid:{fileguid}', nodes[0].get('file'))
-            self.eq(0, nodes[0].get('file:offs'))
-            self.eq(('foo', 'bar'), nodes[0].get('file:data'))
-            self.eq('aaaa', nodes[0].get('desc'))
-            self.eq(1578236238000, nodes[0].get('created'))
-            self.eq(1578250638000, nodes[0].get('gpstime'))
-            self.eq((38.9582839, -77.358946), nodes[0].get('loc'))
-            self.eq(6371137800, nodes[0].get('altitude'))
+            testexif(nodes[0])
+
+            nodes = await core.nodes('''[
+                file:mime:tif=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :desc=aaaa
+                    :comment=bbbb
+                    :created="2020-01-05 14:57:18"
+                    :imageid=a6b4
+                    :version=0232
+                    :artist=foobar
+                    :gpstime="2020-01-05 18:57:18"
+                    :latlong="38.9582839,-77.358946"
+                    :altitude="129 meters"
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])
+
+            nodes = await core.nodes('''[
+                file:mime:gif=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :desc=aaaa
+                    :comment=bbbb
+                    :created="2020-01-05 14:57:18"
+                    :imageid=a6b4
+                    :version=0232
+                    :artist=foobar
+                    :gpstime="2020-01-05 18:57:18"
+                    :latlong="38.9582839,-77.358946"
+                    :altitude="129 meters"
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])
+
+            nodes = await core.nodes('''[
+                file:mime:png=*
+                    :file=$fileguid
+                    :file:offs=0
+                    :file:data=(foo, bar)
+                    :desc=aaaa
+                    :comment=bbbb
+                    :created="2020-01-05 14:57:18"
+                    :imageid=a6b4
+                    :version=0232
+                    :artist=foobar
+                    :gpstime="2020-01-05 18:57:18"
+                    :latlong="38.9582839,-77.358946"
+                    :altitude="129 meters"
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])

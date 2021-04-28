@@ -218,11 +218,19 @@ class FileModule(s_module.CoreModule):
                     'props': (
                         ('desc', ('str', {}), {
                             'doc': 'ImageDescription field extracted from Exif metadata.'}),
+                        ('comment', ('str', {}), {
+                            'doc': 'UserComment field extracted from Exif metadata.'}),
                         ('created', ('time', {}), {
-                            'doc': 'The DateTime tag extracted from Exif metadata.'}),
+                            'doc': 'DateTime tag extracted from Exif metadata.'}),
+                        ('imageid', ('str', {}), {
+                            'doc': 'ImageUniqueID tag extracted from Exif metadata.'}),
+                        ('version', ('str', {}), {
+                            'doc': 'ExifVersion tag extracted from Exif metadata.'}),
+                        ('artist', ('ps:name', {}), {
+                            'doc': 'Artist tag extracted from Exif metadata.'}),
                         ('gpstime', ('time', {}), {
                             'doc': 'The GPSTimeStamp information from the GPSInfoIFD metadata.'}),
-                        ('loc', ('geo:latlong', {}), {
+                        ('latlong', ('geo:latlong', {}), {
                             'doc': 'The lat/long information from the GPSInfoIFD metadata.'}),
                         ('altitude', ('geo:altitude', {}), {
                             'doc': 'The GPSAltitude information from the GPSInfoIFD metadata.'}),
@@ -273,6 +281,21 @@ class FileModule(s_module.CoreModule):
 
                 ('file:mime:jpg', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .jpg file.',
+                    'interfaces': ('file:mime:meta:exif',),
+                }),
+
+                ('file:mime:tif', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .tif file.',
+                    'interfaces': ('file:mime:meta:exif',),
+                }),
+
+                ('file:mime:gif', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .gif file.',
+                    'interfaces': ('file:mime:meta:exif',),
+                }),
+
+                ('file:mime:png', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .png file.',
                     'interfaces': ('file:mime:meta:exif',),
                 }),
 
@@ -392,6 +415,9 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:msppt', {}, ()),
 
                 ('file:mime:jpg', {}, ()),
+                ('file:mime:tif', {}, ()),
+                ('file:mime:gif', {}, ()),
+                ('file:mime:png', {}, ()),
 
                 ('file:mime:rtf', {}, (
                     ('guid', ('guid', {}), {
