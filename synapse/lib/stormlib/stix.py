@@ -1,6 +1,7 @@
 import json
 import uuid
 import asyncio
+import logging
 import datetime
 
 import synapse.exc as s_exc
@@ -9,6 +10,9 @@ import synapse.lib.node as s_node
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
+import stix2validator
+
+logger = logging.getLogger(__name__)
 
 def uuid5(valu=None):
     guid = s_common.guid(valu=valu)
@@ -483,8 +487,38 @@ def _validateConfig(core, config):
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
                         raise s_exc.BadConfValu(mesg=mesg)
 
+def _validateStixProc(bundle, loglevel):
+    '''
+    Multiprocessing target for stix validation
+    '''
+    # This logging call is okay to run since we're executing in
+    # our own process space and no logging has been configured.
+    s_common.setlogging(logger, loglevel)
+
+    resp = validateStix(bundle)
+    return resp
+
+def validateStix(bundle, version='2.1'):
+    ret = {
+        'success': False,
+        'mesg': '',
+        'result': None,
+    }
+    bundle = json.loads(json.dumps(bundle))
+    opts = stix2validator.ValidationOptions(strict=True, version=version)
+    try:
+        results = stix2validator.validate_parsed_json(bundle, options=opts)
+    except Exception as e:
+        logger.exception('Error validating STIX bundle.')
+        ret['mesg'] = f'Error validating bundle: {e}'
+    else:
+        rdict = results.as_dict()
+        ret['result'] = rdict
+        ret['success'] = True
+    return ret
+
 @s_stormtypes.registry.registerLib
-class LibStix(s_stormtypes.Lib):
+class LibStixExport(s_stormtypes.Lib):
     '''
     A Storm Library for exporting to STIX version 2.1
     '''
@@ -606,6 +640,42 @@ class LibStix(s_stormtypes.Lib):
     def timestamp(self, tick):
         dt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
         return dt.isoformat(timespec='milliseconds') + 'Z'
+
+@s_stormtypes.registry.registerLib
+class LibStixImport(s_stormtypes.Lib):
+    '''
+    A Storm Library for importing STIX version 2.1 data.
+    '''
+    _storm_locals = (  # type: ignore
+        {
+            'name': 'validate', 'desc': '''
+            Validate a STIX Bundle
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'validateBundle',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to validate.'},
+                ),
+                'returns': {'type': 'dict', 'desc': 'Results dictionary.'}
+            }
+        },
+    )
+    _storm_lib_path = ('stix', 'import')
+
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
+
+    def getObjLocals(self):
+        return {
+            'validate': self.validateBundle,
+        }
+
+    async def validateBundle(self, bundle):
+        bundle = await s_stormtypes.toprim(bundle)
+        cell = self.runt.snap.core
+        loglevel = logger.getEffectiveLevel()
+        resp = await cell.procTask(_validateStixProc, bundle, loglevel=loglevel)
+        return resp
 
 stix_sdos = {
     'attack-pattern',

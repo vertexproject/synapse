@@ -1,12 +1,15 @@
 import copy
 import json
 
-import stix2validator
-
 import synapse.exc as s_exc
+
+import synapse.lib.stormlib.stix as s_stix
+
 import synapse.tests.utils as s_test
 
 # flake8: noqa: E501
+
+from pprint import pprint
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -45,11 +48,11 @@ class StormlibModelTest(s_test.SynTest):
             json.dump(bund, fd, sort_keys=True, indent=2)
 
     def reqValidStix(self, item):
-        item = json.loads(json.dumps(item))
-        vres = stix2validator.validate_parsed_json(item)
-        if not vres.is_valid:
-            stix2validator.print_results(vres)
-            self.true(vres.is_valid)
+        resp = s_stix.validateStix(item)
+        success = resp.get('success')
+        if not success:
+            print(resp)
+            self.true(success)
 
     async def test_stormlib_libstix(self):
 
@@ -165,6 +168,12 @@ class StormlibModelTest(s_test.SynTest):
             self.reqValidStix(bund)
 
             self.bundeq(self.getTestBundle('custom0.json'), bund)
+
+            resp = await core.callStorm('return($lib.stix.import.validate($bundle))',
+                                        {'vars': {'bundle': bund}})
+            self.true(resp.get('success'))
+            result = resp.get('result')
+            self.eq(result, {'result': True})
 
             # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
