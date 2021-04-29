@@ -169,11 +169,13 @@ class StormlibModelTest(s_test.SynTest):
 
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
-            resp = await core.callStorm('return($lib.stix.import.validate($bundle))',
-                                        {'vars': {'bundle': bund}})
+            resp = await core.callStorm('return($lib.stix.import.validate($bundle))', {'vars': {'bundle': bund}})
             self.true(resp.get('success'))
             result = resp.get('result')
             self.eq(result, {'result': True})
+
+            nodes = await core.nodes('yield $lib.stix.import.lift($bundle)', {'vars': {'bundle': bund}})
+            self.len(10, nodes)
 
             # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))

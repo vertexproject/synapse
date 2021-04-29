@@ -663,6 +663,18 @@ class LibStixImport(s_stormtypes.Lib):
                 'returns': {'type': 'dict', 'desc': 'Results dictionary.'}
             }
         },
+        {
+        'name': 'lift', 'desc': '''
+        Lift nodes from a STIX Bundle made by Synapse.
+        ''',
+            'type': {
+                'type': 'function', '_funcname': 'liftBundle',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to lift nodes from.'},
+                ),
+                'yields': {'type': 'storm:node', 'desc': 'Yields nodes'}
+            }
+        },
     )
     _storm_lib_path = ('stix', 'import')
 
@@ -671,6 +683,7 @@ class LibStixImport(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
+            'lift': self.liftBundle,
             'validate': self.validateBundle,
         }
 
@@ -680,6 +693,19 @@ class LibStixImport(s_stormtypes.Lib):
         loglevel = logger.getEffectiveLevel()
         resp = await cell.procTask(_validateStixProc, bundle, loglevel=loglevel)
         return resp
+
+    async def liftBundle(self, bundle):
+        bundle = await s_stormtypes.toprim(bundle)
+        for obj in bundle.get('objects', ()):
+            exts = obj.get('extensions')
+            if exts:
+                synx = exts.get(SYN_STIX_EXTENSION_ID)
+                if synx:
+                    ndef = synx.get('synapse_ndef')
+                    if ndef:
+                        node = await self.runt.snap.getNodeByNdef(ndef)
+                        if node:
+                            yield node
 
 stix_sdos = {
     'attack-pattern',
