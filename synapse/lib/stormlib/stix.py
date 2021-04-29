@@ -22,6 +22,10 @@ def uuid4(valu=None):
     guid = s_common.guid(valu=valu)
     return str(uuid.UUID(guid, version=4))
 
+_SYN_STIX_EXTENSION_GUID = 'bf1c0a4d90ee557ac05055385971f17c'
+SYN_STIX_EXTENSION_UUID = uuid4(_SYN_STIX_EXTENSION_GUID)
+SYN_STIX_EXTENSION_ID = f'extension-definition--{SYN_STIX_EXTENSION_UUID}'
+
 _DefaultConfig = {
 
     'maxsize': 10000,
@@ -838,10 +842,18 @@ class StixBundle(s_stormtypes.Prim):
         return stixid
 
     def _initStixItem(self, stixid, stixtype, node):
+        ndef = json.loads(json.dumps(node.ndef))
         retn = {
             'id': stixid,
             'type': stixtype,
             'spec_version': '2.1',
+            'extensions': {
+                SYN_STIX_EXTENSION_ID: {
+                    "extension_type": "property-extension",
+                    'synapse_ndef': ndef
+                }
+            }
+
         }
         return retn
 
@@ -864,11 +876,31 @@ class StixBundle(s_stormtypes.Prim):
         self.objs[stixid] = obj
         return stixid
 
+    def _getSynapseExtensionDefinition(self):
+        ret = {
+            'id': SYN_STIX_EXTENSION_ID,
+            'type': 'extension-definition',
+            'spec_version': '2.1',
+            'name': 'Vertex Project Synapse',
+            'description': 'Synapse specific STIX 2.1 extensions.',
+            'created': '2021-04-29T13:40:00.000Z',
+            'modified': '2021-04-29T13:40:00.000Z',
+            # 'created_by_ref': '',  # XXX?
+            'schema': 'The Synapse Extensions for Stix 2.1',
+            'version': '1.0',
+            'extension_types': [
+                'property-extension',
+            ],
+        }
+        return ret
+
     def pack(self):
+        objects = list(self.objs.values())
+        objects.insert(0, self._getSynapseExtensionDefinition())
         bundle = {
             'type': 'bundle',
             'id': f'bundle--{uuid4()}',
-            'objects': list(self.objs.values())
+            'objects': objects
         }
         return bundle
 
