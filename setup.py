@@ -92,7 +92,7 @@ setup(
         'Pygments>=2.7.4,<2.8.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
-        'stix2-validator>=2.0.4,<3.0',
+        'stix2-validator>=3.0.0,<4.0.0',
     ],
 
     extras_require={
