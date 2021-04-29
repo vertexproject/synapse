@@ -672,7 +672,7 @@ class LibStixImport(s_stormtypes.Lib):
                 'args': (
                     {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to lift nodes from.'},
                 ),
-                'yields': {'type': 'storm:node', 'desc': 'Yields nodes'}
+                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
             }
         },
     )
