@@ -265,3 +265,29 @@ class StormlibModelTest(s_test.SynTest):
 
                     inet:fqdn $bundle.add($node)
                 ''')
+
+    async def test_risk_vuln(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :cve="cve-2013-0000")]
+            [(risk:vuln=(vuln2,) :cve="cve-2013-0001")]
+            [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
+            [(risk:hasvuln=(hv1,) :vuln=(vuln1,) :software=(softv1,) )]
+            [(it:prod:softver=(softv1,)  :software=(soft1,) )]
+            [(it:prod:soft=(soft1,)  :name="Bobs cool software")]
+            ''')
+
+            bund = await core.callStorm('''
+            init { $bundle = $lib.stix.export.bundle() }
+            risk:vuln.created
+            $bundle.add($node)
+            fini { return($bundle) }''')
+            pprint(bund)
+            self.reqValidStix(bund)
+
+            bund = await core.callStorm('''
+            init { $bundle = $lib.stix.export.bundle() }
+            risk:vuln:cve="cve-2013-0000" -> risk:hasvuln -> *
+            $bundle.add($node)
+            fini { return($bundle) }''')
+            pprint(bund)
+            self.reqValidStix(bund)

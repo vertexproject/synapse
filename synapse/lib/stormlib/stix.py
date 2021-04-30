@@ -48,6 +48,7 @@ _DefaultConfig = {
                         ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
                         ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
                         ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
+                        ('targets', 'vulnerabilty', '-> risk:attack -> it:prod:softver -> risk:hasvuln -> risk:vuln'),
                     ),
                 },
             },
@@ -86,7 +87,7 @@ _DefaultConfig = {
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        # ('targets', 'location', ''),
+                        ('targets', 'vulnerabilty', '-> ou:campaign -> risk:attack -> it:prod:softver -> risk:hasvuln -> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -358,7 +359,7 @@ _DefaultConfig = {
                     },
                     'rels': (
                         # TODO
-                        # ('has', 'vulnerability', ''),
+                        ('targets', 'vulnerability', '-> risk:hasvuln -> risk:vuln'),
 
                         #  depends on tag conventions
                         # ('delivers', 'malware', ''),
@@ -371,6 +372,24 @@ _DefaultConfig = {
                     ),
                 },
             },
+        },
+
+        'risk:vuln': {
+            'default': 'vulnerability',
+            'stix': {
+                'vulnerability': {
+                    'props': {
+                        'name': 'if (:name) {return (:name)} else {return($lib.str.format("Vulnerability {v}", v=$node.value()))}',
+                        'description': 'if (:desc) { return (:desc) }',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list($lib.dict(source_name=cve, external_id=$cve)) return($list) }'
+                    },
+                    'rels': (
+
+                    ),
+                }
+            }
         },
 
         'media:news': {
