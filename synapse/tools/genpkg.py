@@ -9,9 +9,17 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
+import synapse.lib.dyndeps as s_dyndeps
 
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
+
+def getStormStr(fn):
+    if not os.path.isfile(fn):
+        raise ValueError('Storm file {} not found'.format(fn))
+
+    with open(fn, 'rb') as f:
+        return f.read().decode()
 
 def loadOpticFiles(pkgdef, path):
 
@@ -45,11 +53,29 @@ def loadPkgProto(path, opticdir=None):
         pkgdef['version'] = chopSemVer(pkgdef['version'])
 
     protodir = os.path.dirname(full)
+    pkgname = pkgdef.get('name')
 
     for mod in pkgdef.get('modules', ()):
         name = mod.get('name')
         with s_common.genfile(protodir, 'storm', 'modules', name) as fd:
             mod['storm'] = fd.read().decode()
+
+    for extmod in pkgdef.get('external_modules', ()):
+        fpth = extmod.get('file_path')
+        if fpth is not None:
+            extmod['storm'] = getStormStr(fpth)
+        else:
+            path = extmod.get('package_path')
+            extpkg = s_dyndeps.tryDynMod(extmod.get('package'))
+            extmod['storm'] = extpkg.getAssetStr(path)
+
+        extname = extmod.get('name')
+        extmod['name'] = f'{pkgname}.{extname}'
+
+        pkgdef.setdefault('modules', [])
+        pkgdef['modules'].append(extmod)
+
+    pkgdef.pop('external_modules', None)
 
     for cmd in pkgdef.get('commands', ()):
         name = cmd.get('name')
@@ -83,8 +109,7 @@ async def main(argv, outp=s_output.stdout):
     pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic)
 
     if opts.save:
-        with s_common.genfile(opts.save) as fd:
-            fd.write(json.dumps(pkgdef).encode())
+        s_common.jssave(pkgdef, opts.save)
 
     if opts.push:
 

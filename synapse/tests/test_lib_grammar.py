@@ -14,6 +14,8 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    'macro.set hehe ${ inet:ipv4 }',
+    '$q=${#foo.bar}',
     'metrics.edits.byprop inet:fqdn:domain --newv $lib.null',
     'tee // comment',
     'inet:fqdn=newp.com\n | tee\n { inet:fqdn } // faz\n | uniq',
@@ -523,9 +525,7 @@ _Queries = [
     ''',
     ''' [(ou:org=c71cd602f73af5bed208da21012fdf54 :loc=us )]''',
     'function x(y, z) { return ($( $x - $y ) ) }',
-    'function echo(arg) { return ($arg) }',
-    'function a(arg){}',
-    'function a (arg) {return ( ) }',
+    'function echo(arg, arg2=default) { return ($arg) }',
     '$name = asdf $foo = $lib.dict() $foo.bar = asdf $foo."bar baz" = asdf $foo.$name = asdf',
     '[test:str=a] switch $node.form() { hehe: {[+#baz]} }',
     '[test:str=a] switch $woot { hehe: {[+#baz]} }',
@@ -575,6 +575,8 @@ _Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
+    'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]], CmdOper: [Const: uniq, Const: ()]]',
@@ -1034,9 +1036,7 @@ _ParseResults = [
     'Query: [ForLoop: [Const: iterkey, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], SubQuery: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: bar key]], VarValue: [Const: biz key]], VarValue: [Const: iterkey]]]]]]]',
     'Query: [EditParens: [EditNodeAdd: [FormName: [Const: ou:org], Const: =, Const: c71cd602f73af5bed208da21012fdf54], EditPropSet: [RelProp: [Const: loc], Const: =, Const: us]]]',
     'Query: [Function: [Const: x, FuncArgs: [Const: y, Const: z], Query: [Return: [DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, VarValue: [Const: y]]]]]]]',
-    'Query: [Function: [Const: echo, FuncArgs: [Const: arg], Query: [Return: [VarValue: [Const: arg]]]]]',
-    'Query: [Function: [Const: a, FuncArgs: [Const: arg], Query: []]]',
-    'Query: [Function: [Const: a, FuncArgs: [Const: arg], Query: [Return: []]]]',
+    'Query: [Function: [Const: echo, FuncArgs: [Const: arg, CallKwarg: [Const: arg2, Const: default]], Query: [Return: [VarValue: [Const: arg]]]]]',
     'Query: [SetVarOper: [Const: name, Const: asdf], SetVarOper: [Const: foo, FuncCall: [VarDeref: [VarValue: [Const: lib], Const: dict], CallArgs: [], CallKwargs: []]], SetItemOper: [VarValue: [Const: foo], Const: bar, Const: asdf], SetItemOper: [VarValue: [Const: foo], Const: bar baz, Const: asdf], SetItemOper: [VarValue: [Const: foo], VarValue: [Const: name], Const: asdf]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: a], SwitchCase: [FuncCall: [VarDeref: [VarValue: [Const: node], Const: form], CallArgs: [], CallKwargs: []], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: a], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]]]]',
@@ -1109,6 +1109,10 @@ class GrammarTest(s_t_utils.SynTest):
 
     def test_syntax_error(self):
         query = 'test:str )'
+        parser = s_parser.Parser(query)
+        self.raises(s_exc.BadSyntax, parser.query)
+
+        query = 'test:str {'
         parser = s_parser.Parser(query)
         self.raises(s_exc.BadSyntax, parser.query)
 

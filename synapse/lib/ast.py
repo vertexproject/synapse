@@ -37,6 +37,7 @@ class AstNode:
     '''
     def __init__(self, kids=()):
         self.kids = []
+        self.hasast = {}
         [self.addKid(k) for k in kids]
 
     def repr(self):
@@ -90,7 +91,6 @@ class AstNode:
                 yield item
 
     def init(self, core):
-        self.core = core
         [k.init(core) for k in self.kids]
         self.prepare()
 
@@ -101,16 +101,27 @@ class AstNode:
         pass
 
     def hasAstClass(self, clss):
+        hasast = self.hasast.get(clss)
+        if hasast is not None:
+            return hasast
+
+        retn = False
 
         for kid in self.kids:
 
             if isinstance(kid, clss):
-                return True
+                retn = True
+                break
+
+            if isinstance(kid, (EditPropSet, Function, CmdOper)):
+                continue
 
             if kid.hasAstClass(clss):
-                return True
+                retn = True
+                break
 
-        return False
+        self.hasast[clss] = retn
+        return retn
 
     def optimize(self):
         [k.optimize() for k in self.kids]
@@ -207,17 +218,13 @@ class Lookup(Query):
 
             for kid in self.kids[0]:
                 tokn = await kid.compute(runt, None)
-                for form, valu in s_scrape.scrape(tokn):
-                    # restrict to only full matches
-                    if valu != tokn:
-                        continue
-
+                for form, valu in s_scrape.scrape(tokn, first=True):
                     if self.autoadd:
-                        node = await runt.snap.addNode(form, tokn)
+                        node = await runt.snap.addNode(form, valu)
                         yield node, runt.initPath(node)
 
                     else:
-                        norm, info = runt.model.form(form).type.norm(tokn)
+                        norm, info = runt.model.form(form).type.norm(valu)
                         node = await runt.snap.getNodeByNdef((form, norm))
                         if node is not None:
                             yield node, runt.initPath(node)
@@ -432,6 +439,7 @@ class SubQuery(Oper):
     def __init__(self, kids=()):
         Oper.__init__(self, kids)
         self.hasyield = False
+        self.hasretn = self.hasAstClass(Return)
 
     async def run(self, runt, genr):
 
@@ -458,19 +466,49 @@ class SubQuery(Oper):
         async for item in self.kids[0].run(runt, genr):
             yield item
 
-    async def compute(self, runt, path):
-        # not technically a prim, but we can produce an array of primary prop vals
-        subvals = []
+    async def _compute(self, runt, limit):
+        retn = []
+
         async with runt.getSubRuntime(self.kids[0]) as runt:
             async for valunode, valupath in runt.execute():
 
-                subvals.append(valunode.ndef[1])
+                retn.append(valunode.ndef[1])
 
-                if len(subvals) >= 128:
-                    mesg = 'Cannot use subquery assignment for >128 items.'
+                if len(retn) > limit:
+                    mesg = f'Subquery used as a value yielded too many (>{limit}) nodes'
                     raise s_exc.BadTypeValu(mesg=mesg)
 
-        return subvals
+        return retn
+
+    async def compute(self, runt, path):
+        '''
+        Use subquery as a value.  It is error if the subquery used in this way doesn't yield exactly one node or has a
+        return statement.
+
+        Its value is the primary property of the node yielded, or the returned value.
+        '''
+        try:
+            retn = await self._compute(runt, 1)
+
+        except s_stormctrl.StormReturn as e:
+            # a subquery assignment with a return; just use the returned value
+            return e.item
+
+        if retn == []:
+            return None
+
+        return retn[0]
+
+    async def compute_array(self, runt, path):
+        '''
+        Use subquery as an array.
+        '''
+        try:
+            return await self._compute(runt, 128)
+        except s_stormctrl.StormReturn as e:
+            # a subquery assignment with a return; just use the returned value
+            return e.item
+
 
 class InitBlock(AstNode):
     '''
@@ -562,6 +600,11 @@ class ForLoop(Oper):
 
             # TODO: remove when storm is all objects
             valu = await self.kids[1].compute(runt, path)
+
+            if isinstance(valu, s_stormtypes.Prim):
+                # returns an async genr instance...
+                valu = valu.iter()
+
             if isinstance(valu, dict):
                 valu = list(valu.items())
 
@@ -611,6 +654,11 @@ class ForLoop(Oper):
         if node is None and self.kids[1].isRuntSafe(runt):
 
             valu = await self.kids[1].compute(runt, None)
+
+            if isinstance(valu, s_stormtypes.Prim):
+                # returns an async genr instance...
+                valu = valu.iter()
+
             if isinstance(valu, dict):
                 valu = list(valu.items())
 
@@ -848,6 +896,8 @@ class VarListSetOper(Oper):
         async for node, path in genr:
 
             item = await vkid.compute(runt, path)
+            item = [i async for i in s_stormtypes.toiter(item)]
+
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
@@ -861,6 +911,8 @@ class VarListSetOper(Oper):
         if vkid.isRuntSafe(runt):
 
             item = await vkid.compute(runt, None)
+            item = [i async for i in s_stormtypes.toiter(item)]
+
             if len(item) < len(names):
                 mesg = 'Attempting to assign more items then we have variable to assign to.'
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
@@ -1270,10 +1322,13 @@ class LiftProp(LiftOper):
 class LiftPropBy(LiftOper):
 
     async def lift(self, runt, path):
-
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
-        valu = await self.kids[2].compute(runt, path)
+        valukid = self.kids[2]
+
+        valu = await valukid.compute(runt, path)
+        if not isinstance(valu, s_node.Node):
+            valu = await s_stormtypes.toprim(valu, path)
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2337,11 +2392,12 @@ class TagValuCond(Cond):
 
 class RelPropCond(Cond):
     '''
-    :foo:bar <cmpr> <value>
+    (:foo:bar or .univ) <cmpr> <value>
     '''
     async def getCondEval(self, runt):
 
         cmpr = await self.kids[1].compute(runt, None)
+        valukid = self.kids[2]
 
         async def cond(node, path):
 
@@ -2349,12 +2405,15 @@ class RelPropCond(Cond):
             if valu is None:
                 return False
 
-            xval = await self.kids[2].compute(runt, path)
+            xval = await valukid.compute(runt, path)
+            if not isinstance(xval, s_node.Node):
+                xval = await s_stormtypes.toprim(xval, path)
+
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
                 raise s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.name)
-            func = ctor(xval)
 
+            func = ctor(xval)
             return func(valu)
 
         return cond
@@ -2594,8 +2653,7 @@ class FuncCall(Value):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         argv = await self.kids[1].compute(runt, path)
-        kwlist = await self.kids[2].compute(runt, path)
-        kwargs = dict(kwlist)
+        kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
             return await s_coro.ornot(func, *argv, **kwargs)
@@ -2761,7 +2819,8 @@ class EmbedQuery(Const):
         pass
 
     def getRuntVars(self, runt):
-        if 0: yield
+        if 0:
+            yield
 
     async def compute(self, runt, path):
 
@@ -2973,6 +3032,8 @@ class EditPropSet(Edit):
 
         isadd = oper in ('+=', '?+=')
         issub = oper in ('-=', '?-=')
+        rval = self.kids[2]
+        expand = True
 
         async for node, path in genr:
 
@@ -2986,35 +3047,21 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
-            expand = True
             isarray = isinstance(prop.type, s_types.Array)
 
             try:
+                if isarray and isinstance(rval, SubQuery):
+                    valu = await rval.compute_array(runt, path)
+                    expand = False
 
-                valu = await self.kids[2].compute(runt, path)
+                else:
+                    valu = await rval.compute(runt, path)
+
                 valu = await s_stormtypes.toprim(valu)
-
-                # Setting a value to a subquery means assigning the value of
-                # the primary property (for a single value) or array of values
-                if isinstance(self.kids[2], SubQuery):
-
-                    if not isarray:
-
-                        if len(valu) != 1:
-                            if len(valu) == 0:
-                                mesg = "Subquery assignment didn't return any nodes."
-                            else:
-                                mesg = 'Subquery assignment returned more than 1 node.'
-                            raise s_exc.BadTypeValu(mesg=mesg)
-
-                        valu = valu[0]
-
-                    else:
-                        expand = False
 
                 if isadd or issub:
 
-                    if not isinstance(prop.type, s_types.Array):
+                    if not isarray:
                         mesg = f'Property set using ({oper}) is only valid on arrays.'
                         raise s_exc.StormRuntimeError(mesg)
 
@@ -3032,7 +3079,7 @@ class EditPropSet(Edit):
                         arry.extend(valu)
 
                     else:
-
+                        assert issub
                         # we cant remove something we cant norm...
                         # but that also means it can't be in the array so...
                         for v in valu:
@@ -3208,6 +3255,10 @@ class EditEdgeAdd(Edit):
 
         async for node, path in genr:
 
+            if node.form.isrunt:
+                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                raise s_exc.IsRuntForm(mesg=mesg, form=node.form.full)
+
             iden = node.iden()
             verb = await tostr(await self.kids[0].compute(runt, path))
 
@@ -3216,6 +3267,10 @@ class EditEdgeAdd(Edit):
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for subn, subp in subr.execute():
+                    if subn.form.isrunt:
+                        mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                        raise s_exc.IsRuntForm(mesg=mesg, form=subn.form.full)
+
                     if self.n2:
                         await subn.addEdge(verb, iden)
                     else:
@@ -3496,9 +3551,23 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
 class FuncArgs(AstNode):
+    '''
+    Represents the function arguments in a function definition
+    '''
 
     async def compute(self, runt, path):
-        return [await k.compute(runt, path) for k in self.kids]
+        retn = []
+
+        for kid in self.kids:
+            valu = await kid.compute(runt, path)
+            if isinstance(kid, CallKwarg):
+                if s_stormtypes.ismutable(valu[1]):
+                    raise s_exc.StormRuntimeError(mesg='Mutable default parameter value not allowed')
+            else:
+                valu = (valu, s_common.novalu)
+            retn.append(valu)
+
+        return retn
 
 class Function(AstNode):
     '''
@@ -3527,14 +3596,29 @@ class Function(AstNode):
         return True
 
     async def run(self, runt, genr):
+        argskid = self.kids[1]
+        if not argskid.isRuntSafe(runt):
+            raise s_exc.StormRuntimeError(mesg='Non-runtsafe default parameter value not allowed')
 
-        async def realfunc(*args, **kwargs):
-            return await self.callfunc(runt, args, kwargs)
+        async def once():
+            argdefs = await argskid.compute(runt, None)
 
-        runt.setVar(self.name, realfunc)
+            async def realfunc(*args, **kwargs):
+                return await self.callfunc(runt, argdefs, args, kwargs)
+
+            runt.setVar(self.name, realfunc)
+
+        count = 0
 
         async for node, path in genr:
+            count += 1
+            if count == 1:
+                await once()
+
             yield node, path
+
+        if count == 0:
+            await once()
 
     def getRuntVars(self, runt):
         yield (self.kids[0].value(), True)
@@ -3543,44 +3627,52 @@ class Function(AstNode):
         # var scope validation occurs in the sub-runtime
         pass
 
-    async def callfunc(self, runt, args, kwargs):
+    async def callfunc(self, runt, argdefs, args, kwargs):
         '''
         Execute a function call using the given runtime.
 
         This function may return a value / generator / async generator
         '''
-        argdefs = await self.kids[1].compute(runt, None)
+        mergargs = {}
+        posnames = set()  # Positional argument names
 
-        # join args and kwargs together...
-        real_args = {}
-        for name, arg in s_common.iterzip(argdefs, args, fillvalue=s_common.novalu):
-            if arg is s_common.novalu:
-                break
-            if name is s_common.novalu:
-                raise s_exc.StormRuntimeError(mesg='Extra positional arguments provided',
-                                              name=self.name, valu=arg)
-            real_args[name] = arg
+        argcount = len(args) + len(kwargs)
+        if argcount > len(argdefs):
+            mesg = f'{self.name}() takes {len(argdefs)} arguments but {argcount} were provided'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        # Fill in the positional arguments
+        for pos, argv in enumerate(args):
+            name = argdefs[pos][0]
+            mergargs[name] = argv
+            posnames.add(name)
+
+        # Merge in the rest from kwargs or the default values set at function definition
+        for name, defv in argdefs[len(args):]:
+            valu = kwargs.pop(name, s_common.novalu)
+            if valu is s_common.novalu:
+                if defv is s_common.novalu:
+                    mesg = f'{self.name}() missing required argument {name}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+                valu = defv
+
+            mergargs[name] = valu
 
         if kwargs:
-            for name in argdefs:
-                if name in real_args:
-                    continue
-                valu = kwargs.pop(name, s_common.novalu)
-                if valu is s_common.novalu:
-                    continue
-                real_args[name] = valu
+            # Repeated kwargs are caught at parse time, so query either repeated a positional parameter, or
+            # used a kwarg not defined.
+            kwkeys = list(kwargs.keys())
+            if kwkeys[0] in posnames:
+                mesg = f'{self.name}() got multiple values for parameter {kwkeys[0]}'
+                raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if kwargs:
-            raise s_exc.StormRuntimeError(mesg='Unused kwargs provided',
-                                          name=self.name, kwargs=list(kwargs.keys()))
+            plural = 's' if len(kwargs) > 1 else ''
+            mesg = f'{self.name}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
+            raise s_exc.StormRuntimeError(mesg=mesg)
 
-        if len(real_args) != len(argdefs):
-            raise s_exc.StormRuntimeError(mesg='Bad call argument length',
-                                          name=self.name, args=real_args,
-                                          expected=len(argdefs), got=len(real_args)
-                                          )
+        assert len(mergargs) == len(argdefs)
 
-        opts = {'vars': real_args}
+        opts = {'vars': mergargs}
         async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
             # inform the sub runtime to use function scope rules

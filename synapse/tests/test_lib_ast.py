@@ -47,6 +47,14 @@ foo_stormpkg = {
             '''
         },
         {
+            'name': 'testdefault',
+            'storm': '''
+            function doit(arg1, arg2, arg3=foo, arg4=(42)) {
+                return(($arg1, $arg2, $arg3, $arg4))
+            }
+            '''
+        },
+        {
             'name': 'importnest',
             'storm': '''
             $foobar = $(0)
@@ -154,18 +162,25 @@ class AstTest(s_test.SynTest):
                 inet:fqdn=foo.bar.com
                 inet:email=visi@vertex.link
                 inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
+                inet:server=tcp://1.2.3.4:123
             ]''')
             ndefs = [n.ndef for n in nodes]
-            self.len(4, ndefs)
+            self.len(5, ndefs)
 
             opts = {'mode': 'lookup'}
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123'
             nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz | [ +#hehe ]'
+            # check lookup refang
+            q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123'
             nodes = await core.nodes(q, opts=opts)
-            self.len(4, nodes)
+            self.len(5, nodes)
+            self.eq(ndefs, [n.ndef for n in nodes])
+
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 | [ +#hehe ]'
+            nodes = await core.nodes(q, opts=opts)
+            self.len(5, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
             self.true(all(n.tags.get('hehe') is not None for n in nodes))
 
@@ -605,6 +620,11 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
+            nodes = await core.nodes('test:arrayprop +:ints=$lib.list(1,2,3)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop:ints=$lib.list(1,2,3)')
+            self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('test:arrayprop +:newp*[^=asdf]')
@@ -717,10 +737,109 @@ class AstTest(s_test.SynTest):
             self.len(0, nodes)
 
     async def test_ast_embed_compute(self):
-        # currently a simple smoke test for the EmbedQuery.compute method
+        # =${...} assigns a query object to a variable
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:int=10 test:int=20 ]  $q=${#foo.bar}')
             self.len(2, nodes)
+
+    async def test_ast_subquery_value(self):
+        '''
+        Test subqueries as rvals in property sets, filters, lifts
+        '''
+        async with self.getTestCore() as core:
+
+            # test property assignment with subquery value
+            await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
+            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            nodes = await core.nodes('[ou:campaign=* :goal={[ou:goal=* :name="paperclip manufacturing" ]} ]')
+            self.len(1, nodes)
+            # Make sure we're not accidentally adding extra nodes
+            nodes = await core.nodes('ou:goal')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('name'))
+
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('org'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('industries'))
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('industries'))
+
+            await core.nodes('[ it:dev:str=a it:dev:str=b ]')
+            q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ($lib.list(a,b,c,d))} ]')
+            self.len(1, nodes)
+            self.len(4, nodes[0].get('strs'))
+
+            # Running the query again ensures that the ast hasattr memoizing works
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+
+            await core.nodes('ou:org:alias=visiacme [ -:name]')
+            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
+            self.notin('name', nodes[0].props)
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
+            self.notin('name', nodes[0].props)
+
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
+            self.notin('name', nodes[0].props)
+
+            # Filter by Subquery value
+
+            await core.nodes('[it:dev:str=visiacme]')
+            nodes = await core.nodes('ou:org +:alias={it:dev:str=visiacme}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org +:alias={return(visiacme)}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop +:strs={return ((a,b,c,d))}')
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('ou:org +:alias={it:dev:str}')
+
+            # Lift by Subquery value
+
+            nodes = await core.nodes('ou:org:alias={it:dev:str=visiacme}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('test:arrayprop:strs={return ((a,b,c,d))}')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:org:alias={return(visiacme)}')
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                nodes = await core.nodes('ou:org:alias={it:dev:str}')
 
     async def test_lib_ast_module(self):
 
@@ -1150,9 +1269,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('expected'), 3)
-            self.eq(erfo[1][1].get('got'), 2)
+            self.isin('missing required argument arg3', erfo[1][1].get('mesg'))
 
             # Too few args are problematic - kwargs edition
             q = '''
@@ -1162,48 +1279,116 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('expected'), 3)
-            self.eq(erfo[1][1].get('got'), 2)
+            self.isin('missing required argument arg3', erfo[1][1].get('mesg'))
 
-            # unused kwargs are fatal
+            # too many arguments
             q = '''
             $test=$lib.import(test)
             $haha=$test.pprint('hello', 'world', arg3='world', arg4='newp')
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('kwargs'), ['arg4'])
+            self.isin('takes 3 arguments', erfo[1][1].get('mesg'))
 
-            # kwargs which duplicate a positional arg is fatal
+            # Bad: unused kwargs
             q = '''
-            $test=$lib.import(test)
-            $haha=$test.pprint('hello', 'world', arg1='hello')
+            $test=$lib.import(testdefault)
+            $haha=$test.doit('hello', arg2='world', arg99='newp')
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.isin('got unexpected keyword argument: arg99', erfo[1][1].get('mesg'))
+
+            # Bad: kwargs which duplicate a positional arg
+            q = '''
+            $test=$lib.import(testdefault)
+            $haha=$test.doit('hello', 'world', arg1='hello')
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('kwargs'), ['arg1'])
+            self.isin('got multiple values for parameter', erfo[1][1].get('mesg'))
 
-            # Too many args are fatal too
+            # Repeated kwargs are fatal
             q = '''
             $test=$lib.import(test)
-            $haha=$test.pprint('hello', 'world', 'goodbye', 'newp')
+            $haha=$test.pprint(arg3='goodbye', arg1='hello', arg1='foo', arg2='world')
             '''
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
-            self.eq(erfo[1][0], 'StormRuntimeError')
-            self.eq(erfo[1][1].get('name'), 'pprint')
-            self.eq(erfo[1][1].get('valu'), 'newp')
+            self.eq(erfo[1][0], 'BadSyntax')
 
-            # test isRuntSafe on ast function
-            self.len(0, await core.nodes('init { function x() { return((0)) } }'))
+            # Positional argument after kwargs disallowed
+            q = '''
+            $test=$lib.import(test)
+            $haha=$test.pprint(arg3='goodbye', arg1='hello', arg1='foo', 'world')
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Default parameter values work
+            q = '''
+            $test=$lib.import(testdefault)
+            return ($test.doit('foo', arg3='goodbye', arg2='world'))
+            '''
+            retn = await core.callStorm(q)
+            self.eq(('foo', 'world', 'goodbye', 42), retn)
+
+            # Can't have positional parameter after default parameter in function definition
+            q = 'function badargs(def=foo, bar) {}'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't have positional argument after kwarg argument in function *call*
+            q = '''
+            $test=$lib.import(testdefault)
+            return ($test.doit('foo', arg3='goodbye', 'world'))
+            '''
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't have same positional parameter twice in function definition
+            q = 'function badargs(x=42, x=43) {}'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't have same kwarg parameter twice in function definition
+            q = 'function badargs(x=foo, x=foo) {}'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'BadSyntax')
+
+            # Can't use a non-runtsafe variable as a default
+            q = '[test:str=foo] function badargs(x=foo, y=$node) {}'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
+            # test variables as parameter defaults
+            self.eq(42, await core.callStorm('$val=(42) function x(parm1=$val) { return($parm1) } return($x())'))
 
             # force sleep in iter with ret
             q = 'function x() { [ inet:asn=2 ] if ($node.value() = (3)) { return((3)) } } $x()'
+            self.len(0, await core.nodes(q))
+
+            # test Function.isRuntSafe
+            self.len(0, await core.nodes('init { function x() { return((0)) } }'))
+
+            # Can't use a mutable variable as a default
+            q = '$var=$lib.list(1,2,3) function badargs(x=foo, y=$var) {} $badargs()'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'StormRuntimeError')
+
+            # libs are not mutable:  OK to have as default parameter
+            self.len(0, await core.nodes('$val=$lib function x(parm1=$val) { return($parm1) }'))
+
+            # bytes are OK
+            q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
     async def test_ast_function_scope(self):

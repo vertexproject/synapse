@@ -29,8 +29,10 @@ DAYSECS = 24 * HOURSECS
 class Newp:
     def __bool__(self):
         raise s_exc.SynErr(mesg='newp')
+
     def __int__(self):
         raise s_exc.SynErr(mesg='newp')
+
     def __str__(self):
         raise s_exc.SynErr(mesg='newp')
 
@@ -299,7 +301,6 @@ class StormTypesTest(s_test.SynTest):
             async def getseqn(genr, name, key):
                 seqn = []
                 async for mtyp, info in genr:
-                    print(mtyp, info)
                     if mtyp != 'storm:fire':
                         continue
                     self.eq(info.get('type'), name)
@@ -334,7 +335,8 @@ class StormTypesTest(s_test.SynTest):
             iden = None
 
             async def runLongStorm():
-                async for mesg in core.storm(f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'):
+                q = f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'
+                async for mesg in core.storm(q):
                     nonlocal iden
                     if mesg[0] == 'init':
                         iden = mesg[1]['task']
@@ -1803,6 +1805,16 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, mesgs)
             self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
 
+            # Filter by var as node
+            q = '[ps:person=*] $person = $node { [test:edge=($person, $person)] } -ps:person test:edge +:n1=$person'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+
+            # Lift by var as node
+            q = '[ps:person=*] $person = $node { [test:ndef=$person] }  test:ndef=$person'
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
     async def test_feed(self):
 
         async with self.getTestCore() as core:
@@ -1886,6 +1898,10 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCoreAndProxy() as (core, prox):
 
             mainlayr = core.view.layers[0].iden
+
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+            forklayr = await core.callStorm('return($lib.layer.get().iden)', opts={'view': forkview})
+            self.eq(forklayr, core.views.get(forkview).layers[0].iden)
 
             q = '$lib.print($lib.layer.get().iden)'
             mesgs = await core.stormlist(q)
@@ -3190,6 +3206,21 @@ class StormTypesTest(s_test.SynTest):
                 $lib.auth.users.byname(visi).revoke($role.iden)
             ''')
 
+            self.false(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            # user roles can be set in bulk
+            roles = await core.callStorm('''$roles=$lib.list()
+            $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
+            $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
+            $lib.auth.users.byname(visi).setRoles($roles)
+            return ($lib.auth.users.byname(visi).roles())
+            ''')
+            self.len(2, roles)
+            self.eq(roles[0].get('name'), 'admins')
+            self.eq(roles[1].get('name'), 'all')
+
             q = 'for $user in $lib.auth.users.list() { if $($user.get(email) = "visi@vertex.link") { return($user) } }'
             self.nn(await core.callStorm(q))
             q = 'for $role in $lib.auth.roles.list() { if $( $role.name = "all") { return($role) } }'
@@ -3568,3 +3599,117 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+    async def test_exit(self):
+        async with self.getTestCore() as core:
+            q = '[test:str=beep.sys] $lib.exit()'
+            msgs = await core.stormlist(q)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+
+            q = '[test:str=beep.sys] $lib.exit(foo)'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('foo', msgs)
+
+            # Local callstorm behavior keeps the local exception
+            import synapse.lib.stormctrl as s_ctrl
+            with self.raises(s_ctrl.StormExit) as cm:
+                q = '[test:str=beep.sys] $lib.exit(foo)'
+                _ = await core.callStorm(q)
+            self.eq(cm.exception.args, ('foo',))
+
+            # Remote tests
+            async with core.getLocalProxy() as prox:
+                # No message is emitted
+                q = '[test:str=beep.sys] $lib.exit()'
+                msgs = await prox.storm(q).list()
+                self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+                # A exception is raised but no message; this is
+                # treated as a generic SynErr by the telepath client.
+                q = '[test:str=beep.sys] $lib.exit()'
+                with self.raises(s_exc.SynErr) as cm:
+                    _ = await prox.callStorm(q)
+                self.eq(cm.exception.get('mesg'), '')
+                self.eq(cm.exception.get('errx'), 'StormExit')
+
+                # A warn is emitted
+                q = '[test:str=beep.sys] $lib.exit(foo)'
+                msgs = await prox.storm(q).list()
+                self.stormIsInWarn('foo', msgs)
+
+                # A exception is raised with the message
+                q = '[test:str=beep.sys] $lib.exit("foo {bar}", bar=baz)'
+                with self.raises(s_exc.SynErr) as cm:
+                    _ = await prox.callStorm(q)
+                self.eq(cm.exception.get('mesg'), 'foo baz')
+                self.eq(cm.exception.get('errx'), 'StormExit')
+
+    async def test_iter(self):
+        async with self.getTestCore() as core:
+            await self.agenlen(0, s_stormtypes.toiter(None, noneok=True))
+
+            await core.nodes('[inet:ipv4=0] [inet:ipv4=1]')
+
+            # explicit test for a pattern in some stormsvcs
+            scmd = '''
+            function add() {
+                $x=$lib.set()
+                inet:ipv4
+                $x.add($node)
+                fini { return($x) }
+            }
+            $y=$lib.set() $x=$add() for $n in $x { yield $n }
+            '''
+            nodes = await core.nodes(scmd)
+            self.len(2, nodes)
+
+            # set adds
+            ret = await core.callStorm('$x=$lib.set() $y=$lib.list(1,2,3) $x.adds($y) return($x)')
+            self.eq({'1', '2', '3'}, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $y=$lib.dict(foo=1, bar=2) $x.adds($y) return($x)')
+            self.eq({('foo', '1'), ('bar', '2')}, ret)
+
+            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ipv4}) for $n in $x { yield $n.iden() }')
+            self.len(2, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $x.adds((1,2,3)) return($x)')
+            self.eq({'1', '2', '3'}, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $y=abcd $x.adds($y) return($x)')
+            self.eq({'a', 'b', 'c', 'd'}, ret)
+
+            # set rems
+            ret = await core.callStorm('$x=$lib.set(1,2,3) $y=$lib.list(1,2) $x.rems($y) return($x)')
+            self.eq({'3'}, ret)
+
+            scmd = '''
+                $x=$lib.set()
+                $y=$lib.dict(foo=1, bar=2)
+                $x.adds($y)
+                $z=$lib.dict(foo=1)
+                $x.rems($z)
+                return($x)
+            '''
+            ret = await core.callStorm(scmd)
+            self.eq({('bar', '2')}, ret)
+
+            ret = await core.callStorm('$x=$lib.set() $y=$lib.dict(foo=1, bar=2) $x.adds($y) return($x)')
+            self.eq({('foo', '1'), ('bar', '2')}, ret)
+
+            ret = await core.callStorm('$x=$lib.set(1,2,3) $x.rems((1,2)) return($x)')
+            self.eq({'3'}, ret)
+
+            ret = await core.callStorm('$x=$lib.set(a,b,c,d) $y=ab $x.rems($y) return($x)')
+            self.eq({'d', 'c'}, ret)
+
+            # str join
+            ret = await core.callStorm('$x=$lib.list(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
+            self.eq('foo-bar-baz', ret)
+
+            ret = await core.callStorm('$y=$lib.str.join("-", (foo, bar, baz)) return($y)')
+            self.eq('foo-bar-baz', ret)
+
+            ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
+            self.eq('a-b-c-d', ret)

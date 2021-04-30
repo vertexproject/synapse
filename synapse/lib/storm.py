@@ -1494,7 +1494,6 @@ class Runtime:
     def confirm(self, perms, gateiden=None):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
-
         '''
         if self.asroot:
             return
@@ -1563,6 +1562,46 @@ class Runtime:
         runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
+
+    async def storm(self, text, opts=None, genr=None):
+        '''
+        Execute a storm runtime which inherits from this storm runtime.
+        '''
+        if opts is None:
+            opts = {}
+        query = self.snap.core.getStormQuery(text)
+        async with self.getSubRuntime(query, opts=opts) as runt:
+            async for item in runt.execute(genr=genr):
+                await asyncio.sleep(0)
+                yield item
+
+    async def getOneNode(self, propname, valu, filt=None, cmpr='='):
+        '''
+        Return exactly 1 node by <prop> <cmpr> <valu>
+        '''
+        opts = {'vars': {'propname': propname, 'valu': valu}}
+
+        nodes = []
+        try:
+
+            async for node in self.snap.nodesByPropValu(propname, cmpr, valu):
+
+                await asyncio.sleep(0)
+
+                if filt is not None and not await filt(node):
+                    continue
+
+                if len(nodes) == 1:
+                    mesg = 'Ambiguous value for single node lookup: {propname}^={valu}'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+
+                nodes.append(node)
+
+            if len(nodes) == 1:
+                return nodes[0]
+
+        except s_exc.BadTypeValu:
+            return None
 
 class Parser:
 
@@ -3204,7 +3243,11 @@ class ScrapeCmd(Cmd):
                         npath = path.fork(nnode)
 
                         if refs:
-                            await node.addEdge('refs', nnode.iden())
+                            if node.form.isrunt:
+                                mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
+                                await runt.warn(mesg)
+                            else:
+                                await node.addEdge('refs', nnode.iden())
 
                         if self.opts.doyield:
                             yield nnode, npath

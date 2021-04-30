@@ -191,6 +191,11 @@ class CellAuthTest(s_t_utils.SynTest):
             await s_cellauth.main(argv, outp)
             outp.expect('revoking bar from: foo')
 
+            argv = [coreurl, 'modify', 'foo', '--setroles', 'bar', 'all']
+            r = await s_cellauth.main(argv, outp)
+            self.eq(0, r)
+            outp.expect("settings roles ['bar', 'all'] to: foo")
+
     async def test_cellauth_rules(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):

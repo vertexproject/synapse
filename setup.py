@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.31.1'
+VERSION = '2.35.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -81,15 +81,15 @@ setup(
         'pyOpenSSL>=16.2.0,<20.0.0',
         'msgpack>=1.0.2,<1.1.0',
         'xxhash>=1.4.4,<2.0.0',
-        'lmdb>=1.1.1,<1.2.0',
+        'lmdb>=1.2.1,<1.3.0',
         'tornado>=6.1.0,<7.0.0',
         'regex>=2020.5.14',
         'PyYAML>=5.4,<6.0',
         'aiohttp>=3.6.3,<4.0',
         'aiohttp-socks>=0.5.5,<0.6.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
-        'lark-parser>=0.9.0,<0.11.0',
-        'Pygments>=2.6.0,<2.7.0',
+        'lark-parser>=0.11.0,<0.12.0',
+        'Pygments>=2.7.4,<2.8.0',
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
         'stix2-validator>=2.0.4,<3.0',
@@ -98,6 +98,7 @@ setup(
     extras_require={
         'docs': [
             'nbconvert==5.6.1',
+            'jupyter-client<=6.1.12',
             'sphinx>=1.8.2,<2.0.0',
             'jupyter>=1.0.0,<2.0.0',
             'hide-code>=0.5.2,<0.5.3',
