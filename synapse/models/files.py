@@ -214,28 +214,24 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Properties common to various microsoft office file formats.',
                     'interfaces': ('file:mime:meta',),
                 }),
-                ('file:mime:meta:exif', {
+                ('file:mime:image', {
                     'props': (
                         ('desc', ('str', {}), {
-                            'doc': 'ImageDescription field extracted from Exif metadata.'}),
+                            'doc': 'MIME specific description field extracted from metadata.'}),
                         ('comment', ('str', {}), {
-                            'doc': 'UserComment field extracted from Exif metadata.'}),
+                            'doc': 'MIME specific comment field extracted from metadata.'}),
                         ('created', ('time', {}), {
-                            'doc': 'DateTime tag extracted from Exif metadata.'}),
+                            'doc': 'MIME specific creation timestamp extracted from metadata.'}),
                         ('imageid', ('str', {}), {
-                            'doc': 'ImageUniqueID tag extracted from Exif metadata.'}),
-                        ('version', ('str', {}), {
-                            'doc': 'ExifVersion tag extracted from Exif metadata.'}),
-                        ('artist', ('ps:name', {}), {
-                            'doc': 'Artist tag extracted from Exif metadata.'}),
-                        ('gpstime', ('time', {}), {
-                            'doc': 'The GPSTimeStamp information from the GPSInfoIFD metadata.'}),
+                            'doc': 'MIME specific unique identifier extracted from metadata.'}),
+                        ('author', ('ps:contact', {}), {
+                            'doc': 'MIME specific contact information extracted from metadata.'}),
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The lat/long information from the GPSInfoIFD metadata.'}),
+                            'doc': 'MIME specific lat/long information extracted from metadata.'}),
                         ('altitude', ('geo:altitude', {}), {
-                            'doc': 'The GPSAltitude information from the GPSInfoIFD metadata.'}),
+                            'doc': 'MIME specific altitude information extracted from metadata.'}),
                     ),
-                    'doc': 'Properties common to Exchangable Image File Format.',
+                    'doc': 'Properties common to image file formats.',
                     'interfaces': ('file:mime:meta',),
                 }),
             ),
@@ -281,22 +277,22 @@ class FileModule(s_module.CoreModule):
 
                 ('file:mime:jpg', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .jpg file.',
-                    'interfaces': ('file:mime:meta:exif',),
+                    'interfaces': ('file:mime:image',),
                 }),
 
                 ('file:mime:tif', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .tif file.',
-                    'interfaces': ('file:mime:meta:exif',),
+                    'interfaces': ('file:mime:image',),
                 }),
 
                 ('file:mime:gif', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .gif file.',
-                    'interfaces': ('file:mime:meta:exif',),
+                    'interfaces': ('file:mime:image',),
                 }),
 
                 ('file:mime:png', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .png file.',
-                    'interfaces': ('file:mime:meta:exif',),
+                    'interfaces': ('file:mime:image',),
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
