@@ -58,6 +58,7 @@ import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 
 logger = logging.getLogger(__name__)
+stormlogger = logging.getLogger('synapse.storm')
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -4211,7 +4212,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
+            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
