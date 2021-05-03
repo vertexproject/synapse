@@ -1492,7 +1492,7 @@ class Layer(s_nexus.Pusher):
                 except OSError:  # pragma: no cover
                     pass
                 else:
-                    totalsize += stat.st_size
+                    totalsize += stat.st_blocks * 512
         return totalsize
 
     @s_nexus.Pusher.onPushAuto('layer:set')
