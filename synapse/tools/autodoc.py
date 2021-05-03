@@ -771,7 +771,7 @@ def makeargparser():
                           help='Generate RST docs for a stormssvc implemented by a given Cell')
 
     doc_type.add_argument('--doc-stormpkg', default=None,
-                          help='Generate RST docs for a storm package in the current directory')
+                          help='Generate RST docs for the specified Storm package YAML file.')
 
     doc_type.add_argument('--doc-stormtypes', default=None, action='store_true',
                           help='Generate RST docs for StormTypes')
