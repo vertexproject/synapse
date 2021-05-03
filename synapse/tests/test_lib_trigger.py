@@ -364,6 +364,92 @@ class TrigTest(s_t_utils.SynTest):
                 await newb.addRule((True, ('trigger', 'del')))
                 await aspin(proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}}))
 
+    async def test_trigger_fork_perms(self):
+        '''
+        A trigger executes as the owner of the trigger, as if the trigger is reading and writing from/to the view/layer
+        the trigger was inherited from.
+        '''
+        async with self.getTestCore() as core:
+
+            fred = await core.auth.addUser('fred')
+            ging = await core.auth.addUser('ginger')
+            origlayr = core.getLayer().iden
+            await fred.addRule((True, ('trigger', 'add')))
+            await ging.addRule((True, ('view', 'add')))
+
+            async with core.getLocalProxy(user='ginger') as proxy:
+                # Fork the main view and get the new view and write layer
+                q = '''
+                    $view=$lib.view.get().fork()
+                    return(($view.iden, $view.layers.index(0).iden))
+                '''
+                forkview, forklayr = await proxy.callStorm(q)
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
+                tdefopts = {
+                    'vars': {'tdef': tdef}
+                }
+                forkopts = {
+                    'view': forkview
+                }
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                # Can't add a trigger to a view you don't have read access to
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.callStorm('return ($lib.trigger.add($tdef))', opts={**tdefopts, **forkopts})
+
+                # Can add a trigger to a view you have read access to (the default view)
+                await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+
+                # Fred doesn't yet have access to write to the base layer
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.count('[inet:ipv4 = 1]')
+
+            async with core.getLocalProxy(user='ginger') as proxy:
+                # Ginger doesn't have base layer write permission
+                with self.raises(s_exc.AuthDeny):
+                    await proxy.count('[inet:ipv4 = 1]')
+
+                # Ginger has forked layer write permission
+                self.eq(1, await proxy.count('[it:dev:int = 1]', opts=forkopts))
+
+                # Trigger execution fails to write if trigger owner doesn't have write access to *original* layer
+                self.eq(0, await proxy.count('[inet:ipv4 = 2] +#foo', opts=forkopts))
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                await fred.addRule((True, ('node', 'add')), gateiden=origlayr)
+                await fred.addRule((True, ('node', 'tag', 'add')), gateiden=origlayr)
+                # Fred's trigger works on the base layer now
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning('HERE-' * 10)
+                self.eq(1, await proxy.count('[inet:ipv4 = 2] +#foo'))
+
+            async with core.getLocalProxy(user='ginger') as proxy:
+                # Trigger execution works if trigger owner has sufficient perms on the trigger's view's write layer
+                self.eq(1, await proxy.count('[inet:ipv4 = 3] +#foo', opts=forkopts))
+
+            # The same applies to forks of forks
+            # FIXME
+
+            # Fred's trigger can read from a fork's view if he can read from the view his trigger is inherited from
+            self.true(await fred.delRule((False, ('node', 'add')), gateiden=origlayr))
+            self.true(await fred.delRule((False, ('node', 'tag', 'add')), gateiden=origlayr))
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                q = '$lib.print("ndef is {ndef}", ndef=$node.ndef())'
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': q}
+                tdefopts = {
+                    'vars': {'tdef': tdef}
+                }
+                # Can add a trigger to a view you have read access to (the default view)
+                await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+
+            # If the trigger owner loses read perms on the trigger's view, it doesn't fire.
+            # Regression test:  it also doesn't stop the pipeline
+            await fred.addRule((False, ('view', 'read')), gateiden=core.view.iden)
+            async with core.getLocalProxy(user='ginger') as proxy:
+                self.eq(0, await proxy.count('[inet:ipv4 = 99] +#foo', opts=forkopts))
+
     async def test_trigger_runts(self):
 
         async with self.getTestCore() as core:
