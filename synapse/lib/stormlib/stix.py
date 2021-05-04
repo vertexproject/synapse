@@ -49,7 +49,7 @@ _DefaultConfig = {
                         ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
                         ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
                         ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
-                        ('targets', 'vulnerabilty', '-> risk:attack -> it:prod:softver -> risk:hasvuln -> risk:vuln'),
+                        ('targets', 'vulnerabilty', '-> risk:attack :used:vuln -> risk:vuln'),
                     ),
                 },
             },
@@ -88,7 +88,7 @@ _DefaultConfig = {
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        ('targets', 'vulnerabilty', '-> ou:campaign -> risk:attack -> it:prod:softver -> risk:hasvuln -> risk:vuln'),
+                        ('targets', 'vulnerabilty', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -360,7 +360,7 @@ _DefaultConfig = {
                     },
                     'rels': (
                         # TODO
-                        ('targets', 'vulnerability', '-> risk:hasvuln -> risk:vuln'),
+                        # ('has', 'vulnerability', ''),
 
                         #  depends on tag conventions
                         # ('delivers', 'malware', ''),
