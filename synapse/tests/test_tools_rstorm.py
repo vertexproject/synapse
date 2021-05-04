@@ -1,59 +1,21 @@
 import synapse.exc as s_exc
-import synapse.tests.utils as s_test
 
 import synapse.common as s_common
+
 import synapse.tools.rstorm as s_rstorm
 
-rst_in = '''
-HI
-##
-.. storm-cortex:: synapse.tools.rstorm.cortex
-.. storm-cortex:: synapse.tools.rstorm.cortex
-.. storm-opts:: {"vars": {"foo": 10, "bar": "baz"}}
-.. storm-pre:: [ inet:asn=$foo ]
-.. storm:: $lib.print($bar) $lib.warn(omgomgomg)
-.. storm-expect:: baz
-'''
+import synapse.tests.utils as s_test
+import synapse.tests.test_lib_rstorm as s_test_rstorm
 
-rst_out = '''
-HI
-##
-::
+class RStormToolTest(s_test.SynTest):
 
-    > $lib.print($bar) $lib.warn(omgomgomg)
-    baz
-    WARNING: omgomgomg
-
-'''
-
-boom1 = '''
-
-.. storm:: $lib.print(newp)
-
-'''
-
-boom2 = '''
-
-.. storm-pre:: $lib.print(newp)
-
-'''
-
-boom3 = '''
-
-.. storm-cortex:: synapse.tools.rstorm.cortex
-.. storm:: $x = (10 + "foo")
-
-'''
-
-class RStormTest(s_test.SynTest):
-
-    async def test_rstorm(self):
+    async def test_tool_rstorm(self):
 
         with self.getTestDir() as dirn:
 
             path = s_common.genpath(dirn, 'test.rst')
             with s_common.genfile(path) as fd:
-                fd.write(rst_in.encode())
+                fd.write(s_test_rstorm.rst_in.encode())
 
             outpath = s_common.genpath(dirn, 'out.rst')
 
@@ -62,28 +24,43 @@ class RStormTest(s_test.SynTest):
             with s_common.genfile(outpath) as fd:
                 text = fd.read().decode()
 
-            self.eq(text, rst_out)
+            self.eq(text, s_test_rstorm.rst_out)
+
+            # debug output
+            path = s_common.genpath(dirn, 'test2.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(s_test_rstorm.rst_in_debug.encode())
+
+            outpath = s_common.genpath(dirn, 'out2.rst')
+
+            await s_rstorm.main(('--save', outpath, path))
+
+            with s_common.genfile(outpath) as fd:
+                text = fd.read().decode()
+
+            self.isin('node:edits', text)
+            self.isin('inet:ipv4', text)
+
+            # props output
+            path = s_common.genpath(dirn, 'test3.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(s_test_rstorm.rst_in_props.encode())
+
+            outpath = s_common.genpath(dirn, 'out3.rst')
+
+            await s_rstorm.main(('--save', outpath, path))
+
+            with s_common.genfile(outpath) as fd:
+                text = fd.read().decode()
+
+            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
+
+            self.eq(text_nocrt, s_test_rstorm.rst_out_props)
 
             # boom1 test
             path = s_common.genpath(dirn, 'boom1.rst')
             with s_common.genfile(path) as fd:
-                fd.write(boom1.encode())
+                fd.write(s_test_rstorm.boom1.encode())
 
             with self.raises(s_exc.NoSuchVar):
-                await s_rstorm.main(('--save', outpath, path))
-
-            # boom2 test
-            path = s_common.genpath(dirn, 'boom2.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(boom2.encode())
-
-            with self.raises(s_exc.NoSuchVar):
-                await s_rstorm.main(('--save', outpath, path))
-
-            # boom3 test
-            path = s_common.genpath(dirn, 'boom3.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(boom3.encode())
-
-            with self.raises(s_exc.StormRuntimeError):
                 await s_rstorm.main(('--save', outpath, path))
