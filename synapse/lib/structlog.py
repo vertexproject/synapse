@@ -15,7 +15,7 @@ class JsonFormatter(logging.Formatter):
             'logger': record.name,
             'thread': record.threadName,
             'process': record.processName,
-            'module': record.module,
+            'filename': record.filename,
             'level': record.levelname,
             'func': record.funcName,
             'time': self.formatTime(record, self.datefmt),

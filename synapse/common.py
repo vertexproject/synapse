@@ -675,8 +675,6 @@ def setlogging(mlogger, defval=None):
             logging.basicConfig(level=log_level, handlers=(handler,))
 
         else:
-            # LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s ' \
-            #              '[%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]'
             logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
 
