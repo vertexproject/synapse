@@ -6,6 +6,7 @@ import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
@@ -584,9 +585,8 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        cell = self.runt.snap.core
         loglevel = logger.getEffectiveLevel()
-        resp = await cell.procTask(_validateStixProc, bundle, loglevel=loglevel)
+        resp = await s_coro.spawn(s_common.todo(_validateStixProc, bundle, loglevel=loglevel))
         return resp
 
     async def liftBundle(self, bundle):
