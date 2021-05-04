@@ -41,12 +41,6 @@ async def _iterBackupEOF(path, linkinfo, done):
 def _backupEOF(path, linkinfo, done):
     asyncio.run(_iterBackupEOF(path, linkinfo, done))
 
-def work(a, b, stuff=True):
-    c = a + b
-    time.sleep(c)
-    print(f'{c} => {stuff}')
-    return c
-
 class EchoAuthApi(s_cell.CellApi):
 
     def isadmin(self):
@@ -1034,14 +1028,3 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=bkupdirn5) as core:
                 nodes = await core.nodes('test:str=ssl')
                 self.len(1, nodes)
-
-    async def test_proc_pool(self):
-
-        with self.getTestDir() as dirn:
-
-            async with await EchoAuth.anit(dirn) as cell:
-
-                resp = await cell.procTask(work, 1, 2)
-                self.eq(3, resp)
-                resp = await cell.procTask(work, 1, -1, stuff=False)
-                self.eq(0, resp)
