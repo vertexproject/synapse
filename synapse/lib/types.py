@@ -1248,6 +1248,65 @@ class Loc(Type):
     def repr(self, norm):
         return norm
 
+class Hier(Type):
+    '''
+    A hierarchical type used for taxonomy membership.
+    '''
+    stortype = s_layer.STOR_TYPE_UTF8
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+        #self.setCmprCtor('=', self._ctorCmprEq)
+        self.setCmprCtor('^=', self._ctorCmprPref)
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '^=': self._storLiftPref,
+        })
+
+    def _storLiftEq(self, cmpr, valu):
+        norm, info = self.norm(valu)
+        return (
+            ('^=', norm, self.stortype),
+        )
+
+    def _storLiftPref(self, cmpr, valu):
+        norm, info = self.norm(valu)
+        return (
+            ('^=', norm.strip('.'), self.stortype),
+        )
+
+    def _normStrPart(self, text):
+        text = text.lower().strip().strip('.')
+        text = text.replace('.', '_')
+        return ' '.join(text.split())
+
+    def _normPyStr(self, valu):
+        parts = valu.strip('.').split('.')
+        norm = self._normPyList(parts)
+        return norm, {}
+
+    def _normPyList(self, valu):
+        norms = [self._normStrPart(p) for p in valu if p]
+        return '.'.join(norms) + '.'
+
+    def _ctorCmprEq(self, text):
+        norm, _ = self.norm(text)
+        def cmpr(valu):
+            return valu.startswith(norm)
+        return cmpr
+
+    def _ctorCmprPref(self, text):
+        norm, _ = self.norm(text).strip('.')
+        def cmpr(valu):
+            return valu.startswith(norm)
+        return cmpr
+
+    def repr(self, norm):
+        return norm
+
 class Ndef(Type):
 
     stortype = s_layer.STOR_TYPE_MSGP

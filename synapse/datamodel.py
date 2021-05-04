@@ -494,6 +494,10 @@ class Model:
         item = s_types.Loc(self, 'loc', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A general purpose hierarchical taxonomy type.'}
+        item = s_types.Hier(self, 'hier', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The node definition type for a (form,valu) compound field.'}
         item = s_types.Ndef(self, 'ndef', info, {})
         self.addBaseType(item)

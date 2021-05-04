@@ -15,8 +15,76 @@ class RiskModule(s_module.CoreModule):
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.'
                 }),
+                ('risk:exploit', ('guid', {}), {
+                    'doc': 'A technique for exploiting a vulnerability.'
+                }),
+                ('risk:mitigation', ('guid', {}), {
+                    'doc': 'A technique for mitigating a vulnerability.'
+                }),
+                ('risk:fix', ('guid', {}), {
+                    'doc': 'An instance of an applied mitigation.',
+                }),
+                ('risk:impact', ('guid', {}), {
+                    'doc': 'An instance of an effect.',
+                }),
             ),
             'forms': (
+                ('risk:impact', {}, (
+                    ('time', ('time', {}), {
+                        'doc': 'The time the impact occurred.',
+                    }),
+                    ('type', ('hier', {}), {
+                        'ex': 'it.dos', # it.ppi.disclosed / med.treatment.missed / refugee.created / life.lost / regulatory.fine
+                        'doc': 'A type specified as a hierarchy.',
+                    }),
+                    ('caused', ('array', {'type': 'risk:impact', 'sorted': True, 'uniq': True, 'split': ','}), {
+                        'doc': 'An array of subsequent impacts caused by this impact.',
+                    }),
+                    ('pop', ('int', {}), {
+                        'doc': 'The population count of effected people.',
+                        'ex': '13',
+                    }),
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the effect.',
+                        'ex': '3D 3:00:00',
+                    }),
+                    ('econ:loss', ('econ:price', {}), {
+                        'doc': 'The monetary loss created by the effect.'
+                        'ex': '13.37',
+                    }),
+                    ('econ:gain', ('econ:price', {}), {
+                        'doc': 'The monetary gain created by the effect.'
+                        'ex': '13.37',
+                    }),
+                    ('econ:currency', ('econ:currency', {}), {
+                        'doc': 'The currency being used to value :econ:loss/:econ:gain',
+                        'ex': 'USD',
+                    }),
+                )),
+                ('risk:exploit', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'A name for the expliotation technique.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the exploit technique.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
+                        'doc': 'A mapping to a Mitre ATT&CK technique.',
+                    }),
+                )),
+                ('risk:mitigation', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'A name for the mitigation technique.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the mitigation technique.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
+                        'doc': 'A mapping to a Mitre ATT&CK mitigation.',
+                    }),
+                )),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.',
@@ -153,6 +221,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('targeted', ('bool', {}), {
                         'doc': 'Set if the attack was assessed to be targeted or not.',
+                    }),
+                    ('detected', ('bool', {}), {
+                        'doc': 'Set if the attack was known to have been detected or not.',
                     }),
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'Set if the attack was part of a larger campaign.',
