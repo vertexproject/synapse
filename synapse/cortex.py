@@ -4212,7 +4212,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
+            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name,
+                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

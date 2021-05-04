@@ -30,6 +30,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.structlog as s_structlog
 
 class NoValu:
     pass
@@ -658,6 +659,7 @@ def setlogging(mlogger, defval=None):
     Returns:
         None
     '''
+    log_struct = os.getenv('SYN_LOG_STRUCT', False)
     log_level = os.getenv('SYN_LOG_LEVEL',
                           defval)
     if log_level:  # pragma: no cover
@@ -665,7 +667,17 @@ def setlogging(mlogger, defval=None):
             log_level = log_level.upper()
             if log_level not in s_const.LOG_LEVEL_CHOICES:
                 raise ValueError('Invalid log level provided: {}'.format(log_level))
-        logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+
+        if log_struct:
+            handler = logging.StreamHandler()
+            formatter = s_structlog.JsonFormatter()
+            handler.setFormatter(formatter)
+            logging.basicConfig(level=log_level, handlers=(handler,))
+
+        else:
+            # LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s ' \
+            #              '[%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]'
+            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
 
 syndir = os.getenv('SYN_DIR')

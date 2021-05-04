@@ -1961,8 +1961,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if 'dmon:listen' not in cell.conf:
                 await cell.dmon.listen(opts.telepath)
-                if outp is not None:
-                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+                # if outp is not None:
+                #     outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+                logger.info(f'...{cell.getCellType()} API (telepath): {opts.telepath}')
             else:
 
                 if outp is not None:
@@ -1970,24 +1971,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if lisn is None:
                         lisn = cell.getLocalUrl()
 
-                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
+                    # outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
+                    logger.info(f'...{cell.getCellType()} API (telepath): ' % (lisn,))
 
             if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)
                 if outp is not None:
-                    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+                    # outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+                    logger.info(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
             else:
                 if outp is not None:
                     port = cell.conf.get('https:port')
                     if port is None:
-                        outp.printf(f'...{cell.getCellType()} API (https): disabled')
+                        # outp.printf(f'...{cell.getCellType()} API (https): disabled')
+                        logger.info(f'...{cell.getCellType()} API (https): disabled')
                     else:
-                        outp.printf(f'...{cell.getCellType()} API (https): %s' % (port,))
+                        # outp.printf(f'...{cell.getCellType()} API (https): %s' % (port,))
+                        logger.info(f'...{cell.getCellType()} API (https): %s' % (port,))
 
             if opts.name is not None:
                 cell.dmon.share(opts.name, cell)
                 if outp is not None:
-                    outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
+                    # outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
+                    logger.info(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
 
         except (asyncio.CancelledError, Exception):
             await cell.fini()
