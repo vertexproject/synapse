@@ -379,7 +379,7 @@ _DefaultConfig = {
             'stix': {
                 'vulnerability': {
                     'props': {
-                        'name': 'if (:name) {return (:name)} else {return($lib.str.format("Vulnerability {v}", v=$node.value()))}',
+                        'name': '{+:name return (:name)} return ($node.repr())',
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
@@ -541,9 +541,72 @@ def validateStix(bundle, version='2.1'):
     return ret
 
 @s_stormtypes.registry.registerLib
+class LibStix(s_stormtypes.Lib):
+    '''
+    A Storm Library for interacting with Stix Version 2.1 CS02.
+    '''
+    _storm_locals = (  # type: ignore
+        {
+            'name': 'validate', 'desc': '''
+            Validate a STIX Bundle
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'validateBundle',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to validate.'},
+                ),
+                'returns': {'type': 'dict', 'desc': 'Results dictionary.'}
+            }
+        },
+        {
+        'name': 'lift', 'desc': '''
+        Lift nodes from a STIX Bundle made by Synapse.
+        ''',
+            'type': {
+                'type': 'function', '_funcname': 'liftBundle',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to lift nodes from.'},
+                ),
+                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+            }
+        },
+    )
+    _storm_lib_path = ('stix', )
+
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
+
+    def getObjLocals(self):
+        return {
+            'lift': self.liftBundle,
+            'validate': self.validateBundle,
+        }
+
+    async def validateBundle(self, bundle):
+        bundle = await s_stormtypes.toprim(bundle)
+        cell = self.runt.snap.core
+        loglevel = logger.getEffectiveLevel()
+        resp = await cell.procTask(_validateStixProc, bundle, loglevel=loglevel)
+        return resp
+
+    async def liftBundle(self, bundle):
+        bundle = await s_stormtypes.toprim(bundle)
+        for obj in bundle.get('objects', ()):
+            exts = obj.get('extensions')
+            if exts:
+                synx = exts.get(SYN_STIX_EXTENSION_ID)
+                if synx:
+                    ndef = synx.get('synapse_ndef')
+                    if ndef:
+                        node = await self.runt.snap.getNodeByNdef(ndef)
+                        if node:
+                            yield node
+
+
+@s_stormtypes.registry.registerLib
 class LibStixExport(s_stormtypes.Lib):
     '''
-    A Storm Library for exporting to STIX version 2.1
+    A Storm Library for exporting to STIX version 2.1 CS02.
     '''
     _storm_locals = (  # type: ignore
         {
@@ -663,68 +726,6 @@ class LibStixExport(s_stormtypes.Lib):
     def timestamp(self, tick):
         dt = datetime.datetime.utcfromtimestamp(tick / 1000.0)
         return dt.isoformat(timespec='milliseconds') + 'Z'
-
-@s_stormtypes.registry.registerLib
-class LibStixImport(s_stormtypes.Lib):
-    '''
-    A Storm Library for importing STIX version 2.1 data.
-    '''
-    _storm_locals = (  # type: ignore
-        {
-            'name': 'validate', 'desc': '''
-            Validate a STIX Bundle
-            ''',
-            'type': {
-                'type': 'function', '_funcname': 'validateBundle',
-                'args': (
-                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to validate.'},
-                ),
-                'returns': {'type': 'dict', 'desc': 'Results dictionary.'}
-            }
-        },
-        {
-        'name': 'lift', 'desc': '''
-        Lift nodes from a STIX Bundle made by Synapse.
-        ''',
-            'type': {
-                'type': 'function', '_funcname': 'liftBundle',
-                'args': (
-                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to lift nodes from.'},
-                ),
-                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
-            }
-        },
-    )
-    _storm_lib_path = ('stix', 'import')
-
-    def __init__(self, runt, name=()):
-        s_stormtypes.Lib.__init__(self, runt, name)
-
-    def getObjLocals(self):
-        return {
-            'lift': self.liftBundle,
-            'validate': self.validateBundle,
-        }
-
-    async def validateBundle(self, bundle):
-        bundle = await s_stormtypes.toprim(bundle)
-        cell = self.runt.snap.core
-        loglevel = logger.getEffectiveLevel()
-        resp = await cell.procTask(_validateStixProc, bundle, loglevel=loglevel)
-        return resp
-
-    async def liftBundle(self, bundle):
-        bundle = await s_stormtypes.toprim(bundle)
-        for obj in bundle.get('objects', ()):
-            exts = obj.get('extensions')
-            if exts:
-                synx = exts.get(SYN_STIX_EXTENSION_ID)
-                if synx:
-                    ndef = synx.get('synapse_ndef')
-                    if ndef:
-                        node = await self.runt.snap.getNodeByNdef(ndef)
-                        if node:
-                            yield node
 
 stix_sdos = {
     'attack-pattern',
