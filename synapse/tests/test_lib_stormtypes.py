@@ -1915,7 +1915,11 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(mainlayr, mesgs)
 
             info = await core.callStorm('return ($lib.layer.get().pack())')
-            self.gt(info.get('totalsize'), 1)
+            size = info.get('totalsize')
+
+            self.gt(size, 1)
+            # Verify we're showing actual disk usage and not just apparent
+            self.lt(size, 1000000000)
 
             # Try to create an invalid layer
             mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
