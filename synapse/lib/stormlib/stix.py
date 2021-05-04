@@ -931,7 +931,6 @@ class StixBundle(s_stormtypes.Prim):
             'description': 'Synapse specific STIX 2.1 extensions.',
             'created': '2021-04-29T13:40:00.000Z',
             'modified': '2021-04-29T13:40:00.000Z',
-            # 'created_by_ref': '',  # XXX?
             'schema': 'The Synapse Extensions for Stix 2.1',
             'version': '1.0',
             'extension_types': [
