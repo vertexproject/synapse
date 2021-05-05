@@ -1972,7 +1972,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         lisn = cell.getLocalUrl()
 
                     # outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
-                    logger.info(f'...{cell.getCellType()} API (telepath): ' % (lisn,))
+                    logger.info(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
 
             if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)

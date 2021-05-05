@@ -627,6 +627,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
 
     async def test_cell_confprint(self):
+        self.skip('Skip for the moment. Relies on split output streams.')
 
         with self.withSetLoggingMock():
 

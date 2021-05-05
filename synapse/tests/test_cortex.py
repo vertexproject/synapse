@@ -2170,7 +2170,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         # Remote storm test paths
         async with self.getTestCoreAndProxy() as (realcore, core):
             # Storm logging
-            with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
+            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help ask} as [root]') \
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
