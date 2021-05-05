@@ -56,4 +56,5 @@ class StructLogTest(s_test.SynTest):
         self.eq(mesg.get('level'), 'ERROR')
         exc_info = mesg.get('exc_info')
         self.isin('Traceback', exc_info)
+        self.isin('_ = 1 / 0', exc_info)
         self.isin('ZeroDivisionError: division by zero', exc_info)
