@@ -3985,10 +3985,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             await snap.applyNodeEdits(item)
 
     async def setUserLocked(self, iden, locked):
-        user = await self.auth.reqUser(iden)
-        await user.setLocked(locked)
+        retn = await s_cell.Cell.setUserLocked(self, iden, locked)
         await self._bumpUserDmons(iden)
-        await self.fire('user:mod', act='locked', user=iden, locked=locked)
+        return retn
 
     def getCoreMod(self, name):
         return self.modules.get(name)
