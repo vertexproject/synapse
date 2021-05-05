@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 from synapse.tests.utils import alist
+from synapse.tests.test_lib_stormsvc import StormvarServiceCell
 
 from synapse.common import aspin
 
@@ -402,6 +403,7 @@ class TrigTest(s_t_utils.SynTest):
             await fred.addRule((True, ('trigger', 'add')))
             await fred.addRule((True, ('layer', 'edits', 'read')), gateiden=origlayr)
             await fred.addRule((True, ('trigger', 'del')))
+            await fred.addRule((True, ('model', 'tag', 'set')))
             await ging.addRule((True, ('view', 'add')))
 
             async with core.getLocalProxy(user='ginger') as proxy:
@@ -467,6 +469,8 @@ class TrigTest(s_t_utils.SynTest):
                 node = [m[1] for m in msgs if m[0] == 'node'][0]
                 self.eq(('it:dev:str', forkview), node[0])
 
+            # Exercise Runtime.dyniter inside trigger
+
             async with core.getLocalProxy(user='fred') as proxy:
                 await proxy.callStorm(f'return ($lib.trigger.del({trig["iden"]}))', opts=tdefopts)
                 q = '''
@@ -480,12 +484,49 @@ class TrigTest(s_t_utils.SynTest):
                 tdefopts = {
                     'vars': {'tdef': tdef}
                 }
-                await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+                trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
 
             async with core.getLocalProxy(user='ginger') as proxy:
                 msgs = await alist(proxy.storm('[ inet:ipv4 = 5 ] | spin | it:dev:str#edits', opts=forkopts))
                 node = [m[1] for m in msgs if m[0] == 'node'][0]
                 self.eq(('it:dev:str', '1'), node[0])
+
+            # Exercise Runtime.confirm inside trigger
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                await proxy.callStorm(f'return ($lib.trigger.del({trig["iden"]}))', opts=tdefopts)
+                q = '''
+                    $lib.model.tags.set(cno.cve, prune, (2))
+                    [ it:dev:str=here +#edits2 ]
+                '''
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': q}
+                tdefopts = {
+                    'vars': {'tdef': tdef}
+                }
+                trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+
+            async with core.getLocalProxy(user='ginger') as proxy:
+                msgs = await alist(proxy.storm('[ inet:ipv4 = 6 ] | spin | it:dev:str#edits2', opts=forkopts))
+                node = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.eq(('it:dev:str', 'here'), node[0])
+
+            # Exercise Runtime.allowed inside trigger
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                await proxy.callStorm(f'return ($lib.trigger.del({trig["iden"]}))', opts=tdefopts)
+                q = '$foo=$node.repr() | magic $foo | [ it:dev:str=here2 +#edits3 ]'
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': q}
+                tdefopts = {
+                    'vars': {'tdef': tdef}
+                }
+                trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+
+            async with self.getTestCell(StormvarServiceCell, None) as testsvc:
+                await self.addSvcToCore(testsvc, core)
+                async with core.getLocalProxy(user='ginger') as proxy:
+                    msgs = await alist(proxy.storm('[ inet:ipv4 = 7 ] | spin | it:dev:str#edits3', opts=forkopts))
+                    node = [m[1] for m in msgs if m[0] == 'node'][0]
+                    self.eq(('it:dev:str', 'here2'), node[0])
 
             # If the trigger owner loses read perms on the trigger's view, it doesn't fire.
             # Regression test:  it also doesn't stop the pipeline/raise an exception
