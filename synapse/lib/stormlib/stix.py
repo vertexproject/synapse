@@ -524,7 +524,7 @@ def _validateStixProc(bundle, loglevel):
 
 def validateStix(bundle, version='2.1'):
     ret = {
-        'success': False,
+        'ok': False,
         'mesg': '',
         'result': None,
     }
@@ -549,7 +549,16 @@ class LibStix(s_stormtypes.Lib):
     _storm_locals = (  # type: ignore
         {
             'name': 'validate', 'desc': '''
-            Validate a STIX Bundle
+            Validate a STIX Bundle.
+
+            Notes:
+                This returns a dictionary containing the following values::
+
+                    {
+                        'ok': <boolean> - False if bundle is invalid, True otherwise.
+                        'mesg': <str> - An error message if there was an error when validating the bundle.
+                        'results': The results of validating the bundle.
+                    }
             ''',
             'type': {
                 'type': 'function', '_funcname': 'validateBundle',
@@ -562,6 +571,15 @@ class LibStix(s_stormtypes.Lib):
         {
         'name': 'lift', 'desc': '''
         Lift nodes from a STIX Bundle made by Synapse.
+
+        Notes:
+            This lifts nodes using the Node definitions embedded into the bundle when created by Synapse using
+            custom extension properties.
+
+        Examples:
+            Lifting nodes from a STIX bundle::
+
+                yield $lib.stix($bundle)
         ''',
             'type': {
                 'type': 'function', '_funcname': 'liftBundle',

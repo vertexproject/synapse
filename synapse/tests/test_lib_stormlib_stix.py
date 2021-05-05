@@ -170,7 +170,7 @@ class StormlibModelTest(s_test.SynTest):
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
             resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bund}})
-            self.true(resp.get('success'))
+            self.true(resp.get('ok'))
             result = resp.get('result')
             self.eq(result, {'result': True})
 
