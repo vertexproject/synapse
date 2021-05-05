@@ -524,19 +524,18 @@ def validateStix(bundle, version='2.1'):
     ret = {
         'ok': False,
         'mesg': '',
-        'result': None,
+        'result': {},
     }
     bundle = json.loads(json.dumps(bundle))
     opts = stix2validator.ValidationOptions(strict=True, version=version)
     try:
         results = stix2validator.validate_parsed_json(bundle, options=opts)
-    except Exception as e:
+    except stix2validator.ValidationError as e:
         logger.exception('Error validating STIX bundle.')
         ret['mesg'] = f'Error validating bundle: {e}'
     else:
-        rdict = results.as_dict()
-        ret['result'] = rdict
-        ret['ok'] = True
+        ret['result'] = results.as_dict()
+        ret['ok'] = bool(results.is_valid)
     return ret
 
 @s_stormtypes.registry.registerLib
@@ -612,10 +611,10 @@ class LibStix(s_stormtypes.Lib):
             if not exts:
                 continue
             synx = exts.get(SYN_STIX_EXTENSION_ID)
-            if not synx:
+            if not synx:  # pragma: no cover
                 continue
             ndef = synx.get('synapse_ndef')
-            if not ndef:
+            if not ndef:  # pragma: no cover
                 continue
             node = await self.runt.snap.getNodeByNdef(ndef)
             if node:
