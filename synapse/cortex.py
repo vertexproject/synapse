@@ -3707,6 +3707,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return True
 
+    async def _bumpUserDmons(self, user):
+        for iden, ddef in self.stormdmonhive.items():
+            if ddef.get('user') == user:
+                await self.bumpStormDmon(iden)
+
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
         ddef = self.stormdmonhive.get(iden)
@@ -3978,6 +3983,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.applyNodeEdits(item)
+
+    async def setUserLocked(self, iden, locked):
+        user = await self.auth.reqUser(iden)
+        await user.setLocked(locked)
+        await self._bumpUserDmons(iden)
+        await self.fire('user:mod', act='locked', user=iden, locked=locked)
 
     def getCoreMod(self, name):
         return self.modules.get(name)
