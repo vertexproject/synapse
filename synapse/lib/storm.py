@@ -1295,21 +1295,18 @@ class Asif:
     def layerConfirm(self, perm):
         return self.confirm(perm, gateiden=self.oplayriden)
 
-    def confirm(self, perm, gateiden=None):
+    def _gateiden(self, gateiden):
         if gateiden == self.opviewiden:
             gateiden = self.asviewiden
         elif gateiden == self.oplayriden:
             gateiden = self.aslayriden
+        return gateiden
 
-        return self.user.confirm(perm, gateiden=gateiden)
+    def confirm(self, perm, gateiden=None):
+        return self.user.confirm(perm, gateiden=self._gateiden(gateiden))
 
     def allowed(self, perm, gateiden=None):
-        if gateiden == self.opviewiden:
-            gateiden = self.asviewiden
-        elif gateiden == self.oplayriden:
-            gateiden = self.aslayriden
-
-        return self.user.allowed(perm, gateiden=gateiden)
+        return self.user.allowed(perm, gateiden=self._gateiden(gateiden))
 
     def convgatekeys(self, gatekeys):
         newkeys = []

@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
+from synapse.tests.utils import alist
 
 from synapse.common import aspin
 
@@ -399,6 +400,8 @@ class TrigTest(s_t_utils.SynTest):
             ging = await core.auth.addUser('ginger')
             origlayr = core.getLayer().iden
             await fred.addRule((True, ('trigger', 'add')))
+            await fred.addRule((True, ('layer', 'edits', 'read')), gateiden=origlayr)
+            await fred.addRule((True, ('trigger', 'del')))
             await ging.addRule((True, ('view', 'add')))
 
             async with core.getLocalProxy(user='ginger') as proxy:
@@ -450,24 +453,42 @@ class TrigTest(s_t_utils.SynTest):
                 # Trigger execution works if trigger owner has sufficient perms on the trigger's view's write layer
                 self.eq(1, await proxy.count('[inet:ipv4 = 3] +#foo', opts=forkopts))
 
-            # The same applies to forks of forks
-            # FIXME
-
             # Fred's trigger can read from a fork's view if he can read from the view his trigger is inherited from
-            self.true(await fred.delRule((True, ('node', 'add')), gateiden=origlayr))
-            self.true(await fred.delRule((True, ('node', 'tag', 'add')), gateiden=origlayr))
-
             async with core.getLocalProxy(user='fred') as proxy:
-                q = '$lib.print("ndef is {ndef}", ndef=$node.ndef())'
+                q = '[ it:dev:str=$lib.view.get().iden ]'
                 tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': q}
                 tdefopts = {
                     'vars': {'tdef': tdef}
                 }
-                # Can add a trigger to a view you have read access to (the default view)
+                trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+
+            async with core.getLocalProxy(user='ginger') as proxy:
+                msgs = await alist(proxy.storm('[ inet:ipv4 = 4 ] | spin | it:dev:str', opts=forkopts))
+                node = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.eq(('it:dev:str', forkview), node[0])
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                await proxy.callStorm(f'return ($lib.trigger.del({trig["iden"]}))', opts=tdefopts)
+                q = '''
+                    $count = 0
+                    for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) {
+                        $count = $($count + 1)
+                    }
+                    [ it:dev:str=$count +#edits]
+                '''
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': q}
+                tdefopts = {
+                    'vars': {'tdef': tdef}
+                }
                 await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
 
+            async with core.getLocalProxy(user='ginger') as proxy:
+                msgs = await alist(proxy.storm('[ inet:ipv4 = 5 ] | spin | it:dev:str#edits', opts=forkopts))
+                node = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.eq(('it:dev:str', '1'), node[0])
+
             # If the trigger owner loses read perms on the trigger's view, it doesn't fire.
-            # Regression test:  it also doesn't stop the pipeline
+            # Regression test:  it also doesn't stop the pipeline/raise an exception
             await fred.addRule((False, ('view', 'read')), gateiden=core.view.iden)
             async with core.getLocalProxy(user='ginger') as proxy:
                 self.eq(0, await proxy.count('[inet:ipv4 = 99] +#foo', opts=forkopts))
