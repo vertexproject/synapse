@@ -16,6 +16,20 @@ external_modules:
 
 commands:
     - name: testcmd
+      descr: |
+        testcmd does some stuff.
+      forms:
+        input:
+          - test:str
+        output:
+          - test:int
+        nodedata:
+          - [testnd, inet:ipv4]
+      cmdargs:
+        - - foo
+          - help: Help on foo opt
+        - - --bar
+          - help: Help on bar opt
 
 optic:
     title: woot
