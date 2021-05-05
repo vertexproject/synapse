@@ -2707,6 +2707,16 @@ class Str(Prim):
                     $lib.print($foo.lower())''',
          'type': {'type': 'function', '_funcname': '_methStrLower',
                   'returns': {'type': 'str', 'desc': 'The lowercased string.', }}},
+        {'name': 'upper', 'desc': '''
+                Get a uppercased copy the of the string.
+
+                Examples:
+                    Printing a uppercased string::
+
+                        $foo="Duck"
+                        $lib.print($foo.lower())''',
+         'type': {'type': 'function', '_funcname': '_methStrUpper',
+                  'returns': {'type': 'str', 'desc': 'The uppercased string.', }}},
         {'name': 'slice', 'desc': '''
             Get a substring slice of the string.
 
@@ -2758,6 +2768,7 @@ class Str(Prim):
             'lstrip': self._methStrLstrip,
             'rstrip': self._methStrRstrip,
             'lower': self._methStrLower,
+            'upper': self._methStrUpper,
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
         }
@@ -2809,6 +2820,9 @@ class Str(Prim):
 
     async def _methStrLower(self):
         return self.valu.lower()
+
+    async def _methStrUpper(self):
+        return self.valu.upper()
 
     async def _methStrSlice(self, start, end=None):
         start = await toint(start)
