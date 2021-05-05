@@ -659,7 +659,7 @@ def setlogging(mlogger, defval=None):
     Returns:
         None
     '''
-    log_struct = os.getenv('SYN_LOG_STRUCT', False)
+    log_struct = envbool('SYN_LOG_STRUCT', False)
     log_level = os.getenv('SYN_LOG_LEVEL',
                           defval)
     if log_level:  # pragma: no cover
