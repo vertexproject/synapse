@@ -49,7 +49,7 @@ class StormlibModelTest(s_test.SynTest):
 
     def reqValidStix(self, item):
         resp = s_stix.validateStix(item)
-        success = resp.get('success')
+        success = resp.get('ok')
         if not success:
             print(resp)
             self.true(success)

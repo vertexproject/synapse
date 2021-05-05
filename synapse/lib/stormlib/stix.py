@@ -23,9 +23,7 @@ def uuid4(valu=None):
     guid = s_common.guid(valu=valu)
     return str(uuid.UUID(guid, version=4))
 
-_SYN_STIX_EXTENSION_GUID = 'bf1c0a4d90ee557ac05055385971f17c'
-SYN_STIX_EXTENSION_UUID = uuid4(_SYN_STIX_EXTENSION_GUID)
-SYN_STIX_EXTENSION_ID = f'extension-definition--{SYN_STIX_EXTENSION_UUID}'
+SYN_STIX_EXTENSION_ID = f'extension-definition--{uuid4("bf1c0a4d90ee557ac05055385971f17c")}'
 
 _DefaultConfig = {
 
@@ -538,7 +536,7 @@ def validateStix(bundle, version='2.1'):
     else:
         rdict = results.as_dict()
         ret['result'] = rdict
-        ret['success'] = True
+        ret['ok'] = True
     return ret
 
 @s_stormtypes.registry.registerLib
@@ -611,15 +609,17 @@ class LibStix(s_stormtypes.Lib):
         bundle = await s_stormtypes.toprim(bundle)
         for obj in bundle.get('objects', ()):
             exts = obj.get('extensions')
-            if exts:
-                synx = exts.get(SYN_STIX_EXTENSION_ID)
-                if synx:
-                    ndef = synx.get('synapse_ndef')
-                    if ndef:
-                        node = await self.runt.snap.getNodeByNdef(ndef)
-                        if node:
-                            yield node
-
+            if not exts:
+                continue
+            synx = exts.get(SYN_STIX_EXTENSION_ID)
+            if not synx:
+                continue
+            ndef = synx.get('synapse_ndef')
+            if not ndef:
+                continue
+            node = await self.runt.snap.getNodeByNdef(ndef)
+            if node:
+                yield node
 
 @s_stormtypes.registry.registerLib
 class LibStixExport(s_stormtypes.Lib):
