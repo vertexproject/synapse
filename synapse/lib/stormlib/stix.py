@@ -49,7 +49,7 @@ _DefaultConfig = {
                         ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
                         ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
                         ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
-                        ('targets', 'vulnerabilty', '-> risk:attack :used:vuln -> risk:vuln'),
+                        ('targets', 'vulnerability', '-> risk:attack :used:vuln -> risk:vuln'),
                     ),
                 },
             },
@@ -88,7 +88,7 @@ _DefaultConfig = {
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        ('targets', 'vulnerabilty', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
+                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -864,7 +864,7 @@ class StixBundle(s_stormtypes.Prim):
 
         formconf = self.config['forms'].get(node.form.name)
         if formconf is None:
-            await self.runt.warnonce('STIX bundle has no config for mapping {node.form.name}.')
+            await self.runt.warnonce(f'STIX bundle has no config for mapping {node.form.name}.')
             return None
 
         if stixtype is None:
