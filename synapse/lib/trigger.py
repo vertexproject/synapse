@@ -346,6 +346,9 @@ class Trigger:
             'view': view,
         }
 
+        if self.view.iden != view:
+            opts['asifview'] = self.view.iden
+
         if vars is not None:
             opts['vars'] = vars
 

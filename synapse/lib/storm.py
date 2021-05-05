@@ -1280,6 +1280,52 @@ class StormDmon(s_base.Base):
             # bottom of the loop... wait it out
             await self.waitfini(timeout=1)
 
+class Asif:
+    '''
+    A helper object passed from runtime to subruntime to track that trigger query permissions should be checked as if
+    executing as the trigger owner's user on the trigger's layer or view
+    '''
+    def __init__(self, user, opviewiden, asviewiden, oplayriden, aslayriden):
+        self.user = user
+        self.opviewiden = opviewiden
+        self.asviewiden = asviewiden
+        self.oplayriden = oplayriden
+        self.aslayriden = aslayriden
+
+    def layerConfirm(self, perm):
+        return self.confirm(perm, gateiden=self.oplayriden)
+
+    def confirm(self, perm, gateiden=None):
+        if gateiden == self.opviewiden:
+            gateiden = self.asviewiden
+        elif gateiden == self.oplayriden:
+            gateiden = self.aslayriden
+
+        return self.user.confirm(perm, gateiden=gateiden)
+
+    def allowed(self, perm, gateiden=None):
+        if gateiden == self.opviewiden:
+            gateiden = self.asviewiden
+        elif gateiden == self.oplayriden:
+            gateiden = self.aslayriden
+
+        return self.user.allowed(perm, gateiden=gateiden)
+
+    def convgatekeys(self, gatekeys):
+        newkeys = []
+
+        for useriden, perm, gateiden in gatekeys:
+            if gateiden == self.opviewiden:
+                useriden = self.user.iden
+                gateiden = self.asviewiden
+            elif gateiden == self.oplayriden:
+                useriden = self.user.iden
+                gateiden = self.aslayriden
+
+            newkeys.append((useriden, perm, gateiden))
+
+        return newkeys
+
 class Runtime:
     '''
     A Runtime represents the instance of a running query.
@@ -1303,6 +1349,10 @@ class Runtime:
         self.snap = snap
         self.user = user
         self.asroot = False
+        self.asif = None
+        asifview = opts.get('asifview')
+        if asifview:
+            self._setAsif(asifview)
 
         self.root = root
         self.funcscope = False
@@ -1340,16 +1390,29 @@ class Runtime:
 
         self._loadRuntVars(query)
 
+    def _setAsif(self, asviewiden):
+        opview = self.snap.view
+        asview = self.snap.core.views.get(asviewiden)
+        oplayriden = opview.layers[0].iden
+        aslayriden = asview.layers[0].iden
+        self.asif = Asif(self.user, opview.iden, asviewiden, oplayriden, aslayriden)
+
     async def dyncall(self, iden, todo, gatekeys=()):
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
+        if self.asif and gatekeys:
+            gatekeys = self.asif.convgatekeys(gatekeys)
+
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
+        if self.asif and gatekeys:
+            gatekeys = self.asif.convgatekeys(gatekeys)
+
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
             yield item
 
@@ -1360,7 +1423,7 @@ class Runtime:
         gatekeys = ()
         if perm is not None:
             gatekeys = ((self.user.iden, perm, None),)
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -1481,9 +1544,17 @@ class Runtime:
                 yield node, self.initPath(node)
 
     def layerConfirm(self, perms):
+        '''
+        Raise AuthDeny if user doesn't have perms on the write layer
+        '''
         if self.asroot:
             return
+
+        if self.asif:
+            return self.asif.layerConfirm(perms)
+
         iden = self.snap.wlyr.iden
+
         return self.user.confirm(perms, gateiden=iden)
 
     def isAdmin(self, gateiden=None):
@@ -1493,15 +1564,24 @@ class Runtime:
 
     def confirm(self, perms, gateiden=None):
         '''
-        Raise AuthDeny if user doesn't have global permissions and write layer permissions
+        Raise AuthDeny if user doesn't have perms
         '''
         if self.asroot:
             return
+        if self.asif:
+            return self.asif.confirm(perms, gateiden=gateiden)
+
         return self.user.confirm(perms, gateiden=gateiden)
 
     def allowed(self, perms, gateiden=None):
+        '''
+        Return True if self.user has perms
+        '''
         if self.asroot:
             return True
+        if self.asif:
+            return self.asif.allowed(perms, gateiden=gateiden)
+
         return self.user.allowed(perms, gateiden=gateiden)
 
     def _loadRuntVars(self, query):
@@ -1535,12 +1615,13 @@ class Runtime:
                 if view is None:
                     raise s_exc.NoSuchView(iden=viewiden)
 
-                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                self.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
         runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
         runt.asroot = self.asroot
         runt.readonly = self.readonly
+        runt.asif = self.asif
 
         yield runt
 
@@ -1552,6 +1633,7 @@ class Runtime:
         runt = Runtime(query, self.snap, user=self.user, opts=opts)
         runt.asroot = self.asroot
         runt.readonly = self.readonly
+        runt.asif = self.asif
         yield runt
 
     def getModRuntime(self, query, opts=None):
@@ -1561,6 +1643,7 @@ class Runtime:
         runt = Runtime(query, self.snap, user=self.user, opts=opts)
         runt.asroot = self.asroot
         runt.readonly = self.readonly
+        runt.asif = self.asif
         return runt
 
     async def storm(self, text, opts=None, genr=None):
@@ -1579,8 +1662,6 @@ class Runtime:
         '''
         Return exactly 1 node by <prop> <cmpr> <valu>
         '''
-        opts = {'vars': {'propname': propname, 'valu': valu}}
-
         nodes = []
         try:
 
@@ -2937,7 +3018,7 @@ class BackgroundCmd(Cmd):
         pars.add_argument('query', help='The query to execute in the background.')
         return pars
 
-    async def execStormTask(self, query, opts):
+    async def execStormTask(self, query, opts, asif=None):
 
         core = self.runt.snap.core
         user = core._userFromOpts(opts)
@@ -2948,6 +3029,7 @@ class BackgroundCmd(Cmd):
         await core.boss.promote('storm', user=user, info=info)
 
         async with core.getStormRuntime(query, opts=opts) as runt:
+            runt.asif = asif
             async for item in runt.execute():
                 await asyncio.sleep(0)
 
@@ -2974,7 +3056,7 @@ class BackgroundCmd(Cmd):
         # make sure the subquery *could* have run with existing vars
         query.validate(runt)
 
-        coro = self.execStormTask(query, opts)
+        coro = self.execStormTask(query, opts, asif=runt.asif)
         runt.snap.core.schedCoro(coro)
 
 class ParallelCmd(Cmd):

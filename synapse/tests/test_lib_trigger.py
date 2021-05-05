@@ -364,6 +364,30 @@ class TrigTest(s_t_utils.SynTest):
                 await newb.addRule((True, ('trigger', 'del')))
                 await aspin(proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}}))
 
+    async def test_trigger_exec_perms(self):
+        '''
+        Test triggers firing with different permissions than the query user
+        '''
+        # Fred makes a trigger that adds a tag on node creation. He has tag add perms
+        # Ginger has node add but not tag add perm.  Adds a node that fires the trigger.
+        async with self.getTestCore() as core:
+            fred = await core.auth.addUser('fred')
+            ging = await core.auth.addUser('ginger')
+            origlayr = core.getLayer().iden
+            await fred.addRule((True, ('trigger', 'add')))
+            await ging.addRule((True, ('node', 'add')), gateiden=origlayr)
+            await fred.addRule((True, ('node', 'tag', 'add')), gateiden=origlayr)
+
+            async with core.getLocalProxy(user='fred') as proxy:
+                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
+                tdefopts = {
+                    'vars': {'tdef': tdef}
+                }
+                await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=tdefopts)
+
+            async with core.getLocalProxy(user='ginger') as proxy:
+                self.eq(1, await proxy.count('[ inet:ipv4 = 1 ] +#foo'))
+
     async def test_trigger_fork_perms(self):
         '''
         A trigger executes as the owner of the trigger, as if the trigger is reading and writing from/to the view/layer
@@ -418,10 +442,8 @@ class TrigTest(s_t_utils.SynTest):
             async with core.getLocalProxy(user='fred') as proxy:
                 await fred.addRule((True, ('node', 'add')), gateiden=origlayr)
                 await fred.addRule((True, ('node', 'tag', 'add')), gateiden=origlayr)
+
                 # Fred's trigger works on the base layer now
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning('HERE-' * 10)
                 self.eq(1, await proxy.count('[inet:ipv4 = 2] +#foo'))
 
             async with core.getLocalProxy(user='ginger') as proxy:
@@ -432,8 +454,8 @@ class TrigTest(s_t_utils.SynTest):
             # FIXME
 
             # Fred's trigger can read from a fork's view if he can read from the view his trigger is inherited from
-            self.true(await fred.delRule((False, ('node', 'add')), gateiden=origlayr))
-            self.true(await fred.delRule((False, ('node', 'tag', 'add')), gateiden=origlayr))
+            self.true(await fred.delRule((True, ('node', 'add')), gateiden=origlayr))
+            self.true(await fred.delRule((True, ('node', 'tag', 'add')), gateiden=origlayr))
 
             async with core.getLocalProxy(user='fred') as proxy:
                 q = '$lib.print("ndef is {ndef}", ndef=$node.ndef())'

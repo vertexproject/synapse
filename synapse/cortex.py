@@ -4015,7 +4015,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
 
-        user.confirm(('view', 'read'), gateiden=viewiden)
+        asifviewiden = opts.get('asifview', viewiden)
+
+        user.confirm(('view', 'read'), gateiden=asifviewiden)
 
         return view
 
