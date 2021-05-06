@@ -5,6 +5,32 @@ Synapse Changelog
 *****************
 
 
+v2.36.0 - 2021-05-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``risk:vuln`` support to the default Stix 2.1 export, and capture
+  vulnerability information used by threat actors and in campaigns. Add the
+  ability to validate Stix 2.1 bundles to ensure that they are Stix 2.1 CS02
+  compliant. Add the ability to lift Synapse nodes based on bundles which were
+  previously exported from Synapse. The lift feature only works with bundles
+  created with Synapse v2.36.0 or greater.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Add a ``Str.upper()`` function for uppercasing strings in Storm.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Add Storm Package support to ``synapse.tools.autodocs`` and update the
+  rstorm implementation to capture additional directives.
+  (`#2172 <https://github.com/vertexproject/synapse/pull/2172>`_)
+- Tighten lark-parser version requirements.
+  (`#2175 <https://github.com/vertexproject/synapse/pull/2175>`_)
+
+Bugfixes
+--------
+- Fix reported layer size to represent actual disk usage.
+  (`#2173 <https://github.com/vertexproject/synapse/pull/2173>`_)
+
+
 v2.35.0 - 2021-04-27
 ====================
 
