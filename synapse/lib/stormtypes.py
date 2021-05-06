@@ -375,7 +375,8 @@ class LibPkg(Lib):
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
-        return await self.runt.snap.core.getStormPkgs()
+        pkgs = await self.runt.snap.core.getStormPkgs()
+        return list(sorted(pkgs, key=lambda x: x.get('name')))
 
 @registry.registerLib
 class LibDmon(Lib):
