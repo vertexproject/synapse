@@ -11,7 +11,7 @@ class JsonFormatter(logging.Formatter):
         record.message = record.getMessage()
         mesg = self.formatMessage(record)
         ret = {
-            'mesg': mesg,
+            'message': mesg,
             'logger': record.name,
             'thread': record.threadName,
             'process': record.processName,
