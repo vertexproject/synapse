@@ -3707,10 +3707,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return True
 
-    async def _bumpUserDmons(self, user):
-        for iden, ddef in self.stormdmonhive.items():
-            if ddef.get('user') == user:
-                await self.bumpStormDmon(iden)
+    async def _bumpUserDmons(self, iden):
+        '''
+        Bump all the Dmons for a given user.
+        Args:
+            iden (str): User iden.
+        '''
+        for dmoniden, ddef in list(self.stormdmonhive.items()):
+            if ddef.get('user') == iden:
+                await self.bumpStormDmon(dmoniden)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
