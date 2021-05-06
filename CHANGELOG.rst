@@ -19,6 +19,8 @@ Features and Enhancements
   (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
 - Add a ``Str.upper()`` function for uppercasing strings in Storm.
   (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Automatically bump a user's StormDmon's when they are locked or unlocked.
+  (`#2177 <https://github.com/vertexproject/synapse/pull/2177>`_)
 - Add Storm Package support to ``synapse.tools.autodocs`` and update the
   rstorm implementation to capture additional directives.
   (`#2172 <https://github.com/vertexproject/synapse/pull/2172>`_)
