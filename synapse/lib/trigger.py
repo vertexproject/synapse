@@ -346,15 +346,17 @@ class Trigger:
             'view': view,
         }
 
-        if self.view.iden != view:
-            opts['asifview'] = self.view.iden
+        if self.view.iden == view:
+            asifview = None
+        else:
+            asifview = self.view.iden
 
         if vars is not None:
             opts['vars'] = vars
 
         with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
             try:
-                async with self.view.core.getStormRuntime(query, opts=opts) as runt:
+                async with self.view.core.getStormRuntime(query, opts=opts, asifview=asifview) as runt:
 
                     runt.addInput(node)
                     await s_common.aspin(runt.execute())

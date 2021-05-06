@@ -134,11 +134,11 @@ class Snap(s_base.Base):
         return meta
 
     @contextlib.contextmanager
-    def getStormRuntime(self, query, opts=None, user=None):
+    def getStormRuntime(self, query, opts=None, user=None, asifview=None):
         if user is None:
             user = self.user
 
-        runt = s_storm.Runtime(query, self, opts=opts, user=user)
+        runt = s_storm.Runtime(query, self, opts=opts, user=user, asifview=asifview)
 
         yield runt
 

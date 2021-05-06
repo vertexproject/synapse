@@ -4010,7 +4010,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
 
-    def _viewFromOpts(self, opts):
+    def _viewFromOpts(self, opts, asifview=None):
 
         user = self._userFromOpts(opts)
 
@@ -4030,9 +4030,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(iden=viewiden)
 
-        asifviewiden = opts.get('asifview', viewiden)
-
-        user.confirm(('view', 'read'), gateiden=asifviewiden)
+        gateiden = asifview or viewiden
+        user.confirm(('view', 'read'), gateiden=gateiden)
 
         return view
 
@@ -4191,15 +4190,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         return query
 
     @contextlib.asynccontextmanager
-    async def getStormRuntime(self, query, opts=None):
+    async def getStormRuntime(self, query, opts=None, asifview=None):
 
         opts = self._initStormOpts(opts)
 
-        view = self._viewFromOpts(opts)
+        view = self._viewFromOpts(opts, asifview=asifview)
         user = self._userFromOpts(opts)
 
         async with await self.snap(user=user, view=view) as snap:
-            with snap.getStormRuntime(query, opts=opts, user=user) as runt:
+            with snap.getStormRuntime(query, opts=opts, user=user, asifview=asifview) as runt:
                 yield runt
 
     async def reqValidStorm(self, text, opts=None):

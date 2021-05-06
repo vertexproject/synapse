@@ -1332,7 +1332,7 @@ class Runtime:
     opaque object which is called through, but not dereferenced.
 
     '''
-    def __init__(self, query, snap, opts=None, user=None, root=None):
+    def __init__(self, query, snap, opts=None, user=None, root=None, asifview=None):
 
         if opts is None:
             opts = {}
@@ -1347,7 +1347,6 @@ class Runtime:
         self.user = user
         self.asroot = False
         self.asif = None
-        asifview = opts.get('asifview')
         if asifview:
             self._setAsif(asifview)
 
