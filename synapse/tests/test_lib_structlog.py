@@ -36,23 +36,23 @@ class StructLogTest(s_test.SynTest):
 
         mesg = mesgs[0]
         self.eq(set(mesg.keys()),
-                {'mesg', 'logger', 'thread', 'process', 'thread',
+                {'message', 'logger', 'thread', 'process', 'thread',
                  'filename', 'level', 'func', 'time'})
-        self.eq(mesg.get('mesg'), 'Test message 1')
+        self.eq(mesg.get('message'), 'Test message 1')
         self.eq(mesg.get('level'), 'WARNING')
 
         mesg = mesgs[1]
-        self.eq(mesg.get('mesg'), 'Test message 2')
+        self.eq(mesg.get('message'), 'Test message 2')
         self.eq(mesg.get('level'), 'ERROR')
 
         mesg = mesgs[2]
-        self.eq(mesg.get('mesg'), 'Extra test')
+        self.eq(mesg.get('message'), 'Extra test')
         self.eq(mesg.get('level'), 'ERROR')
         self.eq(mesg.get('foo'), 'bar')
         self.eq(mesg.get('iden'), iden)
 
         mesg = mesgs[3]
-        self.eq(mesg.get('mesg'), 'Exception handling')
+        self.eq(mesg.get('message'), 'Exception handling')
         self.eq(mesg.get('level'), 'ERROR')
         exc_info = mesg.get('exc_info')
         self.isin('Traceback', exc_info)
