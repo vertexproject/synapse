@@ -509,6 +509,24 @@ class StormTest(s_t_utils.SynTest):
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
                 self.true(await stream.wait(2))
 
+    async def test_storm_dmon_user_autobump(self):
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')))
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    q = '''return($lib.dmon.add(${{ $lib.print(foobar) $lib.time.sleep(10) }},
+                                                name=hehedmon))'''
+                    await asvisi.callStorm(q)
+
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+                    await core.setUserLocked(visi.iden, True)
+                    self.true(await stream.wait(2))
+
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    await core.setUserLocked(visi.iden, False)
+                    self.true(await stream.wait(2))
+
     async def test_storm_pipe(self):
 
         async with self.getTestCore() as core:
