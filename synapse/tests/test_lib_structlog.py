@@ -21,18 +21,21 @@ class StructLogTest(s_test.SynTest):
         logger.warning('Test message 1')
         logger.error('Test message 2')
         iden = s_common.guid()
-        logger.error('Extra test', extra={'synapse': {'foo': 'bar', 'iden': iden}})
+        logger.error('Extra test', extra={'synapse': {'foo': 'bar', 'iden': iden, 'time': 0}})
 
         try:
             _ = 1 / 0
         except ZeroDivisionError:
             logger.exception('Exception handling')
 
+        logger.warning('Unicode is cool for 程序员!')
+
         data = stream.getvalue()
 
         # There is a trailing \n on the stream
-        mesgs = [json.loads(m) for m in data.split('\n') if m]
-        self.len(4, mesgs)
+        raw_mesgs = [m for m in data.split('\n') if m]
+        mesgs = [json.loads(m) for m in raw_mesgs]
+        self.len(5, mesgs)
 
         mesg = mesgs[0]
         self.eq(set(mesg.keys()),
@@ -50,6 +53,7 @@ class StructLogTest(s_test.SynTest):
         self.eq(mesg.get('level'), 'ERROR')
         self.eq(mesg.get('foo'), 'bar')
         self.eq(mesg.get('iden'), iden)
+        self.ne(mesg.get('time'), 0)  # time was not overwritten by the extra
 
         mesg = mesgs[3]
         self.eq(mesg.get('message'), 'Exception handling')
@@ -58,3 +62,8 @@ class StructLogTest(s_test.SynTest):
         self.isin('Traceback', exc_info)
         self.isin('_ = 1 / 0', exc_info)
         self.isin('ZeroDivisionError: division by zero', exc_info)
+
+        mesg = mesgs[4]
+        rawm = raw_mesgs[4]
+        self.isin(r'Unicode is cool for \u7a0b\u5e8f\u5458!', rawm)
+        self.eq(mesg.get('message'), 'Unicode is cool for 程序员!')

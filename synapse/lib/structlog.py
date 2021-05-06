@@ -33,7 +33,5 @@ class JsonFormatter(logging.Formatter):
         extras = record.__dict__.get('synapse')
         if extras:
             ret.update({k: v for k, v in extras.items() if k not in ret})
-            # Or we just do the quick...
-            # ret.update(extras)
 
         return json.dumps(ret)
