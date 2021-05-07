@@ -287,6 +287,18 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq(None, await core.callStorm('return($lib.pkg.get(nopkg))'))
 
+            pkg1 = {'name': 'haha', 'version': '1.2.3'}
+            await core.addStormPkg(pkg1)
+            msgs = await core.stormlist('pkg.list')
+            self.isin('haha', msgs[2][1]['mesg'])
+            self.isin('hehe', msgs[3][1]['mesg'])
+
+            self.true(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            await core.delStormPkg('haha')
+            self.none(await core.callStorm('return($lib.pkg.get(haha))'))
+            self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
             # and again to test *not* creating it...

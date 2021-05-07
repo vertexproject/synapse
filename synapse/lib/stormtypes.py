@@ -332,12 +332,20 @@ class LibPkg(Lib):
                       {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a Storm package from the Cortex.',
+        {'name': 'get', 'desc': 'Get a Storm Package from the Cortex.',
          'type': {'type': 'function', '_funcname': '_libPkgGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'A Storm Package name.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'The Storm package definition.', }}},
+        {'name': 'has', 'desc': 'Check if a Storm Package is available in the Cortex.',
+         'type': {'type': 'function', '_funcname': '_libPkgHas',
+                  'args': (
+                      {'name': 'name', 'type': 'str',
+                       'desc': 'A Storm Package name to check for the existence of.', },
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the package exists in the Cortex, False if it does not.', }}},
         {'name': 'del', 'desc': 'Delete a Storm Package from the Cortex.',
          'type': {'type': 'function', '_funcname': '_libPkgDel',
                   'args': (
@@ -354,6 +362,7 @@ class LibPkg(Lib):
         return {
             'add': self._libPkgAdd,
             'get': self._libPkgGet,
+            'has': self._libPkgHas,
             'del': self._libPkgDel,
             'list': self._libPkgList,
         }
@@ -370,12 +379,20 @@ class LibPkg(Lib):
 
         return Dict(pkgdef)
 
+    async def _libPkgHas(self, name):
+        name = await tostr(name)
+        pkgdef = await self.runt.snap.core.getStormPkg(name)
+        if pkgdef is None:
+            return False
+        return True
+
     async def _libPkgDel(self, name):
         self.runt.confirm(('pkg', 'del'), None)
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
-        return await self.runt.snap.core.getStormPkgs()
+        pkgs = await self.runt.snap.core.getStormPkgs()
+        return list(sorted(pkgs, key=lambda x: x.get('name')))
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -569,7 +586,7 @@ class LibService(Lib):
                   'args': (
                       {'name': 'name', 'type': 'str',
                        'desc': 'The local name, local iden, or remote name, '
-                               'of the service to check for the existance of.', },
+                               'of the service to check for the existence of.', },
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the service exists in the Cortex, False if it does not.', }}},
