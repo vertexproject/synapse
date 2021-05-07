@@ -6,8 +6,12 @@ import synapse.common as s_common
 import synapse.lib.structlog as s_structlog
 
 import synapse.tests.utils as s_test
-
+import synapse.exc as s_exc
 logger = logging.getLogger(__name__)
+
+
+class ZDE(s_exc.SynErr): pass
+
 
 class StructLogTest(s_test.SynTest):
 
@@ -23,9 +27,16 @@ class StructLogTest(s_test.SynTest):
         iden = s_common.guid()
         logger.error('Extra test', extra={'synapse': {'foo': 'bar', 'iden': iden, 'time': 0}})
 
-        try:
+        def foo():
             _ = 1 / 0
-        except ZeroDivisionError:
+        def bar():
+            try:
+                foo()
+            except ZeroDivisionError as e:
+                raise ZDE(mesg='ZDE test', args=(1, 0)) from e
+        try:
+            bar()
+        except s_exc.SynErr:
             logger.exception('Exception handling')
 
         logger.warning('Unicode is cool for 程序员!')
@@ -58,10 +69,16 @@ class StructLogTest(s_test.SynTest):
         mesg = mesgs[3]
         self.eq(mesg.get('message'), 'Exception handling')
         self.eq(mesg.get('level'), 'ERROR')
-        exc_info = mesg.get('exc_info')
-        self.isin('Traceback', exc_info)
-        self.isin('_ = 1 / 0', exc_info)
-        self.isin('ZeroDivisionError: division by zero', exc_info)
+        etb = mesg.get('etb')
+        self.isin('Traceback', etb)
+        self.isin('_ = 1 / 0', etb)
+        self.isin('The above exception was the direct cause of the following exception:', etb)
+        self.isin('ZeroDivisionError: division by zero', etb)
+        self.isin("""test_lib_structlog.ZDE: ZDE: args=(1, 0) mesg='ZDE test'""", etb)
+        self.eq(mesg.get('errname'), 'ZDE')
+        self.eq(mesg.get('mesg'), 'ZDE test')
+
+        self.eq(mesg.get('args'), (1, 0))
 
         mesg = mesgs[4]
         rawm = raw_mesgs[4]

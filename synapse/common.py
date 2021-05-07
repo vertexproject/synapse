@@ -439,39 +439,6 @@ def verstr(vtup):
     '''
     return '.'.join([str(v) for v in vtup])
 
-def getexcfo(e):
-    '''
-    Get an err tufo from an exception.
-
-    Args:
-        e (Exception): An Exception (or Exception subclass).
-
-    Notes:
-        This can be called outside of the context of an exception handler,
-        however details such as file, line, function name and source may be
-        missing.
-
-    Returns:
-        ((str, dict)):
-    '''
-    tb = sys.exc_info()[2]
-    tbinfo = traceback.extract_tb(tb)
-    path, line, name, src = '', '', '', None
-    if tbinfo:
-        path, line, name, sorc = tbinfo[-1]
-    retd = {
-        'msg': str(e),
-        'file': path,
-        'line': line,
-        'name': name,
-        'src': src
-    }
-
-    if isinstance(e, s_exc.SynErr):
-        retd['syn:err'] = e.errinfo
-
-    return (e.__class__.__name__, retd)
-
 def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
@@ -723,7 +690,7 @@ def result(retn):
     info['errx'] = name
     raise s_exc.SynErr(**info)
 
-def err(e):
+def err(e, fulltb=False):
     name = e.__class__.__name__
     info = {}
 
@@ -743,6 +710,12 @@ def err(e):
         info.update(e.items())
     else:
         info['mesg'] = str(e)
+
+    if fulltb:
+        s = traceback.format_exc()
+        if s[-1:] == "\n":
+            s = s[:-1]
+        info['etb'] = s
 
     return (name, info)
 

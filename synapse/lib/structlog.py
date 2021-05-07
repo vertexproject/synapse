@@ -2,6 +2,8 @@ import json
 
 import logging
 
+import synapse.common as s_common
+
 class JsonFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -20,12 +22,12 @@ class JsonFormatter(logging.Formatter):
             'func': record.funcName,
             'time': self.formatTime(record, self.datefmt),
         }
+
         if record.exc_info:
-            ret['exc_info'] = self.formatException(record.exc_info)
-        if record.exc_text:
-            ret['exc_text'] = record.exc_text
-        if record.stack_info:
-            ret['stack_info'] = record.stack_info
+            name, info = s_common.err(record.exc_info[1], fulltb=True)
+            ret.update({k: v for k, v in info.items() if k not in ret})
+            # This is the actual exception name. The ename key is the function name.
+            ret['errname'] = name
 
         # stuffing our extra into a single dictionary avoids a loop
         # over record.__dict__ extracting fields which are not known
