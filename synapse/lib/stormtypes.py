@@ -5508,6 +5508,7 @@ class User(Prim):
 
     async def _methUserSetPasswd(self, passwd):
         if self.runt.user.iden == self.valu:
+            passwd = await tostr(passwd, noneok=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
         self.runt.confirm(('auth', 'user', 'set', 'passwd'))
