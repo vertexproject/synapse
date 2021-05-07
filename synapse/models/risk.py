@@ -37,6 +37,9 @@ class RiskModule(s_module.CoreModule):
                         'ex': 'it.dos', # it.ppi.disclosed / med.treatment.missed / refugee.created / life.lost / regulatory.fine
                         'doc': 'A type specified as a hierarchy.',
                     }),
+                    ('data', ('data', {}), {
+                        'doc': 'An arbitrary JSON compatible data field whose value depends on the type property.',
+                    }),
                     ('caused', ('array', {'type': 'risk:impact', 'sorted': True, 'uniq': True, 'split': ','}), {
                         'doc': 'An array of subsequent impacts caused by this impact.',
                     }),
@@ -49,16 +52,15 @@ class RiskModule(s_module.CoreModule):
                         'ex': '3D 3:00:00',
                     }),
                     ('econ:loss', ('econ:price', {}), {
-                        'doc': 'The monetary loss created by the effect.'
+                        'doc': 'The monetary loss created by the effect.',
                         'ex': '13.37',
                     }),
                     ('econ:gain', ('econ:price', {}), {
-                        'doc': 'The monetary gain created by the effect.'
+                        'doc': 'The monetary gain created by the effect.',
                         'ex': '13.37',
                     }),
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency being used to value :econ:loss/:econ:gain',
-                        'ex': 'USD',
                     }),
                 )),
                 ('risk:exploit', {}, (

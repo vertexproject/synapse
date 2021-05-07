@@ -1259,53 +1259,46 @@ class Hier(Type):
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
 
-        #self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('^=', self._ctorCmprPref)
         self.storlifts.update({
-            '=': self._storLiftEq,
             '^=': self._storLiftPref,
         })
 
-    def _storLiftEq(self, cmpr, valu):
-        norm, info = self.norm(valu)
+    def _storLiftPref(self, cmpr, valu):
+        if isinstance(valu, (tuple, list)):
+            text = self.norm(valu)
+        else:
+            text = self._baseStrNorm(valu)
         return (
-            ('^=', norm, self.stortype),
+            ('^=', text, self.stortype),
         )
 
-    def _storLiftPref(self, cmpr, valu):
-        norm, info = self.norm(valu)
-        return (
-            ('^=', norm.strip('.'), self.stortype),
-        )
+    def _baseStrNorm(self, text):
+        text = text.lower().strip()
+        text = ' '.join(text.split())
+        return text
 
     def _normStrPart(self, text):
-        text = text.lower().strip().strip('.')
-        text = text.replace('.', '_')
-        return ' '.join(text.split())
+        text = self._baseStrNorm(text)
+        text = text.strip('.').replace('.', '_')
+        return text
 
     def _normPyStr(self, valu):
         parts = valu.strip('.').split('.')
-        norm = self._normPyList(parts)
-        return norm, {}
+        return self._normPyList(parts)
 
     def _normPyList(self, valu):
         norms = [self._normStrPart(p) for p in valu if p]
-        return '.'.join(norms) + '.'
+        return '.'.join(norms) + '.', {}
 
-    def _ctorCmprEq(self, text):
-        norm, _ = self.norm(text)
+    def _ctorCmprPref(self, valu):
+        if isinstance(valu, (tuple, list)):
+            text = self.norm(valu)
+        else:
+            text = self._baseStrNorm(valu)
         def cmpr(valu):
-            return valu.startswith(norm)
+            return valu.startswith(text)
         return cmpr
-
-    def _ctorCmprPref(self, text):
-        norm, _ = self.norm(text).strip('.')
-        def cmpr(valu):
-            return valu.startswith(norm)
-        return cmpr
-
-    def repr(self, norm):
-        return norm
 
 class Ndef(Type):
 

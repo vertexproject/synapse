@@ -20,6 +20,24 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    async def test_hier(self):
+
+        model = s_datamodel.Model()
+        t = model.type('hier')
+        self.eq('foo.bar.b az.gronk.', t.norm('foo.bar  .B  AZ.gronk')[0])
+        self.eq('foo.bar_baz.', t.norm(('foo', 'bar.baz'))[0])
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ risk:impact=* :type=(foo, bar.baz, haha) ]')
+            self.len(0, await core.nodes('risk:impact:type=foo.'))
+            self.len(0, await core.nodes('risk:impact +:type=foo.'))
+            self.len(1, await core.nodes('risk:impact:type^=foo.'))
+            self.len(1, await core.nodes('risk:impact +:type^=foo.'))
+            self.len(1, await core.nodes('risk:impact:type=foo.bar_baz.haha'))
+            self.len(1, await core.nodes('risk:impact +:type=foo.bar_baz.haha'))
+            self.len(1, await core.nodes('risk:impact:type=foo.bar_baz.haha.'))
+            self.len(1, await core.nodes('risk:impact +:type=foo.bar_baz.haha.'))
+
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
