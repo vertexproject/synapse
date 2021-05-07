@@ -33,7 +33,7 @@ class StructLogTest(s_test.SynTest):
             try:
                 foo()
             except ZeroDivisionError as e:
-                raise ZDE(mesg='ZDE test', args=(1, 0)) from e
+                raise ZDE(mesg='ZDE test', args=(1, 0), buffer='vertex'.encode()) from e
         try:
             bar()
         except s_exc.SynErr:
@@ -74,11 +74,12 @@ class StructLogTest(s_test.SynTest):
         self.isin('_ = 1 / 0', etb)
         self.isin('The above exception was the direct cause of the following exception:', etb)
         self.isin('ZeroDivisionError: division by zero', etb)
-        self.isin("""test_lib_structlog.ZDE: ZDE: args=(1, 0) mesg='ZDE test'""", etb)
+        self.isin("""test_lib_structlog.ZDE: ZDE: args=(1, 0) buffer=b'vertex' mesg='ZDE test'""", etb)
         self.eq(mesg.get('errname'), 'ZDE')
         self.eq(mesg.get('mesg'), 'ZDE test')
 
         self.eq(mesg.get('args'), (1, 0))
+        self.eq(mesg.get('buffer'), "b'vertex'")
 
         mesg = mesgs[4]
         rawm = raw_mesgs[4]
