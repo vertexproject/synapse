@@ -1901,6 +1901,21 @@ class StormTest(s_t_utils.SynTest):
                 self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
 
+                # Check offset reporting
+                q = '$layer=$lib.layer.get($layr0) return ($layer.pack())'
+                layrinfo = await core.callStorm(q, opts=opts)
+                pushs = layrinfo.get('pushs')
+                self.len(1, pushs)
+                pdef = list(pushs.values())[0]
+                self.lt(10, pdef.get('offs', 0))
+
+                q = '$layer=$lib.layer.get($layr2) return ($layer.pack())'
+                layrinfo = await core.callStorm(q, opts=opts)
+                pulls = layrinfo.get('pulls')
+                self.len(1, pulls)
+                pdef = list(pulls.values())[0]
+                self.lt(10, pdef.get('offs', 0))
+
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
                 self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
