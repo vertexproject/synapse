@@ -4537,20 +4537,7 @@ class Layer(Prim):
         self.valu[name] = valu
 
     async def _methLayerPack(self):
-        ldef = copy.deepcopy(self.valu)
-        pushs = ldef.get('pushs')
-        if pushs is not None:
-            for iden, pdef in pushs.items():
-                gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
-
-        pulls = ldef.get('pulls')
-        if pulls is not None:
-            for iden, pdef in pulls.items():
-                gvar = f'push:{iden}'
-                pdef['offs'] = await self.runt.snap.core.getStormVar(gvar, -1)
-
-        return ldef
+        return copy.deepcopy(self.valu)
 
     async def _methLayerRepr(self):
         iden = self.valu.get('iden')

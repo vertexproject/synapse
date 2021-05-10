@@ -77,6 +77,7 @@ reqValidPush = s_config.getJsValidator({
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
+        'offs': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
     },
@@ -3505,6 +3506,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         reqValidPull(pdef)
 
+        # TODO: schema validation
         iden = pdef.get('iden')
 
         layr = self.layers.get(layriden)
