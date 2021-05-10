@@ -153,11 +153,25 @@ class AuthTest(s_test.SynTest):
             user = await auth.getUserByName('root')
             await user.setPasswd('secret')
 
+            # tryPasswd
+            self.true(await user.tryPasswd('secret'))
+            self.false(await user.tryPasswd('beep'))
+            self.false(await user.tryPasswd(None))
+
             # hive passwords must be non-zero length strings
             with self.raises(s_exc.BadArg):
                 await user.setPasswd('')
             with self.raises(s_exc.BadArg):
                 await user.setPasswd({'key': 'vau'})
+
+            # passwords can be set to none, preventing tryPasswd from working
+            await user.setPasswd(None)
+            self.false(await user.tryPasswd(None))
+            self.false(await user.tryPasswd('beep'))
+            self.false(await user.tryPasswd('secret'))
+
+            # Reset the password
+            await user.setPasswd('secret')
 
             turl = self.getTestUrl(dmon, 'hive')
 

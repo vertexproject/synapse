@@ -1,12 +1,15 @@
 import copy
 import json
 
-import stix2validator
-
 import synapse.exc as s_exc
+
+import synapse.lib.stormlib.stix as s_stix
+
 import synapse.tests.utils as s_test
 
 # flake8: noqa: E501
+
+from pprint import pprint
 
 class StormlibModelTest(s_test.SynTest):
 
@@ -45,11 +48,11 @@ class StormlibModelTest(s_test.SynTest):
             json.dump(bund, fd, sort_keys=True, indent=2)
 
     def reqValidStix(self, item):
-        item = json.loads(json.dumps(item))
-        vres = stix2validator.validate_parsed_json(item)
-        if not vres.is_valid:
-            stix2validator.print_results(vres)
-            self.true(vres.is_valid)
+        resp = s_stix.validateStix(item)
+        success = resp.get('ok')
+        if not success:
+            print(resp)
+            self.true(success)
 
     async def test_stormlib_libstix(self):
 
@@ -166,6 +169,22 @@ class StormlibModelTest(s_test.SynTest):
 
             self.bundeq(self.getTestBundle('custom0.json'), bund)
 
+            resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bund}})
+            self.true(resp.get('ok'))
+            result = resp.get('result')
+            self.eq(result, {'result': True})
+
+            bad_bundle = copy.deepcopy(bund)
+            objects = bad_bundle.get('objects') # type: list
+            extdef = objects[0]
+            extdef.pop('type')
+            resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bad_bundle}})
+            self.false(resp.get('ok'))
+            self.isin('Error validating bundle', resp.get('mesg'))
+
+            nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund}})
+            self.len(10, nodes)
+
             # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
             self.none(await core.callStorm('[ ou:conference=* ] return($lib.stix.export.bundle().add($node))'))
@@ -254,3 +273,21 @@ class StormlibModelTest(s_test.SynTest):
 
                     inet:fqdn $bundle.add($node)
                 ''')
+
+    async def test_risk_vuln(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''[(risk:vuln=(vuln1,) :name=vuln1 :desc="bad vuln" :cve="cve-2013-0000")]
+            [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
+            [(ou:org=(bob1,) :name="bobs whitehatz")]
+            [(ou:campaign=(campaign1,) :name="bob hax" :org=(bob1,) )]
+            [(risk:attack=(attk1,) :used:vuln=(vuln1,) :campaign=(campaign1,) )]
+            [(risk:attack=(attk2,) :used:vuln=(vuln3,) :campaign=(campaign1,) )]
+            ''')
+
+            bund = await core.callStorm('''
+            init { $bundle = $lib.stix.export.bundle() }
+            ou:campaign
+            $bundle.add($node)
+            fini { return($bundle) }''')
+            self.reqValidStix(bund)
+            self.bundeq(self.getTestBundle('risk0.json'), bund)

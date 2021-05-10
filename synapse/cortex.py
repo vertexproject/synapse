@@ -1007,9 +1007,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
 
-        self.storm_cmd_ctors = {}
-        self.storm_cmd_cdefs = {}
-
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_hive.HiveDict
@@ -1821,7 +1818,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
-        self.storm_cmd_cdefs[name] = cdef
 
         await self.fire('core:cmd:change', cmd=name, act='add')
 
@@ -2007,6 +2003,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
             await self._popStormCmd(name)
+
+        pkgname = pkgdef.get('name')
+        self.stormpkgs.pop(pkgname, None)
 
     def getStormSvc(self, name):
 
@@ -3684,7 +3683,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
-        self.storm_cmd_ctors[ctor.name] = ctor
 
     async def addStormDmon(self, ddef):
         '''
@@ -3706,6 +3704,16 @@ class Cortex(s_cell.Cell):  # type: ignore
                 await dmon.bump()
 
         return True
+
+    async def _bumpUserDmons(self, iden):
+        '''
+        Bump all the Dmons for a given user.
+        Args:
+            iden (str): User iden.
+        '''
+        for dmoniden, ddef in list(self.stormdmonhive.items()):
+            if ddef.get('user') == iden:
+                await self.bumpStormDmon(dmoniden)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
@@ -3978,6 +3986,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.applyNodeEdits(item)
+
+    async def setUserLocked(self, iden, locked):
+        retn = await s_cell.Cell.setUserLocked(self, iden, locked)
+        await self._bumpUserDmons(iden)
+        return retn
 
     def getCoreMod(self, name):
         return self.modules.get(name)
