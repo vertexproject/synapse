@@ -49,9 +49,9 @@ class StructLogTest(s_test.SynTest):
         self.len(5, mesgs)
 
         mesg = mesgs[0]
-        self.eq(set(mesg.keys()),
-                {'message', 'logger', 'thread', 'process', 'thread',
-                 'filename', 'level', 'func', 'time'})
+        self.eq(set(mesg.keys()), {'message', 'logger', 'level', 'time'})
+        lnfo = mesg.get('logger')
+        self.eq(set(lnfo.keys()), {'name', 'thread', 'process', 'filename', 'func'})
         self.eq(mesg.get('message'), 'Test message 1')
         self.eq(mesg.get('level'), 'WARNING')
 
@@ -69,17 +69,18 @@ class StructLogTest(s_test.SynTest):
         mesg = mesgs[3]
         self.eq(mesg.get('message'), 'Exception handling')
         self.eq(mesg.get('level'), 'ERROR')
-        etb = mesg.get('etb')
+        erfo = mesg.get('err')
+
+        etb = erfo.get('etb')
         self.isin('Traceback', etb)
         self.isin('_ = 1 / 0', etb)
         self.isin('The above exception was the direct cause of the following exception:', etb)
         self.isin('ZeroDivisionError: division by zero', etb)
         self.isin("""test_lib_structlog.ZDE: ZDE: args=(1, 0) buffer=b'vertex' mesg='ZDE test'""", etb)
-        self.eq(mesg.get('errname'), 'ZDE')
-        self.eq(mesg.get('mesg'), 'ZDE test')
-
-        self.eq(mesg.get('args'), (1, 0))
-        self.eq(mesg.get('buffer'), "b'vertex'")
+        self.eq(erfo.get('errname'), 'ZDE')
+        self.eq(erfo.get('mesg'), 'ZDE test')
+        self.eq(erfo.get('args'), (1, 0))
+        self.eq(erfo.get('buffer'), "b'vertex'")
 
         mesg = mesgs[4]
         rawm = raw_mesgs[4]

@@ -14,20 +14,22 @@ class JsonFormatter(logging.Formatter):
         mesg = self.formatMessage(record)
         ret = {
             'message': mesg,
-            'logger': record.name,
-            'thread': record.threadName,
-            'process': record.processName,
-            'filename': record.filename,
+            'logger': {
+                'name': record.name,
+                'thread': record.threadName,
+                'process': record.processName,
+                'filename': record.filename,
+                'func': record.funcName,
+            },
             'level': record.levelname,
-            'func': record.funcName,
             'time': self.formatTime(record, self.datefmt),
         }
 
         if record.exc_info:
             name, info = s_common.err(record.exc_info[1], fulltb=True)
-            ret.update({k: v for k, v in info.items() if k not in ret})
             # This is the actual exception name. The ename key is the function name.
-            ret['errname'] = name
+            info['errname'] = name
+            ret['err'] = info
 
         # stuffing our extra into a single dictionary avoids a loop
         # over record.__dict__ extracting fields which are not known
