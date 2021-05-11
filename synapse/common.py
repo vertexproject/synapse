@@ -614,7 +614,7 @@ def iterzip(*args, fillvalue=None):
 
 def _getLogConfFromEnv(defval=None, structlog=None):
     if structlog:
-        structlog = 'trye'
+        structlog = 'true'
     else:
         structlog = 'false'
     defval = os.getenv('SYN_LOG_LEVEL', defval)
