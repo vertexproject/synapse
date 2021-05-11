@@ -288,6 +288,18 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq(None, await core.callStorm('return($lib.pkg.get(nopkg))'))
 
+            pkg1 = {'name': 'haha', 'version': '1.2.3'}
+            await core.addStormPkg(pkg1)
+            msgs = await core.stormlist('pkg.list')
+            self.isin('haha', msgs[2][1]['mesg'])
+            self.isin('hehe', msgs[3][1]['mesg'])
+
+            self.true(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            await core.delStormPkg('haha')
+            self.none(await core.callStorm('return($lib.pkg.get(haha))'))
+            self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
             # and again to test *not* creating it...
@@ -554,6 +566,24 @@ class StormTest(s_t_utils.SynTest):
                 q = 'return($lib.dmon.bump($iden))'
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
                 self.true(await stream.wait(2))
+
+    async def test_storm_dmon_user_autobump(self):
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')))
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    q = '''return($lib.dmon.add(${{ $lib.print(foobar) $lib.time.sleep(10) }},
+                                                name=hehedmon))'''
+                    await asvisi.callStorm(q)
+
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+                    await core.setUserLocked(visi.iden, True)
+                    self.true(await stream.wait(2))
+
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    await core.setUserLocked(visi.iden, False)
+                    self.true(await stream.wait(2))
 
     async def test_storm_pipe(self):
 
@@ -1916,6 +1946,21 @@ class StormTest(s_t_utils.SynTest):
 
                 self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # Check offset reporting
+                q = '$layer=$lib.layer.get($layr0) return ($layer.pack())'
+                layrinfo = await core.callStorm(q, opts=opts)
+                pushs = layrinfo.get('pushs')
+                self.len(1, pushs)
+                pdef = list(pushs.values())[0]
+                self.lt(10, pdef.get('offs', 0))
+
+                q = '$layer=$lib.layer.get($layr2) return ($layer.pack())'
+                layrinfo = await core.callStorm(q, opts=opts)
+                pulls = layrinfo.get('pulls')
+                self.len(1, pulls)
+                pdef = list(pulls.values())[0]
+                self.lt(10, pdef.get('offs', 0))
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})
