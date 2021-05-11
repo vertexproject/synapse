@@ -131,7 +131,7 @@ def _iterBackupProc(path, linkinfo, done):
     '''
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
-    s_common.setlogging(logger, linkinfo.get('loglevel'))
+    s_common.setlogging(logger, **linkinfo.get('logconf'))
 
     asyncio.run(_iterBackupWork(path, linkinfo, done))
 
@@ -707,6 +707,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 }
             },
             'required': ('urlinfo', ),
+        },
+        '_log_conf': {
+            'description': 'Opaque structure used for logging by spawned processes.',
+            'type': 'object',
+            'hidecmd': True
         }
     }
 
@@ -1212,7 +1217,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
-        loglevel = logger.getEffectiveLevel()
+        logconf = await self._getSpawnLogConf()
         proc = None
 
         try:
@@ -1228,7 +1233,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 logger.debug('Starting backup process')
 
-                args = (child_pipe, self.dirn, dirn, paths, loglevel)
+                args = (child_pipe, self.dirn, dirn, paths, logconf)
 
                 def waitforproc1():
                     nonlocal proc
@@ -1262,12 +1267,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 proc.terminate()
 
     @staticmethod
-    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
+    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
         '''
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        s_common.setlogging(logger, loglevel)
+        s_common.setlogging(logger, **logconf)
 
         with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
             pipe.send('captured')
@@ -1325,7 +1330,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         link = s_scope.get('link')
         linkinfo = await link.getSpawnInfo()
-        linkinfo['loglevel'] = logger.getEffectiveLevel()
+        linkinfo['logconf'] = await self._getSpawnLogConf()
 
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
@@ -1383,7 +1388,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.runBackup(name)
             link = s_scope.get('link')
             linkinfo = await link.getSpawnInfo()
-            linkinfo['loglevel'] = logger.getEffectiveLevel()
+            linkinfo['logconf'] = await self._getSpawnLogConf()
 
             await self.boss.promote('backup:stream', user=user, info={'name': name})
 
@@ -1838,6 +1843,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getCellApi(self, link, user, path):
         return await self.cellapi.anit(self, link, user)
 
+    async def _getSpawnLogConf(self):
+        conf = self.conf.get('_log_conf')
+        if conf:
+            return conf
+        return s_common._getLogConfFromEnv()
+
     @classmethod
     def getCellType(cls):
         return cls.__name__.lower()
@@ -1890,6 +1901,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
                           help='Specify the Python logging log level.', type=str.upper)
+        pars.add_argument('--structured-logging', default=False, action='store_true',
+                          help='Use structured logging.')
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -1950,8 +1963,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = pars.parse_args(argv)
 
-        s_common.setlogging(logger, defval=opts.log_level)
-
+        logconf = s_common.setlogging(logger, defval=opts.log_level,
+                                      structlog=opts.structured_logging)
+        conf.setdefault('_log_conf', logconf)
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
 

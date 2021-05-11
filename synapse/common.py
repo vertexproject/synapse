@@ -612,7 +612,17 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def setlogging(mlogger, defval=None):
+def _getLogConfFromEnv(defval=None, structlog=None):
+    if structlog:
+        structlog = 'trye'
+    else:
+        structlog = 'false'
+    defval = os.getenv('SYN_LOG_LEVEL', defval)
+    structlog = envbool('SYN_LOG_STRUCT', structlog)
+    ret = {'defval': defval, 'structlog': structlog}
+    return ret
+
+def setlogging(mlogger, defval=None, structlog=None):
     '''
     Configure synapse logging.
 
@@ -626,9 +636,11 @@ def setlogging(mlogger, defval=None):
     Returns:
         None
     '''
-    log_struct = envbool('SYN_LOG_STRUCT', 'false')
-    log_level = os.getenv('SYN_LOG_LEVEL',
-                          defval)
+    ret = _getLogConfFromEnv(defval, structlog)
+
+    log_level = ret.get('defval')
+    log_struct = ret.get('structlog')
+
     if log_level:  # pragma: no cover
         if isinstance(log_level, str):
             log_level = log_level.upper()
@@ -640,10 +652,11 @@ def setlogging(mlogger, defval=None):
             formatter = s_structlog.JsonFormatter()
             handler.setFormatter(formatter)
             logging.basicConfig(level=log_level, handlers=(handler,))
-
         else:
             logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
+
+    return ret
 
 syndir = os.getenv('SYN_DIR')
 if syndir is None:
