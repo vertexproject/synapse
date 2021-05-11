@@ -10,8 +10,9 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
-import synapse.lib.version as s_version
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -493,6 +494,51 @@ class StormTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.StormRuntimeError):
                         await runt.getOneNode('ou:org:name', 'dupcorp')
+
+            count = 5
+            for i in range(count):
+                await core.nodes('[ test:guid=$lib.guid() +#foo.bar]')
+                await core.nodes('[ test:str=$lib.guid() ]')
+
+            # test the node importing works...
+            class ExpHandler(s_httpapi.StormHandler):
+                async def get(self, name):
+                    self.set_header('Content-Type', 'application/x-synapse-nodes')
+                    core = self.getCore()
+                    if name == 'kewl':
+                        form = 'test:guid'
+                    elif name == 'neat':
+                        form = 'test:str'
+                    else:
+                        return
+                    async for pode in core.exportStorm(form):
+                        self.write(s_msgpack.en(pode))
+                        self.flush()
+
+            core.addHttpApi('/api/v1/exptest/(.*)', ExpHandler, {'cell': core})
+            port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
+            async with self.getTestCore() as subcore:
+                # test that we get nodes, but in this vase, incoming node get priority
+                byyield = await subcore.nodes(f'[inet:url="https://127.0.0.1:{port}/api/v1/exptest/neat"] | nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
+                self.len(count, byyield)
+                for node in byyield:
+                    self.eq(node.form.name, 'test:str')
+                # we shouldn't grab any of the nodes tagged #foo.bar (ie, all the test:guid nodes)
+                bytag = await subcore.nodes('#foo.bar')
+                self.len(0, bytag)
+
+                # now test that param works
+                byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
+                self.len(count, byyield)
+                for node in byyield:
+                    self.eq(node.form.name, 'test:guid')
+                    self.isin('foo.bar', node.tags)
+
+                # bad response should give no nodes
+                msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/lolnope/')
+                self.stormIsInWarn('nodes.import got HTTP error code', msgs)
+                nodes = [x for x in msgs if x[0] == 'node']
+                self.len(0, nodes)
 
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:

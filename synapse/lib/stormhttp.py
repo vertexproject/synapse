@@ -7,6 +7,7 @@ import aiohttp_socks
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -144,7 +145,14 @@ class HttpResp(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'json': self._httpRespJson,
+            'msgpack': self._httpRespMsgpack,
         }
 
     async def _httpRespJson(self):
         return json.loads(self.valu.get('body'))
+
+    async def _httpRespMsgpack(self):
+        byts = self.valu.get('body')
+        unpk = s_msgpack.Unpk()
+        for _, item in unpk.feed(byts):
+            yield item
