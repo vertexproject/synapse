@@ -1028,7 +1028,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
         if mesg:
-            mesg = self._get_mesg(mesg, **kwargs)
+            mesg = await self._get_mesg(mesg, **kwargs)
             await self.runt.warn(mesg, log=False)
             raise s_stormctrl.StormExit(mesg)
         raise s_stormctrl.StormExit()
@@ -1095,20 +1095,16 @@ class LibBase(Lib):
         return max(*ints)
 
     @staticmethod
-    def _get_mesg(mesg, **kwargs):
+    async def _get_mesg(mesg, **kwargs):
         if not isinstance(mesg, str):
-            mesg = repr(mesg)
+            mesg = await torepr(mesg)
         elif kwargs:
             mesg = kwarg_format(mesg, **kwargs)
         return mesg
 
     @stormfunc(readonly=True)
     async def _print(self, mesg, **kwargs):
-        try:
-            mesg = await toprim(mesg)
-        except s_exc.NoSuchType:
-            pass
-        mesg = self._get_mesg(mesg, **kwargs)
+        mesg = await self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
     @stormfunc(readonly=True)
@@ -1137,6 +1133,7 @@ class LibBase(Lib):
             if clamp < 3:
                 mesg = 'Invalid clamp length.'
                 raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
+
         try:
             item = await toprim(item)
         except s_exc.NoSuchType:
@@ -1153,7 +1150,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _warn(self, mesg, **kwargs):
-        mesg = self._get_mesg(mesg, **kwargs)
+        mesg = await self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
@@ -2437,6 +2434,9 @@ class Queue(StormType):
     def _getGateKeys(self, perm):
         return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
+    async def stormrepr(self):
+        return f'Queue: {self.name}'
+
 @registry.registerLib
 class LibTelepath(Lib):
     '''
@@ -2521,6 +2521,9 @@ class ProxyMethod(StormType):
         # TODO: storm types fromprim()
         return await self.meth(*args, **kwargs)
 
+    async def stormrepr(self):
+        return f'ProxyMethod: {self.meth}'
+
 # @registry.registerType
 class ProxyGenrMethod(StormType):
 
@@ -2534,6 +2537,9 @@ class ProxyGenrMethod(StormType):
         async for prim in self.meth(*args, **kwargs):
             # TODO: storm types fromprim()
             yield prim
+
+    async def stormrepr(self):
+        return f'ProxyGenrMethod: {self.meth}'
 
 @registry.registerLib
 class LibBase64(Lib):
@@ -2613,6 +2619,9 @@ class Prim(StormType):
 
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.value()}'
 
 @registry.registerType
 class Str(Prim):
@@ -2992,6 +3001,11 @@ class Dict(Prim):
     async def value(self):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in self.valu.items()]
+        rval = ', '.join(reprs)
+        return f'{self._storm_typename}: {{{rval}}}'
+
 @registry.registerType
 class CmdOpts(Dict):
     '''
@@ -3022,6 +3036,12 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         for item in valu.items():
             yield item
+
+    async def stormrepr(self):
+        valu = vars(self.valu.opts)
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in valu.items()]
+        rval = ', '.join(reprs)
+        return f'{self._storm_typename}: {{{rval}}}'
 
 @registry.registerType
 class Set(Prim):
@@ -3112,6 +3132,11 @@ class Set(Prim):
 
     async def _methSetList(self):
         return list(self.valu)
+
+    async def stormrepr(self):
+        reprs = [await torepr(k) for k in self.valu]
+        rval = ', '.join(reprs)
+        return f'{self._storm_typename}: {{{rval}}}'
 
 @registry.registerType
 class List(Prim):
@@ -3225,6 +3250,11 @@ class List(Prim):
     async def iter(self):
         for item in self.valu:
             yield item
+
+    async def stormrepr(self):
+        reprs = [await torepr(k) for k in self.valu]
+        rval = ', '.join(reprs)
+        return f'{self._storm_typename}: [{rval}]'
 
 @registry.registerType
 class Bool(Prim):
@@ -3566,6 +3596,9 @@ class Query(Prim):
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
             raise
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: "{self.text}"'
 
 @registry.registerType
 class NodeProps(Prim):
@@ -4567,6 +4600,9 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
+    async def stormrepr(self):
+        return await self._methLayerRepr()
+
 @registry.registerLib
 class LibView(Lib):
     '''
@@ -4854,6 +4890,9 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         todo = s_common.todo('merge', useriden=useriden)
         await self.runt.dyncall(viewiden, todo)
+
+    async def stormrepr(self):
+        return await self._methViewRepr()
 
 @registry.registerLib
 class LibTrigger(Lib):
@@ -6304,3 +6343,8 @@ async def toiter(valu, noneok=False):
 
     for item in valu:
         yield item
+
+async def torepr(valu):
+    if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
+        return await valu.stormrepr()
+    return repr(valu)
