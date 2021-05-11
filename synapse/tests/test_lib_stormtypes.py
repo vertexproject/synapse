@@ -289,6 +289,32 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
+            mesgs = await core.stormlist('$lib.print($lib.list(1,2,3))')
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
             mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)

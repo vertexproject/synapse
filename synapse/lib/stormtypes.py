@@ -1104,6 +1104,10 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _print(self, mesg, **kwargs):
+        try:
+            mesg = await toprim(mesg)
+        except s_exc.NoSuchType:
+            pass
         mesg = self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
@@ -1133,6 +1137,10 @@ class LibBase(Lib):
             if clamp < 3:
                 mesg = 'Invalid clamp length.'
                 raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
+        try:
+            item = await toprim(item)
+        except s_exc.NoSuchType:
+            pass
 
         lines = pprint.pformat(item).splitlines()
 
