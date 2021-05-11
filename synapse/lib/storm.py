@@ -1111,14 +1111,13 @@ stormcmds = (
 
         $ssl = (not $cmdopts.no_ssl_verify)
 
-        $inurls = $lib.list()
         if $node {
             $count = ($count + 1)
             if ($node.form() != "inet:url") {
                 $lib.warn("nodes.import can only take inet:url nodes as input without args")
                 $lib.exit()
             }
-            $inurls.append($node.value())
+            $inurls = ($node.value(),)
             for $url in $inurls {
                 -> { yield $fetchnodes($url, $ssl) }
             }
