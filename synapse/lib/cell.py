@@ -711,7 +711,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
             'type': 'object',
-            'hidecmd': True
+            'hideconf': True
         }
     }
 
