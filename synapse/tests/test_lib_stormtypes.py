@@ -613,6 +613,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.lower() )'
             self.eq('quickbrownfox', await core.callStorm(q))
 
+            q = '$foo="QuickBrownFox" return ( $foo.upper() )'
+            self.eq('QUICKBROWNFOX', await core.callStorm(q))
+
             q = '$foo="quickbrownfox" return ( $foo.slice(5) )'
             self.eq('brownfox', await core.callStorm(q))
 

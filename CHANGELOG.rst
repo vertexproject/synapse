@@ -5,6 +5,65 @@ Synapse Changelog
 *****************
 
 
+v2.37.0 - 2021-05-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``file:mime:image`` interface to the Synapse model for recording MIME
+  specific metadata from image files.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``file:mime:jpg``, ``file:mime:tiff``, ``file:mime:gif`` and
+  ``file:mime:png`` specific forms for recording metadata of those file types.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``$lib.pkg.has()`` Stormtype API to check for for the existence of a
+  given Storm package by name.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+- All ``None / $lib.null`` as input to setting a user password. This clears
+  the password and prevents a user from being able to login.
+  (`#2181 <https://github.com/vertexproject/synapse/pull/2181>`_)
+- Grab any Layer push/pull offset values when calling ``Layer.pack()``.
+  (`#2184 <https://github.com/vertexproject/synapse/pull/2184>`_)
+- Move the retrieval of ``https:headers`` from HTTPAPI handlers into a
+  function so that downstream implementers can redirect where the extra
+  values are retrieved from.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+
+Bugfixes
+--------
+- Fix an issue which allowed for deleted Storm Packages to be retrieved from
+  memory.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+
+
+v2.36.0 - 2021-05-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``risk:vuln`` support to the default Stix 2.1 export, and capture
+  vulnerability information used by threat actors and in campaigns. Add the
+  ability to validate Stix 2.1 bundles to ensure that they are Stix 2.1 CS02
+  compliant. Add the ability to lift Synapse nodes based on bundles which were
+  previously exported from Synapse. The lift feature only works with bundles
+  created with Synapse v2.36.0 or greater.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Add a ``Str.upper()`` function for uppercasing strings in Storm.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Automatically bump a user's StormDmon's when they are locked or unlocked.
+  (`#2177 <https://github.com/vertexproject/synapse/pull/2177>`_)
+- Add Storm Package support to ``synapse.tools.autodocs`` and update the
+  rstorm implementation to capture additional directives.
+  (`#2172 <https://github.com/vertexproject/synapse/pull/2172>`_)
+- Tighten lark-parser version requirements.
+  (`#2175 <https://github.com/vertexproject/synapse/pull/2175>`_)
+
+Bugfixes
+--------
+- Fix reported layer size to represent actual disk usage.
+  (`#2173 <https://github.com/vertexproject/synapse/pull/2173>`_)
+
+
 v2.35.0 - 2021-04-27
 ====================
 
