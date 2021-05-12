@@ -62,10 +62,13 @@ class HandlerBase:
         self._web_user = None
 
         # this can't live in set_default_headers() due to call ordering in tornado
-        headers = self.cell.conf.get('https:headers')
+        headers = self.getCustomHeaders()
         if headers is not None:
             for name, valu in headers.items():
                 self.add_header(name, valu)
+
+    def getCustomHeaders(self):
+        return self.cell.conf.get('https:headers')
 
     def set_default_headers(self):
 

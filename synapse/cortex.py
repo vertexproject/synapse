@@ -78,7 +78,6 @@ reqValidPush = s_config.getJsValidator({
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
-        'offs': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
     },
@@ -1008,9 +1007,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
 
-        self.storm_cmd_ctors = {}
-        self.storm_cmd_cdefs = {}
-
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_hive.HiveDict
@@ -1822,7 +1818,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
-        self.storm_cmd_cdefs[name] = cdef
 
         await self.fire('core:cmd:change', cmd=name, act='add')
 
@@ -2008,6 +2003,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
             await self._popStormCmd(name)
+
+        pkgname = pkgdef.get('name')
+        self.stormpkgs.pop(pkgname, None)
 
     def getStormSvc(self, name):
 
@@ -3508,7 +3506,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         reqValidPull(pdef)
 
-        # TODO: schema validation
         iden = pdef.get('iden')
 
         layr = self.layers.get(layriden)
@@ -3685,7 +3682,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
-        self.storm_cmd_ctors[ctor.name] = ctor
 
     async def addStormDmon(self, ddef):
         '''

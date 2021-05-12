@@ -8,12 +8,32 @@ import synapse.lib.grammar as s_grammar
 
 units = {
     'mm': 1,
+    'millimeter': 1,
+    'millimeters': 1,
+
     'cm': 10,
+    'centimeter': 10,
+    'centimeters': 10,
+
+    # international foot
+    'foot': 304.8,
+    'feet': 304.8,
 
     'm': 1000,
+    'meter': 1000,
     'meters': 1000,
 
+    # international mile
+    'mile': 1609344,
+    'miles': 1609344,
+
     'km': 1000000,
+    'kilometer': 1000000,
+    'kilometers': 1000000,
+
+    # international yard
+    'yard': 914.4,
+    'yards': 914.4,
 }
 
 distrepr = (
