@@ -2154,8 +2154,6 @@ class Pipe(StormType):
             'slices': self._methPipeSlices,
             'size': self._methPipeSize,
         }
-    async def stormrepr(self):
-        return f'{self._storm_typename}: {self.meth}'
 
     async def _methPipePuts(self, items):
         items = await toprim(items)
@@ -2629,7 +2627,7 @@ class Prim(StormType):
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
-    async def stormrepr(self):
+    async def stormrepr(self): # pragma: no cover
         return f'{self._storm_typename}: {self.value()}'
 
 @registry.registerType
