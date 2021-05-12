@@ -1103,8 +1103,7 @@ stormcmds = (
                     }
                     yield $lib.feed.genr("syn.nodes", $nodes)
                 } else {
-                    $lib.warn("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
-                    $lib.exit()
+                    $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
                 }
             }
         }

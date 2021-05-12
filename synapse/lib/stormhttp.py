@@ -133,6 +133,11 @@ class HttpResp(s_stormtypes.Prim):
                      'returns': {'type': 'prim'}
                      }
         },
+        {'name': 'msgpack', 'desc': 'Yield the msgpack deserialized objects.',
+            'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
+                     'returns': {'type': 'prim'}
+                     }
+        },
     )
     _storm_typename = 'storm:http:resp'
     def __init__(self, valu, path=None):
