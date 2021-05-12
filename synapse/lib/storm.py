@@ -1113,8 +1113,7 @@ stormcmds = (
         if $node {
             $count = ($count + 1)
             if ($node.form() != "inet:url") {
-                $lib.warn("nodes.import can only take inet:url nodes as input without args")
-                $lib.exit()
+                $lib.exit("nodes.import can only take inet:url nodes as input without args")
             }
             $inurls = ($node.value(),)
             for $url in $inurls {
