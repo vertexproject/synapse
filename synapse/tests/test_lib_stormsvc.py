@@ -567,7 +567,7 @@ class StormSvcTest(s_test.SynTest):
                     # storm service permissions should use svcidens
                     await user.addRule((True, ('service', 'get', iden)))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.stormIsInPrint('storm:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
