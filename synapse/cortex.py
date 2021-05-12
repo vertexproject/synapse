@@ -3777,7 +3777,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
         ddef = await self.stormdmonhive.pop(iden)
-        if ddef is None:
+        if ddef is None:  # pragma: no cover
             return
         await self.stormdmons.popDmon(iden)
 
