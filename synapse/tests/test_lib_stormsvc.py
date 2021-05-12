@@ -571,11 +571,11 @@ class StormSvcTest(s_test.SynTest):
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.stormIsInPrint('storm:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.stormIsInPrint('storm:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     q = '$hasfoo=$lib.service.has($svc) if $hasfoo {$lib.print(yes)} else {$lib.print(no)}'
