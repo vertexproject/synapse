@@ -2154,6 +2154,8 @@ class Pipe(StormType):
             'slices': self._methPipeSlices,
             'size': self._methPipeSize,
         }
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.meth}'
 
     async def _methPipePuts(self, items):
         items = await toprim(items)
@@ -2435,7 +2437,7 @@ class Queue(StormType):
         return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
     async def stormrepr(self):
-        return f'Queue: {self.name}'
+        return f'{self._storm_typename}: {self.name}'
 
 @registry.registerLib
 class LibTelepath(Lib):
@@ -2508,8 +2510,13 @@ class Proxy(StormType):
         if isinstance(meth, s_telepath.Method):
             return ProxyMethod(meth)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.proxy}'
+
 # @registry.registerType
 class ProxyMethod(StormType):
+
+    _storm_typename = 'storm:proxy:method'
 
     def __init__(self, meth, path=None):
         StormType.__init__(self, path=path)
@@ -2522,10 +2529,12 @@ class ProxyMethod(StormType):
         return await self.meth(*args, **kwargs)
 
     async def stormrepr(self):
-        return f'ProxyMethod: {self.meth}'
+        return f'{self._storm_typename}: {self.meth}'
 
 # @registry.registerType
 class ProxyGenrMethod(StormType):
+
+    _storm_typename = 'storm:proxy:genrmethod'
 
     def __init__(self, meth, path=None):
         StormType.__init__(self, path=path)
@@ -2539,7 +2548,7 @@ class ProxyGenrMethod(StormType):
             yield prim
 
     async def stormrepr(self):
-        return f'ProxyGenrMethod: {self.meth}'
+        return f'{self._storm_typename}: {self.meth}'
 
 @registry.registerLib
 class LibBase64(Lib):
