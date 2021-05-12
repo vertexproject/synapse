@@ -5,6 +5,37 @@ Synapse Changelog
 *****************
 
 
+v2.37.0 - 2021-05-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``file:mime:image`` interface to the Synapse model for recording MIME
+  specific metadata from image files.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``file:mime:jpg``, ``file:mime:tiff``, ``file:mime:gif`` and
+  ``file:mime:png`` specific forms for recording metadata of those file types.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``$lib.pkg.has()`` Stormtype API to check for for the existence of a
+  given Storm package by name.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+- All ``None / $lib.null`` as input to setting a user password. This clears
+  the password and prevents a user from being able to login.
+  (`#2181 <https://github.com/vertexproject/synapse/pull/2181>`_)
+- Grab any Layer push/pull offset values when calling ``Layer.pack()``.
+  (`#2184 <https://github.com/vertexproject/synapse/pull/2184>`_)
+- Move the retrieval of ``https:headers`` from HTTPAPI handlers into a
+  function so that downstream implementers can redirect where the extra
+  values are retrieved from.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+
+Bugfixes
+--------
+- Fix an issue which allowed for deleted Storm Packages to be retrieved from
+  memory.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+
+
 v2.36.0 - 2021-05-06
 ====================
 
