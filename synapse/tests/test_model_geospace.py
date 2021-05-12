@@ -174,11 +174,28 @@ class GeoTest(s_t_utils.SynTest):
             formname = 'geo:dist'
             t = core.model.type(formname)
 
+            self.eq(t.norm('11 mm'), (11, {}))
+            self.eq(t.norm('11 millimeter'), (11, {}))
+            self.eq(t.norm('11 millimeters'), (11, {}))
+
+            self.eq(t.norm('837.33 m')[0], 837330)
+            self.eq(t.norm('837.33 meter')[0], 837330)
+            self.eq(t.norm('837.33 meters')[0], 837330)
+
             self.eq(t.norm('100km')[0], 100000000)
             self.eq(t.norm('100     km')[0], 100000000)
-            self.eq(t.norm('837.33 m')[0], 837330)
             self.eq(t.norm('11.2 km'), (11200000, {}))
+            self.eq(t.norm('11.2 kilometer'), (11200000, {}))
+            self.eq(t.norm('11.2 kilometers'), (11200000, {}))
+
             self.eq(t.norm(11200000), (11200000, {}))
+
+            self.eq(t.norm('2 foot')[0], 609)
+            self.eq(t.norm('5 feet')[0], 1524)
+            self.eq(t.norm('1 yard')[0], 914)
+            self.eq(t.norm('10 yards')[0], 9144)
+            self.eq(t.norm('1 mile')[0], 1609344)
+            self.eq(t.norm('3 miles')[0], 4828032)
 
             self.eq(t.repr(5), '5 mm')
             self.eq(t.repr(500), '50.0 cm')

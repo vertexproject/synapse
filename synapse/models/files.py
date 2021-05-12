@@ -214,6 +214,26 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Properties common to various microsoft office file formats.',
                     'interfaces': ('file:mime:meta',),
                 }),
+                ('file:mime:image', {
+                    'props': (
+                        ('desc', ('str', {}), {
+                            'doc': 'MIME specific description field extracted from metadata.'}),
+                        ('comment', ('str', {}), {
+                            'doc': 'MIME specific comment field extracted from metadata.'}),
+                        ('created', ('time', {}), {
+                            'doc': 'MIME specific creation timestamp extracted from metadata.'}),
+                        ('imageid', ('str', {}), {
+                            'doc': 'MIME specific unique identifier extracted from metadata.'}),
+                        ('author', ('ps:contact', {}), {
+                            'doc': 'MIME specific contact information extracted from metadata.'}),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'MIME specific lat/long information extracted from metadata.'}),
+                        ('altitude', ('geo:altitude', {}), {
+                            'doc': 'MIME specific altitude information extracted from metadata.'}),
+                    ),
+                    'doc': 'Properties common to image file formats.',
+                    'interfaces': ('file:mime:meta',),
+                }),
             ),
 
             'types': (
@@ -253,6 +273,26 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:rtf', ('guid', {}), {
                     'doc': 'The GUID of a set of mime metadata for a .rtf file.',
                     'interfaces': ('file:mime:meta',),
+                }),
+
+                ('file:mime:jpg', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .jpg file.',
+                    'interfaces': ('file:mime:image',),
+                }),
+
+                ('file:mime:tif', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .tif file.',
+                    'interfaces': ('file:mime:image',),
+                }),
+
+                ('file:mime:gif', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .gif file.',
+                    'interfaces': ('file:mime:image',),
+                }),
+
+                ('file:mime:png', ('guid', {}), {
+                    'doc': 'The GUID of a set of mime metadata for a .png file.',
+                    'interfaces': ('file:mime:image',),
                 }),
 
                 ('file:mime:pe:section', ('comp', {'fields': (
@@ -369,6 +409,11 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:msdoc', {}, ()),
                 ('file:mime:msxls', {}, ()),
                 ('file:mime:msppt', {}, ()),
+
+                ('file:mime:jpg', {}, ()),
+                ('file:mime:tif', {}, ()),
+                ('file:mime:gif', {}, ()),
+                ('file:mime:png', {}, ()),
 
                 ('file:mime:rtf', {}, (
                     ('guid', ('guid', {}), {
