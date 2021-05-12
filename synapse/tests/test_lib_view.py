@@ -181,7 +181,6 @@ class ViewTest(s_t_utils.SynTest):
             view2_iden = vdef2.get('iden')
             view2 = core.getView(view2_iden)
 
-            # A trigger inherited from the main view fires on the forked view when the condition matches
             await core.view.addTrigger({
                 'cond': 'node:add',
                 'form': 'test:int',
@@ -190,12 +189,6 @@ class ViewTest(s_t_utils.SynTest):
 
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
-
-            nodes = await alist(view2.eval('test:str'))
-            self.len(1, nodes)
-
-            nodes = await alist(core.view.eval('test:str'))
-            self.len(0, nodes)
 
             # A trigger on the child view fires on the child view but not the main view
             await view2.addTrigger({
@@ -212,29 +205,29 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await alist(core.view.eval('test:str=forkhit'))
             self.len(0, nodes)
 
-            # listTriggers should show view and inherited triggers
+            # listTriggers should show only that view's triggers
             trigs = await view2.listTriggers()
-            self.len(2, trigs)
+            self.len(1, trigs)
 
-            await core.view.addTrigger({
+            await view2.addTrigger({
                 'cond': 'tag:add',
                 'tag': 'foo',
                 'storm': '[ +#bar ]',
             })
 
-            await core.view.addTrigger({
+            await view2.addTrigger({
                 'cond': 'tag:del',
                 'tag': 'foo',
                 'storm': '[ -#bar ]',
             })
 
-            await core.view.addTrigger({
+            await view2.addTrigger({
                 'cond': 'tag:add',
                 'tag': 'foo',
                 'storm': '| newpnewp',
             })
 
-            await core.view.addTrigger({
+            await view2.addTrigger({
                 'cond': 'tag:del',
                 'tag': 'foo',
                 'storm': '| newpnewp',

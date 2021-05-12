@@ -465,7 +465,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def merge(self, useriden=None):
         '''
-        Merge this view into it's parent. All changes made to this view will be applied to the parent.
+        Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
+        triggers will be run.
         '''
         fromlayr = self.layers[0]
 
@@ -476,15 +477,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.mergeAllowed(user)
 
-        parentlayr = self.parent.layers[0]
-
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
 
         async with await self.parent.snap(user=user) as snap:
 
             meta = await snap.getSnapMeta()
             async for nodeedits in fromlayr.iterLayerNodeEdits():
-                await parentlayr.storNodeEditsNoLift([nodeedits], meta)
+                await self.parent.storNodeEdits([nodeedits], meta)
 
         await fromlayr.truncate()
 
@@ -571,9 +570,6 @@ class View(s_nexus.Pusher):  # type: ignore
         # Run any trigger handlers
         await self.triggers.runTagAdd(node, tag, view=view)
 
-        if self.parent is not None:
-            await self.parent.runTagAdd(node, tag, valu, view=view)
-
     async def runTagDel(self, node, tag, valu, view=None):
 
         funcs = itertools.chain(self.core.ontagdels.get(tag, ()), (x[1] for x in self.core.ontagdelglobs.get(tag)))
@@ -590,9 +586,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runTagDel(node, tag, view=view)
 
-        if self.parent is not None:
-            await self.parent.runTagDel(node, tag, valu, view=view)
-
     async def runNodeAdd(self, node, view=None):
         if not node.snap.trigson:
             return
@@ -602,9 +595,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await self.triggers.runNodeAdd(node, view=view)
 
-        if self.parent is not None:
-            await self.parent.runNodeAdd(node, view=view)
-
     async def runNodeDel(self, node, view=None):
         if not node.snap.trigson:
             return
@@ -613,9 +603,6 @@ class View(s_nexus.Pusher):  # type: ignore
             view = self.iden
 
         await self.triggers.runNodeDel(node, view=view)
-
-        if self.parent is not None:
-            await self.parent.runNodeDel(node, view=view)
 
     async def runPropSet(self, node, prop, oldv, view=None):
         '''
@@ -628,9 +615,6 @@ class View(s_nexus.Pusher):  # type: ignore
             view = self.iden
 
         await self.triggers.runPropSet(node, prop, oldv, view=view)
-
-        if self.parent is not None:
-            await self.parent.runPropSet(node, prop, oldv, view=view)
 
     async def addTrigger(self, tdef):
         '''
@@ -709,8 +693,6 @@ class View(s_nexus.Pusher):  # type: ignore
         List all the triggers in the view.
         '''
         trigs = self.triggers.list()
-        if self.parent is not None:
-            trigs.extend(await self.parent.listTriggers())
         return trigs
 
     async def delete(self):
