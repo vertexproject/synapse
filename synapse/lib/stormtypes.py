@@ -4607,9 +4607,6 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
-    async def stormrepr(self):
-        return await self._methLayerRepr()
-
 @registry.registerLib
 class LibView(Lib):
     '''
@@ -4897,9 +4894,6 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         todo = s_common.todo('merge', useriden=useriden)
         await self.runt.dyncall(viewiden, todo)
-
-    async def stormrepr(self):
-        return await self._methViewRepr()
 
 @registry.registerLib
 class LibTrigger(Lib):
