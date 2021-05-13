@@ -1178,7 +1178,6 @@ class DmonManager(s_base.Base):
 
     async def popDmon(self, iden):
         '''Remove the dmon and fini it if its exists.'''
-        logger.debug(f'Poping dmon {iden}')
         dmon = self.dmons.pop(iden, None)
         if dmon:
             await dmon.fini()
@@ -1201,14 +1200,6 @@ class DmonManager(s_base.Base):
             return
         await self._stopAllDmons()
         self.enabled = False
-
-    # TODO write enable/disable APIS.
-    # 1. Set dmon.status to 'disabled'
-    # 2. Be aware of ddef enabled flag to set status to 'disabled'.
-    # async def enableDmon(self, iden):
-    #     pass
-    # async def disableDmon(self, iden):
-    #     pass
 
 class StormDmon(s_base.Base):
     '''
