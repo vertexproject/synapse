@@ -5494,15 +5494,15 @@ class User(Prim):
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'rules'))
+        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'rules'))
+        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'rules'))
+        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
@@ -5514,7 +5514,7 @@ class User(Prim):
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'admin'))
+        self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
