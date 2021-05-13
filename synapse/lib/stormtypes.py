@@ -6345,7 +6345,7 @@ async def toiter(valu, noneok=False):
     for item in valu:
         yield item
 
-async def torepr(valu, usestr=True):
+async def torepr(valu, usestr=False):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
         return await valu.stormrepr()
     if usestr:
