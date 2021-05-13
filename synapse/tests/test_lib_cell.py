@@ -627,7 +627,6 @@ class CellTest(s_t_utils.SynTest):
                 self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
 
     async def test_cell_confprint(self):
-        self.skip('Skip for the moment. Relies on split output streams.')
 
         with self.withSetLoggingMock():
 
@@ -640,9 +639,13 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
-                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
-                    outp.expect('...cell API (https): 0')
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                    async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
+                        pass
+                stream.seek(0)
+                buf = stream.read()
+                self.isin('...cell API (telepath): tcp://127.0.0.1:0', buf)
+                self.isin('...cell API (https): 0', buf)
 
                 conf = {
                     'dmon:listen': 'tcp://127.0.0.1:0',
@@ -651,9 +654,13 @@ class CellTest(s_t_utils.SynTest):
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
                 outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
-                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
-                    outp.expect('...cell API (https): disabled')
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                    async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
+                        pass
+                stream.seek(0)
+                buf = stream.read()
+                self.isin('...cell API (telepath): tcp://127.0.0.1:0', buf)
+                self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_backup(self):
 
