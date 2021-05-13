@@ -16,7 +16,6 @@ class JsonFormatter(logging.Formatter):
             'message': mesg,
             'logger': {
                 'name': record.name,
-                'thread': record.threadName,
                 'process': record.processName,
                 'filename': record.filename,
                 'func': record.funcName,

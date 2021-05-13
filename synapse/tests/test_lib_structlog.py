@@ -51,7 +51,7 @@ class StructLogTest(s_test.SynTest):
         mesg = mesgs[0]
         self.eq(set(mesg.keys()), {'message', 'logger', 'level', 'time'})
         lnfo = mesg.get('logger')
-        self.eq(set(lnfo.keys()), {'name', 'thread', 'process', 'filename', 'func'})
+        self.eq(set(lnfo.keys()), {'name', 'process', 'filename', 'func'})
         self.eq(mesg.get('message'), 'Test message 1')
         self.eq(mesg.get('level'), 'WARNING')
 
