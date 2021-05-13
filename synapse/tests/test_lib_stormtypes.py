@@ -2170,6 +2170,18 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('view.get')
             self.stormIsInPrint(mainiden, mesgs)
 
+            await core.stormlist('$lib.view.get().set(name, "test view")')
+            await core.stormlist('$lib.view.get().set(desc, "test view desc")')
+
+            await core.stormlist('$lib.layer.get().set(name, "test layer")')
+            await core.stormlist('$lib.layer.get().set(desc, "test layer desc")')
+
+            self.eq(await core.callStorm('return( $lib.view.get().get(name))'), 'test view')
+            self.eq(await core.callStorm('return( $lib.view.get().get(desc))'), 'test view desc')
+
+            self.eq(await core.callStorm('return( $lib.layer.get().get(name))'), 'test layer')
+            self.eq(await core.callStorm('return( $lib.layer.get().get(desc))'), 'test layer desc')
+
             with self.raises(s_exc.BadOptValu):
                 await core.nodes('$lib.view.get().set(hehe, haha)')
 
