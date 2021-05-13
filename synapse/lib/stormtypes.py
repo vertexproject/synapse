@@ -3009,9 +3009,9 @@ class Dict(Prim):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
     async def stormrepr(self):
-        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in self.valu.items()]
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]
         rval = ', '.join(reprs)
-        return f'{self._storm_typename}: {{{rval}}}'
+        return f'{{{rval}}}'
 
 @registry.registerType
 class CmdOpts(Dict):
@@ -3143,7 +3143,7 @@ class Set(Prim):
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]
         rval = ', '.join(reprs)
-        return f'{self._storm_typename}: {{{rval}}}'
+        return f'{{{rval}}}'
 
 @registry.registerType
 class List(Prim):
@@ -3261,7 +3261,7 @@ class List(Prim):
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]
         rval = ', '.join(reprs)
-        return f'{self._storm_typename}: [{rval}]'
+        return f'[{rval}]'
 
 @registry.registerType
 class Bool(Prim):
