@@ -190,6 +190,8 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await alist(core.eval('[ test:int=11 ]', opts={'view': view2.iden}))
             self.len(1, nodes)
 
+            self.len(0, await core.view.nodes('test:str=mainhit'))
+
             # A trigger on the child view fires on the child view but not the main view
             await view2.addTrigger({
                 'cond': 'node:add',
@@ -242,6 +244,11 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
             self.none(nodes[0].getTag('bar'))
+
+            await view2.merge()
+
+            # Trigger runs on merged nodes in main view
+            self.len(1, await core.view.nodes('test:str=mainhit'))
 
             await view2.fini()
             await view2.delete()
