@@ -638,9 +638,8 @@ class CellTest(s_t_utils.SynTest):
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-                outp = self.getTestOutp()
                 with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
-                    async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
+                    async with await s_cell.Cell.initFromArgv([dirn]):
                         pass
                 stream.seek(0)
                 buf = stream.read()
@@ -653,9 +652,8 @@ class CellTest(s_t_utils.SynTest):
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-                outp = self.getTestOutp()
                 with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
-                    async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
+                    async with await s_cell.Cell.initFromArgv([dirn]):
                         pass
                 stream.seek(0)
                 buf = stream.read()

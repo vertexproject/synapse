@@ -13,7 +13,6 @@ class UnivServerTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
-            outp = self.getTestOutp()
             guid = s_common.guid()
 
             argv = [
@@ -25,7 +24,7 @@ class UnivServerTest(s_t_utils.SynTest):
             ]
 
             # Start a cortex with the universal loader
-            async with await s_s_univ.main(argv, outp=outp) as core:
+            async with await s_s_univ.main(argv) as core:
 
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     podes = await s_t_utils.alist(proxy.eval(f'[ou:org={guid}]'))
@@ -41,7 +40,7 @@ class UnivServerTest(s_t_utils.SynTest):
                 '--name', 'univtest',
                 dirn,
             ]
-            async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core:
+            async with await s_cortex.Cortex.initFromArgv(argv) as core:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
                     self.len(1, podes)
@@ -55,7 +54,7 @@ class UnivServerTest(s_t_utils.SynTest):
             ]
 
             # Start a cortex as a regular Cell
-            async with await s_s_univ.main(argv, outp=outp) as cell:
+            async with await s_s_univ.main(argv) as cell:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('cell', await proxy.getCellType())
 
@@ -67,13 +66,13 @@ class UnivServerTest(s_t_utils.SynTest):
                 dirn,
             ]
             # Or start the Cortex off a a EchoAuth (don't do this in practice...)
-            async with await s_s_univ.main(argv, outp=outp) as cell:
+            async with await s_s_univ.main(argv) as cell:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     self.eq('echoauth', await proxy.getCellType())
 
             argv = ['synapse.lib.newp.Newp']
             with self.raises(s_exc.NoSuchCtor):
-                async with await s_s_univ.main(argv, outp=outp) as core:
+                async with await s_s_univ.main(argv) as core:
                     pass
 
             argv = ['synapse.lib.cell.Cell', dirn,
@@ -82,4 +81,4 @@ class UnivServerTest(s_t_utils.SynTest):
                     '--name', 'telecore']
             # Coverage test, for a bad configuration
             with self.raises(OverflowError):
-                await s_s_univ.main(argv, outp=outp)
+                await s_s_univ.main(argv)

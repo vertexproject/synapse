@@ -2010,7 +2010,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Args:
             argv (list): A list of command line arguments to launch the Cell with.
-            outp (s_ouput.OutPut): Optional, an output object.
+            outp (s_ouput.OutPut): Optional, an output object. No longer used in the default implementation.
 
         Notes:
             This coroutine waits until the Cell is fini'd or a SIGINT/SIGTERM signal is sent to the process.
