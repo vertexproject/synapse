@@ -208,13 +208,13 @@ def intify(x):
         mesg = f'Failed to make an integer from "{x}".'
         raise s_exc.BadCast(mesg=mesg) from e
 
-def kwarg_format(_text, **kwargs):
+async def kwarg_format(_text, **kwargs):
     '''
     Replaces instances curly-braced argument names in text with their values
     '''
     for name, valu in kwargs.items():
         temp = '{%s}' % (name,)
-        _text = _text.replace(temp, str(valu))
+        _text = _text.replace(temp, await torepr(valu))
 
     return _text
 
@@ -1099,7 +1099,7 @@ class LibBase(Lib):
         if not isinstance(mesg, str):
             mesg = await torepr(mesg)
         elif kwargs:
-            mesg = kwarg_format(mesg, **kwargs)
+            mesg = await kwarg_format(mesg, **kwargs)
         return mesg
 
     @stormfunc(readonly=True)
@@ -1274,7 +1274,7 @@ class LibStr(Lib):
         return ''.join(strs)
 
     async def format(self, text, **kwargs):
-        text = kwarg_format(text, **kwargs)
+        text = await kwarg_format(text, **kwargs)
 
         return text
 
@@ -4091,7 +4091,7 @@ class Text(Prim):
         return len(self.valu)
 
     async def _methTextAdd(self, text, **kwargs):
-        text = kwarg_format(text, **kwargs)
+        text = await kwarg_format(text, **kwargs)
         self.valu += text
 
     async def _methTextStr(self):
