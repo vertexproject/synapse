@@ -4062,6 +4062,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
+                ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
+                await core00.callStorm('return($lib.dmon.del($iden))', opts={'vars': {'iden': ddef.get('iden')}})
+
                 url = core00.getLocalUrl()
 
                 core01conf = {'nexslog:en': False, 'mirror': url}
@@ -4089,6 +4092,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core01.stormlist('queue.list')
                     self.stormIsInPrint('visi', msgs)
 
+                    opts = {'vars': {'iden': ddef.get('iden')}}
+                    ddef1 = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
+                    self.none(ddef1)
+
                     # Validate that mirrors can still write
                     await core01.nodes('queue.add visi2')
                     msgs = await core01.stormlist('queue.list')
@@ -4111,6 +4118,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(5, await core01.nodes(q))
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                    opts = {'vars': {'iden': ddef.get('iden')}}
+                    ddef = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
+                    self.none(ddef)
 
             # now lets start up in the opposite order...
             async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
