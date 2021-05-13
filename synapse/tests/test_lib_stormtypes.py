@@ -290,13 +290,12 @@ class StormTypesTest(s_test.SynTest):
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
             mesgs = await core.stormlist('$lib.print($lib.list(1,2,3))')
-            self.stormIsInPrint("list: ['1', '2', '3']", mesgs)
+            self.stormIsInPrint("['1', '2', '3']", mesgs)
 
             mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
             self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
-            self.stormIsInPrint("set:", mesgs)
             self.stormIsInPrint("'1'", mesgs)
             self.stormIsInPrint("'2'", mesgs)
             self.stormIsInPrint("'3'", mesgs)

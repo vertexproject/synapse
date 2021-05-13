@@ -214,7 +214,7 @@ async def kwarg_format(_text, **kwargs):
     '''
     for name, valu in kwargs.items():
         temp = '{%s}' % (name,)
-        _text = _text.replace(temp, await torepr(valu))
+        _text = _text.replace(temp, await torepr(valu, usestr=True))
 
     return _text
 
@@ -6345,7 +6345,9 @@ async def toiter(valu, noneok=False):
     for item in valu:
         yield item
 
-async def torepr(valu):
+async def torepr(valu, usestr=True):
     if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
         return await valu.stormrepr()
-    return str(valu)
+    if usestr:
+        return str(valu)
+    return repr(valu)
