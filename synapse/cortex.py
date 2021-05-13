@@ -3777,7 +3777,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Stop and remove a storm dmon.
         '''
-        ddef = await self.stormdmonhive.pop(iden)
+        ddef = self.stormdmonhive.get(iden)
         if ddef is None:
             mesg = f'No storm daemon exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -3786,6 +3786,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
+        ddef = await self.stormdmonhive.pop(iden)
+        if ddef is None:  # pragma: no cover
+            return
         await self.stormdmons.popDmon(iden)
 
     def getStormCmd(self, name):
