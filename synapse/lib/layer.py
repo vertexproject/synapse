@@ -1500,7 +1500,7 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'logedits'):
+        if name not in ('name', 'desc', 'logedits'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
