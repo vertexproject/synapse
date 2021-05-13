@@ -647,7 +647,7 @@ class CellTest(s_t_utils.SynTest):
                 self.isin('...cell API (https): 0', buf)
 
                 conf = {
-                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'dmon:listen': None,
                     'https:port': None,
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
@@ -657,7 +657,7 @@ class CellTest(s_t_utils.SynTest):
                         pass
                 stream.seek(0)
                 buf = stream.read()
-                self.isin('...cell API (telepath): tcp://127.0.0.1:0', buf)
+                self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
                 self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_backup(self):
