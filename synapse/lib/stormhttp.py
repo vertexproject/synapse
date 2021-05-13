@@ -135,7 +135,7 @@ class HttpResp(s_stormtypes.Prim):
         },
         {'name': 'msgpack', 'desc': 'Yield the msgpack deserialized objects.',
             'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
-                     'returns': {'type': 'prim'}
+                     'returns': {'name': 'Yields', 'type': 'prim', 'desc': 'Unpacked values.'}
                      }
         },
     )
