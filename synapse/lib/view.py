@@ -371,7 +371,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name',):
+        if name not in ('name', 'desc',):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
         # TODO when we can set more props, we may need to parse values.
