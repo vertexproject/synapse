@@ -160,6 +160,13 @@ class FileModule(s_module.CoreModule):
 
     async def initCoreModule(self):
         self.model.prop('file:bytes:mime').onSet(self._onSetFileBytesMime)
+        self.core._setPropSetHook('file:bytes:sha256', self._hookFileBytesSha256)
+
+    async def _hookFileBytesSha256(self, node, prop, norm):
+        # this gets called post-norm and curv checks
+        if node.ndef[1].startswith('sha256:'):
+            mesg = "Can't change :sha256 on a file:bytes with sha256 based primary property."
+            raise s_exc.BadTypeValu(mesg=mesg)
 
     async def _onSetFileBytesMime(self, node, oldv):
         name = node.get('mime')
