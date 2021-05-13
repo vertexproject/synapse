@@ -5,6 +5,101 @@ Synapse Changelog
 *****************
 
 
+v2.37.0 - 2021-05-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``file:mime:image`` interface to the Synapse model for recording MIME
+  specific metadata from image files.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``file:mime:jpg``, ``file:mime:tiff``, ``file:mime:gif`` and
+  ``file:mime:png`` specific forms for recording metadata of those file types.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``$lib.pkg.has()`` Stormtype API to check for for the existence of a
+  given Storm package by name.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+- All ``None / $lib.null`` as input to setting a user password. This clears
+  the password and prevents a user from being able to login.
+  (`#2181 <https://github.com/vertexproject/synapse/pull/2181>`_)
+- Grab any Layer push/pull offset values when calling ``Layer.pack()``.
+  (`#2184 <https://github.com/vertexproject/synapse/pull/2184>`_)
+- Move the retrieval of ``https:headers`` from HTTPAPI handlers into a
+  function so that downstream implementers can redirect where the extra
+  values are retrieved from.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+
+Bugfixes
+--------
+- Fix an issue which allowed for deleted Storm Packages to be retrieved from
+  memory.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+
+
+v2.36.0 - 2021-05-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``risk:vuln`` support to the default Stix 2.1 export, and capture
+  vulnerability information used by threat actors and in campaigns. Add the
+  ability to validate Stix 2.1 bundles to ensure that they are Stix 2.1 CS02
+  compliant. Add the ability to lift Synapse nodes based on bundles which were
+  previously exported from Synapse. The lift feature only works with bundles
+  created with Synapse v2.36.0 or greater.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Add a ``Str.upper()`` function for uppercasing strings in Storm.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Automatically bump a user's StormDmon's when they are locked or unlocked.
+  (`#2177 <https://github.com/vertexproject/synapse/pull/2177>`_)
+- Add Storm Package support to ``synapse.tools.autodocs`` and update the
+  rstorm implementation to capture additional directives.
+  (`#2172 <https://github.com/vertexproject/synapse/pull/2172>`_)
+- Tighten lark-parser version requirements.
+  (`#2175 <https://github.com/vertexproject/synapse/pull/2175>`_)
+
+Bugfixes
+--------
+- Fix reported layer size to represent actual disk usage.
+  (`#2173 <https://github.com/vertexproject/synapse/pull/2173>`_)
+
+
+v2.35.0 - 2021-04-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:issuer:cert`` and ``:selfsigned`` properties to the
+  ``crypto:x509:cert`` form to enable modeling X509 certificate chains.
+  (`#2163 <https://github.com/vertexproject/synapse/pull/2163>`_)
+- Add a ``https:headers`` configuration option to the Cell to allow setting
+  arbitrary HTTP headers for the Cell HTTPAPI server.
+  (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
+- Update the Cell HTTPAPI server to have a minimum TLS version of v1.2. Add a
+  default ``/robots.txt`` route. Add ``X-XSS=Protection`` and
+  ``X-Content-Type-Options`` headers to the default HTTPAPI responses.
+  (`#2164 <https://github.com/vertexproject/synapse/pull/2164>`_)
+- Update the minimum version of LMDB to ``1.2.1``.
+  (`#2169 <https://github.com/vertexproject/synapse/pull/2169>`_)
+
+Bugfixes
+--------
+- Improve the error message for Storm syntax error handling.
+  (`#2162 <https://github.com/vertexproject/synapse/pull/2162>`_)
+- Update the layer byarray index migration to account for arrays of
+  ``inet:fqdn`` values.
+  (`#2165 <https://github.com/vertexproject/synapse/pull/2165>`_)
+  (`#2166 <https://github.com/vertexproject/synapse/pull/2166>`_)
+- Update the ``vertexproject/synapse-aha``, ``vertexproject/synapse-axon``,
+  ``vertexproject/synapse-cortex``, and ``vertexproject/synapse-cryotank``
+  Docker images to use ``tini`` as a default entrypoint. This fixes an issue
+  where signals were not properly being propagated to the Cells.
+  (`#2168 <https://github.com/vertexproject/synapse/pull/2168>`_)
+- Fix an issue with enfanged indicators which were not properly being lifted
+  by Storm when operating in ``lookup`` mode.
+  (`#2170 <https://github.com/vertexproject/synapse/pull/2170>`_)
+
+
 v2.34.0 - 2021-04-20
 ====================
 

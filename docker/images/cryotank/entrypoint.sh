@@ -1,2 +1,2 @@
 #!/bin/bash
-python -O -m synapse.servers.cryotank /vertex/storage
+exec python -O -m synapse.servers.cryotank /vertex/storage
