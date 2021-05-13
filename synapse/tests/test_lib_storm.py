@@ -506,6 +506,21 @@ class StormTest(s_t_utils.SynTest):
                     with self.raises(s_exc.StormRuntimeError):
                         await runt.getOneNode('ou:org:name', 'dupcorp')
 
+            opts = {'vars': {'tag': ('foo', 'part')}}
+            self.len(1, await core.nodes('[syn:tag=$tag]', opts=opts))
+            self.len(1, await core.nodes('syn:tag=$tag', opts=opts))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#$tag ]', opts=opts)
+            self.len(1, nodes)
+            self.nn(nodes[0].tags.get('foo.part'))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +#$tag', opts=opts))
+            self.len(1, await core.nodes('inet:ipv4#$tag', opts=opts))
+
+            opts = {'vars': {'tag': ('foo.PART')}}
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +#$tag', opts=opts))
+            self.len(1, await core.nodes('inet:ipv4#$tag', opts=opts))
+
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
