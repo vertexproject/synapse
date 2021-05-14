@@ -160,6 +160,13 @@ class FileModule(s_module.CoreModule):
 
     async def initCoreModule(self):
         self.model.prop('file:bytes:mime').onSet(self._onSetFileBytesMime)
+        self.core._setPropSetHook('file:bytes:sha256', self._hookFileBytesSha256)
+
+    async def _hookFileBytesSha256(self, node, prop, norm):
+        # this gets called post-norm and curv checks
+        if node.ndef[1].startswith('sha256:'):
+            mesg = "Can't change :sha256 on a file:bytes with sha256 based primary property."
+            raise s_exc.BadTypeValu(mesg=mesg)
 
     async def _onSetFileBytesMime(self, node, oldv):
         name = node.get('mime')
@@ -345,20 +352,15 @@ class FileModule(s_module.CoreModule):
 
                 ('file:bytes', {}, (
 
-                    ('size', ('int', {}), {
-                        'doc': 'The file size in bytes.'}),
+                    ('size', ('int', {}), {'doc': 'The file size in bytes.'}),
 
-                    ('md5', ('hash:md5', {}), {'ro': True,
-                                               'doc': 'The md5 hash of the file.'}),
+                    ('md5', ('hash:md5', {}), {'doc': 'The md5 hash of the file.'}),
 
-                    ('sha1', ('hash:sha1', {}), {'ro': True,
-                                                 'doc': 'The sha1 hash of the file.'}),
+                    ('sha1', ('hash:sha1', {}), {'doc': 'The sha1 hash of the file.'}),
 
-                    ('sha256', ('hash:sha256', {}), {'ro': True,
-                                                     'doc': 'The sha256 hash of the file.'}),
+                    ('sha256', ('hash:sha256', {}), {'doc': 'The sha256 hash of the file.'}),
 
-                    ('sha512', ('hash:sha512', {}), {'ro': True,
-                                                     'doc': 'The sha512 hash of the file.'}),
+                    ('sha512', ('hash:sha512', {}), {'doc': 'The sha512 hash of the file.'}),
 
                     ('name', ('file:base', {}), {
                         'doc': 'The best known base name for the file.'}),
