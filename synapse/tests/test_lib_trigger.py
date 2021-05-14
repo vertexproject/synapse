@@ -364,6 +364,13 @@ class TrigTest(s_t_utils.SynTest):
                 await newb.addRule((True, ('trigger', 'del')))
                 await aspin(proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}}))
 
+            # If the trigger owner loses read perms on the trigger's view, it doesn't fire.
+            # Regression test:  it also doesn't stop the pipeline/raise an exception
+            await visi.addRule((False, ('view', 'read')), gateiden=core.view.iden)
+            await newb.addRule((True, ('node', 'add')))
+            async with core.getLocalProxy(user='newb') as proxy:
+                self.eq(0, await proxy.count('[inet:ipv4 = 99] +#foo'))
+
     async def test_trigger_runts(self):
 
         async with self.getTestCore() as core:
