@@ -4523,6 +4523,8 @@ class Layer(Prim):
 
         if name == 'name':
             valu = await tostr(valu)
+        elif name == 'desc':
+            valu = await tostr(valu)
         elif name == 'logedits':
             valu = await tobool(valu)
         else:
@@ -4789,6 +4791,17 @@ class View(Prim):
         return self.valu.get(name, defv)
 
     async def _methViewSet(self, name, valu):
+
+        name = await tostr(name)
+
+        if name == 'name':
+            valu = await tostr(valu)
+        elif name == 'desc':
+            valu = await tostr(valu)
+        else:
+            mesg = f'View does not support setting: {name}'
+            raise s_exc.BadOptValu(mesg=mesg)
+
         todo = s_common.todo('setViewInfo', name, valu)
         valu = await self.viewDynCall(todo, ('view', 'set', name))
         self.valu[name] = valu
