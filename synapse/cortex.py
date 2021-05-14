@@ -58,6 +58,7 @@ import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 
 logger = logging.getLogger(__name__)
+stormlogger = logging.getLogger('synapse.storm')
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -1014,6 +1015,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
+        self._propSetHooks = {}
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -1112,6 +1114,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    def _setPropSetHook(self, name, hook):
+        self._propSetHooks[name] = hook
+
+    async def _callPropSetHook(self, node, prop, norm):
+        hook = self._propSetHooks.get(prop.full)
+        if hook is None:
+            return
+        await hook(node, prop, norm)
 
     async def _execCellUpdates(self):
 
@@ -4225,7 +4236,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
+            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name,
+                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

@@ -3384,6 +3384,145 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
                                      opts={'vars': {'iden': iden}})
 
+    async def test_stormtypes_auth_gateadmin(self):
+
+        async with self.getTestCore() as core:
+            uowner = await core.auth.addUser('uowner')
+            await uowner.addRule((True, ('node', 'add',)))
+            await uowner.addRule((True, ('layer', 'add',)))
+            await uowner.addRule((True, ('view', 'add',)))
+
+            ureader = await core.auth.addUser('ureader')
+            uwriter = await core.auth.addUser('uwriter')
+
+            viewiden = await core.callStorm('''
+                $layr = $lib.layer.add().iden
+                $view = $lib.view.add(($layr,))
+                return($view.iden)
+            ''', opts={'user': uowner.iden})
+
+            opts = {
+                'view': viewiden,
+                'user': uowner.iden,
+                'vars': {
+                    'ureader': ureader.iden,
+                    'uwriter': uwriter.iden,
+                },
+            }
+
+            self.len(1, await core.nodes('[ test:str=foo ]', opts=opts))
+
+            opts['user'] = ureader.iden
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('test:str', opts=opts))
+
+            opts['user'] = uwriter.iden
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('test:str', opts=opts))
+
+            # add a read user
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($ureader)
+
+                $rule = $lib.auth.ruleFromText(view.read)
+                $usr.addRule($rule, $viewiden)
+
+                $rule = $lib.auth.ruleFromText(layer.read)
+                $usr.addRule($rule, $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            viewgate, layrgate = await core.callStorm(scmd, opts=opts)
+            self.len(2, viewgate['users'])
+            self.len(2, layrgate['users'])
+
+            opts['user'] = ureader.iden
+            self.len(1, await core.nodes('test:str', opts=opts))
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('[ test:str=bar ]', opts=opts))
+
+            # add a user as admin
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($uwriter)
+
+                $usr.setAdmin($lib.true, $viewiden)
+                $usr.setAdmin($lib.true, $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            viewgate, layrgate = await core.callStorm(scmd, opts=opts)
+            self.len(3, viewgate['users'])
+            self.len(3, layrgate['users'])
+
+            opts['user'] = uwriter.iden
+            self.len(1, await core.nodes('[ test:str=bar ]', opts=opts))
+
+            # set rule
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($ureader)
+
+                $rule0 = $lib.auth.ruleFromText(view.read)
+                $rule1 = $lib.auth.ruleFromText(node.add)
+                $usr.setRules(($rule0, $rule1), $viewiden)
+
+                $rule0 = $lib.auth.ruleFromText(layr.read)
+                $rule1 = $lib.auth.ruleFromText(node.add)
+                $usr.setRules(($rule0, $rule1), $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            await core.callStorm(scmd, opts=opts)
+
+            opts['user'] = ureader.iden
+            self.len(1, await core.nodes('[ test:str=bam ]', opts=opts))
+
+            # del rule
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($ureader)
+
+                $rule = $lib.auth.ruleFromText(node.add)
+                $usr.delRule($rule, $viewiden)
+
+                $rule = $lib.auth.ruleFromText(node.add)
+                $usr.delRule($rule, $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            await core.callStorm(scmd, opts=opts)
+
+            opts['user'] = ureader.iden
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('[ test:str=baz ]', opts=opts))
+            self.len(3, await core.nodes('test:str', opts=opts))
+
     async def test_stormtypes_node(self):
 
         async with self.getTestCore() as core:

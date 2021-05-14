@@ -252,6 +252,8 @@ class Node:
         if curv == norm:
             return False
 
+        await self.snap.core._callPropSetHook(self, prop, norm)
+
         if curv is not None and not init:
 
             if prop.info.get('ro'):
