@@ -302,7 +302,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 it:log:event=*
                     :mesg=foobar
                     :data=(foo, bar, baz)
-                    :severity=DEBUG
+                    :severity=debug
 
                     :host={it:host | limit 1}
             ]''')

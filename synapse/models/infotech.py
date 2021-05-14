@@ -134,14 +134,14 @@ class SemVer(s_types.Int):
         return valu
 
 loglevels = (
-    (10, 'DEBUG'),
-    (20, 'INFO'),
-    (30, 'NOTICE'),
-    (40, 'WARNING'),
-    (50, 'ERR'),
-    (60, 'CRIT'),
-    (70, 'ALERT'),
-    (80, 'EMERG'),
+    (10, 'debug'),
+    (20, 'info'),
+    (30, 'notice'),
+    (40, 'warning'),
+    (50, 'err'),
+    (60, 'crit'),
+    (70, 'alert'),
+    (80, 'emerg'),
 )
 
 class ItModule(s_module.CoreModule):
