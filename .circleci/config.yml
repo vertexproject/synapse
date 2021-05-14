@@ -742,6 +742,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_struct_log
 
       - gh-release/dorelease:
           requires:

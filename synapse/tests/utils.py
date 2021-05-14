@@ -924,7 +924,7 @@ class SynTest(unittest.TestCase):
             mock.MagicMock: Yields a mock.MagikMock object.
         '''
         with mock.patch('synapse.common.setlogging',
-                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+                        mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
     def getMagicPromptLines(self, patch):
