@@ -1014,6 +1014,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
+        self._propSetHooks = {}
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -1112,6 +1113,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    def _setPropSetHook(self, name, hook):
+        self._propSetHooks[name] = hook
+
+    async def _callPropSetHook(self, node, prop, norm):
+        hook = self._propSetHooks.get(prop.full)
+        if hook is None:
+            return
+        await hook(node, prop, norm)
 
     async def _execCellUpdates(self):
 
@@ -3767,7 +3777,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Stop and remove a storm dmon.
         '''
-        ddef = await self.stormdmonhive.pop(iden)
+        ddef = self.stormdmonhive.get(iden)
         if ddef is None:
             mesg = f'No storm daemon exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -3776,6 +3786,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
+        ddef = await self.stormdmonhive.pop(iden)
+        if ddef is None:  # pragma: no cover
+            return
         await self.stormdmons.popDmon(iden)
 
     def getStormCmd(self, name):
