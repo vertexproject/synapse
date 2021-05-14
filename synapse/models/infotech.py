@@ -133,6 +133,17 @@ class SemVer(s_types.Int):
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
 
+loglevels = (
+    (10, 'DEBUG'),
+    (20, 'INFO'),
+    (30, 'NOTICE'),
+    (40, 'WARNING'),
+    (50, 'ERR'),
+    (60, 'CRIT'),
+    (70, 'ALERT'),
+    (80, 'EMERG'),
+)
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -235,6 +246,10 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
+                }),
+                ('it:log:event', ('guid', {}), {
+                    'doc': 'A GUID representing an individual log event.',
+                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:network', ('guid', {}), {
                     'doc': 'A GUID that represents a logical network.'
@@ -495,6 +510,17 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that operates the given host.',
+                    }),
+                )),
+                ('it:log:event', {}, (
+                    ('mesg', ('str', {}), {
+                        'doc': 'The log messsage text.',
+                    }),
+                    ('severity', ('int', {'enums': loglevels}), {
+                        'doc': 'A log level integer that increases with severity.',
+                    }),
+                    ('data', ('data', {}), {
+                        'doc': 'A raw JSON record of the log event.',
                     }),
                 )),
                 ('it:domain', {}, (

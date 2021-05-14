@@ -298,6 +298,21 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('name'))
             self.eq('the vertex project domain', nodes[0].get('desc'))
 
+            nodes = await core.nodes('''[
+                it:log:event=*
+                    :mesg=foobar
+                    :data=(foo, bar, baz)
+                    :severity=DEBUG
+
+                    :host={it:host | limit 1}
+            ]''')
+            self.len(1, nodes)
+            self.eq(10, nodes[0].get('severity'))
+            self.eq('foobar', nodes[0].get('mesg'))
+            self.eq(('foo', 'bar', 'baz'), nodes[0].get('data'))
+            # check that the host activity model was inherited
+            self.nn(nodes[0].get('host'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
