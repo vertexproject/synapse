@@ -5199,9 +5199,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             altview = await core.callStorm('$layr = $lib.layer.add() return($lib.view.add(layers=($layr.iden,)).iden)')
 
-            await core.nodes('[ inet:email=visi@vertex.link +#visi.woot +#foo.bar ]')
+            await core.addTagProp('user', ('str', {}), {'doc': 'real nice tagprop ya got there'})
+            await core.addTagProp('rank', ('int', {}), {'doc': 'be a shame if'})
+            await core.addTagProp('file', ('file:path', {}), {'doc': 'something happened to it'})
+
+            await core.nodes('[ inet:email=visi@vertex.link +#visi.woot:rank=43 +#foo.bar:user=vertex ]')
             await core.nodes('[ inet:fqdn=hehe.com ]')
-            await core.nodes('[ media:news=* :title="Vertex Project Winning" +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
+            await core.nodes('[ media:news=* :title="Vertex Project Winning" +#visi:file="/foo/bar/baz" +#visi.woot:rank=1 +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
 
             async with core.getLocalProxy() as proxy:
 
@@ -5216,6 +5220,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(email[1]['tags']['visi.woot'])
                 self.none(email[1]['tags'].get('foo'))
                 self.none(email[1]['tags'].get('foo.bar'))
+                self.len(1, email[1]['tagprops'])
+                self.eq(email[1]['tagprops'], {'visi.woot': {'rank': 43}})
+                self.len(2, news[1]['tagprops'])
+                self.eq(news[1]['tagprops'], {'visi': {'file': '/foo/bar/baz'}, 'visi.woot': {'rank': 1}})
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
 
