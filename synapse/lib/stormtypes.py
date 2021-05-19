@@ -5660,15 +5660,15 @@ class Role(Prim):
         return rdef.get(name)
 
     async def _methRoleSetRules(self, rules, gateiden=None):
-        self.runt.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def value(self):
