@@ -685,6 +685,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
             self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
 
+            self.eq(('foo', 'bar,baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(",", maxsplit=1))'))
+            self.eq(('foo,bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(",", maxsplit=1))'))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
