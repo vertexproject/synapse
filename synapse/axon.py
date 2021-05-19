@@ -13,6 +13,7 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
@@ -515,7 +516,6 @@ class Axon(s_cell.Cell):
             'type': 'string',
         },
     }
-
     async def __anit__(self, dirn, conf=None):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
@@ -657,6 +657,14 @@ class Axon(s_cell.Cell):
         if not await self.has(sha256):
             raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
 
+        fhash = s_common.ehex(sha256)
+        extra = {'sha256': fhash}
+        sess = s_scope.get('sess')
+        if sess:
+            extra['user'] = sess.user.iden
+            extra['username'] = sess.user.name
+        logger.debug(f'Getting blob [{fhash}].', extra={'synapse': extra})
+
         async for byts in self._get(sha256):
             yield byts
 
@@ -784,6 +792,14 @@ class Axon(s_cell.Cell):
             if byts is not None:
                 return int.from_bytes(byts, 'big')
 
+            fhash = s_common.ehex(sha256)
+            extra = {'url': fhash}
+            sess = s_scope.get('sess')
+            if sess:
+                extra['user'] = sess.user.iden
+                extra['username'] = sess.user.name
+            logger.debug(f'Saving blob to Axon [{fhash}].', extra={'synapse': extra})
+
             size = await self._saveFileGenr(sha256, genr)
 
             self._addSyncItem((sha256, size))
@@ -832,6 +848,14 @@ class Axon(s_cell.Cell):
             if not byts:
                 return False
 
+            fhash = s_common.ehex(sha256)
+            extra = {'sha256': fhash}
+            sess = s_scope.get('sess')
+            if sess:
+                extra['user'] = sess.user.iden
+                extra['username'] = sess.user.name
+            logger.debug(f'Deleting blob [{fhash}].', extra={'synapse': extra})
+
             size = int.from_bytes(byts, 'big')
             await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') - 1)
             await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') - size)
@@ -862,11 +886,17 @@ class Axon(s_cell.Cell):
         Yield items from a MsgPack (.mpk) file in the Axon.
 
         Args:
-            sha256 (bytes): The sha256 hash of the file in bytes.
+            sha256 (str): The sha256 hash of the file as a string.
 
         Yields:
             Unpacked items from the bytes.
         '''
+        extra = {'sha256': sha256}
+        sess = s_scope.get('sess')
+        if sess:
+            extra['user'] = sess.user.iden
+            extra['username'] = sess.user.name
+        logger.debug(f'Iterating MPK file [{sha256}].', extra={'synapse': extra})
         unpk = s_msgpack.Unpk()
         async for byts in self.get(s_common.uhex(sha256)):
             for _, item in unpk.feed(byts):
@@ -910,6 +940,13 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A information dictionary containing the results of the request.
         '''
+        extra = {'url': url}
+        sess = s_scope.get('sess')
+        if sess:
+            extra['user'] = sess.user.iden
+            extra['username'] = sess.user.name
+        logger.debug(f'Wget called for [{url}].', extra={'synapse': extra})
+
         connector = None
         proxyurl = self.conf.get('http:proxy')
         if proxyurl is not None:
