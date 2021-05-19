@@ -847,7 +847,6 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
         # homoglyphs are also possible
         self.eq('is.ｂob.evil', tagtype.norm('is.\uff42ob.evil')[0])
-        self.eq('icon.ॐ', tagtype.norm('ICON.ॐ')[0])
 
     async def test_time(self):
 
