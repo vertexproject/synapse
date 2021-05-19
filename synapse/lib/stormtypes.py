@@ -208,13 +208,13 @@ def intify(x):
         mesg = f'Failed to make an integer from "{x}".'
         raise s_exc.BadCast(mesg=mesg) from e
 
-def kwarg_format(_text, **kwargs):
+async def kwarg_format(_text, **kwargs):
     '''
     Replaces instances curly-braced argument names in text with their values
     '''
     for name, valu in kwargs.items():
         temp = '{%s}' % (name,)
-        _text = _text.replace(temp, str(valu))
+        _text = _text.replace(temp, await torepr(valu, usestr=True))
 
     return _text
 
@@ -1028,7 +1028,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
         if mesg:
-            mesg = self._get_mesg(mesg, **kwargs)
+            mesg = await self._get_mesg(mesg, **kwargs)
             await self.runt.warn(mesg, log=False)
             raise s_stormctrl.StormExit(mesg)
         raise s_stormctrl.StormExit()
@@ -1095,16 +1095,16 @@ class LibBase(Lib):
         return max(*ints)
 
     @staticmethod
-    def _get_mesg(mesg, **kwargs):
+    async def _get_mesg(mesg, **kwargs):
         if not isinstance(mesg, str):
-            mesg = repr(mesg)
+            mesg = await torepr(mesg)
         elif kwargs:
-            mesg = kwarg_format(mesg, **kwargs)
+            mesg = await kwarg_format(mesg, **kwargs)
         return mesg
 
     @stormfunc(readonly=True)
     async def _print(self, mesg, **kwargs):
-        mesg = self._get_mesg(mesg, **kwargs)
+        mesg = await self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
 
     @stormfunc(readonly=True)
@@ -1134,6 +1134,11 @@ class LibBase(Lib):
                 mesg = 'Invalid clamp length.'
                 raise s_exc.StormRuntimeError(mesg=mesg, clamp=clamp)
 
+        try:
+            item = await toprim(item)
+        except s_exc.NoSuchType:
+            pass
+
         lines = pprint.pformat(item).splitlines()
 
         for line in lines:
@@ -1145,7 +1150,7 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _warn(self, mesg, **kwargs):
-        mesg = self._get_mesg(mesg, **kwargs)
+        mesg = await self._get_mesg(mesg, **kwargs)
         await self.runt.warn(mesg, log=False)
 
     @stormfunc(readonly=True)
@@ -1269,7 +1274,7 @@ class LibStr(Lib):
         return ''.join(strs)
 
     async def format(self, text, **kwargs):
-        text = kwarg_format(text, **kwargs)
+        text = await kwarg_format(text, **kwargs)
 
         return text
 
@@ -2429,6 +2434,9 @@ class Queue(StormType):
     def _getGateKeys(self, perm):
         return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.name}'
+
 @registry.registerLib
 class LibTelepath(Lib):
     '''
@@ -2500,8 +2508,13 @@ class Proxy(StormType):
         if isinstance(meth, s_telepath.Method):
             return ProxyMethod(meth)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.proxy}'
+
 # @registry.registerType
 class ProxyMethod(StormType):
+
+    _storm_typename = 'storm:proxy:method'
 
     def __init__(self, meth, path=None):
         StormType.__init__(self, path=path)
@@ -2513,8 +2526,13 @@ class ProxyMethod(StormType):
         # TODO: storm types fromprim()
         return await self.meth(*args, **kwargs)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.meth}'
+
 # @registry.registerType
 class ProxyGenrMethod(StormType):
+
+    _storm_typename = 'storm:proxy:genrmethod'
 
     def __init__(self, meth, path=None):
         StormType.__init__(self, path=path)
@@ -2526,6 +2544,9 @@ class ProxyGenrMethod(StormType):
         async for prim in self.meth(*args, **kwargs):
             # TODO: storm types fromprim()
             yield prim
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.meth}'
 
 @registry.registerLib
 class LibBase64(Lib):
@@ -2605,6 +2626,9 @@ class Prim(StormType):
 
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
+
+    async def stormrepr(self): # pragma: no cover
+        return f'{self._storm_typename}: {self.value()}'
 
 @registry.registerType
 class Str(Prim):
@@ -2984,6 +3008,11 @@ class Dict(Prim):
     async def value(self):
         return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
+
 @registry.registerType
 class CmdOpts(Dict):
     '''
@@ -3014,6 +3043,12 @@ class CmdOpts(Dict):
         valu = vars(self.valu.opts)
         for item in valu.items():
             yield item
+
+    async def stormrepr(self):
+        valu = vars(self.valu.opts)
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in valu.items()]
+        rval = ', '.join(reprs)
+        return f'{self._storm_typename}: {{{rval}}}'
 
 @registry.registerType
 class Set(Prim):
@@ -3104,6 +3139,11 @@ class Set(Prim):
 
     async def _methSetList(self):
         return list(self.valu)
+
+    async def stormrepr(self):
+        reprs = [await torepr(k) for k in self.valu]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
 
 @registry.registerType
 class List(Prim):
@@ -3217,6 +3257,11 @@ class List(Prim):
     async def iter(self):
         for item in self.valu:
             yield item
+
+    async def stormrepr(self):
+        reprs = [await torepr(k) for k in self.valu]
+        rval = ', '.join(reprs)
+        return f'[{rval}]'
 
 @registry.registerType
 class Bool(Prim):
@@ -3558,6 +3603,9 @@ class Query(Prim):
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
             raise
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: "{self.text}"'
 
 @registry.registerType
 class NodeProps(Prim):
@@ -4043,7 +4091,7 @@ class Text(Prim):
         return len(self.valu)
 
     async def _methTextAdd(self, text, **kwargs):
-        text = kwarg_format(text, **kwargs)
+        text = await kwarg_format(text, **kwargs)
         self.valu += text
 
     async def _methTextStr(self):
@@ -6309,3 +6357,10 @@ async def toiter(valu, noneok=False):
 
     for item in valu:
         yield item
+
+async def torepr(valu, usestr=False):
+    if hasattr(valu, 'stormrepr') and callable(valu.stormrepr):
+        return await valu.stormrepr()
+    if usestr:
+        return str(valu)
+    return repr(valu)
