@@ -1273,6 +1273,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 ctr.inc('foo')
                 ctr.inc('foo')
                 ctr.set('bar', 37)
+                ctr.set('bar', -42)
                 ctr.sync()
 
                 cache = []
