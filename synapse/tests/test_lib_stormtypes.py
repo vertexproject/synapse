@@ -289,6 +289,43 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
+            mesgs = await core.stormlist('$lib.print($lib.list(1,(2),3))')
+            self.stormIsInPrint("['1', 2, '3']", mesgs)
+
+            mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
+            self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
+            self.stormIsInPrint("'1'", mesgs)
+            self.stormIsInPrint("'2'", mesgs)
+            self.stormIsInPrint("'3'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
+            self.stormIsInPrint("storm:queue: testq", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
             mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -1441,6 +1478,15 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url))', opts=opts)
+            self.stormIsInPrint("storm:proxy: <synapse.telepath.Proxy object", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).doit)', opts=opts)
+            self.stormIsInPrint("storm:proxy:method: <synapse.telepath.Method", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).fqdns)', opts=opts)
+            self.stormIsInPrint("storm:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
 
     async def test_storm_lib_queue(self):
 

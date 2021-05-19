@@ -163,31 +163,6 @@ class CommonTest(s_t_utils.SynTest):
             with s_common.lockfile(fp) as cm:
                 self.none(cm)
 
-    def test_common_getexcfo(self):
-        try:
-            1 / 0
-        except ZeroDivisionError as e:
-            excfo = s_common.getexcfo(e)
-
-        self.istufo(excfo)
-        self.eq(excfo[0], 'ZeroDivisionError')
-        self.isin('msg', excfo[1])
-        self.isin('file', excfo[1])
-        self.isin('line', excfo[1])
-        self.isin('name', excfo[1])
-        self.isin('src', excfo[1])
-        self.notin('syn:err', excfo[1])
-
-        excfo = s_common.getexcfo(s_exc.SynErr(mesg='hehe', key=1))
-        self.eq(excfo[0], 'SynErr')
-        self.isin('msg', excfo[1])
-        self.isin('file', excfo[1])
-        self.isin('line', excfo[1])
-        self.isin('name', excfo[1])
-        self.isin('src', excfo[1])
-        self.isin('syn:err', excfo[1])
-        self.eq(excfo[1].get('syn:err'), {'mesg': 'hehe', 'key': 1})
-
     def test_common_ehex_uhex(self):
         byts = b'deadb33f00010203'
         s = s_common.ehex(byts)
