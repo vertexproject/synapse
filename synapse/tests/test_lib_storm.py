@@ -1600,7 +1600,6 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--valu', default=8675309, type='int')
         pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
         pars.parse_args(['-h'])
-
         self.isin('  --no-foo                    : No help available.', pars.mesgs)
         self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
         self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
