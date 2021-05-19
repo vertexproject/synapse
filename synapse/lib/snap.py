@@ -42,6 +42,9 @@ class Scrubber:
         if self.hasinctags and pode[1].get('tags'):
             pode[1]['tags'] = {k: v for (k, v) in pode[1]['tags'].items() if self._isTagInc(k)}
 
+            if pode[1].get('tagprops'):
+                pode[1]['tagprops'] = {k: v for (k, v) in pode[1]['tagprops'].items() if self._isTagInc(k)}
+
         return pode
 
     @s_cache.memoizemethod()

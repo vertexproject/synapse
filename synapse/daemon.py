@@ -14,7 +14,6 @@ import synapse.lib.link as s_link
 import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.reflect as s_reflect
 
 class Sess(s_base.Base):
@@ -180,6 +179,11 @@ async def t2call(link, meth, args, kwargs):
                 logger.info('t2call task %s cancelled', meth.__name__)
             else:
                 logger.exception('error during task %s', meth.__name__)
+
+            if isinstance(valu, types.AsyncGeneratorType):
+                await valu.aclose()
+            elif isinstance(valu, types.GeneratorType):
+                valu.close()
 
             if not link.isfini:
 
@@ -347,6 +351,7 @@ class Daemon(s_base.Base):
             return await link.fini()
 
         self.links.add(link)
+
         async def fini():
             self.links.discard(link)
 

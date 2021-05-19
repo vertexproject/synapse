@@ -1084,6 +1084,53 @@ stormcmds = (
         }
         ''',
     },
+    {
+        'name': 'nodes.import',
+        'descr': 'Import a nodes file hosted at a URL into the cortex. Yields created nodes.',
+        'cmdargs': (
+            ('urls', {'nargs': '*', 'help': 'URL(s) to fetch nodes file from'}),
+            ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
+        ),
+        'storm': '''
+        init {
+            $count = (0)
+            function fetchnodes(url, ssl) {
+                $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
+                if ($resp.code = 200) {
+                    $nodes = $lib.list()
+                    for $valu in $resp.msgpack() {
+                        $nodes.append($valu)
+                    }
+                    yield $lib.feed.genr("syn.nodes", $nodes)
+                } else {
+                    $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
+                }
+            }
+        }
+
+        $ssl = (not $cmdopts.no_ssl_verify)
+
+        if $node {
+            $count = ($count + 1)
+            if ($node.form() != "inet:url") {
+                $lib.exit("nodes.import can only take inet:url nodes as input without args")
+            }
+            $inurls = ($node.value(),)
+            for $url in $inurls {
+                -> { yield $fetchnodes($url, $ssl) }
+            }
+        }
+
+        if ($count = 0) {
+            for $url in $cmdopts.urls {
+                for $valu in $fetchnodes($url, $ssl) {
+                    yield $valu
+                }
+            }
+        }
+
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):

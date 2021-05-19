@@ -5,6 +5,46 @@ Synapse Changelog
 *****************
 
 
+v2.38.0 - 2021-05-14
+====================
+
+Features and Enhancements
+-------------------------
+- Remove trigger inheritance from Views. Views will now only execute triggers
+  which are created inside of them.
+  (`#2189 <https://github.com/vertexproject/synapse/pull/2189>`_)
+- Remove read-only property flags from secondary properties on ``file:bytes``
+  nodes.
+  (`#2191 <https://github.com/vertexproject/synapse/pull/2191>`_)
+- Add a simple ``it:log:event`` form to capture log events.
+  (`#2195 <https://github.com/vertexproject/synapse/pull/2195>`_)
+- Add structured logging as an option for Synapse Cells. When enabled, this
+  produces logs as JSONL sent to stderr. This can be set via the
+  ``SYN_LOG_STRUCT`` environment variable, or adding the
+  ``--structured-logging`` command line switch.
+  (`#2179 <https://github.com/vertexproject/synapse/pull/2179>`_)
+- Add a ``nodes.import`` command to import a ``.nodes`` file from a URL.
+  (`#2186 <https://github.com/vertexproject/synapse/pull/2186>`_)
+- Allow the ``desc`` key to View and Layer objects in Storm. This can be used
+  to set descriptions for these objects.
+  (`#2190 <https://github.com/vertexproject/synapse/pull/2190>`_)
+- Use the gateiden in Storm auth when modifying rules; allowing users to share
+  Views and Layers with other users.
+  (`#2194 <https://github.com/vertexproject/synapse/pull/2194>`_)
+
+Bugfixes
+--------
+- Fix an issue with Storm Dmon deletion not behaving properly in mirror
+  configurations.
+  (`#2188 <https://github.com/vertexproject/synapse/pull/2188>`_)
+- Explicitly close generators in Telepath where an exception has caused the
+  generator to exit early.
+  (`#2183 <https://github.com/vertexproject/synapse/pull/2183>`_)
+- Fix an issue where a trigger owner not having access to a view would
+  cause the Storm pipeline to stop.
+  (`#2189 <https://github.com/vertexproject/synapse/pull/2189>`_)
+
+
 v2.37.0 - 2021-05-12
 ====================
 

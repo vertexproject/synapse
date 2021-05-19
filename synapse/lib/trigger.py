@@ -350,17 +350,17 @@ class Trigger:
             opts['vars'] = vars
 
         with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
+            try:
+                async with self.view.core.getStormRuntime(query, opts=opts) as runt:
 
-            async with self.view.core.getStormRuntime(query, opts=opts) as runt:
-
-                runt.addInput(node)
-
-                try:
+                    runt.addInput(node)
                     await s_common.aspin(runt.execute())
-                except (asyncio.CancelledError, s_exc.RecursionLimitHit):
-                    raise
-                except Exception:
-                    logger.exception('Trigger encountered exception running storm query %s', storm)
+
+            except (asyncio.CancelledError, s_exc.RecursionLimitHit):
+                raise
+
+            except Exception:
+                logger.exception('Trigger encountered exception running storm query %s', storm)
 
     def pack(self):
         tdef = self.tdef.copy()

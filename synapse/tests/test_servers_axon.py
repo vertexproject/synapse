@@ -12,14 +12,12 @@ class AxonServerTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
 
-            outp = self.getTestOutp()
-
             argv = [dirn,
                     '--telepath', 'tcp://127.0.0.1:0/',
                     '--https', '0',
                     '--name', 'teleaxon']
 
-            async with await s_axon.Axon.initFromArgv(argv, outp=outp) as axon:
+            async with await s_axon.Axon.initFromArgv(argv,) as axon:
                 async with axon.getLocalProxy() as proxy:
                     async with await proxy.upload() as fd:
                         await fd.write(b'asdfasdf')
@@ -28,6 +26,6 @@ class AxonServerTest(s_t_utils.SynTest):
                 self.true(axon.dmon.shared.get('teleaxon') is axon)
 
             # And data persists...
-            async with await s_axon.Axon.initFromArgv(argv, outp=outp) as axon:
+            async with await s_axon.Axon.initFromArgv(argv,) as axon:
                 async with axon.getLocalProxy() as proxy:
                     self.true(await proxy.has(asdfhash))
