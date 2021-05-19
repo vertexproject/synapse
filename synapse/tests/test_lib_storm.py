@@ -1596,6 +1596,16 @@ class StormTest(s_t_utils.SynTest):
         self.true(opts.no_foo)
 
         pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        pars.add_argument('--valu', default=8675309, type='int')
+        pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
+        pars.parse_args(['-h'])
+
+        self.isin('  --no-foo                    : No help available.', pars.mesgs)
+        self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
+        self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
+
+        pars = s_storm.Parser()
         pars.add_argument('--yada')
         self.none(pars.parse_args(['--yada']))
         self.true(pars.exited)
