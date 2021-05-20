@@ -516,6 +516,7 @@ class Axon(s_cell.Cell):
             'type': 'string',
         },
     }
+
     async def __anit__(self, dirn, conf=None):  # type: ignore
 
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
