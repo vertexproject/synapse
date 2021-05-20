@@ -5,6 +5,7 @@ import base64
 import asyncio
 import argparse
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -54,6 +55,34 @@ def loadPkgProto(path, opticdir=None):
 
     protodir = os.path.dirname(full)
     pkgname = pkgdef.get('name')
+
+    logodef = pkgdef.get('logo')
+    if logodef is not None:
+
+        path = logodef.pop('path', None)
+
+        if path is not None:
+            with s_common.genfile(protodir, path) as fd:
+                logodef['file'] = base64.b64encode(fd.read()).decode()
+
+        if logodef.get('mime') is None:
+            mesg = 'Mime type must be specified for logo file.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+    for docdef in pkgdef.get('docs', ()):
+
+        if docdef.get('title') is None:
+            mesg = 'Each entry in docs must have a title.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        path = docdef.pop('path', None)
+        if path is not None:
+            with s_common.genfile(protodir, path) as fd:
+                docdef['content'] = fd.read().decode()
+
+        if docdef.get('content') is None:
+            mesg = 'Each entry in docs must have a content valu.'
+            raise s_exc.BadPkgDef(mesg=mesg)
 
     for mod in pkgdef.get('modules', ()):
         name = mod.get('name')

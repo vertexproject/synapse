@@ -1,5 +1,6 @@
 import os
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
@@ -11,6 +12,18 @@ dirname = os.path.dirname(__file__)
 class GenPkgTest(s_test.SynTest):
 
     async def test_tools_genpkg(self):
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nomime.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'notitle.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nocontent.yaml')
+            await s_genpkg.main((ymlpath,))
 
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
@@ -39,6 +52,12 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
+
+            self.eq(pdef['docs'][0]['title'], 'Foo Bar')
+            self.eq(pdef['docs'][0]['content'], 'Hello!\n')
+
+            self.eq(pdef['logo']['mime'], 'image/svg')
+            self.eq(pdef['logo']['file'], 'c3R1ZmYK')
 
     def test_files(self):
         assets = s_files.getAssets()
