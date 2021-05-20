@@ -87,6 +87,36 @@ class StormHttpTest(s_test.SynTest):
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
             self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
 
+            # Timeout
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url, 'sleep': 1, 'timeout': 2}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
+            $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
+            $code = $resp.code
+            return ($code)
+            '''
+            code = await core.callStorm(q, opts=opts)
+            self.eq(200, code)
+
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url, 'sleep': 10, 'timeout': 1}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
+            $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
+            $code = $resp.code
+            return (($code, $resp.erfo))
+            '''
+            code, erfo = await core.callStorm(q, opts=opts)
+            self.eq(code, -1)
+            self.eq('TimeoutError', erfo.get('errname'))
+
     async def test_storm_http_post(self):
 
         async with self.getTestCore() as core:
