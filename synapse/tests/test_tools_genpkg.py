@@ -13,6 +13,10 @@ class GenPkgTest(s_test.SynTest):
 
     async def test_tools_genpkg(self):
 
+        with self.raises(s_exc.NoSuchFile):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
+            await s_genpkg.main((ymlpath,))
+
         with self.raises(s_exc.BadPkgDef):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nomime.yaml')
             await s_genpkg.main((ymlpath,))

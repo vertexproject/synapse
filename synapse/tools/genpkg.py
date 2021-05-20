@@ -62,7 +62,7 @@ def loadPkgProto(path, opticdir=None):
         path = logodef.pop('path', None)
 
         if path is not None:
-            with s_common.genfile(protodir, path) as fd:
+            with s_common.reqfile(protodir, path) as fd:
                 logodef['file'] = base64.b64encode(fd.read()).decode()
 
         if logodef.get('mime') is None:
@@ -77,7 +77,7 @@ def loadPkgProto(path, opticdir=None):
 
         path = docdef.pop('path', None)
         if path is not None:
-            with s_common.genfile(protodir, path) as fd:
+            with s_common.reqfile(protodir, path) as fd:
                 docdef['content'] = fd.read().decode()
 
         if docdef.get('content') is None:
