@@ -30,6 +30,9 @@ Features and Enhancements
 - Add a timeout argument to the ``$lib.inet.http`` functions. The functions
   will all now always return a ``storm:http:resp`` object; if the ``.code``
   is -1, an unrecoverable exception occurred while making the request.
+  (`#2205 <https://github.com/vertexproject/synapse/pull/2205>`_)
+- Add support for embedding a logo and documentation into a Storm Package.
+  (`#2204 <https://github.com/vertexproject/synapse/pull/2204>`_)
 
 Bugfixes
 --------
