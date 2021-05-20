@@ -40,7 +40,7 @@ Bugfixes
   (`#2196 <https://github.com/vertexproject/synapse/pull/2196>`_)
 - Fix an issue with Hotcount which prevented it from storing negative values.
   (`#2197 <https://github.com/vertexproject/synapse/pull/2197>`_)
-- Fix an issue where ``hideconf`` configuration arguments were being included
+- Fix an issue where ``hideconf`` configuration values were being included
   in autodoc output.
   (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
 
