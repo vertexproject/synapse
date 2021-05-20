@@ -13,7 +13,6 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
-import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
@@ -659,12 +658,7 @@ class Axon(s_cell.Cell):
             raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
 
         fhash = s_common.ehex(sha256)
-        extra = {'sha256': fhash}
-        sess = s_scope.get('sess')
-        if sess:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-        logger.debug(f'Getting blob [{fhash}].', extra={'synapse': extra})
+        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
         async for byts in self._get(sha256):
             yield byts
@@ -794,12 +788,7 @@ class Axon(s_cell.Cell):
                 return int.from_bytes(byts, 'big')
 
             fhash = s_common.ehex(sha256)
-            extra = {'sha256': fhash}
-            sess = s_scope.get('sess')
-            if sess:
-                extra['user'] = sess.user.iden
-                extra['username'] = sess.user.name
-            logger.debug(f'Saving blob to Axon [{fhash}].', extra={'synapse': extra})
+            logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
             size = await self._saveFileGenr(sha256, genr)
 
@@ -850,12 +839,7 @@ class Axon(s_cell.Cell):
                 return False
 
             fhash = s_common.ehex(sha256)
-            extra = {'sha256': fhash}
-            sess = s_scope.get('sess')
-            if sess:
-                extra['user'] = sess.user.iden
-                extra['username'] = sess.user.name
-            logger.debug(f'Deleting blob [{fhash}].', extra={'synapse': extra})
+            logger.debug(f'Deleting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
             size = int.from_bytes(byts, 'big')
             await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') - 1)
@@ -935,12 +919,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A information dictionary containing the results of the request.
         '''
-        extra = {'url': url}
-        sess = s_scope.get('sess')
-        if sess:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-        logger.debug(f'Wget called for [{url}].', extra={'synapse': extra})
+        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=url))
 
         connector = None
         proxyurl = self.conf.get('http:proxy')
