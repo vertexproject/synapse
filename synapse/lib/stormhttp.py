@@ -30,7 +30,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request.',
-                       'default': None, }
+                       'default': 300, }
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
@@ -48,7 +48,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request.',
-                       'default': None, }
+                       'default': 300, }
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
@@ -67,7 +67,7 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request.',
-                       'default': None, }
+                       'default': 300, }
                    ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
                   }
@@ -82,16 +82,16 @@ class LibHttp(s_stormtypes.Lib):
             'request': self._httpRequest,
         }
 
-    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=None):
+    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300):
         return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
                                        timeout=timeout)
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=None):
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=300):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
                                        ssl_verify=ssl_verify, params=params, timeout=timeout)
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
-                           params=None, timeout=None):
+                           params=None, timeout=300):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
@@ -113,10 +113,7 @@ class LibHttp(s_stormtypes.Lib):
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
-        if timeout:
-            timeout = aiohttp.ClientTimeout(total=timeout)
-        else:
-            timeout = aiohttp.client.DEFAULT_TIMEOUT
+        timeout = aiohttp.ClientTimeout(total=timeout)
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
             try:
