@@ -793,7 +793,7 @@ class Axon(s_cell.Cell):
                 return int.from_bytes(byts, 'big')
 
             fhash = s_common.ehex(sha256)
-            extra = {'url': fhash}
+            extra = {'sha256': fhash}
             sess = s_scope.get('sess')
             if sess:
                 extra['user'] = sess.user.iden
