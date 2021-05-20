@@ -132,7 +132,7 @@ class LibHttp(s_stormtypes.Lib):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
-                logger.error(f'Error during http {meth} @ {url}- {str(e)}')
+                logger.exception(f'Error during http {meth} @ {url}')
                 errname, erfo = s_common.err(e)
                 erfo['errname'] = errname
                 info = {
