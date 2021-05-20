@@ -130,13 +130,13 @@ class LibHttp(s_stormtypes.Lib):
                 raise
             except Exception as e:
                 logger.exception(f'Error during http {meth} @ {url}')
-                errname, erfo = s_common.err(e)
+                errname, errinfo = s_common.err(e)
                 info = {
                     'code': -1,
                     'headers': dict(),
                     'url': url,
                     'body': b'',
-                    'erfo': erfo,
+                    'errinfo': errinfo,
                     'errname': errname,
                 }
                 return HttpResp(info)
@@ -152,7 +152,7 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
         {'name': 'errname', 'type': 'str', 'desc': 'The name of the exception if an exception occurred.'},
-        {'name': 'erfo', 'type': 'dict', 'desc': 'Exception information if an exception occurred.'},
+        {'name': 'errinfo', 'type': 'dict', 'desc': 'Exception information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
             'type': {'type': 'function', '_funcname': '_httpRespJson',
                      'returns': {'type': 'prim'}
@@ -172,7 +172,7 @@ class HttpResp(s_stormtypes.Prim):
         self.locls['body'] = self.valu.get('body')
         self.locls['headers'] = self.valu.get('headers')
         self.locls['errname'] = self.valu.get('errname', '')
-        self.locls['erfo'] = self.valu.get('erfo', {})
+        self.locls['errinfo'] = self.valu.get('errinfo', {})
 
     def getObjLocals(self):
         return {

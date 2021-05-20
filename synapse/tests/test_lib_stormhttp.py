@@ -112,11 +112,13 @@ class StormHttpTest(s_test.SynTest):
             )
             $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
             $code = $resp.code
-            return (($code, $resp.errname))
+            return (($code, $resp.errname, $resp.errinfo))
             '''
-            code, errname = await core.callStorm(q, opts=opts)
+            code, errname, errinfo = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
             self.eq('TimeoutError', errname)
+            self.isin('mesg', errinfo)
+            self.eq('', errinfo.get('mesg'))  # timeouterror has no mesg
 
     async def test_storm_http_post(self):
 
