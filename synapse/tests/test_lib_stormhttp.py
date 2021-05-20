@@ -60,10 +60,11 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $params=(1138)
             $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( $resp.json() )
+            return ( ($resp.code, $resp.erfo) )
             '''
-            msgs = await core.stormlist(q, opts=opts)
-            self.stormIsInErr('Error during http get - Invalid query type', msgs)
+            code, erfo = await core.callStorm(q, opts=opts)
+            self.eq(code, -1)
+            self.eq('TypeError', erfo.get('errname'))
 
     async def test_storm_http_request(self):
 
@@ -188,19 +189,20 @@ class StormHttpTest(s_test.SynTest):
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
             $json = $lib.dict(query="test:str")
             $body = $json
-            $json=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
+            $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
+            return ( ($resp.code, $resp.erfo) )
             '''
-            mesgs = await core.stormlist(text, opts=opts)
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('Error during http POST - data and json parameters can not be used at the same time', err[1].get('mesg'))
+            code, erfo = await core.callStorm(text, opts=opts)
+            self.eq(code, -1)
+            self.eq('ValueError', erfo.get('errname'))
 
     async def test_storm_http_proxy(self):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
             self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('return($lib.inet.http.get("http://vertex.link"))')
+
+            q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.erfo))'
+            code, erfo = await core.callStorm(q)
+            self.eq(code, -1)
+            self.eq('ProxyConnectionError', erfo.get('errname'))
