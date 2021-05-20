@@ -1920,7 +1920,10 @@ class Parser:
             base = f'  {names[0]}'.ljust(30)
         else:
             base = f'  {names[0]} {dest}'.ljust(30)
-        helpstr = argdef.get('help', 'No help available')
+        helpstr = argdef.get('help', 'No help available.')
+        defval = argdef.get('default', s_common.novalu)
+        if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
+            helpstr = f'{helpstr} (default: {defval})'
         self._printf(f'{base}: {helpstr}')
 
     def _print_posarg(self, name, argdef):
