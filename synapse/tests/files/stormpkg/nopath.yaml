@@ -2,4 +2,4 @@ name: testpkg
 version: 0.0.1
 
 logo:
-    path: docs/foobar.svg
+    mime: image/svg
