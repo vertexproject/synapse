@@ -685,6 +685,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
             self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
 
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(","))'))
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(","))'))
+            self.eq(('foo', 'bar,baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(",", maxsplit=1))'))
+            self.eq(('foo,bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(",", maxsplit=1))'))
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -3438,6 +3443,7 @@ class StormTypesTest(s_test.SynTest):
             await uowner.addRule((True, ('layer', 'add',)))
             await uowner.addRule((True, ('view', 'add',)))
 
+            await core.auth.addRole('ninjas')
             ureader = await core.auth.addUser('ureader')
             uwriter = await core.auth.addUser('uwriter')
 
@@ -3522,14 +3528,17 @@ class StormTypesTest(s_test.SynTest):
                 $viewiden = $lib.view.get().iden
                 $layriden = $lib.layer.get().iden
                 $usr = $lib.auth.users.get($ureader)
+                $role = $lib.auth.roles.byname(ninjas)
 
                 $rule0 = $lib.auth.ruleFromText(view.read)
                 $rule1 = $lib.auth.ruleFromText(node.add)
                 $usr.setRules(($rule0, $rule1), $viewiden)
+                $role.setRules(($rule0, $rule1), $viewiden)
 
                 $rule0 = $lib.auth.ruleFromText(layr.read)
                 $rule1 = $lib.auth.ruleFromText(node.add)
                 $usr.setRules(($rule0, $rule1), $layriden)
+                $role.setRules(($rule0, $rule1), $layriden)
 
                 return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
             '''
@@ -3549,12 +3558,15 @@ class StormTypesTest(s_test.SynTest):
                 $viewiden = $lib.view.get().iden
                 $layriden = $lib.layer.get().iden
                 $usr = $lib.auth.users.get($ureader)
+                $role = $lib.auth.roles.byname(ninjas)
 
                 $rule = $lib.auth.ruleFromText(node.add)
                 $usr.delRule($rule, $viewiden)
+                $role.delRule($rule, $viewiden)
 
                 $rule = $lib.auth.ruleFromText(node.add)
                 $usr.delRule($rule, $layriden)
+                $role.delRule($rule, $layriden)
 
                 return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
             '''
