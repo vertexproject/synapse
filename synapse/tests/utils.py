@@ -677,6 +677,12 @@ class HttpReflector(s_httpapi.Handler):
                     d[k].append(v.decode())
         resp['headers'] = dict(self.request.headers)
         resp['path'] = self.request.path
+
+        sleep = resp.get('params', {}).get('sleep')
+        if sleep:
+            sleep = int(sleep[0])
+            await asyncio.sleep(sleep)
+
         self.sendRestRetn(resp)
 
     async def post(self):
