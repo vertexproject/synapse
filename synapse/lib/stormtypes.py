@@ -2646,6 +2646,20 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrSplit',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The text to split the string up with.', },
+                      {'name': 'maxsplit', 'type': 'int', 'default': -1, 'desc': 'The max number of splits.', },
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of parts representing the split string.', }}},
+        {'name': 'rsplit', 'desc': '''
+            Split the string into multiple parts, from the right, based on a separator.
+
+            Example:
+                Split a string on the colon character::
+
+                    ($foo, $bar) = $baz.rsplit(":", maxsplit=1)''',
+         'type': {'type': 'function', '_funcname': '_methStrRsplit',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to split the string up with.', },
+                      {'name': 'maxsplit', 'type': 'int', 'default': -1, 'desc': 'The max number of splits.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of parts representing the split string.', }}},
         {'name': 'endswith', 'desc': 'Check if a string ends with text.',
@@ -2799,6 +2813,7 @@ class Str(Prim):
     def getObjLocals(self):
         return {
             'split': self._methStrSplit,
+            'rsplit': self._methStrRsplit,
             'endswith': self._methStrEndswith,
             'startswith': self._methStrStartswith,
             'ljust': self._methStrLjust,
@@ -2829,8 +2844,13 @@ class Str(Prim):
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
-    async def _methStrSplit(self, text):
-        return self.valu.split(text)
+    async def _methStrSplit(self, text, maxsplit=-1):
+        maxsplit = await toint(maxsplit)
+        return self.valu.split(text, maxsplit=maxsplit)
+
+    async def _methStrRsplit(self, text, maxsplit=-1):
+        maxsplit = await toint(maxsplit)
+        return self.valu.rsplit(text, maxsplit=maxsplit)
 
     async def _methStrEndswith(self, text):
         return self.valu.endswith(text)
