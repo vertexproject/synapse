@@ -29,7 +29,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
-                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request.',
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300, }
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
@@ -47,7 +47,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
-                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request.',
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300, }
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
@@ -66,7 +66,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
-                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request.',
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300, }
                    ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
