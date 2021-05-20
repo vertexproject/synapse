@@ -152,7 +152,7 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
         {'name': 'errname', 'type': 'str', 'desc': 'The name of the exception if an exception occurred.'},
-        {'name': 'erfo', 'type': 'dict', 'desc': 'Exception information if a error occurred.'},
+        {'name': 'erfo', 'type': 'dict', 'desc': 'Exception information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
             'type': {'type': 'function', '_funcname': '_httpRespJson',
                      'returns': {'type': 'prim'}
