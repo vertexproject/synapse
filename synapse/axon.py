@@ -891,12 +891,6 @@ class Axon(s_cell.Cell):
         Yields:
             Unpacked items from the bytes.
         '''
-        extra = {'sha256': sha256}
-        sess = s_scope.get('sess')
-        if sess:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-        logger.debug(f'Iterating MPK file [{sha256}].', extra={'synapse': extra})
         unpk = s_msgpack.Unpk()
         async for byts in self.get(s_common.uhex(sha256)):
             for _, item in unpk.feed(byts):
