@@ -69,6 +69,10 @@ def loadPkgProto(path, opticdir=None):
             mesg = 'Mime type must be specified for logo file.'
             raise s_exc.BadPkgDef(mesg=mesg)
 
+        if logodef.get('file') is None:
+            mesg = 'Logo def must contain path or file.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
     for docdef in pkgdef.get('docs', ()):
 
         if docdef.get('title') is None:
@@ -81,7 +85,7 @@ def loadPkgProto(path, opticdir=None):
                 docdef['content'] = fd.read().decode()
 
         if docdef.get('content') is None:
-            mesg = 'Each entry in docs must have a content valu.'
+            mesg = 'Docs entry has no path or content.'
             raise s_exc.BadPkgDef(mesg=mesg)
 
     for mod in pkgdef.get('modules', ()):
