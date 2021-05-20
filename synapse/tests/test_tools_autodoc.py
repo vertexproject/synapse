@@ -58,6 +58,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Environment Variable\n    ``SYN_STORMVARSERVICECELL_AUTH_PASSWD``', s)
             self.isin('``--auth-passwd``', s)
             self.isin('The object expects the following properties', s)
+            self.notin('_log_conf', s)
 
             argv.append('--doc-conf-reflink')
             argv.append('`Configuring a Cell Service <https://synapse.docs.vertex.link/en/latest/synapse/devguides/devops_cell.html>`_')

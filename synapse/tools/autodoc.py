@@ -514,6 +514,9 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
 
     for name, conf in sorted(schema.items(), key=lambda x: x[0]):
 
+        if conf.get('hideconf'):
+            continue
+
         nodesc = f'No description available for ``{name}``.'
         hname = name
         if ':' in name:
