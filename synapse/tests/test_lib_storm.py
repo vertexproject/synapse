@@ -489,7 +489,7 @@ class StormTest(s_t_utils.SynTest):
             async with await core.view.snap(user=core.auth.rootuser) as snap:
 
                 query = core.getStormQuery('')
-                with snap.getStormRuntime(query) as runt:
+                async with snap.getStormRuntime(query) as runt:
 
                     self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
 

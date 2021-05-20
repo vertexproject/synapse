@@ -1318,7 +1318,7 @@ class StormDmon(s_base.Base):
             # bottom of the loop... wait it out
             await self.waitfini(timeout=1)
 
-class Runtime:
+class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
 
@@ -1327,7 +1327,9 @@ class Runtime:
     opaque object which is called through, but not dereferenced.
 
     '''
-    def __init__(self, query, snap, opts=None, user=None, root=None):
+    async def __anit__(self, query, snap, opts=None, user=None, root=None):
+
+        await s_base.Base.__anit__(self)
 
         if opts is None:
             opts = {}
@@ -1377,6 +1379,12 @@ class Runtime:
         self.proxies = {}
 
         self._loadRuntVars(query)
+        self.onfini(self._onRuntFini)
+
+    async def _onRuntFini(self):
+        for valu in list(self.vars.values()):
+            if isinstance(valu, s_base.Base):
+                await valu.fini()
 
     async def dyncall(self, iden, todo, gatekeys=()):
         #bypass all perms checks if we are running asroot
@@ -1472,24 +1480,42 @@ class Runtime:
             return True
         return self.root._isRootScope(name)
 
-    def setVar(self, name, valu):
+    async def _setVar(self, name, valu):
+
+        oldv = self.vars.get(name, s_common.novalu)
+        if oldv is valu:
+            return
+
+        if isinstance(oldv, s_base.Base):
+            await oldv.fini()
+
+        if isinstance(valu, s_base.Base):
+            valu.incref()
+
+        self.vars[name] = valu
+
+    async def setVar(self, name, valu):
 
         if name in self.ctors or name in self.vars:
-            self.vars[name] = valu
+            await self._setVar(name, valu)
             return
 
         if self._isRootScope(name):
-            return self.root.setVar(name, valu)
+            return await self.root.setVar(name, valu)
 
-        self.vars[name] = valu
+        await self._setVar(name, valu)
         return
 
-    def popVar(self, name):
+    async def popVar(self, name):
 
         if self._isRootScope(name):
             return self.root.popVar(name)
 
-        return self.vars.pop(name, s_common.novalu)
+        oldv = self.vars.pop(name, s_common.novalu)
+        if isinstance(oldv, s_base.Base):
+            await oldv.fini()
+
+        return oldv
 
     def addInput(self, node):
         '''
@@ -1576,27 +1602,27 @@ class Runtime:
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
-        runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
-        runt.asroot = self.asroot
-        runt.readonly = self.readonly
+        async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
+            runt.asroot = self.asroot
+            runt.readonly = self.readonly
 
-        yield runt
+            yield runt
 
-    @contextlib.contextmanager
-    def getCmdRuntime(self, query, opts=None):
+    @contextlib.asynccontextmanager
+    async def getCmdRuntime(self, query, opts=None):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts)
-        runt.asroot = self.asroot
-        runt.readonly = self.readonly
-        yield runt
+        async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+            runt.asroot = self.asroot
+            runt.readonly = self.readonly
+            yield runt
 
-    def getModRuntime(self, query, opts=None):
+    async def getModRuntime(self, query, opts=None):
         '''
         Construct a non-context managed runtime for use in module imports.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
         runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
@@ -2124,7 +2150,7 @@ class PureCmd(Cmd):
                 xpath.initframe(initvars={'cmdopts': cmdopts})
                 yield xnode, xpath
 
-        with runt.getCmdRuntime(query, opts=opts) as subr:
+        async with runt.getCmdRuntime(query, opts=opts) as subr:
             subr.asroot = asroot
             async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
