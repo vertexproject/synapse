@@ -1,0 +1,6 @@
+name: testpkg
+version: 0.0.1
+
+docs:
+    - title: newp
+      path: docs/newp.md
