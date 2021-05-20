@@ -147,7 +147,7 @@ class HttpResp(s_stormtypes.Prim):
     Implements the Storm API for a HTTP response.
     '''
     _storm_locals = (
-        {'name': 'code', 'desc': 'The HTTP status code. It is -1 if a exception occurred.',
+        {'name': 'code', 'desc': 'The HTTP status code. It is -1 if an exception occurred.',
             'type': 'int', },
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
