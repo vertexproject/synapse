@@ -1,5 +1,8 @@
 import json
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 import aiohttp
 import aiohttp_socks
@@ -26,6 +29,8 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
+                       'default': 300, }
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
@@ -42,6 +47,8 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
+                       'default': 300, }
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
@@ -59,6 +66,8 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
+                       'default': 300, }
                    ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
                   }
@@ -73,21 +82,23 @@ class LibHttp(s_stormtypes.Lib):
             'request': self._httpRequest,
         }
 
-    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None):
-        return await self._httpRequest('get', url, headers=headers, ssl_verify=ssl_verify, params=params)
+    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300):
+        return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
+                                       timeout=timeout)
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None):
-        return await self._httpRequest('POST', url, headers=headers, json=json,
-                                       body=body, ssl_verify=ssl_verify, params=params)
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=300):
+        return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
+                                       ssl_verify=ssl_verify, params=params, timeout=timeout)
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
-                           params=None):
+                           params=None, timeout=300):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
         body = await s_stormtypes.toprim(body)
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         kwargs = {}
         if not ssl_verify:
@@ -102,7 +113,9 @@ class LibHttp(s_stormtypes.Lib):
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
-        async with aiohttp.ClientSession(connector=connector) as sess:
+        timeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
             try:
                 async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
                     info = {
@@ -116,8 +129,16 @@ class LibHttp(s_stormtypes.Lib):
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
-                mesg = f'Error during http {meth} - {str(e)}'
-                raise s_exc.StormRuntimeError(mesg=mesg, headers=headers, json=json, body=body, params=params) from None
+                logger.exception(f'Error during http {meth} @ {url}')
+                err = s_common.err(e)
+                info = {
+                    'code': -1,
+                    'headers': dict(),
+                    'url': url,
+                    'body': b'',
+                    'err': err,
+                }
+                return HttpResp(info)
 
 @s_stormtypes.registry.registerType
 class HttpResp(s_stormtypes.Prim):
@@ -125,9 +146,11 @@ class HttpResp(s_stormtypes.Prim):
     Implements the Storm API for a HTTP response.
     '''
     _storm_locals = (
-        {'name': 'code', 'desc': 'The HTTP status code.', 'type': 'int', },
+        {'name': 'code', 'desc': 'The HTTP status code. It is -1 if an exception occurred.',
+            'type': 'int', },
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
+        {'name': 'err', 'type': 'list', 'desc': 'Tufo of the error type and information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
             'type': {'type': 'function', '_funcname': '_httpRespJson',
                      'returns': {'type': 'prim'}
@@ -146,6 +169,7 @@ class HttpResp(s_stormtypes.Prim):
         self.locls['code'] = self.valu.get('code')
         self.locls['body'] = self.valu.get('body')
         self.locls['headers'] = self.valu.get('headers')
+        self.locls['err'] = self.valu.get('err', ())
 
     def getObjLocals(self):
         return {
