@@ -5,6 +5,43 @@ Synapse Changelog
 *****************
 
 
+v2.39.0 - 2021-05-20
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add more useful output to Storm when printing heavy objects with
+  ``$lib.print()``.
+  (`#2185 <https://github.com/vertexproject/synapse/pull/2185>`_)
+- Check rule edits for roles against provided authgates in Storm.
+  (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
+- Add ``Str.rsplit()`` and maxsplit arguments to ``split()/rsplit()`` APIs
+  in Storm.
+  (`#2200 <https://github.com/vertexproject/synapse/pull/2200>`_)
+- Add default argument values to the output of Storm command help output.
+  (`#2198 <https://github.com/vertexproject/synapse/pull/2198>`_)
+- Add a ``syn:tag:part`` Type and allow the ``syn:tag`` type to normalize a
+  list of tag parts to create a tag string. This is intended to be used with
+  the ``$lib.cast()`` function in Storm.
+  (`#2192 <https://github.com/vertexproject/synapse/pull/2192>`_)
+- Add debug logging to the Axon for reading, writing, or deleting of blobs.
+  (`#2202 <https://github.com/vertexproject/synapse/pull/2202>`_)
+- Add a timeout argument to the ``$lib.inet.http`` functions. The functions
+  will all now always return a ``storm:http:resp`` object; if the ``.code``
+  is -1, an unrecoverable exception occurred while making the request.
+
+Bugfixes
+--------
+- Fix export filters to correctly filter tagprops.
+  (`#2196 <https://github.com/vertexproject/synapse/pull/2196>`_)
+- Fix an issue with Hotcount which prevented it from storing negative values.
+  (`#2197 <https://github.com/vertexproject/synapse/pull/2197>`_)
+- Fix an issue where ``hideconf`` configuration arguments were being included
+  in autodoc output.
+  (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
+
+
 v2.38.0 - 2021-05-14
 ====================
 
