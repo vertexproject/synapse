@@ -1226,6 +1226,19 @@ class StormTest(s_t_utils.SynTest):
             self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
                     {p[0] for p in podes})
 
+            # Node variables modified in sub runtimes don't affect parent node path
+            q = '''[test:int=123] $foo=$node.value()
+            | tee --join { $foo=($foo + 1) [test:str=$foo] +test:str } { $foo=($foo + 2) [test:str=$foo] +test:str } |
+            $lib.fire(data, foo=$foo, ndef=$node.ndef()) | spin
+            '''
+            msgs = await core.stormlist(q)
+            datas = [m[1].get('data') for m in msgs if m[0] == 'storm:fire']
+            self.eq(datas, [
+                {'foo': 124, 'ndef': ('test:str', '124')},
+                {'foo': 125, 'ndef': ('test:str', '125')},
+                {'foo': 123, 'ndef': ('test:int', 123)},
+            ])
+
             # lift a non-existent node and feed to tee.
             q = 'inet:fqdn=newp.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
             nodes = await core.nodes(q)
