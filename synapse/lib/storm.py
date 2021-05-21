@@ -3159,28 +3159,6 @@ class TeeCmd(Cmd):
 
         return pars
 
-    async def nextitem(self, inq):
-        while True:
-            item = await inq.get()
-            if item is None:
-                return
-
-            yield item
-
-    async def pipeline(self, runt, query, inq, outq):
-        try:
-            async with runt.getSubRuntime(query) as subr:
-                async for item in subr.execute(genr=self.nextitem(inq)):
-                    await outq.put(item)
-
-            await outq.put(None)
-
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
-
-        except Exception as e:
-            await outq.put(e)
-
     async def execStormCmd(self, runt, genr):
 
         if not self.opts.query:
@@ -3196,15 +3174,36 @@ class TeeCmd(Cmd):
                 runts.append(subr)
             size = len(runts)
 
+            outq_size = 32
+            semaphore_size = 16
+
             item = None
             async for item in genr:
                 node, path = item
 
                 if self.opts.parallel:
-                    print('do parallel')
 
-                    inq = asyncio.Queue(maxsize=16)
-                    outq = asyncio.Queue(maxsize=16)
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    sempahore = asyncio.BoundedSemaphore(value=semaphore_size)
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        self.runt.snap.schedCoro(self.pipeline(sempahore, outq, subr, genr=subg))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue
+
+                        yield item
 
                 else:
 
@@ -3218,12 +3217,11 @@ class TeeCmd(Cmd):
 
             if item is None and self.runtsafe:
                 if self.opts.parallel:
-                    print('do parallel NO INPUT')
 
-                    outq = asyncio.Queue(maxsize=32)
-                    sempahore = asyncio.BoundedSemaphore(value=16)  # smoll
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    sempahore = asyncio.BoundedSemaphore(value=semaphore_size)
                     for subr in runts:
-                        self.runt.snap.schedCoro(self.doit(sempahore, outq, subr))
+                        self.runt.snap.schedCoro(self.pipeline(sempahore, outq, subr))
 
                     exited = 0
 
@@ -3236,7 +3234,7 @@ class TeeCmd(Cmd):
                         if item is None:
                             exited += 1
                             if exited == size:
-                                return
+                                break
                             continue
 
                         yield item
@@ -3246,12 +3244,12 @@ class TeeCmd(Cmd):
                         async for subitem in subr.execute():
                             yield subitem
 
-    async def doit(self, semaphore, outq, runt):
+    async def pipeline(self, semaphore, outq, runt, genr=None):
         try:
             print('hey yo!')
             async with semaphore:
                 print(f'GOT  {semaphore=} -  {runt.query} !!!!!!!!!!!!')
-                async for subitem in runt.execute():
+                async for subitem in runt.execute(genr=genr):
                     # print(f'putting: {runt.query} {subitem[0]}')
                     await outq.put(subitem)
             print(f'RELEASE {runt.query}')

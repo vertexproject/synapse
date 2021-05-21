@@ -1206,7 +1206,19 @@ class StormTest(s_t_utils.SynTest):
             }
             self.eq(exp, {n.ndef for n in nodes})
 
+            # --parallel is a thing
             q = '$foo=woot.com tee --parallel { inet:ipv4=1.2.3.4 } { .created } { inet:fqdn=$foo <- * } { [inet:asn=1234] } { .created }'
+            # msgs = await core.stormlist(q)
+            #
+            # for m in msgs:
+            async for m in core.storm(q):
+                print(m)
+            print('88888888888888888888888888' * 2)
+            print('88888888888888888888888888' * 2)
+            print('88888888888888888888888888' * 2)
+            print('88888888888888888888888888' * 2)
+
+            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { .created } { inet:fqdn=$foo <- * } { [inet:asn=1234] } { .created }'
             # msgs = await core.stormlist(q)
             #
             # for m in msgs:
