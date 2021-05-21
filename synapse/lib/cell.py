@@ -1856,8 +1856,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         extra = {**kwargs}
         sess = s_scope.get('sess')
         if sess:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
+            if sess.user:
+                extra['user'] = sess.user.iden
+                extra['username'] = sess.user.name
         return {'synapse': extra}
 
     async def _getSpawnLogConf(self):
