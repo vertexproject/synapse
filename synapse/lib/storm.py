@@ -3198,6 +3198,8 @@ class TeeCmd(Cmd):
 
             item = None
             async for item in genr:
+                node, path = item
+                npath = path.fork(node)
 
                 if self.opts.parallel:
                     print('do parallel')
@@ -3208,7 +3210,7 @@ class TeeCmd(Cmd):
                 else:
 
                     for subr in runts:
-                        subg = s_common.agen(item)
+                        subg = s_common.agen((node, npath))
                         async for subitem in subr.execute(genr=subg):
                             yield subitem
 
