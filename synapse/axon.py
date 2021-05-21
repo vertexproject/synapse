@@ -657,6 +657,9 @@ class Axon(s_cell.Cell):
         if not await self.has(sha256):
             raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
 
+        fhash = s_common.ehex(sha256)
+        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
         async for byts in self._get(sha256):
             yield byts
 
@@ -784,6 +787,9 @@ class Axon(s_cell.Cell):
             if byts is not None:
                 return int.from_bytes(byts, 'big')
 
+            fhash = s_common.ehex(sha256)
+            logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
             size = await self._saveFileGenr(sha256, genr)
 
             self._addSyncItem((sha256, size))
@@ -832,6 +838,9 @@ class Axon(s_cell.Cell):
             if not byts:
                 return False
 
+            fhash = s_common.ehex(sha256)
+            logger.debug(f'Deleting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
             size = int.from_bytes(byts, 'big')
             await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') - 1)
             await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') - size)
@@ -862,7 +871,7 @@ class Axon(s_cell.Cell):
         Yield items from a MsgPack (.mpk) file in the Axon.
 
         Args:
-            sha256 (bytes): The sha256 hash of the file in bytes.
+            sha256 (str): The sha256 hash of the file as a string.
 
         Yields:
             Unpacked items from the bytes.
@@ -910,6 +919,8 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A information dictionary containing the results of the request.
         '''
+        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=url))
+
         if headers:
             headers = dict(headers)
         if headers is None:

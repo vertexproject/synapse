@@ -1843,6 +1843,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getCellApi(self, link, user, path):
         return await self.cellapi.anit(self, link, user)
 
+    async def getLogExtra(self, **kwargs):
+        '''
+        Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
+
+        Args:
+            **kwargs: Additional key/value items to add to the log.
+
+        Returns:
+            Dict: A dictionary
+        '''
+        extra = {**kwargs}
+        sess = s_scope.get('sess')
+        if sess:
+            extra['user'] = sess.user.iden
+            extra['username'] = sess.user.name
+        return {'synapse': extra}
+
     async def _getSpawnLogConf(self):
         conf = self.conf.get('_log_conf')
         if conf:

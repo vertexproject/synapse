@@ -172,9 +172,22 @@ _reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
         },
+        'docs': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/doc'},
+        },
+        'logo': {
+            'type': 'object',
+            'properties': {
+                'mime': {'type': 'string'},
+                'file': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['mime', 'file'],
+        },
         'commands': {
             'type': ['array', 'null'],
-            'items': {'$ref': '#/definitions/command'}
+            'items': {'$ref': '#/definitions/command'},
         },
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
@@ -183,6 +196,15 @@ _reqValidPkgdef = s_config.getJsValidator({
     'additionalProperties': True,
     'required': ['name', 'version'],
     'definitions': {
+        'doc': {
+            'type': 'object',
+            'properties': {
+                'title': {'type': 'string'},
+                'content': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['title', 'content'],
+        },
         'module': {
             'type': 'object',
             'properties': {
