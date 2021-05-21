@@ -1052,10 +1052,15 @@ stormcmds = (
             ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
             ('--timeout', {'default': 300, 'type': 'int', 'help': 'Configure the timeout for the download operation.'}),
+            ('--params', {'default': None, 'help': 'Provide a dict containing url parameters.'}),
+            ('--headers', {'default': None, 'help': 'Provide a dict containing custom request headers.'}),
         ),
         'storm': '''
         init {
             $count = (0)
+
+            $params = $cmdopts.params
+            $headers = $cmdopts.headers
         }
 
         $ssl = (not $cmdopts.no_ssl_verify)
@@ -1073,13 +1078,13 @@ stormcmds = (
                 $urls = ($node.value(),)
             }
             for $url in $urls {
-                -> { yield $lib.axon.urlfile($url, ssl=$ssl, timeout=$timeout) }
+                -> { yield $lib.axon.urlfile($url, params=$params, headers=$headers, ssl=$ssl, timeout=$timeout) }
             }
         }
 
         if ($count = 0) {
             for $url in $cmdopts.urls {
-                yield $lib.axon.urlfile($url, ssl=$ssl, timeout=$timeout)
+                yield $lib.axon.urlfile($url, params=$params, headers=$headers, ssl=$ssl, timeout=$timeout)
             }
         }
         ''',
