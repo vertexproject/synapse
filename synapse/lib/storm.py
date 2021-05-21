@@ -3151,10 +3151,35 @@ class TeeCmd(Cmd):
         pars.add_argument('--join', '-j', default=False, action='store_true',
                           help='Emit inbound nodes after processing storm queries.')
 
+        pars.add_argument('--parallel', '-p', default=False, action='store_true',
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
+
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
 
         return pars
+
+    async def nextitem(self, inq):
+        while True:
+            item = await inq.get()
+            if item is None:
+                return
+
+            yield item
+
+    async def pipeline(self, runt, query, inq, outq):
+        try:
+            async with runt.getSubRuntime(query) as subr:
+                async for item in subr.execute(genr=self.nextitem(inq)):
+                    await outq.put(item)
+
+            await outq.put(None)
+
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3169,22 +3194,76 @@ class TeeCmd(Cmd):
                 query = await runt.getStormQuery(text)
                 subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
+            size = len(runts)
 
             item = None
             async for item in genr:
 
-                for subr in runts:
-                    subg = s_common.agen(item)
-                    async for subitem in subr.execute(genr=subg):
-                        yield subitem
+                if self.opts.parallel:
+                    print('do parallel')
+
+                    inq = asyncio.Queue(maxsize=16)
+                    outq = asyncio.Queue(maxsize=16)
+
+                else:
+
+                    for subr in runts:
+                        subg = s_common.agen(item)
+                        async for subitem in subr.execute(genr=subg):
+                            yield subitem
 
                 if self.opts.join:
                     yield item
 
             if item is None and self.runtsafe:
-                for subr in runts:
-                    async for subitem in subr.execute():
-                        yield subitem
+                if self.opts.parallel:
+                    print('do parallel NO INPUT')
+
+                    # inq = asyncio.Queue(maxsize=8)
+                    outq = asyncio.Queue(maxsize=8)
+                    sempahore = asyncio.BoundedSemaphore(value=16)  # smoll
+                    for subr in runts:
+                        self.runt.snap.schedCoro(self.doit(sempahore, outq, subr))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                return
+                            continue
+
+                        yield item
+
+                else:
+                    for subr in runts:
+                        async for subitem in subr.execute():
+                            yield subitem
+
+    async def doit(self, semaphore, outq, runt):
+        try:
+            print('hey yo!')
+            async with semaphore:
+                print(f'GOT  {semaphore=} -  {runt.query} !!!!!!!!!!!!')
+                async for subitem in runt.execute():
+                    print(f'putting: {runt.query} {subitem[0]}')
+                    await outq.put(subitem)
+            print(f'RELEASE {runt.query}')
+
+            await outq.put(None)
+
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
 
 class TreeCmd(Cmd):
     '''
