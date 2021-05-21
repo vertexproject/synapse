@@ -3220,7 +3220,7 @@ class TeeCmd(Cmd):
                     print('do parallel NO INPUT')
 
                     # inq = asyncio.Queue(maxsize=8)
-                    outq = asyncio.Queue(maxsize=8)
+                    outq = asyncio.Queue(maxsize=16)
                     sempahore = asyncio.BoundedSemaphore(value=16)  # smoll
                     for subr in runts:
                         self.runt.snap.schedCoro(self.doit(sempahore, outq, subr))
