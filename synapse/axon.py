@@ -910,6 +910,25 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A information dictionary containing the results of the request.
         '''
+        if headers:
+            headers = dict(headers)
+        if headers is None:
+            headers = {}
+
+        # lower the keys
+        lheaders = dict((h.lower(), v) for h, v in headers.items())
+
+        defheaders = {
+                'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
+                'accept': '*/*',
+                'accept-encoding': 'gzip, deflate',
+                'accept-language': 'en-US,en;q=0.9',
+            }
+
+        # punch in any explicitly set headers
+        defheaders.update(lheaders)
+        headers = defheaders
+
         connector = None
         proxyurl = self.conf.get('http:proxy')
         if proxyurl is not None:
