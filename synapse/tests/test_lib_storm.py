@@ -1577,6 +1577,7 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
         opts = pars.parse_args(['-h'])
+        self.none(opts)
         self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
         self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
         self.isin('Options:', pars.mesgs)
@@ -1588,6 +1589,20 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--no-foo', default=True, action='store_false')
         opts = pars.parse_args(['--no-foo'])
         self.false(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        opts = pars.parse_args([])
+        self.true(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        pars.add_argument('--valu', default=8675309, type='int')
+        pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
+        pars.parse_args(['-h'])
+        self.isin('  --no-foo                    : No help available.', pars.mesgs)
+        self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
+        self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada')

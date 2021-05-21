@@ -482,6 +482,10 @@ class Model:
         item = s_types.Guid(self, 'guid', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A tag component string.'}
+        item = s_types.TagPart(self, 'syn:tag:part', info, {})
+        self.addBaseType(item)
+
         info = {'doc': 'The base type for a synapse tag.'}
         item = s_types.Tag(self, 'syn:tag', info, {})
         self.addBaseType(item)

@@ -1,6 +1,10 @@
 name: testpkg
 version: 0.0.1
 
+logo:
+    mime: image/svg
+    path: docs/foobar.svg
+
 modules:
     - name: testmod
 
@@ -13,6 +17,10 @@ external_modules:
       # This can be either an absolute path or relative path from where
       # the genpkg tool is executed from.
       file_path: synapse/tests/files/stormmod/common
+
+docs:
+    - title: Foo Bar
+      path: docs/foobar.md
 
 commands:
     - name: testcmd
