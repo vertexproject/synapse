@@ -1404,6 +1404,7 @@ class Runtime(s_base.Base):
         self.onfini(self._onRuntFini)
 
     async def _onRuntFini(self):
+        # fini() any Base objects constructed by this runtime
         for valu in list(self.vars.values()):
             if isinstance(valu, s_base.Base):
                 await valu.fini()

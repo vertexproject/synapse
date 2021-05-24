@@ -1,3 +1,6 @@
+import json
+import traceback
+
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 import synapse.lib.httpapi as s_httpapi
@@ -8,53 +11,15 @@ class TestWebSock(s_httpapi.WebSocket):
         pass
 
     async def open(self):
-        print('OPEN')
-        #await self.sendJsonMesg({'hi': 'woot'})
-
-    def on_close(self):
-        print('CLOSED')
+        await self.sendJsonMesg({'hi': 'woot'})
 
     async def on_message(self, byts):
-        print('MESSAGE')
-        print(repr(byts))
-        await self.sendJsonMesg(('hehe', 'haha'))
-        print('REPLIED')
-        #print(json.loads(byts))
-
-    #def initialize(self, optic):
-        #self.optic = optic
-
-        # ~ 24mb
-        #self.settings.setdefault('websocket_max_message_size', 24 * 1024 * 1024)
-
-        # send a ping every 10 seconds
-        #self.settings.setdefault('websocket_ping_interval', 10)
-
-        # timeout the connection after 30 seconds of missed pings
-        #self.settings.setdefault('websocket_ping_timeout', 30)
-
-        #return s_httpapi.WebSocket.initialize(self, optic)
-
-    #async def xmit(self, name, **info):
-        #mesg = {'type': name, 'data': info}
-        #return await self.sendJsonMesg(mesg)
+        mesg = json.loads(byts)
+        await self.sendJsonMesg(('echo', mesg))
 
     async def sendJsonMesg(self, item):
         byts = json.dumps(item)
         await self.write_message(byts)
-
-    #def sendRestErr(self, code, mesg):
-        #return self.write({'status': 'err', 'code': code, 'mesg': mesg})
-
-    #def sendRestExc(self, e):
-        #return self.sendRestErr(e.__class__.__name__, str(e))
-
-    #def loadJsonMesg(self, byts):
-        #try:
-            #return json.loads(byts)
-        #except Exception:
-            #self.sendRestErr('BadJson', 'Invalid JSON content.')
-            #return None
 
 class StormHttpTest(s_test.SynTest):
 
@@ -271,19 +236,26 @@ class StormHttpTest(s_test.SynTest):
             core.addHttpApi('/test/ws', TestWebSock, {})
             addr, port = await core.addHttpsPort(0)
 
-            msgs = await core.stormlist('''
+            self.eq('woot', await core.callStorm('''
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
                 ($ok, $sock) = $lib.inet.http.connect($url)
                 if (not $ok) { $lib.exit($sock) }
 
-                /*
                 ($ok, $mesg) = $sock.rx()
                 if (not $ok) { $lib.exit($mesg) }
-                */
+                return($mesg.hi)
+            ''', opts={'vars': {'port': port}}))
 
-                ($ok, $valu) = $sock.tx((foo, bar))
-                $lib.print($sock.rx())
+            self.eq((True, ('echo', 'lololol')), await core.callStorm('''
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-            ''', opts={'vars': {'port': port}})
-            [print(m) for m in msgs]
+                ($ok, $sock) = $lib.inet.http.connect($url)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+
+                ($ok, $valu) = $sock.tx(lololol)
+                return($sock.rx())
+            ''', opts={'vars': {'port': port}}))

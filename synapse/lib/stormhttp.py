@@ -14,7 +14,7 @@ import synapse.lib.base as s_base
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
-class HttpSocket(s_base.Base, s_stormtypes.StormType):
+class WebSocket(s_base.Base, s_stormtypes.StormType):
 
     _storm_type_name = 'storm:http:socket'
 
@@ -48,7 +48,6 @@ class HttpSocket(s_base.Base, s_stormtypes.StormType):
         try:
 
             mesg = await s_stormtypes.toprim(mesg)
-            print('MESG: %r' % (mesg,))
             await self.resp.send_bytes(json.dumps(mesg).encode())
             return (True, None)
 
@@ -61,10 +60,15 @@ class HttpSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            print('ABOUT TO RX')
             _type, data, extra = await self.resp.receive()
-            print(f'STORM SOCK RX: {(_type,data,extra)}')
-            return (True, json.loads(data))
+            if _type == aiohttp.WSMsgType.BINARY:
+                return (True, json.loads(data))
+            if _type == aiohttp.WSMsgType.TEXT:
+                return (True, json.loads(data.encode()))
+            if _type == aiohttp.WSMsgType.CLOSED:
+                return (True, None)
+            mesg = f'WebSocket RX unhandled type: {_type.name}'
+            return (False, ('BadMesgFormat', {'mesg': mesg}))
 
         except asyncio.CancelledError:  # pragma: no cover
             raise
@@ -167,7 +171,7 @@ class LibHttp(s_stormtypes.Lib):
 
     async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
 
-        sock = await HttpSocket.anit()
+        sock = await WebSocket.anit()
 
         proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
         connector = None
@@ -179,6 +183,7 @@ class LibHttp(s_stormtypes.Lib):
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
             sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, ssl=ssl_verify, timeout=timeout))
+
             self.runt.onfini(sock)
 
             return (True, sock)
