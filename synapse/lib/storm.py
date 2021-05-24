@@ -3168,10 +3168,14 @@ class TeeCmd(Cmd):
         async with contextlib.AsyncExitStack() as stack:
 
             runts = []
-            for text in self.opts.query:
-                query = await runt.getStormQuery(text)
-                subr = await stack.enter_async_context(runt.getSubRuntime(query))
-                runts.append(subr)
+            query_arguments = await s_stormtypes.toprim(self.opts.query)
+            for arg in query_arguments:
+                if isinstance(arg, str):
+                    arg = (arg, )
+                for text in arg:
+                    query = await runt.getStormQuery(text)
+                    subr = await stack.enter_async_context(runt.getSubRuntime(query))
+                    runts.append(subr)
             size = len(runts)
 
             outq_size = 32
