@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.39.1 - 2021-05-21
+====================
+
+Bugfixes
+--------
+- Fix an issue with referencing the Telepath user session object prior to a
+  valid user being set.
+  (`#2207 <https://github.com/vertexproject/synapse/pull/2207>`_)
+
+
 v2.39.0 - 2021-05-20
 ====================
 
