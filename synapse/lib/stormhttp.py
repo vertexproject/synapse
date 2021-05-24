@@ -144,8 +144,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None, },
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
-                      {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
-                       'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300, }
                   ),
