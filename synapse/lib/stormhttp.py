@@ -182,6 +182,7 @@ class LibHttp(s_stormtypes.Lib):
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
             sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, ssl=ssl_verify, timeout=timeout))
 
+            sock.incref()
             self.runt.onfini(sock)
 
             return (True, sock)
