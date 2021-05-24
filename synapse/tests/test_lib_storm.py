@@ -1286,31 +1286,36 @@ class StormTest(s_t_utils.SynTest):
             ]
             self.eq(exp, [x.ndef for x in nodes])
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes('tee --parallel -c 0 { }')
+
             # A fatal execption is fatal to the runtime
             q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=newp] }'
             msgs = await core.stormlist(q)
             podes = [m[1] for m in msgs if m[0] == 'node']
             self.len(0, podes)
             self.stormIsInErr("invalid literal for int() with base 0: 'newp'", msgs)
-            for m in msgs:
-                if m[0] in ('prov:new', 'node:edits', ):
-                    continue
-                print(m)
-            return
-            print('88888888888888888888888888' * 2)
-            print('88888888888888888888888888' * 2)
-            print('88888888888888888888888888' * 2)
-            print('88888888888888888888888888' * 2)
 
-            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { .created } { inet:fqdn=$foo <- * } { [inet:asn=1234] } { .created }'
-            # msgs = await core.stormlist(q)
-            #
-            # for m in msgs:
-            async for m in core.storm(q):
-                print(m)
+            # Each input node to the query is also subject to parallel execution
+            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { inet:fqdn=$foo <- * } | uniq'
+            nodes = await core.nodes(q)
 
+            self.eq({node.ndef for node in nodes}, {
+                ('inet:fqdn', 'woot.com'),
+                ('inet:ipv4', 16909060),
+                ('inet:dns:a', ('woot.com', 16909060)),
+                ('inet:fqdn', 'com'),
+            })
+
+            # Per-node exceptions can also tear down the runtime (coverage test)
+            q = 'inet:fqdn=com | tee --parallel { [inet:asn=newp] }'
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
+
+            # No input test
             q = 'tee'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_storm_yieldvalu(self):
 

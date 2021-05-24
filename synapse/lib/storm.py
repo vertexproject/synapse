@@ -3182,7 +3182,7 @@ class TeeCmd(Cmd):
             size = len(runts)
 
             if self.opts.concurrency < 1:
-                raise s_exc.StormRuntimeError(mesg='Concurrency value must be greater than 0.')
+                raise s_exc.BadArg(mesg='Concurrency must be greater than 0.', concurrency=self.opts.concurrency)
             semaphore_size = self.opts.concurrency
             outq_size = semaphore_size * 2
 
@@ -3255,13 +3255,9 @@ class TeeCmd(Cmd):
 
     async def pipeline(self, semaphore, outq, runt, genr=None):
         try:
-            # print('hey yo!')
             async with semaphore:
-                # print(f'GOT  {semaphore} -  {runt.query} !!!!!!!!!!!!')
                 async for subitem in runt.execute(genr=genr):
-                    # print(f'putting: {runt.query} {subitem[0]}')
                     await outq.put(subitem)
-            # print(f'RELEASE {runt.query}')
 
             await outq.put(None)
 
