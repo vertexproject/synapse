@@ -15,11 +15,11 @@ class TestWebSock(s_httpapi.WebSocket):
 
     async def on_message(self, byts):
         mesg = json.loads(byts)
-        await self.sendJsonMesg(('echo', mesg))
+        await self.sendJsonMesg(('echo', mesg), binary=True)
 
-    async def sendJsonMesg(self, item):
+    async def sendJsonMesg(self, item, binary=False):
         byts = json.dumps(item)
-        await self.write_message(byts)
+        await self.write_message(byts, binary=binary)
 
 class StormHttpTest(s_test.SynTest):
 
