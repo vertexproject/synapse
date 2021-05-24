@@ -3252,7 +3252,7 @@ class TeeCmd(Cmd):
         try:
             print('hey yo!')
             async with semaphore:
-                print(f'GOT  {semaphore=} -  {runt.query} !!!!!!!!!!!!')
+                print(f'GOT  {semaphore} -  {runt.query} !!!!!!!!!!!!')
                 async for subitem in runt.execute(genr=genr):
                     # print(f'putting: {runt.query} {subitem[0]}')
                     await outq.put(subitem)
