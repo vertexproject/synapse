@@ -3154,6 +3154,9 @@ class TeeCmd(Cmd):
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
                           help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
 
+        pars.add_argument('--concurrency', '-c', default=16, type='int',
+                          help='Number of concurrent Storm Queries to execute with --parallel.')
+
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
 
@@ -3178,8 +3181,10 @@ class TeeCmd(Cmd):
                     runts.append(subr)
             size = len(runts)
 
-            outq_size = 32
-            semaphore_size = 16
+            if self.opts.concurrency < 1:
+                raise s_exc.StormRuntimeError(mesg='Concurrency value must be greater than 0.')
+            semaphore_size = self.opts.concurrency
+            outq_size = semaphore_size * 2
 
             item = None
             async for item in genr:
@@ -3205,7 +3210,7 @@ class TeeCmd(Cmd):
                             exited += 1
                             if exited == size:
                                 break
-                            continue
+                            continue  # pragma: no cover
 
                         yield item
 
@@ -3239,7 +3244,7 @@ class TeeCmd(Cmd):
                             exited += 1
                             if exited == size:
                                 break
-                            continue
+                            continue  # pragma: no cover
 
                         yield item
 
@@ -3250,13 +3255,13 @@ class TeeCmd(Cmd):
 
     async def pipeline(self, semaphore, outq, runt, genr=None):
         try:
-            print('hey yo!')
+            # print('hey yo!')
             async with semaphore:
-                print(f'GOT  {semaphore} -  {runt.query} !!!!!!!!!!!!')
+                # print(f'GOT  {semaphore} -  {runt.query} !!!!!!!!!!!!')
                 async for subitem in runt.execute(genr=genr):
                     # print(f'putting: {runt.query} {subitem[0]}')
                     await outq.put(subitem)
-            print(f'RELEASE {runt.query}')
+            # print(f'RELEASE {runt.query}')
 
             await outq.put(None)
 

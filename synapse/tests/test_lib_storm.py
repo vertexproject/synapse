@@ -1225,25 +1225,6 @@ class StormTest(s_t_utils.SynTest):
             }
             self.eq(exp, {n.ndef for n in nodes})
 
-            # --parallel is a thing
-            q = '$foo=woot.com tee --parallel { inet:ipv4=1.2.3.4 } { .created } { inet:fqdn=$foo <- * } { [inet:asn=1234] } { .created }'
-            # msgs = await core.stormlist(q)
-            #
-            # for m in msgs:
-            async for m in core.storm(q):
-                print(m)
-            print('88888888888888888888888888' * 2)
-            print('88888888888888888888888888' * 2)
-            print('88888888888888888888888888' * 2)
-            print('88888888888888888888888888' * 2)
-
-            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { .created } { inet:fqdn=$foo <- * } { [inet:asn=1234] } { .created }'
-            # msgs = await core.stormlist(q)
-            #
-            # for m in msgs:
-            async for m in core.storm(q):
-                print(m)
-
             # Variables are scoped down into the sub runtime
             q = (
                 f'$foo=5 tee '
@@ -1279,6 +1260,54 @@ class StormTest(s_t_utils.SynTest):
                 ('inet:ipv4', 0x01020304),
             }
             self.eq(exp, {x.ndef for x in nodes})
+
+            # --parallel allows out of order execution. This test demonstrates that but controls the output by time
+
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            exp = [
+                ('inet:asn', 1234),
+                ('inet:dns:a', ('woot.com', 0x01020304)),
+                ('inet:ipv4', 0x01020304),
+                ('inet:fqdn', 'woot.com'),
+            ]
+            self.eq(exp, [x.ndef for x in nodes])
+
+            # Adjusting concurrency alters the execution flow
+            q = '$foo=woot.com tee --parallel -c 2 { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            exp = [
+                ('inet:dns:a', ('woot.com', 0x01020304)),
+                ('inet:ipv4', 0x01020304),
+                ('inet:asn', 1234),
+                ('inet:fqdn', 'woot.com'),
+            ]
+            self.eq(exp, [x.ndef for x in nodes])
+
+            # A fatal execption is fatal to the runtime
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=newp] }'
+            msgs = await core.stormlist(q)
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, podes)
+            self.stormIsInErr("invalid literal for int() with base 0: 'newp'", msgs)
+            for m in msgs:
+                if m[0] in ('prov:new', 'node:edits', ):
+                    continue
+                print(m)
+            return
+            print('88888888888888888888888888' * 2)
+            print('88888888888888888888888888' * 2)
+            print('88888888888888888888888888' * 2)
+            print('88888888888888888888888888' * 2)
+
+            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { .created } { inet:fqdn=$foo <- * } { [inet:asn=1234] } { .created }'
+            # msgs = await core.stormlist(q)
+            #
+            # for m in msgs:
+            async for m in core.storm(q):
+                print(m)
 
             q = 'tee'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
