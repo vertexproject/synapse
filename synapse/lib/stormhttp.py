@@ -51,7 +51,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
             await self.resp.send_bytes(json.dumps(mesg).encode())
             return (True, None)
 
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
         except Exception as e: # pragma: no cover
@@ -71,10 +71,10 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
             mesg = f'WebSocket RX unhandled type: {_type.name}'
             return (False, ('BadMesgFormat', {'mesg': mesg}))
 
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             return s_common.retnexc(e)
 
 
