@@ -187,10 +187,10 @@ class LibHttp(s_stormtypes.Lib):
 
             return (True, sock)
 
-        except asyncio.CancelledError:  # pragma: no cover
+        except asyncio.CancelledError: # pragma: no cover
             raise
 
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             await sock.fini()
             return s_common.retnexc(e)
 
