@@ -3131,7 +3131,7 @@ class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
 
-    Commands are executed in order they are given.
+    Commands are executed in order they are given; unless the ``--parallel`` switch is provided.
 
     Examples:
 
@@ -3140,6 +3140,9 @@ class TeeCmd(Cmd):
 
         # Also emit the inbound node
         inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+        # Execute multiple enrichment queries in parallel.
+        inet:ipv4=1.2.3.4 | tee -p { enrich.foo} {enrich.bar }
 
     '''
     name = 'tee'
