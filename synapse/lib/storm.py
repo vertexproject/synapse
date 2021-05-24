@@ -3142,7 +3142,7 @@ class TeeCmd(Cmd):
         inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
 
         # Execute multiple enrichment queries in parallel.
-        inet:ipv4=1.2.3.4 | tee -p { enrich.foo} {enrich.bar }
+        inet:ipv4=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
 
     '''
     name = 'tee'
