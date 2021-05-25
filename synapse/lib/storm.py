@@ -3157,9 +3157,6 @@ class TeeCmd(Cmd):
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
                           help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
 
-        pars.add_argument('--concurrency', '-c', default=16, type='int',
-                          help='Number of concurrent Storm Queries to execute with --parallel.')
-
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
 
@@ -3184,10 +3181,7 @@ class TeeCmd(Cmd):
                     runts.append(subr)
             size = len(runts)
 
-            if self.opts.concurrency < 1:
-                raise s_exc.BadArg(mesg='Concurrency must be greater than 0.', concurrency=self.opts.concurrency)
-            semaphore_size = self.opts.concurrency
-            outq_size = semaphore_size * 2
+            outq_size = size * 2
 
             item = None
             async for item in genr:
@@ -3196,10 +3190,9 @@ class TeeCmd(Cmd):
                 if self.opts.parallel:
 
                     outq = asyncio.Queue(maxsize=outq_size)
-                    sempahore = asyncio.BoundedSemaphore(value=semaphore_size)
                     for subr in runts:
                         subg = s_common.agen((node, path.fork(node)))
-                        self.runt.snap.schedCoro(self.pipeline(sempahore, outq, subr, genr=subg))
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
 
                     exited = 0
 
@@ -3231,9 +3224,8 @@ class TeeCmd(Cmd):
                 if self.opts.parallel:
 
                     outq = asyncio.Queue(maxsize=outq_size)
-                    sempahore = asyncio.BoundedSemaphore(value=semaphore_size)
                     for subr in runts:
-                        self.runt.snap.schedCoro(self.pipeline(sempahore, outq, subr))
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq))
 
                     exited = 0
 
@@ -3256,11 +3248,10 @@ class TeeCmd(Cmd):
                         async for subitem in subr.execute():
                             yield subitem
 
-    async def pipeline(self, semaphore, outq, runt, genr=None):
+    async def pipeline(self, runt, outq, genr=None):
         try:
-            async with semaphore:
-                async for subitem in runt.execute(genr=genr):
-                    await outq.put(subitem)
+            async for subitem in runt.execute(genr=genr):
+                await outq.put(subitem)
 
             await outq.put(None)
 

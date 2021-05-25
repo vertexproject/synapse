@@ -1274,21 +1274,6 @@ class StormTest(s_t_utils.SynTest):
             ]
             self.eq(exp, [x.ndef for x in nodes])
 
-            # Adjusting concurrency alters the execution flow
-            q = '$foo=woot.com tee --parallel -c 2 { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
-            nodes = await core.nodes(q)
-            self.len(4, nodes)
-            exp = [
-                ('inet:dns:a', ('woot.com', 0x01020304)),
-                ('inet:ipv4', 0x01020304),
-                ('inet:asn', 1234),
-                ('inet:fqdn', 'woot.com'),
-            ]
-            self.eq(exp, [x.ndef for x in nodes])
-
-            with self.raises(s_exc.BadArg):
-                await core.nodes('tee --parallel -c 0 { }')
-
             # A fatal execption is fatal to the runtime
             q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=newp] }'
             msgs = await core.stormlist(q)
