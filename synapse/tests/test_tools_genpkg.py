@@ -43,7 +43,7 @@ class GenPkgTest(s_test.SynTest):
 
             await s_genpkg.main(argv)
 
-            await core.callStorm('testcmd')
+            await core.callStorm('testpkgcmd')
             await core.callStorm('$lib.import(testmod)')
 
             pdef = s_common.yamlload(savepath)
@@ -56,7 +56,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['modules'][1]['storm'], 'inet:fqdn\n')
             self.eq(pdef['modules'][2]['name'], 'testpkg.testextfile')
             self.eq(pdef['modules'][2]['storm'], 'inet:fqdn\n')
-            self.eq(pdef['commands'][0]['name'], 'testcmd')
+            self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
