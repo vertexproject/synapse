@@ -298,6 +298,11 @@ class Lib(StormType):
     def addLibFuncs(self):
         self.locls.update(self.getObjLocals())
 
+    async def stormrepr(self):
+        if '__module__' in self.locls:
+            return f'Imported Module {self.name}'
+        return f'Library ${".".join(("lib",) + self.name)}'
+
     async def deref(self, name):
         try:
             return await StormType.deref(self, name)
@@ -987,11 +992,12 @@ class LibBase(Lib):
         self.runt.onfini(modr)
 
         async for item in modr.execute():
-            await asyncio.sleep(0) # pragma: no cover
+            await asyncio.sleep(0)  # pragma: no cover
 
         modlib = Lib(modr)
         modlib.locls.update(modr.vars)
         modlib.locls['__module__'] = mdef
+        modlib.name = name
 
         return modlib
 
