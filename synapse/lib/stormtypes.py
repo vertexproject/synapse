@@ -5528,6 +5528,10 @@ class User(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu
+        self.stors.update({
+            'name': self._setUserName,
+            'email': self._methUserSetEmail,
+        })
 
     def getObjLocals(self):
         return {
@@ -5545,6 +5549,16 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    async def _setUserName(self, name):
+
+        name = await tostr(name)
+        if self.runt.user.iden == self.valu:
+            await self.runt.snap.core.setUserName(self.valu, name)
+            return
+
+        self.runt.confirm(('auth', 'user', 'set', 'name'))
+        await self.runt.snap.core.setUserName(self.valu, name)
 
     async def _derefGet(self, name):
         udef = await self.runt.snap.core.getUserDef(self.valu)
