@@ -793,7 +793,7 @@ class CmdOper(Oper):
                 async for node, path in genr:
                     argv = await self.kids[1].compute(runt, path)
                     if not await scmd.setArgv(argv):
-                        return
+                        raise s_stormctrl.StormExit()
 
                     yield node, path
 
@@ -805,7 +805,7 @@ class CmdOper(Oper):
                 if runtsafe:
                     argv = await self.kids[1].compute(runt, None)
                     if not await scmd.setArgv(argv):
-                        return
+                        raise s_stormctrl.StormExit()
 
                 async for item in scmd.execStormCmd(runt, genr):
                     yield item
