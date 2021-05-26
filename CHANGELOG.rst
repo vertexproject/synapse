@@ -5,6 +5,42 @@ Synapse Changelog
 *****************
 
 
+v2.40.0 - 2021-05-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--parallel`` switch to the ``tee`` Storm command. This allows for
+  all of the Storm queries provided to the ``tee`` command to execute in
+  parallel, potentially producing a mixed output stream of nodes.
+  (`#2209 <https://github.com/vertexproject/synapse/pull/2209>`_)
+- Convert the Storm Runtime object in a Base object, allowing for reference
+  counted Storm variables which are made from Base objects and are properly
+  torn down.
+  (`#2203 <https://github.com/vertexproject/synapse/pull/2203>`_)
+- Add ``$lib.inet.http.connect()`` method which creates a Websocket object
+  inside of Storm, allowing a user to send and receive messages over a
+  websocket.
+  (`#2203 <https://github.com/vertexproject/synapse/pull/2203>`_)
+- Support pivot join operations on tags.
+  (`#2213 <https://github.com/vertexproject/synapse/pull/2213>`_)
+- Add ``stormrepr()`` implementation for ``synapse.lib.stormtypes.Lib``, which
+  allows for ``$lib.print()`` to display useful strings for Storm Libraries
+  and imported modules.
+  (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+
+Bugfixes
+--------
+- Fix the logger name for ``synapse.lib.aha``.
+  (`#2210 <https://github.com/vertexproject/synapse/pull/2210>`_)
+- Log ImportError exceptions in ``synapse.lib.dyndeps.getDynMod``. This allows
+  easier debugging when using the ``synapse.servers.cell`` server for running
+  customer Cell implementations.
+  (`#2211 <https://github.com/vertexproject/synapse/pull/2211>`_)
+- Fix an issue where a Storm command which failed to set command arguments
+  successfully would not teardown the Storm runtime.
+  (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+
 v2.39.1 - 2021-05-21
 ====================
 
