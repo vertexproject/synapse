@@ -10,7 +10,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 class AhaApi(s_cell.CellApi):
 
