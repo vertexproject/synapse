@@ -19,7 +19,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     '''
     Implements the Storm API for a Websocket.
     '''
-    _storm_type_name = 'storm:http:socket'
+    _storm_typename = 'storm:http:socket'
 
     _storm_locals = (
 
@@ -31,9 +31,10 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.'}}},
 
         {'name': 'rx', 'desc': 'Receive a message from the web socket.',
-         'type': {'type': 'function', '_funcname': 'tx',
+         'type': {'type': 'function', '_funcname': 'rx',
                   'args': (
-                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'The timeout to wait for',
+                       'default': None, },
                   ),
                   'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.'}}},
     )
@@ -41,11 +42,13 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def __anit__(self):
         await s_base.Base.__anit__(self)
         s_stormtypes.StormType.__init__(self)
-        self.locls.update({
-            'rx': self.rx,
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
             'tx': self.tx,
-        })
-        self.resp = None
+            'rx': self.rx,
+        }
 
     async def tx(self, mesg):
         try:
@@ -63,7 +66,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            _type, data, extra = await self.resp.receive()
+            _type, data, extra = await asyncio.wait_for(self.resp.receive(), timeout=timeout)
             if _type == aiohttp.WSMsgType.BINARY:
                 return (True, json.loads(data))
             if _type == aiohttp.WSMsgType.TEXT:

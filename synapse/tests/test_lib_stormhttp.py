@@ -5,7 +5,7 @@ import synapse.exc as s_exc
 import synapse.tests.utils as s_test
 import synapse.lib.httpapi as s_httpapi
 
-class TestWebSock(s_httpapi.WebSocket):
+class TstWebSock(s_httpapi.WebSocket):
 
     def initialize(self):
         pass
@@ -233,7 +233,7 @@ class StormHttpTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.addHttpApi('/test/ws', TestWebSock, {})
+            core.addHttpApi('/test/ws', TstWebSock, {})
             addr, port = await core.addHttpsPort(0)
 
             self.eq('woot', await core.callStorm('''

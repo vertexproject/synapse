@@ -108,7 +108,7 @@ class StormTypesRegistry:
             # Assert the callsigs match
             callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
             assert [d.get('name') for d in
-                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj}'
+                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj} {args} {callsig_args}'
             # ensure default values are provided
             for parameter, argdef in zip(callsig.parameters.values(), args):
                 pdef = parameter.default  # defaults to inspect._empty for undefined default values.
