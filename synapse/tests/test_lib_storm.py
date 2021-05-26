@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
@@ -489,7 +490,7 @@ class StormTest(s_t_utils.SynTest):
             async with await core.view.snap(user=core.auth.rootuser) as snap:
 
                 query = core.getStormQuery('')
-                with snap.getStormRuntime(query) as runt:
+                async with snap.getStormRuntime(query) as runt:
 
                     self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
 
@@ -551,6 +552,33 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInWarn('nodes.import got HTTP error code', msgs)
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
+
+    async def test_storm_vars_fini(self):
+
+        async with self.getTestCore() as core:
+
+            query = core.getStormQuery('inet:ipv4')
+            async with core.getStormRuntime(query) as runt:
+
+                base0 = await s_base.Base.anit()
+                base0._syn_refs = 0
+                await runt.setVar('base0', base0)
+                await runt.setVar('base0', base0)
+                self.false(base0.isfini)
+                await runt.setVar('base0', None)
+                self.true(base0.isfini)
+
+                base1 = await s_base.Base.anit()
+                base1._syn_refs = 0
+                await runt.setVar('base1', base1)
+                await runt.popVar('base1')
+                self.true(base1.isfini)
+
+                base2 = await s_base.Base.anit()
+                base2._syn_refs = 0
+                await runt.setVar('base2', base2)
+
+            self.true(base2.isfini)
 
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:

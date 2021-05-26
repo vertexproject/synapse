@@ -262,7 +262,7 @@ class NodeTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 query = snap.core.getStormQuery('')
-                with snap.getStormRuntime(query) as runt:
+                async with snap.getStormRuntime(query) as runt:
                     node = await snap.addNode('test:comp', (42, 'lol'))
                     nodepaths = await alist(node.storm(runt, '-> test:int'))
                     self.len(1, nodepaths)
@@ -315,7 +315,7 @@ class NodeTest(s_t_utils.SynTest):
                     # Path clone() creates a fully independent Path object
                     pcln = path.clone()
                     # Ensure that path vars are independent
-                    pcln.setVar('bar', 'us')
+                    await pcln.setVar('bar', 'us')
                     self.eq(pcln.getVar('bar'), 'us')
                     self.eq(path.getVar('bar'), s_common.novalu)
                     # Ensure the path nodes are independent
@@ -333,7 +333,7 @@ class NodeTest(s_t_utils.SynTest):
                     self.eq(pcln.getVar('key'), 'valu')
                     pcln.finiframe()
                     path.finiframe()
-                    pcln.setVar('bar', 'us')
+                    await pcln.setVar('bar', 'us')
                     self.eq(pcln.getVar('bar'), 'us')
                     self.eq(path.getVar('bar'), s_common.novalu)
                     self.eq(pcln.getVar('key'), s_common.novalu)

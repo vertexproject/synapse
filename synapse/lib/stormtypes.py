@@ -108,7 +108,7 @@ class StormTypesRegistry:
             # Assert the callsigs match
             callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
             assert [d.get('name') for d in
-                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj}'
+                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj} {args} {callsig_args}'
             # ensure default values are provided
             for parameter, argdef in zip(callsig.parameters.values(), args):
                 pdef = parameter.default  # defaults to inspect._empty for undefined default values.
@@ -963,7 +963,6 @@ class LibBase(Lib):
             'trycast': self.trycast,
         }
 
-    @stormfunc(readonly=True)
     async def _libBaseImport(self, name):
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
@@ -982,8 +981,10 @@ class LibBase(Lib):
             mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        modr = self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
+        modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
+
+        self.runt.onfini(modr)
 
         async for item in modr.execute():
             await asyncio.sleep(0) # pragma: no cover
@@ -2065,12 +2066,13 @@ class LibPipe(Lib):
         opts = {'vars': varz}
 
         query = await self.runt.getStormQuery(text)
-        runt = self.runt.getModRuntime(query, opts=opts)
+        runt = await self.runt.getModRuntime(query, opts=opts)
 
         async def coro():
             try:
-                async for item in runt.execute():
-                    await asyncio.sleep(0)
+                async with runt:
+                    async for item in runt.execute():
+                        await asyncio.sleep(0)
 
             except asyncio.CancelledError: # pragma: no cover
                 raise
@@ -3551,10 +3553,10 @@ class LibVars(Lib):
         return self.runt.getVar(name, defv=defv)
 
     async def _libVarsSet(self, name, valu):
-        self.runt.setVar(name, valu)
+        await self.runt.setVar(name, valu)
 
     async def _libVarsDel(self, name):
-        self.runt.vars.pop(name, None)
+        await self.runt.popVar(name)
 
     async def _libVarsList(self):
         return list(self.runt.vars.items())
@@ -3997,9 +3999,9 @@ class PathVars(Prim):
 
     async def setitem(self, name, valu):
         if valu is undef:
-            self.path.popVar(name)
+            await self.path.popVar(name)
             return
-        self.path.setVar(name, valu)
+        await self.path.setVar(name, valu)
 
     async def iter(self):
         # prevent "edit while iter" issues
