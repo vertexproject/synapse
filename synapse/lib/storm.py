@@ -3131,7 +3131,7 @@ class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
 
-    Commands are executed in order they are given.
+    Commands are executed in order they are given; unless the ``--parallel`` switch is provided.
 
     Examples:
 
@@ -3140,6 +3140,9 @@ class TeeCmd(Cmd):
 
         # Also emit the inbound node
         inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+        # Execute multiple enrichment queries in parallel.
+        inet:ipv4=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
 
     '''
     name = 'tee'
@@ -3150,6 +3153,9 @@ class TeeCmd(Cmd):
 
         pars.add_argument('--join', '-j', default=False, action='store_true',
                           help='Emit inbound nodes after processing storm queries.')
+
+        pars.add_argument('--parallel', '-p', default=False, action='store_true',
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
@@ -3165,26 +3171,101 @@ class TeeCmd(Cmd):
         async with contextlib.AsyncExitStack() as stack:
 
             runts = []
-            for text in self.opts.query:
+            query_arguments = await s_stormtypes.toprim(self.opts.query)
+            queries = []
+            for arg in query_arguments:
+                if isinstance(arg, str):
+                    queries.append(arg)
+                    continue
+                # if a argument is a container/iterable, we'll add
+                # whatever content is in it as query text
+                for text in arg:
+                    queries.append(text)
+
+            for text in queries:
                 query = await runt.getStormQuery(text)
                 subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
+            size = len(runts)
+            outq_size = size * 2
             item = None
-            async for item in genr:
+            async for node, path in genr:
 
-                for subr in runts:
-                    subg = s_common.agen(item)
-                    async for subitem in subr.execute(genr=subg):
-                        yield subitem
+                if self.opts.parallel and runts:
+
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue  # pragma: no cover
+
+                        yield item
+
+                else:
+
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        async for subitem in subr.execute(genr=subg):
+                            yield subitem
 
                 if self.opts.join:
-                    yield item
+                    yield node, path
 
             if item is None and self.runtsafe:
-                for subr in runts:
-                    async for subitem in subr.execute():
-                        yield subitem
+                if self.opts.parallel and runts:
+
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    for subr in runts:
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue  # pragma: no cover
+
+                        yield item
+
+                else:
+                    for subr in runts:
+                        async for subitem in subr.execute():
+                            yield subitem
+
+    async def pipeline(self, runt, outq, genr=None):
+        try:
+            async for subitem in runt.execute(genr=genr):
+                await outq.put(subitem)
+
+            await outq.put(None)
+
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
 
 class TreeCmd(Cmd):
     '''
