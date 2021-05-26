@@ -33,9 +33,9 @@ Bugfixes
 --------
 - Fix the logger name for ``synapse.lib.aha``.
   (`#2210 <https://github.com/vertexproject/synapse/pull/2210>`_)
-- Log ImportError exceptions in ``synapse.lib.dyndeps.getDynMod``. This allows
-  easier debugging when using the ``synapse.servers.cell`` server for running
-  customer Cell implementations.
+- Log ``ImportError`` exceptions in ``synapse.lib.dyndeps.getDynMod``. This
+  allows easier debugging when using the ``synapse.servers.cell`` server when
+  running custom Cell implementations.
   (`#2211 <https://github.com/vertexproject/synapse/pull/2211>`_)
 - Fix an issue where a Storm command which failed to set command arguments
   successfully would not teardown the Storm runtime.
