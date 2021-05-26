@@ -18,7 +18,7 @@ HI
 .. storm-expect:: baz
 .. storm-pre:: [ inet:ipv6=0 ]
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
-.. storm:: --hide-props testcmd foo
+.. storm:: --hide-props testpkgcmd foo
 .. storm:: --hide-query $lib.print(secret)
 .. storm:: --hide-query file:bytes
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
@@ -36,7 +36,7 @@ HI
 
 ::
 
-    > testcmd foo
+    > testpkgcmd foo
     inet:ipv6=::ffff:0
 
 ::
