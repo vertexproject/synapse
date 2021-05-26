@@ -805,10 +805,10 @@ class Path:
 
         return s_common.novalu
 
-    def setVar(self, name, valu):
+    async def setVar(self, name, valu):
         self.vars[name] = valu
 
-    def popVar(self, name):
+    async def popVar(self, name):
         return self.vars.pop(name, s_common.novalu)
 
     def meta(self, name, valu):

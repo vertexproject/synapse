@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
@@ -489,7 +490,7 @@ class StormTest(s_t_utils.SynTest):
             async with await core.view.snap(user=core.auth.rootuser) as snap:
 
                 query = core.getStormQuery('')
-                with snap.getStormRuntime(query) as runt:
+                async with snap.getStormRuntime(query) as runt:
 
                     self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
 
@@ -551,6 +552,33 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInWarn('nodes.import got HTTP error code', msgs)
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
+
+    async def test_storm_vars_fini(self):
+
+        async with self.getTestCore() as core:
+
+            query = core.getStormQuery('inet:ipv4')
+            async with core.getStormRuntime(query) as runt:
+
+                base0 = await s_base.Base.anit()
+                base0._syn_refs = 0
+                await runt.setVar('base0', base0)
+                await runt.setVar('base0', base0)
+                self.false(base0.isfini)
+                await runt.setVar('base0', None)
+                self.true(base0.isfini)
+
+                base1 = await s_base.Base.anit()
+                base1._syn_refs = 0
+                await runt.setVar('base1', base1)
+                await runt.popVar('base1')
+                self.true(base1.isfini)
+
+                base2 = await s_base.Base.anit()
+                base2._syn_refs = 0
+                await runt.setVar('base2', base2)
+
+            self.true(base2.isfini)
 
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
@@ -1170,6 +1198,46 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[2].ndef[0], ('media:news'))
             self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
 
+            # Queries can be a heavy list
+            q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            # A empty list of queries still works as an nop
+            q = '$list = $lib.list() | tee $list'
+            msgs = await core.stormlist(q)
+            self.len(2, msgs)
+            self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --join $list'
+            msgs = await core.stormlist(q)
+            self.len(3, msgs)
+            self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
+
+            q = '$list = $lib.list() | tee --parallel $list'
+            msgs = await core.stormlist(q)
+            self.len(2, msgs)
+            self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --parallel --join $list'
+            msgs = await core.stormlist(q)
+            self.len(3, msgs)
+            self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
+
+            # Queries can be a input list
+            q = 'inet:ipv4=1.2.3.4 | tee --join $list'
+            queries = ('-> *', '<- *', '-> edge:refs:n2 :n1 -> *')
+            nodes = await core.nodes(q, {'vars': {'list': queries}})
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
             # Empty queries are okay - they will just return the input node
             q = 'inet:ipv4=1.2.3.4 | tee {}'
             nodes = await core.nodes(q)
@@ -1219,6 +1287,19 @@ class StormTest(s_t_utils.SynTest):
             self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
                     {p[0] for p in podes})
 
+            # Node variables modified in sub runtimes don't affect parent node path
+            q = '''[test:int=123] $foo=$node.value()
+            | tee --join { $foo=($foo + 1) [test:str=$foo] +test:str } { $foo=($foo + 2) [test:str=$foo] +test:str } |
+            $lib.fire(data, foo=$foo, ndef=$node.ndef()) | spin
+            '''
+            msgs = await core.stormlist(q)
+            datas = [m[1].get('data') for m in msgs if m[0] == 'storm:fire']
+            self.eq(datas, [
+                {'foo': 124, 'ndef': ('test:str', '124')},
+                {'foo': 125, 'ndef': ('test:str', '125')},
+                {'foo': 123, 'ndef': ('test:int', 123)},
+            ])
+
             # lift a non-existent node and feed to tee.
             q = 'inet:fqdn=newp.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
             nodes = await core.nodes(q)
@@ -1229,8 +1310,46 @@ class StormTest(s_t_utils.SynTest):
             }
             self.eq(exp, {x.ndef for x in nodes})
 
+            # --parallel allows out of order execution. This test demonstrates that but controls the output by time
+
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            exp = [
+                ('inet:asn', 1234),
+                ('inet:dns:a', ('woot.com', 0x01020304)),
+                ('inet:ipv4', 0x01020304),
+                ('inet:fqdn', 'woot.com'),
+            ]
+            self.eq(exp, [x.ndef for x in nodes])
+
+            # A fatal execption is fatal to the runtime
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=newp] }'
+            msgs = await core.stormlist(q)
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, podes)
+            self.stormIsInErr("invalid literal for int() with base 0: 'newp'", msgs)
+
+            # Each input node to the query is also subject to parallel execution
+            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { inet:fqdn=$foo <- * } | uniq'
+            nodes = await core.nodes(q)
+
+            self.eq({node.ndef for node in nodes}, {
+                ('inet:fqdn', 'woot.com'),
+                ('inet:ipv4', 16909060),
+                ('inet:dns:a', ('woot.com', 16909060)),
+                ('inet:fqdn', 'com'),
+            })
+
+            # Per-node exceptions can also tear down the runtime (coverage test)
+            q = 'inet:fqdn=com | tee --parallel { [inet:asn=newp] }'
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
+
+            # No input test
             q = 'tee'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_storm_yieldvalu(self):
 
@@ -1577,6 +1696,7 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
         opts = pars.parse_args(['-h'])
+        self.none(opts)
         self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
         self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
         self.isin('Options:', pars.mesgs)
@@ -1588,6 +1708,20 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--no-foo', default=True, action='store_false')
         opts = pars.parse_args(['--no-foo'])
         self.false(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        opts = pars.parse_args([])
+        self.true(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        pars.add_argument('--valu', default=8675309, type='int')
+        pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
+        pars.parse_args(['-h'])
+        self.isin('  --no-foo                    : No help available.', pars.mesgs)
+        self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
+        self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada')

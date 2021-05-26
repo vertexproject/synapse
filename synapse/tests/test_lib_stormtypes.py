@@ -289,6 +289,43 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
+            mesgs = await core.stormlist('$lib.print($lib.list(1,(2),3))')
+            self.stormIsInPrint("['1', 2, '3']", mesgs)
+
+            mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
+            self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
+            self.stormIsInPrint("'1'", mesgs)
+            self.stormIsInPrint("'2'", mesgs)
+            self.stormIsInPrint("'3'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
+            self.stormIsInPrint("storm:queue: testq", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
             mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -647,6 +684,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
             self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
             self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
+
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(","))'))
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(","))'))
+            self.eq(('foo', 'bar,baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(",", maxsplit=1))'))
+            self.eq(('foo,bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(",", maxsplit=1))'))
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -1441,6 +1483,15 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url))', opts=opts)
+            self.stormIsInPrint("storm:proxy: <synapse.telepath.Proxy object", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).doit)', opts=opts)
+            self.stormIsInPrint("storm:proxy:method: <synapse.telepath.Method", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).fqdns)', opts=opts)
+            self.stormIsInPrint("storm:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
 
     async def test_storm_lib_queue(self):
 
@@ -3392,6 +3443,7 @@ class StormTypesTest(s_test.SynTest):
             await uowner.addRule((True, ('layer', 'add',)))
             await uowner.addRule((True, ('view', 'add',)))
 
+            await core.auth.addRole('ninjas')
             ureader = await core.auth.addUser('ureader')
             uwriter = await core.auth.addUser('uwriter')
 
@@ -3476,14 +3528,17 @@ class StormTypesTest(s_test.SynTest):
                 $viewiden = $lib.view.get().iden
                 $layriden = $lib.layer.get().iden
                 $usr = $lib.auth.users.get($ureader)
+                $role = $lib.auth.roles.byname(ninjas)
 
                 $rule0 = $lib.auth.ruleFromText(view.read)
                 $rule1 = $lib.auth.ruleFromText(node.add)
                 $usr.setRules(($rule0, $rule1), $viewiden)
+                $role.setRules(($rule0, $rule1), $viewiden)
 
                 $rule0 = $lib.auth.ruleFromText(layr.read)
                 $rule1 = $lib.auth.ruleFromText(node.add)
                 $usr.setRules(($rule0, $rule1), $layriden)
+                $role.setRules(($rule0, $rule1), $layriden)
 
                 return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
             '''
@@ -3503,12 +3558,15 @@ class StormTypesTest(s_test.SynTest):
                 $viewiden = $lib.view.get().iden
                 $layriden = $lib.layer.get().iden
                 $usr = $lib.auth.users.get($ureader)
+                $role = $lib.auth.roles.byname(ninjas)
 
                 $rule = $lib.auth.ruleFromText(node.add)
                 $usr.delRule($rule, $viewiden)
+                $role.delRule($rule, $viewiden)
 
                 $rule = $lib.auth.ruleFromText(node.add)
                 $usr.delRule($rule, $layriden)
+                $role.delRule($rule, $layriden)
 
                 return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
             '''
