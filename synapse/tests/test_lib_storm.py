@@ -1179,6 +1179,27 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[2].ndef[0], ('media:news'))
             self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
 
+            # A empty list of queries still works as an nop
+            q = '$list = $lib.list() | tee $list'
+            msgs = await core.stormlist(q)
+            self.len(2, msgs)
+            self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --join $list'
+            msgs = await core.stormlist(q)
+            self.len(3, msgs)
+            self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
+
+            q = '$list = $lib.list() | tee --parallel $list'
+            msgs = await core.stormlist(q)
+            self.len(2, msgs)
+            self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --parallel --join $list'
+            msgs = await core.stormlist(q)
+            self.len(3, msgs)
+            self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
+
             # Queries can be a input list
             q = 'inet:ipv4=1.2.3.4 | tee --join $list'
             queries = ('-> *', '<- *', '-> edge:refs:n2 :n1 -> *')

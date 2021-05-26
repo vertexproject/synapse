@@ -3172,22 +3172,27 @@ class TeeCmd(Cmd):
 
             runts = []
             query_arguments = await s_stormtypes.toprim(self.opts.query)
+            queries = []
             for arg in query_arguments:
                 if isinstance(arg, str):
-                    arg = (arg, )
+                    queries.append(arg)
+                    continue
+                # if a argument is a container/iterable, we'll add
+                # whatever content is in it as query text
                 for text in arg:
-                    query = await runt.getStormQuery(text)
-                    subr = await stack.enter_async_context(runt.getSubRuntime(query))
-                    runts.append(subr)
+                    queries.append(text)
+
+            for text in queries:
+                query = await runt.getStormQuery(text)
+                subr = await stack.enter_async_context(runt.getSubRuntime(query))
+                runts.append(subr)
+
             size = len(runts)
-
             outq_size = size * 2
-
             item = None
-            async for item in genr:
-                node, path = item
+            async for node, path in genr:
 
-                if self.opts.parallel:
+                if self.opts.parallel and runts:
 
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
@@ -3218,10 +3223,10 @@ class TeeCmd(Cmd):
                             yield subitem
 
                 if self.opts.join:
-                    yield item
+                    yield node, path
 
             if item is None and self.runtsafe:
-                if self.opts.parallel:
+                if self.opts.parallel and runts:
 
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
