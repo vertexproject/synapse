@@ -14,8 +14,11 @@ import synapse.lib.base as s_base
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormtypes as s_stormtypes
 
+@s_stormtypes.registry.registerType
 class WebSocket(s_base.Base, s_stormtypes.StormType):
-
+    '''
+    Implements the Storm API for a Websocket.
+    '''
     _storm_type_name = 'storm:http:socket'
 
     _storm_locals = (
@@ -67,9 +70,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
                 return (True, json.loads(data.encode()))
             if _type == aiohttp.WSMsgType.CLOSED: # pragma: no cover
                 return (True, None)
-            # pragma: no cover
-            mesg = f'WebSocket RX unhandled type: {_type.name}'
-            return (False, ('BadMesgFormat', {'mesg': mesg}))
+            return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'})) # pragma: no cover
 
         except asyncio.CancelledError: # pragma: no cover
             raise
