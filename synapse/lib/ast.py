@@ -3673,12 +3673,13 @@ class Function(AstNode):
         assert len(mergargs) == len(argdefs)
 
         opts = {'vars': mergargs}
-        async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
-            # inform the sub runtime to use function scope rules
-            subr.funcscope = True
+        if self.hasretn:
+            async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
-            if self.hasretn:
+                # inform the sub runtime to use function scope rules
+                subr.funcscope = True
+
                 try:
                     async for item in subr.execute():
                         await asyncio.sleep(0)
@@ -3688,9 +3689,13 @@ class Function(AstNode):
                 except s_stormctrl.StormReturn as e:
                     return e.item
 
-            async def genr():
+        async def genr():
+            async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+
+                # inform the sub runtime to use function scope rules
+                subr.funcscope = True
 
                 async for node, path in subr.execute():
                     yield node, path
 
-            return genr()
+        return genr()
