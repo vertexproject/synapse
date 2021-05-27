@@ -58,6 +58,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Environment Variable\n    ``SYN_STORMVARSERVICECELL_AUTH_PASSWD``', s)
             self.isin('``--auth-passwd``', s)
             self.isin('The object expects the following properties', s)
+            self.notin('_log_conf', s)
 
             argv.append('--doc-conf-reflink')
             argv.append('`Configuring a Cell Service <https://synapse.docs.vertex.link/en/latest/synapse/devguides/devops_cell.html>`_')
@@ -120,9 +121,9 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Storm Package\\: testpkg', s)
             self.isin('This documentation is generated for version 0.0.1 of the package.', s)
             self.isin('This package implements the following Storm Commands.', s)
-            self.isin('.. _stormcmd-testpkg-testcmd', s)
+            self.isin('.. _stormcmd-testpkg-testpkgcmd', s)
 
-            self.isin('testcmd does some stuff', s)
+            self.isin('testpkgcmd does some stuff', s)
             self.isin('Help on foo opt', s)
             self.isin('Help on bar opt', s)
 

@@ -620,13 +620,13 @@ class ForLoop(Oper):
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
-                        path.setVar(x, y)
-                        runt.setVar(x, y)
+                        await path.setVar(x, y)
+                        await runt.setVar(x, y)
 
                 else:
                     # set both so inner subqueries have it in their runtime
-                    path.setVar(name, item)
-                    runt.setVar(name, item)
+                    await path.setVar(name, item)
+                    await runt.setVar(name, item)
 
                 try:
 
@@ -674,10 +674,10 @@ class ForLoop(Oper):
                         raise s_exc.StormVarListError(mesg=mesg, names=name, vals=item)
 
                     for x, y in itertools.zip_longest(name, item):
-                        runt.setVar(x, y)
+                        await runt.setVar(x, y)
 
                 else:
-                    runt.setVar(name, item)
+                    await runt.setVar(name, item)
 
                 try:
                     async for jtem in subq.inline(runt, s_common.agen()):
@@ -793,7 +793,7 @@ class CmdOper(Oper):
                 async for node, path in genr:
                     argv = await self.kids[1].compute(runt, path)
                     if not await scmd.setArgv(argv):
-                        return
+                        raise s_stormctrl.StormExit()
 
                     yield node, path
 
@@ -805,7 +805,7 @@ class CmdOper(Oper):
                 if runtsafe:
                     argv = await self.kids[1].compute(runt, None)
                     if not await scmd.setArgv(argv):
-                        return
+                        raise s_stormctrl.StormExit()
 
                 async for item in scmd.execStormCmd(runt, genr):
                     yield item
@@ -827,23 +827,23 @@ class SetVarOper(Oper):
 
             valu = await vkid.compute(runt, path)
             if valu is undef:
-                runt.popVar(name)
+                await runt.popVar(name)
                 #TODO detect which to update here
-                path.popVar(name)
+                await path.popVar(name)
 
             else:
-                runt.setVar(name, valu)
+                await runt.setVar(name, valu)
                 #TODO detect which to update here
-                path.setVar(name, valu)
+                await path.setVar(name, valu)
 
             yield node, path
 
         if count == 0 and vkid.isRuntSafe(runt):
             valu = await vkid.compute(runt, None)
             if valu is undef:
-                runt.popVar(name)
+                await runt.popVar(name)
             else:
-                runt.setVar(name, valu)
+                await runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
         yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)
@@ -903,8 +903,8 @@ class VarListSetOper(Oper):
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
 
             for name, valu in zip(names, item):
-                runt.setVar(name, valu)
-                path.setVar(name, valu)
+                await runt.setVar(name, valu)
+                await path.setVar(name, valu)
 
             yield node, path
 
@@ -918,7 +918,7 @@ class VarListSetOper(Oper):
                 raise s_exc.StormVarListError(mesg=mesg, names=names, vals=item)
 
             for name, valu in zip(names, item):
-                runt.setVar(name, valu)
+                await runt.setVar(name, valu)
 
             async for item in genr:
                 yield item
@@ -3606,7 +3606,7 @@ class Function(AstNode):
             async def realfunc(*args, **kwargs):
                 return await self.callfunc(runt, argdefs, args, kwargs)
 
-            runt.setVar(self.name, realfunc)
+            await runt.setVar(self.name, realfunc)
 
         count = 0
 

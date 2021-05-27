@@ -1,5 +1,25 @@
+import json
+import traceback
+
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
+import synapse.lib.httpapi as s_httpapi
+
+class TstWebSock(s_httpapi.WebSocket):
+
+    def initialize(self):
+        pass
+
+    async def open(self):
+        await self.sendJsonMesg({'hi': 'woot'})
+
+    async def on_message(self, byts):
+        mesg = json.loads(byts)
+        await self.sendJsonMesg(('echo', mesg), binary=True)
+
+    async def sendJsonMesg(self, item, binary=False):
+        byts = json.dumps(item)
+        await self.write_message(byts, binary=binary)
 
 class StormHttpTest(s_test.SynTest):
 
@@ -60,10 +80,11 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $params=(1138)
             $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( $resp.json() )
+            return ( ($resp.code, $resp.err) )
             '''
-            msgs = await core.stormlist(q, opts=opts)
-            self.stormIsInErr('Error during http get - Invalid query type', msgs)
+            code, (errname, _) = await core.callStorm(q, opts=opts)
+            self.eq(code, -1)
+            self.eq('TypeError', errname)
 
     async def test_storm_http_request(self):
 
@@ -86,6 +107,38 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
             self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
+
+            # Timeout
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url, 'sleep': 1, 'timeout': 2}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
+            $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
+            $code = $resp.code
+            return ($code)
+            '''
+            code = await core.callStorm(q, opts=opts)
+            self.eq(200, code)
+
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url, 'sleep': 10, 'timeout': 1}}
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar, sleep=$sleep)
+            $hdr = (
+                    ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.request(GET, $url, headers=$hdr, params=$params, ssl_verify=$lib.false, timeout=$timeout)
+            $code = $resp.code
+            return (($code, $resp.err))
+            '''
+            code, (errname, errinfo) = await core.callStorm(q, opts=opts)
+            self.eq(code, -1)
+            self.eq('TimeoutError', errname)
+            self.isin('mesg', errinfo)
+            self.eq('', errinfo.get('mesg'))  # timeouterror has no mesg
 
     async def test_storm_http_post(self):
 
@@ -158,19 +211,51 @@ class StormHttpTest(s_test.SynTest):
             $url = $lib.str.format("https://root:root@127.0.0.1:{port}/api/v1/storm", port=$port)
             $json = $lib.dict(query="test:str")
             $body = $json
-            $json=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
+            $resp=$lib.inet.http.post($url, json=$json, body=$body, ssl_verify=$(0))
+            return ( ($resp.code, $resp.err) )
             '''
-            mesgs = await core.stormlist(text, opts=opts)
-            errs = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, errs)
-            err = errs[0]
-            self.eq(err[0], 'StormRuntimeError')
-            self.isin('Error during http POST - data and json parameters can not be used at the same time', err[1].get('mesg'))
+            code, (errname, _) = await core.callStorm(text, opts=opts)
+            self.eq(code, -1)
+            self.eq('ValueError', errname)
 
     async def test_storm_http_proxy(self):
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestCore(conf=conf) as core:
             resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
             self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('return($lib.inet.http.get("http://vertex.link"))')
+
+            q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
+            code, (errname, _) = await core.callStorm(q)
+            self.eq(code, -1)
+            self.eq('ProxyConnectionError', errname)
+
+    async def test_storm_http_connect(self):
+
+        async with self.getTestCore() as core:
+
+            core.addHttpApi('/test/ws', TstWebSock, {})
+            addr, port = await core.addHttpsPort(0)
+
+            self.eq('woot', await core.callStorm('''
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+
+                ($ok, $sock) = $lib.inet.http.connect($url)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+                return($mesg.hi)
+            ''', opts={'vars': {'port': port}}))
+
+            self.eq((True, ('echo', 'lololol')), await core.callStorm('''
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+
+                ($ok, $sock) = $lib.inet.http.connect($url)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+
+                ($ok, $valu) = $sock.tx(lololol)
+                return($sock.rx())
+            ''', opts={'vars': {'port': port}}))

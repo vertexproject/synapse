@@ -709,6 +709,19 @@ class CortexTest(s_t_utils.SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
+            # Can norm a list of of tag parts into a tag string and use it
+            nodes = await wcore.nodes("$foo=('foo', 'bar.baz') $foo=$lib.cast('syn:tag', $foo) [test:int=0 +#$foo]")
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.bar_baz'})
+
+            nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.___v___'})
+
+            # Cannot norm a list of tag parts directly when making tags on a node
+            with self.raises(AttributeError):
+                await wcore.nodes("$foo=(('foo', 'bar.baz'),) [test:int=2 +#$foo]")
+
     async def test_base_types1(self):
 
         async with self.getTestCore() as core:
@@ -1239,6 +1252,102 @@ class CortexTest(s_t_utils.SynTest):
             q = '#test.bar +test:pivcomp -+> *'
             nodes = await getPackNodes(core, q)
             self.len(3, nodes)
+
+            # tag a tag
+            q = '[syn:tag=biz.meta +#super.foo +#super.baz +#second.tag]'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+
+            # join syn:tag to tags
+            q = 'syn:tag -+> #'
+            base = await getPackNodes(core, 'syn:tag')
+            nodes = await getPackNodes(core, q)
+            self.len(9, base)
+            self.len(12, nodes)
+
+            q = 'syn:tag:base=meta -+> #'
+            nodes = await getPackNodes(core, q)
+            self.len(4, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second.tag'))
+            self.eq(nodes[2][0], ('syn:tag', 'super.baz'))
+            self.eq(nodes[3][0], ('syn:tag', 'super.foo'))
+
+            q = 'syn:tag:base=meta -+> #*'
+            nodes = await getPackNodes(core, q)
+            self.len(6, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second'))
+            self.eq(nodes[2][0], ('syn:tag', 'second.tag'))
+            self.eq(nodes[3][0], ('syn:tag', 'super'))
+            self.eq(nodes[4][0], ('syn:tag', 'super.baz'))
+            self.eq(nodes[5][0], ('syn:tag', 'super.foo'))
+
+            q = 'syn:tag:base=meta -+> #test'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+
+            q = 'syn:tag:base=meta -+> #second'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second'))
+
+            q = 'syn:tag:base=meta -+> #second.tag'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second.tag'))
+
+            q = 'syn:tag:base=meta -+> #super.*'
+            nodes = await getPackNodes(core, q)
+            self.len(3, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'super.baz'))
+            self.eq(nodes[2][0], ('syn:tag', 'super.foo'))
+
+            q = 'syn:tag:base=meta -+> #super.baz'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'super.baz'))
+
+            # tag a node
+            q = '[test:str=tagyourtags +#biz.meta]'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('test:str', 'tagyourtags'))
+
+            q = 'test:str -+> #'
+            nodes = await getPackNodes(core, q)
+            self.len(7, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'test.bar'))
+            self.eq(nodes[2][0], ('test:str', 'bar'))
+            self.eq(nodes[3][0], ('test:str', 'foo'))
+            self.eq(nodes[4][0], ('test:str', 'foobar'))
+            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[6][0], ('test:str', 'yyy'))
+
+            q = 'test:str -+> #*'
+            nodes = await getPackNodes(core, q)
+            self.len(9, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz'))
+            self.eq(nodes[1][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[2][0], ('syn:tag', 'test'))
+            self.eq(nodes[3][0], ('syn:tag', 'test.bar'))
+            self.eq(nodes[4][0], ('test:str', 'bar'))
+            self.eq(nodes[5][0], ('test:str', 'foo'))
+            self.eq(nodes[6][0], ('test:str', 'foobar'))
+            self.eq(nodes[7][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[8][0], ('test:str', 'yyy'))
+
+            q = 'test:str=bar -+> #'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'test.bar'))
+            self.eq(nodes[1][0], ('test:str', 'bar'))
 
             # tag conditional filters followed by * pivot operators
             # These are all going to yield zero nodes but should

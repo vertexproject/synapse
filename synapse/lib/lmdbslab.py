@@ -258,8 +258,8 @@ class HotCount(HotKeyVal):
     '''
     Like HotKeyVal, but optimized for integer/count vals
     '''
-    EncFunc = staticmethod(s_common.int64en)
-    DecFunc = staticmethod(s_common.int64un)
+    EncFunc = staticmethod(s_common.signedint64en)
+    DecFunc = staticmethod(s_common.signedint64un)
 
     def inc(self, name: str, valu=1):
         byts = name.encode()

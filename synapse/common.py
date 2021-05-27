@@ -590,15 +590,29 @@ _Int64be = struct.Struct('>Q')
 
 def int64en(i):
     '''
-    Encode a 64-bit int into 8 byte big-endian bytes
+    Encode an unsigned 64-bit int into 8 byte big-endian bytes
     '''
     return _Int64be.pack(i)
 
 def int64un(b):
     '''
-    Decode a 64-bit int from 8 byte big-endian
+    Decode an unsigned 64-bit int from 8 byte big-endian
     '''
     return _Int64be.unpack(b)[0]
+
+_SignedInt64be = struct.Struct('>q')
+
+def signedint64en(i):
+    '''
+    Encode a signed 64-bit int into 8 byte big-endian bytes
+    '''
+    return _SignedInt64be.pack(i)
+
+def signedint64un(b):
+    '''
+    Decode a signed 64-bit int from 8 byte big-endian
+    '''
+    return _SignedInt64be.unpack(b)[0]
 
 def enbase64(b):
     return base64.b64encode(b).decode('utf8')

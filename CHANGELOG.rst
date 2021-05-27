@@ -5,6 +5,94 @@ Synapse Changelog
 *****************
 
 
+v2.40.0 - 2021-05-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--parallel`` switch to the ``tee`` Storm command. This allows for
+  all of the Storm queries provided to the ``tee`` command to execute in
+  parallel, potentially producing a mixed output stream of nodes.
+  (`#2209 <https://github.com/vertexproject/synapse/pull/2209>`_)
+- Convert the Storm Runtime object in a Base object, allowing for reference
+  counted Storm variables which are made from Base objects and are properly
+  torn down.
+  (`#2203 <https://github.com/vertexproject/synapse/pull/2203>`_)
+- Add ``$lib.inet.http.connect()`` method which creates a Websocket object
+  inside of Storm, allowing a user to send and receive messages over a
+  websocket.
+  (`#2203 <https://github.com/vertexproject/synapse/pull/2203>`_)
+- Support pivot join operations on tags.
+  (`#2213 <https://github.com/vertexproject/synapse/pull/2213>`_)
+- Add ``stormrepr()`` implementation for ``synapse.lib.stormtypes.Lib``, which
+  allows for ``$lib.print()`` to display useful strings for Storm Libraries
+  and imported modules.
+  (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+- Add a storm API top updated a user name.
+  (`#2214 <https://github.com/vertexproject/synapse/pull/2214>`_)
+
+Bugfixes
+--------
+- Fix the logger name for ``synapse.lib.aha``.
+  (`#2210 <https://github.com/vertexproject/synapse/pull/2210>`_)
+- Log ``ImportError`` exceptions in ``synapse.lib.dyndeps.getDynMod``. This
+  allows easier debugging when using the ``synapse.servers.cell`` server when
+  running custom Cell implementations.
+  (`#2211 <https://github.com/vertexproject/synapse/pull/2211>`_)
+- Fix an issue where a Storm command which failed to set command arguments
+  successfully would not teardown the Storm runtime.
+  (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+
+v2.39.1 - 2021-05-21
+====================
+
+Bugfixes
+--------
+- Fix an issue with referencing the Telepath user session object prior to a
+  valid user being set.
+  (`#2207 <https://github.com/vertexproject/synapse/pull/2207>`_)
+
+
+v2.39.0 - 2021-05-20
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add more useful output to Storm when printing heavy objects with
+  ``$lib.print()``.
+  (`#2185 <https://github.com/vertexproject/synapse/pull/2185>`_)
+- Check rule edits for roles against provided authgates in Storm.
+  (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
+- Add ``Str.rsplit()`` and maxsplit arguments to ``split()/rsplit()`` APIs
+  in Storm.
+  (`#2200 <https://github.com/vertexproject/synapse/pull/2200>`_)
+- Add default argument values to the output of Storm command help output.
+  (`#2198 <https://github.com/vertexproject/synapse/pull/2198>`_)
+- Add a ``syn:tag:part`` Type and allow the ``syn:tag`` type to normalize a
+  list of tag parts to create a tag string. This is intended to be used with
+  the ``$lib.cast()`` function in Storm.
+  (`#2192 <https://github.com/vertexproject/synapse/pull/2192>`_)
+- Add debug logging to the Axon for reading, writing, or deleting of blobs.
+  (`#2202 <https://github.com/vertexproject/synapse/pull/2202>`_)
+- Add a timeout argument to the ``$lib.inet.http`` functions. The functions
+  will all now always return a ``storm:http:resp`` object; if the ``.code``
+  is -1, an unrecoverable exception occurred while making the request.
+  (`#2205 <https://github.com/vertexproject/synapse/pull/2205>`_)
+- Add support for embedding a logo and documentation into a Storm Package.
+  (`#2204 <https://github.com/vertexproject/synapse/pull/2204>`_)
+
+Bugfixes
+--------
+- Fix export filters to correctly filter tagprops.
+  (`#2196 <https://github.com/vertexproject/synapse/pull/2196>`_)
+- Fix an issue with Hotcount which prevented it from storing negative values.
+  (`#2197 <https://github.com/vertexproject/synapse/pull/2197>`_)
+- Fix an issue where ``hideconf`` configuration values were being included
+  in autodoc output.
+  (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
+
+
 v2.38.0 - 2021-05-14
 ====================
 
