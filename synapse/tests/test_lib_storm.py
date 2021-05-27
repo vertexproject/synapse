@@ -1183,6 +1183,24 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
 
+            q = '''
+            inet:ipv4=1.2.3.4 | tee
+            { spin | [ inet:ipv4=2.2.2.2 ]}
+            { spin | [ inet:ipv4=3.3.3.3 ]}
+            { spin | [ inet:ipv4=4.4.4.4 ]}
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+
+            q = '''
+            inet:ipv4=1.2.3.4 | tee --join
+            { spin | inet:ipv4=2.2.2.2 }
+            { spin | inet:ipv4=3.3.3.3 }
+            { spin | inet:ipv4=4.4.4.4 }
+            '''
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
             nodes = await core.nodes(q)
             self.len(3, nodes)
