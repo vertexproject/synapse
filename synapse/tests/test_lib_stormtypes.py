@@ -262,7 +262,7 @@ class StormTypesTest(s_test.SynTest):
             # $lib.import
             q = '$test = $lib.import(test) $lib.print($test)'
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('stormtypes.Lib object', msgs)
+            self.stormIsInPrint('Imported Module test', msgs)
             q = '$test = $lib.import(newp)'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -308,7 +308,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("bound method LibBase._dict", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib)')
-            self.stormIsInPrint("LibBase object", mesgs)
+            self.stormIsInPrint("Library $lib", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
             self.stormIsInPrint("storm:queue: testq", mesgs)
