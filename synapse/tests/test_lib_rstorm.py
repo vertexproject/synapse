@@ -88,6 +88,8 @@ HI
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp2.json
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
+.. storm-mock-http:: synapse/tests/files/rstorm/httpresp3.json
+.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.body.decode() [ it:dev:str=$d ]
 '''
 
 boom1 = '''
@@ -193,6 +195,7 @@ class RStormLibTest(s_test.SynTest):
             self.isin('{}', text)  # no mock gives empty response
             self.isin('inet:ipv4=1.2.3.4', text)  # first mock
             self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
+            self.isin('it:dev:str=notjson', text)  # one mock at a time
 
             # boom1 test
             path = s_common.genpath(dirn, 'boom1.rst')
