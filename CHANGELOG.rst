@@ -28,6 +28,8 @@ Features and Enhancements
   allows for ``$lib.print()`` to display useful strings for Storm Libraries
   and imported modules.
   (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+- Add a storm API top updated a user name.
+  (`#2214 <https://github.com/vertexproject/synapse/pull/2214>`_)
 
 Bugfixes
 --------
