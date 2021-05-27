@@ -3435,6 +3435,18 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
                                      opts={'vars': {'iden': iden}})
 
+            # test out renaming a user
+            iden = await core.callStorm('return($lib.auth.users.add(new0).iden)')
+            await core.callStorm('$lib.auth.users.byname(new0).name = new1', opts={'user': iden})
+            self.none(await core.callStorm('return($lib.auth.users.byname(new0))'))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(new1))'))
+
+            await core.callStorm('$lib.auth.users.byname(new1).name = new2')
+            self.none(await core.callStorm('return($lib.auth.users.byname(new1))'))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(new2))'))
+            await core.callStorm('$lib.auth.users.byname(new2).email = "visi@vertex.link"')
+            self.eq('visi@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
+
     async def test_stormtypes_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
