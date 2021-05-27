@@ -3445,6 +3445,7 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.auth.users.byname(new1))'))
             self.nn(await core.callStorm('return($lib.auth.users.byname(new2))'))
             await core.callStorm('$lib.auth.users.byname(new2).email = "visi@vertex.link"')
+            self.eq('visi@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
 
     async def test_stormtypes_auth_gateadmin(self):
 
