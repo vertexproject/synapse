@@ -1382,6 +1382,9 @@ class Runtime(s_base.Base):
 
         varz = self.opts.get('vars')
         if varz is not None:
+            for valu in varz.values():
+                if isinstance(valu, s_base.Base):
+                    valu.incref()
             self.vars.update(varz)
 
         # declare path builtins as non-runtsafe
