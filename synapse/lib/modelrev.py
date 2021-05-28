@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 2)
+maxvers = (0, 2, 3)
 
 class ModelRev:
 
@@ -16,7 +16,51 @@ class ModelRev:
         self.revs = (
             ((0, 2, 1), self.revModel20210126),
             ((0, 2, 2), self.revModel20210312),
+            ((0, 2, 3), self.revModel20210528),
         )
+
+    async def revModel20210528(self, layers):
+
+        cmdtype = self.core.model.type('it:exec:cmd')
+        cmdprop = self.core.model.prop('it:exec:proc:cmd')
+
+        for layr in layers:
+
+            done = set()
+            nodeedits = []
+
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                done.clear()
+                nodeedits.clear()
+
+            async for buid, propvalu in layr.iterPropRows('inet:exec:proc', 'cmd'):
+
+                cmdnorm = cmdtype.norm(propvalu)[0]
+
+                if cmdnorm != propvalu:
+                    nodeedits.append(
+                        (buid, 'it:exec:proc', (
+                            (s_layer.EDIT_PROP_SET, ('cmd', ipv6text, propvalu, s_layer.STOR_TYPE_UTF8), ()),
+                        )),
+                    )
+
+                if cmdnorm not in done:
+                    cmdbuid = s_common.buid(('it:cmd', cmdnorm))
+                    nodeedits.append(
+                        (cmdbuid, 'it:cmd', (
+                            (s_layer.EDIT_NODE_ADD, (cmdnorm, s_layer.STOR_TYPE_UTF8), ()),
+                        )),
+                    )
+                    done.add(cmdnorm)
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def revModel20210312(self, layers):
 
