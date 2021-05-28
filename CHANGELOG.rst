@@ -5,6 +5,25 @@ Synapse Changelog
 *****************
 
 
+v2.41.0 - 2021-05-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``it:cmd`` form and update the ``it:exec:proc:cmd`` property to
+  use it. This release includes an automatic data migration on startup to
+  update the ``it:exec:proc:cmd`` on any existing ``it:exec:proc`` nodes.
+  (`#2219 <https://github.com/vertexproject/synapse/pull/2219>`_)
+
+Bugfixes
+--------
+- Fix an issue where passing a Base object to a sub-runtime in Storm
+  did not correctly increase the reference count.
+  (`#2216 <https://github.com/vertexproject/synapse/pull/2216>`_)
+- Fix an issue where the ``tee`` command could potentially run the
+  specified queries twice.
+  (`#2218 <https://github.com/vertexproject/synapse/pull/2218>`_)
+
 v2.40.0 - 2021-05-26
 ====================
 
