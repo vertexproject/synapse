@@ -66,7 +66,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
             info = {
                 'code': resp.get('code', 200),
-                'body': body,
+                'body': body.encode(),
             }
 
         return s_stormhttp.HttpResp(info)
