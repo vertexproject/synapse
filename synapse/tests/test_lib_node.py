@@ -51,7 +51,7 @@ class NodeTest(s_t_utils.SynTest):
                 # a node which has props the second cortex doens't know about.
                 node.props['.newp'] = 1
                 node.props['newp'] = (2, 3)
-                node.tagprops[('foo', 'valu')] = 10
+                node.tagprops['foo']['valu'] = 10
                 iden, info = node.pack(dorepr=True)
                 props, reprs = info.get('props'), info.get('reprs')
                 tagprops, tagpropreprs = info.get('tagprops'), info.get('tagpropreprs')

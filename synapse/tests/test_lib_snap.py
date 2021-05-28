@@ -568,7 +568,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                scor = node.tagprops.get(('woot', 'score'))
+                scor = node.getTagProp('woot', 'score')
                 self.gt(scor, last)
                 last = scor
 
@@ -576,7 +576,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                scor = node.tagprops.get(('woot', 'score'))
+                scor = node.getTagProp('woot', 'score')
                 self.gt(scor, last)
                 last = scor
 
@@ -584,7 +584,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                scor = node.tagprops.get(('woot', 'score'))
+                scor = node.getTagProp('woot', 'score')
                 self.gt(scor, last)
                 last = scor
 
@@ -592,7 +592,7 @@ class SnapTest(s_t_utils.SynTest):
             self.len(4, nodes)
             last = 5
             for node in nodes:
-                scor = node.tagprops.get(('woot', 'score'))
+                scor = node.getTagProp('woot', 'score')
                 self.lt(scor, last)
                 last = scor
 

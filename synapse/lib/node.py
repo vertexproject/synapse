@@ -140,17 +140,14 @@ class Node:
         Returns:
             (tuple): An (ndef, info) node tuple.
         '''
-        tagprops = collections.defaultdict(dict)
-        [tagprops[tag].__setitem__(prop, valu) for (tag, prop), valu in self.tagprops.items()]
 
         node = (self.ndef, {
             'iden': self.iden(),
             'tags': self.tags,
             'props': self.props,
-            'tagprops': tagprops,
+            'tagprops': self.tagprops,
             'nodedata': self.nodedata,
         })
-
         if dorepr:
 
             rval = self.repr()
@@ -381,17 +378,17 @@ class Node:
         '''
         reps = collections.defaultdict(dict)
 
-        for (tag, name), valu in self.tagprops.items():
+        for tag, propdict in self.tagprops.items():
+            for name, valu in propdict.items():
 
-            prop = self.form.modl.tagprop(name)
-            if prop is None:
-                continue
+                prop = self.form.modl.tagprop(name)
+                if prop is None:
+                    continue
 
-            rval = prop.type.repr(valu)
-            if rval is None or rval == valu:
-                continue
-
-            reps[tag][name] = rval
+                rval = prop.type.repr(valu)
+                if rval is None or rval == valu:
+                    continue
+                reps[tag][name] = rval
 
         return dict(reps)
 
@@ -591,25 +588,24 @@ class Node:
             if prop is None: # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
-
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype), ()))
 
         return edits
 
     def getTagProps(self, tag):
-        return [p for (t, p) in self.tagprops.keys() if t == tag]
+        return list(self.tagprops.get(tag, {}).keys())
 
     def hasTagProp(self, tag, prop):
         '''
         Check if a #foo.bar:baz tag property exists on the node.
         '''
-        return (tag, prop) in self.tagprops
+        return tag in self.tagprops and prop in self.tagprops[tag]
 
     def getTagProp(self, tag, prop, defval=None):
         '''
         Return the value (or defval) of the given tag property.
         '''
-        return self.tagprops.get((tag, prop), defval)
+        return self.tagprops.get(tag, {}).get(prop, defval)
 
     async def setTagProp(self, tag, name, valu):
         '''
@@ -629,23 +625,22 @@ class Node:
             mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
             return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
-        tagkey = (tag, name)
-
         edits = (
             (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()),
         )
 
         await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
-        self.tagprops[tagkey] = norm
+        if tag not in self.tagprops:
+            self.tagprops[tag] = {}
+        self.tagprops[tag][name] = norm
 
     async def delTagProp(self, tag, name):
-
         prop = self.snap.core.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(name=name)
 
-        curv = self.tagprops.get((tag, name), s_common.novalu)
+        curv = self.tagprops.get(tag, {}).get(name, s_common.novalu)
         if curv is s_common.novalu:
             return False
 
