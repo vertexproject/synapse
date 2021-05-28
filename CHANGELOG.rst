@@ -4,6 +4,12 @@
 Synapse Changelog
 *****************
 
+v2.41.1 - 2021-05-27
+====================
+
+Bugfixes
+--------
+- Add PR #2217 to bugfix list in CHANGLOG.rst for v2.41.0 :D
 
 v2.41.0 - 2021-05-27
 ====================
@@ -23,6 +29,8 @@ Bugfixes
 - Fix an issue where the ``tee`` command could potentially run the
   specified queries twice.
   (`#2218 <https://github.com/vertexproject/synapse/pull/2218>`_)
+- Fix for rstorm using mock when the HTTP body is bytes.
+  (`#2217 <https://github.com/vertexproject/synapse/pull/2217>`_)
 
 v2.40.0 - 2021-05-26
 ====================
