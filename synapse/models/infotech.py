@@ -390,6 +390,10 @@ class ItModule(s_module.CoreModule):
                 ('it:exec:proc', ('guid', {}), {
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
                 }),
+                ('it:cmd', ('str', {'strip': True}), {
+                    'doc': 'A unique command-line string.',
+                    'ex': 'foo.exe --dostuff bar',
+                }),
                 ('it:exec:mutex', ('guid', {}), {
                     'doc': 'A mutex created by a process at runtime.',
                 }),
@@ -1092,6 +1096,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The (optional) clear text password for this password hash.',
                     }),
                 )),
+                ('it:cmd', {}, ()),
                 ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
@@ -1099,7 +1104,7 @@ class ItModule(s_module.CoreModule):
                     ('exe', ('file:bytes', {}), {
                         'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.',
                     }),
-                    ('cmd', ('str', {}), {
+                    ('cmd', ('it:cmd', {}), {
                         'doc': 'The command string used to launch the process, including any command line parameters.',
                         'disp': {'hint': 'text'},
                     }),
