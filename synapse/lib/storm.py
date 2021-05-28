@@ -3219,7 +3219,7 @@ class TeeCmd(Cmd):
 
             size = len(runts)
             outq_size = size * 2
-            item = None
+            node = None
             async for node, path in genr:
 
                 if self.opts.parallel and runts:
@@ -3255,7 +3255,7 @@ class TeeCmd(Cmd):
                 if self.opts.join:
                     yield node, path
 
-            if item is None and self.runtsafe:
+            if node is None and self.runtsafe:
                 if self.opts.parallel and runts:
 
                     outq = asyncio.Queue(maxsize=outq_size)
