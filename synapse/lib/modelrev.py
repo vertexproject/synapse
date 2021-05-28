@@ -21,7 +21,7 @@ class ModelRev:
 
     async def revModel20210528(self, layers):
 
-        cmdtype = self.core.model.type('it:exec:cmd')
+        cmdtype = self.core.model.type('it:cmd')
         cmdprop = self.core.model.prop('it:exec:proc:cmd')
 
         for layr in layers:
@@ -36,14 +36,14 @@ class ModelRev:
                 done.clear()
                 nodeedits.clear()
 
-            async for buid, propvalu in layr.iterPropRows('inet:exec:proc', 'cmd'):
+            async for buid, propvalu in layr.iterPropRows('it:exec:proc', 'cmd'):
 
                 cmdnorm = cmdtype.norm(propvalu)[0]
 
                 if cmdnorm != propvalu:
                     nodeedits.append(
                         (buid, 'it:exec:proc', (
-                            (s_layer.EDIT_PROP_SET, ('cmd', ipv6text, propvalu, s_layer.STOR_TYPE_UTF8), ()),
+                            (s_layer.EDIT_PROP_SET, ('cmd', cmdnorm, propvalu, s_layer.STOR_TYPE_UTF8), ()),
                         )),
                     )
 
