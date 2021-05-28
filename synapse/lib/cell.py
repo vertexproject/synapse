@@ -1523,6 +1523,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
 
+    async def setUserName(self, useriden, name):
+        user = await self.auth.reqUser(useriden)
+        await user.setName(name)
+
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)

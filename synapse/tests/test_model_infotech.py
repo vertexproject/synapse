@@ -654,6 +654,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('src:exe'), src_path)
                 self.eq(node.get('src:proc'), src_proc)
 
+                nodes = await core.nodes('it:cmd')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
+
                 m0 = s_common.guid()
                 mprops = {
                     'exe': exe,

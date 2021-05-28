@@ -23,9 +23,9 @@ docs:
       path: docs/foobar.md
 
 commands:
-    - name: testcmd
+    - name: testpkgcmd
       descr: |
-        testcmd does some stuff.
+        testpkgcmd does some stuff.
       forms:
         input:
           - test:str
