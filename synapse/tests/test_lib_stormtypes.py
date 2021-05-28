@@ -2115,7 +2115,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 2)
             self.eq(counts.get('test:guid'), 1)
 
-
     async def test_storm_lib_layer_upstream(self):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
