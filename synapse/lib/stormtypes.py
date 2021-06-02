@@ -5684,6 +5684,9 @@ class Role(Prim):
         self.runt = runt
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu
+        self.stors.update({
+            'name': self._setRoleName,
+        })
 
     def getObjLocals(self):
         return {
@@ -5696,6 +5699,12 @@ class Role(Prim):
     async def _derefGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
         return rdef.get(name, s_common.novalu)
+
+    async def _setRoleName(self, name):
+        name = await tostr(name)
+
+        self.runt.confirm(('auth', 'role', 'set', 'rules'))
+        await self.runt.snap.core.setRoleName(self.valu, name)
 
     async def _methRoleGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
