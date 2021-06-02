@@ -1075,7 +1075,15 @@ stormcmds = (
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
             ('--timeout', {'default': 300, 'type': 'int', 'help': 'Configure the timeout for the download operation.'}),
             ('--params', {'default': None, 'help': 'Provide a dict containing url parameters.'}),
-            ('--headers', {'default': None, 'help': 'Provide a dict containing custom request headers.'}),
+            ('--headers', {
+                'default': {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
+                'help': 'Provide a dict containing custom request headers.'}),
+            ('--no-headers', {'default': False, 'action': 'store_true', 'help': 'Do NOT use any default headers.'}),
         ),
         'storm': '''
         init {
@@ -1083,6 +1091,7 @@ stormcmds = (
 
             $params = $cmdopts.params
             $headers = $cmdopts.headers
+            if $cmdopts.no_headers { $headers = $lib.null }
         }
 
         $ssl = (not $cmdopts.no_ssl_verify)

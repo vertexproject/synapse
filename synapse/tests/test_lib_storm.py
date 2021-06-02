@@ -581,7 +581,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             $params=$lib.dict(key=valu, foo=bar)
             $hdr = (
-                    ("User-Agent", "my best ua"),
+                    ("User-Agent", "my fav ua"),
             )|
             wget $url --headers $hdr --params $params --no-ssl-verify | -> file:bytes $lib.print($node)
             '''
@@ -591,7 +591,20 @@ class StormTest(s_t_utils.SynTest):
             resp = await _getRespFromSha(core, mesgs)
             data = resp.get('result')
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
-            self.eq(data.get('headers').get('User-Agent'), 'my best ua')
+            self.eq(data.get('headers').get('User-Agent'), 'my fav ua')
+
+            # no default headers(from wget command)
+            q = '''
+            $hdr = (
+                    ("User-Agent", "my fav ua"),
+            )|
+            wget $url --headers $hdr --no-headers --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.ne(data.get('headers').get('User-Agent'), 'my fav ua')
 
             # params as list of key/value pairs
             q = '''
