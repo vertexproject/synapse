@@ -3,6 +3,10 @@ import importlib
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def getDynMod(name):
     '''
     Dynamically import a python module and return a ref (or None).
@@ -15,6 +19,7 @@ def getDynMod(name):
     try:
         return importlib.import_module(name)
     except ImportError:
+        logger.exception(f'Failed to import "{name}"')
         return None
 
 def getDynLocal(name):

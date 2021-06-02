@@ -508,6 +508,7 @@ ruleClassMap = {
     'formpivot_': s_ast.FormPivot,
     'formpivot_pivotout': s_ast.PivotOut,
     'formpivot_pivottotags': s_ast.PivotToTags,
+    'formpivot_jointags': lambda kids: s_ast.PivotToTags(kids, isjoin=True),
     'formpivotin_': s_ast.PivotIn,
     'formpivotin_pivotinfrom': s_ast.PivotInFrom,
     'formtagprop': s_ast.FormTagProp,

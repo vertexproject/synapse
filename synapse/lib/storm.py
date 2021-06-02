@@ -1354,7 +1354,7 @@ class StormDmon(s_base.Base):
             # bottom of the loop... wait it out
             await self.waitfini(timeout=1)
 
-class Runtime:
+class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
 
@@ -1363,7 +1363,9 @@ class Runtime:
     opaque object which is called through, but not dereferenced.
 
     '''
-    def __init__(self, query, snap, opts=None, user=None, root=None):
+    async def __anit__(self, query, snap, opts=None, user=None, root=None):
+
+        await s_base.Base.__anit__(self)
 
         if opts is None:
             opts = {}
@@ -1394,6 +1396,9 @@ class Runtime:
 
         varz = self.opts.get('vars')
         if varz is not None:
+            for valu in varz.values():
+                if isinstance(valu, s_base.Base):
+                    valu.incref()
             self.vars.update(varz)
 
         # declare path builtins as non-runtsafe
@@ -1413,6 +1418,13 @@ class Runtime:
         self.proxies = {}
 
         self._loadRuntVars(query)
+        self.onfini(self._onRuntFini)
+
+    async def _onRuntFini(self):
+        # fini() any Base objects constructed by this runtime
+        for valu in list(self.vars.values()):
+            if isinstance(valu, s_base.Base):
+                await valu.fini()
 
     async def dyncall(self, iden, todo, gatekeys=()):
         #bypass all perms checks if we are running asroot
@@ -1508,24 +1520,42 @@ class Runtime:
             return True
         return self.root._isRootScope(name)
 
-    def setVar(self, name, valu):
+    async def _setVar(self, name, valu):
+
+        oldv = self.vars.get(name, s_common.novalu)
+        if oldv is valu:
+            return
+
+        if isinstance(oldv, s_base.Base):
+            await oldv.fini()
+
+        if isinstance(valu, s_base.Base):
+            valu.incref()
+
+        self.vars[name] = valu
+
+    async def setVar(self, name, valu):
 
         if name in self.ctors or name in self.vars:
-            self.vars[name] = valu
+            await self._setVar(name, valu)
             return
 
         if self._isRootScope(name):
-            return self.root.setVar(name, valu)
+            return await self.root.setVar(name, valu)
 
-        self.vars[name] = valu
+        await self._setVar(name, valu)
         return
 
-    def popVar(self, name):
+    async def popVar(self, name):
 
         if self._isRootScope(name):
             return self.root.popVar(name)
 
-        return self.vars.pop(name, s_common.novalu)
+        oldv = self.vars.pop(name, s_common.novalu)
+        if isinstance(oldv, s_base.Base):
+            await oldv.fini()
+
+        return oldv
 
     def addInput(self, node):
         '''
@@ -1612,27 +1642,27 @@ class Runtime:
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
-        runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
-        runt.asroot = self.asroot
-        runt.readonly = self.readonly
+        async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
+            runt.asroot = self.asroot
+            runt.readonly = self.readonly
 
-        yield runt
+            yield runt
 
-    @contextlib.contextmanager
-    def getCmdRuntime(self, query, opts=None):
+    @contextlib.asynccontextmanager
+    async def getCmdRuntime(self, query, opts=None):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts)
-        runt.asroot = self.asroot
-        runt.readonly = self.readonly
-        yield runt
+        async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+            runt.asroot = self.asroot
+            runt.readonly = self.readonly
+            yield runt
 
-    def getModRuntime(self, query, opts=None):
+    async def getModRuntime(self, query, opts=None):
         '''
         Construct a non-context managed runtime for use in module imports.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
         runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
@@ -2163,7 +2193,7 @@ class PureCmd(Cmd):
                 xpath.initframe(initvars={'cmdopts': cmdopts})
                 yield xnode, xpath
 
-        with runt.getCmdRuntime(query, opts=opts) as subr:
+        async with runt.getCmdRuntime(query, opts=opts) as subr:
             subr.asroot = asroot
             async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
@@ -3145,7 +3175,7 @@ class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
 
-    Commands are executed in order they are given.
+    Commands are executed in order they are given; unless the ``--parallel`` switch is provided.
 
     Examples:
 
@@ -3154,6 +3184,9 @@ class TeeCmd(Cmd):
 
         # Also emit the inbound node
         inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+        # Execute multiple enrichment queries in parallel.
+        inet:ipv4=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
 
     '''
     name = 'tee'
@@ -3164,6 +3197,9 @@ class TeeCmd(Cmd):
 
         pars.add_argument('--join', '-j', default=False, action='store_true',
                           help='Emit inbound nodes after processing storm queries.')
+
+        pars.add_argument('--parallel', '-p', default=False, action='store_true',
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
@@ -3179,26 +3215,101 @@ class TeeCmd(Cmd):
         async with contextlib.AsyncExitStack() as stack:
 
             runts = []
-            for text in self.opts.query:
+            query_arguments = await s_stormtypes.toprim(self.opts.query)
+            queries = []
+            for arg in query_arguments:
+                if isinstance(arg, str):
+                    queries.append(arg)
+                    continue
+                # if a argument is a container/iterable, we'll add
+                # whatever content is in it as query text
+                for text in arg:
+                    queries.append(text)
+
+            for text in queries:
                 query = await runt.getStormQuery(text)
                 subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
-            item = None
-            async for item in genr:
+            size = len(runts)
+            outq_size = size * 2
+            node = None
+            async for node, path in genr:
 
-                for subr in runts:
-                    subg = s_common.agen(item)
-                    async for subitem in subr.execute(genr=subg):
-                        yield subitem
+                if self.opts.parallel and runts:
+
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue  # pragma: no cover
+
+                        yield item
+
+                else:
+
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        async for subitem in subr.execute(genr=subg):
+                            yield subitem
 
                 if self.opts.join:
-                    yield item
+                    yield node, path
 
-            if item is None and self.runtsafe:
-                for subr in runts:
-                    async for subitem in subr.execute():
-                        yield subitem
+            if node is None and self.runtsafe:
+                if self.opts.parallel and runts:
+
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    for subr in runts:
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue  # pragma: no cover
+
+                        yield item
+
+                else:
+                    for subr in runts:
+                        async for subitem in subr.execute():
+                            yield subitem
+
+    async def pipeline(self, runt, outq, genr=None):
+        try:
+            async for subitem in runt.execute(genr=genr):
+                await outq.put(subitem)
+
+            await outq.put(None)
+
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
 
 class TreeCmd(Cmd):
     '''

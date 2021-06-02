@@ -262,7 +262,7 @@ class StormTypesTest(s_test.SynTest):
             # $lib.import
             q = '$test = $lib.import(test) $lib.print($test)'
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('stormtypes.Lib object', msgs)
+            self.stormIsInPrint('Imported Module test', msgs)
             q = '$test = $lib.import(newp)'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -308,7 +308,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("bound method LibBase._dict", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib)')
-            self.stormIsInPrint("LibBase object", mesgs)
+            self.stormIsInPrint("Library $lib", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
             self.stormIsInPrint("storm:queue: testq", mesgs)
@@ -3434,6 +3434,18 @@ class StormTypesTest(s_test.SynTest):
                 iden = 12345
                 await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
                                      opts={'vars': {'iden': iden}})
+
+            # test out renaming a user
+            iden = await core.callStorm('return($lib.auth.users.add(new0).iden)')
+            await core.callStorm('$lib.auth.users.byname(new0).name = new1', opts={'user': iden})
+            self.none(await core.callStorm('return($lib.auth.users.byname(new0))'))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(new1))'))
+
+            await core.callStorm('$lib.auth.users.byname(new1).name = new2')
+            self.none(await core.callStorm('return($lib.auth.users.byname(new1))'))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(new2))'))
+            await core.callStorm('$lib.auth.users.byname(new2).email = "visi@vertex.link"')
+            self.eq('visi@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
 
     async def test_stormtypes_auth_gateadmin(self):
 

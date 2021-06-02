@@ -571,6 +571,16 @@ _Queries = [
     'switch $a { "test:this:works:" : { } * : {}}',
     '''switch $a { 'single:quotes' : { } "doubele:quotes": {} noquotes: { } * : {}}''',
     'switch $category { } switch $type { *: { } }',
+    'syn:tag -+> #',
+    'syn:tag:base -+> #',
+    'syn:tag:base=foo -+> #',
+    'syn:tag:depth=2 -+> #',
+    'inet:ipv4 -+> #',
+    'inet:ipv4 -+> #*',
+    'inet:ipv4=1.2.3.4 -+> #',
+    'inet:ipv4=1.2.3.4 -+> #*',
+    'inet:ipv4=1.2.3.4 -+> #biz.*',
+    'inet:ipv4=1.2.3.4 -+> #bar.baz',
 ]
 
 # Generated with print_parse_list below
@@ -1049,6 +1059,17 @@ _ParseResults = [
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: single:quotes, SubQuery: [Query: []]], CaseEntry: [Const: doubele:quotes, SubQuery: [Query: []]], CaseEntry: [Const: noquotes, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',
     'Query: [SwitchCase: [VarValue: [Const: category]], SwitchCase: [VarValue: [Const: type], CaseEntry: [SubQuery: [Query: []]]]]',
+    'Query: [LiftProp: [Const: syn:tag], PivotToTags: [TagMatch: []], isjoin=True]',
+    'Query: [LiftProp: [Const: syn:tag:base], PivotToTags: [TagMatch: []], isjoin=True]',
+    'Query: [LiftPropBy: [Const: syn:tag:base, Const: =, Const: foo], PivotToTags: [TagMatch: []], isjoin=True]',
+    'Query: [LiftPropBy: [Const: syn:tag:depth, Const: =, Const: 2], PivotToTags: [TagMatch: []], isjoin=True]',
+    'Query: [LiftProp: [Const: inet:ipv4], PivotToTags: [TagMatch: []], isjoin=True]',
+    'Query: [LiftProp: [Const: inet:ipv4], PivotToTags: [TagMatch: [Const: *]], isjoin=True]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: []], isjoin=True]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: *]], isjoin=True]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: biz.*]], isjoin=True]',
+    'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: bar.baz]], isjoin=True]',
+
 ]
 
 class GrammarTest(s_t_utils.SynTest):

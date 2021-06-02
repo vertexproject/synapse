@@ -121,9 +121,9 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Storm Package\\: testpkg', s)
             self.isin('This documentation is generated for version 0.0.1 of the package.', s)
             self.isin('This package implements the following Storm Commands.', s)
-            self.isin('.. _stormcmd-testpkg-testcmd', s)
+            self.isin('.. _stormcmd-testpkg-testpkgcmd', s)
 
-            self.isin('testcmd does some stuff', s)
+            self.isin('testpkgcmd does some stuff', s)
             self.isin('Help on foo opt', s)
             self.isin('Help on bar opt', s)
 

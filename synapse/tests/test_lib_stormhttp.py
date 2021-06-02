@@ -1,5 +1,25 @@
+import json
+import traceback
+
 import synapse.exc as s_exc
 import synapse.tests.utils as s_test
+import synapse.lib.httpapi as s_httpapi
+
+class TstWebSock(s_httpapi.WebSocket):
+
+    def initialize(self):
+        pass
+
+    async def open(self):
+        await self.sendJsonMesg({'hi': 'woot'})
+
+    async def on_message(self, byts):
+        mesg = json.loads(byts)
+        await self.sendJsonMesg(('echo', mesg), binary=True)
+
+    async def sendJsonMesg(self, item, binary=False):
+        byts = json.dumps(item)
+        await self.write_message(byts, binary=binary)
 
 class StormHttpTest(s_test.SynTest):
 
@@ -208,3 +228,34 @@ class StormHttpTest(s_test.SynTest):
             code, (errname, _) = await core.callStorm(q)
             self.eq(code, -1)
             self.eq('ProxyConnectionError', errname)
+
+    async def test_storm_http_connect(self):
+
+        async with self.getTestCore() as core:
+
+            core.addHttpApi('/test/ws', TstWebSock, {})
+            addr, port = await core.addHttpsPort(0)
+
+            self.eq('woot', await core.callStorm('''
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+
+                ($ok, $sock) = $lib.inet.http.connect($url)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+                return($mesg.hi)
+            ''', opts={'vars': {'port': port}}))
+
+            self.eq((True, ('echo', 'lololol')), await core.callStorm('''
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+
+                ($ok, $sock) = $lib.inet.http.connect($url)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+
+                ($ok, $valu) = $sock.tx(lololol)
+                return($sock.rx())
+            ''', opts={'vars': {'port': port}}))
