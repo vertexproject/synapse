@@ -1017,6 +1017,240 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'asdf'))
 
+            # test that some of the more complex objects we've got uniq down properly
+            # Bool
+            q = '''
+                $set = $lib.set()
+                $set.add($true)
+                $set.add($true)
+                $set.add($true)
+                $set.add($false)
+                $set.add($false)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            trueprim = s_stormtypes.Bool(True)
+            falsprim = s_stormtypes.Bool(False)
+            msgs = await core.stormlist(q, opts={'vars': {'true': trueprim, 'false': falsprim}})
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
+            # cron and others uniq by iden
+            q = '''
+                $set = $lib.set()
+                $jobA = $lib.cron.add(query="{[test:int=1]}", hourly=10)
+                $jobB = $lib.cron.add(query="{[test:int=1]}", hourly=10)
+
+                $set.add($jobA)
+                $set.add($jobB)
+
+                $set.add($jobA)
+                $set.add($jobB)
+
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
+            # lib
+            q = '''
+                $set = $lib.set()
+                $set.add($lib.auth.roles)
+                $set.add($lib.auth.roles)
+                $set.add($lib.auth.roles)
+                $set.add($lib.stats)
+                $set.add($lib.pkg)
+                $set.add($lib.pkg)
+                $set.add($lib.stats)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 3 items in the set', msgs)
+
+            # layer
+            q = '''
+                init {
+                    $extra = $lib.layer.add()
+                    $fake = $lib.layer.add()
+                }
+                $layr = $lib.layer.get()
+                $set = $lib.set()
+                $set.add($lib.layer.get())
+                $set.add($lib.layer.get())
+                $set.add($extra)
+                $set.add($fake)
+                $set.add($fake)
+                $set.add($extra)
+                $set.add($layr)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 3 items in the set', msgs)
+
+            # node
+            q = '''
+                init {
+                    $set = $lib.set()
+                }
+                inet:ipv4
+
+                $set.add($node)
+                $set.add($node)
+                fini {
+                    $lib.print('There are {count} items in the set', count=$lib.len($set))
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
+            # queue
+            q = '''
+                $orig = $lib.queue.add(testq)
+                $set = $lib.set()
+                $set.add($orig)
+                $set.add($lib.queue.get(testq))
+                $set.add($lib.queue.get(testq))
+                $set.add($lib.queue.get(testq))
+                $lib.print('There is {count} item in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There is 1 item in the set', msgs)
+
+            # role
+            q = '''
+                $role = $lib.auth.roles.add(muffin)
+                $set = $lib.set()
+                $set.add($role)
+                $set.add($role)
+                $set.add($role)
+                $lib.print('There is {count} item in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There is 1 item in the set', msgs)
+
+            # trace
+            q = '''
+                init {
+                    $set = $lib.set()
+                }
+                inet:ipv4
+
+                $trace = $path.trace()
+                $set.add($trace)
+                $set.add($trace)
+                $set.add($trace)
+
+                fini {
+                    $lib.print('There are {count} items in the set', count=$lib.len($set))
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
+            # trigger
+            q = '''
+                $trig = $lib.trigger.add($tdef)
+                $set = $lib.set()
+                $set.adds(($trig, $trig, $trig, $trig))
+                $lib.print('There is {count} item in the set', count=$lib.len($set))
+            '''
+            tdef = {'cond': 'node:add', 'storm': '[ test:str=foo ]', 'form': 'test:str'}
+            msgs = await core.stormlist(q, opts={'vars': {'tdef': tdef}})
+            self.stormIsInPrint('There is 1 item in the set', msgs)
+
+            # user
+            q = '''
+                $u = $lib.auth.users.add(bar)
+                $lib.set($u)
+                $set = $lib.set($u)
+                $lib.print('There is {count} item in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There is 1 item in the set', msgs)
+
+            # view
+            q = '''
+                $view = $lib.view.get()
+                $set = $lib.set($view)
+                $set.add($lib.view.get())
+                $set.add($lib.view.get())
+                $lib.print('There is {count} item in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There is 1 item in the set', msgs)
+
+            # and more that shouldn't
+            # Dict
+            q = '''
+                $dict = $lib.dict(
+                    "foo" = "bar",
+                    "biz" = "baz",
+                )
+                $set = $lib.set($dict)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # List
+            q = '''
+                $list = $lib.list(1, 2, 3)
+                $set = $lib.set($list)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # Set
+            q = '''
+                $setA = $lib.set(1, 1, 2, 2, 3)
+                $setB = $lib.set($setA)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # path
+            q = '''
+                inet:ipv4
+                $set = $lib.set()
+                $set.add($path)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # PathMeta
+            q = '''
+                inet:ipv4
+                $set = $lib.set()
+                $meta = $path.meta
+                $set.add($meta)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # pathvars
+            q = '''
+                inet:ipv4
+                $set = $lib.set()
+                $vars = $path.vars
+                $set.add($vars)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # text
+            q = '''
+                $text = $lib.text(beepboopgetthejedi)
+                $set = $lib.set($text)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # stattally
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo)
+                $set = $lib.set($tally)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
     async def test_storm_path(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')

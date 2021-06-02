@@ -298,6 +298,14 @@ class Lib(StormType):
     def addLibFuncs(self):
         self.locls.update(self.getObjLocals())
 
+    def __hash__(self):
+        return hash('.'.join(self.name))
+
+    def __eq__(self, othr):
+        if not isinstance(othr, Lib):
+            return False
+        return self.name == othr.name
+
     async def stormrepr(self):
         if '__module__' in self.locls:
             return f'Imported Module {self.name}'
@@ -1049,7 +1057,7 @@ class LibBase(Lib):
             yield item
 
     async def _set(self, *vals):
-        return Set(set(vals))
+        return Set(vals)
 
     async def _list(self, *vals):
         return List(list(vals))
@@ -2358,6 +2366,7 @@ class Queue(StormType):
                   'returns': {'type': 'int', 'desc': 'The number of items in the Queue.', }}},
     )
     _storm_typename = 'storm:queue'
+    _ismutable = False
 
     def __init__(self, runt, name, info):
 
@@ -2370,6 +2379,14 @@ class Queue(StormType):
 
         self.locls.update(self.getObjLocals())
         self.locls['name'] = self.name
+
+    def __hash__(self):
+        return hash(self.name)
+
+    def __eq__(self, othr):
+        if not isinstance(othr, type(self)):
+            return False
+        return self.name == othr.name
 
     def getObjLocals(self):
         return {
@@ -2623,6 +2640,11 @@ class Prim(StormType):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
 
+    def __eq__(self, othr):
+        if not isinstance(othr, type(self)):
+            return False
+        return self.valu == othr.valu
+
     def value(self):
         return self.valu
 
@@ -2846,6 +2868,14 @@ class Str(Prim):
     def __len__(self):
         return len(self.valu)
 
+    def __hash__(self):
+        return hash(self.valu)
+
+    def __eq__(self, othr):
+        if not isinstance(othr, type(self)):
+            return False
+        return self.valu == othr.valu
+
     async def _methEncode(self, encoding='utf8'):
         try:
             return self.valu.encode(encoding)
@@ -2987,6 +3017,9 @@ class Bytes(Prim):
     def __str__(self):
         return self.valu.decode()
 
+    def __hash__(self):
+        return hash(self.valu)
+
     async def _methDecode(self, encoding='utf8'):
         try:
             return self.valu.decode(encoding)
@@ -3014,6 +3047,7 @@ class Dict(Prim):
     Implements the Storm API for a Dictionary object.
     '''
     _storm_typename = 'dict'
+    _ismutable = True
 
     def __len__(self):
         return len(self.valu)
@@ -3053,6 +3087,10 @@ class CmdOpts(Dict):
     def __len__(self):
         valu = vars(self.valu.opts)
         return len(valu)
+
+    def __hash__(self):
+        valu = vars(self.valu.opts)
+        return hash(tuple(self.valu.items()))
 
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
@@ -3122,8 +3160,15 @@ class Set(Prim):
                   'returns': {'type': 'int', 'desc': 'The size of the set.', }}},
     )
     _storm_typename = 'set'
+    _ismutable = True
 
     def __init__(self, valu, path=None):
+        valu = list(valu)
+        for item in valu:
+            if ismutable(item):
+                mesg = f'{repr(item)} is mutable and cannot be used in a set.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
 
@@ -3152,11 +3197,19 @@ class Set(Prim):
         return item in self.valu
 
     async def _methSetAdd(self, *items):
-        [self.valu.add(i) for i in items]
+        for i in items:
+            if ismutable(i):
+                mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+            self.valu.add(i)
 
     async def _methSetAdds(self, *items):
         for item in items:
-            [self.valu.add(i) async for i in toiter(item)]
+            async for i in toiter(item):
+                if ismutable(i):
+                    mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+                self.valu.add(i)
 
     async def _methSetRem(self, *items):
         [self.valu.discard(i) for i in items]
@@ -3208,6 +3261,7 @@ class List(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'list'
+    _ismutable = True
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3293,17 +3347,20 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
-    _ismutable = False
     '''
     Implements the Storm API for a boolean instance.
     '''
     _storm_typename = 'bool'
+    _ismutable = False
 
     def __str__(self):
         return str(self.value()).lower()
 
     def __int__(self):
         return int(self.value())
+
+    def __hash__(self):
+        return hash(self.value())
 
 @registry.registerLib
 class LibUser(Lib):
@@ -3473,6 +3530,7 @@ class StormHiveDict(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of tuples containing key, value pairs.', }}},
     )
     _storm_typename = 'storm:hive:dict'
+    _ismutable = True
 
     def __init__(self, runt, info):
         Prim.__init__(self, None)
@@ -3599,6 +3657,9 @@ class Query(Prim):
 
         self.locls.update(self.getObjLocals())
 
+    def __hash__(self):
+        return hash(self.text)
+
     def getObjLocals(self):
         return {
             'exec': self._methQueryExec,
@@ -3653,6 +3714,7 @@ class NodeProps(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
     )
     _storm_typename = 'storm:node:props'
+    _ismutable = True
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -3739,6 +3801,7 @@ class NodeData(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:node:data'
+    _ismutable = True
 
     def __init__(self, node, path=None):
 
@@ -3866,6 +3929,9 @@ class Node(Prim):
 
         self.locls.update(self.getObjLocals())
 
+    def __hash__(self):
+        return hash(self.locls['iden'])
+
     def getObjLocals(self):
         return {
             'form': self._methNodeForm,
@@ -3966,6 +4032,7 @@ class PathMeta(Prim):
     Put the storm deref/setitem/iter convention on top of path meta information.
     '''
     _storm_typename = 'storm:node:path:meta'
+    _ismutable = True
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
@@ -3990,6 +4057,7 @@ class PathVars(Prim):
     Put the storm deref/setitem/iter convention on top of path variables.
     '''
     _storm_typename = 'storm:node:path:vars'
+    _ismutable = True
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
@@ -4022,7 +4090,7 @@ class Path(Prim):
     _storm_locals = (
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'storm:node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'storm:node:path:meta', },
-        {'name': 'idens', 'desc': 'The list of Node idens which this Path has bee forked from during pivot operations.',
+        {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
         {'name': 'trace',
@@ -4036,6 +4104,7 @@ class Path(Prim):
                               'desc': 'List of tuples containing the name and value of path variables.', }}},
     )
     _storm_typename = 'storm:path'
+    _ismutable = True
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -4073,10 +4142,14 @@ class Trace(Prim):
                   'returns': {'type': 'list', 'desc': 'A List of Node idens.', }}},
     )
     _storm_typename = 'storm:node:path:trace'
+    _ismutable = False
 
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
         self.locls.update(self.getObjLocals())
+
+    def __hash__(self):
+        return hash(tuple([n.iden() for n in self.valu.nodes]))
 
     def getObjLocals(self):
         return {
@@ -4104,6 +4177,7 @@ class Text(Prim):
                   'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
     )
     _storm_typename = 'storm:text'
+    _ismutable = True
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -4178,6 +4252,7 @@ class StatTally(Prim):
                   'returns': {'type': 'int',
                               'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
     )
+    _ismutable = True
 
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
@@ -4413,6 +4488,7 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
     )
     _storm_typename = 'storm:layer'
+    _ismutable = False
 
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
@@ -4435,6 +4511,9 @@ class Layer(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+
+    def __hash__(self):
+        return hash(self.locls['iden'])
 
     def getObjLocals(self):
         return {
@@ -4794,6 +4873,7 @@ class View(Prim):
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
     )
     _storm_typename = 'storm:view'
+    _ismutable = False
 
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
@@ -4804,6 +4884,9 @@ class View(Prim):
             'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
+
+    def __hash__(self):
+        return hash(self.locls['iden'])
 
     def getObjLocals(self):
         return {
@@ -5147,6 +5230,7 @@ class Trigger(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:trigger'
+    _ismutable = False
 
     def __init__(self, runt, tdef):
 
@@ -5155,6 +5239,9 @@ class Trigger(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+
+    def __hash__(self):
+        return hash(self.locls['iden'])
 
     def getObjLocals(self):
         return {
@@ -5426,6 +5513,9 @@ class Gate(Prim):
             'users': self.valu.get('users', ()),
         })
 
+    def __hash__(self):
+        return hash(self.locls['iden'])
+
 @registry.registerType
 class User(Prim):
     '''
@@ -5526,6 +5616,7 @@ class User(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:user'
+    _ismutable = False
 
     def __init__(self, runt, valu, path=None):
 
@@ -5538,6 +5629,9 @@ class User(Prim):
             'name': self._setUserName,
             'email': self._methUserSetEmail,
         })
+
+    def __hash__(self):
+        return hash(self.locls['iden'])
 
     def getObjLocals(self):
         return {
@@ -5677,6 +5771,7 @@ class Role(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:role'
+    _ismutable = False
 
     def __init__(self, runt, valu, path=None):
 
@@ -5684,6 +5779,9 @@ class Role(Prim):
         self.runt = runt
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu
+
+    def __hash__(self):
+        return hash(self.locls['iden'])
 
     def getObjLocals(self):
         return {
@@ -5715,6 +5813,9 @@ class Role(Prim):
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {await self.value()}'
 
 @registry.registerLib
 class LibCron(Lib):
@@ -6199,12 +6300,16 @@ class CronJob(Prim):
                        'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
     )
     _storm_typename = 'storm:cronjob'
+    _ismutable = False
 
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+
+    def __hash__(self):
+        return hash(self.locls['iden'])
 
     def getObjLocals(self):
         return {
@@ -6343,7 +6448,7 @@ def ismutable(valu):
         return valu.ismutable()
 
     # N.B. In Python, tuple is immutable, but in Storm, gets converted in toprim to a storm List
-    return isinstance(valu, (set, dict, list, tuple))
+    return isinstance(valu, (set, dict, list, tuple, s_node.Path))
 
 async def tostr(valu, noneok=False):
 
