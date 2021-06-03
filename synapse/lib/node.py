@@ -637,8 +637,6 @@ class Node:
 
         await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
-        if tag not in self.tagprops:
-            self.tagprops[tag] = {}
         self.tagprops[tag][name] = norm
 
     async def delTagProp(self, tag, name):

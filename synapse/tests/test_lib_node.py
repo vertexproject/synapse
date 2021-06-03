@@ -414,3 +414,25 @@ class NodeTest(s_t_utils.SynTest):
 
             self.none(await node.getData('foo'))
             self.none(await node.getData('bar'))
+
+    async def test_node_tagprops(self):
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+            await core.addTagProp('limit', ('int', {}), {})
+            nodes = await core.nodes('[ test:int=10 ]')
+            node = nodes[0]
+
+            self.eq(node.tagprops, {})
+            await node.setTagProp('foo.test', 'score', 20)
+            await node.setTagProp('foo.test', 'limit', 1000)
+            self.eq(node.tagprops, {'foo.test': {'score': 20, 'limit': 1000}})
+
+            await node.delTagProp('foo.test', 'score')
+            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
+
+            await node.setTagProp('foo.test', 'score', 50)
+            node.tagprops['foo.test'].pop('score')
+            await node.delTagProp('foo.test', 'score')
+            self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
+            node.tagprops['foo.test'].pop('limit')
+            self.eq(node.tagprops, {'foo.test': {}})
