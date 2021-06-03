@@ -5703,7 +5703,7 @@ class Role(Prim):
     async def _setRoleName(self, name):
         name = await tostr(name)
 
-        self.runt.confirm(('auth', 'role', 'set', 'rules'))
+        self.runt.confirm(('auth', 'role', 'set', 'name'))
         await self.runt.snap.core.setRoleName(self.valu, name)
 
     async def _methRoleGet(self, name):
