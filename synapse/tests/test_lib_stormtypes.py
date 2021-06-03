@@ -3681,6 +3681,12 @@ class StormTypesTest(s_test.SynTest):
             await core.callStorm('$lib.auth.users.byname(new2).email = "visi@vertex.link"')
             self.eq('visi@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
 
+            # test renaming a role
+            await core.callStorm('$lib.auth.roles.add(new0)')
+            await core.callStorm('$lib.auth.roles.byname(new0).name = new1')
+            self.none(await core.callStorm('return($lib.auth.roles.byname(new0))'))
+            self.nn(await core.callStorm('return($lib.auth.roles.byname(new1))'))
+
     async def test_stormtypes_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
