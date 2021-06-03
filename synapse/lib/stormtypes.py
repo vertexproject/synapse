@@ -299,7 +299,7 @@ class Lib(StormType):
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
-        return hash('.'.join(self.name))
+        return hash(self.name)
 
     def __eq__(self, othr):
         if not isinstance(othr, Lib):
