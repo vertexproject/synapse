@@ -593,7 +593,10 @@ class Node:
         return edits
 
     def getTagProps(self, tag):
-        return list(self.tagprops.get(tag, {}).keys())
+        propdict = self.tagprops.get(tag)
+        if not propdict:
+            return []
+        return list(propdict.keys())
 
     def hasTagProp(self, tag, prop):
         '''
@@ -605,7 +608,10 @@ class Node:
         '''
         Return the value (or defval) of the given tag property.
         '''
-        return self.tagprops.get(tag, {}).get(prop, defval)
+        propdict = self.tagprops.get(tag)
+        if propdict:
+            return propdict.get(prop, defval)
+        return defval
 
     async def setTagProp(self, tag, name, valu):
         '''
@@ -640,7 +646,11 @@ class Node:
         if prop is None:
             raise s_exc.NoSuchTagProp(name=name)
 
-        curv = self.tagprops.get(tag, {}).get(name, s_common.novalu)
+        propdict = self.tagprops.get(tag)
+        if not propdict:
+            return False
+
+        curv = propdict.get(name, s_common.novalu)
         if curv is s_common.novalu:
             return False
 

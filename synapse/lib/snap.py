@@ -769,9 +769,10 @@ class Snap(s_base.Base):
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = parms
-                    node.tagprops.get(tag, {}).pop(prop, None)
-                    if not node.tagprops.get(tag):
-                        node.tagprops.pop(tag, None)
+                    if tag in node.tagprops:
+                        node.tagprops[tag].pop(prop, None)
+                        if not node.tagprops[tag]:
+                            node.tagprops.pop(tag, None)
                     node.bylayer['tags'].pop((tag, prop), None)
                     continue
 

@@ -378,9 +378,14 @@ class IndxByTagProp(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-        valt = sode['tagprops'].get(self.tag, {}).get(self.prop, None)
-        if valt is not None:
-            return valt[0]
+
+        props = sode['tagprops'].get(self.tag)
+        if not props:
+            return
+
+        valu = props.get(self.prop)
+        if valu is not None:
+            return valu[0]
 
 class StorType:
 
@@ -2135,16 +2140,17 @@ class Layer(s_nexus.Pusher):
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
 
-        tp_dict = sode['tagprops'].get(tag, {})
-        oldv, oldt = tp_dict.get(prop, (None, None))
-        if oldv is not None:
+        tp_dict = sode['tagprops'].get(tag)
+        if tp_dict:
+            oldv, oldt = tp_dict.get(prop, (None, None))
+            if oldv is not None:
 
-            if valu == oldv and stortype == oldt:
-                return ()
+                if valu == oldv and stortype == oldt:
+                    return ()
 
-            for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
-                self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
+                for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
+                    self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
         if tag not in sode['tagprops']:
             sode['tagprops'][tag] = {}
@@ -2165,7 +2171,11 @@ class Layer(s_nexus.Pusher):
     def _editTagPropDel(self, buid, form, edit, sode, meta):
         tag, prop, valu, stortype = edit[1]
 
-        tp_dict = sode['tagprops'].get(tag, {})
+        tp_dict = sode['tagprops'].get(tag)
+        if not tp_dict:
+            self.mayDelBuid(buid, sode)
+            return ()
+
         oldv, oldt = tp_dict.pop(prop, (None, None))
         if not tp_dict.get(tag):
             sode['tagprops'].pop(tag, None)

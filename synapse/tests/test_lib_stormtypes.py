@@ -878,7 +878,6 @@ class StormTypesTest(s_test.SynTest):
 
             await core.callStorm('[inet:ipv4=1.2.3.4 +#foo=2021 +#foo:score=9001]')
             q = 'inet:ipv4 $lib.fire(msg:pack, sode=$node.getStorNodes())'
-            #gotn = [mesg for mesg in await asvisi.callStorm(q) if mesg[0] == 'storm:fire']
             gotn = [mesg async for mesg in core.storm(q) if mesg[0] == 'storm:fire']
             self.len(1, gotn)
             self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9)}})
