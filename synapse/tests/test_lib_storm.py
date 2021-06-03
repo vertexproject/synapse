@@ -1,3 +1,4 @@
+import json
 import asyncio
 import datetime
 import itertools
@@ -552,6 +553,70 @@ class StormTest(s_t_utils.SynTest):
                 self.stormIsInWarn('nodes.import got HTTP error code', msgs)
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
+
+    async def test_storm_wget(self):
+
+        async def _getRespFromSha(core, mesgs):
+            for m in mesgs:
+                if m[0] == 'node' and m[1][0][0] == 'file:bytes':
+                    node = m[1]
+                    sha = node[1]['props']['sha256']
+
+            buf = b''
+            async for bytz in core.axon.get(s_common.uhex(sha)):
+                buf += bytz
+
+            resp = json.loads(buf.decode('utf8'))
+            return resp
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpsPort(0)
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            core.addHttpApi('/api/v0/test', s_t_utils.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+
+            # Headers as list of tuples, params as dict
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $hdr = (
+                    ("User-Agent", "my fav ua"),
+            )|
+            wget $url --headers $hdr --params $params --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('User-Agent'), 'my fav ua')
+
+            # no default headers(from wget command)
+            q = '''
+            $hdr = (
+                    ("User-Agent", "my fav ua"),
+            )|
+            wget $url --headers $hdr --no-headers --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.ne(data.get('headers').get('User-Agent'), 'my fav ua')
+
+            # params as list of key/value pairs
+            q = '''
+            $params=((foo, bar), (key, valu))
+            | wget $url --params $params --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
 
     async def test_storm_vars_fini(self):
 
