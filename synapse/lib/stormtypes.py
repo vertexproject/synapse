@@ -298,14 +298,6 @@ class Lib(StormType):
     def addLibFuncs(self):
         self.locls.update(self.getObjLocals())
 
-    def __hash__(self):
-        return hash(self.name)
-
-    def __eq__(self, othr):
-        if not isinstance(othr, Lib):
-            return False
-        return self.name == othr.name
-
     async def stormrepr(self):
         if '__module__' in self.locls:
             return f'Imported Module {self.name}'
@@ -3206,9 +3198,6 @@ class Set(Prim):
     async def _methSetAdds(self, *items):
         for item in items:
             async for i in toiter(item):
-                if ismutable(i):
-                    mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
                 self.valu.add(i)
 
     async def _methSetRem(self, *items):

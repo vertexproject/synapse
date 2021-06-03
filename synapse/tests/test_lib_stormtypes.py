@@ -1050,21 +1050,6 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 2 items in the set', msgs)
 
-            # lib
-            q = '''
-                $set = $lib.set()
-                $set.add($lib.auth.roles)
-                $set.add($lib.auth.roles)
-                $set.add($lib.auth.roles)
-                $set.add($lib.stats)
-                $set.add($lib.pkg)
-                $set.add($lib.pkg)
-                $set.add($lib.stats)
-                $lib.print('There are {count} items in the set', count=$lib.len($set))
-            '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('There are 3 items in the set', msgs)
-
             # layer
             q = '''
                 init {
@@ -1119,7 +1104,7 @@ class StormTypesTest(s_test.SynTest):
                 $role = $lib.auth.roles.add(muffin)
                 $set = $lib.set()
                 $set.add($role)
-                $set.add($role)
+                $set.add($lib.auth.roles.byname(muffin))
                 $set.add($role)
                 $lib.print('There is {count} item in the set', count=$lib.len($set))
             '''
@@ -1161,6 +1146,8 @@ class StormTypesTest(s_test.SynTest):
                 $u = $lib.auth.users.add(bar)
                 $lib.set($u)
                 $set = $lib.set($u)
+                $set.add($lib.auth.users.byname(bar))
+                $set.add($lib.auth.users.byname(bar))
                 $lib.print('There is {count} item in the set', count=$lib.len($set))
             '''
             msgs = await core.stormlist(q)
@@ -1177,7 +1164,6 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There is 1 item in the set', msgs)
 
-            # and more that shouldn't
             # Dict
             q = '''
                 $dict = $lib.dict(
@@ -1189,6 +1175,18 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInErr('is mutable and cannot be used in a set', msgs)
 
+            q = '''
+                $dict = $lib.dict(
+                    "foo" = "bar",
+                    "biz" = "baz",
+                )
+                $set = $lib.set()
+                $set.adds($dict)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
             # List
             q = '''
                 $list = $lib.list(1, 2, 3)
@@ -1197,6 +1195,15 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInErr('is mutable and cannot be used in a set', msgs)
 
+            q = '''
+                $list = $lib.list(1, 2, 3, 1, 2, 3, 1, 2, 3)
+                $set = $lib.set()
+                $set.adds($list)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 3 items in the set', msgs)
+
             # Set
             q = '''
                 $setA = $lib.set(1, 1, 2, 2, 3)
@@ -1204,6 +1211,16 @@ class StormTypesTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q)
             self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            q = '''
+                $setA = $lib.set(1, 1, 2, 2, 3)
+                $setB = $lib.set()
+
+                $setB.adds($setA)
+                $lib.print('There are {count} items in the set', count=$lib.len($setB))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 3 items in the set', msgs)
 
             # path
             q = '''
