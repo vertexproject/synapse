@@ -2388,17 +2388,18 @@ class MergeCmd(Cmd):
                     adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
                     subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
-            for (tag, prop), (valu, stortype) in sode.get('tagprops', {}).items():
-                tagperm = tuple(tag.split('.'))
-                if not self.opts.apply:
-                    valurepr = repr(valu)
-                    await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                    runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            for tag, tagdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in tagdict.items():
+                    tagperm = tuple(tag.split('.'))
+                    if not self.opts.apply:
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                        runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-                    adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                    subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                        adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                        subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
             layr = runt.snap.view.layers[0]
             async for name, valu in layr.iterNodeData(node.buid):

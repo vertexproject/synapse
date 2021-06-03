@@ -375,13 +375,17 @@ class IndxByTagProp(IndxBy):
         self.form = form
         self.prop = prop
         self.tag = tag
-        self.skey = (tag, prop)
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-        valt = sode['tagprops'].get(self.skey)
-        if valt is not None:
-            return valt[0]
+
+        props = sode['tagprops'].get(self.tag)
+        if not props:
+            return
+
+        valu = props.get(self.prop)
+        if valu is not None:
+            return valu[0]
 
 class StorType:
 
@@ -1310,7 +1314,9 @@ class Layer(s_nexus.Pusher):
 
             if flag == 3:
                 tag, prop = lkey[33:].decode().split(':')
-                sode['tagprops'][(tag, prop)] = s_msgpack.un(lval)
+                if tag not in sode['tagprops']:
+                    sode['tagprops'][tag] = {}
+                sode['tagprops'][tag][prop] = s_msgpack.un(lval)
                 continue
 
             if flag == 9:
@@ -2131,22 +2137,24 @@ class Layer(s_nexus.Pusher):
 
         tag, prop, valu, oldv, stortype = edit[1]
 
-        tpkey = (tag, prop)
-
         tp_abrv = self.setTagPropAbrv(None, tag, prop)
         ftp_abrv = self.setTagPropAbrv(form, tag, prop)
 
-        oldv, oldt = sode['tagprops'].get(tpkey, (None, None))
-        if oldv is not None:
+        tp_dict = sode['tagprops'].get(tag)
+        if tp_dict:
+            oldv, oldt = tp_dict.get(prop, (None, None))
+            if oldv is not None:
 
-            if valu == oldv and stortype == oldt:
-                return ()
+                if valu == oldv and stortype == oldt:
+                    return ()
 
-            for oldi in self.getStorIndx(oldt, oldv):
-                self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
-                self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
+                for oldi in self.getStorIndx(oldt, oldv):
+                    self.layrslab.delete(tp_abrv + oldi, buid, db=self.bytagprop)
+                    self.layrslab.delete(ftp_abrv + oldi, buid, db=self.bytagprop)
 
-        sode['tagprops'][tpkey] = (valu, stortype)
+        if tag not in sode['tagprops']:
+            sode['tagprops'][tag] = {}
+        sode['tagprops'][tag][prop] = (valu, stortype)
         self.setSodeDirty(buid, sode, form)
 
         kvpairs = []
@@ -2161,12 +2169,16 @@ class Layer(s_nexus.Pusher):
         )
 
     def _editTagPropDel(self, buid, form, edit, sode, meta):
-
         tag, prop, valu, stortype = edit[1]
 
-        tpkey = (tag, prop)
+        tp_dict = sode['tagprops'].get(tag)
+        if not tp_dict:
+            self.mayDelBuid(buid, sode)
+            return ()
 
-        oldv, oldt = sode['tagprops'].pop(tpkey, (None, None))
+        oldv, oldt = tp_dict.pop(prop, (None, None))
+        if not tp_dict.get(tag):
+            sode['tagprops'].pop(tag, None)
         if oldv is None:
             self.mayDelBuid(buid, sode)
             return ()
@@ -2564,8 +2576,9 @@ class Layer(s_nexus.Pusher):
             for tag, tagv in sode.get('tags', {}).items():
                 edits.append((EDIT_TAG_SET, (tag, tagv, None), ()))
 
-            for (tag, prop), (valu, stortype) in sode.get('tagprops', {}).items():
-                edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+            for tag, propdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in propdict.items():
+                    edits.append((EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
 
             async for prop, valu in self.iterNodeData(buid):
                 edits.append((EDIT_NODEDATA_SET, (prop, valu, None), ()))
