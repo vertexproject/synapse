@@ -1484,6 +1484,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
 
+    async def setRoleName(self, iden, name):
+        role = await self.auth.reqRole(iden)
+        await role.setName(name)
+
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
