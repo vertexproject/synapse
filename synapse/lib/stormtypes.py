@@ -3919,7 +3919,7 @@ class Node(Prim):
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash(self.valu.iden)
 
     def getObjLocals(self):
         return {
