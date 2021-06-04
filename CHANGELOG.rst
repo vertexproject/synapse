@@ -4,6 +4,32 @@
 Synapse Changelog
 *****************
 
+
+v2.42.0 - 2021-06-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--headers`` and ``--parameters`` arguments to the Storm ``wget``
+  command. The default headers now includes a browser like UA string.
+  (`#2208 <https://github.com/vertexproject/synapse/pull/2208>`_)
+- Add the ability to modify the name of a role via Storm.
+  (`#2222 <https://github.com/vertexproject/synapse/pull/2222>`_)
+
+Bugfixes
+--------
+- Fix an issue in the JsonStor cell where there were missing fini calls.
+  (`#2223 <https://github.com/vertexproject/synapse/pull/2223>`_)
+- Add a missing timeout to an ``getAhaSvc()`` call.
+  (`#2224 <https://github.com/vertexproject/synapse/pull/2224>`_)
+- Change how tagprops are serialized to avoid a issue with sending packed
+  nodes over HTTP APIs. This changes the packed node structure of tagprops
+  from a dictionary keyed with ``(tagname, propertyname)`` to a dictionary
+  keyed off of the ``tagname``, which now points to a dictionary containing
+  the ``propertyname`` which represents the value of the tagprop.
+  (`#2221` <https://github.com/vertexproject/synapse/pull/2221>`_)
+
+
 v2.41.1 - 2021-05-27
 ====================
 
