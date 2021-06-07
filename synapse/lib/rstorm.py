@@ -2,6 +2,7 @@ import os
 import copy
 import json
 import pprint
+import logging
 import contextlib
 
 import regex
@@ -20,6 +21,8 @@ import synapse.cmds.cortex as s_cmds_cortex
 import synapse.tools.genpkg as s_genpkg
 
 re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
+
+logger = logging.getLogger(__name__)
 
 class StormOutput(s_cmds_cortex.StormCmd):
     '''
@@ -300,6 +303,7 @@ class StormRst(s_base.Base):
             text = text.strip()
 
             handler = self._getHandler(directive)
+            logger.debug(f'Executing {directive} -> {text}')
             await handler(text)
 
             return
