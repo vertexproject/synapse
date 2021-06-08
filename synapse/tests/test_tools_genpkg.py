@@ -69,6 +69,18 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['logo']['mime'], 'image/svg')
             self.eq(pdef['logo']['file'], 'c3R1ZmYK')
 
+            # nodocs
+            savepath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
+            argv = ('--no-docs', '--save', savepath, ymlpath)
+
+            await s_genpkg.main(argv)
+
+            pdef = s_common.yamlload(savepath)
+
+            self.eq(pdef['name'], 'testpkg')
+            self.eq(pdef['docs'][0]['title'], 'Foo Bar')
+            self.eq(pdef['docs'][0]['content'], '')
+
     def test_files(self):
         assets = s_files.getAssets()
         self.isin('test.dat', assets)
