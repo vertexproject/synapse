@@ -955,9 +955,9 @@ class StormTest(s_t_utils.SynTest):
             await core.addTagProp('note', ('str', {}), {})
             q = '[test:int=1 +#hehe.haha +#hehe:test=1138 +#hehe.beep:test=8080 +#hehe.beep:note="oh my"]'
             nodes = await core.nodes(q)
-            self.eq(nodes[0].tagprops.get(('hehe', 'test')), 1138)
-            self.eq(nodes[0].tagprops.get(('hehe.beep', 'test')), 8080)
-            self.eq(nodes[0].tagprops.get(('hehe.beep', 'note')), 'oh my')
+            self.eq(nodes[0].getTagProp('hehe', 'test'), 1138)
+            self.eq(nodes[0].getTagProp('hehe.beep', 'test'), 8080)
+            self.eq(nodes[0].getTagProp('hehe.beep', 'note'), 'oh my')
 
         async with self.getTestCore() as core:
             await seed_tagprops(core)
@@ -966,10 +966,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {('woah', 'test'): 1138,
-                                        ('woah.beep', 'test'): 8080,
-                                        ('woah.beep', 'note'): 'oh my',
-                                        })
+            self.eq(nodes[0].tagprops, {'woah': {'test': 1138},
+                                        'woah.beep': {'test': 8080,
+                                                      'note': 'oh my'}
+                                       })
 
         async with self.getTestCore() as core:
             await seed_tagprops(core)
@@ -978,10 +978,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {('hehe', 'test'): 1138,
-                                        ('woah.beep', 'test'): 8080,
-                                        ('woah.beep', 'note'): 'oh my',
-                                        })
+            self.eq(nodes[0].tagprops, {'hehe': {'test': 1138},
+                                        'woah.beep': {'test': 8080,
+                                                      'note': 'oh my'}
+                                       })
 
             # Test perms
             visi = await core.auth.addUser('visi')

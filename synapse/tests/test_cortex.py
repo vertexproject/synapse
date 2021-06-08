@@ -3266,7 +3266,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
+            self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             # Test a bulk add
             tags = {'tags': {'test': (2020, 2022)}}
@@ -3284,7 +3284,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq(2, nodes[0].props.get('int2'))
-            self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
+            self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
             await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
