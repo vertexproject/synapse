@@ -874,6 +874,15 @@ class StormTypesTest(s_test.SynTest):
             self.eq(gotn[0][1]['type'], 'foo:bar')
             self.eq(gotn[0][1]['data']['baz'], 'faz')
 
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.callStorm('[inet:ipv4=1.2.3.4 +#foo=2021 +#foo:score=9001]')
+            q = 'inet:ipv4 $lib.fire(msg:pack, sode=$node.getStorNodes())'
+            gotn = [mesg async for mesg in core.storm(q) if mesg[0] == 'storm:fire']
+            self.len(1, gotn)
+            self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9)}})
+            self.eq(gotn[0][1]['type'], 'msg:pack')
+
     async def test_storm_node_repr(self):
         text = '''
             [ inet:ipv4=1.2.3.4 :loc=us]
@@ -2329,8 +2338,29 @@ class StormTypesTest(s_test.SynTest):
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
 
+                q = '''
+                for ($buid, $sode) in $lib.layer.get().getStorNodes() {
+                    $lib.fire(layrdiff, sode=$sode)
+                }
+                '''
+                await core.addTagProp('risk', ('int', {}), ())
+                await core.nodes('[ it:dev:str=foo +#test:risk=50 ]')
+                gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
+                fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']
+                self.len(1, fire)
+                self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9)}})
+
+                q = '''
+                $lib.print($lib.layer.get().pack())
+                $lib.fire(layrfire, layr=$lib.layer.get().pack())
+                '''
+                gotn = [mesg[1] async for mesg in asvisi.storm(q)]
+                fire = [mesg for mesg in gotn if mesg.get('type') == 'layrfire']
+                self.len(1, fire)
+                self.nn(fire[0]['data'].get('layr', None))
+
             # formcounts for layers are exposed on the View object
-            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
             counts = await core.callStorm('return( $lib.layer.get().getFormCounts() )')
             self.eq(counts.get('test:int'), 2)
             self.eq(counts.get('test:guid'), 1)

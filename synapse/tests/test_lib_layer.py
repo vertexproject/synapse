@@ -108,7 +108,7 @@ class LayerTest(s_t_utils.SynTest):
                         node = await snap.getNodeByNdef(('test:str', 'foo'))
                         self.nn(node)
                         self.eq(node.props.get('tick'), 12345)
-                        self.eq(node.tagprops.get(('bar', 'score')), 10)
+                        self.eq(node.getTagProp('bar', 'score'), 10)
                         self.eq(await node.getData('baz'), 'nodedataiscool')
                         self.len(1, await alist(node.iterEdgesN1()))
 

@@ -1756,7 +1756,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             tagprops = sode.get('tagprops')
             if tagprops is None:
                 return False
-            return tagprops.get((tag, prop)) is not None
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
 
         for cval in cmprvals:
             genrs = []

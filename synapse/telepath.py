@@ -135,9 +135,9 @@ async def getAhaProxy(urlinfo):
             cnfo['client'] = client
 
         try:
-            proxy = await client.proxy(timeout=10)
+            proxy = await client.proxy(timeout=5)
 
-            ahasvc = await proxy.getAhaSvc(host)
+            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
             if ahasvc is None:
                 continue
 
