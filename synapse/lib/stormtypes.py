@@ -2864,9 +2864,9 @@ class Str(Prim):
         return hash(self.valu)
 
     def __eq__(self, othr):
-        if not isinstance(othr, type(self)):
-            return False
-        return self.valu == othr.valu
+        if isinstance(othr, (Str, str)):
+            return str(self) == str(othr)
+        return False
 
     async def _methEncode(self, encoding='utf8'):
         try:
@@ -3011,6 +3011,13 @@ class Bytes(Prim):
 
     def __hash__(self):
         return hash(self.valu)
+
+    def __eq__(self, othr):
+        if isinstance(othr, bytes):
+            return self.valu == othr
+        elif isinstance(othr, Bytes):
+            return self.valu == othr.valu
+        return False
 
     async def _methDecode(self, encoding='utf8'):
         try:
@@ -3632,7 +3639,6 @@ class Query(Prim):
     )
 
     _storm_typename = 'storm:query'
-    _ismutable = False
 
     def __init__(self, text, varz, runt, path=None):
 
@@ -3645,9 +3651,6 @@ class Query(Prim):
         self.runt = runt
 
         self.locls.update(self.getObjLocals())
-
-    def __hash__(self):
-        return hash(self.text)
 
     def getObjLocals(self):
         return {
@@ -5491,6 +5494,7 @@ class Gate(Prim):
         {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
     _storm_typename = 'storm:auth:gate'
+    _ismutable = False
 
     def __init__(self, runt, valu, path=None):
 

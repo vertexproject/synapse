@@ -1033,6 +1033,23 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts={'vars': {'true': trueprim, 'false': falsprim}})
             self.stormIsInPrint('There are 2 items in the set', msgs)
 
+            # bytes
+            q = '''
+                $set = $lib.set()
+                $set.add($norun)
+                $set.add($section)
+                $set.add($section)
+                $set.add($copy)
+                $set.add($bare)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            norun = s_stormtypes.Bytes(b'This program cannot be run')
+            section = s_stormtypes.Bytes(b'.text')
+            copy = s_stormtypes.Bytes(b'.text')
+            bare = b'.text'
+            msgs = await core.stormlist(q, opts={'vars': {'norun': norun, 'section': section, 'copy': copy, 'bare': bare}})
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
             # cron and others uniq by iden
             q = '''
                 $set = $lib.set()
@@ -1045,6 +1062,23 @@ class StormTypesTest(s_test.SynTest):
                 $set.add($jobA)
                 $set.add($jobB)
 
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
+            # gate
+            q = '''
+                $set = $lib.set()
+                $gate = $lib.auth.gates.get($lib.view.get().iden)
+                $set.add($gate)
+                $set.add($gate)
+                $set.add($lib.auth.gates.get($lib.view.get().iden))
+                $set.add($lib.auth.gates.get($lib.view.get().iden))
+
+                $layr = $lib.layer.add().iden
+                $newview = $lib.view.add(($layr,))
+                $set.add($lib.auth.gates.get($newview.iden))
                 $lib.print('There are {count} items in the set', count=$lib.len($set))
             '''
             msgs = await core.stormlist(q)
@@ -1111,6 +1145,20 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There is 1 item in the set', msgs)
 
+            # str
+            q = '''
+                $set = $lib.set()
+                $set.add($alpha)
+                $set.add($beta)
+                $set.add("alpha")
+                $set.add("beta")
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            alpha = s_stormtypes.Str('alpha')
+            beta = s_stormtypes.Str('beta')
+            msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta}})
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
             # trace
             q = '''
                 init {
@@ -1159,10 +1207,14 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set($view)
                 $set.add($lib.view.get())
                 $set.add($lib.view.get())
-                $lib.print('There is {count} item in the set', count=$lib.len($set))
+
+                $layr = $lib.layer.add().iden
+                $newview = $lib.view.add(($layr,))
+                $set.add($newview)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
             '''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('There is 1 item in the set', msgs)
+            self.stormIsInPrint('There are 2 items in the set', msgs)
 
             # Dict
             q = '''
@@ -1267,6 +1319,18 @@ class StormTypesTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q)
             self.stormIsInErr('is mutable and cannot be used in a set', msgs)
+
+            # mix
+            q = '''
+            $user = $lib.auth.users.add(foo)
+            $list = (1, 1, 'a', $user, $user, $lib.view.get(), $lib.view.get(), $lib.queue.add(neatq), $lib.false)
+            $set = $lib.set()
+            $set.adds($list)
+            $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 5 items in the set', msgs)
+
 
     async def test_storm_path(self):
         async with self.getTestCore() as core:
