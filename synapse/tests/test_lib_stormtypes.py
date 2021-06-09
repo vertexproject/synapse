@@ -1087,6 +1087,8 @@ class StormTypesTest(s_test.SynTest):
             diff = s_stormtypes.CmdOpts(OptWrapper(['--lol', '--nope']))
             msgs = await core.stormlist(q, opts={'vars': {'opts': opts, 'othr': othr, 'diff': diff}})
             self.stormIsInPrint('There are 2 items in the set', msgs)
+            self.ne(diff, copy)
+            self.ne(copy, diff)
 
             # cron and others uniq by iden
             q = '''
@@ -1203,6 +1205,7 @@ class StormTypesTest(s_test.SynTest):
             delta = s_stormtypes.Str('delta')
             msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta, 'delta': delta}})
             self.stormIsInPrint('There are 5 items in the set', msgs)
+            self.ne(alpha, section)
 
             # trace
             q = '''
