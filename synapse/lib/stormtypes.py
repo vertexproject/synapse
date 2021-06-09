@@ -3089,7 +3089,7 @@ class CmdOpts(Dict):
 
     def __hash__(self):
         valu = vars(self.valu.opts)
-        return hash(tuple(self.valu.items()))
+        return hash(tuple(valu.items()))
 
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced

@@ -14,6 +14,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.storm as s_storm
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -1059,6 +1060,34 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts={'vars': {'norun': norun, 'section': section, 'copy': copy, 'bare': bare}})
             self.stormIsInPrint('There are 2 items in the set', msgs)
 
+            # cmdopts
+            q = '''
+                $set = $lib.set()
+                $set.add($opts)
+                $set.add($othr)
+                $set.add($diff)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+
+            class OptWrapper:
+                def __init__(self, argv):
+                    self.pars = s_storm.Parser(prog='test', descr='for set testing')
+                    self.pars.add_argument('--foo', action='store_true')
+                    self.pars.add_argument('--bar', action='store_false')
+                    self.pars.add_argument('--lol', action='store_true')
+                    self.pars.add_argument('--nope', action='store_true')
+
+                    self.opts = self.pars.parse_args(argv)
+
+                def __eq__(self, othr):
+                    return self.opts == othr.opts
+
+            opts = s_stormtypes.CmdOpts(OptWrapper(['--foo', '--bar']))
+            othr = s_stormtypes.CmdOpts(OptWrapper(['--foo', '--bar']))
+            diff = s_stormtypes.CmdOpts(OptWrapper(['--lol', '--nope']))
+            msgs = await core.stormlist(q, opts={'vars': {'opts': opts, 'othr': othr, 'diff': diff}})
+            self.stormIsInPrint('There are 2 items in the set', msgs)
+
             # cron and others uniq by iden
             q = '''
                 $set = $lib.set()
@@ -1157,16 +1186,23 @@ class StormTypesTest(s_test.SynTest):
             # str
             q = '''
                 $set = $lib.set()
-                $set.add($alpha)
-                $set.add($beta)
+                $set.add(23)
                 $set.add("alpha")
+                $set.add($alpha)
+
+                $set.add($beta)
                 $set.add("beta")
+
+                $set.add("delta")
+                $set.add($delta)
+                $set.add(47)
                 $lib.print('There are {count} items in the set', count=$lib.len($set))
             '''
             alpha = s_stormtypes.Str('alpha')
             beta = s_stormtypes.Str('beta')
-            msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta}})
-            self.stormIsInPrint('There are 2 items in the set', msgs)
+            delta = s_stormtypes.Str('delta')
+            msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta, 'delta': delta}})
+            self.stormIsInPrint('There are 5 items in the set', msgs)
 
             # trace
             q = '''
@@ -3643,8 +3679,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(await core.callStorm(f'return($lib.auth.roles.get({core.auth.allrole.iden}))'))
             self.nn(await core.callStorm(f'return($lib.auth.users.get({core.auth.rootuser.iden}))'))
-
             self.len(3, await core.callStorm(f'return($lib.auth.users.list())'))
+
+            msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({core.auth.allrole.iden}))')
+            self.stormIsInPrint('storm:auth:role', msgs)
 
             visi = await core.callStorm('''
                 $visi = $lib.auth.users.byname(visi)
