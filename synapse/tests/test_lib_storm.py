@@ -1003,6 +1003,24 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#woah'))
             self.len(1, await core.nodes('#perm'))
 
+        # make a cycle of tags via move tag
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'neato')
+                await node.addTag('unicycle', (None, None))
+                await node.addTag('bicycle', (None, None))
+                await node.addTag('tricycle', (None, None))
+
+            # build a cycle
+            await core.nodes('movetag bicycle tricycle')
+            await core.nodes('movetag unicycle bicycle')
+            await core.nodes('movetag tricycle unicycle')
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'badcycle')
+                await node.addTag('unicycle')
+
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
