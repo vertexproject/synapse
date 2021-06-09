@@ -3323,7 +3323,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return await layr.pack()
 
     async def getLayerDefs(self):
-        return [await lyr.pack() for lyr in self.layers.values()]
+        return [await lyr.pack() for lyr in list(self.layers.values())]
 
     def getView(self, iden=None, user=None):
         '''
@@ -3365,7 +3365,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return await view.pack()
 
     async def getViewDefs(self):
-        return [await v.pack() for v in self.views.values()]
+        return [await v.pack() for v in list(self.views.values())]
 
     async def addLayer(self, ldef=None, nexs=True):
         '''
@@ -3626,7 +3626,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
-        layroffs = [await layr.getEditIndx() for layr in self.layers.values()]
+        layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
         if layroffs:
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():
