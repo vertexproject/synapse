@@ -1723,7 +1723,7 @@ class SynTest(unittest.TestCase):
             mesg (str): A string to check.
             mesgs (list): A list of storm messages.
         '''
-        print_str = '\n'.join([m[1][1].get('mesg') for m in mesgs if m[0] == 'err'])
+        print_str = '\n'.join([m[1][1].get('mesg', '') for m in mesgs if m[0] == 'err'])
         self.isin(mesg, print_str)
 
     def istufo(self, obj):
