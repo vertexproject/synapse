@@ -2720,7 +2720,7 @@ class MoveTagCmd(Cmd):
         isnow = newt.get('isnow')
         while isnow:
             if isnow in tagcycle:
-                raise s_exc.BadOperArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
+                raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow)
             newtag = await snap.addTagNode(isnow)

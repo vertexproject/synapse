@@ -1042,6 +1042,41 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag are four')    # B -> C (creates the cycle)
 
+            # make a pre-existing cycle to ensure we can break break that with move tag
+            async with await core.snap() as snap:
+
+                node = await snap.addNode('syn:tag', 'existing')
+                await node.set('isnow', 'cycle')
+
+                node = await snap.addNode('syn:tag', 'cycle')
+                await node.set('isnow', 'existing')
+
+            await core.nodes('movetag cycle breaker')
+
+            node = await core.getNodeByNdef(('syn:tag', 'existing'))
+            self.eq('cycle', node.get('isnow'))
+            node = await core.getNodeByNdef(('syn:tag', 'cycle'))
+            self.eq('breaker', node.get('isnow'))
+            node = await core.getNodeByNdef(('syn:tag', 'breaker'))
+            self.eq(None, node.get('isnow'))
+
+            # make a pre-existing cycle to ensure we can catch that if an chain is encountered
+            # B -> C -> D -> E -> C
+            # Then movetag to make A -> B
+            async with await core.snap() as snap:
+                node = await snap.addNode('syn:tag', 'this')
+
+                node = await snap.addNode('syn:tag', 'is')
+                await node.set('isnow', 'not')
+                node = await snap.addNode('syn:tag', 'not')
+                await node.set('isnow', 'a')
+                node = await snap.addNode('syn:tag', 'a')
+                await node.set('isnow', 'test')
+                node = await snap.addNode('syn:tag', 'test')
+                await node.set('isnow', 'not')
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag this is')
+
         # Sad path
         async with self.getTestCore() as core:
             # Test moving a tag to itself
