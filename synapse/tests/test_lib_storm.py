@@ -1007,19 +1007,40 @@ class StormTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'neato')
+                await node.addTag('basic.one', (None, None))
+                await node.addTag('basic.two', (None, None))
                 await node.addTag('unicycle', (None, None))
                 await node.addTag('bicycle', (None, None))
                 await node.addTag('tricycle', (None, None))
 
-            # build a cycle
+            # basic 2-cycle test
+            await core.nodes('movetag basic.one basic.two')
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag basic.two basic.one')
+
+            # 3-cycle test
             await core.nodes('movetag bicycle tricycle')
             await core.nodes('movetag unicycle bicycle')
-            await core.nodes('movetag tricycle unicycle')
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag tricycle unicycle')
 
             async with await core.snap() as snap:
                 node = await snap.addNode('test:str', 'badcycle')
                 await node.addTag('unicycle')
 
+            # 4 cycle test
+            node = await snap.addNode('test:str', 'burrito')
+            await node.addTag('there.picard', (None, None))
+            await node.addTag('are.is', (None, None))
+            await node.addTag('four.best', (None, None))
+            await node.addTag('tags.captain', (None, None))
+
+            # A -> B -> C -> D -> A
+            await core.nodes('movetag there are')   # A -> B
+            await core.nodes('movetag four tags')   # C -> D
+            await core.nodes('movetag tags there')  # D -> A
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag are four')    # B -> C (creates the cycle)
 
         # Sad path
         async with self.getTestCore() as core:
