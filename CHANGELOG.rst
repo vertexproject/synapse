@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.42.1 - 2021-06-09
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--no-docs`` option to the  ``synapse.tools.genpkg`` tool. When used,
+  this not embed inline documentation into the generated Storm packages.
+  (`#2226 <https://github.com/vertexproject/synapse/pull/2226>`_)
+
+
 v2.42.0 - 2021-06-03
 ====================
 
