@@ -332,7 +332,7 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        finis = [sess.fini() for sess in self.sessions.values()]
+        finis = [sess.fini() for sess in list(self.sessions.values())]
         if finis:
             await asyncio.wait(finis)
 
