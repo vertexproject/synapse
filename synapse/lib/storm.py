@@ -2726,7 +2726,7 @@ class MoveTagCmd(Cmd):
             newtag = await snap.addTagNode(isnow)
             isnow = newtag.get('isnow')
 
-        if tagcycle and tagcycle[-1] == oldstr:
+        if oldstr in tagcycle:
             raise s_exc.BadOperArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
                                    cycle=tagcycle)
 
