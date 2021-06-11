@@ -1873,11 +1873,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         This will store the package for future use.
         '''
+        s_storm.reqValidPkgdef(pkgdef)
+
         name = pkgdef.get('name')
-        if name is not None:
-            olddef = self.pkghive.get(name, None)
-            if olddef is not None:
-                await self._dropStormPkg(olddef)
+        olddef = self.pkghive.get(name, None)
+        if olddef is not None:
+            await self._dropStormPkg(olddef)
 
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
