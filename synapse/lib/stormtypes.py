@@ -274,7 +274,7 @@ class StormType:
             self.locls[name] = valu
             return valu
 
-        raise s_exc.NoSuchName(name=name, styp=self.__class__.__name__)
+        raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
     async def _derefGet(self, name):
         return s_common.novalu
@@ -300,7 +300,7 @@ class Lib(StormType):
 
     async def stormrepr(self):
         if '__module__' in self.locls:
-            return f'Imported Module {self.name}'
+            return f'Imported Module {".".join(self.name)}'
         return f'Library ${".".join(("lib",) + self.name)}'
 
     async def deref(self, name):
@@ -313,7 +313,7 @@ class Lib(StormType):
 
         slib = self.runt.snap.core.getStormLib(path)
         if slib is None:
-            raise s_exc.NoSuchName(name=name)
+            raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name)
 
         ctor = slib[2].get('ctor', Lib)
         return ctor(self.runt, name=path)
@@ -997,7 +997,7 @@ class LibBase(Lib):
         modlib = Lib(modr)
         modlib.locls.update(modr.vars)
         modlib.locls['__module__'] = mdef
-        modlib.name = name
+        modlib.name = (name,)
 
         return modlib
 

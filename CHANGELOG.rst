@@ -5,6 +5,22 @@ Synapse Changelog
 *****************
 
 
+v2.42.2 - 2021-06-11
+====================
+
+Bugfixes
+--------
+- Protect against a few possible RuntimeErrors due to dictionary sizes
+  changing during iteration.
+  (`#2227 <https://github.com/vertexproject/synapse/pull/2227>`_)
+- Fix StormType ``Lib`` lookups with imported modules which were raising
+  a ``TypeError`` instead of a ``NoSuchName`` error.
+  (`#2228 <https://github.com/vertexproject/synapse/pull/2228>`_)
+- Drop old Storm Packages if they are present when re-adding them. This fixes
+  an issue with runtime updates leaving old commands in the Cortex.
+  (`#2230 <https://github.com/vertexproject/synapse/pull/2230>`_)
+
+
 v2.42.1 - 2021-06-09
 ====================
 

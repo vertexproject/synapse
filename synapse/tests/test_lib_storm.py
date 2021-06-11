@@ -180,6 +180,11 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
             await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
 
+            # Call a non-existent function on the lib
+            msgs = await core.stormlist('$mod = $lib.import(foo.bar) $lib.print($mod) $mod.newp()')
+            self.stormIsInPrint('Imported Module foo.bar', msgs)
+            self.stormIsInErr('Cannot find name [newp]', msgs)
+
             self.eq(s_version.commit, await core.callStorm('return($lib.version.commit())'))
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
             self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
