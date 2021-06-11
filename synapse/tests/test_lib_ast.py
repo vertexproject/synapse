@@ -853,6 +853,24 @@ class AstTest(s_test.SynTest):
             'name': 'stormpkg',
             'version': '1.2.3',
             'synapse_minversion': (2, 8, 0),
+            'commands': (
+                {
+                 'name': 'pkgcmd.old',
+                 'storm': '$lib.print(hi)',
+                },
+            ),
+        }
+
+        stormpkgnew = {
+            'name': 'stormpkg',
+            'version': '1.2.4',
+            'synapse_minversion': (2, 8, 0),
+            'commands': (
+                {
+                 'name': 'pkgcmd.new',
+                 'storm': '$lib.print(hi)',
+                },
+            ),
         }
 
         jsonpkg = {
@@ -941,6 +959,13 @@ class AstTest(s_test.SynTest):
 
                 msgs = await core.stormlist('pkg.list')
                 self.stormIsInPrint('stormpkg', msgs)
+
+            # Add a newer version of a package
+            await core.stormlist('$lib.pkg.add($pkg)',
+                                 opts={'vars': {'pkg': stormpkgnew}})
+            msgs = await core.stormlist('help pkgcmd')
+            self.stormIsInPrint('pkgcmd.new', msgs)
+            self.stormNotInPrint('pkgcmd.old', msgs)
 
     async def test_function(self):
         async with self.getTestCore() as core:
