@@ -83,7 +83,6 @@ class GenPkgTest(s_test.SynTest):
             self.eq(noddocs_pdef['name'], 'testpkg')
             self.eq(noddocs_pdef['docs'][0]['title'], 'Foo Bar')
             self.eq(noddocs_pdef['docs'][0]['content'], '')
-            self.maxDiff = None
 
             # No push, no save:  nothing to do
             argv = (ymlpath,)
