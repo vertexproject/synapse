@@ -3,6 +3,7 @@ import sys
 import json
 import base64
 import asyncio
+import logging
 import argparse
 
 import synapse.exc as s_exc
@@ -11,6 +12,8 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
+
+logger = logging.getLogger(__name__)
 
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
@@ -139,6 +142,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--push', metavar='<url>', help='A telepath URL of a Cortex or PkgRepo.')
     pars.add_argument('--save', metavar='<path>', help='Save the completed package JSON to a file.')
     pars.add_argument('--optic', metavar='<path>', help='Load Optic module files from a directory.')
+    pars.add_argument('--no-build', default=False, action='store_true',)
     pars.add_argument('--no-docs', default=False, action='store_true',
                       help='Do not require docs to be present and replace any doc content with empty strings.')
     pars.add_argument('pkgfile', metavar='<pkgfile>',
@@ -146,18 +150,16 @@ async def main(argv, outp=s_output.stdout):
 
     opts = pars.parse_args(argv)
 
-    try:
-        pkgdef = s_common.jsload(opts.pkgfile)
-        if opts.save:
-            print(f'File {opts.pkgfile} is already in JSON single-file format; incompatible with --save.',
-                  file=sys.stderr)
+    if opts.no_build:
+        pkgdef = s_common.yamlload(opts.pkgfile)
+        if not pkgdef:
+            logger.error(f'Unable to load pkgdef from [{opts.pkgfile}]')
             return 1
-
-    except json.JSONDecodeError:
+    else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
 
     if not opts.save and not opts.push:
-        print('Neither --push nor --save provided.  Nothing to do.', file=sys.stderr)
+        logger.error('Neither --push nor --save provided.  Nothing to do.')
         return 1
 
     if opts.save:
