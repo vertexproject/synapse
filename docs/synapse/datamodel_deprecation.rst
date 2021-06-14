@@ -47,14 +47,69 @@ The following elements are deprecated.
 Types
 +++++
 
-There are currently no deprecated types.
+- `file:string`
+    - -(refs)> it:dev:str
+- `it:reveng:funcstr`
+    - Please use the `:strings` array property on the `it:reveng:function` form.
+- `lang:idiom`
+    - Please use `lang:translation` instead.
+- `lang:trans`
+    - Please use `lang:translation` instead.
+- `ou:hasalias`
+    - `ou:hasalias` is deprecated in favor of the `:alias` property on `ou:org` nodes.
+- `ou:meet:attendee`
+    - `ou:meet:attendee` has been superseded by `ou:attendee`. `ou:attendee` has the `:meet` property to denote what meeting the attendee attended.
+- `ou:conference:attendee`
+    - `ou:conference:attendee` has been superseded by `ou:attendee`. `ou:attendee` has the `:conference` property to denote what conference the attendee attended.
+- `ou:conference:event:attendee`
+    - `ou:conference:attendee` has been superseded by `ou:attendee`. `ou:attendee` has the `:conference` property to denote what conference event the attendee attended.
+- `ou:member`
+    - `ou:member` has been superseded by `ou:position`.
+- `ps:persona`
+    - Please use the `ps:person` or `ps:contact` types.
+- `ps:person:has`
+    - Please use `edge:has` or a light edge.
+- `ps:persona:has`
+    - Please use `ps:person` or `ps:context` in combination with an `edge:has` or a light edge.
 
 Forms
 +++++
 
-There are currently no deprecated forms.
+Consistent with the deprecated types, the following forms are deprecated:
+- `file:string`
+- `it:reveng:funcstr`
+- `lang:idiom`
+- `lang:trans`
+- `ou:hasalias`
+- `ou:meet:attendee`
+- `ou:conference:attendee`
+- `ou:conference:event:attendee`
+- `ou:member`
+- `ps:person:has`
+- `ps:persona`
+- `ps:persona:has`
 
 Properties
 ++++++++++
 
-There are currently no deprecated properties.
+- `ps:person`
+    - `:img`
+        - `ps:person:img` has been renamed to `ps:person:photo`.
+
+- `it:prod:soft`
+    - `author:org`, `author:acct`, `author:email`, and `author:person`
+        - These properties have been collected into the `it:prod:soft:author` property, which is typed as a `ps:contact`.
+
+- `media:news`
+    - `:author`
+        - The `media:news:author` property has been superseded by the array property of `media:news:authors`, which is an array of type `ps:contact`.
+
+- Form: `file:subfile`
+    - `:name`
+        - The `file:subfile:name` property has been superseded by the property `file:subfile:path`, which is typed as `file:path`.
+
+- `ou:org`
+    - `:naics` and `:sic`
+        - The `ou:org:naics` and `ou:org:sic` properties has been collected into the `ou:org:industries` property, which is an array of type `ou:industry`.
+    - `:has`
+        - Please use an `edge:has` node or a light edge.
