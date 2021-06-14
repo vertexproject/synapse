@@ -104,7 +104,7 @@ Properties
     - `:author`
         - The `media:news:author` property has been superseded by the array property of `media:news:authors`, which is an array of type `ps:contact`.
 
-- Form: `file:subfile`
+- `file:subfile`
     - `:name`
         - The `file:subfile:name` property has been superseded by the property `file:subfile:path`, which is typed as `file:path`.
 
