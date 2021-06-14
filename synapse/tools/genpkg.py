@@ -141,11 +141,24 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--optic', metavar='<path>', help='Load Optic module files from a directory.')
     pars.add_argument('--no-docs', default=False, action='store_true',
                       help='Do not require docs to be present and replace any doc content with empty strings.')
-    pars.add_argument('pkgfile', metavar='<pkgfile>', help='Path to a storm package prototype yml file.')
+    pars.add_argument('pkgfile', metavar='<pkgfile>',
+                      help='Path to a storm package prototype yml file, or a completed package JSON file.')
 
     opts = pars.parse_args(argv)
 
-    pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+    try:
+        pkgdef = s_common.jsload(opts.pkgfile)
+        if opts.save:
+            print(f'File {opts.pkgfile} is already in JSON single-file format; incompatible with --save.',
+                  file=sys.stderr)
+            return 1
+
+    except json.JSONDecodeError:
+        pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+
+    if not opts.save and not opts.push:
+        print('Neither --push nor --save provided.  Nothing to do.', file=sys.stderr)
+        return 1
 
     if opts.save:
         s_common.jssave(pkgdef, opts.save)
