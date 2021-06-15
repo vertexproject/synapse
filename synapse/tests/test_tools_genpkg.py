@@ -87,12 +87,12 @@ class GenPkgTest(s_test.SynTest):
             self.ne(0, retn)
 
             # Invalid:  save with pre-made file
-            argv = ('--save', savepath, savepath)
+            argv = ('--no-build', '--save', savepath, savepath)
             retn = await s_genpkg.main(argv)
             self.ne(0, retn)
 
             # Push a premade json
-            argv = ('--push', url, savepath)
+            argv = ('--no-build', '--push', url, savepath)
             retn = await s_genpkg.main(argv)
             self.eq(0, retn)
 

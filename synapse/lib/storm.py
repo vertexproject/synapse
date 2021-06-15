@@ -2716,6 +2716,21 @@ class MoveTagCmd(Cmd):
             raise s_exc.BadOperArg(mesg='Cannot retag a tag to the same valu.',
                                    newtag=newstr, oldtag=oldstr)
 
+        # do some sanity checking on the new tag to make sure we're not creating a loop
+        tagcycle = [newstr]
+        isnow = newt.get('isnow')
+        while isnow:
+            if isnow in tagcycle:
+                raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
+                                       cycle=tagcycle)
+            tagcycle.append(isnow)
+            newtag = await snap.addTagNode(isnow)
+            isnow = newtag.get('isnow')
+
+        if oldstr in tagcycle:
+            raise s_exc.BadOperArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
+                                   cycle=tagcycle)
+
         retag = {oldstr: newstr}
 
         # first we set all the syn:tag:isnow props

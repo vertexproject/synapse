@@ -68,6 +68,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
                 }),
                 ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
+                    'deprecated': True,
                     'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
                            'potentially during a specific period of time.',
                 }),
