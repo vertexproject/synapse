@@ -139,7 +139,8 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         parser_add = subparsers.add_parser('add', help='add a trigger', usage=AddHelp)
         parser_add.add_argument('condition', choices=s_trigger.Conditions, type=str.lower,
                                 help='Condition on which to trigger')
-        parser_add.add_argument('--disabled', action='store_true', help='Create the trigger in disabled state')
+        parser_add.add_argument('--disabled', action='store_true', help='Create the trigger in disabled state.')
+        parser_add.add_argument('--name', help='An optional, human-friendly name for the trigger.')
         parser_add.add_argument('args', metavar='arguments', nargs='+', help='[form] [#tag] [prop] {query}')
 
         parser_del = subparsers.add_parser('del', help='delete a trigger', usage=DelHelp)
@@ -161,7 +162,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         if len(opts.args) < 2:
             self.printf('Missing argument for trigger add')
             return
-        form, tag, prop, query = None, None, None, None
+        form, tag, prop, query, name = None, None, None, None, None
         cond = opts.condition
 
         for arg in opts.args:
@@ -175,6 +176,11 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
                     self.printf('Only a single query is allowed')
                     return
                 query = arg
+            elif arg.startswith('"') or arg.startswith("'"):
+                if name is not None:
+                    self.printf('Only a single name is allowed')
+                    return
+                name = arg.strip('\'"')
             else:
                 if cond.startswith('prop'):
                     if prop is not None:
@@ -224,6 +230,9 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
 
         if tag is not None:
             tdef['tag'] = tag
+
+        if name is not None:
+            tdef['name'] = name
 
         opts = {'vars': {'tdef': tdef}, 'view': opts.view}
 
