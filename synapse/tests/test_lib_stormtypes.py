@@ -46,6 +46,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             viewiden = await core.callStorm('return($lib.view.get().iden)')
             gate = await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden))')
+            self.eq('view', await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden).type)'))
 
             self.eq(gate.get('iden'), viewiden)
             # default view should only have root user as admin and all as read
