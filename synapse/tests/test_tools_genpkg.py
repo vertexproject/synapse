@@ -81,6 +81,21 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['docs'][0]['title'], 'Foo Bar')
             self.eq(pdef['docs'][0]['content'], '')
 
+            # No push, no save:  nothing to do
+            argv = (ymlpath,)
+            retn = await s_genpkg.main(argv)
+            self.ne(0, retn)
+
+            # Invalid:  save with pre-made file
+            argv = ('--no-build', '--save', savepath, savepath)
+            retn = await s_genpkg.main(argv)
+            self.ne(0, retn)
+
+            # Push a premade json
+            argv = ('--no-build', '--push', url, savepath)
+            retn = await s_genpkg.main(argv)
+            self.eq(0, retn)
+
     def test_files(self):
         assets = s_files.getAssets()
         self.isin('test.dat', assets)
