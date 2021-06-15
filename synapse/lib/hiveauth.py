@@ -585,6 +585,7 @@ class AuthGate(s_base.Base):
 
         return {
             'iden': self.iden,
+            'type': self.type,
             'users': users,
             'roles': roles,
         }
