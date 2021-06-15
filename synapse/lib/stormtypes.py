@@ -5411,6 +5411,7 @@ class Gate(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the AuthGate.', 'type': 'str', },
+        {'name': 'type', 'desc': 'The type of the AuthGate.', 'type': 'str', },
         {'name': 'roles', 'desc': 'The role idens which are a member of the Authgate.', 'type': 'list', },
         {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
@@ -5422,6 +5423,7 @@ class Gate(Prim):
         self.runt = runt
         self.locls.update({
             'iden': self.valu.get('iden'),
+            'type': self.valu.get('type'),
             'roles': self.valu.get('roles', ()),
             'users': self.valu.get('users', ()),
         })
