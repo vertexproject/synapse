@@ -3326,12 +3326,14 @@ class LibUser(Lib):
          'type': 'storm:hive:dict', },
         {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
          'type': 'storm:hive:dict', },
+        {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'guid'},
     )
     _storm_lib_path = ('user', )
 
     def getObjLocals(self):
         return {
             'name': self._libUserName,
+            'iden': self.runt.user.iden,
             'allowed': self._libUserAllowed,
         }
 
