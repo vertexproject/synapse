@@ -356,6 +356,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of ISIC codes that map to the industry.'}),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the industry.',
+                        'disp': {'hint': 'text'},
                     }),
                 )),
                 ('ou:hasalias', {}, (
