@@ -139,7 +139,7 @@ A subcommand is required.  Use `trigger -h` for more detailed help.
         parser_add = subparsers.add_parser('add', help='add a trigger', usage=AddHelp)
         parser_add.add_argument('condition', choices=s_trigger.Conditions, type=str.lower,
                                 help='Condition on which to trigger')
-        parser_add.add_argument('--disabled', action='store_true', help='Create the trigger in disabled state.')
+        parser_add.add_argument('--disabled', action='store_true', help='Create the trigger in disabled state')
         parser_add.add_argument('args', metavar='arguments', nargs='+', help='[form] [#tag] [prop] {query}')
 
         parser_del = subparsers.add_parser('del', help='delete a trigger', usage=DelHelp)

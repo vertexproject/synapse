@@ -30,7 +30,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#count'))
             await self.agenlen(1, core.eval('test:str=footag.bar'))
 
-            await cmdr.runCmdLine("trigger add prop:set --disabled test:type10:intprop {[ test:int=6 ]}")
+            await cmdr.runCmdLine('trigger add prop:set --disabled test:type10:intprop {[ test:int=6 ]}')
             outp.clear()
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
