@@ -354,6 +354,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of NAICS codes that map to the industry.'}),
                     ('isic', ('array', {'type': 'ou:isic', 'uniq': True, 'split': ','}), {
                         'doc': 'An array of ISIC codes that map to the industry.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the industry.',
+                    }),
                 )),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {

@@ -557,13 +557,23 @@ class OuModelTest(s_t_utils.SynTest):
     async def test_ou_industry(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ou:industry=* :name=" Foo Bar " :subs=(*, *) :naics=(11111,22222) :sic="1234,5678" :isic=C1393 ]')
+            q = '''
+            [ ou:industry=*
+                :name=" Foo Bar "
+                :subs=(*, *)
+                :naics=(11111,22222)
+                :sic="1234,5678"
+                :isic=C1393
+                :desc="Moldy cheese"
+            ] '''
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq('foo bar', nodes[0].get('name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.len(2, nodes[0].get('subs'))
+            self.eq('Moldy cheese', nodes[0].get('desc'))
 
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
