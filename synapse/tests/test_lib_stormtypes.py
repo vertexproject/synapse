@@ -46,6 +46,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             viewiden = await core.callStorm('return($lib.view.get().iden)')
             gate = await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden))')
+            self.eq('view', await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden).type)'))
 
             self.eq(gate.get('iden'), viewiden)
             # default view should only have root user as admin and all as read
@@ -1139,6 +1140,7 @@ class StormTypesTest(s_test.SynTest):
             q = '$lib.print($lib.user.name())'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('root', mesgs)
+            self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
