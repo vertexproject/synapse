@@ -89,22 +89,16 @@ class GenPkgTest(s_test.SynTest):
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
 
-# <<<<<<< HEAD
-#             # We'll push the pkddef to savepath if its set
-#             os.unlink(savepath)
-#             argv = ('--no-build', '--save', savepath, yamlpath)
-# =======
             # Invalid:  save with pre-made file
             argv = ('--no-build', '--save', savepath, savepath)
-# >>>>>>> master
+            retn = await s_genpkg.main(argv)
+            self.eq(1, retn)
+
+            # Push a premade yaml
+            argv = ('--push', url, '--no-build', yamlpath)
             retn = await s_genpkg.main(argv)
             self.eq(0, retn)
-            self.eq(pdef, s_common.jsload(savepath))
 
-# <<<<<<< HEAD
-#             # Push a premade yaml
-#             argv = ('--push', url, '--no-build', yamlpath)
-# =======
             # Push a premade json
             argv = ('--no-build', '--push', url, savepath)
             retn = await s_genpkg.main(argv)
