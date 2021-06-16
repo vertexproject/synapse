@@ -18,10 +18,9 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('No triggers found'))
 
-            await cmdr.runCmdLine('trigger add node:add test:str {[ test:int=1 ] } "firsttrigger"')
+            await cmdr.runCmdLine('trigger add node:add test:str {[ test:int=1 ] }')
             trigs = await realcore.view.listTriggers()
             self.len(1, trigs)
-            self.eq('firsttrigger', trigs[0][1].get('name'))
             self.true(outp.expect(f'Added trigger {trigs[0][0]}'))
             await s_common.aspin(core.eval('[ test:str=foo ]'))
             await self.agenlen(1, core.eval('test:int'))
@@ -31,8 +30,7 @@ class CmdTriggersTest(s_t_utils.SynTest):
             await self.agenlen(1, core.eval('#count'))
             await self.agenlen(1, core.eval('test:str=footag.bar'))
 
-            await cmdr.runCmdLine("trigger add prop:set --disabled test:type10:intprop {[ test:int=6 ]} --name 'awesomepossum'")
-            self.agenlen(1, core.eval('syn:trigger:name=awesomepossum'))
+            await cmdr.runCmdLine("trigger add prop:set --disabled test:type10:intprop {[ test:int=6 ]}")
             outp.clear()
             await cmdr.runCmdLine('trigger list')
             self.true(outp.expect('user'))
@@ -113,9 +111,6 @@ class CmdTriggersTest(s_t_utils.SynTest):
 
             await cmdr.runCmdLine('trigger add node:add test:str test:int {test:str}')
             self.true(outp.expect('Only a single form'))
-
-            await cmdr.runCmdLine('trigger add node:add test:str {test:int} "foobar" "bizbaz"')
-            self.true(outp.expect('Only a single name'))
 
             await cmdr.runCmdLine('trigger add prop:set test:type10.intprop test:str {test:str}')
             self.true(outp.expect('single prop'))
