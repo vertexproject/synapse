@@ -2202,12 +2202,23 @@ class PureCmd(Cmd):
 class HelpCmd(Cmd):
     '''
     List available commands and a brief description for each.
+
+    Examples:
+
+        // Get all available commands and their brief descriptions.
+
+        help
+
+        // Only get commands which have "model" in the name.
+
+        help model
     '''
     name = 'help'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('command', nargs='?', help='Show the help output for a given command.')
+        pars.add_argument('command', nargs='?',
+                          help='Only list commands and their brief description whose name contains the argument.')
         return pars
 
     async def execStormCmd(self, runt, genr):
