@@ -174,6 +174,10 @@ class LibHttp(s_stormtypes.Lib):
 
     async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
 
+        url = await s_stormtypes.tostr(url)
+        headers = await s_stormtypes.toprim(headers)
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
+
         sock = await WebSocket.anit()
 
         proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
