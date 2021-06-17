@@ -1590,7 +1590,7 @@ class Str(Type):
             match = self.regex.match(norm)
             if match is None:
                 raise s_exc.BadTypeValu(name=self.name, valu=valu, regx=self.regex.pattern,
-                                        mesg='regex does not match')
+                                        mesg=f'[{valu}] does not match [{self.regex.pattern}]')
 
             subs = match.groupdict()
             if subs:
