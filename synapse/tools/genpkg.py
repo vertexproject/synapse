@@ -1,9 +1,7 @@
 import os
 import sys
-import json
 import base64
 import asyncio
-import logging
 import argparse
 
 import synapse.exc as s_exc
@@ -12,8 +10,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
-
-logger = logging.getLogger(__name__)
 
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
@@ -154,16 +150,16 @@ async def main(argv, outp=s_output.stdout):
     if opts.no_build:
         pkgdef = s_common.yamlload(opts.pkgfile)
         if not pkgdef:
-            logger.error(f'Unable to load pkgdef from [{opts.pkgfile}]')
+            outp.printf(f'Unable to load pkgdef from [{opts.pkgfile}]')
             return 1
         if opts.save:
-            logger.error(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
+            outp.printf(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
             return 1
     else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
 
     if not opts.save and not opts.push:
-        logger.error('Neither --push nor --save provided.  Nothing to do.')
+        outp.printf('Neither --push nor --save provided.  Nothing to do.')
         return 1
 
     if opts.save:
