@@ -733,6 +733,7 @@ stormcmds = (
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
         ),
         'storm': '''
             $trig = $lib.trigger.add($cmdopts)
