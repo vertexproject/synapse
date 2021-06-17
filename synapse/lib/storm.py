@@ -267,6 +267,7 @@ _reqValidPkgdef = s_config.getJsValidator({
                 },
                 'nodedata': {
                     'type': 'array',
+                    'uniqueItems': True,
                     'items': {
                         'type': 'array',
                         'items': [
