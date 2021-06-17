@@ -302,7 +302,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise
 
             except Exception as e:
-                logger.exception(f'Error during storm execution for {{ {text} }}')
+                logger.exception(f'Error during storm execution for {{ {text} }}',
+                                 extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
