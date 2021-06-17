@@ -147,7 +147,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--no-docs', default=False, action='store_true',
                       help='Do not require docs to be present and replace any doc content with empty strings.')
     pars.add_argument('pkgfile', metavar='<pkgfile>',
-                      help='Path to a storm package prototype yml file, or a completed package JSON/YAML file.')
+                      help='Path to a storm package prototype .yaml file, or a completed package .json/.yaml file.')
 
     opts = pars.parse_args(argv)
 
