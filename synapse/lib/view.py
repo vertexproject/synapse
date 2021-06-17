@@ -224,6 +224,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return await s_stormtypes.toprim(e.item)
 
         except asyncio.CancelledError:
+            logger.warning(f'callStorm cancelled',
+                           extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
             raise
 
         except Exception:
@@ -297,7 +299,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 pass
 
             except asyncio.CancelledError:
-                logger.warning('Storm runtime cancelled.')
+                logger.warning('Storm runtime cancelled.',
+                               extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 cancelled = True
                 raise
 
