@@ -226,7 +226,8 @@ _reqValidPkgdef = s_config.getJsValidator({
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdarg'},
                 },
-                'storm': {'type': 'string'}
+                'storm': {'type': 'string'},
+                'forms': {'$ref': '#/definitions/cmdformhints'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -246,6 +247,36 @@ _reqValidPkgdef = s_config.getJsValidator({
                     },
                 }
             ]
+        },
+        'cmdformhints': {
+            'type': 'object',
+            'properties': {
+                'input': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                    }
+                },
+                'output': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                    }
+                },
+                'nodedata': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'array',
+                        'items': [
+                            {'type': 'string'},
+                            {'type': 'string'},
+                        ],
+                        'additionalItems': False,
+                    },
+                },
+            }
         }
     }
 })
