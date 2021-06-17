@@ -212,6 +212,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 yield node
 
     async def callStorm(self, text, opts=None):
+        user = self.core._userFromOpts(opts)
         try:
 
             async for item in self.eval(text, opts=opts):
@@ -221,6 +222,14 @@ class View(s_nexus.Pusher):  # type: ignore
             # Catch return( ... ) values and return the
             # primitive version of that item.
             return await s_stormtypes.toprim(e.item)
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception:
+            logger.exception(f'Error during callStorm execution for {{ {text} }}',
+                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            raise
 
         # Any other exceptions will be raised to
         # callers as expected.
