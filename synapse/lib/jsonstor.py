@@ -334,6 +334,9 @@ class JsonStorCell(s_cell.Cell):
         self.jsonstor = await JsonStor.anit(self.slab, 'jsonstor')
         self.multique = await s_lmdbslab.MultiQueue.anit(self.slab, 'multique')
 
+        self.onfini(self.jsonstor.fini)
+        self.onfini(self.multique.fini)
+
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item

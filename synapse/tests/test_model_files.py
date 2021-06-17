@@ -33,6 +33,10 @@ class FileTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('file:bytes:sha256^=$pref +file:bytes:sha256^=$pref', opts={'vars': {'pref': pref}}))
 
+            with self.raises(s_exc.BadTypeValu):
+                opts = {'vars': {'a': 'a' * 64}}
+                await core.nodes('file:bytes [:sha256=$a]', opts=opts)
+
     async def test_model_filebytes_pe(self):
         # test to make sure pe metadata is well formed
         async with self.getTestCore() as core:
@@ -301,3 +305,79 @@ class FileTest(s_t_utils.SynTest):
             self.eq(0, nodes[0].get('file:offs'))
             self.eq(('foo', 'bar'), nodes[0].get('file:data'))
             self.eq('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', nodes[0].get('guid'))
+
+    async def test_model_file_meta_exif(self):
+
+        async with self.getTestCore() as core:
+
+            fileguid = s_common.guid()
+            conguid = s_common.guid()
+            opts = {'vars': {
+                        'fileguid': f'guid:{fileguid}',
+                        'conguid': conguid
+                }
+            }
+
+            def testexif(n):
+                self.eq(f'guid:{fileguid}', n.get('file'))
+                self.eq(0, n.get('file:offs'))
+                self.eq(('foo', 'bar'), n.get('file:data'))
+                self.eq('aaaa', n.get('desc'))
+                self.eq('bbbb', n.get('comment'))
+                self.eq(1578236238000, n.get('created'))
+                self.eq('a6b4', n.get('imageid'))
+                self.eq(conguid, n.get('author'))
+                self.eq((38.9582839, -77.358946), n.get('latlong'))
+                self.eq(6371137800, n.get('altitude'))
+
+            nodes = await core.nodes(f'''[
+                ps:contact=$conguid
+                    :name="Steve Rogers"
+                    :title="Captain"
+                    :orgname="U.S. Army"
+                    :address="569 Leaman Place, Brooklyn, NY, 11201, USA"
+            ]''', opts=opts)
+
+            props = '''
+                :file=$fileguid
+                :file:offs=0
+                :file:data=(foo, bar)
+                :desc=aaaa
+                :comment=bbbb
+                :created="2020-01-05 14:57:18"
+                :imageid=a6b4
+                :author=$conguid
+                :latlong="38.9582839,-77.358946"
+                :altitude="129 meters"'''
+
+            nodes = await core.nodes(f'''[
+                file:mime:jpg=*
+                    {props}
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])
+
+            nodes = await core.nodes(f'''[
+                file:mime:tif=*
+                    {props}
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])
+
+            nodes = await core.nodes(f'''[
+                file:mime:gif=*
+                    {props}
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])
+
+            nodes = await core.nodes(f'''[
+                file:mime:png=*
+                    {props}
+            ]''', opts=opts)
+
+            self.len(1, nodes)
+            testexif(nodes[0])

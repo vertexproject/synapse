@@ -1,3 +1,4 @@
+import json
 import asyncio
 import datetime
 import itertools
@@ -8,10 +9,12 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
+import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
-import synapse.lib.version as s_version
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -177,6 +180,11 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('$lib.import(foo.bar).dyncall()', opts=opts)
             await core.nodes('$lib.import(foo.bar).dyniter()', opts=opts)
 
+            # Call a non-existent function on the lib
+            msgs = await core.stormlist('$mod = $lib.import(foo.bar) $lib.print($mod) $mod.newp()')
+            self.stormIsInPrint('Imported Module foo.bar', msgs)
+            self.stormIsInErr('Cannot find name [newp]', msgs)
+
             self.eq(s_version.commit, await core.callStorm('return($lib.version.commit())'))
             self.eq(s_version.version, await core.callStorm('return($lib.version.synapse())'))
             self.true(await core.callStorm('return($lib.version.matches($lib.version.synapse(), ">=2.9.0"))'))
@@ -286,6 +294,18 @@ class StormTest(s_t_utils.SynTest):
             self.eq('1.2.3', await core.callStorm('return($lib.pkg.get(hehe).version)'))
 
             self.eq(None, await core.callStorm('return($lib.pkg.get(nopkg))'))
+
+            pkg1 = {'name': 'haha', 'version': '1.2.3'}
+            await core.addStormPkg(pkg1)
+            msgs = await core.stormlist('pkg.list')
+            self.isin('haha', msgs[2][1]['mesg'])
+            self.isin('hehe', msgs[3][1]['mesg'])
+
+            self.true(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            await core.delStormPkg('haha')
+            self.none(await core.callStorm('return($lib.pkg.get(haha))'))
+            self.false(await core.callStorm('return($lib.pkg.has(haha))'))
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -476,7 +496,7 @@ class StormTest(s_t_utils.SynTest):
             async with await core.view.snap(user=core.auth.rootuser) as snap:
 
                 query = core.getStormQuery('')
-                with snap.getStormRuntime(query) as runt:
+                async with snap.getStormRuntime(query) as runt:
 
                     self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
 
@@ -494,6 +514,142 @@ class StormTest(s_t_utils.SynTest):
                     with self.raises(s_exc.StormRuntimeError):
                         await runt.getOneNode('ou:org:name', 'dupcorp')
 
+            count = 5
+            for i in range(count):
+                await core.nodes('[ test:guid=$lib.guid() +#foo.bar]')
+                await core.nodes('[ test:str=$lib.guid() ]')
+
+            # test the node importing works...
+            class ExpHandler(s_httpapi.StormHandler):
+                async def get(self, name):
+                    self.set_header('Content-Type', 'application/x-synapse-nodes')
+                    core = self.getCore()
+                    if name == 'kewl':
+                        form = 'test:guid'
+                    elif name == 'neat':
+                        form = 'test:str'
+                    else:
+                        return
+                    async for pode in core.exportStorm(form):
+                        self.write(s_msgpack.en(pode))
+                        self.flush()
+
+            core.addHttpApi('/api/v1/exptest/(.*)', ExpHandler, {'cell': core})
+            port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
+            async with self.getTestCore() as subcore:
+                # test that we get nodes, but in this vase, incoming node get priority
+                byyield = await subcore.nodes(f'[inet:url="https://127.0.0.1:{port}/api/v1/exptest/neat"] | nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
+                self.len(count, byyield)
+                for node in byyield:
+                    self.eq(node.form.name, 'test:str')
+                # we shouldn't grab any of the nodes tagged #foo.bar (ie, all the test:guid nodes)
+                bytag = await subcore.nodes('#foo.bar')
+                self.len(0, bytag)
+
+                # now test that param works
+                byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
+                self.len(count, byyield)
+                for node in byyield:
+                    self.eq(node.form.name, 'test:guid')
+                    self.isin('foo.bar', node.tags)
+
+                # bad response should give no nodes
+                msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/lolnope/')
+                self.stormIsInWarn('nodes.import got HTTP error code', msgs)
+                nodes = [x for x in msgs if x[0] == 'node']
+                self.len(0, nodes)
+
+    async def test_storm_wget(self):
+
+        async def _getRespFromSha(core, mesgs):
+            for m in mesgs:
+                if m[0] == 'node' and m[1][0][0] == 'file:bytes':
+                    node = m[1]
+                    sha = node[1]['props']['sha256']
+
+            buf = b''
+            async for bytz in core.axon.get(s_common.uhex(sha)):
+                buf += bytz
+
+            resp = json.loads(buf.decode('utf8'))
+            return resp
+
+        async with self.getTestCore() as core:
+            addr, port = await core.addHttpsPort(0)
+            root = await core.auth.getUserByName('root')
+            await root.setPasswd('root')
+
+            core.addHttpApi('/api/v0/test', s_t_utils.HttpReflector, {'cell': core})
+            url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
+            opts = {'vars': {'url': url}}
+
+            # Headers as list of tuples, params as dict
+            q = '''
+            $params=$lib.dict(key=valu, foo=bar)
+            $hdr = (
+                    ("User-Agent", "my fav ua"),
+            )|
+            wget $url --headers $hdr --params $params --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('User-Agent'), 'my fav ua')
+
+            # no default headers(from wget command)
+            q = '''
+            $hdr = (
+                    ("User-Agent", "my fav ua"),
+            )|
+            wget $url --headers $hdr --no-headers --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.ne(data.get('headers').get('User-Agent'), 'my fav ua')
+
+            # params as list of key/value pairs
+            q = '''
+            $params=((foo, bar), (key, valu))
+            | wget $url --params $params --no-ssl-verify | -> file:bytes $lib.print($node)
+            '''
+            mesgs = await alist(core.storm(q, opts=opts))
+
+            resp = await _getRespFromSha(core, mesgs)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+
+    async def test_storm_vars_fini(self):
+
+        async with self.getTestCore() as core:
+
+            query = core.getStormQuery('inet:ipv4')
+            async with core.getStormRuntime(query) as runt:
+
+                base0 = await s_base.Base.anit()
+                base0._syn_refs = 0
+                await runt.setVar('base0', base0)
+                await runt.setVar('base0', base0)
+                self.false(base0.isfini)
+                await runt.setVar('base0', None)
+                self.true(base0.isfini)
+
+                base1 = await s_base.Base.anit()
+                base1._syn_refs = 0
+                await runt.setVar('base1', base1)
+                await runt.popVar('base1')
+                self.true(base1.isfini)
+
+                base2 = await s_base.Base.anit()
+                base2._syn_refs = 0
+                await runt.setVar('base2', base2)
+
+            self.true(base2.isfini)
+
     async def test_storm_dmon_user_locked(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
@@ -508,6 +664,24 @@ class StormTest(s_t_utils.SynTest):
                 q = 'return($lib.dmon.bump($iden))'
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
                 self.true(await stream.wait(2))
+
+    async def test_storm_dmon_user_autobump(self):
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('dmon', 'add')))
+            async with core.getLocalProxy(user='visi') as asvisi:
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    q = '''return($lib.dmon.add(${{ $lib.print(foobar) $lib.time.sleep(10) }},
+                                                name=hehedmon))'''
+                    await asvisi.callStorm(q)
+
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+                    await core.setUserLocked(visi.iden, True)
+                    self.true(await stream.wait(2))
+
+                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                    await core.setUserLocked(visi.iden, False)
+                    self.true(await stream.wait(2))
 
     async def test_storm_pipe(self):
 
@@ -786,9 +960,9 @@ class StormTest(s_t_utils.SynTest):
             await core.addTagProp('note', ('str', {}), {})
             q = '[test:int=1 +#hehe.haha +#hehe:test=1138 +#hehe.beep:test=8080 +#hehe.beep:note="oh my"]'
             nodes = await core.nodes(q)
-            self.eq(nodes[0].tagprops.get(('hehe', 'test')), 1138)
-            self.eq(nodes[0].tagprops.get(('hehe.beep', 'test')), 8080)
-            self.eq(nodes[0].tagprops.get(('hehe.beep', 'note')), 'oh my')
+            self.eq(nodes[0].getTagProp('hehe', 'test'), 1138)
+            self.eq(nodes[0].getTagProp('hehe.beep', 'test'), 8080)
+            self.eq(nodes[0].getTagProp('hehe.beep', 'note'), 'oh my')
 
         async with self.getTestCore() as core:
             await seed_tagprops(core)
@@ -797,10 +971,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {('woah', 'test'): 1138,
-                                        ('woah.beep', 'test'): 8080,
-                                        ('woah.beep', 'note'): 'oh my',
-                                        })
+            self.eq(nodes[0].tagprops, {'woah': {'test': 1138},
+                                        'woah.beep': {'test': 8080,
+                                                      'note': 'oh my'}
+                                       })
 
         async with self.getTestCore() as core:
             await seed_tagprops(core)
@@ -809,10 +983,10 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#hehe'))
             nodes = await core.nodes('#woah')
             self.len(1, nodes)
-            self.eq(nodes[0].tagprops, {('hehe', 'test'): 1138,
-                                        ('woah.beep', 'test'): 8080,
-                                        ('woah.beep', 'note'): 'oh my',
-                                        })
+            self.eq(nodes[0].tagprops, {'hehe': {'test': 1138},
+                                        'woah.beep': {'test': 8080,
+                                                      'note': 'oh my'}
+                                       })
 
             # Test perms
             visi = await core.auth.addUser('visi')
@@ -833,6 +1007,80 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('#woah'))
             self.len(1, await core.nodes('#perm'))
+
+        # make a cycle of tags via move tag
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'neato')
+                await node.addTag('basic.one', (None, None))
+                await node.addTag('basic.two', (None, None))
+                await node.addTag('unicycle', (None, None))
+                await node.addTag('bicycle', (None, None))
+                await node.addTag('tricycle', (None, None))
+
+            # basic 2-cycle test
+            await core.nodes('movetag basic.one basic.two')
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag basic.two basic.one')
+
+            # 3-cycle test
+            await core.nodes('movetag bicycle tricycle')
+            await core.nodes('movetag unicycle bicycle')
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag tricycle unicycle')
+
+            async with await core.snap() as snap:
+                node = await snap.addNode('test:str', 'badcycle')
+                await node.addTag('unicycle')
+
+            # 4 cycle test
+            node = await snap.addNode('test:str', 'burrito')
+            await node.addTag('there.picard', (None, None))
+            await node.addTag('are.is', (None, None))
+            await node.addTag('four.best', (None, None))
+            await node.addTag('tags.captain', (None, None))
+
+            # A -> B -> C -> D -> A
+            await core.nodes('movetag there are')   # A -> B
+            await core.nodes('movetag four tags')   # C -> D
+            await core.nodes('movetag tags there')  # D -> A
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag are four')    # B -> C (creates the cycle)
+
+            # make a pre-existing cycle to ensure we can break break that with move tag
+            async with await core.snap() as snap:
+
+                node = await snap.addNode('syn:tag', 'existing')
+                await node.set('isnow', 'cycle')
+
+                node = await snap.addNode('syn:tag', 'cycle')
+                await node.set('isnow', 'existing')
+
+            await core.nodes('movetag cycle breaker')
+
+            node = await core.getNodeByNdef(('syn:tag', 'existing'))
+            self.eq('cycle', node.get('isnow'))
+            node = await core.getNodeByNdef(('syn:tag', 'cycle'))
+            self.eq('breaker', node.get('isnow'))
+            node = await core.getNodeByNdef(('syn:tag', 'breaker'))
+            self.eq(None, node.get('isnow'))
+
+            # make a pre-existing cycle to ensure we can catch that if an chain is encountered
+            # B -> C -> D -> E -> C
+            # Then movetag to make A -> B
+            async with await core.snap() as snap:
+                node = await snap.addNode('syn:tag', 'this')
+
+                node = await snap.addNode('syn:tag', 'is')
+                await node.set('isnow', 'not')
+                node = await snap.addNode('syn:tag', 'not')
+                await node.set('isnow', 'a')
+                node = await snap.addNode('syn:tag', 'a')
+                await node.set('isnow', 'test')
+                node = await snap.addNode('syn:tag', 'test')
+                await node.set('isnow', 'not')
+            with self.raises(s_exc.BadOperArg):
+                await core.nodes('movetag this is')
 
         # Sad path
         async with self.getTestCore() as core:
@@ -1079,6 +1327,24 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
 
+            q = '''
+            inet:ipv4=1.2.3.4 | tee
+            { spin | [ inet:ipv4=2.2.2.2 ]}
+            { spin | [ inet:ipv4=3.3.3.3 ]}
+            { spin | [ inet:ipv4=4.4.4.4 ]}
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+
+            q = '''
+            inet:ipv4=1.2.3.4 | tee --join
+            { spin | inet:ipv4=2.2.2.2 }
+            { spin | inet:ipv4=3.3.3.3 }
+            { spin | inet:ipv4=4.4.4.4 }
+            '''
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
             nodes = await core.nodes(q)
             self.len(3, nodes)
@@ -1088,6 +1354,46 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> edge:refs:n2 :n1 -> * }'
             nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            # Queries can be a heavy list
+            q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            self.eq(nodes[0].ndef, ('inet:asn', 0))
+            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
+            self.eq(nodes[2].ndef[0], ('media:news'))
+            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            # A empty list of queries still works as an nop
+            q = '$list = $lib.list() | tee $list'
+            msgs = await core.stormlist(q)
+            self.len(2, msgs)
+            self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --join $list'
+            msgs = await core.stormlist(q)
+            self.len(3, msgs)
+            self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
+
+            q = '$list = $lib.list() | tee --parallel $list'
+            msgs = await core.stormlist(q)
+            self.len(2, msgs)
+            self.eq(('init', 'fini'), [m[0] for m in msgs])
+
+            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --parallel --join $list'
+            msgs = await core.stormlist(q)
+            self.len(3, msgs)
+            self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
+
+            # Queries can be a input list
+            q = 'inet:ipv4=1.2.3.4 | tee --join $list'
+            queries = ('-> *', '<- *', '-> edge:refs:n2 :n1 -> *')
+            nodes = await core.nodes(q, {'vars': {'list': queries}})
             self.len(4, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
@@ -1143,6 +1449,19 @@ class StormTest(s_t_utils.SynTest):
             self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
                     {p[0] for p in podes})
 
+            # Node variables modified in sub runtimes don't affect parent node path
+            q = '''[test:int=123] $foo=$node.value()
+            | tee --join { $foo=($foo + 1) [test:str=$foo] +test:str } { $foo=($foo + 2) [test:str=$foo] +test:str } |
+            $lib.fire(data, foo=$foo, ndef=$node.ndef()) | spin
+            '''
+            msgs = await core.stormlist(q)
+            datas = [m[1].get('data') for m in msgs if m[0] == 'storm:fire']
+            self.eq(datas, [
+                {'foo': 124, 'ndef': ('test:str', '124')},
+                {'foo': 125, 'ndef': ('test:str', '125')},
+                {'foo': 123, 'ndef': ('test:int', 123)},
+            ])
+
             # lift a non-existent node and feed to tee.
             q = 'inet:fqdn=newp.com tee { inet:ipv4=1.2.3.4 } { inet:ipv4 -> * }'
             nodes = await core.nodes(q)
@@ -1153,8 +1472,46 @@ class StormTest(s_t_utils.SynTest):
             }
             self.eq(exp, {x.ndef for x in nodes})
 
+            # --parallel allows out of order execution. This test demonstrates that but controls the output by time
+
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=1234] }'
+            nodes = await core.nodes(q)
+            self.len(4, nodes)
+            exp = [
+                ('inet:asn', 1234),
+                ('inet:dns:a', ('woot.com', 0x01020304)),
+                ('inet:ipv4', 0x01020304),
+                ('inet:fqdn', 'woot.com'),
+            ]
+            self.eq(exp, [x.ndef for x in nodes])
+
+            # A fatal execption is fatal to the runtime
+            q = '$foo=woot.com tee --parallel { $lib.time.sleep("0.5") inet:ipv4=1.2.3.4 }  { $lib.time.sleep("0.25") inet:fqdn=$foo <- * | sleep 1} { [inet:asn=newp] }'
+            msgs = await core.stormlist(q)
+            podes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, podes)
+            self.stormIsInErr("invalid literal for int() with base 0: 'newp'", msgs)
+
+            # Each input node to the query is also subject to parallel execution
+            q = '$foo=woot.com inet:fqdn=$foo inet:fqdn=com | tee --parallel { inet:ipv4=1.2.3.4 } { inet:fqdn=$foo <- * } | uniq'
+            nodes = await core.nodes(q)
+
+            self.eq({node.ndef for node in nodes}, {
+                ('inet:fqdn', 'woot.com'),
+                ('inet:ipv4', 16909060),
+                ('inet:dns:a', ('woot.com', 16909060)),
+                ('inet:fqdn', 'com'),
+            })
+
+            # Per-node exceptions can also tear down the runtime (coverage test)
+            q = 'inet:fqdn=com | tee --parallel { [inet:asn=newp] }'
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes(q)
+
+            # No input test
             q = 'tee'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_storm_yieldvalu(self):
 
@@ -1501,6 +1858,7 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
         opts = pars.parse_args(['-h'])
+        self.none(opts)
         self.notin("ERROR: The argument <hehe> is required.", pars.mesgs)
         self.isin('Usage: hehe [options] <hehe>', pars.mesgs)
         self.isin('Options:', pars.mesgs)
@@ -1512,6 +1870,20 @@ class StormTest(s_t_utils.SynTest):
         pars.add_argument('--no-foo', default=True, action='store_false')
         opts = pars.parse_args(['--no-foo'])
         self.false(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        opts = pars.parse_args([])
+        self.true(opts.no_foo)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--no-foo', default=True, action='store_false')
+        pars.add_argument('--valu', default=8675309, type='int')
+        pars.add_argument('--ques', nargs=2, type='int', default=(1, 2))
+        pars.parse_args(['-h'])
+        self.isin('  --no-foo                    : No help available.', pars.mesgs)
+        self.isin('  --valu <valu>               : No help available. (default: 8675309)', pars.mesgs)
+        self.isin('  --ques <ques>               : No help available. (default: (1, 2))', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--yada')
@@ -1870,6 +2242,21 @@ class StormTest(s_t_utils.SynTest):
 
                 self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
                 self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+
+                # Check offset reporting
+                q = '$layer=$lib.layer.get($layr0) return ($layer.pack())'
+                layrinfo = await core.callStorm(q, opts=opts)
+                pushs = layrinfo.get('pushs')
+                self.len(1, pushs)
+                pdef = list(pushs.values())[0]
+                self.lt(10, pdef.get('offs', 0))
+
+                q = '$layer=$lib.layer.get($layr2) return ($layer.pack())'
+                layrinfo = await core.callStorm(q, opts=opts)
+                pulls = layrinfo.get('pulls')
+                self.len(1, pulls)
+                pdef = list(pulls.values())[0]
+                self.lt(10, pdef.get('offs', 0))
 
                 # remove and ensure no replay on restart
                 await core.nodes('ps:contact | delnode', opts={'view': view2})

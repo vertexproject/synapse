@@ -46,6 +46,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             viewiden = await core.callStorm('return($lib.view.get().iden)')
             gate = await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden))')
+            self.eq('view', await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden).type)'))
 
             self.eq(gate.get('iden'), viewiden)
             # default view should only have root user as admin and all as read
@@ -262,7 +263,7 @@ class StormTypesTest(s_test.SynTest):
             # $lib.import
             q = '$test = $lib.import(test) $lib.print($test)'
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('stormtypes.Lib object', msgs)
+            self.stormIsInPrint('Imported Module test', msgs)
             q = '$test = $lib.import(newp)'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -288,6 +289,43 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError) as cm:
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
+
+            mesgs = await core.stormlist('$lib.print($lib.list(1,(2),3))')
+            self.stormIsInPrint("['1', 2, '3']", mesgs)
+
+            mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
+            self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
+            self.stormIsInPrint("'1'", mesgs)
+            self.stormIsInPrint("'2'", mesgs)
+            self.stormIsInPrint("'3'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib)')
+            self.stormIsInPrint("Library $lib", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
+            self.stormIsInPrint("storm:queue: testq", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
             errs = [m[1] for m in mesgs if m[0] == 'err']
@@ -613,6 +651,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="QuickBrownFox" return ( $foo.lower() )'
             self.eq('quickbrownfox', await core.callStorm(q))
 
+            q = '$foo="QuickBrownFox" return ( $foo.upper() )'
+            self.eq('QUICKBROWNFOX', await core.callStorm(q))
+
             q = '$foo="quickbrownfox" return ( $foo.slice(5) )'
             self.eq('brownfox', await core.callStorm(q))
 
@@ -644,6 +685,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
             self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
             self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
+
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(","))'))
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(","))'))
+            self.eq(('foo', 'bar,baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(",", maxsplit=1))'))
+            self.eq(('foo,bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(",", maxsplit=1))'))
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
@@ -828,6 +874,15 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(gotn[0][1]['type'], 'foo:bar')
             self.eq(gotn[0][1]['data']['baz'], 'faz')
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.callStorm('[inet:ipv4=1.2.3.4 +#foo=2021 +#foo:score=9001]')
+            q = 'inet:ipv4 $lib.fire(msg:pack, sode=$node.getStorNodes())'
+            gotn = [mesg async for mesg in core.storm(q) if mesg[0] == 'storm:fire']
+            self.len(1, gotn)
+            self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9)}})
+            self.eq(gotn[0][1]['type'], 'msg:pack')
 
     async def test_storm_node_repr(self):
         text = '''
@@ -1085,6 +1140,7 @@ class StormTypesTest(s_test.SynTest):
             q = '$lib.print($lib.user.name())'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('root', mesgs)
+            self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
@@ -1438,6 +1494,15 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.telepath.open($url)._newp()', opts=opts)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url))', opts=opts)
+            self.stormIsInPrint("storm:proxy: <synapse.telepath.Proxy object", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).doit)', opts=opts)
+            self.stormIsInPrint("storm:proxy:method: <synapse.telepath.Method", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.telepath.open($url).fqdns)', opts=opts)
+            self.stormIsInPrint("storm:proxy:genrmethod: <synapse.telepath.GenrMethod", mesgs)
 
     async def test_storm_lib_queue(self):
 
@@ -1912,7 +1977,11 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(mainlayr, mesgs)
 
             info = await core.callStorm('return ($lib.layer.get().pack())')
-            self.gt(info.get('totalsize'), 1)
+            size = info.get('totalsize')
+
+            self.gt(size, 1)
+            # Verify we're showing actual disk usage and not just apparent
+            self.lt(size, 1000000000)
 
             # Try to create an invalid layer
             mesgs = await core.stormlist('$lib.layer.add(ldef=$lib.dict(lockmemory=(42)))')
@@ -2020,8 +2089,29 @@ class StormTypesTest(s_test.SynTest):
                 layr = core.getLayer(locklayr)
                 self.true(layr.lockmemory)
 
+                q = '''
+                for ($buid, $sode) in $lib.layer.get().getStorNodes() {
+                    $lib.fire(layrdiff, sode=$sode)
+                }
+                '''
+                await core.addTagProp('risk', ('int', {}), ())
+                await core.nodes('[ it:dev:str=foo +#test:risk=50 ]')
+                gotn = [mesg[1] async for mesg in asvisi.storm(q) if mesg[0] == 'storm:fire']
+                fire = [mesg for mesg in gotn if mesg['data']['sode']['form'] == 'it:dev:str']
+                self.len(1, fire)
+                self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9)}})
+
+                q = '''
+                $lib.print($lib.layer.get().pack())
+                $lib.fire(layrfire, layr=$lib.layer.get().pack())
+                '''
+                gotn = [mesg[1] async for mesg in asvisi.storm(q)]
+                fire = [mesg for mesg in gotn if mesg.get('type') == 'layrfire']
+                self.len(1, fire)
+                self.nn(fire[0]['data'].get('layr', None))
+
             # formcounts for layers are exposed on the View object
-            nodes = await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
+            await core.nodes('[(test:guid=(test,) :size=1138) (test:int=8675309)]')
             counts = await core.callStorm('return( $lib.layer.get().getFormCounts() )')
             self.eq(counts.get('test:int'), 2)
             self.eq(counts.get('test:guid'), 1)
@@ -2162,6 +2252,18 @@ class StormTypesTest(s_test.SynTest):
             # Get the main view
             mesgs = await core.stormlist('view.get')
             self.stormIsInPrint(mainiden, mesgs)
+
+            await core.stormlist('$lib.view.get().set(name, "test view")')
+            await core.stormlist('$lib.view.get().set(desc, "test view desc")')
+
+            await core.stormlist('$lib.layer.get().set(name, "test layer")')
+            await core.stormlist('$lib.layer.get().set(desc, "test layer desc")')
+
+            self.eq(await core.callStorm('return( $lib.view.get().get(name))'), 'test view')
+            self.eq(await core.callStorm('return( $lib.view.get().get(desc))'), 'test view desc')
+
+            self.eq(await core.callStorm('return( $lib.layer.get().get(name))'), 'test layer')
+            self.eq(await core.callStorm('return( $lib.layer.get().get(desc))'), 'test layer desc')
 
             with self.raises(s_exc.BadOptValu):
                 await core.nodes('$lib.view.get().set(hehe, haha)')
@@ -2369,16 +2471,22 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('No triggers found', mesgs)
 
-            q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
+            q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]} --name trigger_test_str'
             mesgs = await core.stormlist(q)
 
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
+            nodes = await core.nodes('syn:trigger')
+            self.len(1, nodes)
+            self.eq('trigger_test_str', nodes[0].get('name'))
 
             await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
+            nodes = await core.nodes('syn:trigger:tag^=footag')
+            self.len(1, nodes)
+            self.eq('', nodes[0].get('name'))
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
@@ -3364,6 +3472,170 @@ class StormTypesTest(s_test.SynTest):
                 iden = 12345
                 await core.callStorm('$u=$lib.auth.users.add(bar, iden=$iden) return ( $u )',
                                      opts={'vars': {'iden': iden}})
+
+            # test out renaming a user
+            iden = await core.callStorm('return($lib.auth.users.add(new0).iden)')
+            await core.callStorm('$lib.auth.users.byname(new0).name = new1', opts={'user': iden})
+            self.none(await core.callStorm('return($lib.auth.users.byname(new0))'))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(new1))'))
+
+            await core.callStorm('$lib.auth.users.byname(new1).name = new2')
+            self.none(await core.callStorm('return($lib.auth.users.byname(new1))'))
+            self.nn(await core.callStorm('return($lib.auth.users.byname(new2))'))
+            await core.callStorm('$lib.auth.users.byname(new2).email = "visi@vertex.link"')
+            self.eq('visi@vertex.link', await core.callStorm('return($lib.auth.users.byname(new2).email)'))
+
+            # test renaming a role
+            await core.callStorm('$lib.auth.roles.add(new0)')
+            await core.callStorm('$lib.auth.roles.byname(new0).name = new1')
+            self.none(await core.callStorm('return($lib.auth.roles.byname(new0))'))
+            self.nn(await core.callStorm('return($lib.auth.roles.byname(new1))'))
+
+    async def test_stormtypes_auth_gateadmin(self):
+
+        async with self.getTestCore() as core:
+            uowner = await core.auth.addUser('uowner')
+            await uowner.addRule((True, ('node', 'add',)))
+            await uowner.addRule((True, ('layer', 'add',)))
+            await uowner.addRule((True, ('view', 'add',)))
+
+            await core.auth.addRole('ninjas')
+            ureader = await core.auth.addUser('ureader')
+            uwriter = await core.auth.addUser('uwriter')
+
+            viewiden = await core.callStorm('''
+                $layr = $lib.layer.add().iden
+                $view = $lib.view.add(($layr,))
+                return($view.iden)
+            ''', opts={'user': uowner.iden})
+
+            opts = {
+                'view': viewiden,
+                'user': uowner.iden,
+                'vars': {
+                    'ureader': ureader.iden,
+                    'uwriter': uwriter.iden,
+                },
+            }
+
+            self.len(1, await core.nodes('[ test:str=foo ]', opts=opts))
+
+            opts['user'] = ureader.iden
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('test:str', opts=opts))
+
+            opts['user'] = uwriter.iden
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('test:str', opts=opts))
+
+            # add a read user
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($ureader)
+
+                $rule = $lib.auth.ruleFromText(view.read)
+                $usr.addRule($rule, $viewiden)
+
+                $rule = $lib.auth.ruleFromText(layer.read)
+                $usr.addRule($rule, $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            viewgate, layrgate = await core.callStorm(scmd, opts=opts)
+            self.len(2, viewgate['users'])
+            self.len(2, layrgate['users'])
+
+            opts['user'] = ureader.iden
+            self.len(1, await core.nodes('test:str', opts=opts))
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('[ test:str=bar ]', opts=opts))
+
+            # add a user as admin
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($uwriter)
+
+                $usr.setAdmin($lib.true, $viewiden)
+                $usr.setAdmin($lib.true, $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            viewgate, layrgate = await core.callStorm(scmd, opts=opts)
+            self.len(3, viewgate['users'])
+            self.len(3, layrgate['users'])
+
+            opts['user'] = uwriter.iden
+            self.len(1, await core.nodes('[ test:str=bar ]', opts=opts))
+
+            # set rule
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($ureader)
+                $role = $lib.auth.roles.byname(ninjas)
+
+                $rule0 = $lib.auth.ruleFromText(view.read)
+                $rule1 = $lib.auth.ruleFromText(node.add)
+                $usr.setRules(($rule0, $rule1), $viewiden)
+                $role.setRules(($rule0, $rule1), $viewiden)
+
+                $rule0 = $lib.auth.ruleFromText(layr.read)
+                $rule1 = $lib.auth.ruleFromText(node.add)
+                $usr.setRules(($rule0, $rule1), $layriden)
+                $role.setRules(($rule0, $rule1), $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            await core.callStorm(scmd, opts=opts)
+
+            opts['user'] = ureader.iden
+            self.len(1, await core.nodes('[ test:str=bam ]', opts=opts))
+
+            # del rule
+            opts['user'] = uowner.iden
+            scmd = '''
+                $viewiden = $lib.view.get().iden
+                $layriden = $lib.layer.get().iden
+                $usr = $lib.auth.users.get($ureader)
+                $role = $lib.auth.roles.byname(ninjas)
+
+                $rule = $lib.auth.ruleFromText(node.add)
+                $usr.delRule($rule, $viewiden)
+                $role.delRule($rule, $viewiden)
+
+                $rule = $lib.auth.ruleFromText(node.add)
+                $usr.delRule($rule, $layriden)
+                $role.delRule($rule, $layriden)
+
+                return(($lib.auth.gates.get($viewiden), $lib.auth.gates.get($layriden)))
+            '''
+
+            opts['view'] = None
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(scmd, opts=opts))
+
+            opts['view'] = viewiden
+            await core.callStorm(scmd, opts=opts)
+
+            opts['user'] = ureader.iden
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('[ test:str=baz ]', opts=opts))
+            self.len(3, await core.nodes('test:str', opts=opts))
 
     async def test_stormtypes_node(self):
 

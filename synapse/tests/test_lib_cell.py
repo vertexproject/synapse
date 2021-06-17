@@ -19,13 +19,13 @@ import synapse.lib.version as s_version
 import synapse.tests.utils as s_t_utils
 
 # Defective versions of spawned backup processes
-def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
+def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
     time.sleep(3.0)
 
-def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
+def _sleeper2Proc(pipe, srcdir, dstdir, lmdbpaths, logconf):
     time.sleep(2.0)
 
-def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
+def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
     pipe.send('captured')
     sys.exit(1)
 
@@ -644,21 +644,27 @@ class CellTest(s_t_utils.SynTest):
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-                outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
-                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
-                    outp.expect('...cell API (https): 0')
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                    async with await s_cell.Cell.initFromArgv([dirn]):
+                        pass
+                stream.seek(0)
+                buf = stream.read()
+                self.isin('...cell API (telepath): tcp://127.0.0.1:0', buf)
+                self.isin('...cell API (https): 0', buf)
 
                 conf = {
-                    'dmon:listen': 'tcp://127.0.0.1:0',
+                    'dmon:listen': None,
                     'https:port': None,
                 }
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
 
-                outp = self.getTestOutp()
-                async with await s_cell.Cell.initFromArgv([dirn], outp=outp):
-                    outp.expect('...cell API (telepath): tcp://127.0.0.1:0')
-                    outp.expect('...cell API (https): disabled')
+                with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                    async with await s_cell.Cell.initFromArgv([dirn]):
+                        pass
+                stream.seek(0)
+                buf = stream.read()
+                self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
+                self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_backup(self):
 

@@ -1,14 +1,19 @@
 import json
 import uuid
 import asyncio
+import logging
 import datetime
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
+import stix2validator
+
+logger = logging.getLogger(__name__)
 
 def uuid5(valu=None):
     guid = s_common.guid(valu=valu)
@@ -17,6 +22,8 @@ def uuid5(valu=None):
 def uuid4(valu=None):
     guid = s_common.guid(valu=valu)
     return str(uuid.UUID(guid, version=4))
+
+SYN_STIX_EXTENSION_ID = f'extension-definition--{uuid4("bf1c0a4d90ee557ac05055385971f17c")}'
 
 _DefaultConfig = {
 
@@ -40,6 +47,7 @@ _DefaultConfig = {
                         ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
                         ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
                         ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
+                        ('targets', 'vulnerability', '-> risk:attack :used:vuln -> risk:vuln'),
                     ),
                 },
             },
@@ -78,7 +86,7 @@ _DefaultConfig = {
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        # ('targets', 'location', ''),
+                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -365,6 +373,24 @@ _DefaultConfig = {
             },
         },
 
+        'risk:vuln': {
+            'default': 'vulnerability',
+            'stix': {
+                'vulnerability': {
+                    'props': {
+                        'name': '{+:name return (:name)} return ($node.repr())',
+                        'description': 'if (:desc) { return (:desc) }',
+                        'created': 'return($lib.stix.export.timestamp(.created))',
+                        'modified': 'return($lib.stix.export.timestamp(.created))',
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list($lib.dict(source_name=cve, external_id=$cve)) return($list) }'
+                    },
+                    'rels': (
+
+                    ),
+                }
+            }
+        },
+
         'media:news': {
             'default': 'report',
             'stix': {
@@ -483,10 +509,121 @@ def _validateConfig(core, config):
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
                         raise s_exc.BadConfValu(mesg=mesg)
 
+def _validateStixProc(bundle, logconf):
+    '''
+    Multiprocessing target for stix validation
+    '''
+    # This logging call is okay to run since we're executing in
+    # our own process space and no logging has been configured.
+    s_common.setlogging(logger, **logconf)
+
+    resp = validateStix(bundle)
+    return resp
+
+def validateStix(bundle, version='2.1'):
+    ret = {
+        'ok': False,
+        'mesg': '',
+        'result': {},
+    }
+    bundle = json.loads(json.dumps(bundle))
+    opts = stix2validator.ValidationOptions(strict=True, version=version)
+    try:
+        results = stix2validator.validate_parsed_json(bundle, options=opts)
+    except stix2validator.ValidationError as e:
+        logger.exception('Error validating STIX bundle.')
+        ret['mesg'] = f'Error validating bundle: {e}'
+    else:
+        ret['result'] = results.as_dict()
+        ret['ok'] = bool(results.is_valid)
+    return ret
+
 @s_stormtypes.registry.registerLib
 class LibStix(s_stormtypes.Lib):
     '''
-    A Storm Library for exporting to STIX version 2.1
+    A Storm Library for interacting with Stix Version 2.1 CS02.
+    '''
+    _storm_locals = (  # type: ignore
+        {
+            'name': 'validate', 'desc': '''
+            Validate a STIX Bundle.
+
+            Notes:
+                This returns a dictionary containing the following values::
+
+                    {
+                        'ok': <boolean> - False if bundle is invalid, True otherwise.
+                        'mesg': <str> - An error message if there was an error when validating the bundle.
+                        'results': The results of validating the bundle.
+                    }
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'validateBundle',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to validate.'},
+                ),
+                'returns': {'type': 'dict', 'desc': 'Results dictionary.'}
+            }
+        },
+        {
+        'name': 'lift', 'desc': '''
+        Lift nodes from a STIX Bundle made by Synapse.
+
+        Notes:
+            This lifts nodes using the Node definitions embedded into the bundle when created by Synapse using
+            custom extension properties.
+
+        Examples:
+            Lifting nodes from a STIX bundle::
+
+                yield $lib.stix($bundle)
+        ''',
+            'type': {
+                'type': 'function', '_funcname': 'liftBundle',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to lift nodes from.'},
+                ),
+                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+            }
+        },
+    )
+    _storm_lib_path = ('stix', )
+
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name)
+
+    def getObjLocals(self):
+        return {
+            'lift': self.liftBundle,
+            'validate': self.validateBundle,
+        }
+
+    async def validateBundle(self, bundle):
+        bundle = await s_stormtypes.toprim(bundle)
+        logconf = await self.runt.snap.core._getSpawnLogConf()
+        resp = await s_coro.spawn(s_common.todo(_validateStixProc, bundle, logconf=logconf))
+        return resp
+
+    async def liftBundle(self, bundle):
+        bundle = await s_stormtypes.toprim(bundle)
+        for obj in bundle.get('objects', ()):
+            exts = obj.get('extensions')
+            if not exts:
+                continue
+            synx = exts.get(SYN_STIX_EXTENSION_ID)
+            if not synx:  # pragma: no cover
+                continue
+            ndef = synx.get('synapse_ndef')
+            if not ndef:  # pragma: no cover
+                continue
+            node = await self.runt.snap.getNodeByNdef(ndef)
+            if node:
+                yield node
+
+@s_stormtypes.registry.registerLib
+class LibStixExport(s_stormtypes.Lib):
+    '''
+    A Storm Library for exporting to STIX version 2.1 CS02.
     '''
     _storm_locals = (  # type: ignore
         {
@@ -726,7 +863,7 @@ class StixBundle(s_stormtypes.Prim):
 
         formconf = self.config['forms'].get(node.form.name)
         if formconf is None:
-            await self.runt.warnonce('STIX bundle has no config for mapping {node.form.name}.')
+            await self.runt.warnonce(f'STIX bundle has no config for mapping {node.form.name}.')
             return None
 
         if stixtype is None:
@@ -768,10 +905,18 @@ class StixBundle(s_stormtypes.Prim):
         return stixid
 
     def _initStixItem(self, stixid, stixtype, node):
+        ndef = json.loads(json.dumps(node.ndef))
         retn = {
             'id': stixid,
             'type': stixtype,
             'spec_version': '2.1',
+            'extensions': {
+                SYN_STIX_EXTENSION_ID: {
+                    "extension_type": "property-extension",
+                    'synapse_ndef': ndef
+                }
+            }
+
         }
         return retn
 
@@ -794,11 +939,30 @@ class StixBundle(s_stormtypes.Prim):
         self.objs[stixid] = obj
         return stixid
 
+    def _getSynapseExtensionDefinition(self):
+        ret = {
+            'id': SYN_STIX_EXTENSION_ID,
+            'type': 'extension-definition',
+            'spec_version': '2.1',
+            'name': 'Vertex Project Synapse',
+            'description': 'Synapse specific STIX 2.1 extensions.',
+            'created': '2021-04-29T13:40:00.000Z',
+            'modified': '2021-04-29T13:40:00.000Z',
+            'schema': 'The Synapse Extensions for Stix 2.1',
+            'version': '1.0',
+            'extension_types': [
+                'property-extension',
+            ],
+        }
+        return ret
+
     def pack(self):
+        objects = list(self.objs.values())
+        objects.insert(0, self._getSynapseExtensionDefinition())
         bundle = {
             'type': 'bundle',
             'id': f'bundle--{uuid4()}',
-            'objects': list(self.objs.values())
+            'objects': objects
         }
         return bundle
 

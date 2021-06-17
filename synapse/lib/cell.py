@@ -132,7 +132,7 @@ def _iterBackupProc(path, linkinfo, done):
     '''
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
-    s_common.setlogging(logger, linkinfo.get('loglevel'))
+    s_common.setlogging(logger, **linkinfo.get('logconf'))
 
     asyncio.run(_iterBackupWork(path, linkinfo, done))
 
@@ -708,6 +708,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 }
             },
             'required': ('urlinfo', ),
+        },
+        '_log_conf': {
+            'description': 'Opaque structure used for logging by spawned processes.',
+            'type': 'object',
+            'hideconf': True
         }
     }
 
@@ -1236,7 +1241,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
-        loglevel = logger.getEffectiveLevel()
+        logconf = await self._getSpawnLogConf()
         proc = None
 
         try:
@@ -1252,7 +1257,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 logger.debug('Starting backup process')
 
-                args = (child_pipe, self.dirn, dirn, paths, loglevel)
+                args = (child_pipe, self.dirn, dirn, paths, logconf)
 
                 def waitforproc1():
                     nonlocal proc
@@ -1286,12 +1291,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 proc.terminate()
 
     @staticmethod
-    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, loglevel):
+    def _backupProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
         '''
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        s_common.setlogging(logger, loglevel)
+        s_common.setlogging(logger, **logconf)
 
         with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
             pipe.send('captured')
@@ -1349,7 +1354,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         link = s_scope.get('link')
         linkinfo = await link.getSpawnInfo()
-        linkinfo['loglevel'] = logger.getEffectiveLevel()
+        linkinfo['logconf'] = await self._getSpawnLogConf()
 
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
@@ -1407,7 +1412,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.runBackup(name)
             link = s_scope.get('link')
             linkinfo = await link.getSpawnInfo()
-            linkinfo['loglevel'] = logger.getEffectiveLevel()
+            linkinfo['logconf'] = await self._getSpawnLogConf()
 
             await self.boss.promote('backup:stream', user=user, info={'name': name})
 
@@ -1503,6 +1508,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
 
+    async def setRoleName(self, iden, name):
+        role = await self.auth.reqRole(iden)
+        await role.setName(name)
+
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
@@ -1541,6 +1550,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
+
+    async def setUserName(self, useriden, name):
+        user = await self.auth.reqUser(useriden)
+        await user.setName(name)
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
@@ -1862,6 +1875,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getCellApi(self, link, user, path):
         return await self.cellapi.anit(self, link, user)
 
+    async def getLogExtra(self, **kwargs):
+        '''
+        Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
+
+        Args:
+            **kwargs: Additional key/value items to add to the log.
+
+        Returns:
+            Dict: A dictionary
+        '''
+        extra = {**kwargs}
+        sess = s_scope.get('sess')
+        if sess and sess.user:
+            extra['user'] = sess.user.iden
+            extra['username'] = sess.user.name
+        return {'synapse': extra}
+
+    async def _getSpawnLogConf(self):
+        conf = self.conf.get('_log_conf')
+        if conf:
+            return conf
+        return s_common._getLogConfFromEnv()
+
     @classmethod
     def getCellType(cls):
         return cls.__name__.lower()
@@ -1914,6 +1950,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
                           help='Specify the Python logging log level.', type=str.upper)
+        pars.add_argument('--structured-logging', default=False, action='store_true',
+                          help='Use structured logging.')
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -1952,7 +1990,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Args:
             argv (list): A list of command line arguments to launch the Cell with.
-            outp (s_ouput.OutPut): Optional, an output object.
+            outp (s_ouput.OutPut): Optional, an output object. No longer used in the default implementation.
 
         Notes:
             This does the following items:
@@ -1974,8 +2012,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = pars.parse_args(argv)
 
-        s_common.setlogging(logger, defval=opts.log_level)
-
+        logconf = s_common.setlogging(logger, defval=opts.log_level,
+                                      structlog=opts.structured_logging)
+        conf.setdefault('_log_conf', logconf)
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
 
@@ -1985,33 +2024,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             if 'dmon:listen' not in cell.conf:
                 await cell.dmon.listen(opts.telepath)
-                if outp is not None:
-                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (opts.telepath,))
+                logger.info(f'...{cell.getCellType()} API (telepath): {opts.telepath}')
             else:
+                lisn = cell.conf.get('dmon:listen')
+                if lisn is None:
+                    lisn = cell.getLocalUrl()
 
-                if outp is not None:
-                    lisn = cell.conf.get('dmon:listen')
-                    if lisn is None:
-                        lisn = cell.getLocalUrl()
-
-                    outp.printf(f'...{cell.getCellType()} API (telepath): %s' % (lisn,))
+                logger.info(f'...{cell.getCellType()} API (telepath): {lisn}')
 
             if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)
-                if outp is not None:
-                    outp.printf(f'...{cell.getCellType()} API (https): %s' % (opts.https,))
+                logger.info(f'...{cell.getCellType()} API (https): {opts.https}')
             else:
-                if outp is not None:
-                    port = cell.conf.get('https:port')
-                    if port is None:
-                        outp.printf(f'...{cell.getCellType()} API (https): disabled')
-                    else:
-                        outp.printf(f'...{cell.getCellType()} API (https): %s' % (port,))
+                port = cell.conf.get('https:port')
+                if port is None:
+                    logger.info(f'...{cell.getCellType()} API (https): disabled')
+                else:
+                    logger.info(f'...{cell.getCellType()} API (https): {port}')
 
             if opts.name is not None:
                 cell.dmon.share(opts.name, cell)
-                if outp is not None:
-                    outp.printf(f'...{cell.getCellType()} API (telepath name): %s' % (opts.name,))
+                logger.info(f'...{cell.getCellType()} API (telepath name): {opts.name}')
 
         except (asyncio.CancelledError, Exception):
             await cell.fini()
@@ -2026,7 +2059,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Args:
             argv (list): A list of command line arguments to launch the Cell with.
-            outp (s_ouput.OutPut): Optional, an output object.
+            outp (s_ouput.OutPut): Optional, an output object. No longer used in the default implementation.
 
         Notes:
             This coroutine waits until the Cell is fini'd or a SIGINT/SIGTERM signal is sent to the process.

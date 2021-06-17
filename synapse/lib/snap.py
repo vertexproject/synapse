@@ -42,6 +42,9 @@ class Scrubber:
         if self.hasinctags and pode[1].get('tags'):
             pode[1]['tags'] = {k: v for (k, v) in pode[1]['tags'].items() if self._isTagInc(k)}
 
+            if pode[1].get('tagprops'):
+                pode[1]['tagprops'] = {k: v for (k, v) in pode[1]['tagprops'].items() if self._isTagInc(k)}
+
         return pode
 
     @s_cache.memoizemethod()
@@ -133,14 +136,13 @@ class Snap(s_base.Base):
 
         return meta
 
-    @contextlib.contextmanager
-    def getStormRuntime(self, query, opts=None, user=None):
+    @contextlib.asynccontextmanager
+    async def getStormRuntime(self, query, opts=None, user=None):
         if user is None:
             user = self.user
 
-        runt = s_storm.Runtime(query, self, opts=opts, user=user)
-
-        yield runt
+        async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
+            yield runt
 
     async def iterStormPodes(self, text, opts=None, user=None):
         '''
@@ -187,7 +189,7 @@ class Snap(s_base.Base):
         mode = opts.get('mode', 'storm')
 
         query = self.core.getStormQuery(text, mode=mode)
-        with self.getStormRuntime(query, opts=opts, user=user) as runt:
+        async with self.getStormRuntime(query, opts=opts, user=user) as runt:
             async for x in runt.execute():
                 yield x
 
@@ -206,7 +208,7 @@ class Snap(s_base.Base):
 
         # maintained for backward compatibility
         query = self.core.getStormQuery(text, mode=mode)
-        with self.getStormRuntime(query, opts=opts, user=user) as runt:
+        async with self.getStormRuntime(query, opts=opts, user=user) as runt:
             async for node, path in runt.execute():
                 yield node
 
@@ -349,9 +351,12 @@ class Snap(s_base.Base):
 
             stortagprops = sode.get('tagprops')
             if stortagprops is not None:
-                for tagprop, (valu, stype) in stortagprops.items():
-                    tagprops[tagprop] = valu
-                    bylayer['tagprops'][tagprop] = layr
+                for tag, propdict in stortagprops.items():
+                    for tagprop, (valu, stype) in propdict.items():
+                        if tag not in tagprops:
+                            tagprops[tag] = {}
+                        tagprops[tag][tagprop] = valu
+                        bylayer['tagprops'][tagprop] = layr
 
             stordata = sode.get('nodedata')
             if stordata is not None:
@@ -756,13 +761,18 @@ class Snap(s_base.Base):
 
                 if etyp == s_layer.EDIT_TAGPROP_SET:
                     (tag, prop, valu, oldv, stype) = parms
-                    node.tagprops[(tag, prop)] = valu
+                    if tag not in node.tagprops:
+                        node.tagprops[tag] = {}
+                    node.tagprops[tag][prop] = valu
                     node.bylayer['tags'][(tag, prop)] = wlyr.iden
                     continue
 
                 if etyp == s_layer.EDIT_TAGPROP_DEL:
                     (tag, prop, oldv, stype) = parms
-                    node.tagprops.pop((tag, prop), None)
+                    if tag in node.tagprops:
+                        node.tagprops[tag].pop(prop, None)
+                        if not node.tagprops[tag]:
+                            node.tagprops.pop(tag, None)
                     node.bylayer['tags'].pop((tag, prop), None)
                     continue
 

@@ -298,6 +298,21 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('vertex', nodes[0].get('name'))
             self.eq('the vertex project domain', nodes[0].get('desc'))
 
+            nodes = await core.nodes('''[
+                it:log:event=*
+                    :mesg=foobar
+                    :data=(foo, bar, baz)
+                    :severity=debug
+
+                    :host={it:host | limit 1}
+            ]''')
+            self.len(1, nodes)
+            self.eq(10, nodes[0].get('severity'))
+            self.eq('foobar', nodes[0].get('mesg'))
+            self.eq(('foo', 'bar', 'baz'), nodes[0].get('data'))
+            # check that the host activity model was inherited
+            self.nn(nodes[0].get('host'))
+
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
         async with self.getTestCore() as core:
@@ -638,6 +653,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path'), norm_path)
                 self.eq(node.get('src:exe'), src_path)
                 self.eq(node.get('src:proc'), src_proc)
+
+                nodes = await core.nodes('it:cmd')
+                self.len(1, nodes)
+                self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
 
                 m0 = s_common.guid()
                 mprops = {

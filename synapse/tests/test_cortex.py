@@ -709,6 +709,19 @@ class CortexTest(s_t_utils.SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
+            # Can norm a list of of tag parts into a tag string and use it
+            nodes = await wcore.nodes("$foo=('foo', 'bar.baz') $foo=$lib.cast('syn:tag', $foo) [test:int=0 +#$foo]")
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.bar_baz'})
+
+            nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.___v___'})
+
+            # Cannot norm a list of tag parts directly when making tags on a node
+            with self.raises(AttributeError):
+                await wcore.nodes("$foo=(('foo', 'bar.baz'),) [test:int=2 +#$foo]")
+
     async def test_base_types1(self):
 
         async with self.getTestCore() as core:
@@ -1239,6 +1252,102 @@ class CortexTest(s_t_utils.SynTest):
             q = '#test.bar +test:pivcomp -+> *'
             nodes = await getPackNodes(core, q)
             self.len(3, nodes)
+
+            # tag a tag
+            q = '[syn:tag=biz.meta +#super.foo +#super.baz +#second.tag]'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+
+            # join syn:tag to tags
+            q = 'syn:tag -+> #'
+            base = await getPackNodes(core, 'syn:tag')
+            nodes = await getPackNodes(core, q)
+            self.len(9, base)
+            self.len(12, nodes)
+
+            q = 'syn:tag:base=meta -+> #'
+            nodes = await getPackNodes(core, q)
+            self.len(4, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second.tag'))
+            self.eq(nodes[2][0], ('syn:tag', 'super.baz'))
+            self.eq(nodes[3][0], ('syn:tag', 'super.foo'))
+
+            q = 'syn:tag:base=meta -+> #*'
+            nodes = await getPackNodes(core, q)
+            self.len(6, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second'))
+            self.eq(nodes[2][0], ('syn:tag', 'second.tag'))
+            self.eq(nodes[3][0], ('syn:tag', 'super'))
+            self.eq(nodes[4][0], ('syn:tag', 'super.baz'))
+            self.eq(nodes[5][0], ('syn:tag', 'super.foo'))
+
+            q = 'syn:tag:base=meta -+> #test'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+
+            q = 'syn:tag:base=meta -+> #second'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second'))
+
+            q = 'syn:tag:base=meta -+> #second.tag'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'second.tag'))
+
+            q = 'syn:tag:base=meta -+> #super.*'
+            nodes = await getPackNodes(core, q)
+            self.len(3, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'super.baz'))
+            self.eq(nodes[2][0], ('syn:tag', 'super.foo'))
+
+            q = 'syn:tag:base=meta -+> #super.baz'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'super.baz'))
+
+            # tag a node
+            q = '[test:str=tagyourtags +#biz.meta]'
+            nodes = await getPackNodes(core, q)
+            self.len(1, nodes)
+            self.eq(nodes[0][0], ('test:str', 'tagyourtags'))
+
+            q = 'test:str -+> #'
+            nodes = await getPackNodes(core, q)
+            self.len(7, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[1][0], ('syn:tag', 'test.bar'))
+            self.eq(nodes[2][0], ('test:str', 'bar'))
+            self.eq(nodes[3][0], ('test:str', 'foo'))
+            self.eq(nodes[4][0], ('test:str', 'foobar'))
+            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[6][0], ('test:str', 'yyy'))
+
+            q = 'test:str -+> #*'
+            nodes = await getPackNodes(core, q)
+            self.len(9, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'biz'))
+            self.eq(nodes[1][0], ('syn:tag', 'biz.meta'))
+            self.eq(nodes[2][0], ('syn:tag', 'test'))
+            self.eq(nodes[3][0], ('syn:tag', 'test.bar'))
+            self.eq(nodes[4][0], ('test:str', 'bar'))
+            self.eq(nodes[5][0], ('test:str', 'foo'))
+            self.eq(nodes[6][0], ('test:str', 'foobar'))
+            self.eq(nodes[7][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[8][0], ('test:str', 'yyy'))
+
+            q = 'test:str=bar -+> #'
+            nodes = await getPackNodes(core, q)
+            self.len(2, nodes)
+            self.eq(nodes[0][0], ('syn:tag', 'test.bar'))
+            self.eq(nodes[1][0], ('test:str', 'bar'))
 
             # tag conditional filters followed by * pivot operators
             # These are all going to yield zero nodes but should
@@ -2170,7 +2279,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         # Remote storm test paths
         async with self.getTestCoreAndProxy() as (realcore, core):
             # Storm logging
-            with self.getAsyncLoggerStream('synapse.cortex', 'Executing storm query {help ask} as [root]') \
+            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help ask} as [root]') \
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
@@ -3157,7 +3266,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
             nodes = await core1.nodes('test:int=1 +#noprop.two', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
+            self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             # Test a bulk add
             tags = {'tags': {'test': (2020, 2022)}}
@@ -3175,7 +3284,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core1.nodes('test:int=1 +#newtag', opts={'view': view2_iden})
             self.len(1, nodes)
             self.eq(2, nodes[0].props.get('int2'))
-            self.eq(1, nodes[0].tagprops.get(('noprop', 'test')))
+            self.eq(1, nodes[0].getTagProp('noprop', 'test'))
 
             data = [(('test:int', 1), {'tags': {'test': (2020, 2022)}})]
             await core1.addFeedData('syn.nodes', data, viewiden=view2_iden)
@@ -4062,6 +4171,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = 'trigger.add node:add --form inet:fqdn --query {$lib.queue.get(hehe).put($node.repr())}'
                 msgs = await core00.stormlist(q)
 
+                ddef = await core00.callStorm('return($lib.dmon.add(${$lib.time.sleep(10)}, name=hehedmon))')
+                await core00.callStorm('return($lib.dmon.del($iden))', opts={'vars': {'iden': ddef.get('iden')}})
+
                 url = core00.getLocalUrl()
 
                 core01conf = {'nexslog:en': False, 'mirror': url}
@@ -4089,6 +4201,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     msgs = await core01.stormlist('queue.list')
                     self.stormIsInPrint('visi', msgs)
 
+                    opts = {'vars': {'iden': ddef.get('iden')}}
+                    ddef1 = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
+                    self.none(ddef1)
+
                     # Validate that mirrors can still write
                     await core01.nodes('queue.add visi2')
                     msgs = await core01.stormlist('queue.list')
@@ -4111,6 +4227,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     q = 'for ($offs, $fqdn) in $lib.queue.get(hehe).gets(wait=0) { inet:fqdn=$fqdn }'
                     self.len(5, await core01.nodes(q))
                     self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                    opts = {'vars': {'iden': ddef.get('iden')}}
+                    ddef = await core01.callStorm('return($lib.dmon.get($iden))', opts=opts)
+                    self.none(ddef)
 
             # now lets start up in the opposite order...
             async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
@@ -5188,9 +5308,13 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             altview = await core.callStorm('$layr = $lib.layer.add() return($lib.view.add(layers=($layr.iden,)).iden)')
 
-            await core.nodes('[ inet:email=visi@vertex.link +#visi.woot +#foo.bar ]')
+            await core.addTagProp('user', ('str', {}), {'doc': 'real nice tagprop ya got there'})
+            await core.addTagProp('rank', ('int', {}), {'doc': 'be a shame if'})
+            await core.addTagProp('file', ('file:path', {}), {'doc': 'something happened to it'})
+
+            await core.nodes('[ inet:email=visi@vertex.link +#visi.woot:rank=43 +#foo.bar:user=vertex ]')
             await core.nodes('[ inet:fqdn=hehe.com ]')
-            await core.nodes('[ media:news=* :title="Vertex Project Winning" +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
+            await core.nodes('[ media:news=* :title="Vertex Project Winning" +#visi:file="/foo/bar/baz" +#visi.woot:rank=1 +(refs)> { inet:email=visi@vertex.link inet:fqdn=hehe.com } ]')
 
             async with core.getLocalProxy() as proxy:
 
@@ -5205,6 +5329,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(email[1]['tags']['visi.woot'])
                 self.none(email[1]['tags'].get('foo'))
                 self.none(email[1]['tags'].get('foo.bar'))
+                self.len(1, email[1]['tagprops'])
+                self.eq(email[1]['tagprops'], {'visi.woot': {'rank': 43}})
+                self.len(2, news[1]['tagprops'])
+                self.eq(news[1]['tagprops'], {'visi': {'file': '/foo/bar/baz'}, 'visi.woot': {'rank': 1}})
                 self.len(1, news[1]['edges'])
                 self.eq(news[1]['edges'][0], ('refs', '2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899'))
 

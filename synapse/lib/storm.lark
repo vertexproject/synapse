@@ -98,8 +98,9 @@ varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
 opervarlist: varlist _WS? "=" _WS? _valu
 
 // Pivots
-_formpivot: formpivot_pivottotags | formpivot_pivotout | formpivot_
+_formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | formpivot_
 formpivot_pivottotags: _RIGHTPIVOT _WS? (ALLTAGS | _tagmatch)
+formpivot_jointags: _RIGHTJOIN _WS? (ALLTAGS | _tagmatch)
 // The special symbol that indicates to pivot to syn:tag nodes
 ALLTAGS: "#"
 

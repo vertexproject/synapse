@@ -519,6 +519,13 @@ class StormSvcTest(s_test.SynTest):
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
 
+                    prim = core.getStormSvc('prim')
+                    refs = prim._syn_refs
+                    await core.nodes('function subr(svc) {} $subr($lib.service.get(prim))')
+                    await core.nodes('function subr(svc) { $other=$svc } $subr($lib.service.get(prim))')
+                    await core.nodes('function subr(svc) { $other=$svc } $t=$subr($lib.service.get(prim))')
+                    self.eq(refs, prim._syn_refs)
+
                     nodes = await core.nodes('[ ps:name=$lib.service.get(prim).lower() ]')
                     self.len(1, nodes)
                     self.eq(nodes[0].ndef[1], 'asdf')
@@ -567,15 +574,15 @@ class StormSvcTest(s_test.SynTest):
                     # storm service permissions should use svcidens
                     await user.addRule((True, ('service', 'get', iden)))
                     msgs = await core.stormlist('$svc=$lib.service.get(fake) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.stormIsInPrint('storm:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get({iden}) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.stormIsInPrint('storm:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     msgs = await core.stormlist(f'$svc=$lib.service.get(real) $lib.print($svc)', {'user': user.iden})
-                    self.stormIsInPrint('StormSvcClient', msgs)
+                    self.stormIsInPrint('storm:proxy', msgs)
                     self.len(0, [m for m in msgs if m[0] == 'warn'])
 
                     q = '$hasfoo=$lib.service.has($svc) if $hasfoo {$lib.print(yes)} else {$lib.print(no)}'

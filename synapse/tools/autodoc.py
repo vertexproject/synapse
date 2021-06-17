@@ -18,8 +18,9 @@ import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
-
 import synapse.lib.stormtypes as s_stormtypes
+
+import synapse.tools.genpkg as s_genpkg
 
 logger = logging.getLogger(__name__)
 
@@ -357,6 +358,78 @@ def processUnivs(rst, dochelp, univs):
             for k, v in uopt.items():
                 rst.addLines('  ' + f'* {k}: ``{v}``')
 
+async def processStormCmds(rst, pkgname, commands):
+    '''
+
+    Args:
+        rst (RstHelp):
+        pkgname (str):
+        commands (list):
+
+    Returns:
+        None
+    '''
+    rst.addHead('Storm Commands', lvl=2)
+
+    rst.addLines(f'This package implements the following Storm Commands.\n')
+
+    for cdef in commands:
+
+        cname = cdef.get('name')
+        cdesc = cdef.get('descr')
+        cargs = cdef.get('cmdargs')
+
+        # command names cannot have colons in them thankfully
+        cref = f'.. _stormcmd-{pkgname.replace(":", "-")}-{cname.replace(".", "-")}:'
+        rst.addHead(cname, lvl=3, link=cref)
+
+        # Form the description
+        lines = ['::\n']
+
+        # Generate help from args
+        pars = s_storm.Parser(prog=cname, descr=cdesc)
+        if cargs:
+            for (argname, arginfo) in cargs:
+                pars.add_argument(argname, **arginfo)
+        pars.help()
+
+        for line in pars.mesgs:
+            if '\n' in line:
+                for subl in line.split('\n'):
+                    lines.append(f'    {subl}')
+            else:
+                lines.append(f'    {line}')
+
+        lines.append('\n')
+
+        forms = cdef.get('forms', {})
+        iforms = forms.get('input')
+        oforms = forms.get('output')
+        nodedata = forms.get('nodedata')
+
+        if iforms:
+            line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
+            lines.append(line)
+            for form in iforms:
+                lines.append(f'- ``{form}``')
+            lines.append('\n')
+
+        if oforms:
+            line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
+            lines.append(line)
+            for form in oforms:
+                lines.append(f'- ``{form}``')
+            lines.append('\n')
+
+        if nodedata:
+            line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
+            lines.append(line)
+            for key, form in nodedata:
+                lines.append(f'- ``{key}`` on ``{form}``')
+            lines.append('\n')
+
+        rst.addLines(*lines)
+
 async def docModel(outp,
                    core):
     coreinfo = await core.getCoreInfo()
@@ -440,6 +513,9 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
     schema = conf.json_schema.get('properties', {})
 
     for name, conf in sorted(schema.items(), key=lambda x: x[0]):
+
+        if conf.get('hideconf'):
+            continue
 
         nodesc = f'No description available for ``{name}``.'
         hname = name
@@ -555,70 +631,39 @@ async def docStormsvc(ctor):
         rst.addLines(f'This documentation for {pname} is generated for version {s_version.fmtVersion(*pver)}')
 
         if commands:
-            rst.addHead('Storm Commands', lvl=2)
-
-            rst.addLines(f'This package implements the following Storm Commands.\n')
-
-            for cdef in commands:
-
-                cname = cdef.get('name')
-                cdesc = cdef.get('descr')
-                cargs = cdef.get('cmdargs')
-
-                # command names cannot have colons in them thankfully
-                cref = f'.. _stormcmd-{pname.replace(":", "-")}-{cname.replace(".", "-")}:'
-                rst.addHead(cname, lvl=3, link=cref)
-
-                # Form the description
-                lines = ['::\n']
-
-                # Generate help from args
-                pars = s_storm.Parser(prog=cname, descr=cdesc)
-                if cargs:
-                    for (argname, arginfo) in cargs:
-                        pars.add_argument(argname, **arginfo)
-                pars.help()
-
-                for line in pars.mesgs:
-                    if '\n' in line:
-                        for subl in line.split('\n'):
-                            lines.append(f'    {subl}')
-                    else:
-                        lines.append(f'    {line}')
-
-                lines.append('\n')
-
-                forms = cdef.get('forms', {})
-                iforms = forms.get('input')
-                oforms = forms.get('output')
-                nodedata = forms.get('nodedata')
-
-                if iforms:
-                    line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
-                    lines.append(line)
-                    for form in iforms:
-                        lines.append(f'- ``{form}``')
-                    lines.append('\n')
-
-                if oforms:
-                    line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
-                    lines.append(line)
-                    for form in oforms:
-                        lines.append(f'- ``{form}``')
-                    lines.append('\n')
-
-                if nodedata:
-                    line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
-                    lines.append(line)
-                    for key, form in nodedata:
-                        lines.append(f'- ``{key}`` on ``{form}``')
-                    lines.append('\n')
-
-                rst.addLines(*lines)
+            await processStormCmds(rst, pname, commands)
 
         # TODO: Modules are not currently documented.
 
     return rst, clsname
+
+async def docStormpkg(pkgpath):
+    pkgdef = s_genpkg.loadPkgProto(pkgpath)
+    pkgname = pkgdef.get('name')
+
+    rst = s_autodoc.RstHelp()
+
+    # Disable default python highlighting
+    rst.addLines('.. highlight:: none\n')
+
+    hname = pkgname
+    if ':' in pkgname:
+        hname = pkgname.replace(':', raw_back_slash_colon)
+
+    rst.addHead(f'Storm Package\\: {hname}')
+    lines = ['The following Commands are available from this package.',
+             f'This documentation is generated for version '
+             f'{s_version.fmtVersion(*pkgdef.get("version"))} of the package.',
+             ]
+    rst.addLines(*lines)
+
+    commands = pkgdef.get('commands')
+    if commands:
+        await processStormCmds(rst, pkgname, commands)
+
+    # TODO: Modules are not currently documented.
+
+    return rst, pkgname
 
 async def docStormTypes():
     registry = s_stormtypes.registry
@@ -692,6 +737,13 @@ async def main(argv, outp=None):
             with open(s_common.genpath(opts.savedir, f'stormsvc_{svcname.lower()}.rst'), 'wb') as fd:
                 fd.write(confdocs.getRstText().encode())
 
+    if opts.doc_stormpkg:
+        pkgdocs, pkgname = await docStormpkg(opts.doc_stormpkg)
+
+        if opts.savedir:
+            with open(s_common.genpath(opts.savedir, f'stormpkg_{pkgname.lower()}.rst'), 'wb') as fd:
+                fd.write(pkgdocs.getRstText().encode())
+
     if opts.doc_stormtypes:
         libdocs, typedocs = await docStormTypes()
         if opts.savedir:
@@ -720,6 +772,9 @@ def makeargparser():
 
     doc_type.add_argument('--doc-storm', default=None,
                           help='Generate RST docs for a stormssvc implemented by a given Cell')
+
+    doc_type.add_argument('--doc-stormpkg', default=None,
+                          help='Generate RST docs for the specified Storm package YAML file.')
 
     doc_type.add_argument('--doc-stormtypes', default=None, action='store_true',
                           help='Generate RST docs for StormTypes')

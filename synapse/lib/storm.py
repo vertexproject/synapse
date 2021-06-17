@@ -172,9 +172,22 @@ _reqValidPkgdef = s_config.getJsValidator({
             'type': ['array', 'null'],
             'items': {'$ref': '#/definitions/module'}
         },
+        'docs': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/doc'},
+        },
+        'logo': {
+            'type': 'object',
+            'properties': {
+                'mime': {'type': 'string'},
+                'file': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['mime', 'file'],
+        },
         'commands': {
             'type': ['array', 'null'],
-            'items': {'$ref': '#/definitions/command'}
+            'items': {'$ref': '#/definitions/command'},
         },
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
@@ -183,6 +196,15 @@ _reqValidPkgdef = s_config.getJsValidator({
     'additionalProperties': True,
     'required': ['name', 'version'],
     'definitions': {
+        'doc': {
+            'type': 'object',
+            'properties': {
+                'title': {'type': 'string'},
+                'content': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['title', 'content'],
+        },
         'module': {
             'type': 'object',
             'properties': {
@@ -204,7 +226,8 @@ _reqValidPkgdef = s_config.getJsValidator({
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdarg'},
                 },
-                'storm': {'type': 'string'}
+                'storm': {'type': 'string'},
+                'forms': {'$ref': '#/definitions/cmdformhints'},
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -224,6 +247,37 @@ _reqValidPkgdef = s_config.getJsValidator({
                     },
                 }
             ]
+        },
+        'cmdformhints': {
+            'type': 'object',
+            'properties': {
+                'input': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                    }
+                },
+                'output': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                    }
+                },
+                'nodedata': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'array',
+                        'items': [
+                            {'type': 'string'},
+                            {'type': 'string'},
+                        ],
+                        'additionalItems': False,
+                    },
+                },
+            }
         }
     }
 })
@@ -711,6 +765,7 @@ stormcmds = (
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
         ),
         'storm': '''
             $trig = $lib.trigger.add($cmdopts)
@@ -1052,10 +1107,24 @@ stormcmds = (
             ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
             ('--timeout', {'default': 300, 'type': 'int', 'help': 'Configure the timeout for the download operation.'}),
+            ('--params', {'default': None, 'help': 'Provide a dict containing url parameters.'}),
+            ('--headers', {
+                'default': {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
+                'help': 'Provide a dict containing custom request headers.'}),
+            ('--no-headers', {'default': False, 'action': 'store_true', 'help': 'Do NOT use any default headers.'}),
         ),
         'storm': '''
         init {
             $count = (0)
+
+            $params = $cmdopts.params
+            $headers = $cmdopts.headers
+            if $cmdopts.no_headers { $headers = $lib.null }
         }
 
         $ssl = (not $cmdopts.no_ssl_verify)
@@ -1073,15 +1142,62 @@ stormcmds = (
                 $urls = ($node.value(),)
             }
             for $url in $urls {
-                -> { yield $lib.axon.urlfile($url, ssl=$ssl, timeout=$timeout) }
+                -> { yield $lib.axon.urlfile($url, params=$params, headers=$headers, ssl=$ssl, timeout=$timeout) }
             }
         }
 
         if ($count = 0) {
             for $url in $cmdopts.urls {
-                yield $lib.axon.urlfile($url, ssl=$ssl, timeout=$timeout)
+                yield $lib.axon.urlfile($url, params=$params, headers=$headers, ssl=$ssl, timeout=$timeout)
             }
         }
+        ''',
+    },
+    {
+        'name': 'nodes.import',
+        'descr': 'Import a nodes file hosted at a URL into the cortex. Yields created nodes.',
+        'cmdargs': (
+            ('urls', {'nargs': '*', 'help': 'URL(s) to fetch nodes file from'}),
+            ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
+        ),
+        'storm': '''
+        init {
+            $count = (0)
+            function fetchnodes(url, ssl) {
+                $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
+                if ($resp.code = 200) {
+                    $nodes = $lib.list()
+                    for $valu in $resp.msgpack() {
+                        $nodes.append($valu)
+                    }
+                    yield $lib.feed.genr("syn.nodes", $nodes)
+                } else {
+                    $lib.exit("nodes.import got HTTP error code: {code} for {url}", code=$resp.code, url=$url)
+                }
+            }
+        }
+
+        $ssl = (not $cmdopts.no_ssl_verify)
+
+        if $node {
+            $count = ($count + 1)
+            if ($node.form() != "inet:url") {
+                $lib.exit("nodes.import can only take inet:url nodes as input without args")
+            }
+            $inurls = ($node.value(),)
+            for $url in $inurls {
+                -> { yield $fetchnodes($url, $ssl) }
+            }
+        }
+
+        if ($count = 0) {
+            for $url in $cmdopts.urls {
+                for $valu in $fetchnodes($url, $ssl) {
+                    yield $valu
+                }
+            }
+        }
+
         ''',
     },
 )
@@ -1131,7 +1247,6 @@ class DmonManager(s_base.Base):
 
     async def popDmon(self, iden):
         '''Remove the dmon and fini it if its exists.'''
-        logger.debug(f'Poping dmon {iden}')
         dmon = self.dmons.pop(iden, None)
         if dmon:
             await dmon.fini()
@@ -1154,14 +1269,6 @@ class DmonManager(s_base.Base):
             return
         await self._stopAllDmons()
         self.enabled = False
-
-    # TODO write enable/disable APIS.
-    # 1. Set dmon.status to 'disabled'
-    # 2. Be aware of ddef enabled flag to set status to 'disabled'.
-    # async def enableDmon(self, iden):
-    #     pass
-    # async def disableDmon(self, iden):
-    #     pass
 
 class StormDmon(s_base.Base):
     '''
@@ -1280,7 +1387,7 @@ class StormDmon(s_base.Base):
             # bottom of the loop... wait it out
             await self.waitfini(timeout=1)
 
-class Runtime:
+class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
 
@@ -1289,7 +1396,9 @@ class Runtime:
     opaque object which is called through, but not dereferenced.
 
     '''
-    def __init__(self, query, snap, opts=None, user=None, root=None):
+    async def __anit__(self, query, snap, opts=None, user=None, root=None):
+
+        await s_base.Base.__anit__(self)
 
         if opts is None:
             opts = {}
@@ -1320,6 +1429,9 @@ class Runtime:
 
         varz = self.opts.get('vars')
         if varz is not None:
+            for valu in varz.values():
+                if isinstance(valu, s_base.Base):
+                    valu.incref()
             self.vars.update(varz)
 
         # declare path builtins as non-runtsafe
@@ -1339,6 +1451,13 @@ class Runtime:
         self.proxies = {}
 
         self._loadRuntVars(query)
+        self.onfini(self._onRuntFini)
+
+    async def _onRuntFini(self):
+        # fini() any Base objects constructed by this runtime
+        for valu in list(self.vars.values()):
+            if isinstance(valu, s_base.Base):
+                await valu.fini()
 
     async def dyncall(self, iden, todo, gatekeys=()):
         #bypass all perms checks if we are running asroot
@@ -1434,24 +1553,42 @@ class Runtime:
             return True
         return self.root._isRootScope(name)
 
-    def setVar(self, name, valu):
+    async def _setVar(self, name, valu):
+
+        oldv = self.vars.get(name, s_common.novalu)
+        if oldv is valu:
+            return
+
+        if isinstance(oldv, s_base.Base):
+            await oldv.fini()
+
+        if isinstance(valu, s_base.Base):
+            valu.incref()
+
+        self.vars[name] = valu
+
+    async def setVar(self, name, valu):
 
         if name in self.ctors or name in self.vars:
-            self.vars[name] = valu
+            await self._setVar(name, valu)
             return
 
         if self._isRootScope(name):
-            return self.root.setVar(name, valu)
+            return await self.root.setVar(name, valu)
 
-        self.vars[name] = valu
+        await self._setVar(name, valu)
         return
 
-    def popVar(self, name):
+    async def popVar(self, name):
 
         if self._isRootScope(name):
             return self.root.popVar(name)
 
-        return self.vars.pop(name, s_common.novalu)
+        oldv = self.vars.pop(name, s_common.novalu)
+        if isinstance(oldv, s_base.Base):
+            await oldv.fini()
+
+        return oldv
 
     def addInput(self, node):
         '''
@@ -1538,27 +1675,27 @@ class Runtime:
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
-        runt = Runtime(query, snap, user=self.user, opts=opts, root=self)
-        runt.asroot = self.asroot
-        runt.readonly = self.readonly
+        async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
+            runt.asroot = self.asroot
+            runt.readonly = self.readonly
 
-        yield runt
+            yield runt
 
-    @contextlib.contextmanager
-    def getCmdRuntime(self, query, opts=None):
+    @contextlib.asynccontextmanager
+    async def getCmdRuntime(self, query, opts=None):
         '''
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts)
-        runt.asroot = self.asroot
-        runt.readonly = self.readonly
-        yield runt
+        async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+            runt.asroot = self.asroot
+            runt.readonly = self.readonly
+            yield runt
 
-    def getModRuntime(self, query, opts=None):
+    async def getModRuntime(self, query, opts=None):
         '''
         Construct a non-context managed runtime for use in module imports.
         '''
-        runt = Runtime(query, self.snap, user=self.user, opts=opts)
+        runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
         runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
@@ -1882,7 +2019,10 @@ class Parser:
             base = f'  {names[0]}'.ljust(30)
         else:
             base = f'  {names[0]} {dest}'.ljust(30)
-        helpstr = argdef.get('help', 'No help available')
+        helpstr = argdef.get('help', 'No help available.')
+        defval = argdef.get('default', s_common.novalu)
+        if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
+            helpstr = f'{helpstr} (default: {defval})'
         self._printf(f'{base}: {helpstr}')
 
     def _print_posarg(self, name, argdef):
@@ -2086,7 +2226,7 @@ class PureCmd(Cmd):
                 xpath.initframe(initvars={'cmdopts': cmdopts})
                 yield xnode, xpath
 
-        with runt.getCmdRuntime(query, opts=opts) as subr:
+        async with runt.getCmdRuntime(query, opts=opts) as subr:
             subr.asroot = asroot
             async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
@@ -2095,12 +2235,23 @@ class PureCmd(Cmd):
 class HelpCmd(Cmd):
     '''
     List available commands and a brief description for each.
+
+    Examples:
+
+        // Get all available commands and their brief descriptions.
+
+        help
+
+        // Only get commands which have "model" in the name.
+
+        help model
     '''
     name = 'help'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('command', nargs='?', help='Show the help output for a given command.')
+        pars.add_argument('command', nargs='?',
+                          help='Only list commands and their brief description whose name contains the argument.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2281,17 +2432,18 @@ class MergeCmd(Cmd):
                     adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
                     subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
-            for (tag, prop), (valu, stortype) in sode.get('tagprops', {}).items():
-                tagperm = tuple(tag.split('.'))
-                if not self.opts.apply:
-                    valurepr = repr(valu)
-                    await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                    runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            for tag, tagdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in tagdict.items():
+                    tagperm = tuple(tag.split('.'))
+                    if not self.opts.apply:
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                        runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-                    adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                    subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                        adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                        subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
             layr = runt.snap.view.layers[0]
             async for name, valu in layr.iterNodeData(node.buid):
@@ -2606,6 +2758,21 @@ class MoveTagCmd(Cmd):
         if oldstr == newstr:
             raise s_exc.BadOperArg(mesg='Cannot retag a tag to the same valu.',
                                    newtag=newstr, oldtag=oldstr)
+
+        # do some sanity checking on the new tag to make sure we're not creating a loop
+        tagcycle = [newstr]
+        isnow = newt.get('isnow')
+        while isnow:
+            if isnow in tagcycle:
+                raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
+                                       cycle=tagcycle)
+            tagcycle.append(isnow)
+            newtag = await snap.addTagNode(isnow)
+            isnow = newtag.get('isnow')
+
+        if oldstr in tagcycle:
+            raise s_exc.BadOperArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
+                                   cycle=tagcycle)
 
         retag = {oldstr: newstr}
 
@@ -3068,7 +3235,7 @@ class TeeCmd(Cmd):
     '''
     Execute multiple Storm queries on each node in the input stream, joining output streams together.
 
-    Commands are executed in order they are given.
+    Commands are executed in order they are given; unless the ``--parallel`` switch is provided.
 
     Examples:
 
@@ -3077,6 +3244,9 @@ class TeeCmd(Cmd):
 
         # Also emit the inbound node
         inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }
+
+        # Execute multiple enrichment queries in parallel.
+        inet:ipv4=1.2.3.4 | tee -p { enrich.foo } { enrich.bar } { enrich.baz }
 
     '''
     name = 'tee'
@@ -3087,6 +3257,9 @@ class TeeCmd(Cmd):
 
         pars.add_argument('--join', '-j', default=False, action='store_true',
                           help='Emit inbound nodes after processing storm queries.')
+
+        pars.add_argument('--parallel', '-p', default=False, action='store_true',
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
@@ -3102,26 +3275,101 @@ class TeeCmd(Cmd):
         async with contextlib.AsyncExitStack() as stack:
 
             runts = []
-            for text in self.opts.query:
+            query_arguments = await s_stormtypes.toprim(self.opts.query)
+            queries = []
+            for arg in query_arguments:
+                if isinstance(arg, str):
+                    queries.append(arg)
+                    continue
+                # if a argument is a container/iterable, we'll add
+                # whatever content is in it as query text
+                for text in arg:
+                    queries.append(text)
+
+            for text in queries:
                 query = await runt.getStormQuery(text)
                 subr = await stack.enter_async_context(runt.getSubRuntime(query))
                 runts.append(subr)
 
-            item = None
-            async for item in genr:
+            size = len(runts)
+            outq_size = size * 2
+            node = None
+            async for node, path in genr:
 
-                for subr in runts:
-                    subg = s_common.agen(item)
-                    async for subitem in subr.execute(genr=subg):
-                        yield subitem
+                if self.opts.parallel and runts:
+
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue  # pragma: no cover
+
+                        yield item
+
+                else:
+
+                    for subr in runts:
+                        subg = s_common.agen((node, path.fork(node)))
+                        async for subitem in subr.execute(genr=subg):
+                            yield subitem
 
                 if self.opts.join:
-                    yield item
+                    yield node, path
 
-            if item is None and self.runtsafe:
-                for subr in runts:
-                    async for subitem in subr.execute():
-                        yield subitem
+            if node is None and self.runtsafe:
+                if self.opts.parallel and runts:
+
+                    outq = asyncio.Queue(maxsize=outq_size)
+                    for subr in runts:
+                        self.runt.snap.schedCoro(self.pipeline(subr, outq))
+
+                    exited = 0
+
+                    while True:
+                        item = await outq.get()
+
+                        if isinstance(item, Exception):
+                            raise item
+
+                        if item is None:
+                            exited += 1
+                            if exited == size:
+                                break
+                            continue  # pragma: no cover
+
+                        yield item
+
+                else:
+                    for subr in runts:
+                        async for subitem in subr.execute():
+                            yield subitem
+
+    async def pipeline(self, runt, outq, genr=None):
+        try:
+            async for subitem in runt.execute(genr=genr):
+                await outq.put(subitem)
+
+            await outq.put(None)
+
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except Exception as e:
+            await outq.put(e)
+
 
 class TreeCmd(Cmd):
     '''

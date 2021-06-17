@@ -68,6 +68,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
                 }),
                 ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
+                    'deprecated': True,
                     'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
                            'potentially during a specific period of time.',
                 }),
@@ -353,6 +354,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of NAICS codes that map to the industry.'}),
                     ('isic', ('array', {'type': 'ou:isic', 'uniq': True, 'split': ','}), {
                         'doc': 'An array of ISIC codes that map to the industry.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the industry.',
+                        'disp': {'hint': 'text'},
+                    }),
                 )),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {

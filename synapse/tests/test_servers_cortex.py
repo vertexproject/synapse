@@ -12,14 +12,13 @@ class CortexServerTest(s_t_utils.SynTest):
     async def test_server(self):
 
         with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
-            outp = self.getTestOutp()
             guid = s_common.guid()
 
             argv = [dirn,
                     '--telepath', 'tcp://127.0.0.1:0/',
                     '--https', '0',
                     '--name', 'telecore']
-            async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core:
+            async with await s_cortex.Cortex.initFromArgv(argv) as core:
 
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     # Make a node with the cortex
@@ -31,7 +30,7 @@ class CortexServerTest(s_t_utils.SynTest):
                 self.true(core.dmon.shared.get('telecore') is core)
 
             # And data persists...
-            async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core:
+            async with await s_cortex.Cortex.initFromArgv(argv) as core:
                 async with await s_telepath.openurl(f'cell://{dirn}') as proxy:
                     podes = await s_t_utils.alist(proxy.eval(f'ou:org={guid}'))
                     self.len(1, podes)
@@ -52,7 +51,6 @@ class CortexServerTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=path00) as core00:
 
-                outp = self.getTestOutp()
                 argv = ['--telepath', 'tcp://127.0.0.1:0/',
                         '--https', '0',
                         '--mirror', core00.getLocalUrl(),
@@ -63,7 +61,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 s_common.yamlsave({'nexslog:en': True}, path01, 'cell.yaml')
 
-                async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+                async with await s_cortex.Cortex.initFromArgv(argv) as core01:
 
                     await core01.sync()
 
@@ -101,14 +99,13 @@ class CortexServerTest(s_t_utils.SynTest):
                 # add a node for core01 to sync before window
                 await core00.nodes('[ inet:asn=1 ]')
 
-                outp = self.getTestOutp()
                 argv = ['--telepath', 'tcp://127.0.0.1:0/',
                         '--https', '0',
                         '--auth-passwd', 'secret',
                         '--mirror', core00.getLocalUrl(),
                         path01]
 
-                async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+                async with await s_cortex.Cortex.initFromArgv(argv) as core01:
                     await core01.sync()
 
                     self.len(1, await core01.nodes('inet:asn=0'))
@@ -119,7 +116,7 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 await core00.nodes('[ inet:asn=2 ]')
 
-                async with await s_cortex.Cortex.initFromArgv(argv, outp=outp) as core01:
+                async with await s_cortex.Cortex.initFromArgv(argv) as core01:
 
                     # check that startup does not create any events
                     self.eq(nexusind, core01.nexsroot.nexslog.index())
@@ -148,10 +145,8 @@ class CortexServerTest(s_t_utils.SynTest):
                      '--name', 'srccore',
                      path00,
                      ]
-            out0 = self.getTestOutp()
-            async with await s_cortex.Cortex.initFromArgv(argv0, outp=out0) as core00:
+            async with await s_cortex.Cortex.initFromArgv(argv0) as core00:
 
-                out1 = self.getTestOutp()
                 argv1 = ['--telepath', 'tcp://127.0.0.1:0/',
                          '--https', '0',
                          '--mirror', core00.getLocalUrl(),
@@ -162,6 +157,6 @@ class CortexServerTest(s_t_utils.SynTest):
 
                 with self.getAsyncLoggerStream('synapse.lib.nexus',
                                                'has different iden') as stream:
-                    async with await s_cortex.Cortex.initFromArgv(argv1, outp=out1) as core01:
+                    async with await s_cortex.Cortex.initFromArgv(argv1) as core01:
                         await stream.wait(timeout=2)
                         self.true(await core01.waitfini(6))

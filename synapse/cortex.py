@@ -58,6 +58,7 @@ import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 
 logger = logging.getLogger(__name__)
+stormlogger = logging.getLogger('synapse.storm')
 
 '''
 A Cortex implements the synapse hypergraph object.
@@ -77,7 +78,6 @@ reqValidPush = s_config.getJsValidator({
     'properties': {
         'url': {'type': 'string'},
         'time': {'type': 'number'},
-        'offs': {'type': 'number'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
     },
@@ -1007,9 +1007,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
 
-        self.storm_cmd_ctors = {}
-        self.storm_cmd_cdefs = {}
-
         self.stormmods = {}     # name: mdef
         self.stormpkgs = {}     # name: pkgdef
         self.stormvars = None   # type: s_hive.HiveDict
@@ -1018,6 +1015,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.svcsbyname = {}
         self.svcsbysvcname = {}  # remote name, not local name
 
+        self._propSetHooks = {}
         self._runtLiftFuncs = {}
         self._runtPropSetFuncs = {}
         self._runtPropDelFuncs = {}
@@ -1116,6 +1114,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    def _setPropSetHook(self, name, hook):
+        self._propSetHooks[name] = hook
+
+    async def _callPropSetHook(self, node, prop, norm):
+        hook = self._propSetHooks.get(prop.full)
+        if hook is None:
+            return
+        await hook(node, prop, norm)
 
     async def _execCellUpdates(self):
 
@@ -1749,7 +1756,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             tagprops = sode.get('tagprops')
             if tagprops is None:
                 return False
-            return tagprops.get((tag, prop)) is not None
+            props = tagprops.get(tag)
+            if not props:
+                return False
+            return props.get(prop) is not None
 
         for cval in cmprvals:
             genrs = []
@@ -1821,7 +1831,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
-        self.storm_cmd_cdefs[name] = cdef
 
         await self.fire('core:cmd:change', cmd=name, act='add')
 
@@ -1864,8 +1873,14 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         This will store the package for future use.
         '''
-        await self.loadStormPkg(pkgdef)
+        s_storm.reqValidPkgdef(pkgdef)
+
         name = pkgdef.get('name')
+        olddef = self.pkghive.get(name, None)
+        if olddef is not None:
+            await self._dropStormPkg(olddef)
+
+        await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
 
     async def delStormPkg(self, name):
@@ -2007,6 +2022,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
             await self._popStormCmd(name)
+
+        pkgname = pkgdef.get('name')
+        self.stormpkgs.pop(pkgname, None)
 
     def getStormSvc(self, name):
 
@@ -3311,7 +3329,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return await layr.pack()
 
     async def getLayerDefs(self):
-        return [await lyr.pack() for lyr in self.layers.values()]
+        return [await lyr.pack() for lyr in list(self.layers.values())]
 
     def getView(self, iden=None, user=None):
         '''
@@ -3353,7 +3371,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return await view.pack()
 
     async def getViewDefs(self):
-        return [await v.pack() for v in self.views.values()]
+        return [await v.pack() for v in list(self.views.values())]
 
     async def addLayer(self, ldef=None, nexs=True):
         '''
@@ -3507,7 +3525,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         reqValidPull(pdef)
 
-        # TODO: schema validation
         iden = pdef.get('iden')
 
         layr = self.layers.get(layriden)
@@ -3615,7 +3632,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
-        layroffs = [await layr.getEditIndx() for layr in self.layers.values()]
+        layroffs = [await layr.getEditIndx() for layr in list(self.layers.values())]
         if layroffs:
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():
@@ -3684,7 +3701,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.BadCmdName(name=ctor.name)
 
         self.stormcmds[ctor.name] = ctor
-        self.storm_cmd_ctors[ctor.name] = ctor
 
     async def addStormDmon(self, ddef):
         '''
@@ -3706,6 +3722,16 @@ class Cortex(s_cell.Cell):  # type: ignore
                 await dmon.bump()
 
         return True
+
+    async def _bumpUserDmons(self, iden):
+        '''
+        Bump all the Dmons for a given user.
+        Args:
+            iden (str): User iden.
+        '''
+        for dmoniden, ddef in list(self.stormdmonhive.items()):
+            if ddef.get('user') == iden:
+                await self.bumpStormDmon(dmoniden)
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
@@ -3761,7 +3787,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Stop and remove a storm dmon.
         '''
-        ddef = await self.stormdmonhive.pop(iden)
+        ddef = self.stormdmonhive.get(iden)
         if ddef is None:
             mesg = f'No storm daemon exists with iden {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
@@ -3770,6 +3796,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:dmon:del')
     async def _delStormDmon(self, iden):
+        ddef = await self.stormdmonhive.pop(iden)
+        if ddef is None:  # pragma: no cover
+            return
         await self.stormdmons.popDmon(iden)
 
     def getStormCmd(self, name):
@@ -3979,6 +4008,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.applyNodeEdits(item)
 
+    async def setUserLocked(self, iden, locked):
+        retn = await s_cell.Cell.setUserLocked(self, iden, locked)
+        await self._bumpUserDmons(iden)
+        return retn
+
     def getCoreMod(self, name):
         return self.modules.get(name)
 
@@ -4182,7 +4216,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
 
         async with await self.snap(user=user, view=view) as snap:
-            with snap.getStormRuntime(query, opts=opts, user=user) as runt:
+            async with snap.getStormRuntime(query, opts=opts, user=user) as runt:
                 yield runt
 
     async def reqValidStorm(self, text, opts=None):
@@ -4211,7 +4245,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         if self.conf.get('storm:log'):
             lvl = self.conf.get('storm:log:level')
-            logger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name)
+            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name,
+                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

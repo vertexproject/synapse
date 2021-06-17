@@ -133,6 +133,17 @@ class SemVer(s_types.Int):
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
 
+loglevels = (
+    (10, 'debug'),
+    (20, 'info'),
+    (30, 'notice'),
+    (40, 'warning'),
+    (50, 'err'),
+    (60, 'crit'),
+    (70, 'alert'),
+    (80, 'emerg'),
+)
+
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
@@ -235,6 +246,10 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:host', ('guid', {}), {
                     'doc': 'A GUID that represents a host or system.'
+                }),
+                ('it:log:event', ('guid', {}), {
+                    'doc': 'A GUID representing an individual log event.',
+                    'interfaces': ('it:host:activity',),
                 }),
                 ('it:network', ('guid', {}), {
                     'doc': 'A GUID that represents a logical network.'
@@ -375,6 +390,10 @@ class ItModule(s_module.CoreModule):
                 ('it:exec:proc', ('guid', {}), {
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
                 }),
+                ('it:cmd', ('str', {'strip': True}), {
+                    'doc': 'A unique command-line string.',
+                    'ex': 'foo.exe --dostuff bar',
+                }),
                 ('it:exec:mutex', ('guid', {}), {
                     'doc': 'A mutex created by a process at runtime.',
                 }),
@@ -495,6 +514,17 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that operates the given host.',
+                    }),
+                )),
+                ('it:log:event', {}, (
+                    ('mesg', ('str', {}), {
+                        'doc': 'The log messsage text.',
+                    }),
+                    ('severity', ('int', {'enums': loglevels}), {
+                        'doc': 'A log level integer that increases with severity.',
+                    }),
+                    ('data', ('data', {}), {
+                        'doc': 'A raw JSON record of the log event.',
                     }),
                 )),
                 ('it:domain', {}, (
@@ -1066,6 +1096,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The (optional) clear text password for this password hash.',
                     }),
                 )),
+                ('it:cmd', {}, ()),
                 ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
@@ -1073,7 +1104,7 @@ class ItModule(s_module.CoreModule):
                     ('exe', ('file:bytes', {}), {
                         'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.',
                     }),
-                    ('cmd', ('str', {}), {
+                    ('cmd', ('it:cmd', {}), {
                         'doc': 'The command string used to launch the process, including any command line parameters.',
                         'disp': {'hint': 'text'},
                     }),

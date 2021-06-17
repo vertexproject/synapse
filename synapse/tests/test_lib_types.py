@@ -818,6 +818,9 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         tagtype = model.type('syn:tag')
 
+        self.eq('foo.bar', tagtype.norm(('FOO', ' BAR'))[0])
+        self.eq('foo.st_lucia', tagtype.norm(('FOO', 'st.lucia'))[0])
+
         self.eq('foo.bar', tagtype.norm('FOO.BAR')[0])
         self.eq('foo.bar', tagtype.norm('#foo.bar')[0])
         self.eq('foo.bar', tagtype.norm('foo   .   bar')[0])
@@ -837,6 +840,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u200b.bar')
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u202e.bar')
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
+        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo..bar')
         self.raises(s_exc.BadTypeValu, tagtype.norm, '.')
         self.raises(s_exc.BadTypeValu, tagtype.norm, '')
         # Tags including non-english unicode letters are okay

@@ -5,6 +5,7 @@ import base64
 import asyncio
 import argparse
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
@@ -44,7 +45,7 @@ def loadOpticFiles(pkgdef, path):
                     'file': base64.b64encode(fd.read()).decode(),
                 }
 
-def loadPkgProto(path, opticdir=None):
+def loadPkgProto(path, opticdir=None, no_docs=False):
 
     full = s_common.genpath(path)
     pkgdef = s_common.yamlload(full)
@@ -54,6 +55,42 @@ def loadPkgProto(path, opticdir=None):
 
     protodir = os.path.dirname(full)
     pkgname = pkgdef.get('name')
+
+    logodef = pkgdef.get('logo')
+    if logodef is not None:
+
+        path = logodef.pop('path', None)
+
+        if path is not None:
+            with s_common.reqfile(protodir, path) as fd:
+                logodef['file'] = base64.b64encode(fd.read()).decode()
+
+        if logodef.get('mime') is None:
+            mesg = 'Mime type must be specified for logo file.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        if logodef.get('file') is None:
+            mesg = 'Logo def must contain path or file.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+    for docdef in pkgdef.get('docs', ()):
+
+        if docdef.get('title') is None:
+            mesg = 'Each entry in docs must have a title.'
+            raise s_exc.BadPkgDef(mesg=mesg)
+
+        if no_docs:
+            docdef['content'] = ''
+            continue
+
+        path = docdef.pop('path', None)
+        if path is not None:
+            with s_common.reqfile(protodir, path) as fd:
+                docdef['content'] = fd.read().decode()
+
+        if docdef.get('content') is None:
+            mesg = 'Docs entry has no path or content.'
+            raise s_exc.BadPkgDef(mesg=mesg)
 
     for mod in pkgdef.get('modules', ()):
         name = mod.get('name')
@@ -102,11 +139,27 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--push', metavar='<url>', help='A telepath URL of a Cortex or PkgRepo.')
     pars.add_argument('--save', metavar='<path>', help='Save the completed package JSON to a file.')
     pars.add_argument('--optic', metavar='<path>', help='Load Optic module files from a directory.')
-    pars.add_argument('pkgfile', metavar='<pkgfile>', help='Path to a storm package prototype yml file.')
+    pars.add_argument('--no-build', action='store_true',
+                      help='Treat pkgfile argument as an already-built package')
+    pars.add_argument('--no-docs', default=False, action='store_true',
+                      help='Do not require docs to be present and replace any doc content with empty strings.')
+    pars.add_argument('pkgfile', metavar='<pkgfile>',
+                      help='Path to a storm package prototype yml file, or a completed package JSON file.')
 
     opts = pars.parse_args(argv)
 
-    pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic)
+    if opts.no_build:
+        pkgdef = s_common.jsload(opts.pkgfile)
+        if opts.save:
+            print(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.',
+                  file=sys.stderr)
+            return 1
+    else:
+        pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+
+    if not opts.save and not opts.push:
+        print('Neither --push nor --save provided.  Nothing to do.', file=sys.stderr)
+        return 1
 
     if opts.save:
         s_common.jssave(pkgdef, opts.save)

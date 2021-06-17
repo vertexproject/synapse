@@ -585,6 +585,7 @@ class AuthGate(s_base.Base):
 
         return {
             'iden': self.iden,
+            'type': self.type,
             'users': users,
             'roles': roles,
         }
@@ -960,9 +961,12 @@ class HiveUser(HiveRuler):
 
     async def setPasswd(self, passwd, nexs=True):
         # Prevent empty string or non-string values
-        if not passwd or not isinstance(passwd, str):
+        if passwd is None:
+            shadow = None
+        elif passwd and isinstance(passwd, str):
+            shadow = getShadow(passwd)
+        else:
             raise s_exc.BadArg(mesg='Password must be a string')
-        shadow = getShadow(passwd)
         if nexs:
             await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:

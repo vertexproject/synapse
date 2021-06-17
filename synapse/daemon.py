@@ -14,7 +14,6 @@ import synapse.lib.link as s_link
 import synapse.lib.scope as s_scope
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
-import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.reflect as s_reflect
 
 class Sess(s_base.Base):
@@ -181,6 +180,11 @@ async def t2call(link, meth, args, kwargs):
             else:
                 logger.exception('error during task %s', meth.__name__)
 
+            if isinstance(valu, types.AsyncGeneratorType):
+                await valu.aclose()
+            elif isinstance(valu, types.GeneratorType):
+                valu.close()
+
             if not link.isfini:
 
                 if first:
@@ -328,7 +332,7 @@ class Daemon(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning('Error during socket server close()', exc_info=e)
 
-        finis = [sess.fini() for sess in self.sessions.values()]
+        finis = [sess.fini() for sess in list(self.sessions.values())]
         if finis:
             await asyncio.wait(finis)
 
@@ -347,6 +351,7 @@ class Daemon(s_base.Base):
             return await link.fini()
 
         self.links.add(link)
+
         async def fini():
             self.links.discard(link)
 

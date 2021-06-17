@@ -5,6 +5,272 @@ Synapse Changelog
 *****************
 
 
+v2.42.2 - 2021-06-11
+====================
+
+Bugfixes
+--------
+- Protect against a few possible RuntimeErrors due to dictionary sizes
+  changing during iteration.
+  (`#2227 <https://github.com/vertexproject/synapse/pull/2227>`_)
+- Fix StormType ``Lib`` lookups with imported modules which were raising
+  a ``TypeError`` instead of a ``NoSuchName`` error.
+  (`#2228 <https://github.com/vertexproject/synapse/pull/2228>`_)
+- Drop old Storm Packages if they are present when re-adding them. This fixes
+  an issue with runtime updates leaving old commands in the Cortex.
+  (`#2230 <https://github.com/vertexproject/synapse/pull/2230>`_)
+
+
+v2.42.1 - 2021-06-09
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--no-docs`` option to the  ``synapse.tools.genpkg`` tool. When used,
+  this not embed inline documentation into the generated Storm packages.
+  (`#2226 <https://github.com/vertexproject/synapse/pull/2226>`_)
+
+
+v2.42.0 - 2021-06-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--headers`` and ``--parameters`` arguments to the Storm ``wget``
+  command. The default headers now includes a browser like UA string.
+  (`#2208 <https://github.com/vertexproject/synapse/pull/2208>`_)
+- Add the ability to modify the name of a role via Storm.
+  (`#2222 <https://github.com/vertexproject/synapse/pull/2222>`_)
+
+Bugfixes
+--------
+- Fix an issue in the JsonStor cell where there were missing fini calls.
+  (`#2223 <https://github.com/vertexproject/synapse/pull/2223>`_)
+- Add a missing timeout to an ``getAhaSvc()`` call.
+  (`#2224 <https://github.com/vertexproject/synapse/pull/2224>`_)
+- Change how tagprops are serialized to avoid a issue with sending packed
+  nodes over HTTP APIs. This changes the packed node structure of tagprops
+  from a dictionary keyed with ``(tagname, propertyname)`` to a dictionary
+  keyed off of the ``tagname``, which now points to a dictionary containing
+  the ``propertyname`` which represents the value of the tagprop.
+  (`#2221` <https://github.com/vertexproject/synapse/pull/2221>`_)
+
+
+v2.41.1 - 2021-05-27
+====================
+
+Bugfixes
+--------
+- Add PR #2217 to bugfix list in CHANGLOG.rst for v2.41.0 :D
+
+v2.41.0 - 2021-05-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``it:cmd`` form and update the ``it:exec:proc:cmd`` property to
+  use it. This release includes an automatic data migration on startup to
+  update the ``it:exec:proc:cmd`` on any existing ``it:exec:proc`` nodes.
+  (`#2219 <https://github.com/vertexproject/synapse/pull/2219>`_)
+
+Bugfixes
+--------
+- Fix an issue where passing a Base object to a sub-runtime in Storm
+  did not correctly increase the reference count.
+  (`#2216 <https://github.com/vertexproject/synapse/pull/2216>`_)
+- Fix an issue where the ``tee`` command could potentially run the
+  specified queries twice.
+  (`#2218 <https://github.com/vertexproject/synapse/pull/2218>`_)
+- Fix for rstorm using mock when the HTTP body is bytes.
+  (`#2217 <https://github.com/vertexproject/synapse/pull/2217>`_)
+
+v2.40.0 - 2021-05-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--parallel`` switch to the ``tee`` Storm command. This allows for
+  all of the Storm queries provided to the ``tee`` command to execute in
+  parallel, potentially producing a mixed output stream of nodes.
+  (`#2209 <https://github.com/vertexproject/synapse/pull/2209>`_)
+- Convert the Storm Runtime object in a Base object, allowing for reference
+  counted Storm variables which are made from Base objects and are properly
+  torn down.
+  (`#2203 <https://github.com/vertexproject/synapse/pull/2203>`_)
+- Add ``$lib.inet.http.connect()`` method which creates a Websocket object
+  inside of Storm, allowing a user to send and receive messages over a
+  websocket.
+  (`#2203 <https://github.com/vertexproject/synapse/pull/2203>`_)
+- Support pivot join operations on tags.
+  (`#2213 <https://github.com/vertexproject/synapse/pull/2213>`_)
+- Add ``stormrepr()`` implementation for ``synapse.lib.stormtypes.Lib``, which
+  allows for ``$lib.print()`` to display useful strings for Storm Libraries
+  and imported modules.
+  (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+- Add a storm API top updated a user name.
+  (`#2214 <https://github.com/vertexproject/synapse/pull/2214>`_)
+
+Bugfixes
+--------
+- Fix the logger name for ``synapse.lib.aha``.
+  (`#2210 <https://github.com/vertexproject/synapse/pull/2210>`_)
+- Log ``ImportError`` exceptions in ``synapse.lib.dyndeps.getDynMod``. This
+  allows easier debugging when using the ``synapse.servers.cell`` server when
+  running custom Cell implementations.
+  (`#2211 <https://github.com/vertexproject/synapse/pull/2211>`_)
+- Fix an issue where a Storm command which failed to set command arguments
+  successfully would not teardown the Storm runtime.
+  (`#2212 <https://github.com/vertexproject/synapse/pull/2212>`_)
+
+v2.39.1 - 2021-05-21
+====================
+
+Bugfixes
+--------
+- Fix an issue with referencing the Telepath user session object prior to a
+  valid user being set.
+  (`#2207 <https://github.com/vertexproject/synapse/pull/2207>`_)
+
+
+v2.39.0 - 2021-05-20
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add more useful output to Storm when printing heavy objects with
+  ``$lib.print()``.
+  (`#2185 <https://github.com/vertexproject/synapse/pull/2185>`_)
+- Check rule edits for roles against provided authgates in Storm.
+  (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
+- Add ``Str.rsplit()`` and maxsplit arguments to ``split()/rsplit()`` APIs
+  in Storm.
+  (`#2200 <https://github.com/vertexproject/synapse/pull/2200>`_)
+- Add default argument values to the output of Storm command help output.
+  (`#2198 <https://github.com/vertexproject/synapse/pull/2198>`_)
+- Add a ``syn:tag:part`` Type and allow the ``syn:tag`` type to normalize a
+  list of tag parts to create a tag string. This is intended to be used with
+  the ``$lib.cast()`` function in Storm.
+  (`#2192 <https://github.com/vertexproject/synapse/pull/2192>`_)
+- Add debug logging to the Axon for reading, writing, or deleting of blobs.
+  (`#2202 <https://github.com/vertexproject/synapse/pull/2202>`_)
+- Add a timeout argument to the ``$lib.inet.http`` functions. The functions
+  will all now always return a ``storm:http:resp`` object; if the ``.code``
+  is -1, an unrecoverable exception occurred while making the request.
+  (`#2205 <https://github.com/vertexproject/synapse/pull/2205>`_)
+- Add support for embedding a logo and documentation into a Storm Package.
+  (`#2204 <https://github.com/vertexproject/synapse/pull/2204>`_)
+
+Bugfixes
+--------
+- Fix export filters to correctly filter tagprops.
+  (`#2196 <https://github.com/vertexproject/synapse/pull/2196>`_)
+- Fix an issue with Hotcount which prevented it from storing negative values.
+  (`#2197 <https://github.com/vertexproject/synapse/pull/2197>`_)
+- Fix an issue where ``hideconf`` configuration values were being included
+  in autodoc output.
+  (`#2199 <https://github.com/vertexproject/synapse/pull/2199>`_)
+
+
+v2.38.0 - 2021-05-14
+====================
+
+Features and Enhancements
+-------------------------
+- Remove trigger inheritance from Views. Views will now only execute triggers
+  which are created inside of them.
+  (`#2189 <https://github.com/vertexproject/synapse/pull/2189>`_)
+- Remove read-only property flags from secondary properties on ``file:bytes``
+  nodes.
+  (`#2191 <https://github.com/vertexproject/synapse/pull/2191>`_)
+- Add a simple ``it:log:event`` form to capture log events.
+  (`#2195 <https://github.com/vertexproject/synapse/pull/2195>`_)
+- Add structured logging as an option for Synapse Cells. When enabled, this
+  produces logs as JSONL sent to stderr. This can be set via the
+  ``SYN_LOG_STRUCT`` environment variable, or adding the
+  ``--structured-logging`` command line switch.
+  (`#2179 <https://github.com/vertexproject/synapse/pull/2179>`_)
+- Add a ``nodes.import`` command to import a ``.nodes`` file from a URL.
+  (`#2186 <https://github.com/vertexproject/synapse/pull/2186>`_)
+- Allow the ``desc`` key to View and Layer objects in Storm. This can be used
+  to set descriptions for these objects.
+  (`#2190 <https://github.com/vertexproject/synapse/pull/2190>`_)
+- Use the gateiden in Storm auth when modifying rules; allowing users to share
+  Views and Layers with other users.
+  (`#2194 <https://github.com/vertexproject/synapse/pull/2194>`_)
+
+Bugfixes
+--------
+- Fix an issue with Storm Dmon deletion not behaving properly in mirror
+  configurations.
+  (`#2188 <https://github.com/vertexproject/synapse/pull/2188>`_)
+- Explicitly close generators in Telepath where an exception has caused the
+  generator to exit early.
+  (`#2183 <https://github.com/vertexproject/synapse/pull/2183>`_)
+- Fix an issue where a trigger owner not having access to a view would
+  cause the Storm pipeline to stop.
+  (`#2189 <https://github.com/vertexproject/synapse/pull/2189>`_)
+
+
+v2.37.0 - 2021-05-12
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``file:mime:image`` interface to the Synapse model for recording MIME
+  specific metadata from image files.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``file:mime:jpg``, ``file:mime:tiff``, ``file:mime:gif`` and
+  ``file:mime:png`` specific forms for recording metadata of those file types.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+- Add ``$lib.pkg.has()`` Stormtype API to check for for the existence of a
+  given Storm package by name.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+- All ``None / $lib.null`` as input to setting a user password. This clears
+  the password and prevents a user from being able to login.
+  (`#2181 <https://github.com/vertexproject/synapse/pull/2181>`_)
+- Grab any Layer push/pull offset values when calling ``Layer.pack()``.
+  (`#2184 <https://github.com/vertexproject/synapse/pull/2184>`_)
+- Move the retrieval of ``https:headers`` from HTTPAPI handlers into a
+  function so that downstream implementers can redirect where the extra
+  values are retrieved from.
+  (`#2187 <https://github.com/vertexproject/synapse/pull/2187>`_)
+
+Bugfixes
+--------
+- Fix an issue which allowed for deleted Storm Packages to be retrieved from
+  memory.
+  (`#2182 <https://github.com/vertexproject/synapse/pull/2182>`_)
+
+
+v2.36.0 - 2021-05-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``risk:vuln`` support to the default Stix 2.1 export, and capture
+  vulnerability information used by threat actors and in campaigns. Add the
+  ability to validate Stix 2.1 bundles to ensure that they are Stix 2.1 CS02
+  compliant. Add the ability to lift Synapse nodes based on bundles which were
+  previously exported from Synapse. The lift feature only works with bundles
+  created with Synapse v2.36.0 or greater.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Add a ``Str.upper()`` function for uppercasing strings in Storm.
+  (`#2174 <https://github.com/vertexproject/synapse/pull/2174>`_)
+- Automatically bump a user's StormDmon's when they are locked or unlocked.
+  (`#2177 <https://github.com/vertexproject/synapse/pull/2177>`_)
+- Add Storm Package support to ``synapse.tools.autodocs`` and update the
+  rstorm implementation to capture additional directives.
+  (`#2172 <https://github.com/vertexproject/synapse/pull/2172>`_)
+- Tighten lark-parser version requirements.
+  (`#2175 <https://github.com/vertexproject/synapse/pull/2175>`_)
+
+Bugfixes
+--------
+- Fix reported layer size to represent actual disk usage.
+  (`#2173 <https://github.com/vertexproject/synapse/pull/2173>`_)
+
+
 v2.35.0 - 2021-04-27
 ====================
 

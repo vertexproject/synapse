@@ -30,6 +30,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.structlog as s_structlog
 
 class NoValu:
     pass
@@ -438,39 +439,6 @@ def verstr(vtup):
     '''
     return '.'.join([str(v) for v in vtup])
 
-def getexcfo(e):
-    '''
-    Get an err tufo from an exception.
-
-    Args:
-        e (Exception): An Exception (or Exception subclass).
-
-    Notes:
-        This can be called outside of the context of an exception handler,
-        however details such as file, line, function name and source may be
-        missing.
-
-    Returns:
-        ((str, dict)):
-    '''
-    tb = sys.exc_info()[2]
-    tbinfo = traceback.extract_tb(tb)
-    path, line, name, src = '', '', '', None
-    if tbinfo:
-        path, line, name, sorc = tbinfo[-1]
-    retd = {
-        'msg': str(e),
-        'file': path,
-        'line': line,
-        'name': name,
-        'src': src
-    }
-
-    if isinstance(e, s_exc.SynErr):
-        retd['syn:err'] = e.errinfo
-
-    return (e.__class__.__name__, retd)
-
 def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
@@ -622,15 +590,29 @@ _Int64be = struct.Struct('>Q')
 
 def int64en(i):
     '''
-    Encode a 64-bit int into 8 byte big-endian bytes
+    Encode an unsigned 64-bit int into 8 byte big-endian bytes
     '''
     return _Int64be.pack(i)
 
 def int64un(b):
     '''
-    Decode a 64-bit int from 8 byte big-endian
+    Decode an unsigned 64-bit int from 8 byte big-endian
     '''
     return _Int64be.unpack(b)[0]
+
+_SignedInt64be = struct.Struct('>q')
+
+def signedint64en(i):
+    '''
+    Encode a signed 64-bit int into 8 byte big-endian bytes
+    '''
+    return _SignedInt64be.pack(i)
+
+def signedint64un(b):
+    '''
+    Decode a signed 64-bit int from 8 byte big-endian
+    '''
+    return _SignedInt64be.unpack(b)[0]
 
 def enbase64(b):
     return base64.b64encode(b).decode('utf8')
@@ -644,7 +626,17 @@ def makedirs(path, mode=0o777):
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
 
-def setlogging(mlogger, defval=None):
+def _getLogConfFromEnv(defval=None, structlog=None):
+    if structlog:
+        structlog = 'true'
+    else:
+        structlog = 'false'
+    defval = os.getenv('SYN_LOG_LEVEL', defval)
+    structlog = envbool('SYN_LOG_STRUCT', structlog)
+    ret = {'defval': defval, 'structlog': structlog}
+    return ret
+
+def setlogging(mlogger, defval=None, structlog=None):
     '''
     Configure synapse logging.
 
@@ -658,15 +650,27 @@ def setlogging(mlogger, defval=None):
     Returns:
         None
     '''
-    log_level = os.getenv('SYN_LOG_LEVEL',
-                          defval)
+    ret = _getLogConfFromEnv(defval, structlog)
+
+    log_level = ret.get('defval')
+    log_struct = ret.get('structlog')
+
     if log_level:  # pragma: no cover
         if isinstance(log_level, str):
             log_level = log_level.upper()
             if log_level not in s_const.LOG_LEVEL_CHOICES:
                 raise ValueError('Invalid log level provided: {}'.format(log_level))
-        logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
+
+        if log_struct:
+            handler = logging.StreamHandler()
+            formatter = s_structlog.JsonFormatter()
+            handler.setFormatter(formatter)
+            logging.basicConfig(level=log_level, handlers=(handler,))
+        else:
+            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
         mlogger.info('log level set to %s', log_level)
+
+    return ret
 
 syndir = os.getenv('SYN_DIR')
 if syndir is None:
@@ -713,7 +717,7 @@ def result(retn):
     info['errx'] = name
     raise s_exc.SynErr(**info)
 
-def err(e):
+def err(e, fulltb=False):
     name = e.__class__.__name__
     info = {}
 
@@ -733,6 +737,12 @@ def err(e):
         info.update(e.items())
     else:
         info['mesg'] = str(e)
+
+    if fulltb:
+        s = traceback.format_exc()
+        if s[-1:] == "\n":
+            s = s[:-1]
+        info['etb'] = s
 
     return (name, info)
 

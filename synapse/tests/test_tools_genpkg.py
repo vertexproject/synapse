@@ -1,5 +1,6 @@
 import os
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_test
 import synapse.tests.files as s_files
@@ -12,6 +13,26 @@ class GenPkgTest(s_test.SynTest):
 
     async def test_tools_genpkg(self):
 
+        with self.raises(s_exc.NoSuchFile):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nopath.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nomime.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'notitle.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.BadPkgDef):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nocontent.yaml')
+            await s_genpkg.main((ymlpath,))
+
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
@@ -22,8 +43,10 @@ class GenPkgTest(s_test.SynTest):
 
             await s_genpkg.main(argv)
 
-            await core.callStorm('testcmd')
-            await core.callStorm('$lib.import(testmod)')
+            msgs = await core.stormlist('testpkgcmd')
+            self.stormIsInPrint('argument <foo> is required', msgs)
+            msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
+            self.stormIsInPrint('Imported Module testmod', msgs)
 
             pdef = s_common.yamlload(savepath)
 
@@ -35,10 +58,43 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['modules'][1]['storm'], 'inet:fqdn\n')
             self.eq(pdef['modules'][2]['name'], 'testpkg.testextfile')
             self.eq(pdef['modules'][2]['storm'], 'inet:fqdn\n')
-            self.eq(pdef['commands'][0]['name'], 'testcmd')
+            self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
+
+            self.eq(pdef['docs'][0]['title'], 'Foo Bar')
+            self.eq(pdef['docs'][0]['content'], 'Hello!\n')
+
+            self.eq(pdef['logo']['mime'], 'image/svg')
+            self.eq(pdef['logo']['file'], 'c3R1ZmYK')
+
+            # nodocs
+            savepath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
+            argv = ('--no-docs', '--save', savepath, ymlpath)
+
+            await s_genpkg.main(argv)
+
+            pdef = s_common.yamlload(savepath)
+
+            self.eq(pdef['name'], 'testpkg')
+            self.eq(pdef['docs'][0]['title'], 'Foo Bar')
+            self.eq(pdef['docs'][0]['content'], '')
+
+            # No push, no save:  nothing to do
+            argv = (ymlpath,)
+            retn = await s_genpkg.main(argv)
+            self.ne(0, retn)
+
+            # Invalid:  save with pre-made file
+            argv = ('--no-build', '--save', savepath, savepath)
+            retn = await s_genpkg.main(argv)
+            self.ne(0, retn)
+
+            # Push a premade json
+            argv = ('--no-build', '--push', url, savepath)
+            retn = await s_genpkg.main(argv)
+            self.eq(0, retn)
 
     def test_files(self):
         assets = s_files.getAssets()

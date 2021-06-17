@@ -677,6 +677,12 @@ class HttpReflector(s_httpapi.Handler):
                     d[k].append(v.decode())
         resp['headers'] = dict(self.request.headers)
         resp['path'] = self.request.path
+
+        sleep = resp.get('params', {}).get('sleep')
+        if sleep:
+            sleep = int(sleep[0])
+            await asyncio.sleep(sleep)
+
         self.sendRestRetn(resp)
 
     async def post(self):
@@ -924,7 +930,7 @@ class SynTest(unittest.TestCase):
             mock.MagicMock: Yields a mock.MagikMock object.
         '''
         with mock.patch('synapse.common.setlogging',
-                        mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
+                        mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
     def getMagicPromptLines(self, patch):
@@ -1698,6 +1704,17 @@ class SynTest(unittest.TestCase):
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
         self.isin(mesg, print_str)
 
+    def stormNotInPrint(self, mesg, mesgs):
+        '''
+        Assert a string is not present in all of the print messages from a stream of storm messages.
+
+        Args:
+            mesg (str): A string to check.
+            mesgs (list): A list of storm messages.
+        '''
+        print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        self.notin(mesg, print_str)
+
     def stormIsInWarn(self, mesg, mesgs):
         '''
         Check if a string is present in all of the warn messages from a stream of storm messages.
@@ -1717,7 +1734,7 @@ class SynTest(unittest.TestCase):
             mesg (str): A string to check.
             mesgs (list): A list of storm messages.
         '''
-        print_str = '\n'.join([m[1][1].get('mesg') for m in mesgs if m[0] == 'err'])
+        print_str = '\n'.join([m[1][1].get('mesg', '') for m in mesgs if m[0] == 'err'])
         self.isin(mesg, print_str)
 
     def istufo(self, obj):

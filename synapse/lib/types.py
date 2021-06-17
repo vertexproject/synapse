@@ -1589,7 +1589,8 @@ class Str(Type):
 
             match = self.regex.match(norm)
             if match is None:
-                raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg='regex does not match')
+                raise s_exc.BadTypeValu(name=self.name, valu=valu, regx=self.regex.pattern,
+                                        mesg=f'[{valu}] does not match [{self.regex.pattern}]')
 
             subs = match.groupdict()
             if subs:
@@ -1602,26 +1603,46 @@ class Tag(Str):
     def postTypeInit(self):
         Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+        self.tagpart = self.modl.type('syn:tag:part')
 
-    def _normPyStr(self, text):
+    def _normPyList(self, valu):
 
-        valu = text.lower().strip('#').strip()
-        toks = [v.strip() for v in valu.split('.')]
-
+        toks = [self.tagpart.norm(v)[0] for v in valu]
         subs = {
             'base': toks[-1],
             'depth': len(toks) - 1,
         }
 
-        norm = '.'.join(toks)
-        if not s_grammar.tagre.fullmatch(norm):
-            raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg=f'Tag does not match tagre: [{s_grammar.tagre.pattern}]')
-
         if len(toks) > 1:
             subs['up'] = '.'.join(toks[:-1])
 
+        norm = '.'.join(toks)
+        if not s_grammar.tagre.fullmatch(norm):
+            mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
+            raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
+
         return norm, {'subs': subs}
+
+    def _normPyStr(self, text):
+        toks = text.strip('#').split('.')
+        return self._normPyList(toks)
+
+class TagPart(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normPyStr(self, valu):
+        valu = valu.lower().strip()
+        valu = valu.replace('.', '_')
+        if len(valu) == 0:
+            mesg = 'Each tag part must be non-zero length.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        return valu, {}
 
 class Duration(IntBase):
 

@@ -1,6 +1,10 @@
 name: testpkg
 version: 0.0.1
 
+logo:
+    mime: image/svg
+    path: docs/foobar.svg
+
 modules:
     - name: testmod
 
@@ -14,8 +18,26 @@ external_modules:
       # the genpkg tool is executed from.
       file_path: synapse/tests/files/stormmod/common
 
+docs:
+    - title: Foo Bar
+      path: docs/foobar.md
+
 commands:
-    - name: testcmd
+    - name: testpkgcmd
+      descr: |
+        testpkgcmd does some stuff.
+      forms:
+        input:
+          - test:str
+        output:
+          - test:int
+        nodedata:
+          - [testnd, inet:ipv4]
+      cmdargs:
+        - - foo
+          - help: Help on foo opt
+        - - --bar
+          - help: Help on bar opt
 
 optic:
     title: woot
