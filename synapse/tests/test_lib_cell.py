@@ -975,6 +975,15 @@ class CellTest(s_t_utils.SynTest):
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
 
+                    # Start another backup while one is already running
+                    bkup = s_t_utils.alist(proxy.iterNewBackupArchive('runbackup', remove=True))
+                    task = core.schedCoro(bkup)
+                    await asyncio.sleep(0)
+
+                    fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadyrunning', remove=True))
+                    await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
+                    await asyncio.wait_for(task, 5)
+
             with tarfile.open(bkuppath, 'r:gz') as tar:
                 tar.extractall(path=dirn)
 
