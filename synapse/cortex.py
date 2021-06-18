@@ -129,6 +129,11 @@ class CoreApi(s_cell.CellApi):
 
     '''
     @s_cell.adminapi()
+    async def getAdminEvents(self, size=1000):
+        async for item in self.cell.getAdminEvents(size=size):
+            yield item
+
+    @s_cell.adminapi()
     def getCoreMods(self):
         return self.cell.getCoreMods()
 
@@ -1004,6 +1009,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.feedfuncs = {}
         self.stormcmds = {}
 
+        self.adminbus = await s_base.Base.anit()
+        self.onfini(self.adminbus.fini)
+
+        self.auth.adminbus.link(self.adminbus.dist)
+
         self.maxnodes = self.conf.get('max:nodes')
         self.nodecount = 0
 
@@ -1156,6 +1166,19 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
+
+    async def getAdminEvents(self, size=1000):
+
+        async with await s_queue.Window.anit() as wind:
+
+            self.adminbus.link(wind.put)
+            def fini():
+                self.adminbus.unlink(wind.put)
+
+            wind.onfini(fini)
+
+            async for item in wind.gets(size=size):
+                yield item
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -1883,6 +1906,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
 
+        await self.adminbus.dist(('pkg:add', pkgdef))
+
     async def delStormPkg(self, name):
         pkgdef = self.pkghive.get(name, None)
         if pkgdef is None:
@@ -1901,6 +1926,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         await self._dropStormPkg(pkgdef)
+        await self.adminbus.dist(('pkg:del', pkgdef))
 
     async def getStormPkg(self, name):
         return self.stormpkgs.get(name)
@@ -2068,6 +2094,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         ssvc = await self._setStormSvc(sdef)
         await self.svchive.set(iden, sdef)
+        await self.adminbus.dist(('svc:add', sdef))
 
         return ssvc.sdef
 
@@ -2108,6 +2135,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ssvc is not None:
             self.svcsbysvcname.pop(ssvc.svcname, None)
             await ssvc.fini()
+
+        await self.adminbus.dist(('svc:del', sdef))
 
     async def _delStormSvcPkgs(self, iden):
         '''
@@ -3221,6 +3250,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await self._loadView(node)
         view.init2()
 
+        vdef['authgate'] = await self.getAuthGate(iden)
+        await self.adminbus.dist(('view:add', vdef))
+
         return await view.pack()
 
     async def delView(self, iden):
@@ -3249,10 +3281,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             if cview.parent is not None and cview.parent.iden == iden:
                 raise s_exc.SynErr(mesg='Cannot delete a view that has children')
 
+        vdef = await view.pack()
+        vdef['authgate'] = await self.auth.getAuthGate()
+
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
         await self.auth.delAuthGate(iden)
+        await self.adminbus.dist(('view:del', vdef))
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -3271,6 +3307,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             if layr in view.layers:
                 raise s_exc.LayerInUse(iden=iden)
 
+        ldef = layr.pack()
+        ldef['authgate'] = await self.getAuthGate(iden)
+
         del self.layers[iden]
 
         for pdef in layr.layrinfo.get('pushs', {}).values():
@@ -3287,6 +3326,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await layr.delete()
 
         layr.deloffs = nexsitem[0]
+        await self.adminbus.dist(('layer:del', ldef))
 
     async def setViewLayers(self, layers, iden=None):
         '''
@@ -3423,6 +3463,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
+
+        ldef['authgate'] = await self.getAuthGate(iden)
+        await self.adminbus.dist(('layer:add', ldef))
 
         return await layr.pack()
 

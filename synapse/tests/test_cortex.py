@@ -5582,3 +5582,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             rows = await alist(prox.iterTagPropRows(layriden, 'foo', 'score', form='inet:ipv4',
                                                     stortype=s_layer.STOR_TYPE_I64, startvalu=42))
             self.eq(expect[1:], rows)
+
+    async def test_cortex_admin_events(self):
+
+        events = []
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as proxy:
+
+                async def todo():
+                    async for item in proxy.getAdminEvents():
+                        for mesg in item:
+                            if mesg[0] == 'testfini':
+                                return
+                            events.append(mesg)
+
+                task = proxy.schedCoro(todo())
+
+                await asyncio.sleep(1)
+
+                view = await core.getView().fork()
+                visi = await core.auth.addUser('visi')
+                ninjas = await core.auth.addRole('ninjas')
+
+                await visi.addRule((True, ('foo', 'bar')))
+                await ninjas.addRule((True, ('foo', 'bar')))
+
+                await core.adminbus.fire('testfini')
+                await task
+
+            for mesg in events:
+                print(repr(mesg))

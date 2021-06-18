@@ -172,3 +172,30 @@ class Window(s_base.Base):
             await self.fini()
 
         return True
+
+    async def gets(self, size=1000):
+        '''
+        Yield chunked blocks of messages from the window.
+        '''
+        async def chunked():
+
+            while True:
+
+                chunk = []
+                while self.linklist:
+                    chunk.append(self.linklist.popleft())
+                    if len(chunk) >= size:
+                        break
+
+                if chunk:
+                    yield chunk
+                    continue
+
+                if self.isfini:
+                    return
+
+                self.event.clear()
+                await self.event.wait()
+
+        async for chunk in chunked():
+            yield chunk

@@ -97,6 +97,7 @@ class Auth(s_nexus.Pusher):
 
         self.allrole = None
         self.rootuser = None
+        self.adminbus = await s_base.Base.anit()
 
         roles = await self.node.open(('roles',))
         for _, node in roles:
@@ -206,6 +207,7 @@ class Auth(s_nexus.Pusher):
 
         self.usersbyiden[user.iden] = user
         self.usersbyname[user.name] = user
+        await self.adminbus.dist(('user:add', user.pack()))
 
         return user
 
@@ -227,6 +229,7 @@ class Auth(s_nexus.Pusher):
 
         user.name = name
         await user.node.set(name)
+        await self.adminbus.dist(('user:set', {'iden': iden, 'name': name}))
 
     @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
@@ -246,6 +249,7 @@ class Auth(s_nexus.Pusher):
 
         role.name = name
         await role.node.set(name)
+        await self.adminbus.dist(('role:set', {'iden': iden, 'name': name}))
 
     @s_nexus.Pusher.onPushAuto('user:info')
     async def setUserInfo(self, iden, name, valu, gateiden=None):
@@ -260,6 +264,7 @@ class Auth(s_nexus.Pusher):
 
         # since any user info *may* effect auth
         user.clearAuthCache()
+        await self.adminbus.dist(('user:set', {'iden': iden, name: valu, 'authgate': gateiden}))
 
     @s_nexus.Pusher.onPushAuto('role:info')
     async def setRoleInfo(self, iden, name, valu, gateiden=None):
@@ -271,6 +276,7 @@ class Auth(s_nexus.Pusher):
 
         await info.set(name, valu)
         role.clearAuthCache()
+        await self.adminbus.dist(('role:set', {'iden': iden, name: valu, 'authgate': gateiden}))
 
     async def _addRoleNode(self, node):
 
@@ -278,6 +284,8 @@ class Auth(s_nexus.Pusher):
 
         self.rolesbyiden[role.iden] = role
         self.rolesbyname[role.name] = role
+
+        await self.adminbus.dist(('role:add', role.pack()))
 
         return role
 
@@ -433,11 +441,15 @@ class Auth(s_nexus.Pusher):
 
         path = self.node.full + ('users', user.iden)
 
+        udef = user.pack()
+
         for gate in self.authgates.values():
             await gate._delGateUser(user.iden)
 
         await user.fini()
         await self.node.hive.pop(path)
+
+        await self.adminbus.dist(('user:del', udef))
 
     def _getUsersInRole(self, role):
         for user in self.users():
@@ -459,7 +471,12 @@ class Auth(s_nexus.Pusher):
         if role is None:
             return
 
+        # embed users into role to allow correct selective delivery
+        rdef = role.pack()
+
+        users = []
         for user in self._getUsersInRole(role):
+            users.append(user.iden)
             await user.revoke(role.iden, nexs=False)
 
         for gate in self.authgates.values():
@@ -468,11 +485,15 @@ class Auth(s_nexus.Pusher):
         self.rolesbyiden.pop(role.iden)
         self.rolesbyname.pop(role.name)
 
+        rdef['users'] = users
+
         await role.fini()
 
         # directly set the node's value and let events prop
         path = self.node.full + ('roles', role.iden)
         await self.node.hive.pop(path)
+
+        await self.adminbus.dist(('role:del', rdef))
 
 class AuthGate(s_base.Base):
     '''
