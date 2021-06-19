@@ -2,16 +2,19 @@
 Async/Coroutine related utilities.
 '''
 import queue
+import atexit
 import asyncio
 import inspect
 import logging
 import functools
 import multiprocessing
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
 
 def iscoro(item):
     return inspect.iscoroutine(item)
@@ -203,3 +206,59 @@ async def spawn(todo, timeout=None, ctx=None):
     except (asyncio.CancelledError, asyncio.TimeoutError):
         proc.terminate()
         raise
+
+class ProcPool:
+    '''
+    Instantiate a process pool once for the application.
+    '''
+
+    _pool = None
+    _workers_initd = False
+
+    @classmethod
+    def init(cls, method='forkserver', max_workers=None, logconf=None):
+
+        if cls._pool is not None:
+            return cls()
+
+        _initializer = None
+        if logconf is not None:
+            _initializer = functools.partial(s_common.setlogging, logger, **logconf)
+
+        _ctx = multiprocessing.get_context(method)
+        cls._pool = concurrent.futures.ProcessPoolExecutor(
+            mp_context=_ctx,
+            max_workers=max_workers,
+            initializer=_initializer
+        )
+        atexit.register(cls._pool.shutdown)
+
+        return cls()
+
+    @staticmethod
+    def _noop():
+        return None
+
+    async def init_workers(self):
+        if ProcPool._workers_initd:
+            return
+
+        await self.execute(self._noop)
+        ProcPool._workers_initd = True
+
+    @staticmethod
+    def _run_coro(func, *args, **kwargs):
+        return asyncio.run(func(*args, **kwargs))
+
+    async def execute(self, func, *args, **kwargs):
+
+        if self._pool is None:
+            raise s_exc.SynErr(mesg='Process pool is not running!')
+
+        if inspect.iscoroutinefunction(func):
+            real = functools.partial(self._run_coro, func, *args, **kwargs)
+        else:
+            real = functools.partial(func, *args, **kwargs)
+
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._pool, real)

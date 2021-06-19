@@ -775,6 +775,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Mirror mode requires nexslog:en=True'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        # initialize the process pool
+        logconf = await self._getSpawnLogConf()
+        self._procpool = s_coro.ProcPool.init(logconf=logconf)
+        await self._procpool.init_workers()
+
         # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
 
@@ -913,6 +918,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initServiceStorage(self):
         pass
+
+    async def procTask(self, func, *args, **kwargs):
+        '''
+        Execute a function in a process pool.
+        Args:
+            func: Function to execute. This must be able to be pickled.
+            *args: Arguments to the function.
+            **kwargs: Keyword arguments to the function.
+        Returns:
+            The function result.
+        '''
+        return await self._procpool.execute(func, *args, **kwargs)
 
     async def initNexusSubsystem(self):
         mirror = self.conf.get('mirror')

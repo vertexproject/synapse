@@ -509,17 +509,6 @@ def _validateConfig(core, config):
                         mesg = f'STIX Bundle config has invalid rel entry {formname} {stixtype} {stixrel}.'
                         raise s_exc.BadConfValu(mesg=mesg)
 
-def _validateStixProc(bundle, logconf):
-    '''
-    Multiprocessing target for stix validation
-    '''
-    # This logging call is okay to run since we're executing in
-    # our own process space and no logging has been configured.
-    s_common.setlogging(logger, **logconf)
-
-    resp = validateStix(bundle)
-    return resp
-
 def validateStix(bundle, version='2.1'):
     ret = {
         'ok': False,
@@ -600,9 +589,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        logconf = await self.runt.snap.core._getSpawnLogConf()
-        resp = await s_coro.spawn(s_common.todo(_validateStixProc, bundle, logconf=logconf))
-        return resp
+        return await self.runt.snap.core.procTask(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
