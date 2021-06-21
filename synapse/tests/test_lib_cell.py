@@ -8,6 +8,7 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -30,17 +31,20 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
     pipe.send('captured')
     sys.exit(1)
 
-def _backupSleep(path, linkinfo, done):
+def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
-async def _iterBackupEOF(path, linkinfo, done):
+async def _doEOFBackup(path):
+    return
+
+async def _iterBackupEOF(path, linkinfo):
     link = await s_link.fromspawn(linkinfo)
+    await s_daemon.t2call(link, _doEOFBackup, (path,), {})
     link.writer.write_eof()
     await link.fini()
-    await s_coro.executor(done.put, True)
 
-def _backupEOF(path, linkinfo, done):
-    asyncio.run(_iterBackupEOF(path, linkinfo, done))
+def _backupEOF(path, linkinfo):
+    asyncio.run(_iterBackupEOF(path, linkinfo))
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -976,6 +980,15 @@ class CellTest(s_t_utils.SynTest):
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
 
+                    # Start another backup while one is already running
+                    bkup = s_t_utils.alist(proxy.iterNewBackupArchive('runbackup', remove=True))
+                    task = core.schedCoro(bkup)
+                    await asyncio.sleep(0)
+
+                    fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadyrunning', remove=True))
+                    await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
+                    await asyncio.wait_for(task, 5)
+
             with tarfile.open(bkuppath, 'r:gz') as tar:
                 tar.extractall(path=dirn)
 
@@ -1023,9 +1036,8 @@ class CellTest(s_t_utils.SynTest):
                         async for msg in proxy.iterNewBackupArchive(remove=True):
                             bkup5.write(msg)
 
-                    with self.raises(s_exc.LinkShutDown):
-                        with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
-                            await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
+                    with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
+                        await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
