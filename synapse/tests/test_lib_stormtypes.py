@@ -2770,6 +2770,8 @@ class StormTypesTest(s_test.SynTest):
                 ##################
                 oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
                 nextoffs = (oldsplicespos + 1, 0, 0)
+                layr = core.getLayer()
+                nextlayroffs = await layr.getEditOffs() + 1
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
@@ -2813,8 +2815,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
-                await asyncio.sleep(0)
-                await asyncio.sleep(0)
+                await layr.waitEditOffs(nextlayroffs, timeout=5)
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right

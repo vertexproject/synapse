@@ -54,7 +54,7 @@ class StormlibModelTest(s_test.SynTest):
             print(resp)
             self.true(success)
 
-    async def stormlib_libstix(self, conf=None):
+    async def test_stormlib_libstix(self, conf=None):
 
         async with self.getTestCore(conf=conf) as core:
             opts = {'vars': {
@@ -273,12 +273,6 @@ class StormlibModelTest(s_test.SynTest):
 
                     inet:fqdn $bundle.add($node)
                 ''')
-
-    async def test_stormlib_libstix(self):
-        await self.stormlib_libstix()
-
-    async def test_stormlib_libstix_procpool(self):
-        await self.stormlib_libstix(conf={'procpool:enable': True})
 
     async def test_risk_vuln(self):
         async with self.getTestCore() as core:

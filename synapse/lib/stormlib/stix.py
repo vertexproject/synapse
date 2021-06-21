@@ -589,7 +589,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        return await self.runt.snap.core.procTask(validateStix, bundle)
+        return await s_coro.forked(validateStix, bundle)
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
@@ -956,7 +956,7 @@ class StixBundle(s_stormtypes.Prim):
     async def _callStorm(self, text, node):
 
         opts = {'vars': {'bundle': self}}
-        query = self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.snap.core.getStormQuery(text)
         async with self.runt.getSubRuntime(query, opts=opts) as runt:
 
             async def genr():

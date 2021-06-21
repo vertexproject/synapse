@@ -206,7 +206,7 @@ class AgendaTest(s_t_utils.SynTest):
 
         loop = asyncio.get_running_loop()
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
-            core = mock.Mock()
+            core = mock.AsyncMock()
             core.eval = myeval
             core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
             nexsroot = await s_nexus.NexsRoot.anit(dirn)
@@ -488,9 +488,9 @@ class AgendaTest(s_t_utils.SynTest):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
 
-            core = mock.Mock()
+            core = mock.AsyncMock()
 
-            def raiseOnBadStorm(q):
+            async def raiseOnBadStorm(q):
                 ''' Just enough storm parsing for this test '''
                 if (q[0] == '[') != (q[-1] == ']'):
                     raise s_exc.BadSyntax(mesg='mismatched braces')

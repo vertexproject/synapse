@@ -207,63 +207,25 @@ async def spawn(todo, timeout=None, ctx=None):
         proc.terminate()
         raise
 
-class ProcPool:
-    '''
-    Instantiate a forkserver process pool once for the application.
+# shared process pool
+if multiprocessing.current_process().name == 'MainProcess':
+    mpctx = multiprocessing.get_context('forkserver')
+    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx)
+    atexit.register(forkpool.shutdown)
+else:
+    # subprocesses would get a ref, not a new pool,
+    # but internal atexit handlers get registered in the wrong order
+    forkpool = None
 
-    Forkserver will spawn the main process when anit() is called.
-    When the first job is submitted, processes are forked from the spawned process.
+def set_pool_logging(logger_, logconf):
+    # This must be called before any calls to forked()
+    todo = s_common.todo(s_common.setlogging, logger_, **logconf)
+    forkpool._initializer = _runtodo
+    forkpool._initargs = (todo,)
 
-    NOTE: When the first job is submitted all max_workers processes will be spun up.
-    Starting in 3.9 processes will be spun up on demand when there are no idle processes.
-    '''
+def _runtodo(todo):
+    return todo[0](*todo[1], **todo[2])
 
-    _ctx = None
-    _pool = None
-
-    @classmethod
-    async def anit(cls, max_workers=None, logconf=None):
-        # NOTE: Making this async for future flexibility
-
-        if cls._pool is not None:
-            return cls()
-
-        _initializer = None
-        if logconf is not None:
-            _initializer = functools.partial(s_common.setlogging, logger, **logconf)
-
-        # add this here so we are ahead of ProcessPoolExecutor atexit (see bpo-39098 fixed in 3.9)
-        atexit.register(cls._shutdown)
-
-        _ctx = multiprocessing.get_context('forkserver')
-        cls._pool = concurrent.futures.ProcessPoolExecutor(
-            mp_context=_ctx,
-            max_workers=max_workers,
-            initializer=_initializer
-        )
-        cls._ctx = _ctx
-
-        return cls()
-
-    @classmethod
-    def _shutdown(cls):
-        if cls._pool is not None:
-            cls._pool.shutdown(wait=True)
-            cls._pool = None
-
-    @staticmethod
-    def _run_coro(func, *args, **kwargs):
-        return asyncio.run(func(*args, **kwargs))
-
-    async def execute(self, func, *args, **kwargs):
-
-        if self._pool is None:
-            raise s_exc.SynErr(mesg='Process pool is not running!')
-
-        if inspect.iscoroutinefunction(func):
-            real = functools.partial(self._run_coro, func, *args, **kwargs)
-        else:
-            real = functools.partial(func, *args, **kwargs)
-
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(self._pool, real)
+async def forked(func, *args, **kwargs):
+    todo = (func, args, kwargs)
+    return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)

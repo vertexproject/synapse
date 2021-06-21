@@ -708,18 +708,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             },
             'required': ('urlinfo', ),
         },
-        'procpool:enable': {
-            'description': 'Enable the process process pool.',
-            'type': 'boolean',
-            'default': False,
-            'hideconf': True,
-        },
-        'procpool:workers': {
-            'description': 'Number of workers spawned by the process pool.',
-            'type': 'integer',
-            'default': 3,
-            'hideconf': True,
-        },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
             'type': 'object',
@@ -786,13 +774,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             mesg = 'Mirror mode requires nexslog:en=True'
             raise s_exc.BadConfValu(mesg=mesg)
-
-        # initialize the process pool
-        self._procpool = None
-        if self.conf.get('procpool:enable'):
-            logconf = await self._getSpawnLogConf()
-            workers = self.conf.get('procpool:workers')
-            self._procpool = await s_coro.ProcPool.anit(max_workers=workers, logconf=logconf)
 
         # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
@@ -932,20 +913,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initServiceStorage(self):
         pass
-
-    async def procTask(self, func, *args, **kwargs):
-        '''
-        Execute a function in a process pool.
-        Args:
-            func: Function to execute. This must be able to be pickled.
-            *args: Arguments to the function.
-            **kwargs: Keyword arguments to the function.
-        Returns:
-            The function result.
-        '''
-        if self._procpool is None:
-            return await s_coro.ornot(func, *args, **kwargs)
-        return await self._procpool.execute(func, *args, **kwargs)
 
     async def initNexusSubsystem(self):
         mirror = self.conf.get('mirror')
@@ -2026,6 +1993,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setdefault('_log_conf', logconf)
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
+
+        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         cell = await cls.anit(opts.dirn, conf=conf)
 
