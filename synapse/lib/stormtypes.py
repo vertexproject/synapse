@@ -3379,12 +3379,14 @@ class LibUser(Lib):
          'type': 'storm:hive:dict', },
         {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
          'type': 'storm:hive:dict', },
+        {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'guid'},
     )
     _storm_lib_path = ('user', )
 
     def getObjLocals(self):
         return {
             'name': self._libUserName,
+            'iden': self.runt.user.iden,
             'allowed': self._libUserAllowed,
         }
 
@@ -5490,6 +5492,7 @@ class Gate(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the AuthGate.', 'type': 'str', },
+        {'name': 'type', 'desc': 'The type of the AuthGate.', 'type': 'str', },
         {'name': 'roles', 'desc': 'The role idens which are a member of the Authgate.', 'type': 'list', },
         {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
@@ -5502,6 +5505,7 @@ class Gate(Prim):
         self.runt = runt
         self.locls.update({
             'iden': self.valu.get('iden'),
+            'type': self.valu.get('type'),
             'roles': self.valu.get('roles', ()),
             'users': self.valu.get('users', ()),
         })

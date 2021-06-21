@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import base64
 import asyncio
 import argparse
@@ -139,13 +138,29 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--push', metavar='<url>', help='A telepath URL of a Cortex or PkgRepo.')
     pars.add_argument('--save', metavar='<path>', help='Save the completed package JSON to a file.')
     pars.add_argument('--optic', metavar='<path>', help='Load Optic module files from a directory.')
+    pars.add_argument('--no-build', action='store_true',
+                      help='Treat pkgfile argument as an already-built package')
     pars.add_argument('--no-docs', default=False, action='store_true',
                       help='Do not require docs to be present and replace any doc content with empty strings.')
-    pars.add_argument('pkgfile', metavar='<pkgfile>', help='Path to a storm package prototype yml file.')
+    pars.add_argument('pkgfile', metavar='<pkgfile>',
+                      help='Path to a storm package prototype .yaml file, or a completed package .json/.yaml file.')
 
     opts = pars.parse_args(argv)
 
-    pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+    if opts.no_build:
+        pkgdef = s_common.yamlload(opts.pkgfile)
+        if not pkgdef:
+            outp.printf(f'Unable to load pkgdef from [{opts.pkgfile}]')
+            return 1
+        if opts.save:
+            outp.printf(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
+            return 1
+    else:
+        pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
+
+    if not opts.save and not opts.push:
+        outp.printf('Neither --push nor --save provided.  Nothing to do.')
+        return 1
 
     if opts.save:
         s_common.jssave(pkgdef, opts.save)

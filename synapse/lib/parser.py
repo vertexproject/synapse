@@ -360,9 +360,7 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-QueryParser = lark.Lark(_grammar, regex=True, start='query', propagate_positions=True)
-LookupParser = lark.Lark(_grammar, regex=True, start='lookup', propagate_positions=True)
-CmdrParser = lark.Lark(_grammar, regex=True, start='cmdrargs', propagate_positions=True)
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs'], propagate_positions=True)
 
 class Parser:
     '''
@@ -405,7 +403,7 @@ class Parser:
         Returns (s_ast.Query):  instance of parsed query
         '''
         try:
-            tree = QueryParser.parse(self.text)
+            tree = LarkParser.parse(self.text, start='query')
             newtree = AstConverter(self.text).transform(tree)
 
         except lark.exceptions.LarkError as e:
@@ -416,7 +414,7 @@ class Parser:
 
     def lookup(self):
         try:
-            tree = LookupParser.parse(self.text)
+            tree = LarkParser.parse(self.text, start='lookup')
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
         newtree = AstConverter(self.text).transform(tree)
@@ -428,7 +426,7 @@ class Parser:
         Parse command args that might have storm queries as arguments
         '''
         try:
-            tree = CmdrParser.parse(self.text)
+            tree = LarkParser.parse(self.text, start='cmdrargs')
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
         return AstConverter(self.text).transform(tree)

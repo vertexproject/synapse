@@ -47,6 +47,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             viewiden = await core.callStorm('return($lib.view.get().iden)')
             gate = await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden))')
+            self.eq('view', await core.callStorm('return($lib.auth.gates.get($lib.view.get().iden).type)'))
 
             self.eq(gate.get('iden'), viewiden)
             # default view should only have root user as admin and all as read
@@ -1492,6 +1493,7 @@ class StormTypesTest(s_test.SynTest):
             q = '$lib.print($lib.user.name())'
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('root', mesgs)
+            self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
@@ -2822,16 +2824,22 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('No triggers found', mesgs)
 
-            q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]}'
+            q = 'trigger.add node:add --form test:str --query {[ test:int=1 ]} --name trigger_test_str'
             mesgs = await core.stormlist(q)
 
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
+            nodes = await core.nodes('syn:trigger')
+            self.len(1, nodes)
+            self.eq('trigger_test_str', nodes[0].get('name'))
 
             await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')
+            nodes = await core.nodes('syn:trigger:tag^=footag')
+            self.len(1, nodes)
+            self.eq('', nodes[0].get('name'))
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=footag.bar'))
 
