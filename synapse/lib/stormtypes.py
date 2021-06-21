@@ -5154,22 +5154,24 @@ class LibTrigger(Lib):
         if vdef is None:
             raise s_exc.NoSuchView(mesg=viewiden)
 
+        thisview = self.runt.snap.view.iden
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
-        self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
+        self.runt.confirm(('trigger', 'del', trigiden), gateiden=thisview)
 
         useriden = self.runt.user.iden
         tdef = trig.pack()
         tdef['view'] = viewiden
         tdef['user'] = useriden
 
-        todo = s_common.todo('delTrigger', trigiden)
-        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
-        await self.dyncall(self.runt.snap.view.iden, todo, gatekeys=gatekeys)
-
         gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
         todo = ('addTrigger', (tdef,), {})
         tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
+        todo = s_common.todo('delTrigger', trigiden)
+        await self.dyncall(thisview, todo, gatekeys=gatekeys)
+
         return trigiden
 
 @registry.registerType

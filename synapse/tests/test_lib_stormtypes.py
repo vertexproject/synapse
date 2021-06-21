@@ -2687,15 +2687,15 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission view.read', mesgs)
 
-                await prox.addUserRule(bond.iden, (True, ('view', 'read')))
+                await prox.addUserRule(bond.iden, (True, ('view', 'read')), gateiden=forkview)
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission trigger.add', mesgs)
 
-                await prox.addUserRule(bond.iden, (True, ('trigger', 'add')))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'add')), gateiden=forkview)
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission trigger.del', mesgs)
 
-                await prox.addUserRule(bond.iden, (True, ('trigger', 'del')))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'del', trig)))
                 mesgs = await asbond.storm(q).list()
 
                 await prox.addUserRule(bond.iden, (True, ('node',)))
