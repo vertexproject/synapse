@@ -37,6 +37,8 @@ class GenPkgTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             savepath = s_common.genpath(core.dirn, 'testpkg.json')
+            yamlpath = s_common.genpath(core.dirn, 'testpkg.yaml')
+            newppath = s_common.genpath(core.dirn, 'newp.yaml')
 
             url = core.getLocalUrl()
             argv = ('--push', url, '--save', savepath, ymlpath)
@@ -49,6 +51,7 @@ class GenPkgTest(s_test.SynTest):
             self.stormIsInPrint('Imported Module testmod', msgs)
 
             pdef = s_common.yamlload(savepath)
+            s_common.yamlsave(pdef, yamlpath)
 
             self.eq(pdef['name'], 'testpkg')
             self.eq(pdef['version'], (0, 0, 1))
@@ -70,31 +73,41 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['logo']['file'], 'c3R1ZmYK')
 
             # nodocs
-            savepath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
-            argv = ('--no-docs', '--save', savepath, ymlpath)
+            nodocspath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
+            argv = ('--no-docs', '--save', nodocspath, ymlpath)
 
             await s_genpkg.main(argv)
 
-            pdef = s_common.yamlload(savepath)
+            noddocs_pdef = s_common.yamlload(nodocspath)
 
-            self.eq(pdef['name'], 'testpkg')
-            self.eq(pdef['docs'][0]['title'], 'Foo Bar')
-            self.eq(pdef['docs'][0]['content'], '')
+            self.eq(noddocs_pdef['name'], 'testpkg')
+            self.eq(noddocs_pdef['docs'][0]['title'], 'Foo Bar')
+            self.eq(noddocs_pdef['docs'][0]['content'], '')
 
             # No push, no save:  nothing to do
             argv = (ymlpath,)
             retn = await s_genpkg.main(argv)
-            self.ne(0, retn)
+            self.eq(1, retn)
 
             # Invalid:  save with pre-made file
             argv = ('--no-build', '--save', savepath, savepath)
             retn = await s_genpkg.main(argv)
-            self.ne(0, retn)
+            self.eq(1, retn)
+
+            # Push a premade yaml
+            argv = ('--push', url, '--no-build', yamlpath)
+            retn = await s_genpkg.main(argv)
+            self.eq(0, retn)
 
             # Push a premade json
             argv = ('--no-build', '--push', url, savepath)
             retn = await s_genpkg.main(argv)
             self.eq(0, retn)
+
+            # Cannot push a file that does not exist
+            argv = ('--push', url, '--no-build', newppath)
+            retn = await s_genpkg.main(argv)
+            self.eq(1, retn)
 
     def test_files(self):
         assets = s_files.getAssets()
