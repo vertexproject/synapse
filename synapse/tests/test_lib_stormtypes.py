@@ -2613,6 +2613,9 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=test4 ]')
             self.nn(nodes[0].tags.get('tagged'))
 
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes(f'$lib.trigger.move({trig}, newp)')
+
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
 
@@ -2703,6 +2706,10 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await asbond.storm('[ test:str=test5 ]', opts={'view': forkview}).list()
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
                 self.nn(pode[1]["tags"].get('tagged'))
+
+                msgs = await asbond.storm('[ test:str=test6 ]').list()
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.none(pode[1]["tags"].get('tagged'))
 
     async def test_storm_lib_cron_notime(self):
         # test cron APIs that don't require time stepping
