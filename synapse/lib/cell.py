@@ -117,12 +117,14 @@ async def _iterBackupWork(path, linkinfo, done):
     Returns:
         None: Returns None.
     '''
+    logger.info(f'Getting backup streaming link for [{path}].')
     link = await s_link.fromspawn(linkinfo)
     await s_daemon.t2call(link, _doIterBackup, (path,), {})
 
     wasfini = link.isfini
     await link.fini()
 
+    logger.info(f'Backup streaming for [{path}] completed.')
     await s_coro.executor(done.put, wasfini)
 
 def _iterBackupProc(path, linkinfo, done):
@@ -133,6 +135,7 @@ def _iterBackupProc(path, linkinfo, done):
     # our own process space and no logging has been configured.
     s_common.setlogging(logger, **linkinfo.get('logconf'))
 
+    logger.info(f'Backup streaming process for [{path}] starting.')
     asyncio.run(_iterBackupWork(path, linkinfo, done))
 
 class CellApi(s_base.Base):
@@ -1381,25 +1384,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Backup with name already exists'
             raise s_exc.BadArg(mesg=mesg)
 
-        proc = None
-        mesg = 'Streaming complete'
+        link = s_scope.get('link')
+        linkinfo = await link.getSpawnInfo()
+        linkinfo['logconf'] = await self._getSpawnLogConf()
 
         try:
             await self.runBackup(name)
-            link = s_scope.get('link')
-            linkinfo = await link.getSpawnInfo()
-            linkinfo['logconf'] = await self._getSpawnLogConf()
+        except:
+            if remove:
+                logger.debug(f'Removing {path}')
+                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                logger.debug(f'Removed {path}')
+            raise
 
-            await self.boss.promote('backup:stream', user=user, info={'name': name})
+        await self.boss.promote('backup:stream', user=user, info={'name': name})
 
-            ctx = multiprocessing.get_context('spawn')
-            done = ctx.Queue()
+        ctx = multiprocessing.get_context('spawn')
+        done = ctx.Queue()
 
-            def getproc():
-                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
-                proc.start()
-                return proc
+        proc = None
+        mesg = 'Streaming complete'
 
+        def getproc():
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
+            proc.start()
+            return proc
+
+        try:
             proc = await s_coro.executor(getproc)
 
             def waitproc():
