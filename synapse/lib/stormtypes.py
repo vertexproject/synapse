@@ -5156,7 +5156,6 @@ class LibTrigger(Lib):
 
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
-        self.runt.confirm(('trigger', 'get'), gateiden=trigiden)
         self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
 
         useriden = self.runt.user.iden
