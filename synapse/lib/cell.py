@@ -112,7 +112,6 @@ async def _iterBackupWork(path, linkinfo):
     Args:
         path (str): Path to the backup.
         linkinfo(dict): Link info dictionary.
-        done (multiprocessing.Queue): TX Queue.
 
     Returns:
         None: Returns None.
