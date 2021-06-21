@@ -2584,6 +2584,35 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ test:str=foo4 ]')
             self.len(1, await core.nodes('test:int=99'))
 
+            # Move a trigger to a different view
+            q = '''
+                $tdef = $lib.dict(
+                    condition='node:add',
+                    form='test:str',
+                    query='{[ +#tagged ]}',
+                )
+                $trig = $lib.trigger.add($tdef)
+                return($trig.iden)
+            '''
+            trig = await core.callStorm(q)
+
+            nodes = await core.nodes('[ test:str=test1 ]')
+            self.nn(nodes[0].tags.get('tagged'))
+
+            mainview = await core.callStorm('return($lib.view.get().iden)')
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes(f'$lib.trigger.move({trig}, {forkview})')
+
+            nodes = await core.nodes('[ test:str=test2 ]')
+            self.none(nodes[0].tags.get('tagged'))
+
+            nodes = await core.nodes('[ test:str=test3 ]', opts={'view': forkview})
+            self.nn(nodes[0].tags.get('tagged'))
+
+            await core.nodes(f'$lib.trigger.move({trig}, {mainview})', opts={'view': forkview})
+            nodes = await core.nodes('[ test:str=test4 ]')
+            self.nn(nodes[0].tags.get('tagged'))
+
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
 
@@ -2643,6 +2672,37 @@ class StormTypesTest(s_test.SynTest):
 
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
+
+                # Move trigger perms
+
+                await prox.delUserRule(bond.iden, (True, ('trigger', 'get')))
+                await prox.delUserRule(bond.iden, (True, ('trigger', 'add')))
+                await prox.delUserRule(bond.iden, (True, ('trigger', 'del')))
+
+                q = f'$lib.trigger.move({trig}, {forkview})'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('iden does not match any', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'get')))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission view.read', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('view', 'read')))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission trigger.add', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'add')))
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission trigger.del', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'del')))
+                mesgs = await asbond.storm(q).list()
+
+                await prox.addUserRule(bond.iden, (True, ('node',)))
+
+                msgs = await asbond.storm('[ test:str=test5 ]', opts={'view': forkview}).list()
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.nn(pode[1]["tags"].get('tagged'))
 
     async def test_storm_lib_cron_notime(self):
         # test cron APIs that don't require time stepping

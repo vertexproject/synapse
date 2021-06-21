@@ -4984,7 +4984,7 @@ class LibTrigger(Lib):
                                'Only a single matching prefix will be disabled.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the trigger that was disabled.', }}},
-        {'name': 'mode', 'desc': 'Modify an existing Trigger in the Cortex.',
+        {'name': 'mod', 'desc': 'Modify an existing Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
@@ -4994,6 +4994,16 @@ class LibTrigger(Lib):
                        'desc': 'The new Storm query to set as the trigger query.', }
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
+        {'name': 'move', 'desc': 'Modify a Trigger to run in a different View.',
+         'type': {'type': 'function', '_funcname': '_methTriggerMove',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a trigger to move. '
+                               'Only a single matching prefix will be modified.', },
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'The iden of the new View for the trigger to run in.', }
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the moved Trigger', }}},
     )
     _storm_lib_path = ('trigger',)
 
@@ -5005,7 +5015,8 @@ class LibTrigger(Lib):
             'get': self._methTriggerGet,
             'enable': self._methTriggerEnable,
             'disable': self._methTriggerDisable,
-            'mod': self._methTriggerMod
+            'mod': self._methTriggerMod,
+            'move': self._methTriggerMove,
         }
 
     async def _matchIdens(self, prefix):
@@ -5132,6 +5143,35 @@ class LibTrigger(Lib):
         await self.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         return iden
+
+    async def _methTriggerMove(self, prefix, viewiden):
+        trig = await self._matchIdens(prefix)
+        trigiden = trig.iden
+
+        viewiden = await tostr(viewiden)
+        todo = s_common.todo('getViewDef', viewiden)
+        vdef = await self.runt.dyncall('cortex', todo)
+        if vdef is None:
+            raise s_exc.NoSuchView(mesg=viewiden)
+
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
+        self.runt.confirm(('trigger', 'get'), gateiden=trigiden)
+        self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
+
+        useriden = self.runt.user.iden
+        tdef = trig.pack()
+        tdef['view'] = viewiden
+        tdef['user'] = useriden
+
+        todo = s_common.todo('delTrigger', trigiden)
+        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
+        await self.dyncall(self.runt.snap.view.iden, todo, gatekeys=gatekeys)
+
+        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
+        todo = ('addTrigger', (tdef,), {})
+        tdef = await self.dyncall(viewiden, todo, gatekeys=gatekeys)
+        return trigiden
 
 @registry.registerType
 class Trigger(Prim):
