@@ -147,6 +147,9 @@ class EconModule(s_module.CoreModule):
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
 
+                    ('from:contract', ('ou:contract', {}), {
+                        'doc': 'A contract used as an aggregate payment source.'}),
+
                     ('from:coinaddr', ('crypto:currency:address', {}), {
                         'doc': 'The crypto currency address making the payment.'}),
 
@@ -159,6 +162,9 @@ class EconModule(s_module.CoreModule):
                     ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
 
+                    ('to:contract', ('ou:contract', {}), {
+                        'doc': 'A contract used as an aggregate payment destination.'}),
+
                     ('time', ('time', {}), {
                         'doc': 'The time the payment was processed.'}),
 
@@ -170,6 +176,9 @@ class EconModule(s_module.CoreModule):
 
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of the payment'}),
+
+                    ('memo', ('str', {}), {
+                        'doc': 'A small note specified by the payer common in financial transactions.'}),
                 )),
 
                 ('econ:fin:exchange', {}, (
