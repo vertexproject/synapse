@@ -11,7 +11,7 @@ v2.43.0 - 2021-6-21
 Features and Enhancements
 -------------------------
 - Add a ``.type`` string to the Stormtypes ``storm:auth:gate`` object to
-  allow a user to identify
+  allow a user to identify the type of auth gate it is.
   (`#2238 <https://github.com/vertexproject/synapse/pull/2238>`_)
 - Add ``$lib.user.iden`` reference to the Stormtype ``$lib.user`` to get the
   iden of the current user executing Storm code.
@@ -28,7 +28,7 @@ Features and Enhancements
   storing those relationships.
   (`#2234 <https://github.com/vertexproject/synapse/pull/2234>`_)
 - Add a ``description`` property to the ``ou:industry`` form.
-  (`#2238 <https://github.com/vertexproject/synapse/pull/2238>`_)
+  (`#2239 <https://github.com/vertexproject/synapse/pull/2239>`_)
 - Add a ``--name`` parameter to the Storm ``trigger.add`` command to name
   triggers upon creation.
   (`#2237 <https://github.com/vertexproject/synapse/pull/2237>`_)
@@ -37,11 +37,13 @@ Features and Enhancements
   (`#2240 <https://github.com/vertexproject/synapse/pull/2240>`_)
 - Consolidate Storm parsers to a single Parser object to improve startup time.
   (`#2247 <https://github.com/vertexproject/synapse/pull/2247>`_)
-- Improve error logging for in the Cortex ``callStorm()`` and ``storm()`` APIs.
+- Improve error logging in the Cortex ``callStorm()`` and ``storm()`` APIs.
   (`#2243 <https://github.com/vertexproject/synapse/pull/2243>`_)
 - Add ``from:contract``, ``to:contract``, and ``memo`` properties to the
   ``econ:acct:payment`` form.
   (`#2248 <https://github.com/vertexproject/synapse/pull/2248>`_)
+- Improve the Cell backup streaming APIs link cleanup.
+  (`#2249 <https://github.com/vertexproject/synapse/pull/2249>`_)
 
 Bugfixes
 --------
