@@ -165,6 +165,7 @@ class Link(s_base.Base):
             info['unix'] = True
             link0, sock = await linksock()
             link0.onfini(sock.close)
+            link0.onfini(self.fini)
 
             async def relay(link):
                 async with link:
