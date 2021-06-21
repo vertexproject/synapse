@@ -708,6 +708,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             },
             'required': ('urlinfo', ),
         },
+        'procpool:enable': {
+            'description': 'Enable the process process pool.',
+            'type': 'boolean',
+            'default': False,
+            'hideconf': True,
+        },
+        'procpool:workers': {
+            'description': 'Number of workers spawned by the process pool.',
+            'type': 'integer',
+            'default': 3,
+            'hideconf': True,
+        },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
             'type': 'object',
@@ -776,9 +788,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadConfValu(mesg=mesg)
 
         # initialize the process pool
-        logconf = await self._getSpawnLogConf()
-        self._procpool = s_coro.ProcPool.init(logconf=logconf)
-        await self._procpool.init_workers()
+        self._procpool = None
+        if self.conf.get('procpool:enable'):
+            logconf = await self._getSpawnLogConf()
+            workers = self.conf.get('procpool:workers')
+            self._procpool = await s_coro.ProcPool.anit(max_workers=workers, logconf=logconf)
 
         # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
@@ -929,6 +943,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             The function result.
         '''
+        if self._procpool is None:
+            return await s_coro.ornot(func, *args, **kwargs)
         return await self._procpool.execute(func, *args, **kwargs)
 
     async def initNexusSubsystem(self):

@@ -209,14 +209,21 @@ async def spawn(todo, timeout=None, ctx=None):
 
 class ProcPool:
     '''
-    Instantiate a process pool once for the application.
+    Instantiate a forkserver process pool once for the application.
+
+    Forkserver will spawn the main process when anit() is called.
+    When the first job is submitted, processes are forked from the spawned process.
+
+    NOTE: When the first job is submitted all max_workers processes will be spun up.
+    Starting in 3.9 processes will be spun up on demand when there are no idle processes.
     '''
 
+    _ctx = None
     _pool = None
-    _workers_initd = False
 
     @classmethod
-    def init(cls, method='forkserver', max_workers=None, logconf=None):
+    async def anit(cls, max_workers=None, logconf=None):
+        # NOTE: Making this async for future flexibility
 
         if cls._pool is not None:
             return cls()
@@ -225,26 +232,24 @@ class ProcPool:
         if logconf is not None:
             _initializer = functools.partial(s_common.setlogging, logger, **logconf)
 
-        _ctx = multiprocessing.get_context(method)
+        # add this here so we are ahead of ProcessPoolExecutor atexit (see bpo-39098 fixed in 3.9)
+        atexit.register(cls._shutdown)
+
+        _ctx = multiprocessing.get_context('forkserver')
         cls._pool = concurrent.futures.ProcessPoolExecutor(
             mp_context=_ctx,
             max_workers=max_workers,
             initializer=_initializer
         )
-        atexit.register(cls._pool.shutdown)
+        cls._ctx = _ctx
 
         return cls()
 
-    @staticmethod
-    def _noop():
-        return None
-
-    async def init_workers(self):
-        if ProcPool._workers_initd:
-            return
-
-        await self.execute(self._noop)
-        ProcPool._workers_initd = True
+    @classmethod
+    def _shutdown(cls):
+        if cls._pool is not None:
+            cls._pool.shutdown(wait=True)
+            cls._pool = None
 
     @staticmethod
     def _run_coro(func, *args, **kwargs):

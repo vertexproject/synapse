@@ -17,6 +17,7 @@ import synapse.lib.link as s_link
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
+import synapse.tests.test_lib_coro as s_t_coro
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -1034,3 +1035,79 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=bkupdirn5) as core:
                 nodes = await core.nodes('test:str=ssl')
                 self.len(1, nodes)
+
+    async def test_cell_procpool(self):
+
+        ctor = s_cell.Cell
+
+        def _hasSlabFd(slabname, pid):
+            path = f'/proc/{pid}/fd/'
+            slabdir = f'{slabname}.lmdb'
+            for fd in os.listdir(path):
+                link = os.readlink(os.path.join(path, fd))
+                if slabdir in link:
+                    return True
+            return False
+
+        # if procpool disabled, procTask still runs
+        async with self.getTestCell(ctor) as cell:
+
+            self.none(cell._procpool)
+
+            self.eq(50, await cell.procTask(s_t_coro.spawnfunc, 20, y=30))
+            self.eq(50, await cell.procTask(s_t_coro.aspawnfunc, 20, y=30))
+
+            with self.raises(s_t_coro.FakeError):
+                await cell.procTask(s_t_coro.spawnfakeit)
+
+            with self.raises(s_t_coro.FakeError):
+                await cell.procTask(s_t_coro.aspawnfakeit)
+
+        # base cell
+        conf = {'procpool:enable': True}
+        async with self.getTestCell(ctor, conf=conf) as cell:
+
+            self.nn(cell._procpool)
+            self.len(0, cell._procpool._ctx.active_children())
+
+            self.eq(50, await cell.procTask(s_t_coro.spawnfunc, 20, y=30))
+
+            children00 = cell._procpool._ctx.active_children()
+            self.len(3, children00)
+
+            self.true(_hasSlabFd('cell', os.getpid()))
+            self.false(_hasSlabFd('cell', children00[0].pid))
+
+            self.eq(50, await cell.procTask(s_t_coro.aspawnfunc, 20, y=30))
+
+            with self.raises(s_t_coro.FakeError):
+                await cell.procTask(s_t_coro.spawnfakeit)
+
+            with self.raises(s_t_coro.FakeError):
+                await cell.procTask(s_t_coro.aspawnfakeit)
+
+            # another cell impl gets the same procpool
+            async with self.getTestAxon(conf=conf) as axon:
+
+                self.nn(axon._procpool)
+                self.true(axon._procpool._pool is cell._procpool._pool)
+
+                children01 = axon._procpool._ctx.active_children()
+                self.eq(children00, children01)
+
+                self.true(_hasSlabFd('cell', os.getpid()))
+                self.false(_hasSlabFd('cell', children00[0].pid))
+                self.true(_hasSlabFd('axon', os.getpid()))
+                self.false(_hasSlabFd('axon', children00[0].pid))
+
+        # pool persists
+        async with self.getTestCell(ctor, conf=conf) as cell2:
+
+            self.nn(cell2._procpool)
+            self.true(cell2._procpool._pool is cell._procpool._pool)
+
+            children02 = cell2._procpool._ctx.active_children()
+            self.eq(children00, children02)
+
+            self.true(_hasSlabFd('cell', os.getpid()))
+            self.false(_hasSlabFd('cell', children00[0].pid))

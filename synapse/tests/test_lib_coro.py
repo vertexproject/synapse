@@ -13,11 +13,17 @@ class FakeError(Exception): pass
 def spawnfunc(x, y=10):
     return x + y
 
+async def aspawnfunc(*args, **kwargs):
+    return spawnfunc(*args, **kwargs)
+
 def spawnsleep():
     time.sleep(10)
 
 def spawnfakeit():
     raise FakeError()
+
+async def aspawnfakeit():
+    return spawnfakeit()
 
 def spawnexit():
     sys.exit(0)
@@ -90,3 +96,39 @@ class CoroTest(s_t_utils.SynTest):
         todo = (spawnexit, (), {})
         with self.raises(s_exc.SpawnExit):
             await s_coro.spawn(todo)
+
+    async def test_lib_coro_procpool(self):
+
+        # make sure this test is starting fresh
+        s_coro.ProcPool._shutdown()
+
+        pool = s_coro.ProcPool()
+        with self.raises(s_exc.SynErr):
+            await pool.execute(spawnfunc, 20, y=30)
+
+        pool = await s_coro.ProcPool.anit(max_workers=3)
+
+        self.eq(50, await pool.execute(spawnfunc, 20, y=30))
+        self.eq(50, await pool.execute(aspawnfunc, 20, y=30))
+
+        with self.raises(FakeError):
+            await pool.execute(spawnfakeit)
+
+        with self.raises(FakeError):
+            await pool.execute(aspawnfakeit)
+
+        pool = s_coro.ProcPool()
+        self.eq(50, await pool.execute(spawnfunc, 20, y=30))
+        self.eq(50, await pool.execute(aspawnfunc, 20, y=30))
+
+        def newp():
+            return 23
+
+        async def anewp():
+            return newp()
+
+        with self.raises(Exception):
+            await pool.execute(newp)
+
+        with self.raises(Exception):
+            await pool.execute(anewp)
