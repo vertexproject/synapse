@@ -106,7 +106,7 @@ class StormLexer(pygments.lexer.Lexer):
                 yield node
 
     def get_tokens_unprocessed(self, text):
-        tree = self.parser.parse(text)
+        tree = self.parser.parse(text, start='query')
         for ltoken in self._yield_tree(tree):
             typ = TerminalPygMap[ltoken.type]
             yield ltoken.pos_in_stream, typ, ltoken.value
