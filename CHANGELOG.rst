@@ -5,6 +5,65 @@ Synapse Changelog
 *****************
 
 
+v2.43.0 - 2021-6-21
+===================
+
+Features and Enhancements
+-------------------------
+- Add a ``.type`` string to the Stormtypes ``storm:auth:gate`` object to
+  allow a user to identify the type of auth gate it is.
+  (`#2238 <https://github.com/vertexproject/synapse/pull/2238>`_)
+- Add ``$lib.user.iden`` reference to the Stormtype ``$lib.user`` to get the
+  iden of the current user executing Storm code.
+  (`#2236 <https://github.com/vertexproject/synapse/pull/2236>`_)
+- Add a ``--no-build`` option to ``synapse.tools.genpkg`` to allow pushing an
+  a complete Storm Package file.
+  (`#2231 <https://github.com/vertexproject/synapse/pull/2231>`_)
+  (`#2232 <https://github.com/vertexproject/synapse/pull/2232>`_)
+  (`#2233 <https://github.com/vertexproject/synapse/pull/2233>`_)
+- The Storm ``movetag`` command now checks for cycles when setting the
+  ``syn:tag:isnow`` property.
+  (`#2229 <https://github.com/vertexproject/synapse/pull/2229>`_)
+- Deprecate the ``ou:org:has`` form, in favor of using light edges for
+  storing those relationships.
+  (`#2234 <https://github.com/vertexproject/synapse/pull/2234>`_)
+- Add a ``description`` property to the ``ou:industry`` form.
+  (`#2239 <https://github.com/vertexproject/synapse/pull/2239>`_)
+- Add a ``--name`` parameter to the Storm ``trigger.add`` command to name
+  triggers upon creation.
+  (`#2237 <https://github.com/vertexproject/synapse/pull/2237>`_)
+- Add ``regx`` to the ``BadTypeValu`` exception of the ``str`` type when
+  a regular expression fails to match.
+  (`#2240 <https://github.com/vertexproject/synapse/pull/2240>`_)
+- Consolidate Storm parsers to a single Parser object to improve startup time.
+  (`#2247 <https://github.com/vertexproject/synapse/pull/2247>`_)
+- Improve error logging in the Cortex ``callStorm()`` and ``storm()`` APIs.
+  (`#2243 <https://github.com/vertexproject/synapse/pull/2243>`_)
+- Add ``from:contract``, ``to:contract``, and ``memo`` properties to the
+  ``econ:acct:payment`` form.
+  (`#2248 <https://github.com/vertexproject/synapse/pull/2248>`_)
+- Improve the Cell backup streaming APIs link cleanup.
+  (`#2249 <https://github.com/vertexproject/synapse/pull/2249>`_)
+
+Bugfixes
+--------
+- Fix issue with grabbing the incorrect Telepath link when performing a Cell
+  backup.
+  (`#2246 <https://github.com/vertexproject/synapse/pull/2246>`_)
+- Fix missing ``toprim`` calls in ``$lib.inet.http.connect()``.
+  (`#2235 <https://github.com/vertexproject/synapse/pull/2235>`_)
+- Fix missing Storm command form hint schema from the Storm Package schema.
+  (`#2242 <https://github.com/vertexproject/synapse/pull/2242>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for deprecated model forms and properties, along with
+  modeling alternatives.
+  (`#2234 <https://github.com/vertexproject/synapse/pull/2234>`_)
+- Update documentation for the Storm ``help`` command to add examples of
+  command substring matching.
+  (`#2241 <https://github.com/vertexproject/synapse/pull/2241>`_)
+
 v2.42.2 - 2021-06-11
 ====================
 
