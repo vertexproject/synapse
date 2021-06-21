@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import base64
 import asyncio
 import argparse
@@ -144,21 +143,23 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--no-docs', default=False, action='store_true',
                       help='Do not require docs to be present and replace any doc content with empty strings.')
     pars.add_argument('pkgfile', metavar='<pkgfile>',
-                      help='Path to a storm package prototype yml file, or a completed package JSON file.')
+                      help='Path to a storm package prototype .yaml file, or a completed package .json/.yaml file.')
 
     opts = pars.parse_args(argv)
 
     if opts.no_build:
-        pkgdef = s_common.jsload(opts.pkgfile)
+        pkgdef = s_common.yamlload(opts.pkgfile)
+        if not pkgdef:
+            outp.printf(f'Unable to load pkgdef from [{opts.pkgfile}]')
+            return 1
         if opts.save:
-            print(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.',
-                  file=sys.stderr)
+            outp.printf(f'File {opts.pkgfile} is treated as already built (--no-build); incompatible with --save.')
             return 1
     else:
         pkgdef = loadPkgProto(opts.pkgfile, opticdir=opts.optic, no_docs=opts.no_docs)
 
     if not opts.save and not opts.push:
-        print('Neither --push nor --save provided.  Nothing to do.', file=sys.stderr)
+        outp.printf('Neither --push nor --save provided.  Nothing to do.')
         return 1
 
     if opts.save:
