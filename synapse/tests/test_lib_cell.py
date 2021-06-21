@@ -8,6 +8,7 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
@@ -32,8 +33,12 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
 def _backupSleep(path, linkinfo):
     time.sleep(3.0)
 
+async def _doEOFBackup(path):
+    return
+
 async def _iterBackupEOF(path, linkinfo):
     link = await s_link.fromspawn(linkinfo)
+    await s_daemon.t2call(link, _doEOFBackup, (path,), {})
     link.writer.write_eof()
     await link.fini()
 
@@ -1030,9 +1035,8 @@ class CellTest(s_t_utils.SynTest):
                         async for msg in proxy.iterNewBackupArchive(remove=True):
                             bkup5.write(msg)
 
-                    with self.raises(s_exc.LinkShutDown):
-                        with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
-                            await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
+                    with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
+                        await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
