@@ -193,3 +193,7 @@ class EconTest(s_utils.SynTest):
             self.eq('2012 Chateauneuf du Pape', nodes[0].get('memo'))
             self.nn(nodes[0].get('to:contract'))
             self.nn(nodes[0].get('from:contract'))
+            nodes = await core.nodes('econ:acct:payment :to:contract -> ou:contract')
+            self.len(1, nodes)
+            nodes = await core.nodes('econ:acct:payment :from:contract -> ou:contract')
+            self.len(1, nodes)
