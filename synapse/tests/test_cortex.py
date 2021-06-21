@@ -243,6 +243,18 @@ class CortexTest(s_t_utils.SynTest):
                     await proxy.callStorm(q)
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
+            with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
+                async with core.getLocalProxy() as proxy:
+
+                    # async cancellation test
+                    coro = proxy.callStorm('$lib.time.sleep(3) return ( $lib.true )')
+                    try:
+                        await asyncio.wait_for(coro, timeout=0.1)
+                    except asyncio.TimeoutError:
+                        logger.exception('Woohoo!')
+
+                self.true(await stream.wait(6))
+
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:

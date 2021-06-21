@@ -212,6 +212,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 yield node
 
     async def callStorm(self, text, opts=None):
+        user = self.core._userFromOpts(opts)
         try:
 
             async for item in self.eval(text, opts=opts):
@@ -221,6 +222,16 @@ class View(s_nexus.Pusher):  # type: ignore
             # Catch return( ... ) values and return the
             # primitive version of that item.
             return await s_stormtypes.toprim(e.item)
+
+        except asyncio.CancelledError:
+            logger.warning(f'callStorm cancelled',
+                           extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            raise
+
+        except Exception:
+            logger.exception(f'Error during callStorm execution for {{ {text} }}',
+                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            raise
 
         # Any other exceptions will be raised to
         # callers as expected.
@@ -288,12 +299,14 @@ class View(s_nexus.Pusher):  # type: ignore
                 pass
 
             except asyncio.CancelledError:
-                logger.warning('Storm runtime cancelled.')
+                logger.warning('Storm runtime cancelled.',
+                               extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 cancelled = True
                 raise
 
             except Exception as e:
-                logger.exception(f'Error during storm execution for {{ {text} }}')
+                logger.exception(f'Error during storm execution for {{ {text} }}',
+                                 extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
