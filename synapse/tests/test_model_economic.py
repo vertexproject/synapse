@@ -187,3 +187,9 @@ class EconTest(s_utils.SynTest):
             self.eq('9999.01', nodes[0].get('price:close'))
             self.eq('999999999999.00', nodes[0].get('price:high'))
             self.eq('0.00001', nodes[0].get('price:low'))
+
+            nodes = await core.nodes('[ econ:acct:payment=* :from:contract=* :to:contract=* :memo="2012 Chateauneuf du Pape" ]')
+            self.len(1, nodes)
+            self.eq('2012 Chateauneuf du Pape', nodes[0].get('memo'))
+            self.nn(nodes[0].get('to:contract'))
+            self.nn(nodes[0].get('from:contract'))
