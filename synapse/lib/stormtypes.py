@@ -5000,7 +5000,7 @@ class LibTrigger(Lib):
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a trigger to move. '
                                'Only a single matching prefix will be modified.', },
-                      {'name': 'iden', 'type': 'str',
+                      {'name': 'viewiden', 'type': 'str',
                        'desc': 'The iden of the new View for the trigger to run in.', }
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the moved Trigger', }}},
