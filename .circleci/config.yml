@@ -504,6 +504,7 @@ jobs:
       CODECOV_FLAG: osx
       CODECOV_PREFIX: osx
       COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+      SYN_FORKED_WORKERS: 2
 
     working_directory: /Users/distiller/repo
 
@@ -520,6 +521,7 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYN_FORKED_WORKERS: 2
 
     working_directory: ~/repo
 
@@ -536,6 +538,7 @@ jobs:
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYN_FORKED_WORKERS: 2
 
     working_directory: ~/repo
 
@@ -553,6 +556,7 @@ jobs:
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           SYNDEV_NEXUS_REPLAY: 1
+          SYN_FORKED_WORKERS: 2
 
     working_directory: ~/repo
 
@@ -570,6 +574,7 @@ jobs:
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
           SYNDEV_NEXUS_REPLAY: 1
+          SYN_FORKED_WORKERS: 2
 
     working_directory: ~/repo
 
@@ -582,6 +587,7 @@ jobs:
       - image: circleci/python:3.8
         environment:
           PYVERS: 3.7
+          SYN_FORKED_WORKERS: 2
 
     working_directory: ~/repo
 

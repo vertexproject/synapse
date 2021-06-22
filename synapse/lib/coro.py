@@ -212,7 +212,10 @@ async def spawn(todo, timeout=None, ctx=None):
 # shared process pool
 if multiprocessing.current_process().name == 'MainProcess':
     mpctx = multiprocessing.get_context('forkserver')
-    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx)
+    max_workers = os.getenv('SYN_FORKED_WORKERS')
+    if max_workers is not None:
+        max_workers = int(max_workers)
+    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
     atexit.register(forkpool.shutdown)
 else:
     # subprocesses would get a ref, not a new pool,
