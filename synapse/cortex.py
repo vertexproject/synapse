@@ -1954,6 +1954,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if onload is not None:
             await self.getStormQuery(onload)
+            await asyncio.sleep(0)
 
         for mdef in mods:
             modtext = mdef.get('storm')
@@ -1961,6 +1962,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             mdef.setdefault('modconf', {})
             if svciden:
                 mdef['modconf']['svciden'] = svciden
+            await asyncio.sleep(0)
 
         for cdef in cmds:
             cdef['pkgname'] = pkgname
@@ -1970,6 +1972,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             cmdtext = cdef.get('storm')
             await self.getStormQuery(cmdtext)
+            await asyncio.sleep(0)
 
     async def loadStormPkg(self, pkgdef):
         '''
@@ -4201,7 +4204,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         return [m async for m in self.storm(text, opts=opts)]
 
     async def _getStormQuery(self, args):
-        query = await s_coro.forked(s_parser.parseQuery, args[0], mode=args[1])
+        query = copy.deepcopy(await s_coro.forked(s_parser.parseQuery, args[0], mode=args[1]))
         query.init(self)
         return query
 
