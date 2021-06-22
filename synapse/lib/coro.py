@@ -214,7 +214,6 @@ if multiprocessing.current_process().name == 'MainProcess':
     mpctx = multiprocessing.get_context('forkserver')
     max_workers = os.getenv('SYN_FORKED_WORKERS')
     if max_workers is not None:
-        print(f'Setting max_workers to {max_workers}')
         max_workers = int(max_workers)
     forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
     atexit.register(forkpool.shutdown)
