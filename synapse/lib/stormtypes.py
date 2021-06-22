@@ -5151,7 +5151,7 @@ class Trigger(Prim):
          'type': {'type': 'function', '_funcname': 'move',
                   'args': (
                       {'name': 'viewiden', 'type': 'str',
-                       'desc': 'The iden of the new View for the Trigger to run in.', }
+                       'desc': 'The iden of the new View for the Trigger to run in.', },
                   ),
                   'returns': {'type': 'null', }}},
     )
@@ -5191,8 +5191,8 @@ class Trigger(Prim):
 
     async def move(self, viewiden):
         trigiden = self.valu.get('iden')
-
         viewiden = await tostr(viewiden)
+
         todo = s_common.todo('getViewDef', viewiden)
         vdef = await self.runt.dyncall('cortex', todo)
         if vdef is None:
@@ -5201,20 +5201,20 @@ class Trigger(Prim):
         trigview = self.valu.get('view')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
-        self.runt.confirm(('trigger', 'del', trigiden), gateiden=trigview)
+        self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
 
         useriden = self.runt.user.iden
         tdef = dict(self.valu)
         tdef['view'] = viewiden
         tdef['user'] = useriden
 
-        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
-        todo = ('addTrigger', (tdef,), {})
-        tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
-
         gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
         todo = s_common.todo('delTrigger', trigiden)
         await self.runt.dyncall(trigview, todo, gatekeys=gatekeys)
+
+        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
+        todo = ('addTrigger', (tdef,), {})
+        tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.valu = tdef
 

@@ -2601,6 +2601,7 @@ class StormTypesTest(s_test.SynTest):
 
             mainview = await core.callStorm('return($lib.view.get().iden)')
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+
             await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
 
             nodes = await core.nodes('[ test:str=test2 ]')
@@ -2615,6 +2616,19 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchView):
                 await core.nodes(f'$lib.trigger.get({trig}).move(newp)')
+
+            q = '''
+                $tdef = $lib.dict(
+                    condition='node:add',
+                    form='test:str',
+                    query='{[ +#tagged ]}',
+                    iden=$trig
+                )
+                $trig = $lib.trigger.add($tdef)
+                return($trig.iden)
+            '''
+            with self.raises(s_exc.DupIden):
+                await core.callStorm(q, opts={'view': forkview, 'vars': {'trig': trig}})
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
@@ -2693,7 +2707,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission trigger.del', mesgs)
 
-                await prox.addUserRule(bond.iden, (True, ('trigger', 'del', trig)))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'del')), gateiden=trig)
                 mesgs = await asbond.storm(q).list()
 
                 await prox.addUserRule(bond.iden, (True, ('node',)))
