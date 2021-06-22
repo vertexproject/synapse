@@ -95,3 +95,8 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('ps:person=c92e49791022c88396fa69d9f94281cb')
             self.len(1, nodes)
             self.len(3, nodes[0].get('names'))
+
+            nodes = await core.nodes('ps:person:name=coverage')
+            self.len(1003, nodes)
+            for node in nodes:
+                self.len(1, nodes[0].get('names'))
