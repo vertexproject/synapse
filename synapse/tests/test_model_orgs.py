@@ -400,6 +400,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :arrived=201202
                     :departed=201203
                     :meet=*
+                    :preso=*
                     :conference=*
                     :conference:event=*
                     :roles+=staff
@@ -413,8 +414,53 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:attendee -> ps:contact'))
 
             self.len(1, await core.nodes('ou:attendee -> ou:meet'))
+            self.len(1, await core.nodes('ou:attendee -> ou:preso'))
             self.len(1, await core.nodes('ou:attendee -> ou:conference'))
             self.len(1, await core.nodes('ou:attendee -> ou:conference:event'))
+
+            pres = s_common.guid()
+            nodes = await core.nodes(f'''[
+                ou:preso={pres}
+                    :title=syn101
+                    :desc=squeee
+                    :time=20200808
+                    :duration=2:00:00
+
+                    :place=*
+                    :loc=us.nv.lasvegas
+
+                    :conference=*
+                    :organizer=*
+                    :sponsors=(*,)
+                    :presenters=(*,*)
+
+                    :deck:file=*
+                    :recording:file=*
+
+                    :deck:url=http://vertex.link/syn101deck
+                    :attendee:url=http://vertex.link/syn101live
+                    :recording:url=http://vertex.link/syn101recording
+            ]''')
+            self.len(1, nodes)
+            self.eq('syn101', nodes[0].get('title'))
+            self.eq('squeee', nodes[0].get('desc'))
+
+            self.eq(1596844800000, nodes[0].get('time'))
+            self.eq(7200000, nodes[0].get('duration'))
+
+            self.eq('http://vertex.link/syn101deck', nodes[0].get('deck:url'))
+            self.eq('http://vertex.link/syn101live', nodes[0].get('attendee:url'))
+            self.eq('http://vertex.link/syn101recording', nodes[0].get('recording:url'))
+
+            self.nn(nodes[0].get('deck:file'))
+            self.nn(nodes[0].get('recording:file'))
+
+            self.eq('us.nv.lasvegas', nodes[0].get('loc'))
+
+            self.len(1, await core.nodes(f'ou:preso={pres} -> ou:conference'))
+            self.len(1, await core.nodes(f'ou:preso={pres} :sponsors -> ps:contact'))
+            self.len(1, await core.nodes(f'ou:preso={pres} :organizer -> ps:contact'))
+            self.len(2, await core.nodes(f'ou:preso={pres} :presenters -> ps:contact'))
 
             cont = s_common.guid()
             nodes = await core.nodes(f'''[
