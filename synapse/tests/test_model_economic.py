@@ -34,6 +34,8 @@ class EconTest(s_utils.SynTest):
 
                     :paid=true
                     :paid:time=20180202
+
+                    :settled=20180205
             ]'''
 
             perc = (await core.nodes(text))[0]
@@ -89,6 +91,8 @@ class EconTest(s_utils.SynTest):
 
             self.eq(True, perc.get('paid'))
             self.eq(1517529600000, perc.get('paid:time'))
+
+            self.eq(1517788800000, perc.get('settled'))
 
             self.eq(1517529600000, perc.get('time'))
             self.eq(place, perc.get('place'))
