@@ -1,11 +1,13 @@
 '''
 Async/Coroutine related utilities.
 '''
+import os
 import queue
 import atexit
 import asyncio
 import inspect
 import logging
+import warnings
 import functools
 import multiprocessing
 import concurrent.futures
@@ -209,8 +211,9 @@ async def spawn(todo, timeout=None, ctx=None):
 
 # shared process pool
 if multiprocessing.current_process().name == 'MainProcess':
+    warnings.warn(f'os.cpu_count={os.cpu_count()}')
     mpctx = multiprocessing.get_context('forkserver')
-    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx)
+    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=2)
     atexit.register(forkpool.shutdown)
 else:
     # subprocesses would get a ref, not a new pool,
