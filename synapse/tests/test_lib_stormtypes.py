@@ -2601,7 +2601,7 @@ class StormTypesTest(s_test.SynTest):
 
             mainview = await core.callStorm('return($lib.view.get().iden)')
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
-            await core.nodes(f'$lib.trigger.move({trig}, {forkview})')
+            await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
 
             nodes = await core.nodes('[ test:str=test2 ]')
             self.none(nodes[0].tags.get('tagged'))
@@ -2609,12 +2609,12 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=test3 ]', opts={'view': forkview})
             self.nn(nodes[0].tags.get('tagged'))
 
-            await core.nodes(f'$lib.trigger.move({trig}, {mainview})', opts={'view': forkview})
+            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts={'view': forkview})
             nodes = await core.nodes('[ test:str=test4 ]')
             self.nn(nodes[0].tags.get('tagged'))
 
             with self.raises(s_exc.NoSuchView):
-                await core.nodes(f'$lib.trigger.move({trig}, newp)')
+                await core.nodes(f'$lib.trigger.get({trig}).move(newp)')
 
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
@@ -2678,15 +2678,10 @@ class StormTypesTest(s_test.SynTest):
 
                 # Move trigger perms
 
-                await prox.delUserRule(bond.iden, (True, ('trigger', 'get')))
                 await prox.delUserRule(bond.iden, (True, ('trigger', 'add')))
                 await prox.delUserRule(bond.iden, (True, ('trigger', 'del')))
 
-                q = f'$lib.trigger.move({trig}, {forkview})'
-                mesgs = await asbond.storm(q).list()
-                self.stormIsInErr('iden does not match any', mesgs)
-
-                await prox.addUserRule(bond.iden, (True, ('trigger', 'get')))
+                q = f'$lib.trigger.get({trig}).move({forkview})'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission view.read', mesgs)
 
