@@ -86,7 +86,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
                 ('ou:preso', ('guid', {}), {
-                    'doc': 'An webinar, conference talk, or other type of presentation.',
+                    'doc': 'A webinar, conference talk, or other type of presentation.',
                 }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
                     'deprecated': True,
