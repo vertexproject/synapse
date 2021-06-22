@@ -206,11 +206,19 @@ class AgendaTest(s_t_utils.SynTest):
 
         loop = asyncio.get_running_loop()
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
-            core = mock.AsyncMock()
+            core = mock.Mock()
             core.eval = myeval
             core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
             nexsroot = await s_nexus.NexsRoot.anit(dirn)
             await nexsroot.startup(None)
+
+            def mockgetStormQuery(q):
+                # TODO: Remove this and use AsyncMock when Python 3.8+ only
+                f = asyncio.Future()
+                f.set_result(None)
+                return f
+
+            core.getStormQuery = mockgetStormQuery
 
             db = core.slab.initdb('hive')
             core.hive = await s_hive.SlabHive.anit(core.slab, db=db, nexsroot=nexsroot)
@@ -488,12 +496,17 @@ class AgendaTest(s_t_utils.SynTest):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
         with self.getTestDir() as fdir:
 
-            core = mock.AsyncMock()
+            core = mock.Mock()
 
-            async def raiseOnBadStorm(q):
+            def raiseOnBadStorm(q):
                 ''' Just enough storm parsing for this test '''
+                # TODO: Async this and use AsyncMock when Python 3.8+ only
+                f = asyncio.Future()
                 if (q[0] == '[') != (q[-1] == ']'):
-                    raise s_exc.BadSyntax(mesg='mismatched braces')
+                    f.set_exception(s_exc.BadSyntax(mesg='mismatched braces'))
+                else:
+                    f.set_result('all good')
+                return f
 
             core.getStormQuery = raiseOnBadStorm
 
