@@ -532,6 +532,7 @@ class OuModelTest(s_t_utils.SynTest):
                 :types="nda,grant"
                 :sponsor={iden0}
                 :award:price=20.00
+                :budget:price=21.00
                 :parties=({iden1}, {iden2})
                 :document={file0}
                 :signed=202001
@@ -545,6 +546,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('Fullbright Scholarship', nodes[0].get('title'))
             self.eq(iden0, nodes[0].get('sponsor'))
             self.eq('20.00', nodes[0].get('award:price'))
+            self.eq('21.00', nodes[0].get('budget:price'))
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))
             self.eq(1583020800000, nodes[0].get('expires'))
