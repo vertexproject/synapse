@@ -175,7 +175,7 @@ class PsModule(s_module.CoreModule):
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the person.'
                     }),
-                    ('names', ('array', {'type': 'ps:name'}), {
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True}), {
                         'doc': 'Variations of the name for the person.'
                     }),
                     ('nicks', ('array', {'type': 'inet:user'}), {

@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 3)
+maxvers = (0, 2, 4)
 
 class ModelRev:
 
@@ -17,7 +17,41 @@ class ModelRev:
             ((0, 2, 1), self.revModel20210126),
             ((0, 2, 2), self.revModel20210312),
             ((0, 2, 3), self.revModel20210528),
+            ((0, 2, 4), self.revModel20210622),
         )
+
+    async def revModel20210622(self, layers):
+
+        for layr in layers:
+
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            def uniq(valu):
+                return tuple({v: True for v in valu}.keys())
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            stortype = s_layer.STOR_TYPE_UTF8 | s_layer.STOR_FLAG_ARRAY
+            async for buid, propvalu in layr.iterPropRows('ps:person', 'names'):
+
+                uniqvalu = uniq(propvalu)
+                if uniqvalu == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, 'ps:person', (
+                        (s_layer.EDIT_PROP_SET, ('names', uniqvalu, propvalu, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def revModel20210528(self, layers):
 

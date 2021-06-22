@@ -80,3 +80,18 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:cmd')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:cmd', 'rar.exe'))
+
+    async def test_modelrev_0_2_4(self):
+        async with self.getRegrCore('model-0.2.4') as core:
+
+            nodes = await core.nodes('ps:person=1828dca605977725540bb74f728d9d81')
+            self.len(1, nodes)
+            self.len(1, nodes[0].get('names'))
+
+            nodes = await core.nodes('ps:person=d26a988f732371e51e36fea0f16ff382')
+            self.len(1, nodes)
+            self.len(3, nodes[0].get('names'))
+
+            nodes = await core.nodes('ps:person=c92e49791022c88396fa69d9f94281cb')
+            self.len(1, nodes)
+            self.len(3, nodes[0].get('names'))
