@@ -338,6 +338,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The date that the contract was terminated.'}),
                     ('award:price', ('econ:currency', {}), {
                         'doc': 'The value of the contract at time of award.'}),
+                    ('budget:price', ('econ:currency', {}), {
+                        'doc': 'The amount of money budgeted for the contract.'}),
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'Purchase details of the contract.'}),
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True}), {
