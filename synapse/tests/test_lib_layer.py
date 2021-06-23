@@ -37,6 +37,10 @@ class WrapLayer(s_layer.Layer):
 
 class LayerTest(s_t_utils.SynTest):
 
+    def checkLayrvers(self, core):
+        for layr in core.layers.values():
+            self.eq(layr.layrvers, 6)
+
     async def test_layer_abrv(self):
 
         async with self.getTestCore() as core:
@@ -1232,8 +1236,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(10004, await core.count('.created'))
             self.len(2, await core.nodes('syn:tag~=foo'))
 
-            for layr in core.layers.values():
-                self.eq(layr.layrvers, 5)
+            self.checkLayrvers(core)
 
     async def test_layer_fresh_layrvers(self):
 
@@ -1458,8 +1461,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
             self.len(1, nodes)
 
-            for layr in core.layers.values():
-                self.eq(layr.layrvers, 5)
+            self.checkLayrvers(core)
 
     async def test_rebuild_byarray(self):
 
@@ -1516,5 +1518,22 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('ps:person:names*[=$longname]', opts=opts)
             self.len(1, nodes)
 
-            for layr in core.layers.values():
-                self.eq(layr.layrvers, 5)
+            self.checkLayrvers(core)
+
+    async def test_migr_tagprop_keys(self):
+
+        async with self.getRegrCore('tagprop-keymigr') as core:
+
+            nodes = await core.nodes('ps:person#bar:score=10')
+            self.len(4003, nodes)
+
+            nodes = await core.nodes('ou:org#foo:score=20')
+            self.len(4000, nodes)
+
+            nodes = await core.nodes('ou:contract#foo:score=30')
+            self.len(2000, nodes)
+
+            nodes = await core.nodes('ou:industry#foo:score=40')
+            self.len(2, nodes)
+
+            self.checkLayrvers(core)
