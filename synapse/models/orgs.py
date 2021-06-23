@@ -514,13 +514,13 @@ class OuModule(s_module.CoreModule):
                         'disp': {'hint': 'text'}}),
 
                     ('time', ('time', {}), {
-                        'doc': 'The presentation start time.'}),
+                        'doc': 'The scheduled presentation start time.'}),
 
                     ('duration', ('duration', {}), {
-                        'doc': 'The duration of the presentation.'}),
+                        'doc': 'The scheduled duration of the presentation.'}),
 
                     ('loc', ('loc', ()), {
-                        'doc': 'The geopolitical affiliation of the presentation.'}),
+                        'doc': 'The geopolitical location string for where the presentation was given.'}),
 
                     ('place', ('geo:place', ()), {
                         'doc': 'The geo:place node where the presentation was held.'}),
