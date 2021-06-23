@@ -7,7 +7,6 @@ import atexit
 import asyncio
 import inspect
 import logging
-import warnings
 import functools
 import multiprocessing
 import concurrent.futures
@@ -212,9 +211,13 @@ async def spawn(todo, timeout=None, ctx=None):
 # shared process pool
 if multiprocessing.current_process().name == 'MainProcess':
     mpctx = multiprocessing.get_context('forkserver')
+
     max_workers = os.getenv('SYN_FORKED_WORKERS')
-    if max_workers is not None:
+    if max_workers is None:
+        max_workers = max(os.cpu_count() or 1, 4)  # cpu_count can return None
+    else:
         max_workers = int(max_workers)
+
     forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
     atexit.register(forkpool.shutdown)
 else:

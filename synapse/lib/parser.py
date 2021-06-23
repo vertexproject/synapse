@@ -5,6 +5,7 @@ import regex  # type: ignore
 import synapse.exc as s_exc
 
 import synapse.lib.ast as s_ast
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.datfile as s_datfile
 
@@ -431,7 +432,6 @@ class Parser:
             raise self._larkToSynExc(e) from None
         return AstConverter(self.text).transform(tree)
 
-@s_cache.memoize(size=100)
 def parseQuery(text, mode='storm'):
     '''
     Parse a storm query and return the Lark AST.  Cached here to speed up unit tests
@@ -445,6 +445,11 @@ def parseQuery(text, mode='storm'):
         return look
 
     return Parser(text).query()
+
+async def _forkedParseQuery(args):
+    return await s_coro.forked(parseQuery, args[0], mode=args[1])
+
+querycache = s_cache.FixedCache(_forkedParseQuery, size=100)
 
 def massage_vartokn(x):
     return s_ast.Const('' if not x else (x[1:-1] if x[0] == "'" else (unescape(x) if x[0] == '"' else x)))
