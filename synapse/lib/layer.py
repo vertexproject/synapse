@@ -1421,7 +1421,6 @@ class Layer(s_nexus.Pusher):
     async def _layrV5toV6(self):
 
         sode = collections.defaultdict(dict)
-        tostor = []
 
         logger.warning(f'Updating tagprop keys in bybuid index: {self.dirn}')
 
@@ -1447,14 +1446,7 @@ class Layer(s_nexus.Pusher):
                     sode['tagprops'][tag] = {}
                 sode['tagprops'][tag][prop] = tpval
 
-                tostor.append((buid, s_msgpack.en(sode)))
-
-                if len(tostor) >= 10000:
-                    self.layrslab.putmulti(tostor, db=self.bybuidv3)
-                    tostor.clear()
-
-        if tostor:
-            self.layrslab.putmulti(tostor, db=self.bybuidv3)
+                self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
 
         self.meta.set('version', 6)
         self.layrvers = 6
