@@ -829,9 +829,13 @@ class StormSvcTest(s_test.SynTest):
 
                         await core01.sync()
 
+                        waitindx = await core01.getNexsIndx() + 1  # svc:add, queue:add
+
                         # Add a storm service
                         await core01.nodes(f'service.add real {lurl}')
                         await core01.nodes('$lib.service.wait(real)')
+
+                        self.true(await core01.nexsroot.nexslog.waitForOffset(waitindx, timeout=5))
 
                         # Make sure it shows up on leader
                         msgs = await core00.stormlist('help')

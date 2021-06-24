@@ -212,6 +212,14 @@ class AgendaTest(s_t_utils.SynTest):
             nexsroot = await s_nexus.NexsRoot.anit(dirn)
             await nexsroot.startup(None)
 
+            def mockgetStormQuery(q):
+                # TODO: Remove this and use AsyncMock when Python 3.8+ only
+                f = asyncio.Future()
+                f.set_result(None)
+                return f
+
+            core.getStormQuery = mockgetStormQuery
+
             db = core.slab.initdb('hive')
             core.hive = await s_hive.SlabHive.anit(core.slab, db=db, nexsroot=nexsroot)
 
@@ -492,8 +500,13 @@ class AgendaTest(s_t_utils.SynTest):
 
             def raiseOnBadStorm(q):
                 ''' Just enough storm parsing for this test '''
+                # TODO: Async this and use AsyncMock when Python 3.8+ only
+                f = asyncio.Future()
                 if (q[0] == '[') != (q[-1] == ']'):
-                    raise s_exc.BadSyntax(mesg='mismatched braces')
+                    f.set_exception(s_exc.BadSyntax(mesg='mismatched braces'))
+                else:
+                    f.set_result('all good')
+                return f
 
             core.getStormQuery = raiseOnBadStorm
 
