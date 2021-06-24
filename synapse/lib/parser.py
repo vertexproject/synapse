@@ -1,6 +1,7 @@
 import ast
 import lark  # type: ignore
 import regex  # type: ignore
+import asyncio
 
 import synapse.exc as s_exc
 
@@ -447,7 +448,9 @@ def parseQuery(text, mode='storm'):
     return Parser(text).query()
 
 async def _forkedParseQuery(args):
-    return await s_coro.forked(parseQuery, args[0], mode=args[1])
+    query = await s_coro.forked(parseQuery, args[0], mode=args[1])
+    await asyncio.sleep(0)
+    return query
 
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)
 

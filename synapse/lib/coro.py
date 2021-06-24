@@ -214,7 +214,7 @@ if multiprocessing.current_process().name == 'MainProcess':
 
     max_workers = os.getenv('SYN_FORKED_WORKERS')
     if max_workers is None:
-        max_workers = max(os.cpu_count() or 1, 4)  # cpu_count can return None
+        max_workers = min(os.cpu_count() or 1, 4)  # cpu_count can return None
     else:
         max_workers = int(max_workers)
 
