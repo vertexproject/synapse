@@ -211,13 +211,9 @@ def processTypes(rst, dochelp, types):
                         valu = sorted(valu, key=lambda x: x[0])
 
                         maxa, maxb = len('int'), len('valu')
-                        try:
-                            for (a, b) in valu:
-                                maxa = max(len(str(a)), maxa)
-                                maxb = max(len(b), maxb)
-                        except Exception as e:
-                            logger.exception("wtf")
-                            raise
+                        for (a, b) in valu:
+                            maxa = max(len(str(a)), maxa)
+                            maxb = max(len(b), maxb)
                         line = f'{"=" * maxa} {"=" * maxb}'
                         elines.append(line)
                         line = f'int{" " * (maxa - 3)} valu{" " * (maxb - 4)}'
@@ -232,7 +228,7 @@ def processTypes(rst, dochelp, types):
                         line = f'{"=" * maxa} {"=" * maxb}'
                         elines.append(line)
 
-                    else:
+                    else:  # pragma: no cover
                         raise ValueError(f'Unknown enum type {type(valu)} for {name}')
 
                     elines = ['    ' + line for line in elines]
