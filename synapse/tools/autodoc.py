@@ -31,6 +31,8 @@ poptsToWords = {
 
 info_ignores = (
     'stortype',
+    'bases',
+    'custom',
 )
 
 raw_back_slash_colon = r'\:'
@@ -183,34 +185,61 @@ def processTypes(rst, dochelp, types):
             for key, valu in sorted(topt.items(), key=lambda x: x[0]):
                 if key == 'enums':
                     if valu is None:
-                        rst.addLines(f' * {key}: ``{valu}``')
                         continue
                     lines = [f' * {key}:\n']
-                    valu = sorted(valu, key=lambda x: x[0])
                     elines = []
+                    if isinstance(valu, str):
+                        # handle str
+                        enums = valu.split(',')
+                        header = 'valu'
+                        maxa = max((len(enum) for enum in enums))
+                        maxa = max(maxa, len(header))
 
-                    maxa, maxb = len('int'), len('valu')
-                    for (a, b) in valu:
-                        maxa = max(len(str(a)), maxa)
-                        maxb = max(len(b), maxb)
+                        seprline = f'+{"-" * maxa}+'
+                        elines.append(seprline)
+                        line = f'+{header}{" " * (maxa - len(header))}+'
+                        elines.append(line)
+                        line = f'+{"=" * maxa}+'
+                        elines.append(line)
+                        for enum in enums:
+                            line = f'+{enum}{" " * (maxa - len(enum))}+'
+                            elines.append(line)
+                            elines.append(seprline)
 
-                    line = f'{"=" * maxa} {"=" * maxb}'
-                    elines.append(line)
-                    line = f'int{" " * (maxa - 3)} valu{" " * (maxb - 4)}'
-                    elines.append(line)
-                    line = f'{"=" * maxa} {"=" * maxb}'
-                    elines.append(line)
+                    elif isinstance(valu, (list, tuple)):
+                        # handle enum list
+                        valu = sorted(valu, key=lambda x: x[0])
 
-                    for (a, b) in valu:
-                        line = f'{a}{" " * (maxa - len(str(a)))} {b}{" " * (maxb - len(b))}'
+                        maxa, maxb = len('int'), len('valu')
+                        try:
+                            for (a, b) in valu:
+                                maxa = max(len(str(a)), maxa)
+                                maxb = max(len(b), maxb)
+                        except Exception as e:
+                            logger.exception("wtf")
+                            raise
+                        line = f'{"=" * maxa} {"=" * maxb}'
+                        elines.append(line)
+                        line = f'int{" " * (maxa - 3)} valu{" " * (maxb - 4)}'
+                        elines.append(line)
+                        line = f'{"=" * maxa} {"=" * maxb}'
                         elines.append(line)
 
-                    line = f'{"=" * maxa} {"=" * maxb}'
-                    elines.append(line)
+                        for (a, b) in valu:
+                            line = f'{a}{" " * (maxa - len(str(a)))} {b}{" " * (maxb - len(b))}'
+                            elines.append(line)
+
+                        line = f'{"=" * maxa} {"=" * maxb}'
+                        elines.append(line)
+
+                    else:
+                        raise ValueError(f'Unknown enum type {type(valu)} for {name}')
+
                     elines = ['    ' + line for line in elines]
                     lines.extend(elines)
                     lines.append('\n')
                     rst.addLines(*lines)
+
                 elif key in ('fields',
                              'schema',
                              ):
