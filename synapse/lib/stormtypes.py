@@ -6298,9 +6298,11 @@ class CronJob(Prim):
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
             'startcount': self.valu.get('startcount') or 0,
+            'errcount': self.valu.get('errcount') or 0,
             'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
             'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
             'lastresult': self.valu.get('lastresult') or '<None>',
+            'lasterrs': self.valu.get('lasterrs') or [],
             'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' ',
             'recs': []
         }

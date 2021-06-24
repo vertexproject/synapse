@@ -1,3 +1,4 @@
+import re
 import bz2
 import gzip
 import json
@@ -336,6 +337,7 @@ class StormTypesTest(s_test.SynTest):
 
             # lib.range()
             q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
+
             async def getseqn(genr, name, key):
                 seqn = []
                 async for mtyp, info in genr:
@@ -2911,7 +2913,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
-                q = f"cron.mod xxx {{[graph:node='*' :type=m2]}}"
+                q = "cron.mod xxx {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
@@ -3161,6 +3163,13 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
+                # Test that stating a failed cron prints failures
+                async with getCronJob("cron.at --now {$lib.queue.get(foo).put(atnow) $lib.newp}") as guid:
+                    self.eq('atnow', await getNextFoo())
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+                    self.nn(re.search("# errors:.+1", print_str))
+                    self.nn(re.search("most recent errors:\n[^\n]+Cannot find name", print_str))
                 ##################
 
                 # Test the aliases

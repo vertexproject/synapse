@@ -1020,10 +1020,18 @@ stormcmds = (
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
+                $lib.print('# errors:        {errcount}', errcount=$job.errcount)
                 $lib.print('last start time: {laststart}', laststart=$job.laststart)
                 $lib.print('last end time:   {lastend}', lastend=$job.lastend)
                 $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
                 $lib.print('query:           {query}', query=$job.query)
+
+                if $lib.len($job.lasterrs) {
+                    $lib.print('most recent errors:')
+                    for $err in $job.lasterrs {
+                        $lib.print('                 {err}', err=$err)
+                    }
+                }
 
                 if $job.recs {
                     $lib.print('entries:         incunit    incval required')
