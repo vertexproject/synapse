@@ -650,7 +650,6 @@ workflows:
   run_tests:
     jobs:
       - doctests:
-          context: SynapseTestEnvars
           filters:
             tags:
               only: /.*/
@@ -658,7 +657,6 @@ workflows:
                only: /.*/
 
       - osx38:
-          context: SynapseTestEnvars
           filters:
             tags:
               ignore: /.*/
@@ -666,7 +664,6 @@ workflows:
               ignore: /.*/
 
       - python37:
-          context: SynapseTestEnvars
           filters:
             tags:
               only: /.*/
@@ -674,7 +671,6 @@ workflows:
               only: /.*/
 
       - python38:
-          context: SynapseTestEnvars
           filters:
             tags:
               only: /.*/
@@ -682,7 +678,6 @@ workflows:
               only: /.*/
 
       - python37_replay:
-          context: SynapseTestEnvars
           filters:
             tags:
               only: /.*/
@@ -691,7 +686,6 @@ workflows:
                 - master
 
       - python38_replay:
-          context: SynapseTestEnvars
           filters:
             tags:
               only: /.*/

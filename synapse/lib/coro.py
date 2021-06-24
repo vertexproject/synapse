@@ -211,13 +211,7 @@ async def spawn(todo, timeout=None, ctx=None):
 # shared process pool
 if multiprocessing.current_process().name == 'MainProcess':
     mpctx = multiprocessing.get_context('forkserver')
-
-    max_workers = os.getenv('SYN_FORKED_WORKERS')
-    if max_workers is None:
-        max_workers = min(os.cpu_count() or 1, 4)  # cpu_count can return None
-    else:
-        max_workers = int(max_workers)
-
+    max_workers = int(os.getenv('SYN_FORKED_WORKERS', 1))
     forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
     atexit.register(forkpool.shutdown)
 else:

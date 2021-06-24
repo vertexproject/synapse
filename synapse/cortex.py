@@ -4203,6 +4203,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _getStormQuery(self, args):
         query = copy.deepcopy(await s_parser.querycache.aget(args))
         query.init(self)
+        await asyncio.sleep(0)
         return query
 
     async def getStormQuery(self, text, mode='storm'):
