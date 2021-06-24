@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import yaml
 
@@ -105,6 +106,15 @@ class CommonTest(s_t_utils.SynTest):
 
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
+
+            # getDirSize: check against du
+            real, appr = s_common.getDirSize(dirn)
+            durealstr = subprocess.check_output(['du', '-B', '1', '-s', dirn])
+            dureal = int(durealstr.split()[0])
+            duapprstr = subprocess.check_output(['du', '-bs', dirn])
+            duappr = int(duapprstr.split()[0])
+            self.eq(dureal, real)
+            self.eq(duappr, appr)
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)

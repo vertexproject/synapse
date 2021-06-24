@@ -2,6 +2,7 @@ import io
 import os
 import sys
 import json
+import stat
 import time
 import fcntl
 import heapq
@@ -382,12 +383,45 @@ def reqdir(*paths):
 
     Args:
         *paths ([str,...]): A list of path elements
-        **opts:  arguments as kwargs to os.makedirs
     '''
     path = genpath(*paths)
     if not os.path.isdir(path):
         raise s_exc.NoSuchDir(path=path)
     return path
+
+def getDirSize(*paths):
+    '''
+    Returns:
+        Tuple of total real and total apparent size of all normal files and directories underneath *paths plus *paths
+        itself
+
+        Equivalent to `du -B 1 -s` and `du -bs` except returns values in units of bytes
+
+    Args:
+        *paths ([str,...]): A list of path elements
+    '''
+    def getsize(path):
+        try:
+            status = os.lstat(path)
+        except OSError:  # pragma: no cover
+            return 0, 0
+
+        mode = status.st_mode
+        if not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+            return 0, 0
+
+        return status.st_blocks * 512, status.st_size
+
+    realsum, apprsum = getsize(genpath(*paths))
+
+    for fpath, dirnames, fnames in os.walk(reqdir(*paths)):
+        for fname in itertools.chain(fnames, dirnames):
+            fp = genpath(fpath, fname)
+            real, appr = getsize(fp)
+            realsum += real
+            apprsum += appr
+
+    return realsum, apprsum
 
 def jsload(*paths):
     with genfile(*paths) as fd:
@@ -443,7 +477,7 @@ def excinfo(e):
     '''
     Populate err,errmsg,errtrace info from exc.
     '''
-    tb = sys.exc_info()[2]
+    tb = e.__traceback__
     path, line, name, sorc = traceback.extract_tb(tb)[-1]
     ret = {
         'err': e.__class__.__name__,
