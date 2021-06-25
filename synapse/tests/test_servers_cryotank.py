@@ -11,22 +11,23 @@ class CryoServerTest(s_t_utils.SynTest):
             ('woah', {'dude': 1}),
         )
 
-        with self.getTestDir() as dirn, self.withSetLoggingMock() as mock:
+        with self.getTestDir() as dirn:
+            async with self.withSetLoggingMock() as mock:
 
-            argv = [dirn,
-                    '--telepath', 'tcp://127.0.0.1:0/',
-                    '--https', '0',
-                    '--name', 'telecryo']
+                argv = [dirn,
+                        '--telepath', 'tcp://127.0.0.1:0/',
+                        '--https', '0',
+                        '--name', 'telecryo']
 
-            async with await s_cryo.CryoCell.initFromArgv(argv) as cryotank:
-                async with cryotank.getLocalProxy() as proxy:
-                    await proxy.puts('foo', recs)
+                async with await s_cryo.CryoCell.initFromArgv(argv) as cryotank:
+                    async with cryotank.getLocalProxy() as proxy:
+                        await proxy.puts('foo', recs)
 
-                self.true(cryotank.dmon.shared.get('telecryo') is cryotank)
+                    self.true(cryotank.dmon.shared.get('telecryo') is cryotank)
 
-            # And data persists...
-            async with await s_cryo.CryoCell.initFromArgv(argv) as telecryo:
-                async with telecryo.getLocalProxy() as proxy:
-                    precs = await s_t_utils.alist(proxy.slice('foo', 0, 100))
-                    precs = [rec for offset, rec in precs]
-                    self.eq(precs, recs)
+                # And data persists...
+                async with await s_cryo.CryoCell.initFromArgv(argv) as telecryo:
+                    async with telecryo.getLocalProxy() as proxy:
+                        precs = await s_t_utils.alist(proxy.slice('foo', 0, 100))
+                        precs = [rec for offset, rec in precs]
+                        self.eq(precs, recs)
