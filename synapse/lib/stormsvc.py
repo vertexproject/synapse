@@ -159,7 +159,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
             try:
                 # push the svciden in the package metadata for later reference.
                 pdef['svciden'] = self.iden
-                await self.core._confirmStormPkg(pkgdef)
+                await self.core._confirmStormPkg(pdef)
                 await self.core._addStormPkg(pdef)
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
