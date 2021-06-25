@@ -1513,8 +1513,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
-    @s_nexus.Pusher.onPushAuto('cmd:set')
     async def setStormCmd(self, cdef):
+        await self._reqStormCmd(cdef)
+        return await self._push('cmd:set', cdef)
+
+    @s_nexus.Pusher.onPush('cmd:set')
+    async def _onSetStormCmd(self, cdef):
         '''
         Set pure storm command definition.
 
@@ -1776,9 +1780,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             No change control or persistence
         '''
-
-        await self._reqStormCmd(cdef)
-
         def ctor(runt, runtsafe):
             return s_storm.PureCmd(cdef, runt, runtsafe)
 
@@ -1868,15 +1869,18 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
-    @s_nexus.Pusher.onPushAuto('pkg:add')
     async def addStormPkg(self, pkgdef):
         '''
         Add the given storm package to the cortex.
 
         This will store the package for future use.
         '''
-        s_storm.reqValidPkgdef(pkgdef)
+        # do validation before nexs...
+        await self._confirmStormPkg(pkgdef)
+        return await self._push('pkg:add', pkgdef)
 
+    @s_nexus.Pusher.onPush('pkg:add')
+    async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
         olddef = self.pkghive.get(name, None)
         if olddef is not None:
@@ -1977,7 +1981,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         NOTE: This will *not* persist the package (allowing service dynamism).
         '''
-        await self._confirmStormPkg(pkgdef)
         name = pkgdef.get('name')
 
         mods = pkgdef.get('modules', ())
