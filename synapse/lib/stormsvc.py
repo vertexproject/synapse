@@ -55,7 +55,6 @@ stormcmds = (
     {
         'name': 'service.list',
         'descr': 'List the storm services configured in the cortex.',
-        'cmdopts': (),
         'cmdconf': {},
         'storm': '''
             $lib.print("")
