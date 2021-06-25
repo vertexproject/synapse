@@ -633,7 +633,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_confprint(self):
 
-        with self.withSetLoggingMock():
+        async with self.withSetLoggingMock():
 
             with self.getTestDir() as dirn:
 
