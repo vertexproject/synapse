@@ -1939,8 +1939,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Normalize and validate a storm package (optionally storm code).
         '''
-        # Validate package def
-        s_storm.reqValidPkgdef(pkgdef)
+        version = pkgdef.get('version')
+        if isinstance(version, (tuple, list)):
+            pkgdef['version'] = '%d.%d.%d' % tuple(version)
 
         pkgname = pkgdef.get('name')
 
@@ -1978,6 +1979,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             if validstorm:
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
+
+        # Validate package def (post normalization)
+        s_storm.reqValidPkgdef(pkgdef)
 
     async def loadStormPkg(self, pkgdef):
         '''
