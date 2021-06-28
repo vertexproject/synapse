@@ -4587,7 +4587,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        cdef['iden'] = s_common.guid()
+        if not cdef.get('iden'):
+            cdef['iden'] = s_common.guid()
 
         return await self._push('cron:add', cdef)
 

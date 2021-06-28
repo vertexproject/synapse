@@ -3162,6 +3162,40 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
+                opts = {'vars': {'iden': '21d87b933f43ca3b192d2579d3a6a08e'}}
+                q = "cron.at --iden $iden --hour 4 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: 21d87b933f43ca3b192d2579d3a6a08e', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: 21d87b933f43ca3b192d2579d3a6a08e', msgs)
+
+                ##################
+                # Test --iden
+                opts = {'vars': {'iden': '9703c9f9c7fea19546117e2e3d97cd44'}}
+                q = "cron.add --iden $iden --minute +10 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
+
+                q = "cron.add --iden invalididen --hour +7 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q)
+                self.stormIsInErr('data.iden must match pattern', msgs)
+
+                # doesn't actually override the old cron job definition
+                q = "cron.add --iden $iden --minute +90 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
+
+                q = "$lib.print($lib.cron.get($iden).pprint())"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint("'incunit': 'minute'", msgs)
+                self.stormIsInPrint("'incval': 10", msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
+
                 ##################
 
                 # Test the aliases
