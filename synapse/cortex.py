@@ -25,7 +25,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.config as s_config
@@ -969,8 +968,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         'storm:log:level': {
             'default': 30,
             'description': 'Logging log level to emit storm logs at.',
-            'type': 'integer'
-        },
+            'type': [
+                'integer',
+                'string',
+            ],
+            'enum': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',],
+           },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
