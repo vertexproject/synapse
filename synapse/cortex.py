@@ -966,7 +966,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             'type': 'boolean'
         },
         'storm:log:level': {
-            'default': 30,
+            'default': 'INFO',
             'description': 'Logging log level to emit storm logs at.',
             'type': [
                 'integer',
