@@ -999,9 +999,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
                              mesg='cortex version in storage is incompatible with running software')
 
-        # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
-
         self.views = {}
         self.layers = {}
         self.modules = {}
@@ -1047,6 +1044,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn, proven=proven)
         self.onfini(self.provstor.fini)
+
+        # Reset the storm:log:level from the config value to an int for internal use.
+        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.stormlog = self.conf.get('storm:log')
+        self.stormloglvl = self.conf.get('storm:log:level')
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -4253,9 +4255,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Log a storm query.
         '''
-        if self.conf.get('storm:log'):
-            lvl = self.conf.get('storm:log:level')
-            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name,
+        if self.stormlog:
+            stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
 
     async def getNodeByNdef(self, ndef, view=None):
