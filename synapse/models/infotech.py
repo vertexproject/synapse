@@ -278,6 +278,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
                     'ex': 'CWE-120',
                 }),
+                ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
+                    'doc': 'A Mitre ATT&CK element status.',
+                    'ex': 'current',
+                }),
                 ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
                     'doc': 'A Mitre ATT&CK Group ID.',
                     'ex': 'G0100',
@@ -784,6 +788,12 @@ class ItModule(s_module.CoreModule):
                 ('it:mitre:attack:technique', {}, (
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK technique.',
+                    }),
+                    ('status', ('it:mitre:attack:status', {}), {
+                        'doc': 'The status of this ATT&CK technique.',
+                    }),
+                    ('isnow', ('it:mitre:attack:technique', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the technique.',
                     }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK technique.',

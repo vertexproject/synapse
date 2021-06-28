@@ -1028,6 +1028,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
+        self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
+
         self.libroot = (None, {}, {})
         self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
 
@@ -1511,8 +1513,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
-    @s_nexus.Pusher.onPushAuto('cmd:set')
     async def setStormCmd(self, cdef):
+        await self._reqStormCmd(cdef)
+        return await self._push('cmd:set', cdef)
+
+    @s_nexus.Pusher.onPush('cmd:set')
+    async def _onSetStormCmd(self, cdef):
         '''
         Set pure storm command definition.
 
@@ -1550,7 +1556,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if not s_grammar.isCmdName(name):
             raise s_exc.BadCmdName(name=name)
 
-        self.getStormQuery(cdef.get('storm'))
+        await self.getStormQuery(cdef.get('storm'))
 
     async def _getStorNodes(self, buid, layers):
         # NOTE: This API lives here to make it easy to optimize
@@ -1774,9 +1780,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         Note:
             No change control or persistence
         '''
-
-        await self._reqStormCmd(cdef)
-
         def ctor(runt, runtsafe):
             return s_storm.PureCmd(cdef, runt, runtsafe)
 
@@ -1866,15 +1869,18 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.fire('core:cmd:change', cmd=name, act='del')
 
-    @s_nexus.Pusher.onPushAuto('pkg:add')
     async def addStormPkg(self, pkgdef):
         '''
         Add the given storm package to the cortex.
 
         This will store the package for future use.
         '''
-        s_storm.reqValidPkgdef(pkgdef)
+        # do validation before nexs...
+        await self._confirmStormPkg(pkgdef)
+        return await self._push('pkg:add', pkgdef)
 
+    @s_nexus.Pusher.onPush('pkg:add')
+    async def _addStormPkg(self, pkgdef):
         name = pkgdef.get('name')
         olddef = self.pkghive.get(name, None)
         if olddef is not None:
@@ -1951,11 +1957,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         svciden = pkgdef.get('svciden')
 
         if onload is not None:
-            self.getStormQuery(onload)
+            await self.getStormQuery(onload)
 
         for mdef in mods:
             modtext = mdef.get('storm')
-            self.getStormQuery(modtext)
+            await self.getStormQuery(modtext)
             mdef.setdefault('modconf', {})
             if svciden:
                 mdef['modconf']['svciden'] = svciden
@@ -1967,7 +1973,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 cdef['cmdconf']['svciden'] = svciden
 
             cmdtext = cdef.get('storm')
-            self.getStormQuery(cmdtext)
+            await self.getStormQuery(cmdtext)
 
     async def loadStormPkg(self, pkgdef):
         '''
@@ -1975,7 +1981,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         NOTE: This will *not* persist the package (allowing service dynamism).
         '''
-        await self._confirmStormPkg(pkgdef)
         name = pkgdef.get('name')
 
         mods = pkgdef.get('modules', ())
@@ -3816,7 +3821,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.reqUser(ddef['user'])
 
         # raises if parser failure
-        self.getStormQuery(ddef.get('storm'))
+        await self.getStormQuery(ddef.get('storm'))
 
         dmon = await self.stormdmons.addDmon(iden, ddef)
 
@@ -4198,14 +4203,14 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def stormlist(self, text, opts=None):
         return [m async for m in self.storm(text, opts=opts)]
 
-    @s_cache.memoizemethod(size=10000)
-    def getStormQuery(self, text, mode='storm'):
-        '''
-        Parse storm query text and return a Query object.
-        '''
-        query = copy.deepcopy(s_parser.parseQuery(text, mode=mode))
+    async def _getStormQuery(self, args):
+        query = copy.deepcopy(await s_parser.querycache.aget(args))
         query.init(self)
+        await asyncio.sleep(0)
         return query
+
+    async def getStormQuery(self, text, mode='storm'):
+        return await self.querycache.aget((text, mode))
 
     @contextlib.asynccontextmanager
     async def getStormRuntime(self, query, opts=None):
@@ -4236,7 +4241,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         if opts is None:
             opts = {}
         mode = opts.get('mode', 'storm')
-        self.getStormQuery(text, mode)
+        await self.getStormQuery(text, mode=mode)
         return True
 
     def _logStormQuery(self, text, user):

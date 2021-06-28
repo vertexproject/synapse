@@ -253,11 +253,11 @@ class TrigTest(s_t_utils.SynTest):
 
             tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.get(foo).put(count0)',
                     'tag': 'foo.*.bar', 'enabled': True}
-            trig1 = core.view.triggers.load(tdef)
+            trig1 = await core.view.triggers.load(tdef)
 
             tdef = {'iden': '2', 'user': root.iden, 'cond': 'tag:del', 'storm': '$lib.queue.get(foo).put(count1)',
                     'tag': 'baz.*.faz', 'form': 'test:guid', 'enabled': True}
-            trig2 = core.view.triggers.load(tdef)
+            trig2 = await core.view.triggers.load(tdef)
 
             await core.nodes('$lib.queue.add(foo)')
 

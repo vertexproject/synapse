@@ -5,6 +5,59 @@ Synapse Changelog
 *****************
 
 
+v2.45.0 - 2021-06-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a application level process pool the base Cell implemenation. Move the
+  processing of Storm query text into the process pool.
+  (`#2250 <https://github.com/vertexproject/synapse/pull/2250>`_)
+  (`#2259 <https://github.com/vertexproject/synapse/pull/2259>`_)
+- Minimize the re-validation of Storm code on Cortex boot.
+  (`#2257 <https://github.com/vertexproject/synapse/pull/2257>`_)
+- Add the ``ou:preso`` form to record conferences and presentations. Add a
+  ``status`` secondary property to the ``it:mitre:attack:technique`` form to
+  track if techniques are current, deprecated or withdrawn.
+  (`#2254 <https://github.com/vertexproject/synapse/pull/2254>`_)
+
+Bugfixes
+--------
+- Remove incorrect use of ``cmdopts`` in Storm command definitions unit tests.
+  (`#2258 <https://github.com/vertexproject/synapse/pull/2258>`_
+
+
+v2.44.0 - 2021-06-23
+====================
+
+This release contains an automatic data migration that may cause additional
+startup time on the first boot. This only applies to a Cortex that is using
+user defined tag properties or using ``ps:person:name`` properties.
+Deployments with startup or liveliness probes should have those disabled while
+this upgrade is performed to prevent accidental termination of the Cortex
+process. Please ensure you have a tested backup available before applying this
+update.
+
+Features and Enhancements
+-------------------------
+- Add a ``.move()`` method on Stormtypes ``storm:trigger`` objects to allow
+  moving a Trigger from one View to another View.
+  (`#2252 <https://github.com/vertexproject/synapse/pull/2252>`_)
+- When the Aha service marks a service as down, log why that service is being
+  marked as such.
+  (`#2255 <https://github.com/vertexproject/synapse/pull/2255>`_)
+- Add ``:budget:price`` property to the ``ou:contract`` form. Add ``:settled``
+  property to the ``econ:purchase`` form.
+  (`#2253 <https://github.com/vertexproject/synapse/pull/2253>`_
+
+Bugfixes
+--------
+- Make the array property ``ps:person:names`` a unique array property.
+  (`#2253 <https://github.com/vertexproject/synapse/pull/2253>`_
+- Add missing tagprop key migration for the bybuidv3 index.
+  (`#2256 <https://github.com/vertexproject/synapse/pull/2256>`_)
+
+
 v2.43.0 - 2021-06-21
 ====================
 

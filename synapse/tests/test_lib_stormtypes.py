@@ -2584,6 +2584,52 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ test:str=foo4 ]')
             self.len(1, await core.nodes('test:int=99'))
 
+            # Move a trigger to a different view
+            q = '''
+                $tdef = $lib.dict(
+                    condition='node:add',
+                    form='test:str',
+                    query='{[ +#tagged ]}',
+                )
+                $trig = $lib.trigger.add($tdef)
+                return($trig.iden)
+            '''
+            trig = await core.callStorm(q)
+
+            nodes = await core.nodes('[ test:str=test1 ]')
+            self.nn(nodes[0].tags.get('tagged'))
+
+            mainview = await core.callStorm('return($lib.view.get().iden)')
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
+
+            nodes = await core.nodes('[ test:str=test2 ]')
+            self.none(nodes[0].tags.get('tagged'))
+
+            nodes = await core.nodes('[ test:str=test3 ]', opts={'view': forkview})
+            self.nn(nodes[0].tags.get('tagged'))
+
+            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts={'view': forkview})
+            nodes = await core.nodes('[ test:str=test4 ]')
+            self.nn(nodes[0].tags.get('tagged'))
+
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes(f'$lib.trigger.get({trig}).move(newp)')
+
+            q = '''
+                $tdef = $lib.dict(
+                    condition='node:add',
+                    form='test:str',
+                    query='{[ +#tagged ]}',
+                    iden=$trig
+                )
+                $trig = $lib.trigger.add($tdef)
+                return($trig.iden)
+            '''
+            with self.raises(s_exc.DupIden):
+                await core.callStorm(q, opts={'view': forkview, 'vars': {'trig': trig}})
+
             # Test manipulating triggers as another user
             bond = await core.auth.addUser('bond')
 
@@ -2643,6 +2689,36 @@ class StormTypesTest(s_test.SynTest):
 
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
+
+                # Move trigger perms
+
+                await prox.delUserRule(bond.iden, (True, ('trigger', 'add')))
+                await prox.delUserRule(bond.iden, (True, ('trigger', 'del')))
+
+                q = f'$lib.trigger.get({trig}).move({forkview})'
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission view.read', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('view', 'read')), gateiden=forkview)
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission trigger.add', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'add')), gateiden=forkview)
+                mesgs = await asbond.storm(q).list()
+                self.stormIsInErr('must have permission trigger.del', mesgs)
+
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'del')), gateiden=trig)
+                mesgs = await asbond.storm(q).list()
+
+                await prox.addUserRule(bond.iden, (True, ('node',)))
+
+                msgs = await asbond.storm('[ test:str=test5 ]', opts={'view': forkview}).list()
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.nn(pode[1]["tags"].get('tagged'))
+
+                msgs = await asbond.storm('[ test:str=test6 ]').list()
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.none(pode[1]["tags"].get('tagged'))
 
     async def test_storm_lib_cron_notime(self):
         # test cron APIs that don't require time stepping
@@ -2770,6 +2846,8 @@ class StormTypesTest(s_test.SynTest):
                 ##################
                 oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]
                 nextoffs = (oldsplicespos + 1, 0, 0)
+                layr = core.getLayer()
+                nextlayroffs = await layr.getEditOffs() + 1
 
                 # Start simple: add a cron job that creates a node every minute
                 q = "cron.add --minute +1 {[graph:node='*' :type=m1]}"
@@ -2813,8 +2891,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInPrint(':type=m1', mesgs)
 
                 # Make sure it ran
-                await asyncio.sleep(0)
-                await asyncio.sleep(0)
+                await layr.waitEditOffs(nextlayroffs, timeout=5)
                 await self.agenlen(1, prox.eval('graph:node:type=m1'))
 
                 # Make sure the provenance of the new splices looks right

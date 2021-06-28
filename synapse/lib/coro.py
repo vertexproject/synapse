@@ -1,17 +1,21 @@
 '''
 Async/Coroutine related utilities.
 '''
+import os
 import queue
+import atexit
 import asyncio
 import inspect
 import logging
 import functools
 import multiprocessing
+import concurrent.futures
 
 logger = logging.getLogger(__name__)
 
 import synapse.exc as s_exc
 import synapse.glob as s_glob
+import synapse.common as s_common
 
 def iscoro(item):
     return inspect.iscoroutine(item)
@@ -203,3 +207,27 @@ async def spawn(todo, timeout=None, ctx=None):
     except (asyncio.CancelledError, asyncio.TimeoutError):
         proc.terminate()
         raise
+
+# shared process pool
+if multiprocessing.current_process().name == 'MainProcess':
+    mpctx = multiprocessing.get_context('forkserver')
+    max_workers = int(os.getenv('SYN_FORKED_WORKERS', 1))
+    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
+    atexit.register(forkpool.shutdown)
+else:
+    # subprocesses would get a ref, not a new pool,
+    # but internal atexit handlers get registered in the wrong order
+    forkpool = None
+
+def set_pool_logging(logger_, logconf):
+    # This must be called before any calls to forked()
+    todo = s_common.todo(s_common.setlogging, logger_, **logconf)
+    forkpool._initializer = _runtodo
+    forkpool._initargs = (todo,)
+
+def _runtodo(todo):
+    return todo[0](*todo[1], **todo[2])
+
+async def forked(func, *args, **kwargs):
+    todo = (func, args, kwargs)
+    return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
