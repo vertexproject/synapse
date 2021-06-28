@@ -1079,10 +1079,9 @@ class SynTest(unittest.TestCase):
         Returns:
             (s_cortex.Cortex, s_cortex.CoreApi): The Cortex and a Proxy representing a CoreApi object.
         '''
-        if conf is None:
-            conf = {}
-        conf['storm:log'] = True
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
+            core.conf['storm:log'] = True
+            core.stormlog = True
             async with core.getLocalProxy() as prox:
                 yield core, prox
 
