@@ -367,6 +367,8 @@ class ProjectSprint(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the sprint',
          'type': 'str'},
+        {'name': 'desc', 'desc': 'A description of the sprint',
+         'type': 'str'},
         {'name': 'tickets', 'desc': 'Yields out the tickets associated with the given sprint',
          'type': 'Yields'},
     )
@@ -383,6 +385,7 @@ class ProjectSprint(s_stormtypes.Prim):
         })
         self.stors.update({
             'name': self._setSprintName,
+            'desc': self._setSprintDesc,
             'status': self._setSprintStatus,
         })
 
@@ -393,6 +396,14 @@ class ProjectSprint(s_stormtypes.Prim):
             await self.node.pop('status')
         else:
             await self.node.set('status', valu)
+
+    async def _setSprintDesc(self, valu):
+        self.proj.confirm(('project', 'sprint', 'set', 'desc'))
+        valu = await tostr(valu, noneok=True)
+        if valu is None:
+            await self.node.pop('desc')
+        else:
+            await self.node.set('desc', valu)
 
     async def _setSprintName(self, valu):
 
@@ -410,8 +421,8 @@ class ProjectSprint(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'name': self.node.get('name'),
-            # TODO: desc isn't a thing on proj:sprint nodes
             'desc': self.node.get('desc'),
+            'status': self.node.get('status'),
         }
 
     @s_stormtypes.stormfunc(readonly=True)
