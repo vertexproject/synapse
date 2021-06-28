@@ -105,29 +105,26 @@ async def _doIterBackup(path, chunksize=1024):
     await coro
     await link0.fini()
 
-async def _iterBackupWork(path, linkinfo, done):
+async def _iterBackupWork(path, linkinfo):
     '''
     Inner setup for backup streaming.
 
     Args:
         path (str): Path to the backup.
         linkinfo(dict): Link info dictionary.
-        done (multiprocessing.Queue): TX Queue.
 
     Returns:
         None: Returns None.
     '''
     logger.info(f'Getting backup streaming link for [{path}].')
     link = await s_link.fromspawn(linkinfo)
-    await s_daemon.t2call(link, _doIterBackup, (path,), {})
 
-    wasfini = link.isfini
+    await s_daemon.t2call(link, _doIterBackup, (path,), {})
     await link.fini()
 
     logger.info(f'Backup streaming for [{path}] completed.')
-    await s_coro.executor(done.put, wasfini)
 
-def _iterBackupProc(path, linkinfo, done):
+def _iterBackupProc(path, linkinfo):
     '''
     Multiprocessing target for streaming a backup.
     '''
@@ -136,7 +133,7 @@ def _iterBackupProc(path, linkinfo, done):
     s_common.setlogging(logger, **linkinfo.get('logconf'))
 
     logger.info(f'Backup streaming process for [{path}] starting.')
-    asyncio.run(_iterBackupWork(path, linkinfo, done))
+    asyncio.run(_iterBackupWork(path, linkinfo))
 
 class CellApi(s_base.Base):
 
@@ -1338,25 +1335,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
-        done = ctx.Queue()
 
         proc = None
         mesg = 'Streaming complete'
 
         def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
             proc.start()
             return proc
 
         try:
             proc = await s_coro.executor(getproc)
 
-            def waitproc():
-                proc.join()
-                return done.get()
-
-            if await s_coro.executor(waitproc):
-                await link.fini()
+            await s_coro.executor(proc.join)
 
         except (asyncio.CancelledError, Exception) as e:
 
@@ -1364,7 +1355,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.exception('Error during backup streaming.')
 
             if proc:
-                await s_coro.executor(done.put, False)
                 proc.terminate()
 
             mesg = repr(e)
@@ -1400,25 +1390,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
-        done = ctx.Queue()
 
         proc = None
         mesg = 'Streaming complete'
 
         def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, done))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
             proc.start()
             return proc
 
         try:
             proc = await s_coro.executor(getproc)
 
-            def waitproc():
-                proc.join()
-                return done.get()
-
-            if await s_coro.executor(waitproc):
-                await link.fini()
+            await s_coro.executor(proc.join)
 
         except (asyncio.CancelledError, Exception) as e:
 
@@ -1426,7 +1410,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.exception('Error during backup streaming.')
 
             if proc:
-                await s_coro.executor(done.put, False)
                 proc.terminate()
 
             mesg = repr(e)
@@ -2004,6 +1987,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setdefault('_log_conf', logconf)
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
+
+        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         cell = await cls.anit(opts.dirn, conf=conf)
 

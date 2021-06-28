@@ -103,7 +103,7 @@ class Node:
         Note:
             If opts is not None and opts['vars'] is set and path is not None, then values of path vars take precedent
         '''
-        query = self.snap.core.getStormQuery(text)
+        query = await self.snap.core.getStormQuery(text)
 
         if opts is None:
             opts = {}

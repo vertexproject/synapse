@@ -27,7 +27,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'name:middle': 'clown',
                     'name:given': 'robert',
                     'nicks': ['pwise71', 'SoulchilD'],
-                    'names': ['Billy Bob']
+                    'names': ['Billy Bob', 'Billy bob']
                 }
                 node = await snap.addNode('ps:person', person0, person_props)
                 self.eq(node.ndef[1], person0)

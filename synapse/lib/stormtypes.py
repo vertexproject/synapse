@@ -5059,7 +5059,7 @@ class LibTrigger(Lib):
                                'Only a single matching prefix will be disabled.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the trigger that was disabled.', }}},
-        {'name': 'mode', 'desc': 'Modify an existing Trigger in the Cortex.',
+        {'name': 'mod', 'desc': 'Modify an existing Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
@@ -5080,7 +5080,7 @@ class LibTrigger(Lib):
             'get': self._methTriggerGet,
             'enable': self._methTriggerEnable,
             'disable': self._methTriggerDisable,
-            'mod': self._methTriggerMod
+            'mod': self._methTriggerMod,
         }
 
     async def _matchIdens(self, prefix):
@@ -5215,11 +5215,18 @@ class Trigger(Prim):
     '''
     _storm_locals = (
         {'name': 'iden', 'desc': 'The Trigger iden.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set information in the trigger.',
+        {'name': 'set', 'desc': 'Set information in the Trigger.',
          'type': {'type': 'function', '_funcname': 'set',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the key to set.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to set', }
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'move', 'desc': 'Modify the Trigger to run in a different View.',
+         'type': {'type': 'function', '_funcname': 'move',
+                  'args': (
+                      {'name': 'viewiden', 'type': 'str',
+                       'desc': 'The iden of the new View for the Trigger to run in.', },
                   ),
                   'returns': {'type': 'null', }}},
     )
@@ -5240,6 +5247,7 @@ class Trigger(Prim):
     def getObjLocals(self):
         return {
             'set': self.set,
+            'move': self.move,
         }
 
     async def deref(self, name):
@@ -5259,6 +5267,35 @@ class Trigger(Prim):
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
 
         self.valu[name] = valu
+
+    async def move(self, viewiden):
+        trigiden = self.valu.get('iden')
+        viewiden = await tostr(viewiden)
+
+        todo = s_common.todo('getViewDef', viewiden)
+        vdef = await self.runt.dyncall('cortex', todo)
+        if vdef is None:
+            raise s_exc.NoSuchView(mesg=viewiden)
+
+        trigview = self.valu.get('view')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
+        self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
+
+        useriden = self.runt.user.iden
+        tdef = dict(self.valu)
+        tdef['view'] = viewiden
+        tdef['user'] = useriden
+
+        gatekeys = ((useriden, ('trigger', 'del'), trigiden),)
+        todo = s_common.todo('delTrigger', trigiden)
+        await self.runt.dyncall(trigview, todo, gatekeys=gatekeys)
+
+        gatekeys = ((useriden, ('trigger', 'add'), viewiden),)
+        todo = ('addTrigger', (tdef,), {})
+        tdef = await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
+
+        self.valu = tdef
 
 def ruleFromText(text):
     '''

@@ -54,9 +54,9 @@ class StormlibModelTest(s_test.SynTest):
             print(resp)
             self.true(success)
 
-    async def test_stormlib_libstix(self):
+    async def test_stormlib_libstix(self, conf=None):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCore(conf=conf) as core:
             opts = {'vars': {
                 'ind': '6ba7d8500964902bf2e03126ed0f6cb1',
                 'news': '840b9b003a765020705ea8d203a7659c',

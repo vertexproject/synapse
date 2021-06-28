@@ -42,14 +42,14 @@ class CmdCronTest(s_t_utils.SynTest):
                         non-zero amounts.  However, we are running in the same asyncio loop as the agenda.  Just
                         sleep(0) in a loop until the cron job is not running anymore
                         '''
-                        for _ in range(30):
+                        for _ in range(300):
                             await asyncio.sleep(0)
                             crons = await core.listCronJobs()
                             cron = [c for c in crons if c.get('iden') == guid][0]
                             if not cron['isrunning']:
                                 break
                         else:
-                            # the cron job didn't finish after ten sleeps?!
+                            # the cron job didn't finish after *alot* of sleeps?!
                             self.true(0)
 
                     # Various silliness

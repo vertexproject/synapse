@@ -85,6 +85,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:meet', ('guid', {}), {
                     'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
                 }),
+                ('ou:preso', ('guid', {}), {
+                    'doc': 'A webinar, conference talk, or other type of presentation.',
+                }),
                 ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
                     'deprecated': True,
                     'doc': 'Deprecated. Please use ou:attendee.',
@@ -338,6 +341,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The date that the contract was terminated.'}),
                     ('award:price', ('econ:currency', {}), {
                         'doc': 'The value of the contract at time of award.'}),
+                    ('budget:price', ('econ:currency', {}), {
+                        'doc': 'The amount of money budgeted for the contract.'}),
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'Purchase details of the contract.'}),
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True}), {
@@ -485,6 +490,58 @@ class OuModule(s_module.CoreModule):
                     ('contest', ('ou:contest', {}), {
                         'doc': 'The contest that the person attended.',
                     }),
+                    ('preso', ('ou:preso', {}), {
+                        'doc': 'The presentation that the person attended.',
+                    }),
+                )),
+                ('ou:preso', {}, (
+
+                    ('organizer', ('ps:contact', {}), {
+                        'doc': 'Contact information for the primary organizer of the presentation.'}),
+
+                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of contacts which sponsored the presentation.'}),
+
+                    ('presenters', ('array', {'type': 'ps:contact'}), {
+                        'doc': 'An array of contacts which gave the presentation.'}),
+
+                    ('title', ('str', {'lower': True}), {
+                        'doc': 'The full name of the presentation.',
+                        'ex': 'Synapse 101 - 2021/06/22'}),
+
+                    ('desc', ('str', {'lower': True}), {
+                        'doc': 'A description of the presentation.',
+                        'disp': {'hint': 'text'}}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The scheduled presentation start time.'}),
+
+                    ('duration', ('duration', {}), {
+                        'doc': 'The scheduled duration of the presentation.'}),
+
+                    ('loc', ('loc', ()), {
+                        'doc': 'The geopolitical location string for where the presentation was given.'}),
+
+                    ('place', ('geo:place', ()), {
+                        'doc': 'The geo:place node where the presentation was held.'}),
+
+                    ('deck:url', ('inet:url', ()), {
+                        'doc': 'The URL hosting a copy of the presentation materials.'}),
+
+                    ('deck:file', ('file:bytes', ()), {
+                        'doc': 'A file containing the presentation materials.'}),
+
+                    ('attendee:url', ('inet:url', ()), {
+                        'doc': 'The URL visited by live attendees of the presentation.'}),
+
+                    ('recording:url', ('inet:url', ()), {
+                        'doc': 'The URL hosting a recording of the presentation.'}),
+
+                    ('recording:file', ('file:bytes', ()), {
+                        'doc': 'A file containing a recording of the presentation.'}),
+
+                    ('conference', ('ou:conference', ()), {
+                        'doc': 'The conference which hosted the presentation.'}),
                 )),
                 ('ou:meet', {}, (
                     ('name', ('str', {'lower': True}), {

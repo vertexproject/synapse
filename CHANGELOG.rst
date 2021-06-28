@@ -5,6 +5,118 @@ Synapse Changelog
 *****************
 
 
+v2.45.0 - 2021-06-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a application level process pool the base Cell implemenation. Move the
+  processing of Storm query text into the process pool.
+  (`#2250 <https://github.com/vertexproject/synapse/pull/2250>`_)
+  (`#2259 <https://github.com/vertexproject/synapse/pull/2259>`_)
+- Minimize the re-validation of Storm code on Cortex boot.
+  (`#2257 <https://github.com/vertexproject/synapse/pull/2257>`_)
+- Add the ``ou:preso`` form to record conferences and presentations. Add a
+  ``status`` secondary property to the ``it:mitre:attack:technique`` form to
+  track if techniques are current, deprecated or withdrawn.
+  (`#2254 <https://github.com/vertexproject/synapse/pull/2254>`_)
+
+Bugfixes
+--------
+- Remove incorrect use of ``cmdopts`` in Storm command definitions unit tests.
+  (`#2258 <https://github.com/vertexproject/synapse/pull/2258>`_
+
+
+v2.44.0 - 2021-06-23
+====================
+
+This release contains an automatic data migration that may cause additional
+startup time on the first boot. This only applies to a Cortex that is using
+user defined tag properties or using ``ps:person:name`` properties.
+Deployments with startup or liveliness probes should have those disabled while
+this upgrade is performed to prevent accidental termination of the Cortex
+process. Please ensure you have a tested backup available before applying this
+update.
+
+Features and Enhancements
+-------------------------
+- Add a ``.move()`` method on Stormtypes ``storm:trigger`` objects to allow
+  moving a Trigger from one View to another View.
+  (`#2252 <https://github.com/vertexproject/synapse/pull/2252>`_)
+- When the Aha service marks a service as down, log why that service is being
+  marked as such.
+  (`#2255 <https://github.com/vertexproject/synapse/pull/2255>`_)
+- Add ``:budget:price`` property to the ``ou:contract`` form. Add ``:settled``
+  property to the ``econ:purchase`` form.
+  (`#2253 <https://github.com/vertexproject/synapse/pull/2253>`_
+
+Bugfixes
+--------
+- Make the array property ``ps:person:names`` a unique array property.
+  (`#2253 <https://github.com/vertexproject/synapse/pull/2253>`_
+- Add missing tagprop key migration for the bybuidv3 index.
+  (`#2256 <https://github.com/vertexproject/synapse/pull/2256>`_)
+
+
+v2.43.0 - 2021-06-21
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``.type`` string to the Stormtypes ``storm:auth:gate`` object to
+  allow a user to identify the type of auth gate it is.
+  (`#2238 <https://github.com/vertexproject/synapse/pull/2238>`_)
+- Add ``$lib.user.iden`` reference to the Stormtype ``$lib.user`` to get the
+  iden of the current user executing Storm code.
+  (`#2236 <https://github.com/vertexproject/synapse/pull/2236>`_)
+- Add a ``--no-build`` option to ``synapse.tools.genpkg`` to allow pushing an
+  a complete Storm Package file.
+  (`#2231 <https://github.com/vertexproject/synapse/pull/2231>`_)
+  (`#2232 <https://github.com/vertexproject/synapse/pull/2232>`_)
+  (`#2233 <https://github.com/vertexproject/synapse/pull/2233>`_)
+- The Storm ``movetag`` command now checks for cycles when setting the
+  ``syn:tag:isnow`` property.
+  (`#2229 <https://github.com/vertexproject/synapse/pull/2229>`_)
+- Deprecate the ``ou:org:has`` form, in favor of using light edges for
+  storing those relationships.
+  (`#2234 <https://github.com/vertexproject/synapse/pull/2234>`_)
+- Add a ``description`` property to the ``ou:industry`` form.
+  (`#2239 <https://github.com/vertexproject/synapse/pull/2239>`_)
+- Add a ``--name`` parameter to the Storm ``trigger.add`` command to name
+  triggers upon creation.
+  (`#2237 <https://github.com/vertexproject/synapse/pull/2237>`_)
+- Add ``regx`` to the ``BadTypeValu`` exception of the ``str`` type when
+  a regular expression fails to match.
+  (`#2240 <https://github.com/vertexproject/synapse/pull/2240>`_)
+- Consolidate Storm parsers to a single Parser object to improve startup time.
+  (`#2247 <https://github.com/vertexproject/synapse/pull/2247>`_)
+- Improve error logging in the Cortex ``callStorm()`` and ``storm()`` APIs.
+  (`#2243 <https://github.com/vertexproject/synapse/pull/2243>`_)
+- Add ``from:contract``, ``to:contract``, and ``memo`` properties to the
+  ``econ:acct:payment`` form.
+  (`#2248 <https://github.com/vertexproject/synapse/pull/2248>`_)
+- Improve the Cell backup streaming APIs link cleanup.
+  (`#2249 <https://github.com/vertexproject/synapse/pull/2249>`_)
+
+Bugfixes
+--------
+- Fix issue with grabbing the incorrect Telepath link when performing a Cell
+  backup.
+  (`#2246 <https://github.com/vertexproject/synapse/pull/2246>`_)
+- Fix missing ``toprim`` calls in ``$lib.inet.http.connect()``.
+  (`#2235 <https://github.com/vertexproject/synapse/pull/2235>`_)
+- Fix missing Storm command form hint schema from the Storm Package schema.
+  (`#2242 <https://github.com/vertexproject/synapse/pull/2242>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for deprecated model forms and properties, along with
+  modeling alternatives.
+  (`#2234 <https://github.com/vertexproject/synapse/pull/2234>`_)
+- Update documentation for the Storm ``help`` command to add examples of
+  command substring matching.
+  (`#2241 <https://github.com/vertexproject/synapse/pull/2241>`_)
+
 v2.42.2 - 2021-06-11
 ====================
 

@@ -145,10 +145,11 @@ class RealService(s_stormsvc.StormSvc):
                 },
                 {
                     'name': 'ohhai',
-                    'cmdopts': (
+                    'cmdargs': (
                         ('--verbose', {'default': False, 'action': 'store_true'}),
                     ),
-                    'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ]',
+                    'storm': '[ inet:ipv4=1.2.3.4 :asn=$lib.service.get($cmdconf.svciden).asn() ] '
+                             'fini { if $cmdopts.verbose { $lib.print("ohhai verbose") } }',
                 },
                 {
                     'name': 'yoyo',
@@ -519,6 +520,11 @@ class StormSvcTest(s_test.SynTest):
                     self.nn(core.getStormCmd('ohhai'))
                     self.none(core.getStormCmd('goboom'))
 
+                    msgs = await core.stormlist('ohhai')
+                    self.stormNotInPrint('ohhai verbose', msgs)
+                    msgs = await core.stormlist('ohhai --verbose')
+                    self.stormIsInPrint('ohhai verbose', msgs)
+
                     prim = core.getStormSvc('prim')
                     refs = prim._syn_refs
                     await core.nodes('function subr(svc) {} $subr($lib.service.get(prim))')
@@ -829,9 +835,13 @@ class StormSvcTest(s_test.SynTest):
 
                         await core01.sync()
 
+                        waitindx = await core01.getNexsIndx() + 1  # svc:add, queue:add
+
                         # Add a storm service
                         await core01.nodes(f'service.add real {lurl}')
                         await core01.nodes('$lib.service.wait(real)')
+
+                        self.true(await core01.nexsroot.nexslog.waitForOffset(waitindx, timeout=5))
 
                         # Make sure it shows up on leader
                         msgs = await core00.stormlist('help')

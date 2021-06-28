@@ -495,7 +495,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[ ou:org=* ou:org=* :name=dupcorp ]')
             async with await core.view.snap(user=core.auth.rootuser) as snap:
 
-                query = core.getStormQuery('')
+                query = await core.getStormQuery('')
                 async with snap.getStormRuntime(query) as runt:
 
                     self.len(1, await alist(runt.storm('inet:ipv4=1.2.3.4')))
@@ -627,7 +627,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            query = core.getStormQuery('inet:ipv4')
+            query = await core.getStormQuery('inet:ipv4')
             async with core.getStormRuntime(query) as runt:
 
                 base0 = await s_base.Base.anit()
