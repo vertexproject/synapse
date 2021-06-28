@@ -972,8 +972,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'integer',
                 'string',
             ],
-            'enum': ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',],
-           },
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -999,6 +998,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         corevers = self.cellinfo.get('cortex:version')
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
                              mesg='cortex version in storage is incompatible with running software')
+
+        # Reset the storm:log:level from the config value to an int for internal use.
+        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
 
         self.views = {}
         self.layers = {}
