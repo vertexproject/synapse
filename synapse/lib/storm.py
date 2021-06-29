@@ -156,7 +156,7 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
-_reqValidPkgdef = s_config.getJsValidator({
+reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
@@ -281,17 +281,6 @@ _reqValidPkgdef = s_config.getJsValidator({
         }
     }
 })
-def reqValidPkgdef(pkgdef):
-    '''
-    Require a valid storm package definition.
-
-    NOTE: This API may mutate the input dictionary to
-          provide inline updates to the package structure.
-    '''
-    version = pkgdef.get('version')
-    if isinstance(version, (tuple, list)):
-        pkgdef['version'] = '%d.%d.%d' % tuple(version)
-    return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
@@ -1481,7 +1470,7 @@ class Runtime(s_base.Base):
             yield item
 
     async def getStormQuery(self, text):
-        return self.snap.core.getStormQuery(text)
+        return await self.snap.core.getStormQuery(text)
 
     async def coreDynCall(self, todo, perm=None):
         gatekeys = ()
@@ -1714,7 +1703,7 @@ class Runtime(s_base.Base):
         '''
         if opts is None:
             opts = {}
-        query = self.snap.core.getStormQuery(text)
+        query = await self.snap.core.getStormQuery(text)
         async with self.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute(genr=genr):
                 await asyncio.sleep(0)
@@ -2218,7 +2207,7 @@ class PureCmd(Cmd):
             raise s_exc.AuthDeny(mesg=mesg)
 
         text = self.cdef.get('storm')
-        query = runt.snap.core.getStormQuery(text)
+        query = await runt.snap.core.getStormQuery(text)
 
         cmdopts = s_stormtypes.CmdOpts(self)
 

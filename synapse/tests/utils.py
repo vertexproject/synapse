@@ -921,14 +921,18 @@ class SynTest(unittest.TestCase):
                         mock.MagicMock(return_value=None)) as patch:  # type: mock.MagicMock
             yield patch
 
-    @contextlib.contextmanager
-    def withSetLoggingMock(self):
+    @contextlib.asynccontextmanager
+    async def withSetLoggingMock(self):
         '''
         Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
 
         Returns:
             mock.MagicMock: Yields a mock.MagikMock object.
         '''
+        # Since the setlogging routine is used in the forkserver initializer,
+        # we need to make sure we've initialized our worker prior to mocking
+        self.eq(1, await s_coro.forked(int, '1'))
+
         with mock.patch('synapse.common.setlogging',
                         mock.MagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
@@ -1077,6 +1081,7 @@ class SynTest(unittest.TestCase):
         '''
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             core.conf['storm:log'] = True
+            core.stormlog = True
             async with core.getLocalProxy() as prox:
                 yield core, prox
 

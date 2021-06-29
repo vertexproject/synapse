@@ -45,7 +45,7 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:currency', ('str', {'lower': True, 'strip': False}), {
                     'doc': 'The name of a system of money in general use',
-                    'ex': '2.20'}),
+                    'ex': 'usd'}),
 
                 ('econ:fin:exchange', ('guid', {}), {
                     'doc': 'A financial exchange where securities are traded.'}),

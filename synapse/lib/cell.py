@@ -2032,7 +2032,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
-        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+        pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
                           help='Specify the Python logging log level.', type=str.upper)
         pars.add_argument('--structured-logging', default=False, action='store_true',
                           help='Use structured logging.')
@@ -2101,6 +2101,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setdefault('_log_conf', logconf)
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
+
+        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         cell = await cls.anit(opts.dirn, conf=conf)
 

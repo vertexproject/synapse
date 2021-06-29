@@ -22,6 +22,9 @@ def spawnfakeit():
 def spawnexit():
     sys.exit(0)
 
+def chkpool():
+    return s_coro.forkpool is None
+
 class CoroTest(s_t_utils.SynTest):
 
     async def test_coro_iscoro(self):
@@ -90,3 +93,20 @@ class CoroTest(s_t_utils.SynTest):
         todo = (spawnexit, (), {})
         with self.raises(s_exc.SpawnExit):
             await s_coro.spawn(todo)
+
+    async def test_lib_coro_forked(self):
+
+        self.true(await s_coro.forked(chkpool))
+
+        self.eq(50, await s_coro.forked(spawnfunc, 20, y=30))
+
+        with self.raises(FakeError):
+            await s_coro.forked(spawnfakeit)
+
+        self.eq(50, await s_coro.forked(spawnfunc, 20, y=30))
+
+        def newp():
+            return 23
+
+        with self.raises(Exception):
+            await s_coro.forked(newp)

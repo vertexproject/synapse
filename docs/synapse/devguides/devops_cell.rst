@@ -99,3 +99,77 @@ As Cell Server
 The generic Cell server can also be used for starting the Cell by specifying the constructor as an argument::
 
     python -m synapse.servers.cell path.to.MyCell /path/to/dirn
+
+.. _devops-cell-logging:
+
+Cell Logging
+------------
+
+Synapse Cells have logging configured with the command line or with environment variables. The following command line
+arguments can be used to enable logging at specific levels, as well as enabling structured logging::
+
+  --log-level {DEBUG,INFO,WARNING,ERROR,CRITICAL}
+                        Specify the Python logging log level.
+  --structured-logging  Use structured logging.
+
+These can also be configured from the environmental variables ``SYN_LOG_LEVEL`` and ``SYN_LOG_STRUCT``, respectively.
+The ``SYN_LOG_LEVEL`` variable can be specified as a string (``DEBUG``, ``INFO``, etc) or as a corresponding
+`Python logging`_ log level as an integer. The ``SYN_LOG_STRUCT`` varialbe, if present, will enabled structured logging
+if it is not set to a false value such as ``0`` or ``false``.
+
+When structured logging is enabled logs will be emitted in JSON lines format. An example of that output is shown below,
+showing the startup of a Cortex with structured logging enabled::
+
+    $ SYN_LOG_LEVEL=INFO SYN_LOG_STRUCT=true python -m synapse.servers.cortex cells/core00/
+    {"message": "log level set to INFO", "logger": {"name": "synapse.lib.cell", "process": "MainProcess", "filename": "common.py", "func": "setlogging"}, "level": "INFO", "time": "2021-06-28 15:47:54,825"}
+    {"message": "dmon listening: tls://0.0.0.0:27492/?ca=test", "logger": {"name": "synapse.lib.cell", "process": "MainProcess", "filename": "cell.py", "func": "initServiceNetwork"}, "level": "INFO", "time": "2021-06-28 15:47:55,101"}
+    {"message": "...cortex API (telepath): tls://0.0.0.0:27492/?ca=test", "logger": {"name": "synapse.lib.cell", "process": "MainProcess", "filename": "cell.py", "func": "initFromArgv"}, "level": "INFO", "time": "2021-06-28 15:47:55,102"}
+    {"message": "...cortex API (https): 4443", "logger": {"name": "synapse.lib.cell", "process": "MainProcess", "filename": "cell.py", "func": "initFromArgv"}, "level": "INFO", "time": "2021-06-28 15:47:55,103"}
+
+These structured logs are designed to be easy to ingest into third party log collection platforms. They contain the log
+message, level, time, and metadata about where the log message came from. The following is a pretty printed example::
+
+    {
+      "message": "log level set to INFO",
+      "logger": {
+        "name": "synapse.lib.cell",
+        "process": "MainProcess",
+        "filename": "common.py",
+        "func": "setlogging"
+      },
+      "level": "INFO",
+      "time": "2021-06-28 15:47:54,825"
+    }
+
+When exceptions are logged with structured logging, we capture additional information about the exception, including the
+entire traceback. In the event that the error is a Synapse Err class, we also capture additional metadata which was
+attached to the error. In the following example, we also have the query text, username and user iden available in the
+log message pretty-printed log message::
+
+    {
+      "message": "Error during storm execution for { || }",
+      "logger": {
+        "name": "synapse.lib.view",
+        "process": "MainProcess",
+        "filename": "view.py",
+        "func": "runStorm"
+      },
+      "level": "ERROR",
+      "time": "2021-06-28 15:49:34,401",
+      "err": {
+        "efile": "coro.py",
+        "eline": 233,
+        "esrc": "return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)",
+        "ename": "forked",
+        "at": 1,
+        "text": "||",
+        "mesg": "No terminal defined for '|' at line 1 col 2.  Expecting one of: #, $, (, *, + or -, -(, -+>, -->, ->, :, <(, <+-, <-, <--, [, break, command name, continue, fini, for, function, if, init, property name, return, switch, while, whitespace or comment, yield, {",
+        "etb": ".... long traceback ...",
+        "errname": "BadSyntax"
+      },
+      "text": "||",
+      "username": "root",
+      "user": "3189065f95d3ab0a6904e604260c0be2"
+    }
+
+.. _Python logging: https://docs.python.org/3.8/library/logging.html#logging-levels

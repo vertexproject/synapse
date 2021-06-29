@@ -261,7 +261,7 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
-                query = snap.core.getStormQuery('')
+                query = await snap.core.getStormQuery('')
                 async with snap.getStormRuntime(query) as runt:
                     node = await snap.addNode('test:comp', (42, 'lol'))
                     nodepaths = await alist(node.storm(runt, '-> test:int'))

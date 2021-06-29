@@ -25,6 +25,19 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('Regular types are derived from BaseTypes.', s)
             self.isin(r'inet\:server', s)
 
+            # Enums for int
+            self.isin('``pe:resource:type``', s)
+            self.isin('=== ===============', s)
+            self.isin('int valu           ', s)
+            self.isin('1   RT_CURSOR      ', s)
+
+            # enusm for str
+            self.isin('``it:mitre:attack:status``', s)
+            self.isin('+----------+', s)
+            self.isin('+valu      +', s)
+            self.isin('+==========+', s)
+            self.isin('+deprecated+', s)
+
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
 

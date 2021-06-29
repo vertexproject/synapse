@@ -5064,11 +5064,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 pkg.pop('version')
                 await core.pkghive.set('boom_pkg', pkg)
 
-            with self.getAsyncLoggerStream('synapse.cortex',
-                                           'Error loading pkg') as stream:
-                async with self.getTestCore(dirn=dirn) as core:
-                    self.true(await stream.wait(6))
-
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:

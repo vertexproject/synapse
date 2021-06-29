@@ -499,7 +499,7 @@ class Agenda(s_base.Base):
         await self._load_all()
         for iden, appt in self.appts.items():
             try:
-                self.core.getStormQuery(appt.query)
+                await self.core.getStormQuery(appt.query)
             except Exception as e:
                 logger.warning('Invalid appointment %r found in storage: %r.  Disabling.', iden, e)
                 appt.enabled = False
@@ -702,7 +702,7 @@ class Agenda(s_base.Base):
             raise ValueError('empty query')
 
         if self.enabled:
-            self.core.getStormQuery(query)
+            await self.core.getStormQuery(query)
 
         appt.query = query
         appt.enabled = True  # in case it was disabled for a bad query

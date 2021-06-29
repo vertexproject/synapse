@@ -94,6 +94,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.t0100
                     :references=(https://foo.com,https://bar.com)
                     :parent=T9999
+                    :status=deprecated
+                    :isnow=T1110
                     :tactics=(TA0200,TA0100,TA0100)
             ]''')
             self.len(1, nodes)
@@ -105,6 +107,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('parent'), 'T9999')
             self.eq(nodes[0].get('tactics'), ('TA0100', 'TA0200'))
+            self.eq(nodes[0].get('status'), 'deprecated')
+            self.eq(nodes[0].get('isnow'), 'T1110')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:software=S0100

@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.45.0 - 2021-06-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a application level process pool the base Cell implemenation. Move the
+  processing of Storm query text into the process pool.
+  (`#2250 <https://github.com/vertexproject/synapse/pull/2250>`_)
+  (`#2259 <https://github.com/vertexproject/synapse/pull/2259>`_)
+- Minimize the re-validation of Storm code on Cortex boot.
+  (`#2257 <https://github.com/vertexproject/synapse/pull/2257>`_)
+- Add the ``ou:preso`` form to record conferences and presentations. Add a
+  ``status`` secondary property to the ``it:mitre:attack:technique`` form to
+  track if techniques are current, deprecated or withdrawn.
+  (`#2254 <https://github.com/vertexproject/synapse/pull/2254>`_)
+
+Bugfixes
+--------
+- Remove incorrect use of ``cmdopts`` in Storm command definitions unit tests.
+  (`#2258 <https://github.com/vertexproject/synapse/pull/2258>`_
+
+
 v2.44.0 - 2021-06-23
 ====================
 

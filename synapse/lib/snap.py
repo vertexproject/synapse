@@ -188,7 +188,7 @@ class Snap(s_base.Base):
 
         mode = opts.get('mode', 'storm')
 
-        query = self.core.getStormQuery(text, mode=mode)
+        query = await self.core.getStormQuery(text, mode=mode)
         async with self.getStormRuntime(query, opts=opts, user=user) as runt:
             async for x in runt.execute():
                 yield x
@@ -207,7 +207,7 @@ class Snap(s_base.Base):
         mode = opts.get('mode', 'storm')
 
         # maintained for backward compatibility
-        query = self.core.getStormQuery(text, mode=mode)
+        query = await self.core.getStormQuery(text, mode=mode)
         async with self.getStormRuntime(query, opts=opts, user=user) as runt:
             async for node, path in runt.execute():
                 yield node

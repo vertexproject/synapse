@@ -89,7 +89,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.triggers = s_trigger.Triggers(self)
         for _, tdef in self.trigdict.items():
             try:
-                self.triggers.load(tdef)
+                await self.triggers.load(tdef)
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
@@ -274,7 +274,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
-                self.core.getStormQuery(text, mode=mode)
+                await self.core.getStormQuery(text, mode=mode)
 
                 shownode = (not show or 'node' in show)
 
@@ -662,9 +662,9 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
 
         user = self.core.auth.user(tdef['user'])
-        self.core.getStormQuery(tdef['storm'])
+        await self.core.getStormQuery(tdef['storm'])
 
-        trig = self.triggers.load(tdef)
+        trig = await self.triggers.load(tdef)
 
         await self.trigdict.set(trig.iden, tdef)
         await self.core.auth.addAuthGate(trig.iden, 'trigger')

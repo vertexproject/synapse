@@ -670,6 +670,34 @@ def _getLogConfFromEnv(defval=None, structlog=None):
     ret = {'defval': defval, 'structlog': structlog}
     return ret
 
+def normLogLevel(valu):
+    '''
+    Norm a log level value to a integer.
+
+    Args:
+        valu: The value to norm ( a string or integer ).
+
+    Returns:
+        int: A valid Logging log level.
+    '''
+    if isinstance(valu, int):
+        if valu not in s_const.LOG_LEVEL_INVERSE_CHOICES:
+            raise s_exc.BadArg(mesg=f'Invalid log level provided: {valu}', valu=valu)
+        return valu
+    if isinstance(valu, str):
+        valu = valu.strip()
+        try:
+            valu = int(valu)
+        except ValueError:
+            valu = valu.upper()
+            ret = s_const.LOG_LEVEL_CHOICES.get(valu)
+            if ret is None:
+                raise s_exc.BadArg(mesg=f'Invalid log level provided: {valu}', valu=valu) from None
+            return ret
+        else:
+            return normLogLevel(valu)
+    raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
+
 def setlogging(mlogger, defval=None, structlog=None):
     '''
     Configure synapse logging.
@@ -690,10 +718,8 @@ def setlogging(mlogger, defval=None, structlog=None):
     log_struct = ret.get('structlog')
 
     if log_level:  # pragma: no cover
-        if isinstance(log_level, str):
-            log_level = log_level.upper()
-            if log_level not in s_const.LOG_LEVEL_CHOICES:
-                raise ValueError('Invalid log level provided: {}'.format(log_level))
+
+        log_level = normLogLevel(log_level)
 
         if log_struct:
             handler = logging.StreamHandler()
@@ -702,7 +728,7 @@ def setlogging(mlogger, defval=None, structlog=None):
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
             logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
-        mlogger.info('log level set to %s', log_level)
+        mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
     return ret
 

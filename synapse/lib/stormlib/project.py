@@ -9,7 +9,12 @@ from synapse.lib.stormtypes import tostr
 
 @s_stormtypes.registry.registerType
 class ProjectEpic(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for a ProjectEpic
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the Epic', 'type': 'str'},
+    )
     _storm_typename = 'storm:project:epic'
 
     def __init__(self, proj, node):
@@ -39,7 +44,30 @@ class ProjectEpic(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ProjectEpics(s_stormtypes.Prim):
-
+    '''
+    Implements the Storm API for ProjectEpics objects, which are collections of ProjectEpic
+    objects associated with a particular Project
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get an epic by name.',
+         'type': {'type': 'function', '_funcname': '_getProjEpic',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectEpic to get.'},
+                  ),
+                  'returns': {'type': 'storm:project:epic', 'desc': 'The `storm:project:epic` object', }}},
+        {'name': 'add', 'desc': 'Add an epic.',
+         'type': {'type': 'function', '_funcname': '_addProjEpic',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectEpic.'},
+                  ),
+                  'returns': {'type': 'storm:project:epic', 'desc': 'The newly created `storm:project:epic` object', }}},
+        {'name': 'del', 'desc': 'Delete an epic by name.',
+         'type': {'type': 'function', '_funcname': '_delProjEpic',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the ProjectEpic to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the ProjectEpic can be found and deleted, otherwise False', }}}
+    )
     _storm_typename = 'storm:project:epics'
 
     def __init__(self, proj):
@@ -49,10 +77,13 @@ class ProjectEpics(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'get': self.proj._getProjEpic,
+            'get': self._getProjEpic,
             'add': self._addProjEpic,
             'del': self._delProjEpic,
         }
+
+    async def _getProjEpic(self, name):
+        return await self.proj._getProjEpic(name)
 
     async def _delProjEpic(self, name):
 
@@ -91,6 +122,17 @@ class ProjectEpics(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ProjectTicket(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for a ProjectTicket
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the ticket',
+         'type': 'str'},
+        {'name': 'desc', 'desc': 'A description of the ticket',
+         'type': 'str'},
+        {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
+         'type': 'int'},
+    )
 
     _storm_typename = 'storm:project:ticket'
 
@@ -223,8 +265,33 @@ class ProjectTicket(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ProjectTickets(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for ProjectTickets objects, which are collections of tickets
+    associated with a project
+    '''
 
     _storm_typename = 'storm:project:tickets'
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get a ticket by name.',
+         'type': {'type': 'function', '_funcname': '_getProjTicket',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectTicket to get.'},
+                  ),
+                  'returns': {'type': 'storm:project:sprint', 'desc': 'The `storm:project:ticket` object', }}},
+        {'name': 'add', 'desc': 'Add a ticket.',
+         'type': {'type': 'function', '_funcname': '_addProjTicket',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectTicket.'},
+                      {'name': 'desc', 'type': 'str', 'desc': 'A description of the new ticket', 'default': ''},
+                  ),
+                  'returns': {'type': 'storm:project:sprint', 'desc': 'The newly created `storm:project:ticket` object', }}},
+        {'name': 'del', 'desc': 'Delete a sprint by name.',
+         'type': {'type': 'function', '_funcname': '_delProjTicket',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the ProjectTicket to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the ProjectTicket can be found and deleted, otherwise False', }}}
+    )
 
     def __init__(self, proj):
         s_stormtypes.Prim.__init__(self, None)
@@ -293,6 +360,18 @@ class ProjectTickets(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ProjectSprint(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for a ProjectSprint
+    '''
+
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the sprint',
+         'type': 'str'},
+        {'name': 'desc', 'desc': 'A description of the sprint',
+         'type': 'str'},
+        {'name': 'tickets', 'desc': 'Yields out the tickets associated with the given sprint (no call needed)',
+         'type': 'generator'},
+    )
 
     _storm_typename = 'storm:project:sprint'
 
@@ -306,6 +385,7 @@ class ProjectSprint(s_stormtypes.Prim):
         })
         self.stors.update({
             'name': self._setSprintName,
+            'desc': self._setSprintDesc,
             'status': self._setSprintStatus,
         })
 
@@ -316,6 +396,14 @@ class ProjectSprint(s_stormtypes.Prim):
             await self.node.pop('status')
         else:
             await self.node.set('status', valu)
+
+    async def _setSprintDesc(self, valu):
+        self.proj.confirm(('project', 'sprint', 'set', 'desc'))
+        valu = await tostr(valu, noneok=True)
+        if valu is None:
+            await self.node.pop('desc')
+        else:
+            await self.node.set('desc', valu)
 
     async def _setSprintName(self, valu):
 
@@ -334,6 +422,7 @@ class ProjectSprint(s_stormtypes.Prim):
         return {
             'name': self.node.get('name'),
             'desc': self.node.get('desc'),
+            'status': self.node.get('status'),
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -342,6 +431,32 @@ class ProjectSprint(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class ProjectSprints(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for ProjectSprints objects, which are collections of sprints
+    associated with a single project
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get a sprint by name.',
+         'type': {'type': 'function', '_funcname': '_getProjSprint',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectSprint to get.'},
+                  ),
+                  'returns': {'type': 'storm:project:sprint', 'desc': 'The `storm:project:sprint` object', }}},
+        {'name': 'add', 'desc': 'Add a sprint.',
+         'type': {'type': 'function', '_funcname': '_addProjSprint',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectSprint.'},
+                      {'name': 'period', 'type': 'ival', 'desc': 'The time interval the ProjectSprint runs for',
+                       'default': None},
+                  ),
+                  'returns': {'type': 'storm:project:sprint', 'desc': 'The newly created `storm:project:sprint` object', }}},
+        {'name': 'del', 'desc': 'Delete a sprint by name.',
+         'type': {'type': 'function', '_funcname': '_delProjSprint',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Sprint to delete.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the ProjectSprint can be found and deleted, otherwise False', }}}
+    )
 
     _storm_typename = 'storm:project:sprints'
 
@@ -352,10 +467,13 @@ class ProjectSprints(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'get': self.proj._getProjSprint,
+            'get': self._getProjSprint,
             'add': self._addProjSprint,
             'del': self._delProjSprint,
         }
+
+    async def _getProjSprint(self, name):
+        return await self.proj._getProjSprint(name)
 
     async def _addProjSprint(self, name, period=None):
 
@@ -403,6 +521,18 @@ class ProjectSprints(s_stormtypes.Prim):
 
 @s_stormtypes.registry.registerType
 class Project(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for Project objects, which are used for managing a scrum style project in the Cortex
+    '''
+    _storm_locals = (
+        {'name': 'name', 'desc': 'The name of the project', 'type': 'str'},
+        {'name': 'epics', 'desc': 'A `storm:project:epics` object that contains the epics associated with the given project.',
+         'type': 'storm:project:epics'},
+        {'name': 'sprints', 'desc': 'A `storm:project:sprints` object that contains the sprints associated with the given project.',
+         'type': 'storm:project:sprints'},
+        {'name': 'tickets', 'desc': 'A `storm:project:tickets` object that contains the tickets associated with the given project.',
+         'type': 'storm:project:tickets'},
+    )
 
     _storm_typename = 'storm:project'
 
@@ -482,8 +612,32 @@ class Project(s_stormtypes.Prim):
 @s_stormtypes.registry.registerLib
 class LibProjects(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with Projects.
+    A Storm Library for interacting with Projects in the Cortex.
     '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Retrieve a project by name',
+         'type': {'type': 'function', '_funcname': '_funcProjGet',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Project to get'},
+                  ),
+                  'returns': {'type': 'storm:project',
+                              'desc': 'The `storm:project `object, if it exists, otherwise null'}}},
+
+        {'name': 'add', 'desc': 'Add a new project',
+         'type': {'type': 'function', '_funcname': '_funcProjAdd',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Project to add'},
+                      {'name': 'desc', 'type': 'str', 'desc': 'A description of the overall project', 'default': ''},
+                  ),
+                  'returns': {'type': 'storm:project', 'desc': 'The newly created `storm:project` object'}}},
+        {'name': 'del', 'desc': 'Delete an existing project',
+         'type': {'type': 'function', '_funcname': '_funcProjDel',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the Project to delete'},
+                  ),
+                  'returns': {'type': 'boolean',
+                              'desc': 'True if the project exists and gets deleted, otherwise False'}}},
+    )
     _storm_lib_path = ('projects',)
 
     def getObjLocals(self):

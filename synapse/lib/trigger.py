@@ -171,13 +171,13 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars, view=view)
 
-    def load(self, tdef):
+    async def load(self, tdef):
 
         trig = Trigger(self.view, tdef)
 
         # Make sure the query parses
         storm = trig.tdef['storm']
-        self.view.core.getStormQuery(storm)
+        await self.view.core.getStormQuery(storm)
 
         cond = trig.tdef.get('cond')
         tag = trig.tdef.get('tag')
@@ -307,7 +307,7 @@ class Trigger:
             return
 
         if name == 'storm':
-            self.view.core.getStormQuery(valu)
+            await self.view.core.getStormQuery(valu)
 
         self.tdef[name] = valu
         await self.view.trigdict.set(self.iden, self.tdef)
@@ -339,7 +339,7 @@ class Trigger:
         prop = self.tdef.get('prop')
         storm = self.tdef.get('storm')
 
-        query = self.view.core.getStormQuery(storm)
+        query = await self.view.core.getStormQuery(storm)
 
         if view is None:
             view = self.view.iden
@@ -374,10 +374,11 @@ class Trigger:
 
         useriden = tdef['user']
         triguser = self.view.core.auth.user(useriden)
-        tdef['username'] = triguser.name
         tdef['startcount'] = self.startcount
         tdef['errcount'] = self.errcount
         tdef['lasterrs'] = list(self.lasterrs)
+        if triguser is not None:
+            tdef['username'] = triguser.name
 
         return tdef
 

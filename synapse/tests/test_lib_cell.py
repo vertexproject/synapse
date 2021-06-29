@@ -17,6 +17,7 @@ import synapse.lib.link as s_link
 import synapse.lib.version as s_version
 
 import synapse.tests.utils as s_t_utils
+import synapse.tests.test_lib_coro as s_t_coro
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -657,7 +658,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_confprint(self):
 
-        with self.withSetLoggingMock():
+        async with self.withSetLoggingMock():
 
             with self.getTestDir() as dirn:
 
