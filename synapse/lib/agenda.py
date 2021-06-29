@@ -610,7 +610,7 @@ class Agenda(s_base.Base):
             used
 
         Returns:
-            iden of new appointment
+            Packed appointment definition
         '''
         iden = cdef['iden']
         incunit = cdef.get('incunit')
