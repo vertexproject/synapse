@@ -395,7 +395,7 @@ def getDirSize(*paths):
         Tuple of total real and total apparent size of all normal files and directories underneath *paths plus *paths
         itself
 
-        Equivalent to `du -B 1 -s` and `du -bs` except returns values in units of bytes
+        Equivalent to `du -B 1 -s` and `du -bs`
 
     Args:
         *paths ([str,...]): A list of path elements
