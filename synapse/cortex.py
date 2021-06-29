@@ -935,9 +935,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             'type': 'boolean'
         },
         'layer:lmdb:max_replay_log': {
-            'default': True,
+            'default': 10000,
             'description': 'Set the max size of the replay log for all layers.',
-            'type': 'int'
+            'type': 'integer'
         },
         'layers:lockmemory': {
             'default': False,
