@@ -5154,6 +5154,9 @@ class Trigger(Prim):
                        'desc': 'The iden of the new View for the Trigger to run in.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'pack', 'desc': 'Get the trigger definition.',
+         'type': {'type': 'function', '_funcname': 'pack',
+                  'returns': {'type': 'dict', 'desc': 'The definition.', }}},
     )
     _storm_typename = 'storm:trigger'
 
@@ -5169,7 +5172,11 @@ class Trigger(Prim):
         return {
             'set': self.set,
             'move': self.move,
+            'pack': self.pack,
         }
+
+    async def pack(self):
+        return copy.deepcopy(self.valu)
 
     async def deref(self, name):
         valu = self.valu.get(name, s_common.novalu)

@@ -2523,21 +2523,17 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(f'trigger.del {goodbuid}')
             self.stormIsInPrint(f'Deleted trigger: {goodbuid}', mesgs)
 
-            q = f'trigger.del deadbeef12341234'
+            q = 'trigger.del deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = f'trigger.enable deadbeef12341234'
+            q = 'trigger.enable deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = f'trigger.disable deadbeef12341234'
+            q = 'trigger.disable deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            # waiter = core.waiter(1, 'core:trigger:action')
             mesgs = await core.stormlist(f'trigger.disable {goodbuid2}')
             self.stormIsInPrint('Disabled trigger', mesgs)
-
-            # evnts = await waiter.wait(1)
-            # self.eq(evnts[0][1].get('action'), 'disable')
 
             mesgs = await core.stormlist(f'trigger.enable {goodbuid2}')
             self.stormIsInPrint('Enabled trigger', mesgs)
@@ -2585,6 +2581,43 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             await core.nodes('[ test:str=foo4 ]')
             self.len(1, await core.nodes('test:int=99'))
+
+            for mesg in mesgs:
+                if mesg[0] != 'print':
+                    continue
+                match = re.match(r'Added trigger: ([0-9a-f]+)', mesg[1]['mesg'])
+                if match:
+                    trigiden = match.groups()[0]
+                    break
+            else:
+                raise Exception("Didn't find 'Added trigger' mesg")
+
+            # Trigger pack
+            q = f'return ($lib.trigger.get({trigiden}).pack())'
+            trigdef = await core.callStorm(q)
+            self.false(trigdef.get('disabled'))
+            self.nn(trigdef.get('user'))
+            self.nn(trigdef.get('view'))
+            self.eq(trigdef.get('storm'), '[ test:int=99 ] | spin ')
+            self.eq(trigdef.get('cond'), 'node:add')
+            self.eq(trigdef.get('form'), 'test:str')
+            self.eq(trigdef.get('iden'), trigiden)
+            self.eq(trigdef.get('startcount'), 1)
+            self.eq(trigdef.get('errcount'), 0)
+            self.eq(trigdef.get('lasterrs'), ())
+
+            mesgs = await core.stormlist(f'trigger.mod {trigiden} {{$lib.newp}}')
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            await core.nodes('[ test:str=foo5 ]')
+
+            q = f'return ($lib.trigger.get({trigiden}).pack())'
+            trigdef = await core.callStorm(q)
+            self.eq(trigdef.get('startcount'), 2)
+            self.eq(trigdef.get('errcount'), 1)
+            lasterrs = trigdef.get('lasterrs', [])
+            self.len(1, lasterrs)
+            self.isin('NoSuchName', lasterrs[0])
 
             # Move a trigger to a different view
             q = '''
