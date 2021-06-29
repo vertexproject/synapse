@@ -367,7 +367,8 @@ class Trigger:
 
         useriden = tdef['user']
         triguser = self.view.core.auth.user(useriden)
-        tdef['username'] = triguser.name
+        if triguser is not None:
+            tdef['username'] = triguser.name
 
         return tdef
 
