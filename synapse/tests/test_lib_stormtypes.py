@@ -687,6 +687,7 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
 
             self.eq(('G0006',), await core.callStorm('return($lib.regex.findall("(G[0-9]{4}) and", "G0006 and G0001"))'))
+            self.eq(('G0006', 'G0001'), await core.callStorm('return($lib.regex.findall("G[0-9]{4}", "G0006 and G0001"))'))
             self.eq(('G0006', 'G0001'), await core.callStorm('return($lib.regex.findall("(G[0-9]{4})", "G0006 and G0001"))'))
             valu = await core.callStorm('return($lib.regex.findall("(G[0-9]{4}) (hehe)", "G0006 hehe and G0001 hehe G0009 hoho"))')
             self.eq((('G0006', 'hehe'), ('G0001', 'hehe')), valu)

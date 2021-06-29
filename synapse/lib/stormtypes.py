@@ -1838,9 +1838,9 @@ class LibRegx(Lib):
 
             Example:
 
-                Extract the matching groups from a piece of text::
+                Extract the matching strings from a piece of text::
 
-                    for $x in $lib.regex.findall("(G[0-9]{4})", "G0006 and G0001") {
+                    for $x in $lib.regex.findall("G[0-9]{4}", "G0006 and G0001") {
                         $dostuff($x)
                     }
                     ''',
