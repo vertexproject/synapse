@@ -1834,7 +1834,8 @@ class LibRegx(Lib):
             Search the given text for the patterns and return a list of matching strings.
 
             Note:
-                If multiple matching groups are specified, the return value is a list of strings.
+                If multiple matching groups are specified, the return value is a
+                list of lists of strings.
 
             Example:
 
