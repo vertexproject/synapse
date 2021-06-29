@@ -369,8 +369,8 @@ class ProjectSprint(s_stormtypes.Prim):
          'type': 'str'},
         {'name': 'desc', 'desc': 'A description of the sprint',
          'type': 'str'},
-        {'name': 'tickets', 'desc': 'Yields out the tickets associated with the given sprint',
-         'type': 'Yields'},
+        {'name': 'tickets', 'desc': 'Yields out the tickets associated with the given sprint (no call needed)',
+         'type': 'generator'},
     )
 
     _storm_typename = 'storm:project:sprint'
