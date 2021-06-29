@@ -38,6 +38,41 @@ You can now connect to the Cortex using the ``cmdr`` tool::
     python -m synapse.tools.cmdr tcp://root:secret@localhost:27492
 
 
+Storm Query Logging
+-------------------
+
+The Cortex can be configured to log Storm queries executed by users. This is done by setting the ``storm:log`` and
+``storm:log:level`` configuration options ( :ref:`autodoc-cortex-conf` ). The ``storm:log:level`` option may be one of
+``DEBUG``, ``INFO`` , ``WARNING``, ``ERROR``, ``CRITICAL``; or as a corresponding `Python logging`_ log level as an
+integer value. This allows an organization to set what log level their Storm queries are logged at.
+
+When enabled, the log message contains the query text and username::
+
+    2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ipv4=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
+
+When structured logging is also enabled for a Cortex, the query text, username, and user iden are included as individual
+fields in the logged message as well::
+
+    {
+      "message": "Executing storm query {inet:ipv4=1.2.3.4} as [root]",
+      "logger": {
+        "name": "synapse.storm",
+        "process": "MainProcess",
+        "filename": "cortex.py",
+        "func": "_logStormQuery"
+      },
+      "level": "INFO",
+      "time": "2021-06-28 16:18:47,232",
+      "text": "inet:ipv4=1.2.3.4",
+      "username": "root",
+      "user": "3189065f95d3ab0a6904e604260c0be2"
+    }
+
+This logging does interplay with the underlying Cell log configuration ( :ref:`devops-cell-logging` ). The
+``storm:log:level`` value must be greater than or equal to the base log level of the Cell, otherwise the Storm log will
+not be emitted.
+
+
 Configuring A Mirror
 --------------------
 
@@ -94,3 +129,5 @@ the Axon.
 
 For information about migrating older Cortexes to v2.8.0, please refer to the ``v2.8.0`` documentation
 `here <https://synapse.docs.vertex.link/en/v2.8.0/synapse/devguides/devops_cortex.html#x-to-2-x-x-migration>`_.
+
+.. _Python logging: https://docs.python.org/3.8/library/logging.html#logging-levels
