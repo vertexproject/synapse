@@ -1918,7 +1918,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
-        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+        pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
                           help='Specify the Python logging log level.', type=str.upper)
         pars.add_argument('--structured-logging', default=False, action='store_true',
                           help='Use structured logging.')

@@ -25,7 +25,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
-import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.agenda as s_agenda
 import synapse.lib.config as s_config
@@ -967,9 +966,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             'type': 'boolean'
         },
         'storm:log:level': {
-            'default': 30,
+            'default': 'INFO',
             'description': 'Logging log level to emit storm logs at.',
-            'type': 'integer'
+            'type': [
+                'integer',
+                'string',
+            ],
         },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
@@ -1042,6 +1044,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.provstor = await s_provenance.ProvStor.anit(self.dirn, proven=proven)
         self.onfini(self.provstor.fini)
+
+        # Reset the storm:log:level from the config value to an int for internal use.
+        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.stormlog = self.conf.get('storm:log')
+        self.stormloglvl = self.conf.get('storm:log:level')
 
         # generic fini handler for the Cortex
         self.onfini(self._onCoreFini)
@@ -4248,9 +4255,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Log a storm query.
         '''
-        if self.conf.get('storm:log'):
-            lvl = self.conf.get('storm:log:level')
-            stormlogger.log(lvl, 'Executing storm query {%s} as [%s]', text, user.name,
+        if self.stormlog:
+            stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
 
     async def getNodeByNdef(self, ndef, view=None):
