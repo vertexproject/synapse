@@ -1830,6 +1830,28 @@ class LibRegx(Lib):
                        'default': 0},
                   ),
                   'returns': {'type': 'list', 'desc': 'A list of strings for the matching groups in the pattern.', }}},
+        {'name': 'findall', 'desc': '''
+            Search the given text for the patterns and return a list of matching strings.
+
+            Note:
+                If multiple matching groups are specified, the return value is a list of strings.
+
+            Example:
+
+                Extract the matching groups from a piece of text::
+
+                    for $x in $lib.regex.findall("(G[0-9]{4})", "G0006 and G0001") {
+                        $dostuff($x)
+                    }
+                    ''',
+         'type': {'type': 'function', '_funcname': 'findall',
+                  'args': (
+                      {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
+                      {'name': 'text', 'type': 'str', 'desc': 'The text to match.', },
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.',
+                       'default': 0},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of lists of strings for the matching groups in the pattern.', }}},
         {'name': 'matches', 'desc': '''
             Check if text matches a pattern.
             Returns $lib.true if the text matches the pattern, otherwise $lib.false.
@@ -1866,6 +1888,7 @@ class LibRegx(Lib):
         return {
             'search': self.search,
             'matches': self.matches,
+            'findall': self.findall,
             'flags': {'i': regex.IGNORECASE,
                       'm': regex.MULTILINE,
                       },
@@ -1886,9 +1909,6 @@ class LibRegx(Lib):
         return regx.match(text) is not None
 
     async def search(self, pattern, text, flags=0):
-        '''
-
-        '''
         text = await tostr(text)
         flags = await toint(flags)
         pattern = await tostr(pattern)
@@ -1899,6 +1919,13 @@ class LibRegx(Lib):
             return None
 
         return m.groups()
+
+    async def findall(self, pattern, text, flags=0):
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        regx = await self._getRegx(pattern, flags)
+        return regx.findall(text)
 
 @registry.registerLib
 class LibCsv(Lib):
