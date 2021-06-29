@@ -1883,7 +1883,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         This will store the package for future use.
         '''
         # do validation before nexs...
-        await self._confirmStormPkg(pkgdef)
+        await self._normStormPkg(pkgdef)
         return await self._push('pkg:add', pkgdef)
 
     @s_nexus.Pusher.onPush('pkg:add')
@@ -1932,6 +1932,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _tryLoadStormPkg(self, pkgdef):
         try:
+            await self._normStormPkg(pkgdef, validstorm=False)
             await self.loadStormPkg(pkgdef)
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
@@ -1941,12 +1942,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
-    async def _confirmStormPkg(self, pkgdef):
+    async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
-        Validate a storm package for loading.  Raises if invalid.
+        Normalize and validate a storm package (optionally storm code).
         '''
-        # Validate package def
-        s_storm.reqValidPkgdef(pkgdef)
+        version = pkgdef.get('version')
+        if isinstance(version, (tuple, list)):
+            pkgdef['version'] = '%d.%d.%d' % tuple(version)
 
         pkgname = pkgdef.get('name')
 
@@ -1963,15 +1965,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         onload = pkgdef.get('onload')
         svciden = pkgdef.get('svciden')
 
-        if onload is not None:
+        if onload is not None and validstorm:
             await self.getStormQuery(onload)
 
         for mdef in mods:
-            modtext = mdef.get('storm')
-            await self.getStormQuery(modtext)
             mdef.setdefault('modconf', {})
             if svciden:
                 mdef['modconf']['svciden'] = svciden
+
+            if validstorm:
+                modtext = mdef.get('storm')
+                await self.getStormQuery(modtext)
 
         for cdef in cmds:
             cdef['pkgname'] = pkgname
@@ -1979,8 +1983,12 @@ class Cortex(s_cell.Cell):  # type: ignore
             if svciden:
                 cdef['cmdconf']['svciden'] = svciden
 
-            cmdtext = cdef.get('storm')
-            await self.getStormQuery(cmdtext)
+            if validstorm:
+                cmdtext = cdef.get('storm')
+                await self.getStormQuery(cmdtext)
+
+        # Validate package def (post normalization)
+        s_storm.reqValidPkgdef(pkgdef)
 
     async def loadStormPkg(self, pkgdef):
         '''

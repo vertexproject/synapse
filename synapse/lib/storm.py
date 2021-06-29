@@ -156,7 +156,7 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
-_reqValidPkgdef = s_config.getJsValidator({
+reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
@@ -281,17 +281,6 @@ _reqValidPkgdef = s_config.getJsValidator({
         }
     }
 })
-def reqValidPkgdef(pkgdef):
-    '''
-    Require a valid storm package definition.
-
-    NOTE: This API may mutate the input dictionary to
-          provide inline updates to the package structure.
-    '''
-    version = pkgdef.get('version')
-    if isinstance(version, (tuple, list)):
-        pkgdef['version'] = '%d.%d.%d' % tuple(version)
-    return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
