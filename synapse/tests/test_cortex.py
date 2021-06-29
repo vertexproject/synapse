@@ -3180,6 +3180,23 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.nn(await core.stat())
 
+    async def test_cortex_layer_settings(self):
+        '''
+        Make sure settings make it down to the slab
+        '''
+        conf = {
+            'layer:lmdb:map_async': False,
+            'layer:lmdb:max_replay_log': 500,
+            'layers:lockmemory': True,
+        }
+        async with self.getTestCore(conf=conf) as core:
+            layr = core.getLayer()
+            slab = layr.layrslab
+
+            self.true(slab.lockmemory)
+            self.eq(500, slab.max_xactops_len)
+            self.true(500, slab.mapasync)
+
     async def test_feed_syn_nodes(self):
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core0:

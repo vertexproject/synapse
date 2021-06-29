@@ -1457,17 +1457,20 @@ class Layer(s_nexus.Pusher):
 
         slabopts = {
             'readonly': self.readonly,
-            'max_dbs': 128,
             'readahead': True,
             'lockmemory': self.lockmemory,
             'map_async': self.mapasync,
+            'max_replay_log': self.maxreplaylog,
         }
 
         if self.growsize is not None:
             slabopts['growsize'] = self.growsize
 
-        otherslabopts = slabopts.copy()
-        otherslabopts['readahead'] = False
+        otherslabopts = {
+            **slabopts,
+            'readahead': False,   # less-used slabs don't need readahead
+            'lockmemory': False,  # less-used slabs definitely don't get dedicated memory
+        }
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
         nodedatapath = s_common.genpath(self.dirn, 'nodedata.lmdb')

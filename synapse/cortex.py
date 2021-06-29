@@ -937,7 +937,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         'layer:lmdb:max_replay_log': {
             'default': True,
             'description': 'Set the max size of the replay log for all layers.',
-            'type': 'boolean'
+            'type': 'int'
         },
         'layers:lockmemory': {
             'default': False,
@@ -3395,7 +3395,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         ldef['iden'] = s_common.guid()
         ldef.setdefault('creator', self.auth.rootuser.iden)
         ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
-        ldef.setdefault('logedits', self.conf.get('layers:logedits'))
         ldef.setdefault('logedits', self.conf.get('layers:logedits'))
         ldef.setdefault('readonly', False)
 
