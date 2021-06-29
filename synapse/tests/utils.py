@@ -1081,6 +1081,7 @@ class SynTest(unittest.TestCase):
         '''
         async with self.getTestCore(conf=conf, dirn=dirn) as core:
             core.conf['storm:log'] = True
+            core.stormlog = True
             async with core.getLocalProxy() as prox:
                 yield core, prox
 
