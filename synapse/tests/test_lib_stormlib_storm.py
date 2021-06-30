@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+import synapse.lib.parser as s_parser
+
 import synapse.tests.utils as s_test
 
 class LibStormTest(s_test.SynTest):
@@ -23,3 +25,6 @@ class LibStormTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchType):
                 await core.callStorm('return($lib.storm.eval(foo, cast=newp))')
+
+            # for coverage of forked call...
+            self.nn(s_parser.parseEval('woot'))
