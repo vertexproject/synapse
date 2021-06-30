@@ -71,6 +71,36 @@ reqValidCdef = s_config.getJsValidator({
     }
 })
 
+def _normtime(valu, units):
+    pass
+
+def compareAppts(packed, cdef):
+    '''
+    Compare a packed appointment to a cdef for a (potentially) new cron job to see if the two are
+    functionally equivalent.
+
+    In this case, functional equivalency is "is the query the same" and do they have the same
+    intervals of execution.
+    '''
+    storm = cdef.get('storm')
+    reqs = cdef.get('reqs', {})
+    incvals = cdef.get('incvals')
+    incunit = cdef.get('incunit')
+    if packed.get('query') != storm:
+        return False
+
+    if not reqs and incunit is None:
+        raise ValueError('at least one of reqs and incunit must be non-empty')
+
+    if incunit is not None and incvals is None:
+        raise ValueError('incvals must be non-None if incunit is non-None')
+    if isinstance(reqs, Mapping):
+        reqs = [reqs]
+
+    _, recs = Agenda._getRecs(reqs, incvals, incunit)
+    print(recs)
+    breakpoint()
+
 def _dayofmonth(hardday, month, year):
     '''
     Returns a valid day of the month given the desired value.
@@ -575,6 +605,25 @@ class Agenda(s_base.Base):
                 newdict[k] = combo[i]
             yield newdict
 
+    @staticmethod
+    def _getRecs(reqs, incvals, incunit):
+        # Find all combinations of values in reqdict values and incvals values
+        nexttime = None
+        recs = []  # type: ignore
+        for req in reqs:
+            if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise ValueError(mesg)
+                nexttime = time.time()
+                continue
+
+            reqdicts = Agenda._dictproduct(req)
+            if not isinstance(incvals, Iterable):
+                incvals = (incvals, )
+            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+        return nexttime, recs
+
     def list(self):
         return list(self.appts.items())
 
@@ -633,21 +682,7 @@ class Agenda(s_base.Base):
             reqs = [reqs]
 
         # Find all combinations of values in reqdict values and incvals values
-        nexttime = None
-        recs = []  # type: ignore
-        for req in reqs:
-            if TimeUnit.NOW in req:
-                if incunit is not None:
-                    mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise ValueError(mesg)
-                nexttime = time.time()
-                continue
-
-            reqdicts = self._dictproduct(req)
-            if not isinstance(incvals, Iterable):
-                incvals = (incvals, )
-            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
-
+        nexttime, recs = self._getRecs(reqs, incvals, incunit)
         appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime)
         self._addappt(iden, appt)
 

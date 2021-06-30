@@ -3173,24 +3173,47 @@ class StormTypesTest(s_test.SynTest):
 
                 ##################
                 # Test --iden
-                opts = {'vars': {'iden': '9703c9f9c7fea19546117e2e3d97cd44'}}
-                q = "cron.add --iden $iden --minute +10 {[test:guid=$lib.guid()]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
-
                 q = "cron.add --iden invalididen --hour +7 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q)
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
-                # doesn't actually override the old cron job definition
-                q = "cron.add --iden $iden --minute +90 {[test:guid=$lib.guid()]}"
+                # these three should end up being equivalent, so they should all be happy
+                opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
+                q = "cron.add --iden $iden --day +1 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
+
+                q = "cron.add --iden $iden --hour +24 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
+
+                q = "cron.add --iden $iden --minute +86400 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
+
+                # this one is fine and gets to create the cron job
+                opts = {'vars': {'iden': '9703c9f9c7fea19546117e2e3d97cd44'}}
+                q = "cron.add --iden $iden --year +2 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
 
-                q = "$lib.print($lib.cron.get($iden).pprint())"
+                # these should all scream because they're trying to override the old cron job definition
+                # without being functionally equivalent
+                q = "cron.add --iden $iden --month +5 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint("'incunit': 'minute'", msgs)
-                self.stormIsInPrint("'incval': 10", msgs)
+                self.stormIsInErr('', msgs)
+
+                q = "cron.add --iden $iden --year +1 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('', msgs)
+
+                q = "cron.add --iden $iden --month +3 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('', msgs)
 
                 q = "cron.del $iden"
                 msgs = await core.stormlist(q, opts=opts)
