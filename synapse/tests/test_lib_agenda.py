@@ -578,9 +578,6 @@ class AgendaTest(s_t_utils.SynTest):
                     appts = agenda.list()
                     self.len(3, appts)
 
-                    err_appt = [appt for (iden, appt) in appts if iden == guid2][0]
-                    self.len(1, err_appt.lasterrs, [])
-
                     last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                     self.eq(last_appt.query, '#bahhumbug')
 

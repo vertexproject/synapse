@@ -769,7 +769,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        self.starttime = time.monotonic()
+        self.starttime = time.monotonic()  # Used for uptime calc
+        self.startms = s_common.now()      # Used to report start time
         s_telepath.Aware.__init__(self)
         self.dirn = s_common.gendir(dirn)
 
@@ -2361,6 +2362,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
+                - cellstarttime - Cell start time in epoch milliseconds
                 - celluptime - Cell uptime in milliseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
@@ -2390,6 +2392,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'volfree': disk.free,              # Volume where cell is running free bytes
             'backupvolsize': backupvolsize,    # Cell's backup directory volume total bytes
             'backupvolfree': backupvolfree,    # Cell's backup directory volume free bytes
+            'cellstarttime': self.startms,     # cell start time in epoch millis
             'celluptime': uptime,              # cell uptime in ms
             'cellrealdisk': myusage,           # Cell's use of disk, equivalent to du
             'cellapprdisk': myappusage,        # Cell's apparent use of disk, equivalent to ls -l

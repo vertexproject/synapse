@@ -395,8 +395,6 @@ class _Appt:
         appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, val['nexttime'])
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
-        appt.startcount = val['startcount']
-        appt.errcount = val.get('errcount', 0)
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
@@ -563,7 +561,13 @@ class Agenda(s_base.Base):
     async def _storeAppt(self, appt, nexs=False):
         ''' Store a single appointment '''
         full = self._hivenode.full + (appt.iden,)
-        await self.core.hive.set(full, appt.pack(), nexs=nexs)
+        stordict = appt.pack()
+
+        # Don't store ephemeral props
+        for prop in ('startcount', 'errcount', 'lasterrs'):
+            stordict.pop(prop, None)
+
+        await self.core.hive.set(full, stordict, nexs=nexs)
 
     @staticmethod
     def _dictproduct(rdict):
