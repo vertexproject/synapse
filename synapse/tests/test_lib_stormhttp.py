@@ -140,7 +140,6 @@ class StormHttpTest(s_test.SynTest):
             code, headers, body = resp
             self.eq(code, 200)
             self.eq(b'', body)
-            print(headers)
 
     async def test_storm_http_request(self):
 
