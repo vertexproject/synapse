@@ -400,10 +400,6 @@ class _Appt:
         appt.lastresult = val['lastresult']
         appt.enabled = val['enabled']
 
-        lasterrs = val.get('lasterrs')
-        if lasterrs:
-            appt.lasterrs.extend(lasterrs)
-
         return appt
 
     def updateNexttime(self, now):
