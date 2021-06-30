@@ -573,13 +573,13 @@ class CellApi(s_base.Base):
 
         Returns:
             (dict) It has the following keys:
-                - current_duration - If backup currently running, time in ms since backup started, otherwise None
-                - last_start - Last time (as ISO 8601 string) a backup started
-                - last_end - Last time a backup ended
-                - last_duration - How long last backup took in ms
-                - last_size - Disk usage of last backup completed
-                - last_upload - Time a backup was last completed being uploaded via iter(New)BackupArchive
-                - last_exception - Tuple of exception information if last backup failed, otherwise None
+                - currduration - If backup currently running, time in ms since backup started, otherwise None
+                - laststart - Last time (in epoch milliseconds) a backup started
+                - lastend - Last time (in epoch milliseconds) a backup ended
+                - lastduration - How long last backup took in ms
+                - lastsize - Disk usage of last backup completed
+                - lastupload - Time a backup was last completed being uploaded via iter(New)BackupArchive
+                - lastexception - Tuple of exception information if last backup failed, otherwise None
 
         Note:  these statistics are not persistent, i.e. they are not preserved between cell restarts.
         '''
@@ -1290,13 +1290,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         running = int(time.monotonic() - self.backmonostart * 1000) if self.backmonostart else None
 
+        def epochmillis(dtornone):
+            if dtornone is None:
+                return None
+            return int(dtornone.timestamp() * 1000)
+
         retn = {
             'currduration': running,
-            'laststart': self.backstartdt.isoformat() if self.backstartdt else None,
-            'lastend': self.backenddt.isoformat() if self.backenddt else None,
+            'laststart': int(self.backstartdt.timestamp() * 1000) if self.backstartdt else None,
+            'lastend': int(self.backenddt.timestamp() * 1000) if self.backenddt else None,
             'lastduration': int(self.backlasttook * 1000) if self.backlasttook else None,
             'lastsize': self.backlastsize,
-            'lastupload': self.backlastuploaddt.isoformat() if self.backlastuploaddt else None,
+            'lastupload': int(self.backlastuploaddt.timestamp() * 1000) if self.backlastuploaddt else None,
             'lastexception': self.backlastexc,
         }
 
@@ -2363,6 +2368,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - pyversion - Python version
                 - totalmem - Total memory in the system
                 - availmem - Available memory in the system
+                - cpucount - Number of CPUs on system
         '''
         uptime = int((time.monotonic() - self.starttime) * 1000)
         disk = shutil.disk_usage(self.dirn)
@@ -2377,6 +2383,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         totalmem = s_thisplat.getTotalMemory()
         availmem = s_thisplat.getAvailableMemory()
         pyversion = platform.python_version()
+        cpucount = multiprocessing.cpu_count()
 
         retn = {
             'volsize': disk.total,             # Volume where cell is running total bytes
@@ -2390,6 +2397,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'pyversion': pyversion,            # Python version
             'totalmem': totalmem,              # Total memory in the system
             'availmem': availmem,              # Available memory in the system
+            'cpucount': cpucount,              # Number of CPUs on system
         }
 
         return retn
