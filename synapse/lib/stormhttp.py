@@ -124,7 +124,7 @@ class LibHttp(s_stormtypes.Lib):
                        'default': True, },
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
-        {'name': 'head', 'desc': 'FIXME FOR HEAD AND OTHER ARGS.',
+        {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
          'type': {'type': 'function', '_funcname': '_httpEasyHead',
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.', },
