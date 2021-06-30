@@ -1527,17 +1527,8 @@ class Layer(s_nexus.Pusher):
         '''
         Get the total storage size for the layer.
         '''
-        totalsize = 0
-        for fpath, _, fnames in os.walk(self.dirn):
-            for fname in fnames:
-                fp = s_common.genpath(fpath, fname)
-                try:
-                    stat = os.stat(fp)
-                except OSError:  # pragma: no cover
-                    pass
-                else:
-                    totalsize += stat.st_blocks * 512
-        return totalsize
+        realsize, _ = s_common.getDirSize(self.dirn)
+        return realsize
 
     @s_nexus.Pusher.onPushAuto('layer:set')
     async def setLayerInfo(self, name, valu):
