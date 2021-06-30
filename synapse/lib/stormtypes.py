@@ -3321,11 +3321,11 @@ class List(Prim):
 
 @registry.registerType
 class Bool(Prim):
-    _ismutable = False
     '''
     Implements the Storm API for a boolean instance.
     '''
     _storm_typename = 'bool'
+    _ismutable = False
 
     def __str__(self):
         return str(self.value()).lower()

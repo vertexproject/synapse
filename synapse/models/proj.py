@@ -87,6 +87,9 @@ class ProjectModule(s_module.CoreModule):
 
                         ('period', ('ival', {}), {
                             'doc': 'The interval for the sprint.'}),
+
+                        ('desc', ('str', {}), {
+                            'doc': 'A description of the sprint.'}),
                     )),
 
                     # TODO this will require a special layer storage mechanism
