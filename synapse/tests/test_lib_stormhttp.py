@@ -93,9 +93,12 @@ class StormHttpTest(s_test.SynTest):
             root = await core.auth.getUserByName('root')
             await root.setPasswd('root')
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             noauth_url = f'https://127.0.0.1:{port}/api/v0/test'
-            opts = {'vars': {'url': url, 'noauth_url': noauth_url}}
+            newp_url = noauth_url + 'newpnewp'
+            opts = {'vars': {'url': url, 'noauth_url': noauth_url, 'newp_url': newp_url}}
+
             q = '''
             $params=$lib.dict(key=valu, foo=bar)
             $hdr = (
@@ -139,6 +142,32 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q, opts=opts)
             code, headers, body = resp
             self.eq(code, 200)
+            self.eq(b'', body)
+
+            q = '''
+            $params=$lib.dict(key=valu, redirect=$newp_url)
+            $hdr = (
+                ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
+            return ( ($resp.code, $resp.headers, $resp.body) )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            code, headers, body = resp
+            self.eq(code, 404)
+            self.eq(b'', body)
+
+            q = '''
+            $params=$lib.dict(key=valu, redirect="http://127.0.0.1/newp")
+            $hdr = (
+                ("User-Agent", "Storm HTTP Stuff"),
+            )
+            $resp = $lib.inet.http.head($url, headers=$hdr, params=$params, ssl_verify=$lib.false, allow_redirects=$lib.true)
+            return ( ($resp.code, $resp.headers, $resp.body) )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            code, headers, body = resp
+            self.eq(code, -1)
             self.eq(b'', body)
 
     async def test_storm_http_request(self):
