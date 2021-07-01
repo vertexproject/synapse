@@ -5182,6 +5182,9 @@ class Trigger(Prim):
                        'desc': 'The iden of the new View for the Trigger to run in.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'pack', 'desc': 'Get the trigger definition.',
+         'type': {'type': 'function', '_funcname': 'pack',
+                  'returns': {'type': 'dict', 'desc': 'The definition.', }}},
     )
     _storm_typename = 'storm:trigger'
 
@@ -5197,7 +5200,11 @@ class Trigger(Prim):
         return {
             'set': self.set,
             'move': self.move,
+            'pack': self.pack,
         }
+
+    async def pack(self):
+        return copy.deepcopy(self.valu)
 
     async def deref(self, name):
         valu = self.valu.get(name, s_common.novalu)
@@ -6326,9 +6333,11 @@ class CronJob(Prim):
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
             'enabled': 'Y' if self.valu.get('enabled', True) else 'N',
             'startcount': self.valu.get('startcount') or 0,
+            'errcount': self.valu.get('errcount') or 0,
             'laststart': 'Never' if laststart is None else self._formatTimestamp(laststart),
             'lastend': 'Never' if lastend is None else self._formatTimestamp(lastend),
             'lastresult': self.valu.get('lastresult') or '<None>',
+            'lasterrs': self.valu.get('lasterrs') or [],
             'iserr': 'X' if result is not None and not result.startswith('finished successfully') else ' ',
             'recs': []
         }
