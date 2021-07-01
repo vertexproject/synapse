@@ -238,7 +238,7 @@ class LibHttp(s_stormtypes.Lib):
                         'body': await resp.read(),
                     }
                     return HttpResp(info)
-                    # return HttpResp(code=resp.status, body=await resp.content.read())
+
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
