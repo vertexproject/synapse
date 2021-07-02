@@ -33,6 +33,10 @@ Features and Enhancements
 - Call _normStormPkg in all loadStormPkg paths, move validation to post
   normalization and remove mutation in validator
   (`#2260 <https://github.com/vertexproject/synapse/pull/2260>`_)
+- Add ``SYN_SLAB_COMMIT_PERIOD`` environment variable to control the Synapse
+  slab commit period. Add ``layer:lmdb:max_replay_log`` Cortex option to
+  control the slab replay log size.
+  (`#2266 <https://github.com/vertexproject/synapse/pull/2266>`_)
 - Update Ahacell log messages.
   (`#2270 <https://github.com/vertexproject/synapse/pull/2270>`_)
 
