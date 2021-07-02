@@ -70,7 +70,7 @@ class AhaApi(s_cell.CellApi):
                 logger.warning(mesg)
                 return
 
-            logger.debug(f'AhaCellApi fini, tearing down [{name}@{network}]')
+            logger.debug(f'AhaCellApi fini, tearing down [{name}]')
             coro = self.cell.setAhaSvcDown(name, sess, network=network)
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
@@ -144,7 +144,7 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                logger.debug(f'AhaCell activecoro tearing down [{svcname}@{network}]')
+                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]')
                 await self.setAhaSvcDown(svcname, linkiden, network=network)
 
         # Wait until we are cancelled or the cell is fini.
