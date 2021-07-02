@@ -62,7 +62,6 @@ import shutil
 import struct
 import asyncio
 import logging
-import binascii
 import ipaddress
 import contextlib
 import collections
@@ -97,6 +96,7 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'lockmemory': {'type': 'boolean'},
+        'lmdb:growsize': {'type': 'integer'},
         'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
     },
@@ -1101,7 +1101,7 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True):
+    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True, mapasync=True, maxreplaylog=10000):
 
         self.nexsroot = nexsroot
         self.layrinfo = layrinfo
@@ -1120,6 +1120,8 @@ class Layer(s_nexus.Pusher):
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
+        self.mapasync = mapasync
+        self.maxreplaylog = maxreplaylog
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -1430,8 +1432,6 @@ class Layer(s_nexus.Pusher):
             if form is None:
                 continue
 
-            tpkey = (tag, prop)
-
             for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
                 byts = self.layrslab.get(buid, db=self.bybuidv3)
                 if byts is not None:
@@ -1451,25 +1451,32 @@ class Layer(s_nexus.Pusher):
         self.meta.set('version', 6)
         self.layrvers = 6
 
-        logger.warning(f'...complete!')
+        logger.warning('...complete!')
 
     async def _initLayerStorage(self):
 
         slabopts = {
             'readonly': self.readonly,
-            'max_dbs': 128,
-            'map_async': True,
             'readahead': True,
             'lockmemory': self.lockmemory,
-            'growsize': self.growsize,
+            'map_async': self.mapasync,
+            'max_replay_log': self.maxreplaylog,
+        }
+
+        if self.growsize is not None:
+            slabopts['growsize'] = self.growsize
+
+        otherslabopts = {
+            **slabopts,
+            'readahead': False,   # less-used slabs don't need readahead
+            'lockmemory': False,  # less-used slabs definitely don't get dedicated memory
         }
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
         nodedatapath = s_common.genpath(self.dirn, 'nodedata.lmdb')
 
         self.layrslab = await s_lmdbslab.Slab.anit(path, **slabopts)
-        self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, map_async=True,
-                                                   readahead=False, readonly=self.readonly)
+        self.dataslab = await s_lmdbslab.Slab.anit(nodedatapath, **otherslabopts)
 
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
@@ -1479,7 +1486,7 @@ class Layer(s_nexus.Pusher):
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
         path = s_common.genpath(self.dirn, 'nodeedits.lmdb')
-        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, readonly=self.readonly)
+        self.nodeeditslab = await s_lmdbslab.Slab.anit(path, **otherslabopts)
         self.offsets = await self.layrslab.getHotCount('offsets')
 
         self.tagabrv = self.layrslab.getNameAbrv('tagabrv')

@@ -62,7 +62,7 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
             stat = os.stat(datafile)
             map_size = stat.st_size
             env = stack.enter_context(
-                lmdb.open(path, map_size=map_size, max_dbs=256, create=False, readonly=True))
+                lmdb.open(path, map_size=map_size, max_dbs=16384, create=False, readonly=True))
             txn = stack.enter_context(env.begin())
             tupl.append((path, env, txn))
 
