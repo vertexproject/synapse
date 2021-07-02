@@ -44,7 +44,7 @@ Bugfixes
 --------
 - Fix an issue where the ``Trigger.pack()`` method failed when the user that
   created the trigger had been deleted.
-  (`#2263 <https://github.com/vertexproject/synapse/pull/2263>`_
+  (`#2263 <https://github.com/vertexproject/synapse/pull/2263>`_)
 
 Improved Documentation
 ----------------------
