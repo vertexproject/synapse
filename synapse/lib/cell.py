@@ -8,6 +8,7 @@ import logging
 import tarfile
 import argparse
 import datetime
+import platform
 import functools
 import contextlib
 import multiprocessing
@@ -37,6 +38,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.thisplat as s_thisplat
 
 import synapse.tools.backup as s_t_backup
 
@@ -228,6 +230,27 @@ class CellApi(s_base.Base):
 
     async def getCellInfo(self):
         return await self.cell.getCellInfo()
+
+    @adminapi()
+    async def getSystemInfo(self):
+        '''
+        Get info about the system in which the cell is running
+
+        Returns:
+            A dictionary with the following keys.  All size values are in bytes:
+                - volsize - Volume where cell is running total space
+                - volfree - Volume where cell is running free space
+                - backupvolsize - Backup directory volume total space
+                - backupvolfree - Backup directory volume free space
+                - celluptime - Cell uptime in milliseconds
+                - cellrealdisk - Cell's use of disk, equivalent to du
+                - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
+                - osversion - OS version/architecture
+                - pyversion - Python version
+                - totalmem - Total memory in the system
+                - availmem - Available memory in the system
+        '''
+        return await self.cell.getSystemInfo()
 
     def setCellUser(self, iden):
         '''
@@ -544,6 +567,25 @@ class CellApi(s_base.Base):
         return await self.cell.runBackup(name=name, wait=wait)
 
     @adminapi()
+    async def getBackupInfo(self):
+        '''
+        Get information about recent backup activity.
+
+        Returns:
+            (dict) It has the following keys:
+                - currduration - If backup currently running, time in ms since backup started, otherwise None
+                - laststart - Last time (in epoch milliseconds) a backup started
+                - lastend - Last time (in epoch milliseconds) a backup ended
+                - lastduration - How long last backup took in ms
+                - lastsize - Disk usage of last backup completed
+                - lastupload - Time a backup was last completed being uploaded via iter(New)BackupArchive
+                - lastexception - Tuple of exception information if last backup failed, otherwise None
+
+        Note:  these statistics are not persistent, i.e. they are not preserved between cell restarts.
+        '''
+        return await self.cell.getBackupInfo()
+
+    @adminapi()
     async def getBackups(self):
         '''
         Retrieve a list of backups.
@@ -727,6 +769,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if conf is None:
             conf = {}
 
+        self.starttime = time.monotonic()  # Used for uptime calc
+        self.startms = s_common.now()      # Used to report start time
         s_telepath.Aware.__init__(self)
         self.dirn = s_common.gendir(dirn)
 
@@ -769,7 +813,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             backdirn = s_common.gendir(backdirn)
 
         self.backdirn = backdirn
-        self.backuprunning = False
+        self.backuprunning = False  # Whether a backup is currently running
+        self.backmonostart = None  # If a backup is running, when did it start (monotonic timer)
+        self.backstartdt = None  # Last backup start time
+        self.backenddt = None  # Last backup end time
+        self.backlasttook = None  # Last backup duration
+        self.backlastsize = None  # Last backup size
+        self.backlastuploaddt = None  # Last time backup completed uploading via iter{New,}BackupArchive
+        self.backlastexc = None  # err, errmsg, errtrace of last backup
 
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             mesg = 'Mirror mode requires nexslog:en=True'
@@ -1158,6 +1209,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield item
 
     def _reqBackDirn(self, name):
+
         self._reqBackConf()
 
         path = s_common.genpath(self.backdirn, name)
@@ -1174,20 +1226,51 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             task = None
-            self.backuprunning = True
+
+            backupstartdt = datetime.datetime.now()
 
             if name is None:
-                name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
+                name = time.strftime('%Y%m%d%H%M%S', backupstartdt.timetuple())
 
             path = self._reqBackDirn(name)
             if os.path.isdir(path):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
 
+            self.backuprunning = True
+            self.backlastexc = None
+            self.backmonostart = time.monotonic()
+            self.backstartdt = backupstartdt
+
             task = self.schedCoro(self._execBackupTask(path))
 
             def done(self, task):
+                try:
+                    self.backlastsize, _ = s_common.getDirSize(path)
+                except s_exc.NoSuchDir:
+                    pass
+                self.backlasttook = time.monotonic() - self.backmonostart
+                self.backenddt = datetime.datetime.now()
+                self.backmonostart = None
+
+                try:
+                    exc = task.exception()
+                except asyncio.CancelledError as e:
+                    exc = e
+                if exc:
+                    self.backlastexc = s_common.excinfo(exc)
+                    self.backlastsize = None
+                else:
+                    self.backlastexc = None
+                    try:
+                        self.backlastsize, _ = s_common.getDirSize(path)
+                    except Exception:
+                        self.backlastsize = None
+
                 self.backuprunning = False
+
+                phrase = f'with exception {self.backlastexc["errmsg"]}' if self.backlastexc else 'successfully'
+                logger.info(f'Backup {name} completed {phrase}.  Took {self.backlasttook / 1000} s')
 
             task.add_done_callback(functools.partial(done, self))
 
@@ -1200,8 +1283,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except (asyncio.CancelledError, Exception):
             if task is not None:
                 task.cancel()
-            self.backuprunning = False
             raise
+
+    async def getBackupInfo(self):
+        '''
+        Gets information about recent backup activity
+        '''
+        running = int(time.monotonic() - self.backmonostart * 1000) if self.backmonostart else None
+
+        def epochmillis(dtornone):
+            if dtornone is None:
+                return None
+            return int(dtornone.timestamp() * 1000)
+
+        retn = {
+            'currduration': running,
+            'laststart': int(self.backstartdt.timestamp() * 1000) if self.backstartdt else None,
+            'lastend': int(self.backenddt.timestamp() * 1000) if self.backenddt else None,
+            'lastduration': int(self.backlasttook * 1000) if self.backlasttook else None,
+            'lastsize': self.backlastsize,
+            'lastupload': int(self.backlastuploaddt.timestamp() * 1000) if self.backlastuploaddt else None,
+            'lastexception': self.backlastexc,
+        }
+
+        return retn
 
     async def _execBackupTask(self, dirn):
         '''
@@ -1322,6 +1427,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def iterBackupArchive(self, name, user):
 
+        success = False
+
         path = self._reqBackDirn(name)
         cellguid = os.path.join(path, 'cell.guid')
         if not os.path.isfile(cellguid):
@@ -1360,11 +1467,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = repr(e)
             raise
 
+        else:
+            success = True
+            self.backlastuploaddt = datetime.datetime.now()
+
         finally:
-            logger.debug(f'iterBackupArchive completed for {name}')
+            phrase = 'successfully' if success else 'with failure'
+            logger.debug(f'iterBackupArchive completed {phrase} for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
+
+        success = False
 
         if name is None:
             name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
@@ -1380,7 +1494,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
             await self.runBackup(name)
-        except:
+        except Exception:
             if remove:
                 logger.debug(f'Removing {path}')
                 await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
@@ -1415,12 +1529,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = repr(e)
             raise
 
+        else:
+            success = True
+            self.backlastuploaddt = datetime.datetime.now()
+
         finally:
             if remove:
                 logger.debug(f'Removing {path}')
                 await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
                 logger.debug(f'Removed {path}')
-            logger.debug(f'iterNewBackupArchive completed for {name}')
+
+            phrase = 'successfully' if success else 'with failure'
+            logger.debug(f'iterNewBackupArchive completed {phrase} for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
@@ -1918,7 +2038,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
-        pars.add_argument('--log-level', default='INFO', choices=s_const.LOG_LEVEL_CHOICES,
+        pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
                           help='Specify the Python logging log level.', type=str.upper)
         pars.add_argument('--structured-logging', default=False, action='store_true',
                           help='Use structured logging.')
@@ -2231,3 +2351,56 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             }
         }
         return ret
+
+    async def getSystemInfo(self):
+        '''
+        Get info about the system in which the cell is running
+
+        Returns:
+            A dictionary with the following keys.  All size values are in bytes:
+                - volsize - Volume where cell is running total space
+                - volfree - Volume where cell is running free space
+                - backupvolsize - Backup directory volume total space
+                - backupvolfree - Backup directory volume free space
+                - cellstarttime - Cell start time in epoch milliseconds
+                - celluptime - Cell uptime in milliseconds
+                - cellrealdisk - Cell's use of disk, equivalent to du
+                - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
+                - osversion - OS version/architecture
+                - pyversion - Python version
+                - totalmem - Total memory in the system
+                - availmem - Available memory in the system
+                - cpucount - Number of CPUs on system
+        '''
+        uptime = int((time.monotonic() - self.starttime) * 1000)
+        disk = shutil.disk_usage(self.dirn)
+
+        if self.backdirn:
+            backupdisk = shutil.disk_usage(self.backdirn)
+            backupvolsize, backupvolfree = backupdisk.total, backupdisk.free
+        else:
+            backupvolsize, backupvolfree = 0, 0
+
+        myusage, myappusage = s_common.getDirSize(self.dirn)
+        totalmem = s_thisplat.getTotalMemory()
+        availmem = s_thisplat.getAvailableMemory()
+        pyversion = platform.python_version()
+        cpucount = multiprocessing.cpu_count()
+
+        retn = {
+            'volsize': disk.total,             # Volume where cell is running total bytes
+            'volfree': disk.free,              # Volume where cell is running free bytes
+            'backupvolsize': backupvolsize,    # Cell's backup directory volume total bytes
+            'backupvolfree': backupvolfree,    # Cell's backup directory volume free bytes
+            'cellstarttime': self.startms,     # cell start time in epoch millis
+            'celluptime': uptime,              # cell uptime in ms
+            'cellrealdisk': myusage,           # Cell's use of disk, equivalent to du
+            'cellapprdisk': myappusage,        # Cell's apparent use of disk, equivalent to ls -l
+            'osversion': platform.platform(),  # OS version/architecture
+            'pyversion': pyversion,            # Python version
+            'totalmem': totalmem,              # Total memory in the system
+            'availmem': availmem,              # Available memory in the system
+            'cpucount': cpucount,              # Number of CPUs on system
+        }
+
+        return retn

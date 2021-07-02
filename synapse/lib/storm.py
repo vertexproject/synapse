@@ -156,7 +156,7 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
-_reqValidPkgdef = s_config.getJsValidator({
+reqValidPkgdef = s_config.getJsValidator({
     'type': 'object',
     'properties': {
         'name': {'type': 'string'},
@@ -281,17 +281,6 @@ _reqValidPkgdef = s_config.getJsValidator({
         }
     }
 })
-def reqValidPkgdef(pkgdef):
-    '''
-    Require a valid storm package definition.
-
-    NOTE: This API may mutate the input dictionary to
-          provide inline updates to the package structure.
-    '''
-    version = pkgdef.get('version')
-    if isinstance(version, (tuple, list)):
-        pkgdef['version'] = '%d.%d.%d' % tuple(version)
-    return _reqValidPkgdef(pkgdef)
 
 reqValidDdef = s_config.getJsValidator({
     'type': 'object',
@@ -1020,10 +1009,18 @@ stormcmds = (
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print('recurring:       {isrecur}', isrecur=$job.isrecur)
                 $lib.print('# starts:        {startcount}', startcount=$job.startcount)
+                $lib.print('# errors:        {errcount}', errcount=$job.errcount)
                 $lib.print('last start time: {laststart}', laststart=$job.laststart)
                 $lib.print('last end time:   {lastend}', lastend=$job.lastend)
                 $lib.print('last result:     {lastresult}', lastresult=$job.lastresult)
                 $lib.print('query:           {query}', query=$job.query)
+
+                if $lib.len($job.lasterrs) {
+                    $lib.print('most recent errors:')
+                    for $err in $job.lasterrs {
+                        $lib.print('                 {err}', err=$err)
+                    }
+                }
 
                 if $job.recs {
                     $lib.print('entries:         incunit    incval required')

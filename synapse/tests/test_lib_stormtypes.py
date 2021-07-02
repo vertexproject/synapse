@@ -1,3 +1,4 @@
+import re
 import bz2
 import gzip
 import json
@@ -337,6 +338,7 @@ class StormTypesTest(s_test.SynTest):
 
             # lib.range()
             q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
+
             async def getseqn(genr, name, key):
                 seqn = []
                 async for mtyp, info in genr:
@@ -686,6 +688,13 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('foo', 'baz'), await core.callStorm('return($lib.regex.search("(foo)bar(baz)", foobarbaz))'))
             self.eq((), await core.callStorm('return($lib.regex.search(foo, foobar))'))
             self.none(await core.callStorm('return($lib.regex.search(foo, bat))'))
+
+            self.eq(('G0006',), await core.callStorm('return($lib.regex.findall("(G[0-9]{4}) and", "G0006 and G0001"))'))
+            self.eq(('G0006', 'G0001'), await core.callStorm('return($lib.regex.findall("G[0-9]{4}", "G0006 and G0001"))'))
+            self.eq(('G0006', 'G0001'), await core.callStorm('return($lib.regex.findall("(G[0-9]{4})", "G0006 and G0001"))'))
+            valu = await core.callStorm('return($lib.regex.findall("(G[0-9]{4}) (hehe)", "G0006 hehe and G0001 hehe G0009 hoho"))')
+            self.eq((('G0006', 'hehe'), ('G0001', 'hehe')), valu)
+            self.eq([], await core.callStorm('return($lib.regex.findall("(G[0-9]{4})", "newp G000 newp"))'))
 
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(","))'))
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(","))'))
@@ -2874,21 +2883,17 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(f'trigger.del {goodbuid}')
             self.stormIsInPrint(f'Deleted trigger: {goodbuid}', mesgs)
 
-            q = f'trigger.del deadbeef12341234'
+            q = 'trigger.del deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = f'trigger.enable deadbeef12341234'
+            q = 'trigger.enable deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = f'trigger.disable deadbeef12341234'
+            q = 'trigger.disable deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            # waiter = core.waiter(1, 'core:trigger:action')
             mesgs = await core.stormlist(f'trigger.disable {goodbuid2}')
             self.stormIsInPrint('Disabled trigger', mesgs)
-
-            # evnts = await waiter.wait(1)
-            # self.eq(evnts[0][1].get('action'), 'disable')
 
             mesgs = await core.stormlist(f'trigger.enable {goodbuid2}')
             self.stormIsInPrint('Enabled trigger', mesgs)
@@ -2936,6 +2941,43 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             await core.nodes('[ test:str=foo4 ]')
             self.len(1, await core.nodes('test:int=99'))
+
+            for mesg in mesgs:
+                if mesg[0] != 'print':
+                    continue
+                match = re.match(r'Added trigger: ([0-9a-f]+)', mesg[1]['mesg'])
+                if match:
+                    trigiden = match.groups()[0]
+                    break
+            else:
+                raise Exception("Didn't find 'Added trigger' mesg")
+
+            # Trigger pack
+            q = f'return ($lib.trigger.get({trigiden}).pack())'
+            trigdef = await core.callStorm(q)
+            self.false(trigdef.get('disabled'))
+            self.nn(trigdef.get('user'))
+            self.nn(trigdef.get('view'))
+            self.eq(trigdef.get('storm'), '[ test:int=99 ] | spin ')
+            self.eq(trigdef.get('cond'), 'node:add')
+            self.eq(trigdef.get('form'), 'test:str')
+            self.eq(trigdef.get('iden'), trigiden)
+            self.eq(trigdef.get('startcount'), 1)
+            self.eq(trigdef.get('errcount'), 0)
+            self.eq(trigdef.get('lasterrs'), ())
+
+            mesgs = await core.stormlist(f'trigger.mod {trigiden} {{$lib.newp}}')
+            self.stormIsInPrint('Modified trigger', mesgs)
+
+            await core.nodes('[ test:str=foo5 ]')
+
+            q = f'return ($lib.trigger.get({trigiden}).pack())'
+            trigdef = await core.callStorm(q)
+            self.eq(trigdef.get('startcount'), 2)
+            self.eq(trigdef.get('errcount'), 1)
+            lasterrs = trigdef.get('lasterrs', [])
+            self.len(1, lasterrs)
+            self.isin('NoSuchName', lasterrs[0])
 
             # Move a trigger to a different view
             q = '''
@@ -3265,7 +3307,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await core.stormlist(q)
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
-                q = f"cron.mod xxx {{[graph:node='*' :type=m2]}}"
+                q = "cron.mod xxx {{[graph:node='*' :type=m2]}}"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
@@ -3515,6 +3557,13 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint('1 cron/at jobs deleted.', msgs)
 
+                # Test that stating a failed cron prints failures
+                async with getCronJob("cron.at --now {$lib.queue.get(foo).put(atnow) $lib.newp}") as guid:
+                    self.eq('atnow', await getNextFoo())
+                    mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
+                    print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+                    self.nn(re.search("# errors:.+1", print_str))
+                    self.nn(re.search("most recent errors:\n[^\n]+Cannot find name", print_str))
                 ##################
 
                 # Test the aliases

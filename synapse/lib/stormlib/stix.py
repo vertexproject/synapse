@@ -783,6 +783,9 @@ stix_all = set().union(stix_sdos, stix_sros, stix_observables)
 
 @s_stormtypes.registry.registerType
 class StixBundle(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for creating and packing a STIX bundle for v2.1
+    '''
 
     _storm_typename = 'storm:stix:bundle'
     _storm_locals = (

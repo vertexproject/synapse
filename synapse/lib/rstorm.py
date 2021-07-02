@@ -64,7 +64,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         if resp:
             body = resp.get('body')
 
-            if isinstance(body, dict):
+            if isinstance(body, (dict, list)):
                 body = json.dumps(body)
 
             info = {

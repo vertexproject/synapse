@@ -530,7 +530,12 @@ class AgendaTest(s_t_utils.SynTest):
                             'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                             'incunit': s_agenda.TimeUnit.MONTH,
                             'incvals': 1}
-                    await agenda.add(cdef)
+                    adef = await agenda.add(cdef)
+
+                    guid2 = adef.get('iden')
+                    appt = agenda.appts[guid2]
+                    appt.lasterrs.append('error happened')
+                    await agenda._storeAppt(appt)
 
                     # Add an appt with an invalid query
                     cdef = {'creator': 'visi', 'iden': 'BAD1', 'storm': '[test:str=',
@@ -572,6 +577,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                     appts = agenda.list()
                     self.len(3, appts)
+
                     last_appt = [appt for (iden, appt) in appts if iden == guid3][0]
                     self.eq(last_appt.query, '#bahhumbug')
 
