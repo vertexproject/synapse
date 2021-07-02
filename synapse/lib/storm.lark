@@ -214,6 +214,8 @@ _basevalu: _argvalu | baresubquery
 
 _valu: _basevalu | NONQUOTEWORD
 
+evalvalu: _valu
+
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | _rootvalu
 
