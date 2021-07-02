@@ -667,14 +667,21 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
-    async def get(self):
-        resp = {}
+
+    def _decode_params(self):
+        d = collections.defaultdict(list)
         if self.request.arguments:
-            d = collections.defaultdict(list)
-            resp['params'] = d
             for k, items in self.request.arguments.items():
                 for v in items:
                     d[k].append(v.decode())
+        return d
+
+    async def get(self):
+        resp = {}
+        params = self._decode_params()
+        if params:
+            resp['params'] = params
+
         resp['headers'] = dict(self.request.headers)
         resp['path'] = self.request.path
 
@@ -687,17 +694,29 @@ class HttpReflector(s_httpapi.Handler):
 
     async def post(self):
         resp = {}
-        if self.request.arguments:
-            d = collections.defaultdict(list)
-            resp['params'] = d
-            for k, items in self.request.arguments.items():
-                for v in items:
-                    d[k].append(v.decode())
+        params = self._decode_params()
+        if params:
+            resp['params'] = params
+
         resp['headers'] = dict(self.request.headers)
         resp['path'] = self.request.path
+
         if self.request.body:
             resp['body'] = s_common.enbase64(self.request.body)
         self.sendRestRetn(resp)
+
+    async def head(self):
+        params = self._decode_params()
+        redirect = params.get('redirect')
+        self.add_header('Head', '1')
+
+        if redirect:
+            self.add_header('Redirected', '1')
+            self.redirect(redirect[0])
+            return
+
+        self.set_status(200)
+        return
 
 s_task.vardefault('applynest', lambda: None)
 

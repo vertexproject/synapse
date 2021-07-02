@@ -50,6 +50,7 @@ import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
+import synapse.lib.stormlib.storm as s_stormlib_storm # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
@@ -4226,6 +4227,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def stormlist(self, text, opts=None):
         return [m async for m in self.storm(text, opts=opts)]
+
+    async def _getStormEval(self, text):
+        astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
+        astvalu.init(self)
+        return astvalu
 
     async def _getStormQuery(self, args):
         query = copy.deepcopy(await s_parser.querycache.aget(args))

@@ -178,6 +178,10 @@ class AstConverter(lark.Transformer):
         return s_ast.YieldValu(kids=[kid])
 
     @lark.v_args(meta=True)
+    def evalvalu(self, kids, meta):
+        return self._convert_child(kids[0])
+
+    @lark.v_args(meta=True)
     def lookup(self, kids, meta):
         kids = self._convert_children(kids)
         look = s_ast.Lookup(kids=kids)
@@ -361,7 +365,7 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs'], propagate_positions=True)
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'], propagate_positions=True)
 
 class Parser:
     '''
@@ -396,6 +400,17 @@ class Parser:
             return s_exc.BadSyntax(**origexc.errinfo)
 
         return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
+
+    def eval(self):
+        try:
+            tree = LarkParser.parse(self.text, start='evalvalu')
+            newtree = AstConverter(self.text).transform(tree)
+
+        except lark.exceptions.LarkError as e:
+            raise self._larkToSynExc(e) from None
+
+        newtree.text = self.text
+        return newtree
 
     def query(self):
         '''
@@ -446,10 +461,16 @@ def parseQuery(text, mode='storm'):
 
     return Parser(text).query()
 
-async def _forkedParseQuery(args):
-    query = await s_coro.forked(parseQuery, args[0], mode=args[1])
-    return query
+def parseEval(text):
+    return Parser(text).eval()
 
+async def _forkedParseQuery(args):
+    return await s_coro.forked(parseQuery, args[0], mode=args[1])
+
+async def _forkedParseEval(text):
+    return await s_coro.forked(parseEval, text)
+
+evalcache = s_cache.FixedCache(_forkedParseEval, size=100)
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)
 
 def massage_vartokn(x):
