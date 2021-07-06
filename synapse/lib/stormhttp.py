@@ -99,7 +99,9 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, }
+                       'default': 300, },
+                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
+                       'default': True, },
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
@@ -117,7 +119,26 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, }
+                       'default': 300, },
+                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
+                       'default': True, },
+                  ),
+                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
+        {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
+         'type': {'type': 'function', '_funcname': '_httpEasyHead',
+                  'args': (
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.', },
+                      {'name': 'headers', 'type': 'dict', 'desc': 'HTTP headers to send with the request.',
+                       'default': None, },
+                      {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
+                       'default': True, },
+                      {'name': 'params', 'type': 'dict',
+                       'desc': 'Optional parameters which may be passed to the request.',
+                       'default': None, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
+                       'default': 300, },
+                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to true, follow redirects.',
+                       'default': False, },
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
@@ -136,7 +157,9 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
                        'default': None, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, }
+                       'default': 300, },
+                      {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
+                       'default': True, },
                    ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
                   }
@@ -160,17 +183,26 @@ class LibHttp(s_stormtypes.Lib):
         return {
             'get': self._httpEasyGet,
             'post': self._httpPost,
+            'head': self._httpEasyHead,
             'request': self._httpRequest,
             'connect': self.inetHttpConnect,
         }
 
-    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300):
-        return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
-                                       timeout=timeout)
+    async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
+                            allow_redirects=False):
+        return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, params=params,
+                                       timeout=timeout, allow_redirects=allow_redirects, )
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=300):
+    async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
+                           allow_redirects=True):
+        return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
+                                       timeout=timeout, allow_redirects=allow_redirects, )
+
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=300,
+                        allow_redirects=True):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
-                                       ssl_verify=ssl_verify, params=params, timeout=timeout)
+                                       ssl_verify=ssl_verify, params=params, timeout=timeout,
+                                       allow_redirects=allow_redirects, )
 
     async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
 
@@ -204,7 +236,7 @@ class LibHttp(s_stormtypes.Lib):
             return s_common.retnexc(e)
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
-                           params=None, timeout=300):
+                           params=None, timeout=300, allow_redirects=True, ):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
@@ -212,8 +244,9 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
+        allow_redirects = await s_stormtypes.tobool(allow_redirects)
 
-        kwargs = {}
+        kwargs = {'allow_redirects': allow_redirects}
         if not ssl_verify:
             kwargs['ssl'] = False
         if params:
@@ -238,7 +271,7 @@ class LibHttp(s_stormtypes.Lib):
                         'body': await resp.read(),
                     }
                     return HttpResp(info)
-                    # return HttpResp(code=resp.status, body=await resp.content.read())
+
             except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:

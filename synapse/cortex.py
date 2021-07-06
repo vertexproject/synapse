@@ -47,9 +47,10 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
-import synapse.lib.stormlib.stix as s_stormlib_stix
+import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
+import synapse.lib.stormlib.storm as s_stormlib_storm # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
@@ -933,6 +934,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             'default': True,
             'description': 'Set the default lmdb:map_async value in LMDB layers.',
             'type': 'boolean'
+        },
+        'layer:lmdb:max_replay_log': {
+            'default': 10000,
+            'description': 'Set the max size of the replay log for all layers.',
+            'type': 'integer'
         },
         'layers:lockmemory': {
             'default': False,
@@ -3487,10 +3493,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         iden = layrinfo.get('iden')
         path = s_common.gendir(self.dirn, 'layers', iden)
 
+        mapasync = self.conf['layer:lmdb:map_async']
+        maxreplaylog = self.conf['layer:lmdb:max_replay_log']
+
         # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
         # TODO allow_upstream needs to be separated out
         mirror = self.conf.get('mirror')
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror)
+        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror,
+                                        mapasync=mapasync, maxreplaylog=maxreplaylog)
 
     async def _initCoreLayers(self):
         node = await self.hive.open(('cortex', 'layers'))
@@ -4217,6 +4227,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def stormlist(self, text, opts=None):
         return [m async for m in self.storm(text, opts=opts)]
+
+    async def _getStormEval(self, text):
+        astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
+        astvalu.init(self)
+        return astvalu
 
     async def _getStormQuery(self, args):
         query = copy.deepcopy(await s_parser.querycache.aget(args))

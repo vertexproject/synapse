@@ -13,7 +13,6 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.version as s_version
 
@@ -620,6 +619,32 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
 
+    async def test_cell_system_info(self):
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+                    info = await proxy.getSystemInfo()
+                    for prop in ('osversion', 'pyversion'):
+                        self.nn(info.get(prop))
+
+                    for prop in ('volsize', 'volfree', 'celluptime', 'cellrealdisk',
+                                 'cellapprdisk', 'totalmem', 'availmem'):
+                        self.lt(0, info.get(prop))
+
+            conf = {'backup:dir': backdirn}
+            async with self.getTestCore(conf=conf, dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+                    info = await proxy.getSystemInfo()
+                    for prop in ('osversion', 'pyversion'):
+                        self.nn(info.get(prop))
+
+                    for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
+                                 'cellapprdisk', 'totalmem', 'availmem'):
+                        self.lt(0, info.get(prop))
+
     async def test_cell_hiveapi(self):
 
         async with self.getTestCore() as core:
@@ -693,6 +718,15 @@ class CellTest(s_t_utils.SynTest):
 
                 async with core.getLocalProxy() as proxy:
 
+                    info = await proxy.getBackupInfo()
+                    self.none(info['currduration'])
+                    self.none(info['laststart'])
+                    self.none(info['lastend'])
+                    self.none(info['lastduration'])
+                    self.none(info['lastsize'])
+                    self.none(info['lastupload'])
+                    self.none(info['lastexception'])
+
                     with self.raises(s_exc.BadArg):
                         await proxy.runBackup('../woot')
 
@@ -700,17 +734,45 @@ class CellTest(s_t_utils.SynTest):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
                             await self.asyncraises(s_exc.SynErr, proxy.runBackup())
 
+                    info = await proxy.getBackupInfo()
+                    errinfo = info.get('lastexception')
+                    laststart1 = info['laststart']
+                    self.eq(errinfo['err'], 'SynErr')
+
                     # Test runners can take an unusually long time to spawn a process
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
                             await self.asyncraises(s_exc.SynErr, proxy.runBackup())
 
+                        info = await proxy.getBackupInfo()
+                        laststart2 = info['laststart']
+                        self.ne(laststart1, laststart2)
+                        errinfo = info.get('lastexception')
+                        self.eq(errinfo['err'], 'SynErr')
+
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
                             await self.asyncraises(s_exc.SpawnExit, proxy.runBackup())
 
+                        info = await proxy.getBackupInfo()
+                        laststart3 = info['laststart']
+                        self.ne(laststart2, laststart3)
+                        errinfo = info.get('lastexception')
+                        self.eq(errinfo['err'], 'SpawnExit')
+
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
+
+                    info = await proxy.getBackupInfo()
+                    self.none(info['currduration'])
+                    laststart4 = info['laststart']
+                    self.ne(laststart3, laststart4)
+                    self.lt(0, info['lastsize'])
+                    self.nn(info['lastend'])
+                    self.lt(0, info['lastduration'])
+                    self.none(info['lastexception'])
+                    self.none(info['lastupload'])
+
                     await proxy.delBackup(name)
                     self.eq((), await proxy.getBackups())
                     name = await proxy.runBackup(name='foo/bar')
@@ -745,7 +807,8 @@ class CellTest(s_t_utils.SynTest):
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadCertHost):
-                    async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost') as proxy:
+                    url = f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost'
+                    async with await s_telepath.openurl(url) as proxy:
                         pass
 
     async def test_cell_auth_ctor(self):

@@ -334,7 +334,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Make sure that we don't confuse the periodic commit with the max replay log commit
 
-            with patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 10):
+            with self.setTstEnvars(SYN_SLAB_COMMIT_PERIOD='10'):
                 async with await s_lmdbslab.Slab.anit(path, map_size=100000, max_replay_log=my_maxlen) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256

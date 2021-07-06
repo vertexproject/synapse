@@ -5,6 +5,60 @@ Synapse Changelog
 *****************
 
 
+v2.46.0 - 2021-07-02
+====================
+
+Features and Enhancements
+-------------------------
+- Update the Cortex ``storm:log:level`` configuration value to accept string
+  values such as ``DEBUG``, ``INFO``, etc. The default log level for Storm
+  query logs is now ``INFO`` level.
+  (`#2262 <https://github.com/vertexproject/synapse/pull/2262>`_)
+- Add ``$lib.regex.findall()`` Stormtypes API to find all matching parts of a
+  regular expression in a given string.
+  (`#2265 <https://github.com/vertexproject/synapse/pull/2265>`_)
+- Add ``$lib.inet.http.head()`` Stormtypes API to perform easy HEAD requests,
+  and ``allow_redirects`` arguments to existing ``lib.inet.http`` APIs to
+  allow controlling the redirect behavior.
+  (`#2268 <https://github.com/vertexproject/synapse/pull/2268>`_)
+- Add ``$lib.storm.eval()`` API to evaluate Storm values from strings.
+  (`#2269 <https://github.com/vertexproject/synapse/pull/2269>`_)
+- Add ``getSystemInfo()`` and ``getBackupInfo()`` APIS to the Cell for getting
+  useful system information.
+  (`#2267 <https://github.com/vertexproject/synapse/pull/2267>`_)
+- Allow lists in rstorm bodies.
+  (`#2261 <https://github.com/vertexproject/synapse/pull/2261>`_)
+- Add a ``:desc`` secondary property to the ``proj:sprint`` form.
+  (`#2261 <https://github.com/vertexproject/synapse/pull/2261>`_)
+- Call _normStormPkg in all loadStormPkg paths, move validation to post
+  normalization and remove mutation in validator
+  (`#2260 <https://github.com/vertexproject/synapse/pull/2260>`_)
+- Add ``SYN_SLAB_COMMIT_PERIOD`` environment variable to control the Synapse
+  slab commit period. Add ``layer:lmdb:max_replay_log`` Cortex option to
+  control the slab replay log size.
+  (`#2266 <https://github.com/vertexproject/synapse/pull/2266>`_)
+- Update Ahacell log messages.
+  (`#2270 <https://github.com/vertexproject/synapse/pull/2270>`_)
+
+Bugfixes
+--------
+- Fix an issue where the ``Trigger.pack()`` method failed when the user that
+  created the trigger had been deleted.
+  (`#2263 <https://github.com/vertexproject/synapse/pull/2263>`_)
+
+Improved Documentation
+----------------------
+- Update the Cortex devops documentation for the Cortex to document the Storm
+  query logging. Update the Cell devops documentation to explain the Cell
+  logging and how to enable structured (JSON) logging output.
+  (`#2262 <https://github.com/vertexproject/synapse/pull/2262>`_)
+- Update Stormtypes API documentation for ``bool``, ``storm:project:epic``,
+  ``storm:project:epics``, ``storm:project:ticket``,
+  ``storm:project:tickets``, ``storm:project:sprint``,
+  ``storm:project:sprints``, ``storm:project``, ``storm:stix:bundle`` types.
+  (`#2261 <https://github.com/vertexproject/synapse/pull/2261>`_)
+
+
 v2.45.0 - 2021-06-25
 ====================
 

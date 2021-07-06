@@ -7,6 +7,7 @@ import calendar
 import datetime
 import functools
 import itertools
+import collections
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
@@ -328,6 +329,8 @@ class _Appt:
             self.nexttime = nexttime
         self.isrunning = False  # whether it is currently running
         self.startcount = 0  # how many times query has started
+        self.errcount = 0  # how many times this appt failed
+        self.lasterrs = collections.deque((), maxlen=5)
         self.laststarttime = None
         self.lastfinishtime = None
         self.lastresult = None
@@ -376,10 +379,12 @@ class _Appt:
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
             'startcount': self.startcount,
+            'errcount': self.errcount,
             'isrunning': self.isrunning,
             'laststarttime': self.laststarttime,
             'lastfinishtime': self.lastfinishtime,
-            'lastresult': self.lastresult
+            'lastresult': self.lastresult,
+            'lasterrs': list(self.lasterrs)
         }
 
     @classmethod
@@ -390,7 +395,6 @@ class _Appt:
         appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, val['nexttime'])
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
-        appt.startcount = val['startcount']
         appt.laststarttime = val['laststarttime']
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
@@ -553,7 +557,13 @@ class Agenda(s_base.Base):
     async def _storeAppt(self, appt, nexs=False):
         ''' Store a single appointment '''
         full = self._hivenode.full + (appt.iden,)
-        await self.core.hive.set(full, appt.pack(), nexs=nexs)
+        stordict = appt.pack()
+
+        # Don't store ephemeral props
+        for prop in ('startcount', 'errcount', 'lasterrs'):
+            stordict.pop(prop, None)
+
+        await self.core.hive.set(full, stordict, nexs=nexs)
 
     @staticmethod
     def _dictproduct(rdict):
@@ -600,7 +610,7 @@ class Agenda(s_base.Base):
             used
 
         Returns:
-            iden of new appointment
+            Packed appointment definition
         '''
         iden = cdef['iden']
         incunit = cdef.get('incunit')
@@ -766,13 +776,13 @@ class Agenda(s_base.Base):
         user = self.core.auth.user(appt.creator)
         if user is None:
             logger.warning('Unknown user %s in stored appointment', appt.creator)
-            await self._markfailed(appt)
+            await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
             logger.warning('Cron failed because creator %s is locked', user.name)
-            await self._markfailed(appt)
+            await self._markfailed(appt, 'locked user')
             return
 
         info = {'iden': appt.iden, 'query': appt.query}
@@ -781,11 +791,11 @@ class Agenda(s_base.Base):
 
         task.onfini(functools.partial(self._running_tasks.remove, task))
 
-    async def _markfailed(self, appt):
+    async def _markfailed(self, appt, reason):
         appt.lastfinishtime = appt.laststarttime = time.time()
         appt.startcount += 1
         appt.isrunning = False
-        appt.lastresult = 'Failed due to unknown user'
+        appt.lastresult = f'Failed due to {reason}'
         if not self.isfini:
             await self._storeAppt(appt, nexs=True)
 
@@ -802,6 +812,7 @@ class Agenda(s_base.Base):
         with s_provenance.claim('cron', iden=appt.iden):
             logger.info('Agenda executing for iden=%s, user=%s, query={%s}', appt.iden, user.name, appt.query)
             starttime = time.time()
+            success = False
             try:
                 opts = {'user': user.iden}
                 async for node in self.core.eval(appt.query, opts=opts):
@@ -813,9 +824,13 @@ class Agenda(s_base.Base):
                 result = f'raised exception {e}'
                 logger.exception('Agenda job %s raised exception', appt.iden)
             else:
+                success = True
                 result = f'finished successfully with {count} nodes'
             finally:
                 finishtime = time.time()
+                if not success:
+                    appt.errcount += 1
+                    appt.lasterrs.append(result)
                 logger.info('Agenda completed query for iden=%s with result "%s" took %0.3fs',
                             appt.iden, result, finishtime - starttime)
                 appt.lastfinishtime = finishtime
