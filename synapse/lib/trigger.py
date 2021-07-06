@@ -293,6 +293,9 @@ class Trigger:
         self.tdef = tdef
         self.iden = tdef.get('iden')
         self.lockwarned = False
+        self.startcount = 0
+        self.errcount = 0
+        self.lasterrs = collections.deque((), maxlen=5)
 
     async def set(self, name, valu):
         '''
@@ -349,6 +352,8 @@ class Trigger:
         if vars is not None:
             opts['vars'] = vars
 
+        self.startcount += 1
+
         with s_provenance.claim('trig', cond=cond, form=form, tag=tag, prop=prop):
             try:
                 async with self.view.core.getStormRuntime(query, opts=opts) as runt:
@@ -359,7 +364,9 @@ class Trigger:
             except (asyncio.CancelledError, s_exc.RecursionLimitHit):
                 raise
 
-            except Exception:
+            except Exception as e:
+                self.errcount += 1
+                self.lasterrs.append(str(e))
                 logger.exception('Trigger encountered exception running storm query %s', storm)
 
     def pack(self):
@@ -367,7 +374,11 @@ class Trigger:
 
         useriden = tdef['user']
         triguser = self.view.core.auth.user(useriden)
-        tdef['username'] = triguser.name
+        tdef['startcount'] = self.startcount
+        tdef['errcount'] = self.errcount
+        tdef['lasterrs'] = list(self.lasterrs)
+        if triguser is not None:
+            tdef['username'] = triguser.name
 
         return tdef
 

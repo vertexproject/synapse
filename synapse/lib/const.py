@@ -1,7 +1,16 @@
 # Logging related constants
+import logging
+
 LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s ' \
              '[%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]'
-LOG_LEVEL_CHOICES = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+LOG_LEVEL_CHOICES = {
+    'DEBUG': logging.DEBUG,
+    'INFO': logging.INFO,
+    'WARNING': logging.WARNING,
+    'ERROR': logging.ERROR,
+    'CRITICAL': logging.CRITICAL,
+}
+LOG_LEVEL_INVERSE_CHOICES = {v: k for k, v in LOG_LEVEL_CHOICES.items()}
 
 # Math related constants
 kilobyte = 1000

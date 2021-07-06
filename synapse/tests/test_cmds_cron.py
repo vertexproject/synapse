@@ -36,22 +36,6 @@ class CmdCronTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 async with await s_cmdr.getItemCmdr(core, outp=outp) as cmdr:
 
-                    async def waitForCron(guid):
-                        '''
-                        Because the wall clock is "frozen" for this test unless we manually advance it, we can't sleep
-                        non-zero amounts.  However, we are running in the same asyncio loop as the agenda.  Just
-                        sleep(0) in a loop until the cron job is not running anymore
-                        '''
-                        for _ in range(300):
-                            await asyncio.sleep(0)
-                            crons = await core.listCronJobs()
-                            cron = [c for c in crons if c.get('iden') == guid][0]
-                            if not cron['isrunning']:
-                                break
-                        else:
-                            # the cron job didn't finish after *alot* of sleeps?!
-                            self.true(0)
-
                     # Various silliness
 
                     await cmdr.runCmdLine('cron')
@@ -329,8 +313,6 @@ class CmdCronTest(s_t_utils.SynTest):
                     guid = outp.mesgs[-1].strip().rsplit(' ', 1)[-1]
 
                     unixtime += DAYSECS
-
-                    await waitForCron(guid)
 
                     self.eq('at2', await getNextFoo())
 

@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import yaml
 
@@ -105,6 +106,15 @@ class CommonTest(s_t_utils.SynTest):
 
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
+
+            # getDirSize: check against du
+            real, appr = s_common.getDirSize(dirn)
+            durealstr = subprocess.check_output(['du', '-B', '1', '-s', dirn])
+            dureal = int(durealstr.split()[0])
+            duapprstr = subprocess.check_output(['du', '-bs', dirn])
+            duappr = int(duapprstr.split()[0])
+            self.eq(dureal, real)
+            self.eq(duappr, appr)
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
@@ -270,6 +280,19 @@ class CommonTest(s_t_utils.SynTest):
         with self.setTstEnvars(SYN_FOO='false', SYN_BAR='0'):
             self.false(s_common.envbool('SYN_FOO'))
             self.false(s_common.envbool('SYN_BAR'))
+
+    def test_normlog(self):
+        self.eq(10, s_common.normLogLevel(' 10 '))
+        self.eq(10, s_common.normLogLevel(10))
+        self.eq(20, s_common.normLogLevel(' inFo\n'))
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel(100)
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel('BEEP')
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel('12')
+        with self.raises(s_exc.BadArg):
+            s_common.normLogLevel({'key': 'newp'})
 
     async def test_merggenr(self):
         async def asyncl(data):

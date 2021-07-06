@@ -573,7 +573,7 @@ class Slab(s_base.Base):
     synctask = None
     syncevnt = None  # set this event to trigger a sync
 
-    COMMIT_PERIOD = 0.2  # time between commits
+    COMMIT_PERIOD = float(os.environ.get('SYN_SLAB_COMMIT_PERIOD', "0.2"))  # time between commits
     DEFAULT_MAPSIZE = s_const.gibibyte
     DEFAULT_GROWSIZE = None
 
