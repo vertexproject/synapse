@@ -601,7 +601,9 @@ class Snap(s_base.Base):
                         subprop = self.core.model.prop(fullname)
                         if subprop is None:
                             continue
-
+                        if subprop.name in p:
+                            # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
+                            continue
                         assert subprop.type.stortype is not None
 
                         subnorm, subinfo = subprop.type.norm(subvalu)
