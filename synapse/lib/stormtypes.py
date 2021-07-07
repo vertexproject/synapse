@@ -1879,7 +1879,9 @@ class LibRegx(Lib):
             Replace any substrings that match the given regular expression with the specified replacement.
 
             Example:
-                $norm = $lib.regex.replace("[ ]{2,}", " ", "foo     bar")
+                Replace a portion of a string with a new part based on a regex::
+
+                    $norm = $lib.regex.replace("\sAND\s", " & ", "Ham and eggs!", $lib.regex.flags.i)
             ''',
          'type': {'type': 'function', '_funcname': 'replace',
                   'args': (
