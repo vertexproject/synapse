@@ -1851,10 +1851,15 @@ class Layer(s_nexus.Pusher):
             for edit in edits:
 
                 delt = self.editors[edit[0]](buid, form, edit, sode, meta)
-                if delt and edit[2]:
-                    nodeedits.extend(edit[2])
 
                 changes.extend(delt)
+
+                if delt:
+                    if edit[2]:
+                        nodeedits.extend(edit[2])
+
+                    if len(changes) % 100 == 0:
+                        await asyncio.sleep(0)
 
             flatedit = results.get(buid)
             if flatedit is None:
@@ -1864,6 +1869,8 @@ class Layer(s_nexus.Pusher):
 
             if changes:
                 edited = True
+
+            await asyncio.sleep(0)
 
         flatedits = list(results.values())
 
