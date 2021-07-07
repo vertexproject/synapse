@@ -1875,6 +1875,21 @@ class LibRegx(Lib):
                        'default': 0, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if there is a match, False otherwise.', }}},
+        {'name': 'replace', 'desc': '''
+            Replace any substrings that match the given regular expression with the specified replacement.
+
+            Example:
+                $norm = $lib.regex.replace("[ ]{2,}", " ", "foo     bar")
+            ''',
+         'type': {'type': 'function', '_funcname': 'replace',
+                  'args': (
+                      {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
+                      {'name': 'replace', 'type': 'str', 'desc': 'The text to replace matching sub strings.', },
+                      {'name': 'text', 'type': 'str', 'desc': 'The input text to search/replace.', },
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.',
+                       'default': 0, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
         {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
          'type': 'int', },
         {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
@@ -1890,6 +1905,7 @@ class LibRegx(Lib):
             'search': self.search,
             'matches': self.matches,
             'findall': self.findall,
+            'replace': self.replace,
             'flags': {'i': regex.IGNORECASE,
                       'm': regex.MULTILINE,
                       },
@@ -1901,6 +1917,14 @@ class LibRegx(Lib):
         if regx is None:
             regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
         return regx
+
+    async def replace(self, pattern, replace, text, flags=0):
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        replace = await tostr(replace)
+        regx = await self._getRegx(pattern, flags)
+        return regx.sub(replace, text)
 
     async def matches(self, pattern, text, flags=0):
         text = await tostr(text)
