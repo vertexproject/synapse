@@ -3219,47 +3219,175 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInErr('data.iden must match pattern', msgs)
 
-                # these three should end up being equivalent, so they should all be happy
+                # these should end up being equivalent, so they should all be happy
+                # run each of the initial adds a couple times to make sure things like
+                # nexus will be happy
+                RUNS = 4
                 opts = {'vars': {'iden': 'cd263bd133a5dafa1e1c5e9a01d9d486'}}
-                q = "cron.add --iden $iden --day +1 {[test:guid=$lib.guid()]}"
+                q = "cron.add --iden $iden --day +1 --minute 14 {[test:guid=$lib.guid()]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
+
+                q = "cron.add --iden $iden --hour +24 --minute 14 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 
-                q = "cron.add --iden $iden --hour +24 {[test:guid=$lib.guid()]}"
-                msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
-
+                # this should not be happy because the fixed portions don't match
                 q = "cron.add --iden $iden --minute +86400 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInPrint('Created cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
+                self.stormIsInErr('Duplicate cron iden (cd263bd133a5dafa1e1c5e9a01d9d486)', msgs)
 
                 q = "cron.del $iden"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Deleted cron job: cd263bd133a5dafa1e1c5e9a01d9d486', msgs)
 
+                opts = {'vars': {'iden': 'b5f74c417dd67aa38142f2be9567cc12'}}
+                q = "cron.add --iden $iden --month +2 --hour 4 {[test:guid=$lib.guid()]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: b5f74c417dd67aa38142f2be9567cc12', msgs)
+
+                q = "cron.add --iden $iden --day +62 --hour 4 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (b5f74c417dd67aa38142f2be9567cc12)', msgs)
+
+                q = "cron.add --iden $iden --month +4 --hour 4 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (b5f74c417dd67aa38142f2be9567cc12)', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: ', msgs)
+
+                # test multirec field
+                opts = {'vars': {'iden': '9d893f731df9777b2937cb5a7895970b'}}
+                q = "cron.add --iden $iden --hour 0,2 --day Sat {[test:int=5]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: 9d893f731df9777b2937cb5a7895970b', msgs)
+
+                q = "cron.add --iden $iden --month +3 --hour 2,3 --minute 10,30 {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
+
+                # this one should blow up since we want all parts to match
+                q = "cron.add --iden $iden --hour 2,3 --day Sat {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
+
+                # this one is right out
+                q = "cron.add --iden $iden --month 2 --day +2 {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
+
+                # but this one should be fine
+                opts = {'vars': {'iden': '9d893f731df9777b2937cb5a7895970b'}}
+                q = "cron.add --iden $iden --hour 2,0 --day Sat {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: 9d893f731df9777b2937cb5a7895970b', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: ', msgs)
+
+                opts = {'vars': {'iden': '9d893f731df9777b2937cb5fffffffff'}}
+                q = "cron.add --iden $iden --day 0,2,5,7 {[test:int=5]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: 9d893f731df9777b2937cb5fffffffff', msgs)
+
+                # neither of these should work
+                q = "cron.add --iden $iden --hour 7,2,0,7,1,2,3 --day Sat {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5fffffffff)', msgs)
+
+                opts = {'vars': {'iden': '9d893f731df9777b2937cb5fffffffff'}}
+                q = "cron.add --iden $iden --hour 0,2 --day Sat {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5fffffffff)', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: ', msgs)
+
                 # this one is fine and gets to create the cron job
                 opts = {'vars': {'iden': '9703c9f9c7fea19546117e2e3d97cd44'}}
                 q = "cron.add --iden $iden --year +2 {[test:guid=$lib.guid()]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
+
+                # should be fine
+                for i in range(RUNS):
+                    q = "cron.add --iden $iden --year +2 {[test:guid=$lib.guid()]}"
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
+
+                # should also be fine
+                q = "cron.add --iden $iden --month +24 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Created cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
 
-                # these should all scream because they're trying to override the old cron job definition
-                # without being functionally equivalent
+                # these should all scream
                 q = "cron.add --iden $iden --month +5 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('', msgs)
+                self.stormIsInErr('Duplicate cron iden (9703c9f9c7fea19546117e2e3d97cd44)', msgs)
 
                 q = "cron.add --iden $iden --year +1 {[test:guid=$lib.guid()]}"
                 msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('', msgs)
+                self.stormIsInErr('Duplicate cron iden (9703c9f9c7fea19546117e2e3d97cd44)', msgs)
 
-                q = "cron.add --iden $iden --month +3 {[test:guid=$lib.guid()]}"
+                # this should fail because different queries
+                q = "cron.add --iden $iden --month +3 {[test:int=15]}"
                 msgs = await core.stormlist(q, opts=opts)
-                self.stormIsInErr('', msgs)
+                self.stormIsInErr('Duplicate cron iden (9703c9f9c7fea19546117e2e3d97cd44)', msgs)
 
                 q = "cron.del $iden"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInPrint('Deleted cron job: 9703c9f9c7fea19546117e2e3d97cd44', msgs)
+
+                opts = {'vars': {'iden': '7c27c868647a271700037a9fabb7d32c'}}
+                q = "cron.add --iden $iden --year +1 --day 7 {[test:guid=$lib.guid()]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: 7c27c868647a271700037a9fabb7d32c', msgs)
+
+                # happy happy
+                q = "cron.add --iden $iden --month +12 --day 7 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: 7c27c868647a271700037a9fabb7d32c', msgs)
+
+                # sad
+                q = "cron.add --iden $iden --month +4,+11 --day 7 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (7c27c868647a271700037a9fabb7d32c)', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: 7c27c868647a271700037a9fabb7d32c', msgs)
+
+                opts = {'vars': {'iden': '04b1eebd7c6ffc38871774c1814cbd81'}}
+                q = "cron.add --iden $iden --day +3,+4,+9 --hour 1 {[test:guid=$lib.guid()]}"
+                for i in range(RUNS):
+                    msgs = await core.stormlist(q, opts=opts)
+                    self.stormIsInPrint('Created cron job: 04b1eebd7c6ffc38871774c1814cbd81', msgs)
+
+                q = "cron.add --iden $iden --day +3,+4,+8 --hour 1 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (04b1eebd7c6ffc38871774c1814cbd81)', msgs)
+
+                q = "cron.add --iden $iden --day +3 --hour 1 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (04b1eebd7c6ffc38871774c1814cbd81)', msgs)
+
+                q = "cron.add --iden $iden --day +9,+4,+3 --hour 1 {[test:guid=$lib.guid()]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Created cron job: 04b1eebd7c6ffc38871774c1814cbd81', msgs)
+
+                q = "cron.del $iden"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('Deleted cron job: 04b1eebd7c6ffc38871774c1814cbd81', msgs)
 
                 # Test that stating a failed cron prints failures
                 async with getCronJob("cron.at --now {$lib.queue.get(foo).put(atnow) $lib.newp}") as guid:

@@ -72,35 +72,88 @@ reqValidCdef = s_config.getJsValidator({
     }
 })
 
-def _normtime(valu, units):
-    pass
-
 def compareAppts(packed, cdef):
     '''
     Compare a packed appointment to a cdef for a (potentially) new cron job to see if the two are
     functionally equivalent.
 
     In this case, functional equivalency is "is the query the same" and do they have the same
-    intervals of execution.
+    intervals of execution (which we do by converting everything down into base units) as well
+    as the same reqs
     '''
     storm = cdef.get('storm')
-    reqs = cdef.get('reqs', {})
-    incvals = cdef.get('incvals')
-    incunit = cdef.get('incunit')
     if packed.get('query') != storm:
         return False
 
-    if not reqs and incunit is None:
-        raise ValueError('at least one of reqs and incunit must be non-empty')
+    matches = 0
+    reqdicts = [x for x in Agenda._dictproduct(cdef['reqs'])]
+    for recs in packed['recs']:
 
-    if incunit is not None and incvals is None:
-        raise ValueError('incvals must be non-None if incunit is non-None')
-    if isinstance(reqs, Mapping):
-        reqs = [reqs]
+        baserecs, baseunit, baseval = recs
 
-    _, recs = Agenda._getRecs(reqs, incvals, incunit)
-    print(recs)
-    breakpoint()
+        othrunit = cdef.get('incunit')
+        incvals = cdef.get('incvals')
+        if not isinstance(incvals, Iterable):
+            incvals = (incvals,)
+
+        # check all the permuatations of the new versus all the permuatations of the old.
+        for reqs, othrval in itertools.product(reqdicts, incvals):
+            # for the smaller units like days/hours, let timedelta handle that
+            # but let's normalize years and months since timedelta doesn't like those
+            if othrunit == TimeUnit.YEAR:
+                othrunit = TimeUnit.MONTH
+                othrval *= 12
+
+            if baseunit == 'year':
+                baseunit = 'month'
+                baseval *= 12
+
+            if baseunit == 'month' and othrunit == TimeUnit.MONTH:
+                if baseval != othrval:
+                    continue
+            elif (baseunit == 'month' and othrunit != TimeUnit.MONTH) or (othrunit == TimeUnit.MONTH and baseunit != 'month'):
+                continue
+            elif baseunit == 'dayofweek' and othrunit == TimeUnit.DAYOFWEEK:
+                if baseval != othrval:
+                    continue
+            elif (baseunit == 'dayofweek' and othrunit != TimeUnit.DAYOFWEEK) or (othrunit == TimeUnit.DAYOFWEEK and baseunit != 'dayofweek'):
+                continue
+            elif baseunit == 'dayofmonth' and othrunit == TimeUnit.DAYOFMONTH:
+                if baseval != othrval:
+                    continue
+            elif (baseunit == 'dayofmonth' and othrunit != TimeUnit.DAYOFMONTH) or (othrunit == TimeUnit.DAYOFMONTH and baseunit != 'dayofmonth'):
+                continue
+            else:
+                # dump both to a timedelta to see if they end up the same (for things like +24 hours vs +1 day
+                # timedelta keywords on plurals, while we don't
+                baseinc = {baseunit + 's': baseval}
+                othrinc = {_TimeunitToDatetime[othrunit] + 's': othrval}
+
+                base = datetime.timedelta(**baseinc)
+                othr = datetime.timedelta(**othrinc)
+
+                if base != othr:
+                    continue
+
+            # also check the fixed portions
+            othrrecs = {_TimeunitToDatetime[x]: y for x, y in reqs.items() if x != TimeUnit.DAYOFMONTH and x != TimeUnit.DAYOFWEEK}
+            if TimeUnit.DAYOFMONTH in reqs:
+                othrrecs['dayofmonth'] = reqs[TimeUnit.DAYOFMONTH]
+            if TimeUnit.DAYOFWEEK in reqs:
+                othrrecs['dayofweek'] = reqs[TimeUnit.DAYOFWEEK]
+
+            match = True
+            for name in ('year', 'month', 'day', 'dayofmonth', 'dayofweek', 'hour', 'minute'):
+                defn = 1 if name in ('day', 'dayofmonth', 'month') else 0
+                base = baserecs.get(name, defn)
+                othr = othrrecs.get(name, defn)
+                if base != othr:
+                    match = False
+                    break
+            if match:
+                matches += 1
+
+    return matches == len(packed['recs'])
 
 def _dayofmonth(hardday, month, year):
     '''
@@ -615,25 +668,6 @@ class Agenda(s_base.Base):
                 newdict[k] = combo[i]
             yield newdict
 
-    @staticmethod
-    def _getRecs(reqs, incvals, incunit):
-        # Find all combinations of values in reqdict values and incvals values
-        nexttime = None
-        recs = []  # type: ignore
-        for req in reqs:
-            if TimeUnit.NOW in req:
-                if incunit is not None:
-                    mesg = "Recurring jobs may not be scheduled to run 'now'"
-                    raise ValueError(mesg)
-                nexttime = time.time()
-                continue
-
-            reqdicts = Agenda._dictproduct(req)
-            if not isinstance(incvals, Iterable):
-                incvals = (incvals, )
-            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
-        return nexttime, recs
-
     def list(self):
         return list(self.appts.items())
 
@@ -692,7 +726,20 @@ class Agenda(s_base.Base):
             reqs = [reqs]
 
         # Find all combinations of values in reqdict values and incvals values
-        nexttime, recs = self._getRecs(reqs, incvals, incunit)
+        nexttime = None
+        recs = []  # type: ignore
+        for req in reqs:
+            if TimeUnit.NOW in req:
+                if incunit is not None:
+                    mesg = "Recurring jobs may not be scheduled to run 'now'"
+                    raise ValueError(mesg)
+                nexttime = time.time()
+                continue
+
+            reqdicts = Agenda._dictproduct(req)
+            if not isinstance(incvals, Iterable):
+                incvals = (incvals, )
+            recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
         appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime)
         self._addappt(iden, appt)
 

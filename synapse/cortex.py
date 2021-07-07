@@ -4631,7 +4631,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             apck = appt.pack()
             # test that the two are equivalent
             if not s_agenda.compareAppts(apck, cdef):
-                raise s_exc.DupIden('Duplicate cron iden but functionally distinct jobs')
+                raise s_exc.DupIden(mesg=f'Duplicate cron iden ({iden}) but functionally distinct jobs')
             return appt.pack()
 
         user = await self.auth.reqUser(cdef['creator'])
