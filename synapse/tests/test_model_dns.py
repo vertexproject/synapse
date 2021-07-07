@@ -77,6 +77,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('query:type'), 255)
                 self.none(node.get('query:client'))
                 self.nn(await snap.getNodeByNdef(('inet:server', 'udp://5.6.7.8:53')))
+                self.nn(await snap.getNodeByNdef(('inet:fqdn', 'vertex.link')))
 
                 # Ensure some remaining inet:dns:query:name:* props are broken out
                 node = await snap.addNode('inet:dns:request', '*', {'query:name': '4.3.2.1.in-addr.arpa'})
