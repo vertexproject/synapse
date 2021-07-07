@@ -3221,7 +3221,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             node = (await core0.nodes(f'[ test:int=4 ]'))[0]
             pack = node.pack()
-            pack[1]['edges'] = [ ('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
+            pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
             podes.append(pack)
 
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
