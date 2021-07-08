@@ -2002,6 +2002,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin('props', mimemeta)
             self.eq('file', mimemeta['props'][0][0])
 
+            self.nn(model['univs'].get('.created'))
+            self.nn(model['univs'].get('.seen'))
+
     async def test_storm_graph(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
