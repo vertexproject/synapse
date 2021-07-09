@@ -1939,6 +1939,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin('props', mimemeta)
             self.eq('file', mimemeta['props'][0][0])
 
+            self.nn(model['univs'].get('.created'))
+            self.nn(model['univs'].get('.seen'))
+
     async def test_storm_graph(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -3219,10 +3222,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
+            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            pack = node.pack()
+            pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
+            podes.append(pack)
+
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
 
             await core1.addFeedData('syn.nodes', podes)
-            await self.agenlen(3, core1.eval('test:int'))
+            await self.agenlen(4, core1.eval('test:int'))
             self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
             self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
 
