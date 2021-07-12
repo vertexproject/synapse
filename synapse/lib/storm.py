@@ -1408,6 +1408,7 @@ class Runtime(s_base.Base):
         self.opts = opts
         self.snap = snap
         self.user = user
+        self.debug = opts.get('debug', False)
         self.asroot = False
 
         self.root = root
@@ -1673,6 +1674,8 @@ class Runtime(s_base.Base):
                 snap = await view.snap(self.user)
 
         async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
+            if self.debug:
+                runt.debug = True
             runt.asroot = self.asroot
             runt.readonly = self.readonly
 
@@ -1684,6 +1687,8 @@ class Runtime(s_base.Base):
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
         async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+            if self.debug:
+                runt.debug = True
             runt.asroot = self.asroot
             runt.readonly = self.readonly
             yield runt
@@ -1693,6 +1698,8 @@ class Runtime(s_base.Base):
         Construct a non-context managed runtime for use in module imports.
         '''
         runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
+        if self.debug:
+            runt.debug = True
         runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
