@@ -201,6 +201,14 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(node.get('path:base'), 'sup.exe')
                 self.eq(node.get('path:base:ext'), 'exe')
 
+            expected_nodes = (
+                ('file:path', 'c:/www/woah/really'),
+                ('file:path', 'c:/www/woah'),
+                ('file:path', 'c:/www'),
+                ('file:base', 'sup.exe'),
+            )
+            await self.checkNodes(core, expected_nodes)
+
     async def test_model_file_ismime(self):
 
         async with self.getTestCore() as core:

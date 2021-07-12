@@ -603,8 +603,13 @@ class Snap(s_base.Base):
                             continue
                         if subprop.name in p:
                             # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
-                            continue
+                            logger.info(f'Skipping EDIT_PROP_SET {subprop.name} on {f.name}')
+                            # continue
                         assert subprop.type.stortype is not None
+
+                        propform = self.core.model.form(prop.type.name)
+                        if propform:
+                            logger.info(f'Making EDIT_PROP_SET {subprop.name} on {f.name} with no subedits for {propform.name}')
 
                         subnorm, subinfo = subprop.type.norm(subvalu)
 
@@ -828,6 +833,8 @@ class Snap(s_base.Base):
                     return node
 
             adds = await self.getNodeAdds(form, valu, props=props)
+            from pprint import pprint
+            pprint(adds, width=120)
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise

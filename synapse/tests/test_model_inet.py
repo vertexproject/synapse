@@ -143,18 +143,23 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_asnet4(self):
         formname = 'inet:asnet4'
         async with self.getTestCore() as core:
+            valu = ('54959', ('1.2.3.4', '5.6.7.8'))
+            expected_ndef = (formname, (54959, (16909060, 84281096)))
+            expected_props = {
+                'net4:min': 16909060,
+                'net4': (16909060, 84281096),
+                'net4:max': 84281096,
+                'asn': 54959,
+            }
+            expected_nodes = (
+                ('inet:ipv4', 16909060),
+                ('inet:ipv4', 84281096),
+            )
             async with await core.snap() as snap:
 
-                valu = ('54959', ('1.2.3.4', '5.6.7.8'))
-                expected_ndef = (formname, (54959, (16909060, 84281096)))
-                expected_props = {
-                    'net4:min': 16909060,
-                    'net4': (16909060, 84281096),
-                    'net4:max': 84281096,
-                    'asn': 54959,
-                }
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
+            await self.checkNodes(core, expected_nodes)
 
     async def test_asnet6(self):
         async with self.getTestCore() as core:
@@ -165,6 +170,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(('ff::', 'ff::100'), nodes[0].get('net6'))
             self.eq('ff::', nodes[0].get('net6:min'))
             self.eq('ff::100', nodes[0].get('net6:max'))
+            expected_nodes = (
+                ('inet:ipv6', f'ff::'),
+                ('inet:ipv6', 'ff::100'),
+            )
+            await self.checkNodes(core, expected_nodes)
 
     async def test_cidr4(self):
         formname = 'inet:cidr4'
@@ -1330,18 +1340,23 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_urlredir(self):
         formname = 'inet:urlredir'
-        valu = ('https://vertex.link/idk', 'https://cool.vertex.link:443/something_else')
+        valu = ('https://vertex.link/idk', 'https://cool.vertex.newp:443/something_else')
         expected_props = {
             'src': 'https://vertex.link/idk',
             'src:fqdn': 'vertex.link',
-            'dst': 'https://cool.vertex.link:443/something_else',
-            'dst:fqdn': 'cool.vertex.link',
+            'dst': 'https://cool.vertex.newp:443/something_else',
+            'dst:fqdn': 'cool.vertex.newp',
         }
         expected_ndef = (formname, valu)
+        expected_nodes = (
+            ('inet:fqdn', 'vertex.link'),
+            ('inet:fqdn', 'cool.vertex.newp'),
+        )
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
+            await self.checkNodes(core, expected_nodes)
 
     async def test_user(self):
         formname = 'inet:user'
@@ -1452,6 +1467,9 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+            nodes = await core.nodes('inet:fqdn')
+            self.len(2, nodes)
+
     async def test_web_chprofile(self):
         formname = 'inet:web:chprofile'
         valu = 32 * 'a'
@@ -1495,11 +1513,18 @@ class InetModelTest(s_t_utils.SynTest):
             'client': 'tcp://::1',
             'client:ipv6': '::1'
         }
+        expected_nodes = (
+            ('inet:ipv6', '::1'),
+            ('inet:fqdn', 'vertex.link'),
+            ('file:bytes', 'sha256:' + 64 * 'f'),
+            ('inet:user', 'vertexmc'),
+        )
         expected_ndef = (formname, (valu[0], 'sha256:' + valu[1]))
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+            await self.checkNodes(core, expected_nodes)
 
     async def test_web_follows(self):
         formname = 'inet:web:follows'
@@ -1692,6 +1717,11 @@ class InetModelTest(s_t_utils.SynTest):
             'client:ipv6': '::1',
         }
 
+        expected_nodes = (
+            ('inet:fqdn', 'vertex.link'),
+            ('inet:group', 'ninjas'),
+        )
+
         expected_ndef = (formname, valu)
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
@@ -1701,6 +1731,8 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('inet:web:post', node2, props=inputs2)
                 self.checkNode(node, (('inet:web:post', node2), expected2))
                 self.len(2, await core.nodes('inet:web:post -> inet:web:hashtag'))
+
+                await self.checkNodes(core, expected_nodes)
 
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
@@ -1738,10 +1770,14 @@ class InetModelTest(s_t_utils.SynTest):
             'whois:fqdn': 'vertex.link'
         }
         expected_ndef = (formname, (('vertex.link', 1420070400000), 'registrar'))
+        expected_nodes = (
+            ('inet:fqdn', 'vertex.link'),
+        )
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+            await self.checkNodes(core, expected_nodes)
 
     async def test_whois_rar(self):
         formname = 'inet:whois:rar'
@@ -1982,8 +2018,21 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(443, node.get('server:port'))
                 self.eq(0x01020304, node.get('server:ipv4'))
 
-                strn = await snap.getNodeByNdef(('it:dev:str', 'Hi There'))
-                self.nn(strn)
+            expected_nodes = (
+                ('it:dev:str', 'Hi There'),
+                ('inet:ipv4', 0x01020304),
+            )
+            await self.checkNodes(core, expected_nodes)
+
+            node = await core.nodes('[inet:banner=("tcp://ff::8.7.6.5", sup)]')
+            self.len(1, node)
+            expected_nodes = (
+                ('it:dev:str', 'sup'),
+                ('inet:ipv4', 0x08070605),
+                ('inet:ipv6', 'ff::8.7.6.5'),
+            )
+            await self.checkNodes(core, expected_nodes)
+
 
     async def test_search_query(self):
         async with self.getTestCore() as core:
