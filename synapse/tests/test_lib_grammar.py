@@ -14,6 +14,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 _Queries = [
+    'test:array*[=1.2.3.4]',
     'macro.set hehe ${ inet:ipv4 }',
     '$q=${#foo.bar}',
     'metrics.edits.byprop inet:fqdn:domain --newv $lib.null',
@@ -581,10 +582,16 @@ _Queries = [
     'inet:ipv4=1.2.3.4 -+> #*',
     'inet:ipv4=1.2.3.4 -+> #biz.*',
     'inet:ipv4=1.2.3.4 -+> #bar.baz',
+    'function middlechild(arg2) { yield $rockbottom($arg2) }',
+    '[test:comp=(10,bar)] yield { -> test:int}',
+    'test:arrayprop +:ints*[ range=(50,100) ]',
+    'inet:ipv4 +(($foo and $bar))',
+    'inet:ipv4 +($(0 and 1))',
 ]
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
     'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
     'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
@@ -1069,7 +1076,11 @@ _ParseResults = [
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: *]], isjoin=True]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: biz.*]], isjoin=True]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], PivotToTags: [TagMatch: [Const: bar.baz]], isjoin=True]',
-
+    'Query: [Function: [Const: middlechild, FuncArgs: [Const: arg2], Query: [YieldValu: [FuncCall: [VarValue: [Const: rockbottom], CallArgs: [VarValue: [Const: arg2]], CallKwargs: []]]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:comp], Const: =, List: [Const: 10, Const: bar]], SubQuery: [Query: [FormPivot: [AbsProp: test:int], isjoin=False]]]',
+    'Query: [LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [Const: ints], Const: range=, List: [Const: 50, Const: 100]]]]',
+    'Query: [LiftProp: [Const: inet:ipv4], FiltOper: [Const: +, AndCond: [VarValue: [Const: foo], VarValue: [Const: bar]]]]',
+    'Query: [LiftProp: [Const: inet:ipv4], FiltOper: [Const: +, DollarExpr: [ExprAndNode: [Const: 0, Const: and, Const: 1]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

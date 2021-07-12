@@ -361,7 +361,8 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs'], propagate_positions=True)
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs'],
+                       propagate_positions=True)
 
 class Parser:
     '''
@@ -479,6 +480,7 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
+    'dollarexpr2': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
     'edgedeln1': s_ast.EditEdgeDel,
     'edgeaddn2': lambda kids: s_ast.EditEdgeAdd(kids, n2=True),
@@ -587,6 +589,8 @@ JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
 
 CmdStringParser = lark.Lark(CmdStringGrammar,
                             start='cmdstring',
+                            parser='lalr',
+                            debug=True,
                             regex=True,
                             propagate_positions=True)
 
