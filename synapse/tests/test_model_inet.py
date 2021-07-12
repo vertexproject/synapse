@@ -1470,6 +1470,14 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:fqdn')
             self.len(2, nodes)
 
+            expected_nodes = (
+                ('inet:ipv4', 0x08070605),
+                ('inet:ipv6', 'ff::8.7.6.5'),
+
+            )
+            self.len(1, await core.nodes('[inet:web:action=(test,) :client=tcp://ff::8.7.6.5]'))
+            await self.checkNodes(core, expected_nodes)
+
     async def test_web_chprofile(self):
         formname = 'inet:web:chprofile'
         valu = 32 * 'a'
