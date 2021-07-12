@@ -940,7 +940,36 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+        {'name': 'debug', 'desc': '''
+            True if the current runtime has debugging enabled.
+
+            NOTE:
+                The debug state is inherited by sub-runtimes at instantiation time.  Any
+                changes to a runtime's debug state do not percolate automatically.
+
+            Examples:
+
+                // print only if the runtime has debugging enabled.
+                if $lib.debug {
+                    $lib.print('Doing stuff!")
+                }
+
+                //Update the current runtime to enable debugging
+                $lib.debug = $lib.true''',
+
+         'type': 'boolean', },
     )
+
+    def __init__(self, runt, name=()):
+        Lib.__init__(self, runt, name=name)
+        self.stors['debug'] = self._setRuntDebug
+        self.ctors['debug'] = self._getRuntDebug
+
+    def _getRuntDebug(self, path=None):
+        return self.runt.debug
+
+    async def _setRuntDebug(self, debug):
+        self.runt.debug = await tobool(debug)
 
     def getObjLocals(self):
         return {
@@ -968,11 +997,13 @@ class LibBase(Lib):
             'trycast': self.trycast,
         }
 
-    async def _libBaseImport(self, name):
+    async def _libBaseImport(self, name, debug=False):
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        debug = await tobool(debug)
 
         text = mdef.get('storm')
         modconf = mdef.get('modconf')

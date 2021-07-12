@@ -42,6 +42,21 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_storm_debug(self):
+
+        async with self.getTestCore() as core:
+            self.true(await core.callStorm('return($lib.debug)', opts={'debug': True}))
+            await core.addStormPkg({
+                'name': 'hehe',
+                'version': '1.1.1',
+                'modules': [
+                    {'name': 'hehe', 'storm': 'function getDebug() { return($lib.debug) }'},
+                ],
+            })
+
+            self.false(await core.callStorm('return($lib.import(hehe).getDebug())'))
+            self.true(await core.callStorm('$lib.debug = (1) return($lib.import(hehe).getDebug())'))
+
     async def test_stormtypes_gates(self):
 
         async with self.getTestCore() as core:
