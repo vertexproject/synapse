@@ -952,12 +952,12 @@ class LibBase(Lib):
             Examples:
                 Check if the runtime is in debug and print a message::
 
-                    // print only if the runtime has debugging enabled.
                     if $lib.debug {
                         $lib.print('Doing stuff!")
                     }
 
-                    //Update the current runtime to enable debugging
+                Update the current runtime to enable debugging::
+
                     $lib.debug = $lib.true''',
 
          'type': 'boolean', },
