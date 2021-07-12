@@ -919,6 +919,8 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_libBaseImport',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the package to import.', },
+                      {'name': 'debug', 'type': 'boolean', 'default': False,
+                       'desc': 'Enable debugging in the module.'},
                   ),
                   'returns': {'type': 'storm:lib',
                               'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
