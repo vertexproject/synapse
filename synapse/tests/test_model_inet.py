@@ -1473,9 +1473,10 @@ class InetModelTest(s_t_utils.SynTest):
             expected_nodes = (
                 ('inet:ipv4', 0x08070605),
                 ('inet:ipv6', 'ff::8.7.6.5'),
-
+                ('inet:fqdn', 'newp.com'),
+                ('inet:user', 'hehe'),
             )
-            self.len(1, await core.nodes('[inet:web:action=(test,) :client=tcp://ff::8.7.6.5]'))
+            self.len(1, await core.nodes('[inet:web:action=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://ff::8.7.6.5"]'))
             await self.checkNodes(core, expected_nodes)
 
     async def test_web_chprofile(self):
@@ -1502,6 +1503,15 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
+
+            expected_nodes = (
+                ('inet:ipv4', 0x08070605),
+                ('inet:ipv6', 'ff::8.7.6.5'),
+                ('inet:user', 'hehe'),
+            )
+            self.len(1, await core.nodes(
+                '[inet:web:chprofile=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://ff::8.7.6.5"]'))
+            await self.checkNodes(core, expected_nodes)
 
     async def test_web_file(self):
         formname = 'inet:web:file'
