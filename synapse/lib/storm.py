@@ -2237,6 +2237,61 @@ class PureCmd(Cmd):
                 path.finiframe()
                 yield node, path
 
+class DivertCmd(Cmd):
+    '''
+    Either consume a generator or yield it's results based on a conditional.
+
+    NOTE: This command is purpose built to facilitate the --yield convention
+          common to storm commands.
+
+    Example:
+        divert $cmdopts.yield $fooBarBaz()
+    '''
+    name = 'divert'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('cond', help='The conditional value for the yield option.')
+        pars.add_argument('genr', help='The generator function value that yields nodes.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.runtsafe:
+
+            doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            if doyield:
+
+                async for item in genr:
+                    await asyncio.sleep(0)
+
+                async for item in self.opts.genr:
+                    yield item
+            else:
+
+                async for item in self.opts.genr:
+                    await asyncio.sleep(0)
+
+                async for item in genr:
+                    yield item
+
+            return
+
+        async for item in genr:
+
+            doyield = await s_stormtypes.tobool(self.opts.cond)
+            if doyield:
+
+                async for genritem in self.opts.genr:
+                    yield genritem
+            else:
+
+                async for genritem in self.opts.genr:
+                    await asyncio.sleep(0)
+
+                yield item
+
 class HelpCmd(Cmd):
     '''
     List available commands and a brief description for each.
