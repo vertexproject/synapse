@@ -1688,7 +1688,6 @@ class Runtime(s_base.Base):
         '''
         async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
             if self.debug:
-                print('HIT')
                 runt.debug = True
             runt.asroot = self.asroot
             runt.readonly = self.readonly

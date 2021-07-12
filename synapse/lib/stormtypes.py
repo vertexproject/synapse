@@ -945,19 +945,20 @@ class LibBase(Lib):
         {'name': 'debug', 'desc': '''
             True if the current runtime has debugging enabled.
 
-            NOTE:
+            Note:
                 The debug state is inherited by sub-runtimes at instantiation time.  Any
                 changes to a runtime's debug state do not percolate automatically.
 
             Examples:
+                Check if the runtime is in debug and print a message::
 
-                // print only if the runtime has debugging enabled.
-                if $lib.debug {
-                    $lib.print('Doing stuff!")
-                }
+                    // print only if the runtime has debugging enabled.
+                    if $lib.debug {
+                        $lib.print('Doing stuff!")
+                    }
 
-                //Update the current runtime to enable debugging
-                $lib.debug = $lib.true''',
+                    //Update the current runtime to enable debugging
+                    $lib.debug = $lib.true''',
 
          'type': 'boolean', },
     )
