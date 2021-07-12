@@ -52,11 +52,16 @@ class StormTypesTest(s_test.SynTest):
                 'modules': [
                     {'name': 'hehe', 'storm': 'function getDebug() { return($lib.debug) }'},
                 ],
+                'commands': [
+                    {'name': 'hehe.haha', 'storm': 'if $lib.debug { $lib.print(hehe.haha) }'},
+                ],
             })
 
             self.false(await core.callStorm('return($lib.import(hehe).getDebug())'))
             self.true(await core.callStorm('return($lib.import(hehe, debug=(1)).getDebug())'))
             self.true(await core.callStorm('$lib.debug = (1) return($lib.import(hehe).getDebug())'))
+            msgs = await core.stormlist('$lib.debug = (1) hehe.haha')
+            self.stormIsInPrint('hehe.haha', msgs)
 
     async def test_stormtypes_gates(self):
 
