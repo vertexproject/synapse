@@ -55,6 +55,7 @@ class StormTypesTest(s_test.SynTest):
             })
 
             self.false(await core.callStorm('return($lib.import(hehe).getDebug())'))
+            self.true(await core.callStorm('return($lib.import(hehe, debug=(1)).getDebug())'))
             self.true(await core.callStorm('$lib.debug = (1) return($lib.import(hehe).getDebug())'))
 
     async def test_stormtypes_gates(self):

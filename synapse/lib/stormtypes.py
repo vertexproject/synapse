@@ -1020,6 +1020,9 @@ class LibBase(Lib):
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
 
+        if debug:
+            modr.debug = debug
+
         self.runt.onfini(modr)
 
         async for item in modr.execute():
