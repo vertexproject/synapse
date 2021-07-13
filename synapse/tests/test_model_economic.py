@@ -104,6 +104,7 @@ class EconTest(s_utils.SynTest):
             self.eq(perc.ndef[1], acqu.get('purchase'))
 
             self.len(1, await core.nodes('econ:acquired:item:form=inet:fqdn'))
+            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
 
             self.eq(('inet:fqdn', 'vertex.link'), acqu.get('item'))
 
