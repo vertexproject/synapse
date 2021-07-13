@@ -2464,7 +2464,7 @@ class Queue(StormType):
         self.locls['name'] = self.name
 
     def __hash__(self):
-        return hash(self.name)
+        return hash((self._storm_typename, self.name))
 
     def __eq__(self, othr):
         if not isinstance(othr, type(self)):
@@ -2952,7 +2952,8 @@ class Str(Prim):
         return len(self.valu)
 
     def __hash__(self):
-        return hash(self.valu)
+        # As a note, this hash of the typename and the value means that s_stormtypes.Str('foo') != 'foo'
+        return hash((self._storm_typename, self.valu))
 
     def __eq__(self, othr):
         if isinstance(othr, (Str, str)):
@@ -3101,7 +3102,7 @@ class Bytes(Prim):
         return self.valu.decode()
 
     def __hash__(self):
-        return hash(self.valu)
+        return hash((self._storm_typename, self.valu))
 
     def __eq__(self, othr):
         if isinstance(othr, bytes):
@@ -3180,7 +3181,7 @@ class CmdOpts(Dict):
 
     def __hash__(self):
         valu = vars(self.valu.opts)
-        return hash(tuple(valu.items()))
+        return hash((self._storm_typename, tuple(valu.items())))
 
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
@@ -3296,6 +3297,9 @@ class Set(Prim):
     async def _methSetAdds(self, *items):
         for item in items:
             async for i in toiter(item):
+                if ismutable(i):
+                    mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
                 self.valu.add(i)
 
     async def _methSetRem(self, *items):
@@ -3447,7 +3451,7 @@ class Bool(Prim):
         return int(self.value())
 
     def __hash__(self):
-        return hash(self.value())
+        return hash((self._storm_typename, self.value()))
 
 @registry.registerLib
 class LibUser(Lib):
@@ -4005,6 +4009,7 @@ class Node(Prim):
                   'returns': {'type': 'list', 'desc': 'List of storage node objects.', }}},
     )
     _storm_typename = 'storm:node'
+    _ismutable = False
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -4015,7 +4020,7 @@ class Node(Prim):
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
-        return hash(self.valu.iden)
+        return hash((self._storm_typename, self.valu.iden))
 
     def getObjLocals(self):
         return {
@@ -4234,7 +4239,7 @@ class Trace(Prim):
         self.locls.update(self.getObjLocals())
 
     def __hash__(self):
-        return hash(tuple([n.iden() for n in self.valu.nodes]))
+        return hash((self._storm_typename, tuple([n.iden() for n in self.valu.nodes])))
 
     def getObjLocals(self):
         return {
@@ -4598,7 +4603,7 @@ class Layer(Prim):
         self.locls['iden'] = self.valu.get('iden')
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -4971,7 +4976,7 @@ class View(Prim):
         })
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5336,7 +5341,7 @@ class Trigger(Prim):
         self.locls['iden'] = self.valu.get('iden')
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5646,7 +5651,7 @@ class Gate(Prim):
         })
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename, self.locls['iden']))
 
 @registry.registerType
 class User(Prim):
@@ -5763,7 +5768,7 @@ class User(Prim):
         })
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5916,7 +5921,7 @@ class Role(Prim):
         })
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename,self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -6450,7 +6455,7 @@ class CronJob(Prim):
         self.locls['iden'] = self.valu.get('iden')
 
     def __hash__(self):
-        return hash(self.locls['iden'])
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -6591,7 +6596,7 @@ def ismutable(valu):
         return valu.ismutable()
 
     # N.B. In Python, tuple is immutable, but in Storm, gets converted in toprim to a storm List
-    return isinstance(valu, (set, dict, list, tuple, s_node.Path))
+    return isinstance(valu, (set, dict, list, s_node.Path))
 
 async def tostr(valu, noneok=False):
 

@@ -1091,7 +1091,7 @@ class StormTypesTest(s_test.SynTest):
             copy = s_stormtypes.Bytes(b'.text')
             bare = b'.text'
             msgs = await core.stormlist(q, opts={'vars': {'norun': norun, 'section': section, 'copy': copy, 'bare': bare}})
-            self.stormIsInPrint('There are 2 items in the set', msgs)
+            self.stormIsInPrint('There are 3 items in the set', msgs)
 
             # cmdopts
             q = '''
@@ -1237,7 +1237,7 @@ class StormTypesTest(s_test.SynTest):
             beta = s_stormtypes.Str('beta')
             delta = s_stormtypes.Str('delta')
             msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta, 'delta': delta}})
-            self.stormIsInPrint('There are 5 items in the set', msgs)
+            self.stormIsInPrint('There are 8 items in the set', msgs)
             self.ne(alpha, section)
 
             # trace
@@ -1404,7 +1404,7 @@ class StormTypesTest(s_test.SynTest):
             # mix
             q = '''
             $user = $lib.auth.users.add(foo)
-            $list = (1, 1, 'a', $user, $user, $lib.view.get(), $lib.view.get(), $lib.queue.add(neatq), $lib.false)
+            $list = (1, 1, 'a', $user, $user, $lib.view.get(), $lib.view.get(), $lib.queue.add(neatq), $lib.queue.get(neatq), $lib.false)
             $set = $lib.set()
             $set.adds($list)
             $lib.print('There are {count} items in the set', count=$lib.len($set))
