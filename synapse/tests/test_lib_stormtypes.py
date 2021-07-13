@@ -3294,6 +3294,10 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
 
+                q = "cron.add --iden $iden --hour 2,0 --month 3 {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
+
                 q = "cron.add --iden $iden --month +3 --hour 2,3 --minute 10,30 {[test:int=5]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5a7895970b)', msgs)
@@ -3329,8 +3333,11 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5fffffffff)', msgs)
 
-                opts = {'vars': {'iden': '9d893f731df9777b2937cb5fffffffff'}}
                 q = "cron.add --iden $iden --hour 0,2 --day Sat {[test:int=5]}"
+                msgs = await core.stormlist(q, opts=opts)
+                self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5fffffffff)', msgs)
+
+                q = "cron.add --iden $iden --month 2 {[test:int=5]}"
                 msgs = await core.stormlist(q, opts=opts)
                 self.stormIsInErr('Duplicate cron iden (9d893f731df9777b2937cb5fffffffff)', msgs)
 
