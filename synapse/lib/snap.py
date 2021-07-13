@@ -603,19 +603,16 @@ class Snap(s_base.Base):
                             continue
                         if subprop.name in p:
                             # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
-                            logger.info(f'Skipping EDIT_PROP_SET {f.name}=>{subprop.name} on a {subprop.type.name}')
                             continue
 
                         assert subprop.type.stortype is not None
 
                         subpropform = self.core.model.form(subprop.type.name)
                         if subpropform:
-                            logger.info(f'Making EDIT_PROP_SET {f.name}=>{subprop.name} WHICH SHOULD HAVE subedits for a {subprop.type.name}')
                             subnorm, subinfo = subprop.type.norm(subvalu)
                             psubs = [x async for x in _getadds(subpropform, {}, subnorm, subinfo)]
                             edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
                         else:
-                            logger.info(f'Making EDIT_PROP_SET {f.name}=>{subprop.name} with NO subedits for a {subprop.type.name}')
                             subnorm, _ = subprop.type.norm(subvalu)
                             edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
