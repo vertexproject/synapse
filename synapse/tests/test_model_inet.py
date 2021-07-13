@@ -2052,7 +2052,6 @@ class InetModelTest(s_t_utils.SynTest):
             )
             await self.checkNodes(core, expected_nodes)
 
-
     async def test_search_query(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
