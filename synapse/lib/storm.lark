@@ -32,13 +32,13 @@ _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartn
 _editblock: "[" _WS? _editopers _WS? "]"
 _editopers: _editoper (_WS _editoper)*
 
-///A single edit operation
+// A single edit operation
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd
             | editpropdel | editunivdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
-///Parenthesis in an edit block don't have incoming nodes
+// Parenthesis in an edit block don't have incoming nodes
 editparens: "(" _WS? editnodeadd [ _WS _editopers ] _WS? ")"
 edittagadd: "+" [SETTAGOPER] tagname [_WS? "=" _WS? _valu]
 editunivdel: "-" univprop
@@ -82,7 +82,7 @@ switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (DEFAULTCASE | DOUBLEQUOTED
 DEFAULTCASE: "*"
 CASEBARE: /(?!\*)([^:\s"']+)/
 
-yieldvalu: YIELD _WS _valu
+yieldvalu: YIELD _WS _argvalu
 
 initblock: "init" _WSCOMM? "{" query "}"
 finiblock: "fini" _WSCOMM? "{" query "}"
@@ -202,7 +202,6 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
 
-// Common subset of values allowed
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | dollarexpr
 
@@ -213,6 +212,8 @@ _argvalu: _rootvalu | valulist | embedquery
 _basevalu: _argvalu | baresubquery
 
 _valu: _basevalu | NONQUOTEWORD
+
+evalvalu: _valu
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | _rootvalu
@@ -238,6 +239,7 @@ _EMBEDQUERYSTART: "${"
 NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*/
 
 // An unquoted string within a storm command argument list
+// TODO: revisit this doesn't make sense
 WORDTOKN: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
 
 // An unquoted string within a list syntax
@@ -268,6 +270,7 @@ filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
 
 // Condition used for filters
+// TODO:  unify cond and dollarexpr
 _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond
@@ -359,4 +362,4 @@ AND: "and"
 ?exprcmp: exprsum | exprcmp _WSCOMM? EXPRCMPR _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
-_expratom: _exprvalu | "(" _WSCOMM? expror _WSCOMM? ")"
+_expratom: _exprvalu

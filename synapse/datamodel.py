@@ -574,6 +574,7 @@ class Model:
         retn = {
             'types': {},
             'forms': {},
+            'univs': {},
             'tagprops': {},
             'interfaces': self.ifaces.copy()
         }
@@ -583,6 +584,9 @@ class Model:
 
         for fobj in self.forms.values():
             retn['forms'][fobj.name] = fobj.pack()
+
+        for uobj in self.univs.values():
+            retn['univs'][uobj.name] = uobj.pack()
 
         for pobj in self.tagprops.values():
             retn['tagprops'][pobj.name] = pobj.pack()

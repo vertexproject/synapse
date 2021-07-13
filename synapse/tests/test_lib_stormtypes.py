@@ -43,6 +43,27 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_storm_debug(self):
+
+        async with self.getTestCore() as core:
+            self.true(await core.callStorm('return($lib.debug)', opts={'debug': True}))
+            await core.addStormPkg({
+                'name': 'hehe',
+                'version': '1.1.1',
+                'modules': [
+                    {'name': 'hehe', 'storm': 'function getDebug() { return($lib.debug) }'},
+                ],
+                'commands': [
+                    {'name': 'hehe.haha', 'storm': 'if $lib.debug { $lib.print(hehe.haha) }'},
+                ],
+            })
+
+            self.false(await core.callStorm('return($lib.import(hehe).getDebug())'))
+            self.true(await core.callStorm('return($lib.import(hehe, debug=(1)).getDebug())'))
+            self.true(await core.callStorm('$lib.debug = (1) return($lib.import(hehe).getDebug())'))
+            msgs = await core.stormlist('$lib.debug = (1) hehe.haha')
+            self.stormIsInPrint('hehe.haha', msgs)
+
     async def test_stormtypes_gates(self):
 
         async with self.getTestCore() as core:
@@ -700,6 +721,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(","))'))
             self.eq(('foo', 'bar,baz'), await core.callStorm('$x = "foo,bar,baz" return($x.split(",", maxsplit=1))'))
             self.eq(('foo,bar', 'baz'), await core.callStorm('$x = "foo,bar,baz" return($x.rsplit(",", maxsplit=1))'))
+
+            self.eq('foo bar baz faz', await core.callStorm('return($lib.regex.replace("[ ]{2,}", " ", "foo  bar   baz faz"))'))
 
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
