@@ -609,7 +609,6 @@ JUSTCHARS: /[^()=\[\]{}'"\s]*[^,()=\[\]{}'"\s]/
 
 CmdStringParser = lark.Lark(CmdStringGrammar,
                             start='cmdstring',
-                            debug=True,
                             regex=True,
                             propagate_positions=True)
 

@@ -16,7 +16,7 @@
 
 // Entry point for an unadorned storm query
 query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
-lookup: looklist _WS? [ "|" query ]
+lookup: _WS? looklist _WS? [ "|" query ]
 
 // A query that starts with a command
 _querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
@@ -302,7 +302,6 @@ _ARRAYCONDSTART: "*["
 _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS "or" _WS _cond
 andexpr: _condexpr _WS "and" _WS _cond
-
 
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
