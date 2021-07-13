@@ -51,7 +51,6 @@ class StormlibModelTest(s_test.SynTest):
         resp = s_stix.validateStix(item)
         success = resp.get('ok')
         if not success:
-            print(resp)
             self.true(success)
 
     async def test_stormlib_libstix(self, conf=None):

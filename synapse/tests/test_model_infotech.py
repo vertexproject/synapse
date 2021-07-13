@@ -425,6 +425,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('sig'), (prod1, 'Bar.BAZ.faZ'.lower()))
                 self.eq(node.get('sig:name'), 'bar.baz.faz')
                 self.eq(node.get('sig:soft'), prod1)
+                await self.checkNodes(core, (('it:prod:soft', prod1),))
 
                 # Test 'vers' semver brute forcing
                 testvectors = [
