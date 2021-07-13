@@ -202,9 +202,8 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
 
-_rootvalunodollarexpr: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING
-_rootvalu: _rootvalunodollarexpr | dollarexpr
+_rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | DOUBLEQUOTEDSTRING
+    | SINGLEQUOTEDSTRING | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -215,7 +214,7 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
-_exprvalu: NUMBER | HEXNUMBER | BOOL | _rootvalunodollarexpr
+_exprvalu: NUMBER | HEXNUMBER | BOOL | _rootvalu
 
 // command arguments
 _toknvalu: _argvalu | WORDTOKN
@@ -276,7 +275,7 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq | arraycond
-    | _varvalu | dollarexpr2
+    | _varvalu | dollarexpr
 
 notcond: "not" _WS _cond
 
@@ -301,6 +300,7 @@ _ARRAYCONDSTART: "*["
 _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS "or" _WS _cond
 andexpr: _condexpr _WS "and" _WS _cond
+
 
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
@@ -341,9 +341,7 @@ BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]*)*/
 CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
-dollarexpr: "$"? _dollarexprroot
-dollarexpr2: "$" _dollarexprroot
-_dollarexprroot: "(" _WSCOMM? expror _WSCOMM? ")"
+dollarexpr: "$"? "(" _WSCOMM? expror _WSCOMM? ")"
 EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
@@ -363,4 +361,4 @@ AND: "and"
 ?exprcmp: exprsum | exprcmp _WSCOMM? EXPRCMPR _WSCOMM? exprsum
 ?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
 ?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
-_expratom: _exprvalu | "(" _WSCOMM? expror _WSCOMM? ")"
+_expratom: _exprvalu
