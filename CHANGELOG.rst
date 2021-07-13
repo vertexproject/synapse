@@ -20,6 +20,14 @@ Features and Enhancements
   needing to track additional function arguments in their implementations.
   (`#2278 <https://github.com/vertexproject/synapse/pull/2278>`_)
 
+Bugfixes
+--------
+- Fix an ambiguity in the Storm grammar.
+  (`#2280 <https://github.com/vertexproject/synapse/pull/2280>`_)
+- Fix an issue where form autoadds could fail to be created in specific cases of
+  the model.
+  (`#2273 <https://github.com/vertexproject/synapse/pull/2273>`_)
+
 
 v2.47.0 - 2021-07-07
 ====================
