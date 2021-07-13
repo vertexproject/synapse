@@ -38,6 +38,69 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_divert(self):
+
+        async with self.getTestCore() as core:
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#foo]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.true $x($node)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(4, nodes)
+            self.len(4, [n for n in nodes if n.ndef[0] == 'ou:org'])
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#bar]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.false $x($node)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(2, nodes)
+            self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
+            self.len(4, await core.nodes('ou:org +#bar'))
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#baz]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.true $x(hithere)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(2, nodes)
+            self.len(2, [n for n in nodes if n.ndef[0] == 'ou:org'])
+            self.len(2, await core.nodes('ou:org +#baz'))
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#faz]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.false $x(hithere)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(2, nodes)
+            self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
+            self.len(2, await core.nodes('ou:org +#faz'))
+
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
             self.len(1, await core.nodes('[ ou:org=* ]'))
@@ -1939,6 +2002,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.isin('props', mimemeta)
             self.eq('file', mimemeta['props'][0][0])
 
+            self.nn(model['univs'].get('.created'))
+            self.nn(model['univs'].get('.seen'))
+
     async def test_storm_graph(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -3219,10 +3285,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             node3 = (await core0.nodes('[ test:int=3 ]'))[0]
             podes.append(node3.pack())
 
+            node = (await core0.nodes(f'[ test:int=4 ]'))[0]
+            pack = node.pack()
+            pack[1]['edges'] = [('refs', ('inet:ipv4', f'{y}')) for y in range(500)]
+            podes.append(pack)
+
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
 
             await core1.addFeedData('syn.nodes', podes)
-            await self.agenlen(3, core1.eval('test:int'))
+            await self.agenlen(4, core1.eval('test:int'))
             self.len(1, await core1.nodes('test:int=1 -(refs)> inet:ipv4 +inet:ipv4=1.2.3.4'))
             self.len(0, await core1.nodes('test:int=1 -(newp)> *'))
 

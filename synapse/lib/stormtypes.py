@@ -919,6 +919,8 @@ class LibBase(Lib):
          'type': {'type': 'function', '_funcname': '_libBaseImport',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the package to import.', },
+                      {'name': 'debug', 'type': 'boolean', 'default': False,
+                       'desc': 'Enable debugging in the module.'},
                   ),
                   'returns': {'type': 'storm:lib',
                               'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
@@ -940,7 +942,37 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+        {'name': 'debug', 'desc': '''
+            True if the current runtime has debugging enabled.
+
+            Note:
+                The debug state is inherited by sub-runtimes at instantiation time.  Any
+                changes to a runtime's debug state do not percolate automatically.
+
+            Examples:
+                Check if the runtime is in debug and print a message::
+
+                    if $lib.debug {
+                        $lib.print('Doing stuff!")
+                    }
+
+                Update the current runtime to enable debugging::
+
+                    $lib.debug = $lib.true''',
+
+         'type': 'boolean', },
     )
+
+    def __init__(self, runt, name=()):
+        Lib.__init__(self, runt, name=name)
+        self.stors['debug'] = self._setRuntDebug
+        self.ctors['debug'] = self._getRuntDebug
+
+    def _getRuntDebug(self, path=None):
+        return self.runt.debug
+
+    async def _setRuntDebug(self, debug):
+        self.runt.debug = await tobool(debug)
 
     def getObjLocals(self):
         return {
@@ -968,11 +1000,13 @@ class LibBase(Lib):
             'trycast': self.trycast,
         }
 
-    async def _libBaseImport(self, name):
+    async def _libBaseImport(self, name, debug=False):
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
+
+        debug = await tobool(debug)
 
         text = mdef.get('storm')
         modconf = mdef.get('modconf')
@@ -988,6 +1022,9 @@ class LibBase(Lib):
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
+
+        if debug:
+            modr.debug = debug
 
         self.runt.onfini(modr)
 
@@ -1875,6 +1912,23 @@ class LibRegx(Lib):
                        'default': 0, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if there is a match, False otherwise.', }}},
+        {'name': 'replace', 'desc': '''
+            Replace any substrings that match the given regular expression with the specified replacement.
+
+            Example:
+                Replace a portion of a string with a new part based on a regex::
+
+                    $norm = $lib.regex.replace("\sAND\s", " & ", "Ham and eggs!", $lib.regex.flags.i)
+            ''',
+         'type': {'type': 'function', '_funcname': 'replace',
+                  'args': (
+                      {'name': 'pattern', 'type': 'str', 'desc': 'The regular expression pattern.', },
+                      {'name': 'replace', 'type': 'str', 'desc': 'The text to replace matching sub strings.', },
+                      {'name': 'text', 'type': 'str', 'desc': 'The input text to search/replace.', },
+                      {'name': 'flags', 'type': 'int', 'desc': 'Regex flags to control the match behavior.',
+                       'default': 0, },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The new string with matches replaced.', }}},
         {'name': 'flags.i', 'desc': 'Regex flag to indicate that case insensitive matches are allowed.',
          'type': 'int', },
         {'name': 'flags.m', 'desc': 'Regex flag to indicate that multiline matches are allowed.', 'type': 'int', },
@@ -1890,6 +1944,7 @@ class LibRegx(Lib):
             'search': self.search,
             'matches': self.matches,
             'findall': self.findall,
+            'replace': self.replace,
             'flags': {'i': regex.IGNORECASE,
                       'm': regex.MULTILINE,
                       },
@@ -1901,6 +1956,14 @@ class LibRegx(Lib):
         if regx is None:
             regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
         return regx
+
+    async def replace(self, pattern, replace, text, flags=0):
+        text = await tostr(text)
+        flags = await toint(flags)
+        pattern = await tostr(pattern)
+        replace = await tostr(replace)
+        regx = await self._getRegx(pattern, flags)
+        return regx.sub(replace, text)
 
     async def matches(self, pattern, text, flags=0):
         text = await tostr(text)
