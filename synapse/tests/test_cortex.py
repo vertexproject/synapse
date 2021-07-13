@@ -38,6 +38,69 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_divert(self):
+
+        async with self.getTestCore() as core:
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#foo]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.true $x($node)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(4, nodes)
+            self.len(4, [n for n in nodes if n.ndef[0] == 'ou:org'])
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#bar]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.false $x($node)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(2, nodes)
+            self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
+            self.len(4, await core.nodes('ou:org +#bar'))
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#baz]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.true $x(hithere)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(2, nodes)
+            self.len(2, [n for n in nodes if n.ndef[0] == 'ou:org'])
+            self.len(2, await core.nodes('ou:org +#baz'))
+
+            storm = '''
+            function x(y) {
+                [ ou:org=* ou:org=* +#faz]
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            // yield and pernode
+            divert $lib.false $x(hithere)
+            '''
+            nodes = await core.nodes(storm)
+            self.len(2, nodes)
+            self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
+            self.len(2, await core.nodes('ou:org +#faz'))
+
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
             self.len(1, await core.nodes('[ ou:org=* ]'))
