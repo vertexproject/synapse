@@ -171,7 +171,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq('ff::', nodes[0].get('net6:min'))
             self.eq('ff::100', nodes[0].get('net6:max'))
             expected_nodes = (
-                ('inet:ipv6', f'ff::'),
+                ('inet:ipv6', 'ff::'),
                 ('inet:ipv6', 'ff::100'),
             )
             await self.checkNodes(core, expected_nodes)
