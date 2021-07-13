@@ -1101,7 +1101,7 @@ class GrammarTest(s_t_utils.SynTest):
 
         for i, query in enumerate(Queries):
             if i in (12, 13):
-                # Temporarily accept an ambiguity between
+                # For now, accept an ambiguity in _cond between _condexpr and dollarexpr
                 continue
             try:
                 tree = parser.parse(query)
