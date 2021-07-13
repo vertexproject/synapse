@@ -5921,7 +5921,7 @@ class Role(Prim):
         })
 
     def __hash__(self):
-        return hash((self._storm_typename,self.locls['iden']))
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
