@@ -1408,6 +1408,7 @@ class Runtime(s_base.Base):
         self.opts = opts
         self.snap = snap
         self.user = user
+        self.debug = opts.get('debug', False)
         self.asroot = False
 
         self.root = root
@@ -1673,6 +1674,8 @@ class Runtime(s_base.Base):
                 snap = await view.snap(self.user)
 
         async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
+            if self.debug:
+                runt.debug = True
             runt.asroot = self.asroot
             runt.readonly = self.readonly
 
@@ -1684,6 +1687,8 @@ class Runtime(s_base.Base):
         Yield a runtime with proper scoping for use in executing a pure storm command.
         '''
         async with await Runtime.anit(query, self.snap, user=self.user, opts=opts) as runt:
+            if self.debug:
+                runt.debug = True
             runt.asroot = self.asroot
             runt.readonly = self.readonly
             yield runt
@@ -1693,6 +1698,8 @@ class Runtime(s_base.Base):
         Construct a non-context managed runtime for use in module imports.
         '''
         runt = await Runtime.anit(query, self.snap, user=self.user, opts=opts)
+        if self.debug:
+            runt.debug = True
         runt.asroot = self.asroot
         runt.readonly = self.readonly
         return runt
@@ -2228,6 +2235,61 @@ class PureCmd(Cmd):
             async for node, path in subr.execute(genr=genx()):
                 path.finiframe()
                 yield node, path
+
+class DivertCmd(Cmd):
+    '''
+    Either consume a generator or yield it's results based on a conditional.
+
+    NOTE: This command is purpose built to facilitate the --yield convention
+          common to storm commands.
+
+    Example:
+        divert $cmdopts.yield $fooBarBaz()
+    '''
+    name = 'divert'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('cond', help='The conditional value for the yield option.')
+        pars.add_argument('genr', help='The generator function value that yields nodes.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if self.runtsafe:
+
+            doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            if doyield:
+
+                async for item in genr:
+                    await asyncio.sleep(0)
+
+                async for item in self.opts.genr:
+                    yield item
+            else:
+
+                async for item in self.opts.genr:
+                    await asyncio.sleep(0)
+
+                async for item in genr:
+                    yield item
+
+            return
+
+        async for item in genr:
+
+            doyield = await s_stormtypes.tobool(self.opts.cond)
+            if doyield:
+
+                async for genritem in self.opts.genr:
+                    yield genritem
+            else:
+
+                async for genritem in self.opts.genr:
+                    await asyncio.sleep(0)
+
+                yield item
 
 class HelpCmd(Cmd):
     '''

@@ -1847,6 +1847,7 @@ class Layer(s_nexus.Pusher):
 
             sode = self._getStorNode(buid)
 
+            i = 0
             changes = []
             for edit in edits:
 
@@ -1856,6 +1857,10 @@ class Layer(s_nexus.Pusher):
 
                 changes.extend(delt)
 
+                i += 1
+                if i % 100 == 0:
+                    await asyncio.sleep(0)
+
             flatedit = results.get(buid)
             if flatedit is None:
                 results[buid] = flatedit = (buid, form, [])
@@ -1864,6 +1869,8 @@ class Layer(s_nexus.Pusher):
 
             if changes:
                 edited = True
+
+            await asyncio.sleep(0)
 
         flatedits = list(results.values())
 

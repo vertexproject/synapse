@@ -5,6 +5,23 @@ Synapse Changelog
 *****************
 
 
+v2.47.0 - 2021-07-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.regex.replace()`` Stormtypes API to perform regex based
+  replacement of string parts.
+  (`#2274 <https://github.com/vertexproject/synapse/pull/2274>`_)
+- Add universal properties to the dictionary returned by
+  ``Cortex.getModelDict()`` as a ``univs`` key.
+  (`#2276 <https://github.com/vertexproject/synapse/pull/2276>`_)
+- Add additional ``asyncio.sleep(0)`` statements to ``Layer._storNodeEdits``
+  to improve Cortex responsiveness when storing large numbers of edits at
+  once.
+  (`#2275 <https://github.com/vertexproject/synapse/pull/2275>`_)
+
+
 v2.46.0 - 2021-07-02
 ====================
 
