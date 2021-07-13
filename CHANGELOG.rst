@@ -5,6 +5,22 @@ Synapse Changelog
 *****************
 
 
+v2.48.0 - 2021-07-13
+====================
+
+Features and Enhancements
+-------------------------
+- Add a Storm ``divert`` command to ease the implementation of ``--yield``
+  constructs in Storm commands. This optionally yields nodes from a generator,
+  or yields inbound nodes, while still ensuring the generator is conusmed.
+  (`#2277 <https://github.com/vertexproject/synapse/pull/2277>`_)
+- Add Storm runtime debug tracking. This is a boolean flag that can be set or
+  unset via ``$lib.debug``. It can be used by Storm packages to determine if
+  they should take extra actions, such as additional print statements, without
+  needing to track additional function arguments in their implementations.
+  (`#2278 <https://github.com/vertexproject/synapse/pull/2278>`_)
+
+
 v2.47.0 - 2021-07-07
 ====================
 
