@@ -118,11 +118,6 @@ def compareAppts(packed, cdef):
                     continue
             elif (baseunit == 'dayofweek' and othrunit != TimeUnit.DAYOFWEEK) or (othrunit == TimeUnit.DAYOFWEEK and baseunit != 'dayofweek'):
                 continue
-            elif baseunit == 'dayofmonth' and othrunit == TimeUnit.DAYOFMONTH:
-                if baseval != othrval:
-                    continue
-            elif (baseunit == 'dayofmonth' and othrunit != TimeUnit.DAYOFMONTH) or (othrunit == TimeUnit.DAYOFMONTH and baseunit != 'dayofmonth'):
-                continue
             else:
                 # dump both to a timedelta to see if they end up the same (for things like +24 hours vs +1 day
                 # timedelta keywords on plurals, while we don't
