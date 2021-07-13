@@ -79,7 +79,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('query:name:fqdn'), 'vertex.link')
                 self.eq(node.get('query:type'), 255)
                 self.none(node.get('query:client'))
-                # await self.checkNodes(core, expected_nodes)
+                await self.checkNodes(core, expected_nodes)
 
                 # Ensure some remaining inet:dns:query:name:* props are broken out
                 node = await snap.addNode('inet:dns:request', '*', {'query:name': '4.3.2.1.in-addr.arpa'})
@@ -141,11 +141,11 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('exe'), f'guid:{"a" * 32}')
                 self.eq(node.get('query:name'), 'notac2.someone.com')
 
-            nodes = await core.nodes('[inet:dns:request=(test,) :query:name="::ffff:8:7:6:5"]')
+            nodes = await core.nodes('[inet:dns:request=(test,) :query:name="::ffff:8.7.6.5"]')
             self.len(1, nodes)
             expected_nodes = (
                 ('inet:ipv4', 0x08070605),
-                ('inet:ipv6', '::ffff:8:7:6:5'),
+                ('inet:ipv6', '::ffff:8.7.6.5'),
             )
             await self.checkNodes(core, expected_nodes)
 

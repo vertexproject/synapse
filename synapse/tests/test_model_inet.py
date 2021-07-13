@@ -1472,11 +1472,12 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected_nodes = (
                 ('inet:ipv4', 0x08070605),
-                ('inet:ipv6', 'ff::8.7.6.5'),
+                ('inet:ipv6', '::ffff:8.7.6.5'),
                 ('inet:fqdn', 'newp.com'),
                 ('inet:user', 'hehe'),
             )
-            self.len(1, await core.nodes('[inet:web:action=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://ff::8.7.6.5"]'))
+            nodes = await core.nodes('[inet:web:action=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://::ffff:8.7.6.5"]')
+            self.len(1, nodes)
             await self.checkNodes(core, expected_nodes)
 
     async def test_web_chprofile(self):
@@ -1506,11 +1507,11 @@ class InetModelTest(s_t_utils.SynTest):
 
             expected_nodes = (
                 ('inet:ipv4', 0x08070605),
-                ('inet:ipv6', 'ff::8.7.6.5'),
+                ('inet:ipv6', '::ffff:8.7.6.5'),
                 ('inet:user', 'hehe'),
             )
             self.len(1, await core.nodes(
-                '[inet:web:chprofile=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://ff::8.7.6.5"]'))
+                '[inet:web:chprofile=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://::ffff:8.7.6.5"]'))
             await self.checkNodes(core, expected_nodes)
 
     async def test_web_file(self):
@@ -2042,12 +2043,12 @@ class InetModelTest(s_t_utils.SynTest):
             )
             await self.checkNodes(core, expected_nodes)
 
-            node = await core.nodes('[inet:banner=("tcp://ff::8.7.6.5", sup)]')
+            node = await core.nodes('[inet:banner=("tcp://::ffff:8.7.6.5", sup)]')
             self.len(1, node)
             expected_nodes = (
                 ('it:dev:str', 'sup'),
                 ('inet:ipv4', 0x08070605),
-                ('inet:ipv6', 'ff::8.7.6.5'),
+                ('inet:ipv6', '::ffff:8.7.6.5'),
             )
             await self.checkNodes(core, expected_nodes)
 
