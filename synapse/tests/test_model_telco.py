@@ -77,6 +77,8 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.get('latlong'), (0.0, 0.0))
                 self.eq(node.get('place'), place)
 
+                await self.checkNodes(core, (('tel:mob:mcc', '001'),))
+
                 # tel:mob:telem
                 guid = s_common.guid()
                 host = s_common.guid()
