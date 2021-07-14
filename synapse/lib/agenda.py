@@ -27,6 +27,7 @@ reqValidCdef = s_config.getJsValidator({
     'properties': {
         'storm': {'type': 'string'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'doc': {'type': 'string'},
         'incunit': {

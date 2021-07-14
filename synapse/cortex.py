@@ -4593,6 +4593,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         s_agenda.reqValidCdef(cdef)
 
+        iden = cdef.get('iden')
+        appt = self.agenda.appts.get(iden)
+        if appt is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate cron iden ({iden})')
+
         incunit = cdef.get('incunit')
         reqs = cdef.get('reqs')
 
@@ -4617,7 +4622,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        cdef['iden'] = s_common.guid()
+        if not cdef.get('iden'):
+            cdef['iden'] = s_common.guid()
 
         return await self._push('cron:add', cdef)
 
