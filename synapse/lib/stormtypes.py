@@ -3105,9 +3105,7 @@ class Bytes(Prim):
         return hash((self._storm_typename, self.valu))
 
     def __eq__(self, othr):
-        if isinstance(othr, bytes):
-            return self.valu == othr
-        elif isinstance(othr, Bytes):
+        if isinstance(othr, Bytes):
             return self.valu == othr.valu
         return False
 

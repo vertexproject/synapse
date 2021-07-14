@@ -1080,9 +1080,12 @@ class StormTypesTest(s_test.SynTest):
             q = '''
                 $set = $lib.set()
                 $set.add($norun)
+                $set.add($norun)
+                $set.add($section)
                 $set.add($section)
                 $set.add($section)
                 $set.add($copy)
+                $set.add($bare)
                 $set.add($bare)
                 $lib.print('There are {count} items in the set', count=$lib.len($set))
             '''
@@ -1223,6 +1226,7 @@ class StormTypesTest(s_test.SynTest):
                 $set = $lib.set()
                 $set.add(23)
                 $set.add("alpha")
+                $set.add("alpha")
                 $set.add($alpha)
 
                 $set.add($beta)
@@ -1230,13 +1234,17 @@ class StormTypesTest(s_test.SynTest):
 
                 $set.add("delta")
                 $set.add($delta)
+
+                $set.add($copy)
+                $set.add($copy)
                 $set.add(47)
                 $lib.print('There are {count} items in the set', count=$lib.len($set))
             '''
             alpha = s_stormtypes.Str('alpha')
             beta = s_stormtypes.Str('beta')
             delta = s_stormtypes.Str('delta')
-            msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta, 'delta': delta}})
+            copy = s_stormtypes.Str('delta')
+            msgs = await core.stormlist(q, opts={'vars': {'alpha': alpha, 'beta': beta, 'delta': delta, 'copy': copy}})
             self.stormIsInPrint('There are 8 items in the set', msgs)
             self.ne(alpha, section)
 
@@ -1336,6 +1344,15 @@ class StormTypesTest(s_test.SynTest):
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 3 items in the set', msgs)
+
+            q = '''
+                $list = $lib.list($lib.list(4, 5, 6, 7), $lib.list(1, 2, 3, 4))
+                $set = $lib.set()
+                $set.adds($list)
+                $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('is mutable and cannot be used in a set', msgs)
 
             # Set
             q = '''
