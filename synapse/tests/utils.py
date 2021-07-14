@@ -774,6 +774,11 @@ class SynTest(unittest.TestCase):
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 
+    async def checkNodes(self, core, ndefs):
+        for ndef in ndefs:
+            node = await core.nodes('', opts={'ndefs': (ndef,)})
+            self.len(1, node)
+
     def worker(func, *args, **kwargs):
         '''
         Fire a worker thread to run the given func(*args,**kwargs)

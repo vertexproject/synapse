@@ -140,7 +140,7 @@ def makeargparser():
     pars.add_argument('--chunksize', type=int, action='store', default=1000,
                       help='Default chunksize for iterating over items.')
     pars.add_argument('--offset', type=int, action='store', default=0,
-                      help='Item offset to start consuming msgpack files from.')
+                      help='Item offset to start consuming data from.')
     pars.add_argument('files', nargs='*', help='json/yaml/msgpack feed files')
 
     return pars

@@ -601,12 +601,20 @@ class Snap(s_base.Base):
                         subprop = self.core.model.prop(fullname)
                         if subprop is None:
                             continue
+                        if subprop.name in p:
+                            # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
+                            continue
 
                         assert subprop.type.stortype is not None
 
-                        subnorm, subinfo = subprop.type.norm(subvalu)
-
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
+                        subpropform = self.core.model.form(subprop.type.name)
+                        if subpropform:
+                            subnorm, subinfo = subprop.type.norm(subvalu)
+                            psubs = [x async for x in _getadds(subpropform, {}, subnorm, subinfo)]
+                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
+                        else:
+                            subnorm, _ = subprop.type.norm(subvalu)
+                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is not None:
