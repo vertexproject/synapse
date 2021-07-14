@@ -4593,6 +4593,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         s_agenda.reqValidCdef(cdef)
 
+        iden = cdef.get('iden')
+        appt = self.agenda.appts.get(iden)
+        if appt is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate cron iden ({iden})')
+
         incunit = cdef.get('incunit')
         reqs = cdef.get('reqs')
 
@@ -4629,10 +4634,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         appt = self.agenda.appts.get(iden)
         if appt is not None:
-            apck = appt.pack()
-            # test that the two are equivalent
-            if not s_agenda.compareAppts(apck, cdef):
-                raise s_exc.DupIden(mesg=f'Duplicate cron iden ({iden}) but functionally distinct jobs')
             return appt.pack()
 
         user = await self.auth.reqUser(cdef['creator'])
