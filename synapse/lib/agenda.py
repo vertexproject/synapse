@@ -653,10 +653,11 @@ class Agenda(s_base.Base):
                 nexttime = time.time()
                 continue
 
-            reqdicts = Agenda._dictproduct(req)
+            reqdicts = self._dictproduct(req)
             if not isinstance(incvals, Iterable):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
+
         appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime)
         self._addappt(iden, appt)
 
