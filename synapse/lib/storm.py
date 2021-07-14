@@ -873,6 +873,7 @@ stormcmds = (
             ('--daily', {'help': 'Fixed parameters for a daily job.'}),
             ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
             ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
+            ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
         ),
         'storm': '''
             $cron = $lib.cron.add(query=$cmdopts.query,
@@ -884,7 +885,8 @@ stormcmds = (
                                   hourly=$cmdopts.hourly,
                                   daily=$cmdopts.daily,
                                   monthly=$cmdopts.monthly,
-                                  yearly=$cmdopts.yearly)
+                                  yearly=$cmdopts.yearly,
+                                  iden=$cmdopts.iden)
 
             if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
             if $cmdopts.name { $cron.set(name, $cmdopts.name) }
@@ -902,6 +904,7 @@ stormcmds = (
             ('--day', {'help': 'Day(s) to execute at.'}),
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
+            ('--iden', {'help': 'A set iden to assign to the new cron job'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
@@ -909,7 +912,8 @@ stormcmds = (
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
                                  dt=$cmdopts.dt,
-                                 now=$cmdopts.now)
+                                 now=$cmdopts.now,
+                                 iden=$cmdopts.iden)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
