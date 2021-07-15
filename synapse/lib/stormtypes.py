@@ -6195,6 +6195,9 @@ class LibCron(Lib):
                 'incvals': incval,
                 'creator': self.runt.user.iden
                 }
+        iden = kwargs.get('iden')
+        if iden:
+            cdef['iden'] = iden
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
@@ -6263,6 +6266,10 @@ class LibCron(Lib):
                 'incvals': None,
                 'creator': self.runt.user.iden
                 }
+
+        iden = kwargs.get('iden')
+        if iden:
+            cdef['iden'] = iden
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
