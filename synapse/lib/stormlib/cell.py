@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
-class JsonLib(s_stormtypes.Lib):
+class CellLib(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with Json data.
     '''
@@ -20,14 +20,6 @@ class JsonLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_getHealthCheck', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing healthcheck information.', }}},
     )
-    # _storm_locals = (
-    #     {'name': 'load', 'desc': 'Parse a JSON string and return the deserialized data.',
-    #      'type': {'type': 'function', '_funcname': '_jsonLoad',
-    #               'args': (
-    #                   {'name': 'text', 'type': 'str', 'desc': 'The string to be deserialized.', },
-    #               ),
-    #               'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
-    # )
     _storm_lib_path = ('cell',)
 
     def getObjLocals(self):
