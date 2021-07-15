@@ -2225,16 +2225,29 @@ class PureCmd(Cmd):
             }
         }
 
-        async def genx():
-            async for xnode, xpath in genr:
-                xpath.initframe(initvars={'cmdopts': cmdopts})
-                yield xnode, xpath
+        if self.runtsafe:
+            async def genx():
+                async for xnode, xpath in genr:
+                    xpath.initframe(initvars={'cmdopts': cmdopts})
+                    yield xnode, xpath
 
-        async with runt.getCmdRuntime(query, opts=opts) as subr:
-            subr.asroot = asroot
-            async for node, path in subr.execute(genr=genx()):
-                path.finiframe()
-                yield node, path
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+                async for node, path in subr.execute(genr=genx()):
+                    path.finiframe()
+                    yield node, path
+        else:
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+
+                async for node, path in genr:
+                    async def genx():
+                        path.initframe(initvars={'cmdopts': cmdopts})
+                        yield node, path
+
+                    async for xnode, xpath in subr.execute(genr=genx()):
+                        path.finiframe()
+                        yield xnode, xpath
 
 class DivertCmd(Cmd):
     '''
