@@ -153,7 +153,7 @@ async def getAhaProxy(urlinfo):
             raise
 
         except Exception as e:
-            logger.exception(f'aha resolver ({ahaurl})')
+            logger.exception(f'aha resolver ({s_urlhelp.sanitizeUrl(ahaurl)})')
             laste = e
 
     if laste is not None:
@@ -906,6 +906,8 @@ class Client(s_base.Base):
         async def fini():
             if self._t_proxy is not None:
                 await self._t_proxy.fini()
+            # Wake any waiters which may be waiting on waitready() calls so those
+            # without timeouts specified are not waiting forever.
             self._t_ready.set()
 
         self.onfini(fini)
@@ -969,17 +971,22 @@ class Client(s_base.Base):
 
     async def proxy(self, timeout=10):
         await self.waitready(timeout=timeout)
-        return self._t_proxy
+        ret = self._t_proxy
+        if ret is None or ret.isfini is True:
+            raise s_exc.NoSuchObj(mesg='Telepath Client Proxy is not available.')
+        return ret
 
     async def _initTeleLink(self, url):
-        if self._t_proxy is not None:
-            await self._t_proxy.fini()
-
         self._t_proxy = await openurl(url, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
         async def fini():
+            if self.isfini:
+                # Since we teardown the proxy on client teardown, we don't want
+                # to be modifying the client during fini by adding a new active task
+                # after we've killed the existing active tasks
+                return
             if self._t_named_meths:
                 for name in self._t_named_meths:
                     delattr(self, name)
