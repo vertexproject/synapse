@@ -153,7 +153,7 @@ async def getAhaProxy(urlinfo):
             raise
 
         except Exception as e:
-            logger.exception(f'aha resolver ({s_urlhelp.sanitizeUrl(ahaurl)})')
+            logger.exception(f'aha resolver ({ahaurl})')
             laste = e
 
     if laste is not None:
