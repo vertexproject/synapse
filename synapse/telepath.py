@@ -982,16 +982,12 @@ class Client(s_base.Base):
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
         async def fini():
-            if self.isfini:
-                # Since we teardown the proxy on client teardown, we don't want
-                # to be modifying the client during fini by adding a new active task
-                # after we've killed the existing active tasks
-                return
             if self._t_named_meths:
                 for name in self._t_named_meths:
                     delattr(self, name)
                 self._t_named_meths.clear()
-            await self._fireLinkLoop()
+            if not self.isfini:
+                await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
 
