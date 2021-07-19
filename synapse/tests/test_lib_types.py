@@ -835,10 +835,8 @@ class TypesTest(s_t_utils.SynTest):
         subs = info.get('subs')
         self.eq('foo', subs.get('up'))
 
-        self.raises(s_exc.BadTypeValu, tagtype.norm, '@#R)(Y')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\udcfe.bar')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u200b.bar')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u202e.bar')
+        self.eq('r_y', tagtype.norm('@#R)(Y')[0])
+        self.eq('foo.bar', tagtype.norm('foo\udcfe.bar')[0])
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo..bar')
         self.raises(s_exc.BadTypeValu, tagtype.norm, '.')
