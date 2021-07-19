@@ -694,18 +694,18 @@ class LibTags(Lib):
     _storm_lib_path = ('tags',)
 
     _storm_locals = (
-        {'name': 'tagspref', 'desc': '''
+        {'name': 'prefix', 'desc': '''
             Normalize and prefix a list of syn:tag:part values so they can be applied.
 
             Examples:
 
                 Add tag prefixes and then use them to tag nodes::
 
-                    $tags = $lib.tagspref($result.tags, vtx.visi)
+                    $tags = $lib.tags.prefix($result.tags, vtx.visi)
                     { for $tag in $tags [ +#$tag ] }
 
          ''',
-         'type': {'type': 'function', '_funcname': 'tagspref',
+         'type': {'type': 'function', '_funcname': 'prefix',
                   'args': (
                       {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
                       {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
