@@ -234,12 +234,7 @@ class AhaCell(s_cell.Cell):
         sess = current_sessions.get(linkiden)
         if sess is not None:
             for link in [lnk for lnk in self.dmon.links if lnk.get('sess') is sess]:
-                try:
-                    await link.fini()
-                except asyncio.CancelledError:
-                    raise
-                except:
-                    logger.exception(f'Problem tearing down dmon link for [{svcfull}]')
+                await link.fini()
 
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
