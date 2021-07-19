@@ -4063,6 +4063,15 @@ class StormTypesTest(s_test.SynTest):
                         $cmdopts.foo = hehe
                     '''
                 },
+                {
+                    'name': 'test.runtsafety',
+                    'cmdargs': [
+                        ('foo', {}),
+                    ],
+                    'storm': '''
+                        test:str=$cmdopts.foo
+                    '''
+                },
             ],
         }
         sadt = {
@@ -4094,6 +4103,15 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+            nodes = await core.nodes('[ test:str=foo test:str=bar ] | test.runtsafety $node.repr()')
+            self.len(4, nodes)
+            ndefs = [n.ndef for n in nodes]
+            exp = [('test:str', 'bar'),
+                   ('test:str', 'bar'),
+                   ('test:str', 'foo'),
+                   ('test:str', 'foo')]
+            self.sorteq(ndefs, exp)
 
     async def test_exit(self):
         async with self.getTestCore() as core:
