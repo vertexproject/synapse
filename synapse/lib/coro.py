@@ -218,7 +218,7 @@ if multiprocessing.current_process().name == 'MainProcess':
         forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
         atexit.register(forkpool.shutdown)
     except OSError as e: # pragma: no cover
-        logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}')
+        logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
 def set_pool_logging(logger_, logconf):
     # This must be called before any calls to forked()
