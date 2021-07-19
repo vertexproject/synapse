@@ -1,3 +1,4 @@
+import types
 import asyncio
 import logging
 import argparse
@@ -2260,6 +2261,9 @@ class DivertCmd(Cmd):
     NOTE: This command is purpose built to facilitate the --yield convention
           common to storm commands.
 
+    NOTE: The genr argument must not be a function that returns, else it will
+          be invoked for each inbound node.
+
     Example:
         divert $cmdopts.yield $fooBarBaz()
     '''
@@ -2272,6 +2276,9 @@ class DivertCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+            raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
         if self.runtsafe:
 
