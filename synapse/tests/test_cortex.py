@@ -791,7 +791,7 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.___v___'})
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
             with self.raises(AttributeError):
