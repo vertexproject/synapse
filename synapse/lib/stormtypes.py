@@ -961,6 +961,23 @@ class LibBase(Lib):
                     $lib.debug = $lib.true''',
 
          'type': 'boolean', },
+        {'name': 'tagspref', 'desc': '''
+            Normalize and prefix a list of syn:tag:part values so they can be applied.
+
+            Examples:
+
+                Add tag prefixes and then use them to tag nodes::
+
+                    $tags = $lib.tagspref($result.tags, vtx.visi)
+                    { for $tag in $tags [ +#$tag ] }
+
+         ''',
+         'type': {'type': 'function', '_funcname': 'tagspref',
+                  'args': (
+                      {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -998,7 +1015,23 @@ class LibBase(Lib):
             'sorted': self._sorted,
             'import': self._libBaseImport,
             'trycast': self.trycast,
+            'tagspref': self.tagspref,
         }
+
+    async def tagspref(self, names, prefix):
+
+        prefix = await tostr(prefix)
+        tagpart = self.runt.snap.core.model.type('syn:tag:part')
+
+        retn = []
+        async for part in toiter(names):
+            try:
+                partnorm = tagpart.norm(part)[0]
+                retn.append(f'{prefix}.{partnorm}')
+            except s_exc.BadTypeValu:
+                pass
+
+        return retn
 
     async def _libBaseImport(self, name, debug=False):
         mdef = await self.runt.snap.core.getStormMod(name)

@@ -1629,6 +1629,7 @@ class Tag(Str):
         toks = text.strip('#').split('.')
         return self._normPyList(toks)
 
+tagpartre = regex.compile('\w+')
 class TagPart(Str):
 
     def postTypeInit(self):
@@ -1637,7 +1638,8 @@ class TagPart(Str):
 
     def _normPyStr(self, valu):
         valu = valu.lower().strip()
-        valu = valu.replace('.', '_')
+        parts = tagpartre.findall(valu)
+        valu = '_'.join(parts)
         if len(valu) == 0:
             mesg = 'Each tag part must be non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
