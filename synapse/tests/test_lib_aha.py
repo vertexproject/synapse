@@ -331,7 +331,7 @@ class AhaTest(s_test.SynTest):
 
                     await aha.fini()
 
-                    with self.raises(s_exc.NoSuchObj):
+                    with self.raises(s_exc.IsFini):
 
                         async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                             self.fail('Should never reach a connection.')

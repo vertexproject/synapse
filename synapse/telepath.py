@@ -747,7 +747,7 @@ class Proxy(s_base.Base):
     async def task(self, todo, name=None):
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
 
         if self.sess is not None:
             return await self.taskv2(todo, name=name)
@@ -973,7 +973,7 @@ class Client(s_base.Base):
         await self.waitready(timeout=timeout)
         ret = self._t_proxy
         if ret is None or ret.isfini is True:
-            raise s_exc.NoSuchObj(mesg='Telepath Client Proxy is not available.')
+            raise s_exc.IsFini(mesg='Telepath Client Proxy is not available.')
         return ret
 
     async def _initTeleLink(self, url):
@@ -1026,6 +1026,8 @@ class Client(s_base.Base):
                 self._setNextUrl(url)
                 logger.warning(f'telepath task redirected: ({s_urlhelp.sanitizeUrl(url)})')
                 await self._t_proxy.fini()
+
+        raise s_exc.IsFini(mesg='Telepath Client isfini')
 
     async def waitready(self, timeout=10):
         await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
