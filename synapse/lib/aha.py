@@ -76,7 +76,7 @@ class AhaApi(s_cell.CellApi):
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
         self.onfini(fini)
-        # Do we want to register the fini handler **after** we've added the service?
+
         return await self.cell.addAhaSvc(name, info, network=network)
 
     async def delAhaSvc(self, name, network=None):
