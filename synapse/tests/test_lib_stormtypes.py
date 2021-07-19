@@ -388,6 +388,9 @@ class StormTypesTest(s_test.SynTest):
             items = await getseqn(core.storm(q, opts), 'range', 'v')
             self.eq(items, [4, 3, 2, 1])
 
+            tags = await core.callStorm('return($lib.tags.prefix((foo, bar, "."), visi))')
+            self.eq(tags, ('visi.foo', 'visi.bar'))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
