@@ -702,7 +702,7 @@ class LibTags(Lib):
                 Add tag prefixes and then use them to tag nodes::
 
                     $tags = $lib.tags.prefix($result.tags, vtx.visi)
-                    { for $tag in $tags [ +#$tag ] }
+                    { for $tag in $tags { [ +#$tag ] } }
 
          ''',
          'type': {'type': 'function', '_funcname': 'prefix',
