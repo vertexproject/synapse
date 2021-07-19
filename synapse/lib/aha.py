@@ -75,7 +75,7 @@ class AhaApi(s_cell.CellApi):
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
         self.onfini(fini)
-
+        # Do we want to register the fini handler **after** we've added the service?
         return await self.cell.addAhaSvc(name, info, network=network)
 
     async def delAhaSvc(self, name, network=None):
@@ -216,9 +216,26 @@ class AhaCell(s_cell.Cell):
     async def setAhaSvcDown(self, name, linkiden, network=None):
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
-        await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
-        logger.debug(f'Set [{svcfull}] offline.')
-        await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
+        deleted = await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+
+        current_sessions = {s_common.guid(iden): sess for iden, sess in self.dmon.sessions.items()}
+        sess = current_sessions.get(linkiden)
+        if sess is not None:
+            links = [lnk for lnk in self.dmon.links if lnk.get('sess') is sess]
+            if links:
+                logger.info(f'Open links: {links}')
+                for link in links:
+                    try:
+                        logger.info(f'Removing link for {svcfull} {deleted=}')
+                        await link.fini()
+                    except asyncio.CancelledError:
+                        raise
+                    except:
+                        logger.exception(f'Problem tearing down dmon session for [{svcfull}]')
+
+        await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw, deleted=deleted)
+        if deleted:
+            logger.debug(f'Set [{svcfull}] offline {deleted=}.')
 
     async def getAhaSvc(self, name):
         path = ('aha', 'svcfull', name)
