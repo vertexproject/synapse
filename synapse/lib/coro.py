@@ -209,21 +209,23 @@ async def spawn(todo, timeout=None, ctx=None):
         raise
 
 # shared process pool
+forkpool = None
 if multiprocessing.current_process().name == 'MainProcess':
-    mpctx = multiprocessing.get_context('forkserver')
-    max_workers = int(os.getenv('SYN_FORKED_WORKERS', 1))
-    forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
-    atexit.register(forkpool.shutdown)
-else:
-    # subprocesses would get a ref, not a new pool,
-    # but internal atexit handlers get registered in the wrong order
-    forkpool = None
+    # only create the forkpool in the MainProcess...
+    try:
+        mpctx = multiprocessing.get_context('forkserver')
+        max_workers = int(os.getenv('SYN_FORKED_WORKERS', 1))
+        forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
+        atexit.register(forkpool.shutdown)
+    except OSError as e: # pragma: no cover
+        pass
 
 def set_pool_logging(logger_, logconf):
     # This must be called before any calls to forked()
     todo = s_common.todo(s_common.setlogging, logger_, **logconf)
-    forkpool._initializer = _runtodo
-    forkpool._initargs = (todo,)
+    if forkpool is not None:
+        forkpool._initializer = _runtodo
+        forkpool._initargs = (todo,)
 
 def _runtodo(todo):
     return todo[0](*todo[1], **todo[2])
