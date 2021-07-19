@@ -6,7 +6,6 @@ import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_test
 
-
 class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_mirrors(self):
@@ -77,7 +76,8 @@ class AhaTest(s_test.SynTest):
                     self.len(1, await wait00.wait(timeout=6))
 
                     svc = await aha.getAhaSvc('0.cryo.mynet')
-                    self.isin('online', svc.get('svcinfo'))
+                    linkiden = svc.get('svcinfo', {}).get('online')
+                    self.nn(linkiden)
 
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
@@ -85,6 +85,11 @@ class AhaTest(s_test.SynTest):
             async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
                 wait01 = aha.waiter(1, 'aha:svcdown')
                 await wait01.wait(timeout=6)
+                svc = await aha.getAhaSvc('0.cryo.mynet')
+                self.notin('online', svc.get('svcinfo'))
+
+                # Try setting something down a second time
+                await aha.setAhaSvcDown('0.cryo.mynet', linkiden, network=None)
                 svc = await aha.getAhaSvc('0.cryo.mynet')
                 self.notin('online', svc.get('svcinfo'))
 

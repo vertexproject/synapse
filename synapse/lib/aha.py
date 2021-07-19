@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -123,7 +124,7 @@ class AhaCell(s_cell.Cell):
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
-        self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')
+        self.jsonstor = await s_jsonstor.JsonStor.anit(slab, 'aha')  # type: s_jsonstor.JsonStor
 
         async def fini():
             await self.jsonstor.fini()
@@ -212,30 +213,37 @@ class AhaCell(s_cell.Cell):
         # mostly for testing...
         await self.fire('aha:svcdel', svcname=svcname, svcnetw=svcnetw)
 
-    @s_nexus.Pusher.onPushAuto('aha:svc:down')
     async def setAhaSvcDown(self, name, linkiden, network=None):
         svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
         path = ('aha', 'services', svcnetw, svcname)
-        deleted = await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
 
+        svcinfo = await self.jsonstor.getPathObjProp(path, 'svcinfo')
+        if svcinfo.get('online') is None:
+            return
+
+        await self._push('aha:svc:down', name, linkiden, network=network)
+
+    @s_nexus.Pusher.onPush('aha:svc:down')
+    async def _setAhaSvcDown(self, name, linkiden, network=None):
+        svcname, svcnetw, svcfull = self._nameAndNetwork(name, network)
+        path = ('aha', 'services', svcnetw, svcname)
+        await self.jsonstor.cmpDelPathObjProp(path, 'svcinfo/online', linkiden)
+
+        # Check if we have any links which may need to be removed
         current_sessions = {s_common.guid(iden): sess for iden, sess in self.dmon.sessions.items()}
         sess = current_sessions.get(linkiden)
         if sess is not None:
-            links = [lnk for lnk in self.dmon.links if lnk.get('sess') is sess]
-            if links:
-                logger.info(f'Open links: {links}')
-                for link in links:
-                    try:
-                        logger.info(f'Removing link for {svcfull} {deleted=}')
-                        await link.fini()
-                    except asyncio.CancelledError:
-                        raise
-                    except:
-                        logger.exception(f'Problem tearing down dmon session for [{svcfull}]')
+            for link in [lnk for lnk in self.dmon.links if lnk.get('sess') is sess]:
+                try:
+                    await link.fini()
+                except asyncio.CancelledError:
+                    raise
+                except:
+                    logger.exception(f'Problem tearing down dmon link for [{svcfull}]')
 
-        await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw, deleted=deleted)
-        if deleted:
-            logger.debug(f'Set [{svcfull}] offline {deleted=}.')
+        await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
+
+        logger.debug(f'Set [{svcfull}] offline.')
 
     async def getAhaSvc(self, name):
         path = ('aha', 'svcfull', name)

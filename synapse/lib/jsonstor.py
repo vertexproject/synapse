@@ -1,5 +1,8 @@
 import os
 import asyncio
+
+import logging
+
 import collections
 
 import synapse.exc as s_exc
@@ -10,6 +13,10 @@ import synapse.lib.base as s_base
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
+
+
+logger = logging.getLogger(__name__)
+
 
 class JsonStor(s_base.Base):
     '''
