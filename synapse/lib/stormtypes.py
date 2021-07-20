@@ -3926,8 +3926,8 @@ class NodeData(Prim):
 
         return None
 
-    async def cacheset(self, name, data):
-        envl = {'asof': s_common.now(), 'data': data}
+    async def cacheset(self, name, valu):
+        envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
 
     @stormfunc(readonly=True)
