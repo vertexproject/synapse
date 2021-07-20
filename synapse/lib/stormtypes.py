@@ -3877,6 +3877,22 @@ class NodeData(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'cacheget',
+         'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
+         'type': {'type': 'function', '_funcname': 'cacheget',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
+                      {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The cached value or null.'}}},
+        {'name': 'cacheset',
+         'desc': 'Set a node data value with an envelope that tracks time for cache use.',
+         'type': {'type': 'function', '_funcname': 'cacheset',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:node:data'
 
@@ -3892,20 +3908,43 @@ class NodeData(Prim):
             'pop': self._popNodeData,
             'list': self._listNodeData,
             'load': self._loadNodeData,
+            'cacheget': self.cacheget,
+            'cacheset': self.cacheset,
         }
 
     @stormfunc(readonly=True)
+    async def cacheget(self, name, asof='now'):
+        envl = await self._getNodeData(name)
+        if not envl:
+            return None
+
+        timetype = self.valu.snap.core.model.type('time')
+
+        asoftick = timetype.norm(asof)[0]
+        if envl.get('asof') >= asoftick:
+            return envl.get('data')
+
+        return None
+
+    async def cacheset(self, name, valu):
+        envl = {'asof': s_common.now(), 'data': valu}
+        return await self._setNodeData(name, envl)
+
+    @stormfunc(readonly=True)
     async def _getNodeData(self, name):
+        name = await tostr(name)
         confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
+        name = await tostr(name)
         confirm(('node', 'data', 'set', name))
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
+        name = await tostr(name)
         confirm(('node', 'data', 'pop', name))
         return await self.valu.popData(name)
 
@@ -3916,6 +3955,7 @@ class NodeData(Prim):
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
+        name = await tostr(name)
         confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent

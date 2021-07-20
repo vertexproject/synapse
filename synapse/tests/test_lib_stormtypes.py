@@ -391,6 +391,16 @@ class StormTypesTest(s_test.SynTest):
             tags = await core.callStorm('return($lib.tags.prefix((foo, bar, "."), visi))')
             self.eq(tags, ('visi.foo', 'visi.bar'))
 
+            self.none(await core.callStorm('[inet:user=visi] return($node.data.cacheget(foo))'))
+
+            await core.callStorm('inet:user=visi $node.data.cacheset(foo, bar)')
+            envl = await core.callStorm('inet:user=visi return($node.data.get(foo))')
+            self.nn(envl.get('asof'))
+            self.eq('bar', envl.get('data'))
+
+            self.none(await core.callStorm('inet:user=visi return($node.data.cacheget(foo))'))
+            self.eq('bar', await core.callStorm('inet:user=visi return($node.data.cacheget(foo, asof="-30days"))'))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
