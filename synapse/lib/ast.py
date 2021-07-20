@@ -2637,9 +2637,15 @@ class VarValue(Value):
 class VarDeref(Value):
 
     async def compute(self, runt, path):
+
         base = await self.kids[0].compute(runt, path)
+        # the deref of None is always None
+        if base is None:
+            return None
+
         name = await self.kids[1].compute(runt, path)
         name = await tostr(name)
+
         valu = s_stormtypes.fromprim(base, path=path)
         return await valu.deref(name)
 
