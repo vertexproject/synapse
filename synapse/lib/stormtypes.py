@@ -687,6 +687,53 @@ class LibService(Lib):
         await ssvc.ready.wait()
 
 @registry.registerLib
+class LibTags(Lib):
+    '''
+    Storm utility functions for tags.
+    '''
+    _storm_lib_path = ('tags',)
+
+    _storm_locals = (
+        {'name': 'prefix', 'desc': '''
+            Normalize and prefix a list of syn:tag:part values so they can be applied.
+
+            Examples:
+
+                Add tag prefixes and then use them to tag nodes::
+
+                    $tags = $lib.tags.prefix($result.tags, vtx.visi)
+                    { for $tag in $tags { [ +#$tag ] } }
+
+         ''',
+         'type': {'type': 'function', '_funcname': 'prefix',
+                  'args': (
+                      {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
+    )
+
+    def getObjLocals(self):
+        return {
+            'prefix': self.prefix,
+        }
+
+    async def prefix(self, names, prefix):
+
+        prefix = await tostr(prefix)
+        tagpart = self.runt.snap.core.model.type('syn:tag:part')
+
+        retn = []
+        async for part in toiter(names):
+            try:
+                partnorm = tagpart.norm(part)[0]
+                retn.append(f'{prefix}.{partnorm}')
+            except s_exc.BadTypeValu:
+                pass
+
+        return retn
+
+@registry.registerLib
 class LibBase(Lib):
     '''
     The Base Storm Library. This mainly contains utility functionality.

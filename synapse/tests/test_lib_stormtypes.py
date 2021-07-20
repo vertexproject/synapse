@@ -389,6 +389,9 @@ class StormTypesTest(s_test.SynTest):
             items = await getseqn(core.storm(q, opts), 'range', 'v')
             self.eq(items, [4, 3, 2, 1])
 
+            tags = await core.callStorm('return($lib.tags.prefix((foo, bar, "."), visi))')
+            self.eq(tags, ('visi.foo', 'visi.bar'))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
@@ -4435,6 +4438,15 @@ class StormTypesTest(s_test.SynTest):
                         $cmdopts.foo = hehe
                     '''
                 },
+                {
+                    'name': 'test.runtsafety',
+                    'cmdargs': [
+                        ('foo', {}),
+                    ],
+                    'storm': '''
+                        test:str=$cmdopts.foo
+                    '''
+                },
             ],
         }
         sadt = {
@@ -4466,6 +4478,15 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.SchemaViolation):
                 await core.addStormPkg(sadt)
+
+            nodes = await core.nodes('[ test:str=foo test:str=bar ] | test.runtsafety $node.repr()')
+            self.len(4, nodes)
+            ndefs = [n.ndef for n in nodes]
+            exp = [('test:str', 'bar'),
+                   ('test:str', 'bar'),
+                   ('test:str', 'foo'),
+                   ('test:str', 'foo')]
+            self.sorteq(ndefs, exp)
 
     async def test_exit(self):
         async with self.getTestCore() as core:

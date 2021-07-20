@@ -101,6 +101,70 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
             self.len(2, await core.nodes('ou:org +#faz'))
 
+            # functions that don't return a generator
+            storm = '''
+            function x() {
+                $lst = $lib.list()
+                [ ou:org=* ou:org=* +#cat ]
+                $lst.append($node)
+                fini { return($lst) }
+            }
+
+            divert $lib.true $x()
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            self.len(2, await core.nodes('ou:org +#cat'))
+
+            storm = '''
+            function x() {
+                $lst = $lib.list()
+                [ ou:org=* ou:org=* +#dog ]
+                $lst.append($node)
+                fini { return($lst) }
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            divert $lib.true $x()
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            self.len(4, await core.nodes('ou:org +#dog'))
+
+            # functions that return a generator
+            storm = '''
+            function y() {
+                [ ou:org=* ou:org=* +#cow ]
+            }
+            function x() {
+                $lib.print(heythere)
+                return($y())
+            }
+
+            divert $lib.true $x()
+            '''
+            mesgs = await core.stormlist(storm)
+            self.len(1, [m for m in mesgs if (m[0] == 'print' and m[1]['mesg'] == 'heythere')])
+            self.len(2, [m for m in mesgs if (m[0] == 'node' and m[1][0][0] == 'ou:org')])
+            self.len(2, await core.nodes('ou:org +#cow'))
+
+            storm = '''
+            function y() {
+                [ ou:org=* ou:org=* +#camel ]
+            }
+            function x() {
+                $lib.print(heythere)
+                return($y())
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            divert $lib.false $x()
+            '''
+            mesgs = await core.stormlist(storm)
+            self.len(3, [m for m in mesgs if (m[0] == 'print' and m[1]['mesg'] == 'heythere')])
+            self.len(2, [m for m in mesgs if (m[0] == 'node' and m[1][0][0] == 'inet:fqdn')])
+            self.len(2, await core.nodes('ou:org +#camel'))
+
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
             self.len(1, await core.nodes('[ ou:org=* ]'))
@@ -791,7 +855,7 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.___v___'})
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
             with self.raises(AttributeError):
