@@ -753,10 +753,7 @@ class WhileLoop(Oper):
 
 async def pullone(genr):
     gotone = None
-    empty = True
-
     async for gotone in genr:
-        empty = False
         break
 
     async def pullgenr():
@@ -768,7 +765,7 @@ async def pullone(genr):
         async for item in genr:
             yield item
 
-    return empty, pullgenr()
+    return gotone is None, pullgenr()
 
 class CmdOper(Oper):
 
@@ -793,7 +790,6 @@ class CmdOper(Oper):
             async def genx():
 
                 async for node, path in genr:
-
                     argv = await self.kids[1].compute(runt, path)
                     if not await scmd.setArgv(argv):
                         raise s_stormctrl.StormExit()
