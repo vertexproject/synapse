@@ -753,7 +753,10 @@ class WhileLoop(Oper):
 
 async def pullone(genr):
     gotone = None
+    empty = True
+
     async for gotone in genr:
+        empty = False
         break
 
     async def pullgenr():
@@ -765,7 +768,7 @@ async def pullone(genr):
         async for item in genr:
             yield item
 
-    return pullgenr()
+    return empty, pullgenr()
 
 class CmdOper(Oper):
 
@@ -787,10 +790,10 @@ class CmdOper(Oper):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         with s_provenance.claim('stormcmd', name=name):
-
             async def genx():
 
                 async for node, path in genr:
+
                     argv = await self.kids[1].compute(runt, path)
                     if not await scmd.setArgv(argv):
                         raise s_stormctrl.StormExit()
@@ -799,7 +802,7 @@ class CmdOper(Oper):
 
             # must pull through the genr to get opts set
             # ( many commands expect self.opts is set at run() )
-            genr = await pullone(genx())
+            empty, genr = await pullone(genx())
 
             try:
                 if runtsafe:
@@ -807,8 +810,9 @@ class CmdOper(Oper):
                     if not await scmd.setArgv(argv):
                         raise s_stormctrl.StormExit()
 
-                async for item in scmd.execStormCmd(runt, genr):
-                    yield item
+                if runtsafe or not empty:
+                    async for item in scmd.execStormCmd(runt, genr):
+                        yield item
             finally:
                 await genr.aclose()
 
