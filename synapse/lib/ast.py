@@ -765,7 +765,7 @@ async def pullone(genr):
         async for item in genr:
             yield item
 
-    return gotone is None, pullgenr()
+    return pullgenr(), gotone is None
 
 class CmdOper(Oper):
 
@@ -798,7 +798,7 @@ class CmdOper(Oper):
 
             # must pull through the genr to get opts set
             # ( many commands expect self.opts is set at run() )
-            empty, genr = await pullone(genx())
+            genr, empty = await pullone(genx())
 
             try:
                 if runtsafe:

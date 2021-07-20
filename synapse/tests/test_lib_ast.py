@@ -1687,7 +1687,7 @@ class AstTest(s_test.SynTest):
             yield 2
             yield 3
 
-        mpty, igen = await s_ast.pullone(genr())
+        igen, mpty = await s_ast.pullone(genr())
         vals = [x async for x in igen]
         self.eq((1, 2, 3), vals)
         self.false(mpty)
@@ -1699,7 +1699,7 @@ class AstTest(s_test.SynTest):
             if 0:
                 yield None
 
-        mpty, igen = await s_ast.pullone(empty())
+        igen, mpty = await s_ast.pullone(empty())
         vals = [x async for x in igen]
         self.eq([], vals)
         self.true(data.get('executed'))
@@ -1708,7 +1708,7 @@ class AstTest(s_test.SynTest):
         async def hasone():
             yield 1
 
-        mpty, igen = await s_ast.pullone(hasone())
+        igen, mpty = await s_ast.pullone(hasone())
         vals = [x async for x in igen]
         self.eq((1,), vals)
         self.false(mpty)
