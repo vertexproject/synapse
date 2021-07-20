@@ -431,6 +431,8 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            self.none(await core.callStorm('$foo = $lib.null return($foo.bar.baz)'))
+
             q = '''
             $d = $lib.dict(foo=bar, bar=baz, baz=biz)
             for ($key, $val) in $d {
