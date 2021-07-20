@@ -3878,7 +3878,7 @@ class NodeData(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'cacheget',
-         'desc': 'Retrieve data stored with cacheset() if its newer than the asof argument.',
+         'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
          'type': {'type': 'function', '_funcname': 'cacheget',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
@@ -3889,7 +3889,7 @@ class NodeData(Prim):
          'desc': 'Set a node data value with an envelope that tracks time for cache use.',
          'type': {'type': 'function', '_funcname': 'cacheset',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to set.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
                   'returns': {'type': 'null', }}},
