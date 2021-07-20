@@ -765,7 +765,7 @@ async def pullone(genr):
         async for item in genr:
             yield item
 
-    return pullgenr()
+    return pullgenr(), gotone is None
 
 class CmdOper(Oper):
 
@@ -787,7 +787,6 @@ class CmdOper(Oper):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         with s_provenance.claim('stormcmd', name=name):
-
             async def genx():
 
                 async for node, path in genr:
@@ -799,7 +798,7 @@ class CmdOper(Oper):
 
             # must pull through the genr to get opts set
             # ( many commands expect self.opts is set at run() )
-            genr = await pullone(genx())
+            genr, empty = await pullone(genx())
 
             try:
                 if runtsafe:
@@ -807,8 +806,9 @@ class CmdOper(Oper):
                     if not await scmd.setArgv(argv):
                         raise s_stormctrl.StormExit()
 
-                async for item in scmd.execStormCmd(runt, genr):
-                    yield item
+                if runtsafe or not empty:
+                    async for item in scmd.execStormCmd(runt, genr):
+                        yield item
             finally:
                 await genr.aclose()
 
