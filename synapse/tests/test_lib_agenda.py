@@ -665,6 +665,12 @@ class AgendaTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('cron.move $fakeiden $fakeiden', opts=opts)
 
+            with self.raises(s_exc.NoSuchIden):
+                await core.moveCronJob(fail.iden, 'NoSuchCronJob', defview.iden)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.agenda.move('StillDoesNotExist', defview.iden)
+
             # make a new view
             ldef = await core.addLayer()
             newlayr = core.getLayer(ldef.get('iden'))
@@ -703,7 +709,7 @@ class AgendaTest(s_t_utils.SynTest):
             await fail.addRule((True, ('cron', 'get')))
 
             # but should work on the default view
-            await core.callStorm('cron.add --minute +1 { $lib.queue.get(testq).put((44)) }', opts=asfail)
+            await core.callStorm('cron.at --minute +1 { $lib.queue.get(testq).put((44)) }', opts=asfail)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
@@ -745,13 +751,21 @@ class AgendaTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchView):
                 await core.callStorm('cron.move $croniden $viewiden', opts=opts)
 
+            croniden = jobs[0]['iden']
             # now to test that we can move from the new layer to the base layer
-            opts = {'user': fail.iden, 'vars': {'croniden': jobs[0]['iden'], 'viewiden': defview.iden}}
+            opts = {'user': fail.iden, 'vars': {'croniden': croniden, 'viewiden': defview.iden}}
             await core.callStorm('cron.move $croniden $viewiden', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
+
+            # moving to the same view shouldn't do much
+            await core.moveCronJob(fail.iden, croniden, defview.iden)
+
+            samejobs = await core.callStorm('return($lib.cron.list())')
+            self.len(1, jobs)
+            self.eq(jobs, samejobs)
 
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
 
@@ -759,3 +773,9 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, node)
             self.eq(('test:guid', retn[1]), node[0].ndef)
             self.ne(guidnode[0].ndef, node[0].ndef)
+
+            # reach in, monkey with the view a bit
+            appt = core.agenda.appts.get(croniden)
+            appt.view = "ThisViewStillDoesntExist"
+            await core.agenda._execute(appt)
+            self.eq(appt.lastresult, 'Failed due to unknown view')

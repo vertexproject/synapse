@@ -6206,6 +6206,7 @@ class LibCron(Lib):
                 'incvals': incval,
                 'creator': self.runt.user.iden
                 }
+
         iden = kwargs.get('iden')
         if iden:
             cdef['iden'] = iden
