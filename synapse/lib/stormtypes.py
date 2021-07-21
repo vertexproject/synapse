@@ -2663,9 +2663,6 @@ class Proxy(StormType):
         if isinstance(meth, s_telepath.Method):
             return ProxyMethod(meth)
 
-        if isinstance(meth, s_telepath.Share):
-            return Proxy(meth)
-
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
