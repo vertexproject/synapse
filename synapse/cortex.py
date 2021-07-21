@@ -442,7 +442,7 @@ class CoreApi(s_cell.CellApi):
         Get a list of Cortex feed functions.
 
         Notes:
-            Each feed dictinonary has the name of the feed function, the
+            Each feed dictionary has the name of the feed function, the
             full docstring for the feed function, and the first line of
             the docstring broken out in their own keys for easy use.
 
@@ -3233,7 +3233,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(iden, 'view')
         await user.setAdmin(True, gateiden=iden, logged=False)
 
-        # worldreadable is not get persisted with the view; the state ends up in perms
+        # worldreadable does not get persisted with the view; the state ends up in perms
         worldread = vdef.pop('worldreadable', False)
 
         if worldread:
@@ -4626,6 +4626,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         if not cdef.get('iden'):
             cdef['iden'] = s_common.guid()
 
+        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+
+        view = self._viewFromOpts(opts)
+        cdef['view'] = view.iden
+
         return await self._push('cron:add', cdef)
 
     @s_nexus.Pusher.onPush('cron:add')
@@ -4645,6 +4650,25 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         return cdef
+
+    async def moveCronJob(self, useriden, croniden, viewiden):
+        view = self._viewFromOpts({'view': viewiden, 'user': useriden})
+
+        appt = self.agenda.appts.get(croniden)
+        if appt is None:
+            raise s_exc.NoSuchIden(iden=croniden)
+
+        if appt.view == view.iden:
+            return view.iden
+
+        return await self._push('cron:move', croniden, viewiden)
+
+    @s_nexus.Pusher.onPush('cron:move')
+    async def _onMoveCronJob(self, croniden, viewiden):
+        try:
+            await self.agenda.move(croniden, viewiden)
+        except s_exc.NoSuchIden:
+            return
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):

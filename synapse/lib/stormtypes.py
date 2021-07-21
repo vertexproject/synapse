@@ -5907,7 +5907,17 @@ class LibCron(Lib):
                       {'name': 'query', 'type': ['str', 'storm:query'],
                        'desc': 'The new Storm query for the Cron Job.', }
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
+        {'name': 'move', 'desc': 'Move a cron job to a new view.',
+         'type': {'type': 'function', '_funcname': '_methCronMove',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a cron job to move. '
+                               'Only a single matching prefix will be modified.', },
+                      {'name': 'view', 'type': 'str',
+                       'desc': 'The iden of the view to move the CrobJob to', }
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
                   'returns': {'type': 'list', 'desc': 'A list of ``storm:cronjob`` objects..', }}},
@@ -5938,6 +5948,7 @@ class LibCron(Lib):
             'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
+            'move': self._methCronMove,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         }
@@ -6199,6 +6210,10 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
+        view = kwargs.get('view')
+        if view:
+            cdef['view'] = view
+
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -6271,6 +6286,10 @@ class LibCron(Lib):
         if iden:
             cdef['iden'] = iden
 
+        view = kwargs.get('view')
+        if view:
+            cdef['view'] = view
+
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -6290,6 +6309,15 @@ class LibCron(Lib):
         iden = cron['iden']
 
         todo = s_common.todo('updateCronJob', iden, query)
+        gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
+        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        return iden
+
+    async def _methCronMove(self, prefix, view):
+        cron = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cron['iden']
+
+        todo = s_common.todo('moveCronJob', self.runt.user.iden, iden, view)
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
         return iden
@@ -6389,6 +6417,10 @@ class CronJob(Prim):
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
+        view = self.valu.get('view')
+        if not view:
+            view = 'default'
+
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
         result = self.valu.get('lastresult')
@@ -6398,6 +6430,8 @@ class CronJob(Prim):
             'iden': iden,
             'idenshort': iden[:8] + '..',
             'user': user or '<None>',
+            'view': view,
+            'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
