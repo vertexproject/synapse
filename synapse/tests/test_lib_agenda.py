@@ -709,7 +709,8 @@ class AgendaTest(s_t_utils.SynTest):
             await fail.addRule((True, ('cron', 'get')))
 
             # but should work on the default view
-            await core.callStorm('cron.at --minute +1 { $lib.queue.get(testq).put((44)) }', opts=asfail)
+            opts = {'user': fail.iden, 'view': defview.iden, 'vars': {'newview': newview}}
+            await core.callStorm('cron.at --minute +1 { $lib.queue.get(testq).put((44)) }', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)

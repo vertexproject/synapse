@@ -4665,10 +4665,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('cron:move')
     async def _onMoveCronJob(self, croniden, viewiden):
-        try:
-            await self.agenda.move(croniden, viewiden)
-        except s_exc.NoSuchIden:
-            return
+        await self.agenda.move(croniden, viewiden)
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
