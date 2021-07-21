@@ -1,3 +1,4 @@
+import types
 import asyncio
 import logging
 import argparse
@@ -2246,16 +2247,29 @@ class PureCmd(Cmd):
             }
         }
 
-        async def genx():
-            async for xnode, xpath in genr:
-                xpath.initframe(initvars={'cmdopts': cmdopts})
-                yield xnode, xpath
+        if self.runtsafe:
+            async def genx():
+                async for xnode, xpath in genr:
+                    xpath.initframe(initvars={'cmdopts': cmdopts})
+                    yield xnode, xpath
 
-        async with runt.getCmdRuntime(query, opts=opts) as subr:
-            subr.asroot = asroot
-            async for node, path in subr.execute(genr=genx()):
-                path.finiframe()
-                yield node, path
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+                async for node, path in subr.execute(genr=genx()):
+                    path.finiframe()
+                    yield node, path
+        else:
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+
+                async for node, path in genr:
+                    async def genx():
+                        path.initframe(initvars={'cmdopts': cmdopts})
+                        yield node, path
+
+                    async for xnode, xpath in subr.execute(genr=genx()):
+                        path.finiframe()
+                        yield xnode, xpath
 
 class DivertCmd(Cmd):
     '''
@@ -2263,6 +2277,9 @@ class DivertCmd(Cmd):
 
     NOTE: This command is purpose built to facilitate the --yield convention
           common to storm commands.
+
+    NOTE: The genr argument must not be a function that returns, else it will
+          be invoked for each inbound node.
 
     Example:
         divert $cmdopts.yield $fooBarBaz()
@@ -2276,6 +2293,9 @@ class DivertCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+            raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
         if self.runtsafe:
 
