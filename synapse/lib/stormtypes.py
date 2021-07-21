@@ -2663,6 +2663,9 @@ class Proxy(StormType):
         if isinstance(meth, s_telepath.Method):
             return ProxyMethod(meth)
 
+        if isinstance(meth, s_telepath.Share):
+            return Proxy(meth)
+
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
 
@@ -2679,7 +2682,10 @@ class ProxyMethod(StormType):
         args = await toprim(args)
         kwargs = await toprim(kwargs)
         # TODO: storm types fromprim()
-        return await self.meth(*args, **kwargs)
+        ret = await self.meth(*args, **kwargs)
+        if isinstance(ret, s_telepath.Share):
+            return Proxy(ret)
+        return ret
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
@@ -6635,6 +6641,9 @@ async def toprim(valu, path=None):
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)
+
+    if isinstance(valu, StormType):
+        return valu
 
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]
