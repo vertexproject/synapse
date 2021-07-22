@@ -193,6 +193,26 @@ reqValidPkgdef = s_config.getJsValidator({
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'author': {
+            'type': 'object',
+            'properties': {
+                'url': {'type': 'string'},
+                'name': {'type': 'string'},
+            },
+            'required': ['name', 'url'],
+        },
+        'perms': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'perm': {'type': 'array', 'items': {'type': 'string'}},
+                    'desc': {'type': 'string'},
+                    'gate': {'type': 'string'},
+                },
+                'required': ['perm', 'desc', 'gate'],
+            },
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -212,6 +232,11 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'asroot': {'type': 'boolean'},
+                'asroot:perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -572,6 +597,36 @@ stormcmds = (
                 $lib.print('Loaded storm packages:')
                 for $pkg in $pkgs {
                     $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.perms.list',
+        'descr': 'List any permissions declared by the package.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package.'}),
+        ),
+        'storm': '''
+            $pdef = $lib.null
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pdef = $pkg
+                    break
+                }
+            }
+
+            if (not $pdef) {
+                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+            } else {
+                if $pdef.perms {
+                    $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
+                    for $permdef in $pdef.perms {
+                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
+                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                    }
+                } else {
+                    $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
                 }
             }
         '''
