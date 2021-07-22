@@ -11,7 +11,7 @@ stormcmds = (
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
-            ('--email', {'type': 'str', 'help': 'The users email address.', 'default': None}),
+            ('--email', {'type': 'str', 'help': "The user's email address.", 'default': None}),
         ),
         'storm': '''
             $user = $lib.auth.users.add($cmdopts.name, email=$cmdopts.email)
