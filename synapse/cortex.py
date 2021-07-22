@@ -904,9 +904,15 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     async def getPermDef(self, perm):
+        '''
+        Return a perm definition if it is present in getPermDefs() output.
+        '''
         return await self.cell.getPermDef(perm)
 
     async def getPermDefs(self):
+        '''
+        Return a non-comprehensive list of perm definitions.
+        '''
         return await self.cell.getPermDefs()
 
 class Cortex(s_cell.Cell):  # type: ignore
