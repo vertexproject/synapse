@@ -1067,13 +1067,13 @@ class LibBase(Lib):
         rootperms = mdef.get('asroot:perms')
         if rootperms is not None:
 
-            for rootperm in rootperms:
-                if self.runt.allowed(tuple(rootperm.split('.'))):
+            for perm in rootperms:
+                if self.runt.allowed(perm):
                     asroot = True
                     break
 
             if not asroot:
-                permtext = ' or '.join(rootperms)
+                permtext = ' or '.join(('.'.join(p) for p in rootperms))
                 mesg = f'Module ({name}) requires permission: {permtext}'
                 raise s_exc.AuthDeny(mesg=mesg)
 

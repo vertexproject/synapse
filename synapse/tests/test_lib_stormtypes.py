@@ -3832,21 +3832,47 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            async with core.getLocalProxy() as proxy:
+                pdef = await proxy.getPermDef(('node', 'add'))
+                self.eq('Controls adding any form of node in a layer.', pdef['desc'])
+
             stormpkg = {
                 'name': 'authtest',
                 'version': '0.0.1',
+                'perms': (
+                    {'perm': ('wootwoot',), 'desc': 'lol lol', 'gate': 'cortex'},
+                ),
                 'modules': (
                     {
                      'name': 'authtest.privsep',
-                     'asroot:perms': ['wootwoot'],
+                     'asroot:perms': (
+                        ('wootwoot',),
+                     ),
                      'storm': 'function x() { [ ps:person=* ] return($node) }',
                     },
                 ),
             }
 
+            msgs = await core.stormlist('auth.user.add visi')
+            self.stormIsInPrint('User (visi) added with iden: ', msgs)
+
+            msgs = await core.stormlist('auth.role.add ninjas')
+            self.stormIsInPrint('Role (ninjas) added with iden: ', msgs)
+
+            with self.raises(s_exc.DupUserName):
+                await core.nodes('auth.user.add visi')
+
+            with self.raises(s_exc.DupRoleName):
+                await core.nodes('auth.role.add ninjas')
+
             await core.addStormPkg(stormpkg)
 
-            visi = await core.auth.addUser('visi')
+            # make sure loading the package bumped the permtree
+            async with core.getLocalProxy() as proxy:
+                pdef = await proxy.getPermDef(('wootwoot',))
+                self.eq('lol lol', pdef['desc'])
+
+            visi = await core.auth.getUserByName('visi')
             asvisi = {'user': visi.iden}
 
             with self.raises(s_exc.AuthDeny):
@@ -3855,7 +3881,13 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('[ ps:person=* ]', opts=asvisi)
 
-            await visi.addRule((True, ('wootwoot',)))
+            msgs = await core.stormlist('auth.user.addrule hehe haha')
+            self.stormIsInWarn('User (hehe) not found!', msgs)
+
+            msgs = await core.stormlist('auth.role.addrule hehe haha')
+            self.stormIsInWarn('Role (hehe) not found!', msgs)
+
+            await core.callStorm('auth.user.addrule visi wootwoot')
             self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
@@ -4024,11 +4056,6 @@ class StormTypesTest(s_test.SynTest):
             self.nn(await core.callStorm('return($lib.auth.roles.byname(all).get(rules))'))
 
             # test role rules APIs
-
-            self.nn(await core.callStorm('''
-                return($lib.auth.roles.add(ninjas))
-            '''))
-
             ninjas = await core.callStorm('''
                 $ninjas = $lib.auth.roles.byname(ninjas)
                 $ninjas.setRules(())

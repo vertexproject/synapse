@@ -201,6 +201,18 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'required': ['name', 'url'],
         },
+        'perms': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'perm': {'type': 'array', 'items': {'type': 'string'}},
+                    'desc': {'type': 'string'},
+                    'gate': {'type': 'string'},
+                },
+                'required': ['perm', 'desc', 'gate'],
+            },
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -221,7 +233,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
                 'asroot': {'type': 'boolean'},
-                'asroot:perms': {'type': 'array', 'items': {'type': 'string'}},
+                'asroot:perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
