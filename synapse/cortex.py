@@ -907,7 +907,7 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getPermDef(perm)
 
     async def getPermDefs(self):
-        return await self.cell.getPermDef(perm)
+        return await self.cell.getPermDefs()
 
 class Cortex(s_cell.Cell):  # type: ignore
     '''
