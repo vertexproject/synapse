@@ -1048,24 +1048,42 @@ class LibBase(Lib):
         }
 
     async def _libBaseImport(self, name, debug=False):
+
+        name = await tostr(name)
+        debug = await tobool(debug)
+
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-
-        debug = await tobool(debug)
 
         text = mdef.get('storm')
         modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
 
-        perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+        asroot = False
 
-        asroot = self.runt.allowed(perm)
-        if mdef.get('asroot', False) and not asroot:
-            mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-            raise s_exc.AuthDeny(mesg=mesg)
+        rootperms = mdef.get('asroot:perms')
+        if rootperms is not None:
+
+            for rootperm in rootperms:
+                if self.runt.allowed(tuple(rootperm.split('.'))):
+                    asroot = True
+                    break
+
+            if not asroot:
+                permtext = ' or '.join(rootperms)
+                mesg = f'Module ({name}) requires permission: {permtext}'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        else:
+            perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+            asroot = self.runt.allowed(perm)
+
+            if mdef.get('asroot', False) and not asroot:
+                mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+                raise s_exc.AuthDeny(mesg=mesg)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot

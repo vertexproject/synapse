@@ -3832,8 +3832,31 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            stormpkg = {
+                'name': 'authtest',
+                'version': '0.0.1',
+                'modules': (
+                    {
+                     'name': 'authtest.privsep',
+                     'asroot:perms': ['wootwoot'],
+                     'storm': 'function x() { [ ps:person=* ] return($node) }',
+                    },
+                ),
+            }
+
+            await core.addStormPkg(stormpkg)
+
             visi = await core.auth.addUser('visi')
             asvisi = {'user': visi.iden}
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.import(authtest.privsep)', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('[ ps:person=* ]', opts=asvisi)
+
+            await visi.addRule((True, ('wootwoot',)))
+            self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
