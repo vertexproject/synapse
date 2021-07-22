@@ -59,7 +59,7 @@ stormcmds = (
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $user {
                 $user.addRule($rule, gateiden=$cmdopts.gate)
-                $lib.print('User ({name}) granted permission: {perm}', name=$cmdopts.name, perms=$cmdopts.perm)
+                $lib.print('User ({name}) added rule: {rule}', name=$cmdopts.name, rule=$cmdopts.rule)
             } else {
                 $lib.warn('User ({name}) not found!', name=$cmdopts.name)
             }
@@ -88,7 +88,7 @@ stormcmds = (
             $rule = $lib.auth.ruleFromText($cmdopts.rule)
             if $role {
                 $role.addRule($rule, gateiden=$cmdopts.gate)
-                $lib.print('Role ({name}) granted permission: {perm}', name=$cmdopts.name, perms=$cmdopts.perm)
+                $lib.print('Role ({name}) added rule: {rule}', name=$cmdopts.name, rule=$cmdopts.rule)
             } else {
                 $lib.warn('Role ({name}) not found!', name=$cmdopts.name)
             }

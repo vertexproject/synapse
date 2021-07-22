@@ -602,6 +602,36 @@ stormcmds = (
         '''
     },
     {
+        'name': 'pkg.perms.list',
+        'descr': 'List any permissions declared by the package.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package.'}),
+        ),
+        'storm': '''
+            $pdef = $lib.null
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pdef = $pkg
+                    break
+                }
+            }
+
+            if (not $pdef) {
+                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+            } else {
+                if $pdef.perms {
+                    $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
+                    for $permdef in $pdef.perms {
+                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
+                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                    }
+                } else {
+                    $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
+                }
+            }
+        '''
+    },
+    {
         'name': 'pkg.del',
         'descr': 'Remove a storm package from the cortex.',
         'cmdargs': (

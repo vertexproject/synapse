@@ -3854,6 +3854,9 @@ class StormTypesTest(s_test.SynTest):
                 ),
             }
 
+            msgs = await core.stormlist('pkg.perms.list asdfjahsdlfkj')
+            self.stormIsInWarn('Package (asdfjahsdlfkj) not found!', msgs)
+
             msgs = await core.stormlist('auth.user.add visi')
             self.stormIsInPrint('User (visi) added with iden: ', msgs)
 
@@ -3867,6 +3870,10 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('auth.role.add ninjas')
 
             await core.addStormPkg(stormpkg)
+
+            msgs = await core.stormlist('pkg.perms.list authtest')
+            self.stormIsInPrint('Package (authtest) defines the following permissions:', msgs)
+            self.stormIsInPrint('wootwoot                         : lol lol', msgs)
 
             # make sure loading the package bumped the permtree
             async with core.getLocalProxy() as proxy:
@@ -3888,7 +3895,11 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('auth.role.addrule hehe haha')
             self.stormIsInWarn('Role (hehe) not found!', msgs)
 
-            await core.callStorm('auth.user.addrule visi wootwoot')
+            msgs = await core.stormlist('auth.user.addrule visi wootwoot')
+            self.stormIsInPrint('User (visi) added rule: wootwoot', msgs)
+            msgs = await core.stormlist('auth.role.addrule ninjas wootwoot')
+            self.stormIsInPrint('Role (ninjas) added rule: wootwoot', msgs)
+
             self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
