@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import logging
+import argparse
 import contextlib
 
 import synapse.exc as s_exc
@@ -165,6 +166,23 @@ data = (
 
 )
 
+
+template = '$now=$lib.time.now() {fullprop} $valu={secprop} [{form}=$valu] +{form}.created>=$now | count | spin',
+missing_autoadds = (
+    ('inet:dns:request:query:name:fqdn', ':query:name:fqdn', 'inet:fqdn',),
+    ('inet:dns:request:query:name:ipv4', ':query:name:ipv4', 'inet:ipv4',),
+    ('inet:dns:request:query:name:ipv6', ':query:name:ipv6', 'inet:ipv6',),
+    ('inet:dns:query:name:fqdn', ':name:fqdn', 'inet:fqdn',),
+    ('inet:dns:query:name:ipv4', ':name:ipv4', 'inet:ipv4',),
+    ('inet:dns:query:name:ipv6', ':name:ipv6', 'inet:ipv6',),
+
+)
+
+storm_queries = []
+for fullprop, secprop, form in missing_autoadds:
+    query = template.format(fullprop=fullprop, secprop=secprop, form=form)
+    storm_queries.append(query)
+
 import collections
 
 def tree():
@@ -183,20 +201,12 @@ class EzTree:
         def _dicts(t):
             return {k: _dicts(t[k]) for k in t}
 
-        ret = _dicts(self.t)
-        return ret
-    #
-    # def get(self, path):
-    #     ret = self.t
-    #     for node in path:
-    #         ret = ret.get(node)
-    #     return ret
+        return _dicts(self.t)
 
-def getOrderedViews(views):
+def getOrderedViews(views, outp, debug=False):
     ret = []
     view2parent = {}
     view2layers = {}
-    view2path = {}
     forkTree = EzTree()
 
     # Get all view -> parent and view -> layer mappings
@@ -210,10 +220,10 @@ def getOrderedViews(views):
         layers = layers[::-1]
         view2layers[iden] = layers
 
-    root_views = [iden for iden, parent in view2parent.items() if parent is None]
-    root_views = sorted(root_views, key=lambda x: len(view2layers.get(x)))
+    root_views = sorted([iden for iden, parent in view2parent.items() if parent is None],
+                        key=lambda x: len(view2layers.get(x)))
 
-    # For each View, get a mapping of the chain of his parents, if any
+    # For each View, list of the chain of his parents, if any
     for iden, parent in view2parent.items():
 
         if iden in root_views:
@@ -225,16 +235,11 @@ def getOrderedViews(views):
                 break
             path = (parent,) + path
             parent = view2parent.get(parent)
-        print(f'PATH TO {iden=} => {path=}')
-        view2path[iden] = path
+
         forkTree.add(path)
 
-    for iden in root_views:
-        layers = view2layers.get(iden)
-        print(iden, layers)
-
     forkd = forkTree.dicts()
-
+    # For each view, build a list of his forks and their views
     for iden in root_views:
         ret.append(iden)
         forks = forkd.get(iden, {})
@@ -243,13 +248,17 @@ def getOrderedViews(views):
             fork, forks = q.popleft()
             ret.append(fork)
             q.extend(list(forks.items()))
-    for iden in ret:
-        print(iden, view2layers.get(iden))
 
-    assert len(ret) == len(views)
+    assert len(ret) == len(views), 'The total number of views returned does not match the size of the input.'
+
+    if debug:
+        outp.printf('The following Views will be processed:')
+        for iden in ret:
+            outp.printf(f'View: {iden} Layers: {view2layers.get(iden)}')
+
     return ret
 
-async def fixCortexAutoAdds(prox):
+async def fixCortexAutoAdds(prox, outp, debug=False, dry_run=False):
     # 0 - Am I a admin?
     # 1 - get view definitions
     # 2 - order views into a list of trees to fix
@@ -262,21 +271,61 @@ async def fixCortexAutoAdds(prox):
 
     views = data
 
-    view_list = getOrderedViews(views)
+    view_list = getOrderedViews(views, outp=outp, debug=debug)
 
+    for view in view_list:
+        outp.print(f'Fixing Missing autoads on view {view}')
+        for q in storm_queries:
+            opts = {'view': view, 'edits': 'none'}
+            outp.print(f'Executing query: [{q}]')
+            if dry_run:
+                continue
+            async for mesg in prox.storm(q, opts=opts):
+                if mesg[0] == 'print':
+                    outp.print(f'Print: {mesg[1].get("mesg")}')
+                    continue
+                if mesg[0] == 'err':
+                    outp.print(f'ERROR: {mesg[1]}')
+                    continue
 
-async def _main(argv, outp):
-    # async with await s_telepath.openurl(argv[0]) as prox:
-    #     try:
-    #         s_version.reqVersion(prox._getSynVers(), reqver)
-    #     except s_exc.BadVersion as e:  # pragma: no cover
-    #         valu = s_version.fmtVersion(*e.get('valu'))
-    #         outp.printf(f'Proxy version {valu} is outside of the tool supported range ({reqver}).')
-    #         return 1
-    prox = None
-    if await fixCortexAutoAdds(prox):
+async def _main(argv, outp: s_output.Output):
+    pars = getArgParser()
+    opts = pars.parse_args(argv)
+    async with await s_telepath.openurl(argv[0]) as prox:
+        try:
+            s_version.reqVersion(prox._getSynVers(), reqver)
+        except s_exc.BadVersion as e:  # pragma: no cover
+            valu = s_version.fmtVersion(*e.get('valu'))
+            outp.printf(f'Proxy version {valu} is outside of the tool supported range ({reqver}).')
+            return 1
+    if await fixCortexAutoAdds(prox, outp, debug=opts.debug, dry_run=opts.dry_run):
         return 0
     return 1
+
+async def main(argv, outp=None):  # pragma: no cover
+    if outp is None:
+        outp = s_output.stdout
+
+    s_common.setlogging(logger, 'WARNING')
+
+    path = s_common.getSynPath('telepath.yaml')
+    async with contextlib.AsyncExitStack() as ctx:
+
+        telefini = await s_telepath.loadTeleEnv(path)
+        if telefini is not None:
+            ctx.push_async_callback(telefini)
+
+        await _main(argv, outp)
+
+def getArgParser():
+    desc = 'A tool to fix potentially missing Autoadd nodes from a Cortex.'
+    pars = argparse.ArgumentParser(prog='fixes.autoadds00', description=desc)
+    pars.add_argument('url', type='str', help='Telepath URL')
+    pars.add_argument('--debug', action='store_true', help='Debug output')
+    pars.add_argument('--dry-run', action='stor_true',
+                      help='Do not execut queries, just print what would have been executed.')
+
+    return pars
 
 async def main(argv, outp=None):  # pragma: no cover
 
