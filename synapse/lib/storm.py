@@ -2352,55 +2352,65 @@ class DivertCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if not isinstance(self.opts.genr, types.AsyncGeneratorType):
-            raise s_exc.BadArg(mesg='The genr argument must yield nodes')
-
-        async def wrapgenr():
-            if self.runtsafe:
-
-                doyield = await s_stormtypes.tobool(self.opts.cond)
-
-                if doyield:
-
-                    async for item in genr:
-                        await asyncio.sleep(0)
-
-                    async for item in self.opts.genr:
-                        yield item
-                else:
-
-                    async for item in self.opts.genr:
-                        await asyncio.sleep(0)
-
-                    async for item in genr:
-                        yield item
-
-                return
-
-            async for item in genr:
-
-                doyield = await s_stormtypes.tobool(self.opts.cond)
-                if doyield:
-
-                    async for genritem in self.opts.genr:
-                        yield genritem
-                else:
-
-                    async for genritem in self.opts.genr:
-                        await asyncio.sleep(0)
-
-                    yield item
-
-        size = await s_stormtypes.toint(self.opts.size, noneok=True)
-
         count = 0
-        async for wrapitem in wrapgenr():
+        if self.runtsafe:
 
-            yield wrapitem
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
-            count += 1
-            if size is not None and count >= size:
-                break
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
+            doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            if doyield:
+
+                # in a runtsafe yield case we drop all the nodes
+                async for item in genr:
+                    await asyncio.sleep(0)
+
+                async for item in self.opts.genr:
+                    yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
+            else:
+
+                # in a runtsafe non-yield case we pass nodes through
+                async for origitem in genr:
+                    yield origitem
+
+                async for item in self.opts.genr:
+                    await asyncio.sleep(0)
+                    count += 1
+                    if size is not None and count >= size:
+                        return
+
+            return
+
+        # non-runtsafe
+        async for item in genr:
+
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
+            doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            if doyield:
+
+                async for genritem in self.opts.genr:
+                    yield genritem
+                    count += 1
+                    if size is not None and count >= size:
+                        break
+            else:
+
+                async for genritem in self.opts.genr:
+                    await asyncio.sleep(0)
+                    count += 1
+                    if size is not None and count >= size:
+                        break
+
+                yield item
 
 class HelpCmd(Cmd):
     '''

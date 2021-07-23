@@ -169,6 +169,7 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await core.stormlist(storm)
             self.len(0, [mesg[1] for mesg in mesgs if mesg[0] == 'err'])
 
+            # runtsafe with 0 nodes
             storm = '''
             function y() {
                 [ ou:org=* ]
