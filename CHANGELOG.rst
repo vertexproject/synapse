@@ -5,6 +5,74 @@ Synapse Changelog
 *****************
 
 
+v2.50.0 - 2021-07-22
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``storm:node:data``
+  object for easy caching of structured data on nodes based on time.
+  (`#2290 <https://github.com/vertexproject/synapse/pull/2290>`_)
+- Make the Stormtypes unique properly with a Set type. This does disallow the
+  use of mutable types such as dictionaries inside of a Set.
+  (`#2225 <https://github.com/vertexproject/synapse/pull/2225>`_)
+- Skip executing non-runtsafe commands when there are no inbound nodes.
+  (`#2291 <https://github.com/vertexproject/synapse/pull/2291>`_)
+- Add ``asroot:perms`` key to Storm Package modules. This allows package
+  authors to easily declare permissions their packages. Add Storm commands
+  ``auth.user.add``, ``auth.role.add``, ``auth.user.addrule``,
+  ``auth.role.addrule``, and ``pkg.perms.list`` to help with some of the
+  permission management.
+  (`#2294 <https://github.com/vertexproject/synapse/pull/2294>`_)
+
+
+v2.49.0 - 2021-07-19
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``iden`` parameter when creating Cron jobs to allow the creation of
+  jobs with stable identifiers.
+  (`#2264 <https://github.com/vertexproject/synapse/pull/2264>`_)
+- Add ``$lib.cell`` Stormtypes library to allow for introspection of the
+  Cortex from Storm for Admin users.
+  (`#2285 <https://github.com/vertexproject/synapse/pull/2285>`_)
+- Change the Telepath Client connection loop error logging to log at the
+  Error level instead of the Info level.
+  (`#2283 <https://github.com/vertexproject/synapse/pull/2283>`_)
+- Make the tag part normalization more resilient to data containing non-word
+  characters.
+  (`#2289 <https://github.com/vertexproject/synapse/pull/2289>`_)
+- Add ``$lib.tags.prefix()`` Stormtypes to assist with normalizing a list of
+  tags with a common prefix.
+  (`#2289 <https://github.com/vertexproject/synapse/pull/2289>`_)
+- Do not allow the Storm ``divert`` command to work with non-generator
+  functions.
+  (`#2282 <https://github.com/vertexproject/synapse/pull/2282>`_)
+
+Bugfixes
+--------
+- Fix an issue with Storm command execution with non-runtsafe options.
+  (`#2284 <https://github.com/vertexproject/synapse/pull/2284>`_)
+- Log when the process pool fails to initialize. This may occur in certain
+  where CPython multiprocessing primitives are not completely supported.
+  (`#2288 <https://github.com/vertexproject/synapse/pull/2288>`_)
+- In the Telepath Client, fix a race condition which could have raised an
+  AttributeError in Aha resolutions.
+  (`#2286 <https://github.com/vertexproject/synapse/pull/2286>`_)
+- Prevent the reuse of a Telepath Client object when it has been fini'd.
+  (`#2286 <https://github.com/vertexproject/synapse/pull/2286>`_)
+- Fix a race condition in the Aha server when handling distributed changes
+  which could have left the service in a desynchronized state.
+  (`#2287 <https://github.com/vertexproject/synapse/pull/2287>`_)
+
+Improved Documentation
+----------------------
+- Update the documentation for the ``synapse.tools.feed`` tool.
+  (`#2279 <https://github.com/vertexproject/synapse/pull/2279>`_)
+
+
 v2.48.0 - 2021-07-13
 ====================
 

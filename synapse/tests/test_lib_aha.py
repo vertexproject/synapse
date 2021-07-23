@@ -2,12 +2,14 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.aha as s_aha
+
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_test
 
-
 class AhaTest(s_test.SynTest):
+    aha_ctor = s_aha.AhaCell.anit
 
     async def test_lib_aha_mirrors(self):
 
@@ -77,7 +79,8 @@ class AhaTest(s_test.SynTest):
                     self.len(1, await wait00.wait(timeout=6))
 
                     svc = await aha.getAhaSvc('0.cryo.mynet')
-                    self.isin('online', svc.get('svcinfo'))
+                    linkiden = svc.get('svcinfo', {}).get('online')
+                    self.nn(linkiden)
 
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
@@ -85,6 +88,11 @@ class AhaTest(s_test.SynTest):
             async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
                 wait01 = aha.waiter(1, 'aha:svcdown')
                 await wait01.wait(timeout=6)
+                svc = await aha.getAhaSvc('0.cryo.mynet')
+                self.notin('online', svc.get('svcinfo'))
+
+                # Try setting something down a second time
+                await aha.setAhaSvcDown('0.cryo.mynet', linkiden, network=None)
                 svc = await aha.getAhaSvc('0.cryo.mynet')
                 self.notin('online', svc.get('svcinfo'))
 
@@ -294,3 +302,41 @@ class AhaTest(s_test.SynTest):
                 self.len(1, s_telepath.aha_clients)
                 self.nn(info.get('client'))
                 await fini()
+
+    async def test_lib_aha_finid_cell(self):
+
+        with self.getTestDir() as dirn:
+            async with await self.aha_ctor(dirn) as aha:
+
+                cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
+
+                host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+                await aha.auth.rootuser.setPasswd('hehehaha')
+
+                wait00 = aha.waiter(1, 'aha:svcadd')
+                conf = {
+                    'aha:name': '0.cryo.mynet',
+                    'aha:admin': 'root@cryo.mynet',
+                    'aha:registry': [f'tcp://root:hehehaha@127.0.0.1:{port}',
+                                     f'tcp://root:hehehaha@127.0.0.1:{port}'],
+                    'dmon:listen': 'tcp://0.0.0.0:0/',
+                }
+                async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+
+                    await cryo.auth.rootuser.setPasswd('secret')
+
+                    ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
+                    self.nn(ahaadmin)
+                    self.true(ahaadmin.isAdmin())
+
+                    await wait00.wait(timeout=2)
+
+                    async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                        self.nn(await proxy.getCellIden())
+
+                    await aha.fini()
+
+                    with self.raises(s_exc.IsFini):
+
+                        async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                            self.fail('Should never reach a connection.')

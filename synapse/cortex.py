@@ -46,6 +46,8 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
+import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
@@ -901,6 +903,18 @@ class CoreApi(s_cell.CellApi):
                                                     startvalu=startvalu):
             yield item
 
+    async def getPermDef(self, perm):
+        '''
+        Return a perm definition if it is present in getPermDefs() output.
+        '''
+        return await self.cell.getPermDef(perm)
+
+    async def getPermDefs(self):
+        '''
+        Return a non-comprehensive list of perm definitions.
+        '''
+        return await self.cell.getPermDefs()
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1036,6 +1050,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
+        self.permdefs = None
+        self.permlook = None
+
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
@@ -1129,6 +1146,47 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    async def getPermDef(self, perm):
+        if self.permlook is None:
+            permdefs = await self.getPermDefs()
+            self.permlook = {p['perm']: p for p in permdefs}
+        return self.permlook.get(tuple(perm))
+
+    async def getPermDefs(self):
+        if self.permdefs is None:
+            self.permdefs = await self._getPermDefs()
+        return self.permdefs
+
+    async def _getPermDefs(self):
+
+        permdefs = [
+            {'perm': ('node',), 'gate': 'layer',
+                'desc': 'Controls all node edits in a layer.'},
+            {'perm': ('node', 'add'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls adding any form of node in a layer.'},
+            {'perm': ('node', 'del'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls removing any form of node in a layer.'},
+
+            {'perm': ('node', 'tag'), 'gate': 'layer',
+                'desc': 'Controls editing any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'add'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls adding any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls removing any tag on any node in a layer.'},
+
+            {'perm': ('node', 'prop'), 'gate': 'layer',
+                'desc': 'Controls editing any prop on any node in the layer.'},
+            {'perm': ('node', 'prop', 'set'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls setting any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'del'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls removing any prop on any node in a layer.'},
+        ]
+
+        for spkg in await self.getStormPkgs():
+            permdefs.extend(spkg.get('perms', ()))
+
+        return tuple(permdefs)
 
     def _setPropSetHook(self, name, hook):
         self._propSetHooks[name] = hook
@@ -2007,6 +2065,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
 
+        if pkgdef.get('perms'):
+            self.permdefs = None
+            self.permlook = None
+
         # now actually load...
         self.stormpkgs[name] = pkgdef
 
@@ -2878,6 +2940,9 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_storm.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
+        for cdef in s_stormlib_auth.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
         for cdef in s_stormlib_macro.stormcmds:

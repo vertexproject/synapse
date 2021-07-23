@@ -1,3 +1,4 @@
+import types
 import asyncio
 import logging
 import argparse
@@ -192,6 +193,26 @@ reqValidPkgdef = s_config.getJsValidator({
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'author': {
+            'type': 'object',
+            'properties': {
+                'url': {'type': 'string'},
+                'name': {'type': 'string'},
+            },
+            'required': ['name', 'url'],
+        },
+        'perms': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'perm': {'type': 'array', 'items': {'type': 'string'}},
+                    'desc': {'type': 'string'},
+                    'gate': {'type': 'string'},
+                },
+                'required': ['perm', 'desc', 'gate'],
+            },
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -211,6 +232,11 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'asroot': {'type': 'boolean'},
+                'asroot:perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -571,6 +597,36 @@ stormcmds = (
                 $lib.print('Loaded storm packages:')
                 for $pkg in $pkgs {
                     $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.perms.list',
+        'descr': 'List any permissions declared by the package.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package.'}),
+        ),
+        'storm': '''
+            $pdef = $lib.null
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pdef = $pkg
+                    break
+                }
+            }
+
+            if (not $pdef) {
+                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+            } else {
+                if $pdef.perms {
+                    $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
+                    for $permdef in $pdef.perms {
+                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
+                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                    }
+                } else {
+                    $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
                 }
             }
         '''
@@ -2229,16 +2285,29 @@ class PureCmd(Cmd):
             }
         }
 
-        async def genx():
-            async for xnode, xpath in genr:
-                xpath.initframe(initvars={'cmdopts': cmdopts})
-                yield xnode, xpath
+        if self.runtsafe:
+            async def genx():
+                async for xnode, xpath in genr:
+                    xpath.initframe(initvars={'cmdopts': cmdopts})
+                    yield xnode, xpath
 
-        async with runt.getCmdRuntime(query, opts=opts) as subr:
-            subr.asroot = asroot
-            async for node, path in subr.execute(genr=genx()):
-                path.finiframe()
-                yield node, path
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+                async for node, path in subr.execute(genr=genx()):
+                    path.finiframe()
+                    yield node, path
+        else:
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+
+                async for node, path in genr:
+                    async def genx():
+                        path.initframe(initvars={'cmdopts': cmdopts})
+                        yield node, path
+
+                    async for xnode, xpath in subr.execute(genr=genx()):
+                        path.finiframe()
+                        yield xnode, xpath
 
 class DivertCmd(Cmd):
     '''
@@ -2246,6 +2315,9 @@ class DivertCmd(Cmd):
 
     NOTE: This command is purpose built to facilitate the --yield convention
           common to storm commands.
+
+    NOTE: The genr argument must not be a function that returns, else it will
+          be invoked for each inbound node.
 
     Example:
         divert $cmdopts.yield $fooBarBaz()
@@ -2259,6 +2331,9 @@ class DivertCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+            raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
         if self.runtsafe:
 
