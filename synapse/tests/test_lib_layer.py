@@ -568,6 +568,17 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eqish(valu, stor.decodeIndx(indx[0]), places=3)
 
+    async def test_layer_stortype_idenseqn(self):
+        stor = s_layer.StorTypeIdenSeqn(None)
+
+        iden = '00ff00ff00ff00ff00ff00ff00ff00ff'
+        ihex = s_common.uhex(iden)
+        seqnbyts = b'\x80\x00\x00\x00\x00\x00\x00\x13'
+
+        byts = stor.indx((iden, 20))[0]
+        self.eq(ihex + seqnbyts, byts)
+        self.eq((iden, 20), stor.decodeIndx(byts))
+
     async def test_layer_stortype_ival(self):
         stor = s_layer.StorTypeIval(self)
 
