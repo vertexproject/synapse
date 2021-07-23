@@ -15,9 +15,9 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.link as s_link
 import synapse.lib.version as s_version
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
-import synapse.tests.test_lib_coro as s_t_coro
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -760,6 +760,11 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SpawnExit')
 
+                    # Create a rando slab inside cell dir
+                    slabpath = s_common.genpath(coredirn, 'randoslab')
+                    async with await s_lmdbslab.Slab.anit(slabpath):
+                        pass
+
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
 
@@ -773,8 +778,17 @@ class CellTest(s_t_utils.SynTest):
                     self.none(info['lastexception'])
                     self.none(info['lastupload'])
 
+                    # look inside backup
+                    backups = await proxy.getBackups()
+                    self.len(1, backups)
+                    backupdir = s_common.reqdir(backdirn, backups[0])
+                    s_common.reqpath(backupdir, 'cell.yaml')
+                    s_common.reqpath(backupdir, 'randoslab', 'data.mdb')
+
                     await proxy.delBackup(name)
                     self.eq((), await proxy.getBackups())
+                    self.false(os.path.exists(backupdir))
+
                     name = await proxy.runBackup(name='foo/bar')
 
                     with self.raises(s_exc.BadArg):
