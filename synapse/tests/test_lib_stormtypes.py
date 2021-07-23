@@ -3852,6 +3852,12 @@ class StormTypesTest(s_test.SynTest):
                      'storm': 'function x() { [ ps:person=* ] return($node) }',
                     },
                 ),
+                'commands': (
+                    {'name': 'authtest.asuser',
+                     'perms': (('wootwoot',), ),
+                     'storm': '$lib.print(hithere)',
+                    },
+                ),
             }
 
             msgs = await core.stormlist('pkg.perms.list asdfjahsdlfkj')
@@ -3884,6 +3890,9 @@ class StormTypesTest(s_test.SynTest):
             asvisi = {'user': visi.iden}
 
             with self.raises(s_exc.AuthDeny):
+                await core.nodes('authtest.asuser', opts=asvisi)
+
+            with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.import(authtest.privsep)', opts=asvisi)
 
             with self.raises(s_exc.AuthDeny):
@@ -3900,6 +3909,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('auth.role.addrule ninjas wootwoot')
             self.stormIsInPrint('Role (ninjas) added rule: wootwoot', msgs)
 
+            await core.nodes('authtest.asuser', opts=asvisi)
             self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))

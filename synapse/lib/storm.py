@@ -254,6 +254,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
+                'perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -2272,6 +2276,21 @@ class PureCmd(Cmd):
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg)
+
+        # if a command requires perms, check em!
+        # ( used to create more intuitive perm boundaries )
+        perms = self.cdef.get('perms')
+        if perms is not None:
+            allowed = False
+            for perm in perms:
+                if runt.allowed(perm):
+                    allowed = True
+                    break
+
+            if not allowed:
+                permtext = ' or '.join(('.'.join(p) for p in perms))
+                mesg = f'Command ({name}) requires permission: {permtext}'
+                raise s_exc.AuthDeny(mesg=mesg)
 
         text = self.cdef.get('storm')
         query = await runt.snap.core.getStormQuery(text)
