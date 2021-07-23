@@ -254,6 +254,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
+                'perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -2273,6 +2277,21 @@ class PureCmd(Cmd):
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg)
 
+        # if a command requires perms, check em!
+        # ( used to create more intuitive perm boundaries )
+        perms = self.cdef.get('perms')
+        if perms is not None:
+            allowed = False
+            for perm in perms:
+                if runt.allowed(perm):
+                    allowed = True
+                    break
+
+            if not allowed:
+                permtext = ' or '.join(('.'.join(p) for p in perms))
+                mesg = f'Command ({name}) requires permission: {permtext}'
+                raise s_exc.AuthDeny(mesg=mesg)
+
         text = self.cdef.get('storm')
         query = await runt.snap.core.getStormQuery(text)
 
@@ -2328,45 +2347,69 @@ class DivertCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('cond', help='The conditional value for the yield option.')
         pars.add_argument('genr', help='The generator function value that yields nodes.')
+        pars.add_argument('--size', default=None, help='The max number of times to iterate the generator.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if not isinstance(self.opts.genr, types.AsyncGeneratorType):
-            raise s_exc.BadArg(mesg='The genr argument must yield nodes')
-
         if self.runtsafe:
 
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
+            count = 0
             if doyield:
 
+                # in a runtsafe yield case we drop all the nodes
                 async for item in genr:
                     await asyncio.sleep(0)
 
                 async for item in self.opts.genr:
                     yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
             else:
 
+                # in a runtsafe non-yield case we pass nodes through
+                async for origitem in genr:
+                    yield origitem
+
                 async for item in self.opts.genr:
                     await asyncio.sleep(0)
-
-                async for item in genr:
-                    yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
 
             return
 
+        # non-runtsafe
         async for item in genr:
 
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            count = 0
             if doyield:
 
                 async for genritem in self.opts.genr:
                     yield genritem
+                    count += 1
+                    if size is not None and count >= size:
+                        break
             else:
 
                 async for genritem in self.opts.genr:
                     await asyncio.sleep(0)
+                    count += 1
+                    if size is not None and count >= size:
+                        break
 
                 yield item
 
