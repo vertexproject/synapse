@@ -169,6 +169,17 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await core.stormlist(storm)
             self.len(0, [mesg[1] for mesg in mesgs if mesg[0] == 'err'])
 
+            storm = '''
+            function y() {
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+            }
+            divert --size 2 $lib.true $y()
+            '''
+            self.len(2, await core.nodes(storm))
+
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
             self.len(1, await core.nodes('[ ou:org=* ]'))

@@ -2347,6 +2347,7 @@ class DivertCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('cond', help='The conditional value for the yield option.')
         pars.add_argument('genr', help='The generator function value that yields nodes.')
+        pars.add_argument('--size', default=None, help='The max number of times to iterate the generator.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2354,40 +2355,52 @@ class DivertCmd(Cmd):
         if not isinstance(self.opts.genr, types.AsyncGeneratorType):
             raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
-        if self.runtsafe:
+        async def wrapgenr():
+            if self.runtsafe:
 
-            doyield = await s_stormtypes.tobool(self.opts.cond)
+                doyield = await s_stormtypes.tobool(self.opts.cond)
 
-            if doyield:
+                if doyield:
 
-                async for item in genr:
-                    await asyncio.sleep(0)
+                    async for item in genr:
+                        await asyncio.sleep(0)
 
-                async for item in self.opts.genr:
+                    async for item in self.opts.genr:
+                        yield item
+                else:
+
+                    async for item in self.opts.genr:
+                        await asyncio.sleep(0)
+
+                    async for item in genr:
+                        yield item
+
+                return
+
+            async for item in genr:
+
+                doyield = await s_stormtypes.tobool(self.opts.cond)
+                if doyield:
+
+                    async for genritem in self.opts.genr:
+                        yield genritem
+                else:
+
+                    async for genritem in self.opts.genr:
+                        await asyncio.sleep(0)
+
                     yield item
-            else:
 
-                async for item in self.opts.genr:
-                    await asyncio.sleep(0)
+        size = await s_stormtypes.toint(self.opts.size, noneok=True)
 
-                async for item in genr:
-                    yield item
+        count = 0
+        async for wrapitem in wrapgenr():
 
-            return
+            yield wrapitem
 
-        async for item in genr:
-
-            doyield = await s_stormtypes.tobool(self.opts.cond)
-            if doyield:
-
-                async for genritem in self.opts.genr:
-                    yield genritem
-            else:
-
-                async for genritem in self.opts.genr:
-                    await asyncio.sleep(0)
-
-                yield item
+            count += 1
+            if size is not None and count >= size:
+                break
 
 class HelpCmd(Cmd):
     '''
