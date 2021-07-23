@@ -2352,7 +2352,6 @@ class DivertCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        count = 0
         if self.runtsafe:
 
             if not isinstance(self.opts.genr, types.AsyncGeneratorType):
@@ -2361,6 +2360,7 @@ class DivertCmd(Cmd):
             size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
+            count = 0
             if doyield:
 
                 # in a runtsafe yield case we drop all the nodes
@@ -2395,6 +2395,7 @@ class DivertCmd(Cmd):
             size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
+            count = 0
             if doyield:
 
                 async for genritem in self.opts.genr:
