@@ -3909,7 +3909,9 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('auth.role.addrule ninjas wootwoot')
             self.stormIsInPrint('Role (ninjas) added rule: wootwoot', msgs)
 
-            await core.nodes('authtest.asuser', opts=asvisi)
+            msgs = await core.stormlist('authtest.asuser', opts=asvisi)
+            self.stormIsInPrint('hithere', msgs)
+
             self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
 
             self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
