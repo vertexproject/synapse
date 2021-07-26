@@ -595,13 +595,14 @@ class StormSvcTest(s_test.SynTest):
                     self.none(await core.getStormPkg('boom'))
                     self.none(core.getStormCmd('badcmd'))
 
-                    # svc prim behavior
+                    # Test for current equality behavior
+                    # will be fixed once stormtypes support equality comparisons
                     scmd = '''
                         $svc = $lib.service.get(prim)
                         if ($svc = $lib.null) { return($lib.false) }
                         else { return($lib.true) }
                     '''
-                    self.true(await core.callStorm(scmd))
+                    await self.asyncraises(s_exc.SynErr, core.callStorm(scmd))
 
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work
@@ -934,18 +935,58 @@ class StormSvcTest(s_test.SynTest):
 
     async def test_storm_svc_share(self):
 
+        async def chkShareFini(s):
+            for b in s.tofini:
+                if isinstance(b, SvcShare):
+                    return await b.waitfini(timeout=5)
+            return True
+
         async with self.getTestCoreProxSvc(ShareServiceCell) as (core, prox, svc):
 
+            # base
+            scmd = '''
+                $svc = $lib.service.get(sharer)
+                $share = $svc.getShare()
+                return($share.foo())
+            '''
+            ret = await core.callStorm(scmd)
+            self.eq('bar', ret)
+            self.true(await chkShareFini(svc))
+
+            # from sub runtime
             scmd = '''
                 $share = $lib.import(sharer).get()
                 return($share.foo())
             '''
             ret = await core.callStorm(scmd)
             self.eq('bar', ret)
+            self.true(await chkShareFini(svc))
 
-            scmd = '''
-                $share = $lib.import(sharer).get()
-                if ($share = $lib.null) { return($lib.false) }
-                else { return($lib.true) }
-            '''
-            self.true(await core.callStorm(scmd))
+        async with self.getTestCore() as core:
+            async with self.getTestCell(ShareServiceCell) as svc:
+
+                opts = {'vars': {'url': svc.getLocalUrl()}}
+
+                # base
+                scmd = '''
+                    $prox = $lib.telepath.open($url)
+                    $share = $prox.getShare()
+                    return($share.foo())
+                '''
+                ret = await core.callStorm(scmd, opts=opts)
+                self.eq('bar', ret)
+                self.true(await chkShareFini(svc))
+
+                # from sub runtime
+                scmd = '''
+                    function get(url) {
+                        $prox = $lib.telepath.open($url)
+                        $share = $prox.getShare()
+                        return($share)
+                    }
+                    $share = $get($url)
+                    return($share.foo())
+                '''
+                ret = await core.callStorm(scmd, opts=opts)
+                self.eq('bar', ret)
+                self.true(await chkShareFini(svc))

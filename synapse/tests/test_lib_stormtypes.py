@@ -4331,10 +4331,6 @@ class StormTypesTest(s_test.SynTest):
         self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
         self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
 
-        sprx = s_stormtypes.Proxy(None)
-        ret = await s_stormtypes.toprim(sprx)
-        self.true(sprx is ret)
-
         self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
         self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
         self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bool(True)))

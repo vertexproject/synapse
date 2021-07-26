@@ -106,7 +106,7 @@ class StormSvc:
     async def getStormSvcPkgs(self):
         return self._storm_svc_pkgs
 
-class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
+class StormSvcClient(s_base.Base):
     '''
     A StormService is a wrapper for a telepath proxy to a service
     accessible from the storm runtime.
@@ -114,7 +114,6 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
     async def __anit__(self, core, sdef):
 
         await s_base.Base.__anit__(self)
-        s_stormtypes.Proxy.__init__(self, None)
 
         self.core = core
         self.sdef = sdef
@@ -131,9 +130,7 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
 
         self.ready = asyncio.Event()
 
-        proxy = await s_telepath.Client.anit(url, onlink=self._onTeleLink)
-        s_stormtypes.Proxy.__init__(self, proxy)
-
+        self.proxy = await s_telepath.Client.anit(url, onlink=self._onTeleLink)
         self.onfini(self.proxy.fini)
 
     async def _runSvcInit(self):
@@ -207,17 +204,3 @@ class StormSvcClient(s_base.Base, s_stormtypes.Proxy):
         proxy.onfini(unready)
 
         self.ready.set()
-
-    async def deref(self, name):
-
-        # method used by storm runtime library on deref
-        try:
-            await self.proxy.waitready()
-            return await s_stormtypes.Proxy.deref(self, name)
-        except asyncio.TimeoutError:
-            mesg = f'Timeout waiting for storm service {self.name}.{name}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
-        except AttributeError as e:  # pragma: no cover
-            # possible client race condition seen in the real world
-            mesg = f'Error dereferencing storm service - {self.name}.{name} - {str(e)}'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
