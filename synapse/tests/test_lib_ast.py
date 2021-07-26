@@ -2044,6 +2044,10 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=vi'))
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=visi'))
 
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (inet:fqdn, inet:ipv4)'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (meta:source, inet:fqdn)'))
+            self.len(1, await core.nodes('function form() {return(meta:source)} inet:ipv4=1.2.3.4 <(seen)- $form()'))
+
             await core.nodes('[ inet:ipv4=1.2.3.4 <(seen)+ { [meta:source=*] } ]')
             self.len(2, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))

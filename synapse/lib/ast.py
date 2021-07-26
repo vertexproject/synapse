@@ -3176,7 +3176,7 @@ class N1Walk(Oper):
 
         async def destfilt(destforms, node, path):
 
-            if not isinstance(destforms, tuple):
+            if not isinstance(destforms, (tuple, list)):
                 destforms = (destforms, )
 
             for destform in destforms:
