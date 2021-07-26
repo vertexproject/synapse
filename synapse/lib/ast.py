@@ -3214,8 +3214,6 @@ class N1Walk(Oper):
 
                 if prop.type.cmpr(nodevalu, cmpr, cmprvalu):
                     return True
-                #if prop.type.getCmprCtor(cmpr)(valu):
-                    #return True
 
             return False
 
@@ -3248,10 +3246,6 @@ class N1Walk(Oper):
                         continue
 
                     yield walknode, path.fork(walknode)
-
-            #else:
-                #mesg = f'walk operation expected a string or list.  got: {verb!r}.'
-                #raise s_exc.StormRuntimeError(mesg=mesg)
 
 class N2Walk(N1Walk):
 
