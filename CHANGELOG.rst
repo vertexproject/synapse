@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.50.0 - 2021-07-22
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``storm:node:data``
+  object for easy caching of structured data on nodes based on time.
+  (`#2290 <https://github.com/vertexproject/synapse/pull/2290>`_)
+- Make the Stormtypes unique properly with a Set type. This does disallow the
+  use of mutable types such as dictionaries inside of a Set.
+  (`#2225 <https://github.com/vertexproject/synapse/pull/2225>`_)
+- Skip executing non-runtsafe commands when there are no inbound nodes.
+  (`#2291 <https://github.com/vertexproject/synapse/pull/2291>`_)
+- Add ``asroot:perms`` key to Storm Package modules. This allows package
+  authors to easily declare permissions their packages. Add Storm commands
+  ``auth.user.add``, ``auth.role.add``, ``auth.user.addrule``,
+  ``auth.role.addrule``, and ``pkg.perms.list`` to help with some of the
+  permission management.
+  (`#2294 <https://github.com/vertexproject/synapse/pull/2294>`_)
+
+
 v2.49.0 - 2021-07-19
 ====================
 
