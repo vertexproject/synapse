@@ -134,8 +134,13 @@ _N1WALKFINI: ")>"
 _N2WALKINIT: "<("
 _N2WALKFINI: ")-"
 
-n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _valu
-n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _valu
+WILDCARD: "*"
+
+// A wild card, full prop, list, or $varvalu
+_wildprops: WILDCARD | PROPS | valulist | _varvalu
+
+n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
+n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
 
 _WALKNPIVON1: "-->"
 _WALKNPIVON2: "<--"
