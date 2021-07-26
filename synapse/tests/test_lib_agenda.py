@@ -693,6 +693,16 @@ class AgendaTest(s_t_utils.SynTest):
             # the view read perm for the special view)
             await fail.addRule((True, ('cron', 'add')))
 
+            # Do some monkeying with fail's default view, but give them a corrupt view with a bad iden
+            # that doesn't in the cortex views
+            await fail.profile.set('cortex:view', fakeiden)
+            opts = {'user': fail.iden, 'view': defview.iden}
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('cron.add --minute +1 { $lib.queue.get(testq).put(lolnope) }', opts=opts)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('cron.at --minute +1 { $lib.queue.get(testq).put(lolnope) }', opts=opts)
+            await fail.profile.pop('cortex:view')
+
             # But we should still fail on this:
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('cron.add --view $newview --minute +2 { $lib.queue.get(testq).put(lolnope) $lib.time.sleep(10)}', opts=asfail)
@@ -710,7 +720,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # but should work on the default view
             opts = {'user': fail.iden, 'view': defview.iden, 'vars': {'defview': defview.iden}}
-            await core.callStorm('cron.at --view $defview --minute +1 { $lib.queue.get(testq).put((44)) }', opts=opts)
+            await prox.callStorm('cron.at --view $defview --minute +1 { $lib.queue.get(testq).put((44)) }', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
@@ -723,7 +733,7 @@ class AgendaTest(s_t_utils.SynTest):
             await core.callStorm('$lib.queue.get(testq).cull(0)')
 
             opts = {'vars': {'newview': newview}}
-            await core.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.get(testq).put($node) $lib.time.sleep(10) }', opts=opts)
+            await prox.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.get(testq).put($node) $lib.time.sleep(10) }', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)

@@ -6414,8 +6414,14 @@ class LibCron(Lib):
             cdef['iden'] = iden
 
         view = kwargs.get('view')
-        if view:
-            cdef['view'] = view
+        if not view:
+            todo = s_common.todo('getView', user=self.runt.user)
+            vdef = await self.runt.dyncall('cortex', todo)
+            if not vdef:
+                mesg = f'Could not get default view for user {self.runt.user.iden}'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            view = vdef.iden
+        cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
@@ -6490,8 +6496,14 @@ class LibCron(Lib):
             cdef['iden'] = iden
 
         view = kwargs.get('view')
-        if view:
-            cdef['view'] = view
+        if not view:
+            todo = s_common.todo('getView', user=self.runt.user)
+            vdef = await self.runt.dyncall('cortex', todo)
+            if not vdef:
+                mesg = f'Could not get default view for user {self.runt.user.iden}'
+                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
+            view = vdef.iden
+        cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)

@@ -4730,6 +4730,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('cron:move')
     async def _onMoveCronJob(self, croniden, viewiden):
         await self.agenda.move(croniden, viewiden)
+        return croniden
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
