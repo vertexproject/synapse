@@ -408,13 +408,13 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:trigger:storm~="inet:user"')
             self.len(3, nodes)
 
+            # lift triggers for a different view
             forkview = await core.callStorm('return($lib.view.get().fork().iden)')
 
             tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[inet:user=1] | testcmd'}
             view = core.getView(forkview)
             await view.addTrigger(tdef)
 
-            # lift triggers for a different view
             triggers = view.triggers.list()
             iden = triggers[0][0]
             self.len(1, triggers)
