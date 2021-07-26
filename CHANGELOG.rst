@@ -17,8 +17,8 @@ Features and Enhancements
   adding intuitive permission boundaries for pure Storm commands which are
   checked prior to command execution.
   (`#2297 <https://github.com/vertexproject/synapse/pull/2297>`_)
-- Allow specifying full properties with comparators when specifyign the
-  destination or source when walking light edges.
+- Allow full properties with comparators when specifying the destination
+  or source when walking light edges.
   (`#2298 <https://github.com/vertexproject/synapse/pull/2298>`_)
 
 Bugfixes
