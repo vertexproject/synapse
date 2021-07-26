@@ -3227,10 +3227,16 @@ class N1Walk(Oper):
             dest = await self.kids[1].compute(runt, path)
             dest = await s_stormtypes.toprim(dest)
 
+            if not isinstance(verbs, (str, list, tuple)):
+                mesg = f'walk operation expected a string or list.  got: {verbs!r}.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
             if isinstance(verbs, str):
                 verbs = (verbs,)
 
             for verb in verbs:
+
+                verb = await s_stormtypes.tostr(verb)
 
                 if verb == '*':
                     verb = None

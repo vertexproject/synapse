@@ -300,10 +300,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('media:news -((refs,foos))> mat:spec'))
             self.len(0, await core.nodes('inet:ipv4 <((refs,foos))- mat:spec'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 self.len(0, await core.nodes('inet:ipv4 <(*)- $(0)'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 self.len(0, await core.nodes('media:news -(*)> $(0)'))
 
             with self.raises(s_exc.StormRuntimeError):
@@ -374,7 +374,7 @@ class CortexTest(s_t_utils.SynTest):
             # add an edge that exists already to bounce off the layer
             await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
 
-            with self.raises(s_exc.StormRuntimeError) as cm:
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('media:news -(refs)> $(10)')
 
             self.eq(1, await core.callStorm('''
