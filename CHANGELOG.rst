@@ -5,12 +5,34 @@ Synapse Changelog
 *****************
 
 
+v2.51.0 - 2021-07-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--size`` option to the Storm ``divert`` command to limit the number
+  of times the generator is iterated.
+  (`#2297 <https://github.com/vertexproject/synapse/pull/2297>`_)
+- Add a ``perms`` key to the pure Storm command definition. This allows for
+  adding intuitive permission boundaries for pure Storm commands which are
+  checked prior to command execution.
+  (`#2297 <https://github.com/vertexproject/synapse/pull/2297>`_)
+- Allow full properties with comparators when specifying the destination
+  or source when walking light edges.
+  (`#2298 <https://github.com/vertexproject/synapse/pull/2298>`_)
+
+Bugfixes
+--------
+- Fix an issue with LMDB slabs not being backed up if their directories did
+  not end in ``.lmdb``.
+  (`#2296 <https://github.com/vertexproject/synapse/pull/2296>`_)
+
+
 v2.50.0 - 2021-07-22
 ====================
 
 Features and Enhancements
 -------------------------
-
 - Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``storm:node:data``
   object for easy caching of structured data on nodes based on time.
   (`#2290 <https://github.com/vertexproject/synapse/pull/2290>`_)
