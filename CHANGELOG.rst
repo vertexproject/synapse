@@ -10,7 +10,6 @@ v2.50.0 - 2021-07-22
 
 Features and Enhancements
 -------------------------
-
 - Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``storm:node:data``
   object for easy caching of structured data on nodes based on time.
   (`#2290 <https://github.com/vertexproject/synapse/pull/2290>`_)
