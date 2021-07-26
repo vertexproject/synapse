@@ -3170,62 +3170,82 @@ class N1Walk(Oper):
 
     async def run(self, runt, genr):
 
-        @s_cache.memoize(size=100)
-        def isDestForm(formname, destforms):
+        cmpr = None
+        if len(self.kids) == 4:
+            cmpr = await self.kids[2].compute(runt, None)
+
+        async def destfilt(destforms, node, path):
 
             if not isinstance(destforms, tuple):
                 destforms = (destforms, )
 
             for destform in destforms:
 
-                if not isinstance(destform, str):
-                    mesg = f'walk operation expected a string or list for dest. got: {destform!r}'
-                    raise s_exc.StormRuntimeError(mesg=mesg)
-
                 if destform == '*':
+                    if cmpr is not None:
+                        mesg = 'Wild card walk operations do not support comparison.'
+                        raise s_exc.StormRuntimeError(mesg=mesg)
                     return True
 
-                if formname == destform:
-                    return True
-
-                if destform not in runt.model.forms:
-                    mesg = f'walk operation exported a valid form or wildcard destination. got: {destform}'
+                prop = runt.model.prop(destform)
+                if prop is None:
+                    mesg = f'walk operation expects dest to be a prop got: {destform!r}'
                     raise s_exc.StormRuntimeError(mesg=mesg)
+
+                if prop.form.full != node.form.full:
+                    continue
+
+                if cmpr is None:
+
+                    if prop.isform:
+                        return True
+
+                    if node.get(prop.name) is not None:
+                        return True
+
+                    return False
+
+                if prop.isform:
+                    nodevalu = node.ndef[1]
+                else:
+                    nodevalu = node.get(prop.name)
+
+                cmprvalu = await self.kids[3].compute(runt, path)
+
+                if prop.type.cmpr(nodevalu, cmpr, cmprvalu):
+                    return True
+                #if prop.type.getCmprCtor(cmpr)(valu):
+                    #return True
 
             return False
 
         async for node, path in genr:
 
-            verb = await self.kids[0].compute(runt, path)
-            verb = await s_stormtypes.toprim(verb)
+            verbs = await self.kids[0].compute(runt, path)
+            verbs = await s_stormtypes.toprim(verbs)
 
             dest = await self.kids[1].compute(runt, path)
             dest = await s_stormtypes.toprim(dest)
 
-            if isinstance(verb, str):
+            if isinstance(verbs, str):
+                verbs = (verbs,)
+
+            for verb in verbs:
+
                 if verb == '*':
                     verb = None
 
                 async for walknode in self.walkNodeEdges(runt, node, verb=verb):
-                    if not isDestForm(walknode.form.name, dest):
+
+                    if not await destfilt(dest, walknode, path):
                         await asyncio.sleep(0)
                         continue
+
                     yield walknode, path.fork(walknode)
 
-            elif isinstance(verb, (list, tuple)):
-                for verb in verb:
-                    if verb == '*':
-                        verb = None
-
-                    async for walknode in self.walkNodeEdges(runt, node, verb=verb):
-                        if not isDestForm(walknode.form.name, dest):
-                            await asyncio.sleep(0)
-                            continue
-                        yield walknode, path.fork(walknode)
-
-            else:
-                mesg = f'walk operation expected a string or list.  got: {verb!r}.'
-                raise s_exc.StormRuntimeError(mesg=mesg)
+            #else:
+                #mesg = f'walk operation expected a string or list.  got: {verb!r}.'
+                #raise s_exc.StormRuntimeError(mesg=mesg)
 
 class N2Walk(N1Walk):
 
