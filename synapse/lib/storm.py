@@ -193,6 +193,26 @@ reqValidPkgdef = s_config.getJsValidator({
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'author': {
+            'type': 'object',
+            'properties': {
+                'url': {'type': 'string'},
+                'name': {'type': 'string'},
+            },
+            'required': ['name', 'url'],
+        },
+        'perms': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'perm': {'type': 'array', 'items': {'type': 'string'}},
+                    'desc': {'type': 'string'},
+                    'gate': {'type': 'string'},
+                },
+                'required': ['perm', 'desc', 'gate'],
+            },
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -212,6 +232,11 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'asroot': {'type': 'boolean'},
+                'asroot:perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -229,6 +254,10 @@ reqValidPkgdef = s_config.getJsValidator({
                 },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
+                'perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -572,6 +601,36 @@ stormcmds = (
                 $lib.print('Loaded storm packages:')
                 for $pkg in $pkgs {
                     $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.perms.list',
+        'descr': 'List any permissions declared by the package.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package.'}),
+        ),
+        'storm': '''
+            $pdef = $lib.null
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pdef = $pkg
+                    break
+                }
+            }
+
+            if (not $pdef) {
+                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+            } else {
+                if $pdef.perms {
+                    $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
+                    for $permdef in $pdef.perms {
+                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
+                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                    }
+                } else {
+                    $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
                 }
             }
         '''
@@ -2218,6 +2277,21 @@ class PureCmd(Cmd):
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg)
 
+        # if a command requires perms, check em!
+        # ( used to create more intuitive perm boundaries )
+        perms = self.cdef.get('perms')
+        if perms is not None:
+            allowed = False
+            for perm in perms:
+                if runt.allowed(perm):
+                    allowed = True
+                    break
+
+            if not allowed:
+                permtext = ' or '.join(('.'.join(p) for p in perms))
+                mesg = f'Command ({name}) requires permission: {permtext}'
+                raise s_exc.AuthDeny(mesg=mesg)
+
         text = self.cdef.get('storm')
         query = await runt.snap.core.getStormQuery(text)
 
@@ -2273,45 +2347,69 @@ class DivertCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('cond', help='The conditional value for the yield option.')
         pars.add_argument('genr', help='The generator function value that yields nodes.')
+        pars.add_argument('--size', default=None, help='The max number of times to iterate the generator.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
-        if not isinstance(self.opts.genr, types.AsyncGeneratorType):
-            raise s_exc.BadArg(mesg='The genr argument must yield nodes')
-
         if self.runtsafe:
 
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
+            count = 0
             if doyield:
 
+                # in a runtsafe yield case we drop all the nodes
                 async for item in genr:
                     await asyncio.sleep(0)
 
                 async for item in self.opts.genr:
                     yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
             else:
 
+                # in a runtsafe non-yield case we pass nodes through
+                async for origitem in genr:
+                    yield origitem
+
                 async for item in self.opts.genr:
                     await asyncio.sleep(0)
-
-                async for item in genr:
-                    yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
 
             return
 
+        # non-runtsafe
         async for item in genr:
 
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            count = 0
             if doyield:
 
                 async for genritem in self.opts.genr:
                     yield genritem
+                    count += 1
+                    if size is not None and count >= size:
+                        break
             else:
 
                 async for genritem in self.opts.genr:
                     await asyncio.sleep(0)
+                    count += 1
+                    if size is not None and count >= size:
+                        break
 
                 yield item
 

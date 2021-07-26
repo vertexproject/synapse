@@ -2018,3 +2018,36 @@ class AstTest(s_test.SynTest):
             await core.nodes('[ file:bytes=$asdf ]', opts=opts)
             await core.axon.put(b'asdf')
             self.len(1, await core.nodes('file:bytes +$lib.bytes.has(:sha256)'))
+
+    async def test_ast_walkcond(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('[ meta:source=* :name=woot ] return($node.repr())')
+            opts = {'vars': {'iden': iden}}
+
+            await core.nodes('[ inet:ipv4=5.5.5.5 ]')
+            await core.nodes('[ inet:ipv4=1.2.3.4 <(seen)+ { meta:source=$iden } ]', opts=opts)
+
+            with self.raises(s_exc.StormRuntimeError):
+                self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- *=woot'))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- *'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source=$iden', opts=opts))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=wo'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=woot'))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source=*'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=vi'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=visi'))
+
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (inet:fqdn, inet:ipv4)'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (meta:source, inet:fqdn)'))
+            self.len(1, await core.nodes('function form() {return(meta:source)} inet:ipv4=1.2.3.4 <(seen)- $form()'))
+
+            await core.nodes('[ inet:ipv4=1.2.3.4 <(seen)+ { [meta:source=*] } ]')
+            self.len(2, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))
