@@ -445,7 +445,7 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None):
+    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
 
         now = s_common.now()
         modl = self.core.model
