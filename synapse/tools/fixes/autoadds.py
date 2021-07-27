@@ -167,7 +167,7 @@ data = (
 )
 
 
-template = '$now=$lib.time.now() {fullprop} $valu={secprop} [{form}=$valu] +{form}.created>=$now | count | spin',
+template = '$now=$lib.time.now() {fullprop} $valu={secprop} [{form}=$valu] +{form}.created>=$now | count | spin'
 missing_autoadds = (
     ('inet:dns:request:query:name:fqdn', ':query:name:fqdn', 'inet:fqdn',),
     ('inet:dns:request:query:name:ipv4', ':query:name:ipv4', 'inet:ipv4',),
@@ -182,6 +182,8 @@ storm_queries = []
 for fullprop, secprop, form in missing_autoadds:
     query = template.format(fullprop=fullprop, secprop=secprop, form=form)
     storm_queries.append(query)
+
+view_query = '$list = $lib.list() for $view in $lib.view.list() { $list.append($view.pack()) } return ( $list )'
 
 import collections
 
@@ -263,11 +265,10 @@ async def fixCortexAutoAdds(prox, outp, debug=False, dry_run=False):
     # 1 - get view definitions
     # 2 - order views into a list of trees to fix
     # 3 - fix each view in order by lifting all known missing autoadds
-    # user_info = await prox.getCellUser()
-    # assert user_info.get('admin') is True, "User is not an admin"
-    #
-    # q = '$list = $lib.list() for $view in $lib.view.list() { $list.append($view.pack()) } return ( $list )'
-    # views = await prox.callStorm(q)
+    user_info = await prox.getCellUser()
+    assert user_info.get('admin') is True, "User is not an admin"
+
+    views = await prox.callStorm(view_query)
 
     views = data
 
@@ -288,7 +289,7 @@ async def fixCortexAutoAdds(prox, outp, debug=False, dry_run=False):
                     outp.print(f'ERROR: {mesg[1]}')
                     continue
 
-async def _main(argv, outp: s_output.Output):
+async def _main(argv, outp: s_output.OutPut):
     pars = getArgParser()
     opts = pars.parse_args(argv)
     async with await s_telepath.openurl(argv[0]) as prox:
