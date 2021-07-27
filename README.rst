@@ -41,12 +41,12 @@ Connect With Us
 
 .. _pypi: https://pypi.python.org/pypi/synapse
 
-.. _website: http://snip.ly/v3bjz5
+.. _website: https://vertex.link
 
-.. _training: https://snip.ly/p7vy8p
+.. _training: https://lu.ma/vertexproject
 
 .. _Twitter: https://twitter.com/vtxproject
 
 .. _LinkedIn: https://www.linkedin.com/company/vertexproject
 
-.. _here: https://snip.ly/80wv4t
+.. _here: https://synapse.docs.vertex.link/en/latest/index.html
