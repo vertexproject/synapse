@@ -1,6 +1,6 @@
 import asyncio
-import datetime
 import hashlib
+import datetime
 from unittest import mock
 from datetime import timezone as tz
 
@@ -692,16 +692,6 @@ class AgendaTest(s_t_utils.SynTest):
             # let's give fail permissions to do some things, but not in our super special view (fail is missing
             # the view read perm for the special view)
             await fail.addRule((True, ('cron', 'add')))
-
-            # Do some monkeying with fail's default view, but give them a corrupt view with a bad iden
-            # that doesn't in the cortex views
-            await fail.profile.set('cortex:view', fakeiden)
-            opts = {'user': fail.iden, 'view': defview.iden}
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('cron.add --minute +1 { $lib.queue.get(testq).put(lolnope) }', opts=opts)
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('cron.at --minute +1 { $lib.queue.get(testq).put(lolnope) }', opts=opts)
-            await fail.profile.pop('cortex:view')
 
             # But we should still fail on this:
             with self.raises(s_exc.AuthDeny):

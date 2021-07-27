@@ -6415,16 +6415,11 @@ class LibCron(Lib):
 
         view = kwargs.get('view')
         if not view:
-            todo = s_common.todo('getView', user=self.runt.user)
-            vdef = await self.runt.dyncall('cortex', todo)
-            if not vdef:
-                mesg = f'Could not get default view for user {self.runt.user.iden}'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            view = vdef.iden
+            view = self.runt.snap.view.iden
         cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
-        gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
+        gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return CronJob(self.runt, cdef, path=self.path)
@@ -6497,16 +6492,11 @@ class LibCron(Lib):
 
         view = kwargs.get('view')
         if not view:
-            todo = s_common.todo('getView', user=self.runt.user)
-            vdef = await self.runt.dyncall('cortex', todo)
-            if not vdef:
-                mesg = f'Could not get default view for user {self.runt.user.iden}'
-                raise s_exc.StormRuntimeError(mesg=mesg, kwargs=kwargs)
-            view = vdef.iden
-        cdef['view'] = view
+            view = self.run.snap.view.iden
+        view = self.runt.snap.view.iden
 
         todo = s_common.todo('addCronJob', cdef)
-        gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
+        gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return CronJob(self.runt, cdef, path=self.path)
@@ -6532,10 +6522,8 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        todo = s_common.todo('moveCronJob', self.runt.user.iden, iden, view)
-        gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
-        return iden
+        self.runt.confirm(('cron', 'set'), gateiden=iden)
+        return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
 
     async def _methCronList(self):
         todo = s_common.todo('listCronJobs')
@@ -6638,7 +6626,7 @@ class CronJob(Prim):
         user = self.valu.get('username')
         view = self.valu.get('view')
         if not view:
-            view = 'default'
+            view = await self.runt.snap.core.getView()
 
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
