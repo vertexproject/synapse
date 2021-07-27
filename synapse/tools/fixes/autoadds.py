@@ -3,6 +3,7 @@ import asyncio
 import logging
 import argparse
 import contextlib
+import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -44,8 +45,6 @@ for fullprop, secprop, form in missing_autoadds:
     storm_queries.append(query)
 
 view_query = '$list = $lib.list() for $view in $lib.view.list() { $list.append($view.pack()) } return ( $list )'
-
-import collections
 
 def tree():
     return collections.defaultdict(tree)
