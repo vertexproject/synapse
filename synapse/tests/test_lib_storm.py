@@ -2042,7 +2042,7 @@ class StormTest(s_t_utils.SynTest):
                 'commands': (
                     {'name': 'woot', 'cmdinputs': (
                         {'form': 'hehe:haha'},
-                        {'form': 'hoho:lol', 'desc': 'We know whats up'}
+                        {'form': 'hoho:lol', 'help': 'We know whats up'}
                     )},
                 ),
             }

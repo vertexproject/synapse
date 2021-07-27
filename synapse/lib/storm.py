@@ -286,7 +286,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': 'object',
             'properties': {
                 'form': {'type': 'string'},
-                'desc': {'type': 'string'},
+                'help': {'type': 'string'},
             },
             'additionalProperties': True,
             'required': ['form'],
@@ -2100,7 +2100,7 @@ class Parser:
             for idef in self.inputs:
                 form = idef.get('form').ljust(formsize)
                 text = f'    {form}'
-                desc = idef.get('desc')
+                desc = idef.get('help')
                 if desc:
                     text += f' - {desc}'
                 self._printf(text)
