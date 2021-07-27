@@ -6492,7 +6492,7 @@ class LibCron(Lib):
 
         view = kwargs.get('view')
         if not view:
-            view = self.run.snap.view.iden
+            view = self.runt.snap.view.iden
         view = self.runt.snap.view.iden
 
         todo = s_common.todo('addCronJob', cdef)
