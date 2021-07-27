@@ -24,51 +24,52 @@ class SynModule(s_module.CoreModule):
                 pfull = prop.full
                 self.core.addRuntLift(pfull, lifter)
 
-    async def _liftRuntSynCmd(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynCmd(self, full, valu=None, cmpr=None, view=None):
 
         genr = self.core.stormcmds.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _liftRuntSynCron(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynCron(self, full, valu=None, cmpr=None, view=None):
 
         genr = self.core.agenda.appts.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _liftRuntSynForm(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynForm(self, full, valu=None, cmpr=None, view=None):
 
         genr = self.model.forms.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _liftRuntSynProp(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynProp(self, full, valu=None, cmpr=None, view=None):
 
         genr = self.model.getProps
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _liftRuntSynType(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynType(self, full, valu=None, cmpr=None, view=None):
 
         genr = self.model.types.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None, view=None):
 
         genr = self.model.tagprops.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node
 
-    async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None):
+    async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.core.view.triggers.triggers.values
+        view = self.core.getView(iden=view)
+        genr = view.triggers.triggers.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):
             yield node

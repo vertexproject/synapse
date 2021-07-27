@@ -20,6 +20,14 @@ and BOB@WOOT.COM is another
 
 '''
 
+data1 = '''
+    tcp://foo[.]bar[.]org:4665/,
+    tcp://foo[.]bar[.]org:4665/.
+    tcp://foo.bar.org:4665/.,.
+    tcp://foo.bar.org:4665/,.,
+    tcp://foo.bar.org:4665/,,..a
+'''
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
@@ -43,6 +51,18 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
         self.len(0, nodes)
+
+        nodes = list(s_scrape.scrape(data1))
+        self.len(10, nodes)
+        for _ in range(5):
+            nodes.remove(('inet:fqdn', 'foo.bar.org'))
+
+        # URLs should not include any trailing periods or commas.
+        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32, )
