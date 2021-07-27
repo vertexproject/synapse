@@ -3166,7 +3166,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         self._runtLiftFuncs[prop] = func
 
-    async def runRuntLift(self, full, valu=None, cmpr=None):
+    async def runRuntLift(self, full, valu=None, cmpr=None, view=None):
         '''
         Execute a runt lift function.
 
@@ -3182,7 +3182,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         func = self._runtLiftFuncs.get(full)
         if func is not None:
-            async for pode in func(full, valu, cmpr):
+            async for pode in func(full, valu, cmpr, view):
                 yield pode
 
     def addRuntPropSet(self, full, func):
