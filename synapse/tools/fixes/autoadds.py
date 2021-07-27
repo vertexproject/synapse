@@ -175,7 +175,18 @@ missing_autoadds = (
     ('inet:dns:query:name:fqdn', ':name:fqdn', 'inet:fqdn',),
     ('inet:dns:query:name:ipv4', ':name:ipv4', 'inet:ipv4',),
     ('inet:dns:query:name:ipv6', ':name:ipv6', 'inet:ipv6',),
-
+    ('inet:asnet4:net4:min', ':net4:min', 'inet:ipv4',),
+    ('inet:asnet4:net4:max', ':net4:max', 'inet:ipv4',),
+    ('inet:asnet6:net6:min', ':net6:min', 'inet:ipv6',),
+    ('inet:asnet6:net6:max', ':net6:max', 'inet:ipv6',),
+    ('inet:whois:iprec:net4:min', ':net4:min', 'inet:ipv4',),
+    ('inet:whois:iprec:net4:max', ':net4:max', 'inet:ipv4',),
+    ('inet:whois:iprec:net6:min', ':net6:min', 'inet:ipv6',),
+    ('inet:whois:iprec:net6:max', ':net6:max', 'inet:ipv6',),
+    ('it:app:snort:hit:src:ipv4', ':src:ipv4', 'inet:ipv4',),
+    ('it:app:snort:hit:src:ipv6', ':src:ipv6', 'inet:ipv6',),
+    ('it:app:snort:hit:dst:ipv4', ':dst:ipv4', 'inet:ipv4',),
+    ('it:app:snort:hit:dst:ipv6', ':dst:ipv6', 'inet:ipv6',),
 )
 
 storm_queries = []
@@ -261,47 +272,44 @@ def getOrderedViews(views, outp, debug=False):
     return ret
 
 async def fixCortexAutoAdds(prox, outp, debug=False, dry_run=False):
-    # 0 - Am I a admin?
-    # 1 - get view definitions
-    # 2 - order views into a list of trees to fix
-    # 3 - fix each view in order by lifting all known missing autoadds
+    # Admin check
     user_info = await prox.getCellUser()
-    assert user_info.get('admin') is True, "User is not an admin"
+    if not user_info.get('admin'):
+        outp.printf("User is not an admin")
+        return 1
 
+    # Get views and order them
     views = await prox.callStorm(view_query)
-
-    views = data
-
     view_list = getOrderedViews(views, outp=outp, debug=debug)
 
     for view in view_list:
-        outp.print(f'Fixing Missing autoads on view {view}')
+        outp.printf(f'Fixing Missing autoads on view {view}')
         for q in storm_queries:
             opts = {'view': view, 'edits': 'none'}
-            outp.print(f'Executing query: [{q}]')
+            outp.printf(f'Executing query: [{q}]')
             if dry_run:
                 continue
             async for mesg in prox.storm(q, opts=opts):
                 if mesg[0] == 'print':
-                    outp.print(f'Print: {mesg[1].get("mesg")}')
+                    outp.printf(f'Print: {mesg[1].get("mesg")}')
                     continue
                 if mesg[0] == 'err':
-                    outp.print(f'ERROR: {mesg[1]}')
+                    outp.printf(f'ERROR: {mesg[1]}')
                     continue
+    return 0
 
 async def _main(argv, outp: s_output.OutPut):
     pars = getArgParser()
     opts = pars.parse_args(argv)
-    async with await s_telepath.openurl(argv[0]) as prox:
+    async with await s_telepath.openurl(opts.url) as prox:
         try:
             s_version.reqVersion(prox._getSynVers(), reqver)
         except s_exc.BadVersion as e:  # pragma: no cover
             valu = s_version.fmtVersion(*e.get('valu'))
             outp.printf(f'Proxy version {valu} is outside of the tool supported range ({reqver}).')
             return 1
-    if await fixCortexAutoAdds(prox, outp, debug=opts.debug, dry_run=opts.dry_run):
-        return 0
-    return 1
+
+        return await fixCortexAutoAdds(prox, outp, debug=opts.debug, dry_run=opts.dry_run)
 
 async def main(argv, outp=None):  # pragma: no cover
     if outp is None:
@@ -316,39 +324,17 @@ async def main(argv, outp=None):  # pragma: no cover
         if telefini is not None:
             ctx.push_async_callback(telefini)
 
-        await _main(argv, outp)
+        return await _main(argv, outp)
 
 def getArgParser():
     desc = 'A tool to fix potentially missing Autoadd nodes from a Cortex.'
     pars = argparse.ArgumentParser(prog='fixes.autoadds00', description=desc)
-    pars.add_argument('url', type='str', help='Telepath URL')
+    pars.add_argument('url', type=str, help='Telepath URL')
     pars.add_argument('--debug', action='store_true', help='Debug output')
-    pars.add_argument('--dry-run', action='stor_true',
+    pars.add_argument('--dry-run', action='store_true',
                       help='Do not execut queries, just print what would have been executed.')
 
     return pars
-
-async def main(argv, outp=None):  # pragma: no cover
-
-    if outp is None:
-        outp = s_output.stdout
-
-    if len(argv) not in (1, 2):
-        outp.printf('usage: python -m synapse.tools.aha.list <url> [network name]')
-        return 1
-
-    s_common.setlogging(logger, 'WARNING')
-
-    path = s_common.getSynPath('telepath.yaml')
-    async with contextlib.AsyncExitStack() as ctx:
-
-        telefini = await s_telepath.loadTeleEnv(path)
-        if telefini is not None:
-            ctx.push_async_callback(telefini)
-
-        await _main(argv, outp)
-
-    return 0
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
