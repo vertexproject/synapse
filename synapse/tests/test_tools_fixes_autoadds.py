@@ -28,8 +28,10 @@ class FixAutoadds(s_t_utils.SynTest):
         return ret
 
     async def test_autoadds_fix(self):
-        ephemeral_address = 'tcp://0.0.0.0:0/'
+
         async with self.getRegrCore('2.47.0-autoadds-fix/') as core:  # type: s_cortex.Cortex
+
+            await core.auth.addUser('user', passwd='user')
 
             outp = self.getTestOutp()
             views = await core.callStorm(s_f_autoadds.view_query)
@@ -46,10 +48,25 @@ class FixAutoadds(s_t_utils.SynTest):
                 self.len(0, await core.nodes('inet:fqdn', opts={'view': view}))
 
             outp.clear()
-            url = core.getLocalUrl()
+            url = core.getLocalUrl(user='user')
             argv = [url, ]
             ret = await s_f_autoadds._main(argv, outp=outp)
+            self.eq(1, ret)
+            outp.expect('User must be an admin user to execute this script.')
+
+            outp.clear()
+            url = core.getLocalUrl()
+            argv = ['--dry-run', url, ]
+            ret = await s_f_autoadds._main(argv, outp=outp)
             self.eq(0, ret)
+            outp.expect('Would execute query')
+
+            outp.clear()
+            url = core.getLocalUrl()
+            argv = ['--debug', url, ]
+            ret = await s_f_autoadds._main(argv, outp=outp)
+            self.eq(0, ret)
+            outp.expect('Executing query')
 
             name2view = await self.get_views(core)
 

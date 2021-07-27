@@ -124,7 +124,7 @@ async def fixCortexAutoAdds(prox, outp, debug=False, dry_run=False):
     # Admin check
     user_info = await prox.getCellUser()
     if not user_info.get('admin'):
-        outp.printf("User is not an admin")
+        outp.printf("User must be an admin user to execute this script.")
         return 1
 
     # Get views and order them
@@ -135,9 +135,11 @@ async def fixCortexAutoAdds(prox, outp, debug=False, dry_run=False):
         outp.printf(f'Fixing Missing autoads on view {view}')
         for q in storm_queries:
             opts = {'view': view, 'edits': 'none'}
-            outp.printf(f'Executing query: [{q}]')
             if dry_run:
-                continue
+                outp.printf(f'Would execute query: [{q}]')
+
+            else:
+                outp.printf(f'Executing query: [{q}]')
             async for mesg in prox.storm(q, opts=opts):
                 if mesg[0] == 'print':
                     outp.printf(f'Print: {mesg[1].get("mesg")}')
