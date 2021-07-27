@@ -252,6 +252,10 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdarg'},
                 },
+                'cmdinputs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdinput'},
+                },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
@@ -278,6 +282,16 @@ reqValidPkgdef = s_config.getJsValidator({
                 }
             ]
         },
+        'cmdinput': {
+            'type': 'object',
+            'properties': {
+                'form': {'type': 'string'},
+                'desc': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['form'],
+        },
+        # deprecated
         'cmdformhints': {
             'type': 'object',
             'properties': {
@@ -1826,9 +1840,14 @@ class Parser:
         self.posargs = []
         self.allargs = []
 
+        self.inputs = None
+
         self.reqopts = []
 
         self.add_argument('--help', '-h', action='store_true', default=False, help='Display the command usage.')
+
+    def set_inputs(self, idefs):
+        self.inputs = list(idefs)
 
     def add_argument(self, *names, **opts):
 
@@ -2073,6 +2092,19 @@ class Parser:
             for name, argdef in self.posargs:
                 self._print_posarg(name, argdef)
 
+        if self.inputs:
+            self._printf('')
+            self._printf('Inputs:')
+            self._printf('')
+            formsize = max([len(idef['form']) for idef in self.inputs])
+            for idef in self.inputs:
+                form = idef.get('form').ljust(formsize)
+                text = f'    {form}'
+                desc = idef.get('desc')
+                if desc:
+                    text += f' - {desc}'
+                self._printf(text)
+
         if mesg is not None:
             self._printf('')
             self._printf(f'ERROR: {mesg}')
@@ -2262,9 +2294,15 @@ class PureCmd(Cmd):
         return self.cdef.get('name')
 
     def getArgParser(self):
+
         pars = Cmd.getArgParser(self)
         for name, opts in self.cdef.get('cmdargs', ()):
             pars.add_argument(name, **opts)
+
+        inputs = self.cdef.get('cmdinputs')
+        if inputs:
+            pars.set_inputs(inputs)
+
         return pars
 
     async def execStormCmd(self, runt, genr):

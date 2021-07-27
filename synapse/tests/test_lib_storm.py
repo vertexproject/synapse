@@ -2033,6 +2033,24 @@ class StormTest(s_t_utils.SynTest):
             pars = s_storm.Parser()
             pars.add_argument('--yada', type=int)
 
+    async def test_storm_cmd_help(self):
+
+        async with self.getTestCore() as core:
+            pdef = {
+                'name': 'testpkg',
+                'version': '0.0.1',
+                'commands': (
+                    {'name': 'woot', 'cmdinputs': (
+                        {'form': 'hehe:haha'},
+                        {'form': 'hoho:lol', 'desc': 'We know whats up'}
+                    )},
+                ),
+            }
+            await core.loadStormPkg(pdef)
+            msgs = await core.stormlist('woot --help')
+            helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
+            self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
