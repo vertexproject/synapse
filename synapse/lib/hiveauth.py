@@ -740,6 +740,7 @@ class HiveUser(HiveRuler):
         return await self.auth.setUserName(self.iden, name)
 
     def allowed(self, perm, default=None, gateiden=None):
+        perm = tuple(perm)
         return self.permcache.get((perm, default, gateiden))
 
     def _allowed(self, pkey):

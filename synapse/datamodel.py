@@ -251,7 +251,7 @@ class Form:
         if self.type is None:
             raise s_exc.NoSuchType(name=name)
 
-        self.type.form = self
+        self.form = self
 
         self.props = {}     # name: Prop()
         self.ifaces = {}    # name: <ifacedef>
