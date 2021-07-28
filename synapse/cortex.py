@@ -4723,7 +4723,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchIden(iden=croniden)
 
         if appt.view == view.iden:
-            return view.iden
+            return croniden
 
         return await self._push('cron:move', croniden, viewiden)
 
