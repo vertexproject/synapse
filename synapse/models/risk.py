@@ -151,6 +151,9 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'doc': 'An alert type.',
                     }),
+                    ('name', ('str', {}), {
+                        'doc': 'The alert name.',
+                    }),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A free-form description / overview of the alert.',
