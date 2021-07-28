@@ -2596,3 +2596,27 @@ class StormTest(s_t_utils.SynTest):
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
                 self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+
+    async def test_storm_cmdscope(self):
+
+        async with self.getTestCore() as core:
+            await core.loadStormPkg({
+                'name': 'testpkg',
+                'version': '0.0.1',
+                'commands': (
+                    {'name': 'woot', 'cmdargs': (('hehe', {}),), 'storm': 'spin | [ inet:ipv4=1.2.3.4 ]'},
+                ),
+            })
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot lol |
+                $lib.print($path.vars.fqdn)
+            '''))
+
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot $node |
+                $lib.print($path.vars.fqdn)
+            '''))
