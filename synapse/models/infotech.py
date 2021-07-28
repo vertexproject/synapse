@@ -269,7 +269,6 @@ class ItModule(s_module.CoreModule):
                 ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                     'doc': 'A url hosted on or served by a host or system.',
                 }),
-                # TODO We probably want a cve to be linked to a softver via comp type
                 ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
@@ -388,11 +387,23 @@ class ItModule(s_module.CoreModule):
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
                     'doc': 'A file that triggered an alert on a specific antivirus signature.',
                 }),
+                ('it:av:prochit', ('guid', {}), {
+                    'doc': 'An instance of a process triggering an alert on a specific antivirus signature.'
+                }),
                 ('it:auth:passwdhash', ('guid', {}), {
                     'doc': 'An instance of a password hash.',
                 }),
                 ('it:exec:proc', ('guid', {}), {
                     'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
+                }),
+                ('it:exec:thread', ('guid', {}), {
+                    'doc': 'A thread executing in a process.',
+                }),
+                ('it:exec:loadlib', ('guid', {}), {
+                    'doc': 'A library load event in a process.',
+                }),
+                ('it:exec:mmap', ('guid', {}), {
+                    'doc': 'A memory mapped segment located in a process.',
                 }),
                 ('it:cmd', ('str', {'strip': True}), {
                     'doc': 'A unique command-line string.',
@@ -435,10 +446,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'An instance of a host deleting a registry key.',
                 }),
                 ('it:app:yara:rule', ('guid', {}), {
-                    'doc': 'A yara rule unique identifier.',
+                    'doc': 'A YARA rule unique identifier.',
                 }),
                 ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
-                    'doc': 'A yara rule match to a file.',
+                    'doc': 'A YARA rule match to a file.',
+                }),
+                ('it:app:yara:procmatch', ('guid', {}), {
+                    'doc': 'An instance of a YARA rule match to a process.',
                 }),
                 ('it:app:snort:rule', ('guid', {}), {
                     'doc': 'A snort rule unique identifier.',
@@ -468,6 +482,8 @@ class ItModule(s_module.CoreModule):
                             'doc': 'The executable file which caused the activity.'}),
                         ('proc', ('it:exec:proc', {}), {
                             'doc': 'The host process which caused the activity.'}),
+                        ('thread', ('it:exec:thread', {}), {
+                            'doc': 'The host thread which caused the activity.'}),
                         ('host', ('it:host', {}), {
                             'doc': 'The host on which the activity occurred.'}),
                         ('time', ('time', {}), {
@@ -890,6 +906,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Name of the software.',
                     }),
+                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Observed/variant names for this software.',
+                    }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the software.',
                         'disp': {'hint': 'text'},
@@ -982,8 +1001,14 @@ class ItModule(s_module.CoreModule):
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
                     }),
+                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Observed/variant names for this software version.',
+                    }),
                     ('cpe', ('it:sec:cpe', {}), {
                         'doc': 'The NIST CPE 2.3 string specifying this software version',
+                    }),
+                    ('cves', ('array', {'type': 'it:sec:cve', 'uniq': True, 'sorted': True}), {
+                        'doc': 'A list of CVEs that apply to this software version.',
                     }),
                     ('vers', ('it:dev:str', {}), {
                         'doc': 'Version string associated with this version instance.',
@@ -1080,6 +1105,17 @@ class ItModule(s_module.CoreModule):
                     }),
 
                 )),
+                ('it:av:prochit', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The file that triggered the signature hit.',
+                    }),
+                    ('sig', ('it:av:sig', {}), {
+                        'doc': 'The signature that the file triggered on.'
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the AV engine detected the signature.'
+                    }),
+                )),
                 ('it:auth:passwdhash', {}, (
                     ('salt', ('hex', {}), {
                         'doc': 'The (optional) hex encoded salt value used to calculate the password hash.',
@@ -1124,6 +1160,12 @@ class ItModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The start time for the process.',
                     }),
+                    ('exited', ('time', {}), {
+                        'doc': 'The time the process exited.',
+                    }),
+                    ('exitcode', ('int', {}), {
+                        'doc': 'The exit code for the process.',
+                    }),
                     ('user', ('inet:user', {}), {
                         'doc': 'The user name of the process owner.',
                     }),
@@ -1135,6 +1177,84 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
+                    }),
+                    ('parent', ('it:exec:proc', {}), {
+                        'doc': 'The process which spawned this process.',
+                    }),
+                    ('killedby', ('it:exec:proc', {}), {
+                        'doc': 'The process which killed this process.',
+                    }),
+                )),
+                ('it:exec:thread', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process which contains the thread.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the thread was created.',
+                    }),
+                    ('exited', ('time', {}), {
+                        'doc': 'The time the thread exited.',
+                    }),
+                    ('exitcode', ('int', {}), {
+                        'doc': 'The exit code or return value for the thread.',
+                    }),
+                    ('src:proc', ('it:exec:proc', {}), {
+                        'doc': 'An external process which created the thread.',
+                    }),
+                    ('src:thread', ('it:exec:proc', {}), {
+                        'doc': 'The thread which created this thread.',
+                    }),
+                )),
+                ('it:exec:loadlib', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the library was loaded.',
+                    }),
+                    ('va', ('int', {}), {
+                        'doc': 'The base memory address where the library was loaded in the process.',
+                    }),
+                    ('loaded', ('time', {}), {
+                        'doc': 'The time the library was loaded.',
+                    }),
+                    ('unloaded', ('time', {}), {
+                        'doc': 'The time the library was unloaded.',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The path that the library was loaded from.',
+                    }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The library file that was loaded.',
+                    }),
+                )),
+                ('it:exec:mmap', {}, (
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process where the memory was mapped.',
+                    }),
+                    ('va', ('int', {}), {
+                        'doc': 'The base memory address where the map was created in the process.',
+                    }),
+                    ('size', ('int', {}), {
+                        'doc': 'The size of the memory map in bytes.',
+                    }),
+                    ('perms:read', ('bool', {}), {
+                        'doc': 'True if the mmap is mapped with read permissions.',
+                    }),
+                    ('perms:write', ('bool', {}), {
+                        'doc': 'True if the mmap is mapped with write permissions.',
+                    }),
+                    ('perms:execute', ('bool', {}), {
+                        'doc': 'True if the mmap is mapped with execute permissions.',
+                    }),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the memory map was created.',
+                    }),
+                    ('deleted', ('time', {}), {
+                        'doc': 'The time the memory map was deleted.',
+                    }),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The file path if the mmap is a mapped view of a file.',
+                    }),
+                    ('hash:sha256', ('hash:sha256', {}), {
+                        'doc': 'A SHA256 hash of the memory map. Bytes may optionally be present in the axon.',
                     }),
                 )),
                 ('it:exec:mutex', {}, (
@@ -1482,26 +1602,37 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:yara:rule', {}, (
                     ('text', ('str', {}), {
-                        'doc': 'The yara rule text.',
+                        'doc': 'The YARA rule text.',
                         'disp': {'hint': 'text'},
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'The name of the yara rule.'}),
+                        'doc': 'The name of the YARA rule.'}),
                     ('author', ('ps:contact', {}), {
-                        'doc': 'Contact info for the author of the yara rule.'}),
+                        'doc': 'Contact info for the author of the YARA rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
                     ('enabled', ('bool', {}), {
-                        'doc': 'The rule enabled status to be used for yara evaluation engines.'}),
+                        'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
                 )),
 
                 ('it:app:yara:match', {}, (
                     ('rule', ('it:app:yara:rule', {}), {
                         'ro': True,
-                        'doc': 'The yara rule that matched the file.'}),
+                        'doc': 'The YARA rule that matched the file.'}),
                     ('file', ('file:bytes', {}), {
                         'ro': True,
-                        'doc': 'The file that matched the yara rule.'}),
+                        'doc': 'The file that matched the YARA rule.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
+                )),
+
+                ('it:app:yara:procmatch', {}, (
+                    ('rule', ('it:app:yara:rule', {}), {
+                        'doc': 'The YARA rule that matched the file.'}),
+                    ('proc', ('it:exec:proc', {}), {
+                        'doc': 'The process that matched the YARA rule.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the YARA engine matched the process to the rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
                 )),
