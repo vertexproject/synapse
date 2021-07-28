@@ -214,18 +214,15 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
-                    :parent=*
                     :killedby=*
                     :exitcode=0
                     :exited=20210202
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
-            self.nn(nodes[0].get('parent'))
             self.nn(nodes[0].get('killedby'))
             self.eq(nodes[0].get('exitcode'), 0)
             self.eq(nodes[0].get('exited'), 1612224000000)
-            self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :parent -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
 
             nodes = await core.nodes('''[

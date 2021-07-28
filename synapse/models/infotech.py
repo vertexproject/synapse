@@ -1178,9 +1178,6 @@ class ItModule(s_module.CoreModule):
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
                     }),
-                    ('parent', ('it:exec:proc', {}), {
-                        'doc': 'The process which spawned this process.',
-                    }),
                     ('killedby', ('it:exec:proc', {}), {
                         'doc': 'The process which killed this process.',
                     }),
