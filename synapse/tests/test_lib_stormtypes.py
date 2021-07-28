@@ -892,6 +892,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
 
+            # Reverse a list
+            q = '$v=(foo,bar,baz) $v=$v.reverse() return ($v)'
+            ret = await core.callStorm(q)
+            self.eq(ret, ('baz', 'bar', 'foo',))
+
             # Python Tuples can be treated like a List object for accessing via data inside of.
             q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
             nodes = await core.nodes(q)
