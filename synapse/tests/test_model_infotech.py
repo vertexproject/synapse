@@ -164,6 +164,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('exitcode'), 0)
             self.len(1, await core.nodes('it:exec:thread:created :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:thread:created :src:proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread:created :src:thread -> it:exec:thread'))
 
             nodes = await core.nodes('''[
                 it:exec:loadlib=*

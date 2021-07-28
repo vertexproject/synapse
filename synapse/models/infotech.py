@@ -1198,7 +1198,7 @@ class ItModule(s_module.CoreModule):
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'An external process which created the thread.',
                     }),
-                    ('src:thread', ('it:exec:proc', {}), {
+                    ('src:thread', ('it:exec:thread', {}), {
                         'doc': 'The thread which created this thread.',
                     }),
                 )),
