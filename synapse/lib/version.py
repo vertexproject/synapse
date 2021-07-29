@@ -184,6 +184,13 @@ def parseVersionParts(text, seps=vseps):
     return ret
 
 
+def matches(vers, cmprvers):
+    '''
+    Check if a version string matches a version comparison string.
+    '''
+    spec = p_specifiers.SpecifierSet(cmprvers)
+    return p_version.Version(vers) in spec
+
 def reqVersion(valu, reqver,
                exc=s_exc.BadVersion,
                mesg='Provided version does not match required version.'):

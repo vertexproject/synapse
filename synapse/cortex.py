@@ -2006,6 +2006,48 @@ class Cortex(s_cell.Cell):  # type: ignore
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
+    async def _reqStormPkgDeps(self, pkgdef):
+
+        deps = pkgdef.get('depends')
+        if deps is None:
+            return
+
+        name = pkgdef.get('name')
+
+        requires = deps.get('requires', ())
+        for require in requires:
+
+            pkgname = require.get('name')
+            cmprvers = require.get('version')
+
+            cpkg = await self.getStormPkg(pkgname)
+            if cpkg is not None:
+                cver = cpkg.get('version')
+                if s_version.matches(cver, cmprvers):
+                    continue
+
+            mesg = f'Storm package {name} requires {pkgname}{cmprvers}.'
+            raise s_exc.StormPkgRequires(mesg=mesg)
+
+        conflicts = deps.get('conflicts', ())
+        for conflict in conflicts:
+
+            pkgname = conflict.get('name')
+
+            cpkg = await self.getStormPkg(pkgname)
+            if cpkg is None:
+                continue
+
+            cmprvers = conflict.get('version')
+            if cmprvers is None:
+                mesg = f'Storm package {name} conflicts with {pkgname}.'
+                raise s_exc.StormPkgConflicts(mesg=mesg)
+
+            cver = cpkg.get('version')
+            if s_version.matches(cver, cmprvers):
+                mesg = f'Storm package {name} conflicts with {pkgname}{cmprvers}.'
+                raise s_exc.StormPkgConflicts(mesg=mesg)
+
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
         Normalize and validate a storm package (optionally storm code).
@@ -2013,6 +2055,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         version = pkgdef.get('version')
         if isinstance(version, (tuple, list)):
             pkgdef['version'] = '%d.%d.%d' % tuple(version)
+
+        await self._reqStormPkgDeps(pkgdef)
 
         pkgname = pkgdef.get('name')
 

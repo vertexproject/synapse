@@ -201,6 +201,13 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'required': ['name', 'url'],
         },
+        'depends': {
+            'properties': {
+                'requires': {'type': 'array', 'items': {'$ref': '#/definitions/require'}},
+                'conflicts': {'type': 'array', 'items': {'$ref': '#/definitions/conflict'}},
+            },
+            'additionalProperties': True,
+        },
         'perms': {
             'type': 'array',
             'items': {
@@ -322,7 +329,25 @@ reqValidPkgdef = s_config.getJsValidator({
                     },
                 },
             }
-        }
+        },
+        'require': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'version': {'type': 'string'},
+            },
+            'additionalItems': True,
+            'required': ('name', 'version'),
+        },
+        'conflict': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'version': {'type': 'string'},
+            },
+            'additionalItems': True,
+            'required': ('name',),
+        },
     }
 })
 
