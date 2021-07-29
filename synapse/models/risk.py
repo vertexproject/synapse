@@ -16,7 +16,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an actor attacking a target.'
                 }),
                 ('risk:alert', ('guid', {}), {
-                    'doc': 'An instance of an alert which indicates the presense of a risk.',
+                    'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
             ),
             'forms': (

@@ -5,6 +5,45 @@ Synapse Changelog
 *****************
 
 
+v2.52.0 - 2021-07-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add a new specification for defining input forms that a pure Storm command
+  knows how to natively handle.
+  (`#2301 <https://github.com/vertexproject/synapse/pull/2301>`_)'
+- Add ``Lib.reverse()`` and ``Lib.sort()`` methods to Stormtypes API.
+  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)'
+- Add ``View.parent`` property in Stormtypes API.
+  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)'
+- Support Telepath Share objects in Storm.
+  (`#2293 <https://github.com/vertexproject/synapse/pull/2293>`_)'
+- Allow users to specify a view to run a cron job against, move a cron job to
+  a new view, and update permission check for adding/moving cron jobs to views.
+  (`#2292 <https://github.com/vertexproject/synapse/pull/2292>`_)'
+- Add CPE and software name infomation to the ``inet:flow`` form. Add
+  ``it:av:prochit``, ``it:exec:thread``, ``it:exec:loadlib``,
+  ``it:exec:mmap``, ``it:app:yara:procmatch`` forms to the infotech model.
+  Add ``:names`` arrays to ``it:prod:soft`` and ``it:prod:softver`` forms
+  to assist in entity resolution of software. Add a ``risk:alert`` form to
+  the risk model to allow for capturing arbitrary alerts.
+  (`#2304 <https://github.com/vertexproject/synapse/pull/2304>`_)'
+- Allow Storm packages to specify other packages they require and possible
+  conflicts would prevent them from being installed in a Cortex.
+  (`#2307 <https://github.com/vertexproject/synapse/pull/2307>`_)'
+
+Bugfixes
+--------
+- Specify the View when lifting ``syn:trigger`` runt nodes.
+  (`#2300 <https://github.com/vertexproject/synapse/pull/2300>`_)'
+- Update the scrape URL regular expression to ignore trailing periods and
+  commas.
+  (`#2302 <https://github.com/vertexproject/synapse/pull/2302>`_)'
+- Fix a bug in Path scope for nodes yielding by pure Storm commands.
+  (`#2305 <https://github.com/vertexproject/synapse/pull/2305>`_)'
+
+
 v2.51.0 - 2021-07-26
 ====================
 
