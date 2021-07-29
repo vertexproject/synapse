@@ -897,6 +897,25 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm(q)
             self.eq(ret, ('baz', 'bar', 'foo',))
 
+            # sort a list
+            q = '$v=(foo,bar,baz) $v.sort() return ($v)'
+            ret = await core.callStorm(q)
+            self.eq(ret, ('bar', 'baz', 'foo',))
+
+            # Sort a few text objects
+            q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $baz=$lib.text(baz) $v=($foo, $bar, $baz) $v.sort() return ($v)'
+            ret = await core.callStorm(q)
+            self.eq(ret, ('bar', 'baz', 'foo',))
+
+            # incompatible sort types
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$v=(foo,bar,(1)) $v.sort() return ($v)')
+
+            # mix Prims and heavy objects
+            with self.raises(s_exc.StormRuntimeError):
+                q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $v=($foo, aString, $bar,) $v.sort() return ($v)'
+                await core.callStorm(q)
+
             # Python Tuples can be treated like a List object for accessing via data inside of.
             q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
             nodes = await core.nodes(q)
