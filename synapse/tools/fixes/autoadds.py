@@ -46,6 +46,78 @@ for fullprop, secprop, form in missing_autoadds:
 
 view_query = '$list = $lib.list() for $view in $lib.view.list() { $list.append($view.pack()) } return ( $list )'
 
+newview_query = '''
+
+$rootViews = $lib.list()
+$view2children = $lib.dict()
+
+for $view in $lib.view.list() {
+    $iden=$view.iden
+    $parent=$view.parent
+    $layers=$lib.list()
+    if ( $parent = $lib.null ) {
+        $rootViews.append(($lib.len($view.layers), $iden))
+    } else {
+        if ($view2children.$parent = $lib.null) {
+            $_a = $lib.list()
+            $_a.append(($lib.len($view.layers), $iden))
+            $view2children.$parent = $_a
+        } else {
+            $_a = $view2children.$parent
+            $_a.append(($lib.len($view.layers), $iden))
+            $_a.sort()
+        }
+    }
+}
+
+$rootViews.sort()
+
+$absoluteOrder = $lib.list()
+for ($_, $view) in $rootViews {
+    $absoluteOrder.append($view)
+    $children = $view2children.$view
+    if $children {
+        $todo=$lib.list()
+        for ($_, $_child) in $children { $todo.append( $_child) }
+        for $child in $todo {
+            $absoluteOrder.append($child)
+            $_children = $view2children.$child
+            if $_children {
+                for ($_, $_child) in $_children { $todo.append( $_child) }
+            }
+        }
+    }
+}
+
+$queries = ( ${ inet:dns:request:query:name:fqdn $valu=:query:name:fqdn [inet:fqdn=$valu] },
+${ inet:dns:request:query:name:ipv4 $valu=:query:name:ipv4 [inet:ipv4=$valu] },
+${ inet:dns:request:query:name:ipv6 $valu=:query:name:ipv6 [inet:ipv6=$valu] },
+${ inet:dns:query:name:fqdn $valu=:name:fqdn [inet:fqdn=$valu] },
+${ inet:dns:query:name:ipv4 $valu=:name:ipv4 [inet:ipv4=$valu] },
+${ inet:dns:query:name:ipv6 $valu=:name:ipv6 [inet:ipv6=$valu] },
+${ inet:asnet4:net4:min $valu=:net4:min [inet:ipv4=$valu] },
+${ inet:asnet4:net4:max $valu=:net4:max [inet:ipv4=$valu] },
+${ inet:asnet6:net6:min $valu=:net6:min [inet:ipv6=$valu] },
+${ inet:asnet6:net6:max $valu=:net6:max [inet:ipv6=$valu] },
+${ inet:whois:iprec:net4:min $valu=:net4:min [inet:ipv4=$valu] },
+${ inet:whois:iprec:net4:max $valu=:net4:max [inet:ipv4=$valu] },
+${ inet:whois:iprec:net6:min $valu=:net6:min [inet:ipv6=$valu] },
+${ inet:whois:iprec:net6:max $valu=:net6:max [inet:ipv6=$valu] },
+${ it:app:snort:hit:src:ipv4 $valu=:src:ipv4 [inet:ipv4=$valu] },
+${ it:app:snort:hit:src:ipv6 $valu=:src:ipv6 [inet:ipv6=$valu] },
+${ it:app:snort:hit:dst:ipv4 $valu=:dst:ipv4 [inet:ipv4=$valu] },
+${ it:app:snort:hit:dst:ipv6 $valu=:dst:ipv6 [inet:ipv6=$valu] },)
+
+for $view in $absoluteOrder {
+    $lib.print('Fixing data in view {v}', v=$view)
+    for $query in $queries {
+        // $lib.print('Executing { {q} }', q=$query)
+        view.exec $view $query
+    }
+}
+
+'''
+
 def tree():
     return collections.defaultdict(tree)
 

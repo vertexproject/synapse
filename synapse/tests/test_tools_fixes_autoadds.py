@@ -47,26 +47,32 @@ class FixAutoadds(s_t_utils.SynTest):
                 self.len(0, await core.nodes('inet:ipv6', opts={'view': view}))
                 self.len(0, await core.nodes('inet:fqdn', opts={'view': view}))
 
-            outp.clear()
-            url = core.getLocalUrl(user='user')
-            argv = [url, ]
-            ret = await s_f_autoadds._main(argv, outp=outp)
-            self.eq(1, ret)
-            outp.expect('User must be an admin user to execute this script.')
+            async for m in core.storm(s_f_autoadds.newview_query):
+                print(m)
 
-            outp.clear()
-            url = core.getLocalUrl()
-            argv = ['--dry-run', url, ]
-            ret = await s_f_autoadds._main(argv, outp=outp)
-            self.eq(0, ret)
-            outp.expect('Would execute query')
+            # return
 
-            outp.clear()
-            url = core.getLocalUrl()
-            argv = ['--debug', url, ]
-            ret = await s_f_autoadds._main(argv, outp=outp)
-            self.eq(0, ret)
-            outp.expect('Executing query')
+            # outp.clear()
+            # url = core.getLocalUrl(user='user')
+            # argv = [url, ]
+            # ret = await s_f_autoadds._main(argv, outp=outp)
+            # self.eq(1, ret)
+            # outp.expect('User must be an admin user to execute this script.')
+            #
+            # outp.clear()
+            # url = core.getLocalUrl()
+            # argv = ['--dry-run', url, ]
+            # ret = await s_f_autoadds._main(argv, outp=outp)
+            # self.eq(0, ret)
+            # outp.expect('Would execute query')
+            #
+            # outp.clear()
+            # url = core.getLocalUrl()
+            # argv = ['--debug', url, ]
+            # ret = await s_f_autoadds._main(argv, outp=outp)
+            # self.eq(0, ret)
+            # outp.expect('Executing query')
+            # return
 
             name2view = await self.get_views(core)
 
