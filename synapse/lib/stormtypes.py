@@ -13,6 +13,7 @@ import logging
 import binascii
 import datetime
 import calendar
+import functools
 import collections
 from typing import Any
 
@@ -2770,6 +2771,7 @@ class LibBase64(Lib):
             mesg = f'Error during base64 decoding - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
+@functools.total_ordering
 class Prim(StormType):
     '''
     The base type for all Storm primitive values.
@@ -2792,6 +2794,12 @@ class Prim(StormType):
         if not isinstance(othr, type(self)):
             return False
         return self.valu == othr.valu
+
+    def __lt__(self, other):
+        if not isinstance(other, type(self)):
+            mesg = f"'<' not supported between instance of {self.__class__.__name__} and {other.__class__.__name__}"
+            raise TypeError(mesg)
+        return self.valu < other.valu
 
     def value(self):
         return self.valu
@@ -3398,6 +3406,13 @@ class List(Prim):
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
                   'returns': {'type': 'size', 'desc': 'The size of the list.', }}},
+        {'name': 'sort', 'desc': 'Sort the list in place.',
+         'type': {'type': 'function', '_funcname': '_methListSort',
+                  'args': (
+                      {'name': 'reverse', 'type': 'bool', 'desc': 'Sort the list in reverse order.',
+                       'default': False},
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'index', 'desc': 'Return a single field from the list by index.',
          'type': {'type': 'function', '_funcname': '_methListIndex',
                   'args': (
@@ -3429,6 +3444,7 @@ class List(Prim):
             'has': self._methListHas,
             'pop': self._methListPop,
             'size': self._methListSize,
+            'sort': self._methListSort,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
@@ -3481,7 +3497,7 @@ class List(Prim):
         try:
             return self.valu[indx]
         except IndexError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=repr(self.valu),
+            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=await self.stormrepr(),
                                           len=len(self.valu), indx=indx) from None
 
     async def _methListReverse(self):
@@ -3491,6 +3507,14 @@ class List(Prim):
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
         return len(self)
+
+    async def _methListSort(self, reverse=False):
+        reverse = await tobool(reverse, noneok=True)
+        try:
+            self.valu.sort(reverse=reverse)
+        except TypeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'Error sorting list: {str(e)}',
+                                          valurepr=await self.stormrepr()) from None
 
     async def _methListSize(self):
         return len(self)
