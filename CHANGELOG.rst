@@ -22,6 +22,16 @@ Features and Enhancements
 - Allow users to specify a view to run a cron job against, move a cron job to
   a new view, and update permission check for adding/moving cron jobs to views.
   (`#2292 <https://github.com/vertexproject/synapse/pull/2292>`_)'
+- Add CPE and software name infomation to the ``inet:flow`` form. Add
+  ``it:av:prochit``, ``it:exec:thread``, ``it:exec:loadlib``,
+  ``it:exec:mmap``, ``it:app:yara:procmatch`` forms to the infotech model.
+  Add ``:names`` arrays to ``it:prod:soft`` and ``it:prod:softver`` forms
+  to assist in entity resolution of software. Add a ``risk:alert`` form to
+  the risk model to allow for capturing arbitrary alerts.
+  (`#2304 <https://github.com/vertexproject/synapse/pull/2304>`_)'
+- Allow Storm packages to specify other packages they require and possible
+  conflicts would prevent them from being installed in a Cortex.
+  (`#2307 <https://github.com/vertexproject/synapse/pull/2307>`_)'
 
 Bugfixes
 --------
