@@ -6,6 +6,7 @@ import synapse.cortex as s_cortex
 import synapse.tests.utils as s_test
 
 import synapse.lib.cell as s_cell
+import synapse.lib.share as s_share
 import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.backup as s_tools_backup
@@ -315,6 +316,46 @@ class StormvarServiceCell(s_cell.Cell):
 
     cellapi = StormvarService
 
+class SvcShare(s_share.Share):
+
+    async def __anit__(self, link, cell):
+        await s_share.Share.__anit__(self, link, None)
+        cell.onfini(self)
+        self.cell = cell
+
+    async def foo(self):
+        return await self.cell.foo()
+
+class ShareService(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_name = 'sharer'
+    _storm_svc_pkgs = (
+        {  # type: ignore
+            'name': 'sharer',
+            'version': (0, 0, 1),
+            'synapse_minversion': (2, 8, 0),
+            'modules': (
+                {
+                    'name': 'sharer',
+                    'storm': '''
+                        function get() {
+                            return($lib.service.get($modconf.svciden).getShare())
+                        }
+                    ''',
+                },
+            ),
+        },
+    )
+
+    async def getShare(self):
+        return await SvcShare.anit(self.link, self.cell)
+
+class ShareServiceCell(s_cell.Cell):
+
+    cellapi = ShareService
+
+    async def foo(self):
+        return 'bar'
+
 @contextlib.contextmanager
 def patchcore(core, attr, newfunc):
     origvalu = getattr(core, attr)
@@ -553,6 +594,15 @@ class StormSvcTest(s_test.SynTest):
 
                     self.none(await core.getStormPkg('boom'))
                     self.none(core.getStormCmd('badcmd'))
+
+                    # Test for current equality behavior
+                    # will be fixed once stormtypes support equality comparisons
+                    scmd = '''
+                        $svc = $lib.service.get(prim)
+                        if ($svc = $lib.null) { return($lib.false) }
+                        else { return($lib.true) }
+                    '''
+                    await self.asyncraises(s_exc.SynErr, core.callStorm(scmd))
 
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work
@@ -882,3 +932,61 @@ class StormSvcTest(s_test.SynTest):
                         q = 'for ($o, $m) in $lib.queue.get(vertex).gets(wait=10) {return (($o, $m))}'
                         retn = await core01.callStorm(q)
                         self.eq(retn, (0, 'done'))
+
+    async def test_storm_svc_share(self):
+
+        async def chkShareFini(s):
+            for b in s.tofini:
+                if isinstance(b, SvcShare):
+                    return await b.waitfini(timeout=5)
+            return True
+
+        async with self.getTestCoreProxSvc(ShareServiceCell) as (core, prox, svc):
+
+            # base
+            scmd = '''
+                $svc = $lib.service.get(sharer)
+                $share = $svc.getShare()
+                return($share.foo())
+            '''
+            ret = await core.callStorm(scmd)
+            self.eq('bar', ret)
+            self.true(await chkShareFini(svc))
+
+            # from sub runtime
+            scmd = '''
+                $share = $lib.import(sharer).get()
+                return($share.foo())
+            '''
+            ret = await core.callStorm(scmd)
+            self.eq('bar', ret)
+            self.true(await chkShareFini(svc))
+
+        async with self.getTestCore() as core:
+            async with self.getTestCell(ShareServiceCell) as svc:
+
+                opts = {'vars': {'url': svc.getLocalUrl()}}
+
+                # base
+                scmd = '''
+                    $prox = $lib.telepath.open($url)
+                    $share = $prox.getShare()
+                    return($share.foo())
+                '''
+                ret = await core.callStorm(scmd, opts=opts)
+                self.eq('bar', ret)
+                self.true(await chkShareFini(svc))
+
+                # from sub runtime
+                scmd = '''
+                    function get(url) {
+                        $prox = $lib.telepath.open($url)
+                        $share = $prox.getShare()
+                        return($share)
+                    }
+                    $share = $get($url)
+                    return($share.foo())
+                '''
+                ret = await core.callStorm(scmd, opts=opts)
+                self.eq('bar', ret)
+                self.true(await chkShareFini(svc))

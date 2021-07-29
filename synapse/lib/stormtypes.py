@@ -658,7 +658,7 @@ class LibService(Lib):
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
         await self._checkSvcGetPerm(ssvc)
-        return ssvc
+        return Service(self.runt, ssvc)
 
     async def _libSvcHas(self, name):
         ssvc = self.runt.snap.core.getStormSvc(name)
@@ -2635,7 +2635,7 @@ class LibTelepath(Lib):
         url = await tostr(url)
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
-        return Proxy(await self.runt.getTeleProxy(url))
+        return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
 class Proxy(StormType):
@@ -2664,8 +2664,9 @@ class Proxy(StormType):
     '''
     _storm_typename = 'storm:proxy'
 
-    def __init__(self, proxy, path=None):
+    def __init__(self, runt, proxy, path=None):
         StormType.__init__(self, path=path)
+        self.runt = runt
         self.proxy = proxy
 
     async def deref(self, name):
@@ -2680,7 +2681,7 @@ class Proxy(StormType):
             return ProxyGenrMethod(meth)
 
         if isinstance(meth, s_telepath.Method):
-            return ProxyMethod(meth)
+            return ProxyMethod(self.runt, meth)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
@@ -2690,15 +2691,20 @@ class ProxyMethod(StormType):
 
     _storm_typename = 'storm:proxy:method'
 
-    def __init__(self, meth, path=None):
+    def __init__(self, runt, meth, path=None):
         StormType.__init__(self, path=path)
+        self.runt = runt
         self.meth = meth
 
     async def __call__(self, *args, **kwargs):
         args = await toprim(args)
         kwargs = await toprim(kwargs)
         # TODO: storm types fromprim()
-        return await self.meth(*args, **kwargs)
+        ret = await self.meth(*args, **kwargs)
+        if isinstance(ret, s_telepath.Share):
+            self.runt.snap.onfini(ret)
+            return Proxy(self.runt, ret)
+        return ret
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
@@ -2721,6 +2727,25 @@ class ProxyGenrMethod(StormType):
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
+
+# @registry.registerType
+class Service(Proxy):
+
+    def __init__(self, runt, ssvc):
+        Proxy.__init__(self, runt, ssvc.proxy)
+        self.name = ssvc.name
+
+    async def deref(self, name):
+        try:
+            await self.proxy.waitready()
+            return await Proxy.deref(self, name)
+        except asyncio.TimeoutError:
+            mesg = f'Timeout waiting for storm service {self.name}.{name}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
+        except AttributeError as e:  # pragma: no cover
+            # possible client race condition seen in the real world
+            mesg = f'Error dereferencing storm service - {self.name}.{name} - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
 
 @registry.registerLib
 class LibBase64(Lib):
