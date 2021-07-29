@@ -892,6 +892,30 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
 
+            # Reverse a list
+            q = '$v=(foo,bar,baz) $v.reverse() return ($v)'
+            ret = await core.callStorm(q)
+            self.eq(ret, ('baz', 'bar', 'foo',))
+
+            # sort a list
+            q = '$v=(foo,bar,baz) $v.sort() return ($v)'
+            ret = await core.callStorm(q)
+            self.eq(ret, ('bar', 'baz', 'foo',))
+
+            # Sort a few text objects
+            q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $baz=$lib.text(baz) $v=($foo, $bar, $baz) $v.sort() return ($v)'
+            ret = await core.callStorm(q)
+            self.eq(ret, ('bar', 'baz', 'foo',))
+
+            # incompatible sort types
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('$v=(foo,bar,(1)) $v.sort() return ($v)')
+
+            # mix Prims and heavy objects
+            with self.raises(s_exc.StormRuntimeError):
+                q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $v=($foo, aString, $bar,) $v.sort() return ($v)'
+                await core.callStorm(q)
+
             # Python Tuples can be treated like a List object for accessing via data inside of.
             q = '[ test:comp=(10,lol) ] $x=$node.ndef().index(1).index(1) [ test:str=$x ]'
             nodes = await core.nodes(q)
@@ -2593,6 +2617,10 @@ class StormTypesTest(s_test.SynTest):
                 return(($view.iden, $view.layers.index(0).iden))
             '''
             forkiden, forklayr = await core.callStorm(q)
+
+            # Parent is populated on the fork and not the default view
+            q = '''$dp=$lib.view.get().parent $fp=$lib.view.get($iden).parent return (($dp, $fp))'''
+            self.eq((None, mainiden), await core.callStorm(q, opts={'vars': {'iden': forkiden}}))
 
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
