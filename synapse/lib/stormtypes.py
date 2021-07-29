@@ -3428,9 +3428,9 @@ class List(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The item to append to the list.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'reverse', 'desc': 'Reverse the order of the list',
+        {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
          'type': {'type': 'function', '_funcname': '_methListReverse',
-                  'returns': {'type': 'list', 'desc': 'The reversed list'}}},
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -3501,8 +3501,7 @@ class List(Prim):
                                           len=len(self.valu), indx=indx) from None
 
     async def _methListReverse(self):
-        valu = self.valu[::-1]
-        return List(valu, path=self.path)
+        self.valu.reverse()
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
