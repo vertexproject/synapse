@@ -13,6 +13,7 @@ import logging
 import binascii
 import datetime
 import calendar
+import functools
 import collections
 from typing import Any
 
@@ -657,7 +658,7 @@ class LibService(Lib):
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
         await self._checkSvcGetPerm(ssvc)
-        return ssvc
+        return Service(self.runt, ssvc)
 
     async def _libSvcHas(self, name):
         ssvc = self.runt.snap.core.getStormSvc(name)
@@ -2634,7 +2635,7 @@ class LibTelepath(Lib):
         url = await tostr(url)
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
-        return Proxy(await self.runt.getTeleProxy(url))
+        return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
 class Proxy(StormType):
@@ -2663,8 +2664,9 @@ class Proxy(StormType):
     '''
     _storm_typename = 'storm:proxy'
 
-    def __init__(self, proxy, path=None):
+    def __init__(self, runt, proxy, path=None):
         StormType.__init__(self, path=path)
+        self.runt = runt
         self.proxy = proxy
 
     async def deref(self, name):
@@ -2679,7 +2681,7 @@ class Proxy(StormType):
             return ProxyGenrMethod(meth)
 
         if isinstance(meth, s_telepath.Method):
-            return ProxyMethod(meth)
+            return ProxyMethod(self.runt, meth)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
@@ -2689,15 +2691,20 @@ class ProxyMethod(StormType):
 
     _storm_typename = 'storm:proxy:method'
 
-    def __init__(self, meth, path=None):
+    def __init__(self, runt, meth, path=None):
         StormType.__init__(self, path=path)
+        self.runt = runt
         self.meth = meth
 
     async def __call__(self, *args, **kwargs):
         args = await toprim(args)
         kwargs = await toprim(kwargs)
         # TODO: storm types fromprim()
-        return await self.meth(*args, **kwargs)
+        ret = await self.meth(*args, **kwargs)
+        if isinstance(ret, s_telepath.Share):
+            self.runt.snap.onfini(ret)
+            return Proxy(self.runt, ret)
+        return ret
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
@@ -2720,6 +2727,25 @@ class ProxyGenrMethod(StormType):
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
+
+# @registry.registerType
+class Service(Proxy):
+
+    def __init__(self, runt, ssvc):
+        Proxy.__init__(self, runt, ssvc.proxy)
+        self.name = ssvc.name
+
+    async def deref(self, name):
+        try:
+            await self.proxy.waitready()
+            return await Proxy.deref(self, name)
+        except asyncio.TimeoutError:
+            mesg = f'Timeout waiting for storm service {self.name}.{name}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
+        except AttributeError as e:  # pragma: no cover
+            # possible client race condition seen in the real world
+            mesg = f'Error dereferencing storm service - {self.name}.{name} - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
 
 @registry.registerLib
 class LibBase64(Lib):
@@ -2770,6 +2796,7 @@ class LibBase64(Lib):
             mesg = f'Error during base64 decoding - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
+@functools.total_ordering
 class Prim(StormType):
     '''
     The base type for all Storm primitive values.
@@ -2792,6 +2819,12 @@ class Prim(StormType):
         if not isinstance(othr, type(self)):
             return False
         return self.valu == othr.valu
+
+    def __lt__(self, other):
+        if not isinstance(other, type(self)):
+            mesg = f"'<' not supported between instance of {self.__class__.__name__} and {other.__class__.__name__}"
+            raise TypeError(mesg)
+        return self.valu < other.valu
 
     def value(self):
         return self.valu
@@ -3398,6 +3431,13 @@ class List(Prim):
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
                   'returns': {'type': 'size', 'desc': 'The size of the list.', }}},
+        {'name': 'sort', 'desc': 'Sort the list in place.',
+         'type': {'type': 'function', '_funcname': '_methListSort',
+                  'args': (
+                      {'name': 'reverse', 'type': 'bool', 'desc': 'Sort the list in reverse order.',
+                       'default': False},
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'index', 'desc': 'Return a single field from the list by index.',
          'type': {'type': 'function', '_funcname': '_methListIndex',
                   'args': (
@@ -3413,6 +3453,9 @@ class List(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The item to append to the list.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
+         'type': {'type': 'function', '_funcname': '_methListReverse',
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -3426,9 +3469,11 @@ class List(Prim):
             'has': self._methListHas,
             'pop': self._methListPop,
             'size': self._methListSize,
+            'sort': self._methListSort,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
+            'reverse': self._methListReverse,
         }
 
     async def setitem(self, name, valu):
@@ -3477,12 +3522,23 @@ class List(Prim):
         try:
             return self.valu[indx]
         except IndexError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=repr(self.valu),
+            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=await self.stormrepr(),
                                           len=len(self.valu), indx=indx) from None
+
+    async def _methListReverse(self):
+        self.valu.reverse()
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
         return len(self)
+
+    async def _methListSort(self, reverse=False):
+        reverse = await tobool(reverse, noneok=True)
+        try:
+            self.valu.sort(reverse=reverse)
+        except TypeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'Error sorting list: {str(e)}',
+                                          valurepr=await self.stormrepr()) from None
 
     async def _methListSize(self):
         return len(self)
@@ -5003,6 +5059,7 @@ class View(Prim):
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
          'type': 'list', },
         {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
@@ -5074,6 +5131,7 @@ class View(Prim):
         self.locls.update(self.getObjLocals())
         self.locls.update({
             'iden': self.valu.get('iden'),
+            'parent': self.valu.get('parent'),
             'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
