@@ -119,6 +119,7 @@ class CellLib(s_stormtypes.Lib):
         pass
 
     async def _fixCheck(self):
+        curv = await self.runt.snap.core.getStormVar('cortex:runtime:fixes', default=0)
         pass
 
     async def _getCellInfo(self):
