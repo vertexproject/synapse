@@ -148,6 +148,112 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('addresses'), ('T0100', 'T0200'))
 
+            nodes = await core.nodes('''[
+                it:exec:thread=*
+                    :proc=*
+                    :created=20210202
+                    :exited=20210203
+                    :exitcode=0
+                    :src:proc=*
+                    :src:thread=*
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.eq(nodes[0].get('created'), 1612224000000)
+            self.eq(nodes[0].get('exited'), 1612310400000)
+            self.eq(nodes[0].get('exitcode'), 0)
+            self.len(1, await core.nodes('it:exec:thread:created :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread:created :src:proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:thread:created :src:thread -> it:exec:thread'))
+
+            nodes = await core.nodes('''[
+                it:exec:loadlib=*
+                    :proc=*
+                    :va=0x00a000
+                    :loaded=20210202
+                    :unloaded=20210203
+                    :path=/home/invisigoth/rootkit.so
+                    :file=*
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.eq(nodes[0].get('va'), 0x00a000)
+            self.eq(nodes[0].get('loaded'), 1612224000000)
+            self.eq(nodes[0].get('unloaded'), 1612310400000)
+            self.len(1, await core.nodes('it:exec:loadlib -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:loadlib :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:loadlib -> file:path +file:path=/home/invisigoth/rootkit.so'))
+
+            nodes = await core.nodes('''[
+                it:exec:mmap=*
+                    :proc=*
+                    :va=0x00a000
+                    :size=4096
+                    :perms:read=1
+                    :perms:write=0
+                    :perms:execute=1
+                    :created=20210202
+                    :deleted=20210203
+                    :path=/home/invisigoth/rootkit.so
+                    :hash:sha256=ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.eq(nodes[0].get('va'), 0x00a000)
+            self.eq(nodes[0].get('size'), 4096)
+            self.eq(nodes[0].get('perms:read'), 1)
+            self.eq(nodes[0].get('perms:write'), 0)
+            self.eq(nodes[0].get('perms:execute'), 1)
+            self.eq(nodes[0].get('created'), 1612224000000)
+            self.eq(nodes[0].get('deleted'), 1612310400000)
+            self.eq(nodes[0].get('hash:sha256'), 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c')
+            self.len(1, await core.nodes('it:exec:mmap -> hash:sha256'))
+            self.len(1, await core.nodes('it:exec:mmap :proc -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:mmap -> file:path +file:path=/home/invisigoth/rootkit.so'))
+
+            nodes = await core.nodes('''[
+                it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
+                    :killedby=*
+                    :exitcode=0
+                    :exited=20210202
+            ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
+            self.nn(nodes[0].get('killedby'))
+            self.eq(nodes[0].get('exitcode'), 0)
+            self.eq(nodes[0].get('exited'), 1612224000000)
+            self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
+
+            nodes = await core.nodes('''[
+                it:av:prochit=*
+                    :proc=*
+                    :sig=(a6834cea191af070abb11af59d881c40, 'foobar')
+                    :time=20210202
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.eq(nodes[0].get('sig'), ('a6834cea191af070abb11af59d881c40', 'foobar'))
+            self.eq(nodes[0].get('time'), 1612224000000)
+            self.len(1, await core.nodes('it:av:prochit -> it:av:sig'))
+            self.len(1, await core.nodes('it:av:prochit -> it:exec:proc'))
+
+            nodes = await core.nodes('''[
+                it:app:yara:procmatch=*
+                    :proc=*
+                    :rule=*
+                    :time=20210202
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].ndef[1])
+            self.nn(nodes[0].get('proc'))
+            self.nn(nodes[0].get('rule'))
+            self.eq(nodes[0].get('time'), 1612224000000)
+            self.len(1, await core.nodes('it:app:yara:procmatch -> it:exec:proc'))
+            self.len(1, await core.nodes('it:app:yara:procmatch -> it:app:yara:rule'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:

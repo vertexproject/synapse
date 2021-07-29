@@ -36,6 +36,8 @@ class BackupAlreadyRunning(SynErr):
     '''
     Only one backup may be running at a time
     '''
+class StormPkgRequires(SynErr): pass
+class StormPkgConflicts(SynErr): pass
 
 class BadPkgDef(SynErr): pass
 class BadCmdName(SynErr): pass
