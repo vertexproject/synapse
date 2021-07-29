@@ -617,6 +617,16 @@ class StormTest(s_t_utils.SynTest):
                 }
             })
 
+            await core.addStormPkg({
+                'name': 'zoinkszoinks',
+                'version': '2.2.2',
+                'depends': {
+                    'conflicts': (
+                        {'name': 'newpnewp'},
+                    ),
+                }
+            })
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
