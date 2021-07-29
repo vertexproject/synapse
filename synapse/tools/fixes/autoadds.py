@@ -47,7 +47,6 @@ for fullprop, secprop, form in missing_autoadds:
 view_query = '$list = $lib.list() for $view in $lib.view.list() { $list.append($view.pack()) } return ( $list )'
 
 newview_query = '''
-
 $rootViews = $lib.list()
 $view2children = $lib.dict()
 
