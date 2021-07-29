@@ -10,7 +10,7 @@ v2.52.0 - 2021-07-29
 
 Features and Enhancements
 -------------------------
-- Add a new specification for defining import forms that a pure Storm command
+- Add a new specification for defining input forms that a pure Storm command
   knows how to natively handle.
   (`#2301 <https://github.com/vertexproject/synapse/pull/2301>`_)'
 - Add ``Lib.reverse()`` and ``Lib.sort()`` methods to Stormtypes API.
