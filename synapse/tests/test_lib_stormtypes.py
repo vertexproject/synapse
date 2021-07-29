@@ -2618,6 +2618,10 @@ class StormTypesTest(s_test.SynTest):
             '''
             forkiden, forklayr = await core.callStorm(q)
 
+            # Parent is populated on the fork and not the default view
+            q = '''$dp=$lib.view.get().parent $fp=$lib.view.get($iden).parent return (($dp, $fp))'''
+            self.eq((None, mainiden), await core.callStorm(q, opts={'vars': {'iden': forkiden}}))
+
             self.isin(forkiden, core.views)
             self.isin(forklayr, core.layers)
 

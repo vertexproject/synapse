@@ -5035,6 +5035,7 @@ class View(Prim):
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
          'type': 'list', },
         {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
@@ -5106,6 +5107,7 @@ class View(Prim):
         self.locls.update(self.getObjLocals())
         self.locls.update({
             'iden': self.valu.get('iden'),
+            'parent': self.valu.get('parent'),
             'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
