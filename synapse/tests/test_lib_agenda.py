@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import datetime
 from unittest import mock
 from datetime import timezone as tz
@@ -646,3 +647,136 @@ class AgendaTest(s_t_utils.SynTest):
 
             await core.agenda.stop()
             self.false(core.agenda.enabled)
+
+    async def test_agenda_custom_view(self):
+
+        async with self.getTestCoreAndProxy() as (core, prox):
+            # no existing view
+            await core.callStorm('$lib.queue.add(testq)')
+            defview = core.getView()
+            fakeiden = hashlib.md5(defview.iden.encode('utf-8')).hexdigest()
+            opts = {'vars': {'fakeiden': fakeiden}}
+            with self.raises(s_exc.NoSuchView):
+                await prox.callStorm('cron.add --view $fakeiden --minute +2 { $lib.queue.get(testq).put((43)) }', opts=opts)
+
+            fail = await core.auth.addUser('fail')
+
+            # can't move a thing that doesn't exist
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('cron.move $fakeiden $fakeiden', opts=opts)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.moveCronJob(fail.iden, 'NoSuchCronJob', defview.iden)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.agenda.move('StillDoesNotExist', defview.iden)
+
+            # make a new view
+            ldef = await core.addLayer()
+            newlayr = core.getLayer(ldef.get('iden'))
+            newview = await core.callStorm(f'return($lib.view.add(({newlayr.iden},)).iden)')
+
+            # no perms to write to that view
+            asfail = {'user': fail.iden, 'vars': {'newview': newview}}
+            with self.raises(s_exc.AuthDeny):
+                await prox.callStorm('cron.add --view $newview --minute +2 { $lib.queue.get(testq).put(lolnope) }', opts=asfail)
+
+            # and just to be sure
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('No cron jobs found', msgs)
+
+            # no --view means it goes in the default view for the user, which fail doesn't have rights to
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('cron.add --minute +1 { $lib.queue.get(testq).put((44)) }', opts=asfail)
+
+            # let's give fail permissions to do some things, but not in our super special view (fail is missing
+            # the view read perm for the special view)
+            await fail.addRule((True, ('cron', 'add')))
+
+            # But we should still fail on this:
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('cron.add --view $newview --minute +2 { $lib.queue.get(testq).put(lolnope) $lib.time.sleep(10)}', opts=asfail)
+
+            # and again, just to be sure
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('No cron jobs found', msgs)
+
+            # Now let's give him perms to do things
+            await fail.addRule((True, ('view', 'read')), gateiden=newview)
+            await fail.addRule((True, ('queue', 'get')), gateiden='queue:testq')
+            await fail.addRule((True, ('queue', 'put')), gateiden='queue:testq')
+            await fail.addRule((True, ('node', 'add')))
+            await fail.addRule((True, ('cron', 'get')))
+
+            # but should work on the default view
+            opts = {'user': fail.iden, 'view': defview.iden, 'vars': {'defview': defview.iden}}
+            await prox.callStorm('cron.at --view $defview --minute +1 { $lib.queue.get(testq).put((44)) }', opts=opts)
+
+            jobs = await core.callStorm('return($lib.cron.list())')
+            self.len(1, jobs)
+            self.eq(defview.iden, jobs[0]['view'])
+
+            retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            self.eq((0, 44), retn)
+
+            await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': jobs[0]['iden']}})
+            await core.callStorm('$lib.queue.get(testq).cull(0)')
+
+            opts = {'vars': {'newview': newview}}
+            await prox.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.get(testq).put($node) $lib.time.sleep(10) }', opts=opts)
+
+            jobs = await core.callStorm('return($lib.cron.list())')
+            self.len(1, jobs)
+            self.eq(newview, jobs[0]['view'])
+
+            retn = await core.callStorm('return($lib.queue.get(testq).get())')
+            await core.callStorm('$lib.queue.get(testq).cull(1)')
+
+            # That node had better have been made in the new view
+            guidnode = await core.nodes('test:guid', opts={'view': newview})
+            self.len(1, guidnode)
+            self.eq(('test:guid', retn[1]), guidnode[0].ndef)
+
+            # and definitely not in the base view
+            nonode = await core.nodes('test:guid', opts={'view': defview.iden})
+            self.len(0, nonode)
+
+            # no permission yet
+            opts = {'user': fail.iden, 'vars': {'croniden': jobs[0]['iden'], 'viewiden': defview.iden}}
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('cron.move $croniden $viewiden', opts=opts)
+
+            await fail.addRule((True, ('cron', 'set')))
+            # try and fail to move to a view that doesn't exist
+            opts = {'user': fail.iden, 'vars': {'croniden': jobs[0]['iden'], 'viewiden': fakeiden}}
+            with self.raises(s_exc.NoSuchView):
+                await core.callStorm('cron.move $croniden $viewiden', opts=opts)
+
+            croniden = jobs[0]['iden']
+            # now to test that we can move from the new layer to the base layer
+            opts = {'user': fail.iden, 'vars': {'croniden': croniden, 'viewiden': defview.iden}}
+            await core.callStorm('cron.move $croniden $viewiden', opts=opts)
+
+            jobs = await core.callStorm('return($lib.cron.list())')
+            self.len(1, jobs)
+            self.eq(defview.iden, jobs[0]['view'])
+
+            # moving to the same view shouldn't do much
+            await core.moveCronJob(fail.iden, croniden, defview.iden)
+
+            samejobs = await core.callStorm('return($lib.cron.list())')
+            self.len(1, jobs)
+            self.eq(jobs, samejobs)
+
+            retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+
+            node = await core.nodes('test:guid', opts={'view': defview.iden})
+            self.len(1, node)
+            self.eq(('test:guid', retn[1]), node[0].ndef)
+            self.ne(guidnode[0].ndef, node[0].ndef)
+
+            # reach in, monkey with the view a bit
+            appt = core.agenda.appts.get(croniden)
+            appt.view = "ThisViewStillDoesntExist"
+            await core.agenda._execute(appt)
+            self.eq(appt.lastresult, 'Failed due to unknown view')
