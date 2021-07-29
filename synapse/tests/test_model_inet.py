@@ -342,7 +342,11 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 64 * '0',
-            'dst:txbytes': 2
+            'dst:txbytes': 2,
+            'src:softnames': ('hehe', 'haha'),
+            'dst:softnames': ('foobar', 'bazfaz'),
+            'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
+            'dst:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
         }
         expected_props = {
             'time': 0,
@@ -363,7 +367,11 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 'sha256:' + 64 * '0',
-            'dst:txbytes': 2
+            'dst:txbytes': 2,
+            'src:softnames': ('haha', 'hehe'),
+            'dst:softnames': ('bazfaz', 'foobar'),
+            'src:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
+            'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:

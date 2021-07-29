@@ -973,6 +973,7 @@ stormcmds = (
             ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
             ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
             ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
+            ('--view', {'help': 'View to run the cron job against'}),
         ),
         'storm': '''
             $cron = $lib.cron.add(query=$cmdopts.query,
@@ -985,7 +986,8 @@ stormcmds = (
                                   daily=$cmdopts.daily,
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly,
-                                  iden=$cmdopts.iden)
+                                  iden=$cmdopts.iden,
+                                  view=$cmdopts.view,)
 
             if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
             if $cmdopts.name { $cron.set(name, $cmdopts.name) }
@@ -1004,6 +1006,7 @@ stormcmds = (
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
             ('--iden', {'help': 'A set iden to assign to the new cron job'}),
+            ('--view', {'help': 'View to run the cron job against'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
@@ -1012,7 +1015,8 @@ stormcmds = (
                                  day=$cmdopts.day,
                                  dt=$cmdopts.dt,
                                  now=$cmdopts.now,
-                                 iden=$cmdopts.iden)
+                                 iden=$cmdopts.iden,
+                                 view=$cmdopts.view)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -1026,6 +1030,18 @@ stormcmds = (
         'storm': '''
             $lib.cron.del($cmdopts.iden)
             $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'cron.move',
+        'descr': "Move a cron job from one view to another",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+            ('view', {'help': 'New storm query for the cron job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.move($cmdopts.iden, $cmdopts.view)
+            $lib.print("Moved cron job {iden} to view {view}", iden=$iden, view=$cmdopts.view)
         ''',
     },
     {
@@ -1069,13 +1085,14 @@ stormcmds = (
             $crons = $lib.cron.list()
 
             if $crons {
-                $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
+                $lib.print("user       iden       view       en? rpt? now? err? # start last start       last end         query")
 
                 for $cron in $crons {
 
                     $job = $cron.pprint()
 
                     $user = $job.user.ljust(10)
+                    $view = $job.viewshort.ljust(10)
                     $iden = $job.idenshort.ljust(10)
                     $enabled = $job.enabled.ljust(3)
                     $isrecur = $job.isrecur.ljust(4)
@@ -1085,8 +1102,8 @@ stormcmds = (
                     $laststart = $job.laststart.ljust(16)
                     $lastend = $job.lastend.ljust(16)
 
-       $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
-                               user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
+       $lib.print("{user} {iden} {view} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+                               user=$user, iden=$iden, view=$view, enabled=$enabled, isrecur=$isrecur,
                                isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
                                laststart=$laststart, lastend=$lastend, query=$job.query)
                 }
