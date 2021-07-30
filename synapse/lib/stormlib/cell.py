@@ -118,7 +118,7 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'stormFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
          'type': {'type': 'function', '_funcname': '_stormFixesApply', 'args': (),
                   'returns': {'type': 'list',
-                              'desc': 'Tuple contianing the current version after applying the fixes.'}}},
+                              'desc': 'Tuple containing the current version after applying the fixes.'}}},
         {'name': 'stormFixesCheck', 'desc': 'Check to see if there are known data migrations and fixes to apply.',
          'type': {'type': 'function', '_funcname': '_stormFixesCheck', 'args': (),
                   'returns': {'type': 'bool', 'desc': 'Bool indicating if there are fixes to apply or not.'}}},
