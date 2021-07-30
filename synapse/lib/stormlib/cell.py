@@ -51,7 +51,7 @@ for ($_, $view) in $rootViews {
 }
 
 if $lib.debug {
-    $lib.print('The following Wiews will be fixed in order:')
+    $lib.print('The following Views will be fixed in order:')
     for $view in $absoluteOrder {
         $lib.print($view)
     }
@@ -113,6 +113,13 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'getHealthCheck', 'desc': 'Get healthcheck information about the Cortex.',
          'type': {'type': 'function', '_funcname': '_getHealthCheck', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing healthcheck information.', }}},
+        {'name': 'stormFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
+         'type': {'type': 'function', '_funcname': '_stormFixesApply', 'args': (),
+                  'returns': {'type': 'list',
+                              'desc': 'Tuple contianing the current version after applying the fixes.'}}},
+        {'name': 'stormFixesCheck', 'desc': 'Check to see if there are known data migrations and fixes to apply.',
+         'type': {'type': 'function', '_funcname': '_stormFixesCheck', 'args': (),
+                  'returns': {'type': 'bool', 'desc': 'Bool indicating if there are fixes to apply or not.'}}},
     )
     _storm_lib_path = ('cell',)
 
@@ -122,12 +129,12 @@ class CellLib(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
-            'stormFixesApply': self._stormFixesApply,
-            'stormFixesCheck': self._stormFixesCheck,
             'getCellInfo': self._getCellInfo,
             'getBackupInfo': self._getBackupInfo,
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
+            'stormFixesApply': self._stormFixesApply,
+            'stormFixesCheck': self._stormFixesCheck,
         }
 
     async def _stormFixesApply(self):
@@ -174,7 +181,6 @@ class CellLib(s_stormtypes.Lib):
 
         dowork = False
         for vers, info in storm_fixes:
-            logger.info(f'{curv=} vs {vers=}')
             if vers <= curv:
                 continue
 
