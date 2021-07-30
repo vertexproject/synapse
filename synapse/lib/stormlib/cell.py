@@ -94,6 +94,8 @@ storm_fixes = (
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'
 
+def getMaxStormFixes():
+    return max([vers for vers, info in storm_fixes])
 
 @s_stormtypes.registry.registerLib
 class CellLib(s_stormtypes.Lib):
@@ -122,10 +124,6 @@ class CellLib(s_stormtypes.Lib):
                   'returns': {'type': 'bool', 'desc': 'Bool indicating if there are fixes to apply or not.'}}},
     )
     _storm_lib_path = ('cell',)
-
-    @ classmethod
-    def getMaxStormFixes(cls):
-        return max([vers for vers, info in storm_fixes])
 
     def getObjLocals(self):
         return {

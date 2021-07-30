@@ -1,5 +1,7 @@
 import synapse.exc as s_exc
 
+import synapse.lib.stormlib.cell as s_cell
+
 import synapse.tests.utils as s_test
 
 class StormCellTest(s_test.SynTest):
@@ -20,6 +22,12 @@ class StormCellTest(s_test.SynTest):
 
             ret = await core.callStorm('return ( $lib.cell.getHealthCheck() )')
             self.eq(ret, await core.getHealthCheck())
+
+            # New cores have stormvar set to teh current max version fix
+            vers = await core.callStorm('return ( $lib.globals.get($key) )',
+                                        {'vars': {'key': s_cell.runtime_fixes_key}})
+            self.nn(vers)
+            self.eq(vers, s_cell.getMaxStormFixes())
 
             user = await core.addUser('bob')
             opts = {'user': user.get('iden')}
