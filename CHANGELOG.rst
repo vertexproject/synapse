@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.52.1 - 2021-07-30
+====================
+
+Bugfixes
+--------
+- Fix a display regression when enumerating Cron jobs with the Storm
+  ``cron.list`` command.
+  (`#2309 <https://github.com/vertexproject/synapse/pull/2309>`_)'
+
+
 v2.52.0 - 2021-07-29
 ====================
 
