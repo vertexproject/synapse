@@ -28,6 +28,9 @@ def getFileMapCount(filename):
     return count
 
 class LmdbSlabTest(s_t_utils.SynTest):
+    def __init__(self, *args, **kwargs):
+        self._nowtime = 1000
+        s_t_utils.SynTest.__init__(self, *args, **kwargs)
 
     async def test_lmdbslab_scankeys(self):
 
@@ -325,6 +328,23 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
                 self.false(slab.lockmemory)
                 self.none(slab.memlocktask)
+
+    def simplenow(self):
+        self._nowtime += 1000
+        return self._nowtime
+
+    async def test_lmdb_commit_warn(self):
+        with self.getTestDir() as dirn, self.setTstEnvars(SYN_SLAB_COMMIT_WARN='0.001'), \
+                patch('synapse.common.now', self.simplenow):
+            path = os.path.join(dirn, 'test.lmdb')
+            with self.getLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
+                async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
+                    foo = slab.initdb('foo', dupsort=True)
+                    byts = b'\x00' * 256
+                    for i in range(10):
+                        slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                breakpoint()
+                stream.wait(timeout=1)
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
