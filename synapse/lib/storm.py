@@ -1746,18 +1746,18 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
-    def confirm(self, perms, gateiden=None):
+    def confirm(self, perms, gateiden=None, default=False):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
         if self.asroot:
             return
-        return self.user.confirm(perms, gateiden=gateiden)
+        return self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def allowed(self, perms, gateiden=None):
+    def allowed(self, perms, gateiden=None, default=False):
         if self.asroot:
             return True
-        return self.user.allowed(perms, gateiden=gateiden)
+        return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.

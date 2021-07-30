@@ -5951,6 +5951,7 @@ class User(Prim):
 
         name = await tostr(name)
         if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'name'), default=True)
             await self.runt.snap.core.setUserName(self.valu, name)
             return
 
@@ -6001,6 +6002,7 @@ class User(Prim):
 
     async def _methUserSetEmail(self, email):
         if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
 
@@ -6016,6 +6018,7 @@ class User(Prim):
     async def _methUserSetPasswd(self, passwd):
         if self.runt.user.iden == self.valu:
             passwd = await tostr(passwd, noneok=True)
+            self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
         self.runt.confirm(('auth', 'user', 'set', 'passwd'))

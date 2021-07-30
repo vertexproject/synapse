@@ -413,6 +413,17 @@ class StormTypesTest(s_test.SynTest):
             await lowuser.addRule((True, ('node',)), gateiden=layr.iden)
             await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=aslow)
 
+            await lowuser.addRule((False, ('auth', 'self', 'set')))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).setPasswd(hehehaha)', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).setEmail(v@vtx.lk)', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).name = derpuser', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                async with core.getLocalProxy(user='lowuser') as proxy:
+                    await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
