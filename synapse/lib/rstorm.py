@@ -61,6 +61,9 @@ class StormOutput(s_cmds_cortex.StormCmd):
         }
 
         resp = self.ctx.get('mock-http')
+        if resp is None:
+            return
+
         if resp:
             body = resp.get('body')
 
