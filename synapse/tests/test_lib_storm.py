@@ -559,6 +559,80 @@ class StormTest(s_t_utils.SynTest):
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
 
+            pkgdef = {
+                'name': 'foobar',
+                'version': '1.2.3',
+            }
+            await core.addStormPkg(pkgdef)
+
+            with self.raises(s_exc.StormPkgConflicts):
+                await core.addStormPkg({
+                    'name': 'bazfaz',
+                    'version': '2.2.2',
+                    'depends': {
+                        'conflicts': (
+                            {'name': 'foobar'},
+                        ),
+                    }
+                })
+
+            with self.raises(s_exc.StormPkgConflicts):
+                await core.addStormPkg({
+                    'name': 'bazfaz',
+                    'version': '2.2.2',
+                    'depends': {
+                        'conflicts': (
+                            {'name': 'foobar', 'version': '>=1.0.0'},
+                        ),
+                    }
+                })
+
+            with self.raises(s_exc.StormPkgRequires):
+                await core.addStormPkg({
+                    'name': 'bazfaz',
+                    'version': '2.2.2',
+                    'depends': {
+                        'requires': (
+                            {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
+                        ),
+                    }
+                })
+
+            pkgdef = {
+                'name': 'lolzlolz',
+                'version': '1.2.3',
+            }
+            await core.addStormPkg(pkgdef)
+
+            await core.addStormPkg({
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'requires': (
+                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0'},
+                    ),
+                    'conflicts': (
+                        {'name': 'foobar', 'version': '>=3.0.0'},
+                    ),
+                }
+            })
+
+            await core.addStormPkg({
+                'name': 'zoinkszoinks',
+                'version': '2.2.2',
+                'depends': {
+                    'conflicts': (
+                        {'name': 'newpnewp'},
+                    ),
+                }
+            })
+
+            # force old-cron behavior which lacks a view
+            await core.nodes('cron.add --hourly 03 { inet:ipv4 }')
+            for (iden, cron) in core.agenda.list():
+                cron.view = None
+            await core.nodes('cron.list')
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):

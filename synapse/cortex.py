@@ -443,7 +443,7 @@ class CoreApi(s_cell.CellApi):
         Get a list of Cortex feed functions.
 
         Notes:
-            Each feed dictinonary has the name of the feed function, the
+            Each feed dictionary has the name of the feed function, the
             full docstring for the feed function, and the first line of
             the docstring broken out in their own keys for easy use.
 
@@ -2006,6 +2006,48 @@ class Cortex(s_cell.Cell):  # type: ignore
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
+    async def _reqStormPkgDeps(self, pkgdef):
+
+        deps = pkgdef.get('depends')
+        if deps is None:
+            return
+
+        name = pkgdef.get('name')
+
+        requires = deps.get('requires', ())
+        for require in requires:
+
+            pkgname = require.get('name')
+            cmprvers = require.get('version')
+
+            cpkg = await self.getStormPkg(pkgname)
+            if cpkg is not None:
+                cver = cpkg.get('version')
+                if s_version.matches(cver, cmprvers):
+                    continue
+
+            mesg = f'Storm package {name} requires {pkgname}{cmprvers}.'
+            raise s_exc.StormPkgRequires(mesg=mesg)
+
+        conflicts = deps.get('conflicts', ())
+        for conflict in conflicts:
+
+            pkgname = conflict.get('name')
+
+            cpkg = await self.getStormPkg(pkgname)
+            if cpkg is None:
+                continue
+
+            cmprvers = conflict.get('version')
+            if cmprvers is None:
+                mesg = f'Storm package {name} conflicts with {pkgname}.'
+                raise s_exc.StormPkgConflicts(mesg=mesg)
+
+            cver = cpkg.get('version')
+            if s_version.matches(cver, cmprvers):
+                mesg = f'Storm package {name} conflicts with {pkgname}{cmprvers}.'
+                raise s_exc.StormPkgConflicts(mesg=mesg)
+
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
         Normalize and validate a storm package (optionally storm code).
@@ -2013,6 +2055,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         version = pkgdef.get('version')
         if isinstance(version, (tuple, list)):
             pkgdef['version'] = '%d.%d.%d' % tuple(version)
+
+        await self._reqStormPkgDeps(pkgdef)
 
         pkgname = pkgdef.get('name')
 
@@ -3297,7 +3341,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(iden, 'view')
         await user.setAdmin(True, gateiden=iden, logged=False)
 
-        # worldreadable is not get persisted with the view; the state ends up in perms
+        # worldreadable does not get persisted with the view; the state ends up in perms
         worldread = vdef.pop('worldreadable', False)
 
         if worldread:
@@ -4690,6 +4734,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         if not cdef.get('iden'):
             cdef['iden'] = s_common.guid()
 
+        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+
+        view = self._viewFromOpts(opts)
+        cdef['view'] = view.iden
+
         return await self._push('cron:add', cdef)
 
     @s_nexus.Pusher.onPush('cron:add')
@@ -4709,6 +4758,23 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         return cdef
+
+    async def moveCronJob(self, useriden, croniden, viewiden):
+        view = self._viewFromOpts({'view': viewiden, 'user': useriden})
+
+        appt = self.agenda.appts.get(croniden)
+        if appt is None:
+            raise s_exc.NoSuchIden(iden=croniden)
+
+        if appt.view == view.iden:
+            return croniden
+
+        return await self._push('cron:move', croniden, viewiden)
+
+    @s_nexus.Pusher.onPush('cron:move')
+    async def _onMoveCronJob(self, croniden, viewiden):
+        await self.agenda.move(croniden, viewiden)
+        return croniden
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):

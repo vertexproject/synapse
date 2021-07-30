@@ -108,3 +108,21 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('software'), soft)
             self.eq(node.get('spec'), spec)
             self.eq(node.get('item'), item)
+
+            nodes = await core.nodes('''
+                [ risk:alert=*
+                    :type=BazFaz
+                    :name=FooBar
+                    :desc=BlahBlah
+                    :detected=20501217
+                    :attack=*
+                    :vuln=*
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('bazfaz', nodes[0].get('type'))
+            self.eq('FooBar', nodes[0].get('name'))
+            self.eq('BlahBlah', nodes[0].get('desc'))
+            self.eq(2554848000000, nodes[0].get('detected'))
+            self.len(1, await core.nodes('risk:alert -> risk:vuln'))
+            self.len(1, await core.nodes('risk:alert -> risk:attack'))
