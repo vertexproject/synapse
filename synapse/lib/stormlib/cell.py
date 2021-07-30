@@ -137,20 +137,22 @@ class CellLib(s_stormtypes.Lib):
 
         curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
         for vers, info in storm_fixes:
-            if vers > curv:
+            if vers <= curv:
                 continue
 
             desc = info.get('desc')
-            query = info.get('query')
+            text = info.get('query')
             vars = info.get('vars', {})
-            assert query is not None
+            assert text is not None
             assert desc is not None
             assert vars is not None
 
             await self.runt.printf(f'Applying fix {vers} for [{desc}]')
             try:
+                query = await self.runt.getStormQuery(text)
                 async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
-                    await s_common.spin(runt.execute())
+                    async for item in runt.execute():
+                        pass
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -161,6 +163,8 @@ class CellLib(s_stormtypes.Lib):
                 await self.runt.printf(f'Applied fix {vers}')
             curv = vers
 
+        return curv
+
     async def _stormFixesCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
@@ -170,7 +174,8 @@ class CellLib(s_stormtypes.Lib):
 
         dowork = False
         for vers, info in storm_fixes:
-            if vers > curv:
+            logger.info(f'{curv=} vs {vers=}')
+            if vers <= curv:
                 continue
 
             dowork = True

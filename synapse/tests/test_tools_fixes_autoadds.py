@@ -50,8 +50,14 @@ class FixAutoadds(s_t_utils.SynTest):
             msgs = await core.stormlist('$r = $lib.cell.stormFixesCheck() $lib.print("r={r}", r=$r)')
             for m in msgs:
                 print(m)
+            msgs = await core.stormlist('$r = $lib.cell.stormFixesApply() $lib.print("r={r}", r=$r)')
+            for m in msgs:
+                print(m)
 
-            return
+            msgs = await core.stormlist('$r = $lib.cell.stormFixesCheck() $lib.print("r={r}", r=$r)')
+            for m in msgs:
+                print(m)
+
             # async for m in core.storm(s_f_autoadds.newview_query):
             #     print(m)
             #
