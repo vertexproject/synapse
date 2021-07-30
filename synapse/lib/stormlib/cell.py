@@ -90,16 +90,17 @@ storm_fixes = (
     ((1, 0, 0), {
         'desc': 'Create nodes for known missing autoadds.',
         'query': storm_missing_autoadds,
-    },
+    }),
 )
+runtime_fixes_key = 'cortex:runtime:stormfixes'
 
 
-@ s_stormtypes.registry.registerLib
+@s_stormtypes.registry.registerLib
 class CellLib(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with Json data.
     '''
-    _storm_locals=(
+    _storm_locals = (
         {'name': 'getCellInfo', 'desc': 'Return metadata specific for the Cortex.',
          'type': {'type': 'function', '_funcname': '_getCellInfo', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing metadata.', }}},
@@ -113,7 +114,7 @@ class CellLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_getHealthCheck', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing healthcheck information.', }}},
     )
-    _storm_lib_path=('cell',)
+    _storm_lib_path = ('cell',)
 
     @ classmethod
     def getMaxStormFixes(cls):
@@ -131,17 +132,17 @@ class CellLib(s_stormtypes.Lib):
 
     async def _stormFixesApply(self):
         if not self.runt.isAdmin():
-            mesg='$lib.cell.stormFixesApply() requires admin privs.'
+            mesg = '$lib.cell.stormFixesApply() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        curv=await self.runt.snap.core.getStormVar('cortex:runtime:stormfixes', default=(0, 0, 0))
+        curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
         for vers, info in storm_fixes:
             if vers > curv:
                 continue
 
-            desc=info.get('desc')
-            query=info.get('query')
-            vars=info.get('vars', {})
+            desc = info.get('desc')
+            query = info.get('query')
+            vars = info.get('vars', {})
             assert query is not None
             assert desc is not None
             assert vars is not None
@@ -156,48 +157,48 @@ class CellLib(s_stormtypes.Lib):
                 logger.exception(f'Error applying stormfix {vers}')
                 raise
             else:
-                await self.runt.snap.core.setStormVar('cortex:runtime:stormfixes', vers)
+                await self.runt.snap.core.setStormVar(runtime_fixes_key, vers)
                 await self.runt.printf(f'Applied fix {vers}')
-            curv=vers
+            curv = vers
 
     async def _stormFixesCheck(self):
         if not self.runt.isAdmin():
-            mesg='$lib.cell.getHealthCheck() requires admin privs.'
+            mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
 
-        curv=await self.runt.snap.core.getStormVar('cortex:runtime:stormfixes', default=(0, 0, 0))
+        curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
 
-        dowork=False
+        dowork = False
         for vers, info in storm_fixes:
             if vers > curv:
                 continue
 
-            dowork=True
-            desc=info.get('desc')
+            dowork = True
+            desc = info.get('desc')
             await self.runt.printf(f'Would apply fix {vers} for [{desc}]')
 
         return dowork
 
     async def _getCellInfo(self):
         if not self.runt.isAdmin():
-            mesg='$lib.cell.getCellInfo() requires admin privs.'
+            mesg = '$lib.cell.getCellInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getCellInfo()
 
     async def _getSystemInfo(self):
         if not self.runt.isAdmin():
-            mesg='$lib.cell.getSystemInfo() requires admin privs.'
+            mesg = '$lib.cell.getSystemInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getSystemInfo()
 
     async def _getBackupInfo(self):
         if not self.runt.isAdmin():
-            mesg='$lib.cell.getBackupInfo() requires admin privs.'
+            mesg = '$lib.cell.getBackupInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getBackupInfo()
 
     async def _getHealthCheck(self):
         if not self.runt.isAdmin():
-            mesg='$lib.cell.getHealthCheck() requires admin privs.'
+            mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getHealthCheck()

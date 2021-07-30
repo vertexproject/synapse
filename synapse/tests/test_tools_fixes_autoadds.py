@@ -47,9 +47,14 @@ class FixAutoadds(s_t_utils.SynTest):
                 self.len(0, await core.nodes('inet:ipv6', opts={'view': view}))
                 self.len(0, await core.nodes('inet:fqdn', opts={'view': view}))
 
-            async for m in core.storm(s_f_autoadds.newview_query):
+            msgs = await core.stormlist('$r = $lib.cell.stormFixesCheck() $lib.print("r={r}", r=$r)')
+            for m in msgs:
                 print(m)
 
+            return
+            # async for m in core.storm(s_f_autoadds.newview_query):
+            #     print(m)
+            #
             # return
 
             # outp.clear()
