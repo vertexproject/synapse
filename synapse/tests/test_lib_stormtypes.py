@@ -402,6 +402,17 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('inet:user=visi return($node.data.cacheget(foo))'))
             self.eq('bar', await core.callStorm('inet:user=visi return($node.data.cacheget(foo, asof="-30days"))'))
 
+            lowuser = await core.auth.addUser('lowuser')
+            await lowuser.addRule((True, ('view', 'add')))
+
+            aslow = {'user': lowuser.iden}
+            view = await core.callStorm('return($lib.view.get().fork().iden)', opts=aslow)
+
+            aslow['view'] = view
+            layr = core.getView(view).layers[0]
+            await lowuser.addRule((True, ('node',)), gateiden=layr.iden)
+            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=aslow)
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:

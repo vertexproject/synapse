@@ -4064,30 +4064,29 @@ class NodeData(Prim):
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
         name = await tostr(name)
-        confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
-        confirm(('node', 'data', 'set', name))
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
         name = await tostr(name)
-        confirm(('node', 'data', 'pop', name))
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
         name = await tostr(name)
-        confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
