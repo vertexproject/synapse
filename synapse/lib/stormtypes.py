@@ -6684,7 +6684,7 @@ class CronJob(Prim):
         user = self.valu.get('username')
         view = self.valu.get('view')
         if not view:
-            view = await self.runt.snap.core.getView()
+            view = self.runt.snap.core.view.iden
 
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')

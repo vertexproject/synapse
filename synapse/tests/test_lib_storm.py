@@ -627,6 +627,12 @@ class StormTest(s_t_utils.SynTest):
                 }
             })
 
+            # force old-cron behavior which lacks a view
+            await core.nodes('cron.add --hourly 03 { inet:ipv4 }')
+            for (iden, cron) in core.agenda.list():
+                cron.view = None
+            await core.nodes('cron.list')
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
