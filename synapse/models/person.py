@@ -47,8 +47,37 @@ class PsModule(s_module.CoreModule):
                 ('ps:contactlist', ('guid', {}), {
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
+                ('ps:workhist', ('guid', {}), {
+                    'doc': "A GUID representing entry in a contact's work history.",
+                }),
             ),
             'forms': (
+                ('ps:workhist', {}, (
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact which has the work history.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that this work history orgname refers to.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The reported name of the org the contact worked for.',
+                    }),
+                    ('title', ('ou:worktitle', {}), {
+                        'doc': "The contact's title during this period of work.",
+                    }),
+                    ('started', ('time', {}), {
+                        'doc': 'The date that the contact began working.',
+                    }),
+                    ('ended', ('time', {}), {
+                        'doc': 'The date that the contact stopped working.',
+                    }),
+                    ('yearlypay', ('econ:price', {}), {
+                        'doc': 'The estimated yearly income from the work.',
+                    }),
+                    ('paycurrency', ('econ:currency', {}), {
+                        'doc': 'The currency that the yearly pay was delivered in.',
+                    }),
+                )),
                 ('edu:course', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'ex': 'organic chemistry for beginners',

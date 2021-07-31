@@ -10,6 +10,17 @@ contracttypes = (
     'partnership',
 )
 
+dealstatus = (
+    (0, 'new'),
+    (0, 'research'),
+    (10, 'pitching'),
+    (20, 'offer made'),
+    (50, 'negotiation'),
+    (50, 'committed'),
+    (60, 'delivered'),
+    (70, 'done'),
+)
+
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -136,8 +147,137 @@ class OuModule(s_module.CoreModule):
                 ('ou:award', ('guid', {}), {
                     'doc': 'An award issued by an organization.',
                 }),
+                ('ou:vitals', ('guid', {}), {
+                    'doc': 'Vital statistics about an org for a given time period.',
+                }),
+                ('ou:opening', ('guid', {}), {
+                    'doc': 'A job/work opening within an org.',
+                }),
+                ('ou:worktitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    'doc': 'A title for a position within an org.',
+                }),
             ),
             'forms': (
+                ('ou:opening', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org which has the opening.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The name of the organization as listed in the opening.',
+                    }),
+                    ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'URLs where the opening is listed.',
+                    }),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact details to inquire about the opening.',
+                    }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geopolitical boundary of the opening.',
+                    }),
+                    ('title', {'ou:worktitle', {}), {
+                        'doc': 'The title of the opening.',
+                    }),
+                    ('remote', ('bool', {}), {
+                        'doc': 'Set to true if the opening will allow a fully remote worker.',
+                    }),
+                    ('yearlypay', ('econ:price', {}), {
+                        'doc': 'The yearly income associated with the opening.',
+                    }),
+                    ('paycurrency', ('econ:currency', {}), {
+                        'doc': 'The currency that the yearly pay was delivered in.',
+                    }),
+                    # TODO a way to encode/normalize requirements.
+                )),
+                ('ou:vitals', {}, (
+
+                    ('period', ('ival', {}), {
+                    }),
+                    ('period:min', ('time', {}), {
+                    }),
+                    ('period:max', ('time', {}), {
+                    }),
+
+                    ('period:duration', ('duration', {}), {}),
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The resolved org for the orgname.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The org name as reported by the source of the vitals.',
+                    }),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the econ:price values.',
+                    }),
+                    ('costs', ('econ:price', {}), {
+                        'doc': 'The costs/expendatures over the period.',
+                    }),
+                    ('revenue', ('econ:price', {}), {
+                        'doc': 'The gross revenue over the period.',
+                    }),
+                    ('profit', ('econ:price', {}), {
+                        'doc': 'The net profit over the period.',
+                    }),
+                    ('valuation', ('econ:price', {}), {
+                        'doc': 'The assesed value of the organization at the end of the period',
+                    }),
+                    ('population', ('int', {}), {
+                        'doc': 'The population of the org at the end of the period.',
+                    }),
+                    ('delta:costs', ('econ:price', {}), {
+                        'doc': 'The change in costs over last period.',
+                    }),
+                    ('delta:revenue', ('econ:price', {}), {
+                        'doc': 'The change in revenue over last period.',
+                    }),
+                    ('delta:profit', ('econ:price', {}), {
+                        'doc': 'The change in profit over last period.',
+                    }),
+                    ('delta:valuation', ('econ:price', {}), {
+                        'doc': 'The change in valuation over last period.',
+                    }),
+                    ('delta:population', ('int', {}), {
+                        'doc': 'The change in population over last period.',
+                    }),
+                )),
+                ('ou:deal', {}, (
+
+                    # proposal / procurement / opportunity
+                    ('name', ('str', {}), {}),
+                    ('status', ('int', {'enums': dealstatus}), {}),
+                    ('lastcontact', ('time', {}), {}),
+
+                    ('currency', ('econ:currency', {}), {}),
+
+                    ('nda', ('ou:contract', {}), {
+                        'doc': 'The Non-Disclosure Agreement which covers the deal.',
+                    })
+
+
+                    ('buyer:org', ('ou:org', {}), {}),
+                    ('buyer:orgname', ('ou:name', {}), {}),
+                    ('buyer:name', ('ps:name', {}), {}),
+                    ('buyer:email', ('ps:name', {}), {}),
+                    ('buyer:phone', ('tel:phone', {}), {}),
+                    ('buyer:budget', ('econ:price', {}), {}),
+
+                    #('buyer:contact', ('ps:contact', {}),
+                    ('buyer:decisiontime', ('time', {}), {}),
+
+                    # -(dealcomms)>
+
+                    ('seller:org', ('ou:org', {}), {}),
+                    ('seller:orgname', ('ou:name', {}),
+                    ('seller:name', ('ps:name', {}), {}),
+                    ('seller:email', ('ps:name', {}), {}),
+                    ('seller:phone', ('tel:phone', {}), {}),
+                    ('seller:offer', ('econ:price', {}), {}),
+
+                    #('contract',
+
+                    ('purchase', ('econ:purchase', {}), {}),
+
+                    ('purchase:price', ('econ:price', {}), {}),
+                )),
                 ('ou:award', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                         'doc': 'The name of the award.',
