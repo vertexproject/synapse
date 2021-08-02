@@ -62,7 +62,7 @@ class PsModule(s_module.CoreModule):
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The reported name of the org the contact worked for.',
                     }),
-                    ('title', ('ou:worktitle', {}), {
+                    ('title', ('ou:jobtitle', {}), {
                         'doc': "The contact's title during this period of work.",
                     }),
                     ('started', ('time', {}), {

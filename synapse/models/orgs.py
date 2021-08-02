@@ -145,7 +145,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:opening', ('guid', {}), {
                     'doc': 'A job/work opening within an org.',
                 }),
-                ('ou:worktitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                ('ou:jobtitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
             ),
@@ -166,7 +166,7 @@ class OuModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical boundary of the opening.',
                     }),
-                    ('title', ('ou:worktitle', {}), {
+                    ('title', ('ou:jobtitle', {}), {
                         'doc': 'The title of the opening.',
                     }),
                     ('remote', ('bool', {}), {
