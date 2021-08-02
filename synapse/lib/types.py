@@ -672,6 +672,86 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
+class IdenSeqn(Type):
+
+    stortype = s_layer.STOR_TYPE_IDENSEQN
+
+    def __init__(self, modl, name, info, opts):
+        Type.__init__(self, modl, name, info, opts)
+
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+
+        self.storlifts.update({
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+            #'range=': self._storLiftRange,
+        })
+
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+    def _ctorCmprLt(self, text):
+        base = self._normSeqnValu(text)
+        def cmpr(valu):
+            valu = self._normSeqnValu(valu)
+            return valu < base
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        base = self._normSeqnValu(text)
+        def cmpr(valu):
+            valu = self._normSeqnValu(valu)
+            return valu > base
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        base = self._normSeqnValu(text)
+        def cmpr(valu):
+            valu = self._normSeqnValu(valu)
+            return valu <= base
+        return cmpr
+
+    def _ctorCmprGe(self, text):
+        base = self._normSeqnValu(text)
+        def cmpr(valu):
+            valu = self._normSeqnValu(valu)
+            return valu >= base
+        return cmpr
+
+    def _normPyList(self, valu):
+
+        iden, seqn = valu
+
+        if not s_common.isguid(iden):
+            mesg = f'{self.name} tuple/list first value must be a valid guid.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        seqn = self._normSeqnValu(seqn)
+        subs = self._getSeqnSubs(iden, seqn)
+
+        return (iden, seqn), {'subs': subs}
+
+    def _getSeqnSubs(self, iden, seqn):
+        idenname, seqnname = self.opts.get('subnames', ('iden', 'seqn'))
+        return {idenname: iden, seqnname: seqn}
+
+    def _normSeqnValu(self, valu):
+        return int(valu, 0)
+
+class IdenTick(IdenSeqn):
+
+    def postTypeInit(self):
+        self.timetype = self.modl.type('time')
+        self.opts.setdefault('subnames', ('iden', 'time'))
+
+    def _normSeqnValu(self, valu):
+        return self.timetype.norm(valu)[0]
+
 hugemax = 170141183460469231731687
 class HugeNum(Type):
 

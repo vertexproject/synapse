@@ -208,6 +208,7 @@ STOR_TYPE_MINTIME = 21
 
 STOR_TYPE_FLOAT64 = 22
 STOR_TYPE_HUGENUM = 23
+STOR_TYPE_IDENSEQN = 24
 
 # STOR_TYPE_TOMB      = ??
 # STOR_TYPE_FIXED     = ??
@@ -522,6 +523,69 @@ class StorTypeUtf8(StorType):
         if len(bytz) >= 256:
             return s_common.novalu
         return bytz.decode('utf8', 'surrogatepass')
+
+class StorTypeIdenSeqn(StorType):
+
+    def __init__(self, layr):
+        StorType.__init__(self, layr, STOR_TYPE_IDENSEQN)
+
+        self.offset = 2 ** ((8 * 8) - 1) - 1
+
+        self.zerobyts = b'\x00' * 8
+        self.fullbyts = b'\xff' * 8
+
+        self.lifters.update({
+            '=': self.liftByEq,
+            '<': self.liftByLt,
+            '>': self.liftByGt,
+            '<=': self.liftByLe,
+            '>=': self.liftByGe,
+            #'range=': self.liftByRange,
+        })
+
+    def liftByEq(self, valu):
+        indx = self._getIndxByts(valu)
+        for item in liftby.keyBuidsByDups(pkey):
+            yield item
+        #for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+        #    yield item
+
+    async def liftByLt(self, liftby, valu):
+        valu = (valu[0], valu[1] - 1)
+        async for item in self.liftByLe(liftby, valu):
+            yield item
+
+    async def liftByGt(self, liftby, valu):
+        valu = (valu[0], valu[1] + 1)
+        async for item in self.liftByGe(liftby, valu):
+            yield item
+
+    async def liftByGe(self, liftby, valu):
+        bidn = s_common.uhex(valu[0])
+        pkeymin = self._getIndxByts(valu)
+        pkeymax = bidn + self.fullbyts
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def liftByLe(self, liftby, valu):
+        bidn = s_common.uhex(valu[0])
+        pkeymin = bidn + self.zerobyts
+        pkeymax = self._getIndxByts(valu)
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+    def _getIndxByts(self, valu):
+        byts = s_common.uhex(valu[0])
+        byts += (valu[1] + self.offset).to_bytes(8, 'big')
+        return byts
+
+    def indx(self, valu):
+        return (self._getIndxByts(valu),)
+
+    def decodeIndx(self, bytz):
+        iden = s_common.ehex(bytz[:16])
+        tick = int.from_bytes(bytz[16:], 'big') - self.offset
+        return (iden, tick)
 
 class StorTypeHier(StorType):
 
@@ -1167,6 +1231,7 @@ class Layer(s_nexus.Pusher):
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
+            StorTypeIdenSeqn(self),
         ]
 
         await self._initLayerStorage()
