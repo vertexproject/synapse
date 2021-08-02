@@ -633,6 +633,34 @@ class StormTest(s_t_utils.SynTest):
                 cron.view = None
             await core.nodes('cron.list')
 
+    async def test_storm_embeds(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:asn=10 :name=hehe ]')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]')
+            await nodes[0].getEmbeds({'asn::newp': {}})
+            await nodes[0].getEmbeds({'newp::newp': {}})
+            await nodes[0].getEmbeds({'asn::name::foo': {}})
+
+            opts = {'embeds': {'inet:ipv4': {'asn': ('name',)}}}
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4', opts=opts)
+
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            node = nodes[0]
+            self.eq('hehe', node[1]['embeds']['asn']['name'])
+            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
+
+            opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
+            msgs = await core.stormlist('[ ou:org=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            node = nodes[0]
+            self.eq('visi', node[1]['embeds']['hq::email']['user'])
+            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
