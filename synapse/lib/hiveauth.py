@@ -241,6 +241,10 @@ class Auth(s_nexus.Pusher):
 
         role = await self.reqRole(iden)
 
+        if role.name == 'all':
+            mesg = 'Role "all" may not be renamed.'
+            raise s_exc.BadArg(mesg=mesg)
+
         self.rolesbyname.pop(role.name, None)
         self.rolesbyname[name] = role
 
