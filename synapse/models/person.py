@@ -71,10 +71,13 @@ class PsModule(s_module.CoreModule):
                     ('ended', ('time', {}), {
                         'doc': 'The date that the contact stopped working.',
                     }),
-                    ('yearlypay', ('econ:price', {}), {
-                        'doc': 'The estimated yearly income from the work.',
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the period of work.',
                     }),
-                    ('paycurrency', ('econ:currency', {}), {
+                    ('pay', ('econ:price', {}), {
+                        'doc': 'The estimated/average yearly pay for the work.',
+                    }),
+                    ('currency', ('econ:currency', {}), {
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
                 )),
@@ -93,7 +96,7 @@ class PsModule(s_module.CoreModule):
                     ('institution', ('ps:contact', {}), {
                         'doc': 'The org or department which teaches the course.',
                     }),
-                    ('prereqs', ('array', {'type': 'edu:course'}), {
+                    ('prereqs', ('array', {'type': 'edu:course', 'uniq': True, 'sorted': True}), {
                         'doc': 'The pre-requisite courses for taking this course.',
                     }),
                 )),
@@ -104,7 +107,7 @@ class PsModule(s_module.CoreModule):
                     ('instructor', ('ps:contact', {}), {
                         'doc': 'The primary instructor for the class.',
                     }),
-                    ('assistants', ('array', {'type': 'ps:contact'}), {
+                    ('assistants', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of assistant/co-instructor contacts.',
                     }),
                     ('date:first', ('time', {}), {
@@ -139,7 +142,7 @@ class PsModule(s_module.CoreModule):
                     ('attended:last', ('time', {}), {
                         'doc': 'The last date the student attended a class.',
                     }),
-                    ('classes', ('array', {'type': 'edu:class'}), {
+                    ('classes', ('array', {'type': 'edu:class', 'uniq': True, 'sorted': True}), {
                         'doc': 'The classes attended by the student',
                     }),
                     ('achievement', ('ps:achievement', {}), {
@@ -204,10 +207,10 @@ class PsModule(s_module.CoreModule):
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the person.'
                     }),
-                    ('names', ('array', {'type': 'ps:name', 'uniq': True}), {
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'Variations of the name for the person.'
                     }),
-                    ('nicks', ('array', {'type': 'inet:user'}), {
+                    ('nicks', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'Usernames used by the  person.'
                     }),
                 )),
@@ -236,10 +239,10 @@ class PsModule(s_module.CoreModule):
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the suspected person.'
                     }),
-                    ('names', ('array', {'type': 'ps:name'}), {
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'Variations of the name for a persona.'
                     }),
-                    ('nicks', ('array', {'type': 'inet:user'}), {
+                    ('nicks', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'Usernames used by the persona.'
                     }),
                 )),
@@ -352,7 +355,7 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
                 ('ps:contactlist', {}, (
-                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ','}), {
+                    ('contacts', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'The array of contacts contained in the list.'
                     }),
                     ('source:host', ('it:host', {}), {

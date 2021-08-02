@@ -10,17 +10,6 @@ contracttypes = (
     'partnership',
 )
 
-dealstatus = (
-    (0, 'new'),
-    (0, 'research'),
-    (10, 'pitching'),
-    (20, 'offer made'),
-    (50, 'negotiation'),
-    (50, 'committed'),
-    (60, 'delivered'),
-    (70, 'done'),
-)
-
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -129,6 +118,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
                     'doc': 'An org has an assessed or stated goal.',
                 }),
+                ('ou:camptype', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    'doc': 'A user specified type for a campaign.',
+                }),
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
@@ -174,7 +166,7 @@ class OuModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical boundary of the opening.',
                     }),
-                    ('title', {'ou:worktitle', {}), {
+                    ('title', ('ou:worktitle', {}), {
                         'doc': 'The title of the opening.',
                     }),
                     ('remote', ('bool', {}), {
@@ -238,45 +230,6 @@ class OuModule(s_module.CoreModule):
                     ('delta:population', ('int', {}), {
                         'doc': 'The change in population over last period.',
                     }),
-                )),
-                ('ou:deal', {}, (
-
-                    # proposal / procurement / opportunity
-                    ('name', ('str', {}), {}),
-                    ('status', ('int', {'enums': dealstatus}), {}),
-                    ('lastcontact', ('time', {}), {}),
-
-                    ('currency', ('econ:currency', {}), {}),
-
-                    ('nda', ('ou:contract', {}), {
-                        'doc': 'The Non-Disclosure Agreement which covers the deal.',
-                    })
-
-
-                    ('buyer:org', ('ou:org', {}), {}),
-                    ('buyer:orgname', ('ou:name', {}), {}),
-                    ('buyer:name', ('ps:name', {}), {}),
-                    ('buyer:email', ('ps:name', {}), {}),
-                    ('buyer:phone', ('tel:phone', {}), {}),
-                    ('buyer:budget', ('econ:price', {}), {}),
-
-                    #('buyer:contact', ('ps:contact', {}),
-                    ('buyer:decisiontime', ('time', {}), {}),
-
-                    # -(dealcomms)>
-
-                    ('seller:org', ('ou:org', {}), {}),
-                    ('seller:orgname', ('ou:name', {}),
-                    ('seller:name', ('ps:name', {}), {}),
-                    ('seller:email', ('ps:name', {}), {}),
-                    ('seller:phone', ('tel:phone', {}), {}),
-                    ('seller:offer', ('econ:price', {}), {}),
-
-                    #('contract',
-
-                    ('purchase', ('econ:purchase', {}), {}),
-
-                    ('purchase:price', ('econ:price', {}), {}),
                 )),
                 ('ou:award', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
@@ -356,7 +309,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Set if a goal has a limited time window.',
                     }),
                 )),
+                ('ou:camptype', {}, {}),
                 ('ou:campaign', {}, (
+                    # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
                         'doc': 'The org carrying out the campaign.',
                     }),
@@ -372,13 +327,26 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'A terse name of the campaign.',
                     }),
-                    ('type', ('str', {}), {
+                    ('type', ('ou:camptype', {}), {
                         'doc': 'A user specified campaign type.',
+                        'disp': {'hint': 'enum'},
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the campaign.',
                         'disp': {'hint': 'text'},
                     }),
+
+                    ('period', ('ival', {}), {}),
+                    ('currency', ('econ:currency', {}), {}),
+
+                    ('cost', ('econ:price', {}), {}),
+                    ('budget', ('econ:price', {}), {}),
+
+                    ('goal:revenue', ('econ:price', {}), {}),
+                    ('result:revenue', ('econ:price', {}), {}),
+
+                    ('goal:pop', ('int', {}), {}),
+                    ('result:pop', ('int', {}), {}),
                 )),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
@@ -397,7 +365,7 @@ class OuModule(s_module.CoreModule):
                     ('logo', ('file:bytes', {}), {
                         'doc': 'An image file representing the logo for the organization.',
                     }),
-                    ('names', ('array', {'type': 'ou:name'}), {
+                    ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
@@ -414,7 +382,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'The North American Industry Classification System code for the organization.',
                     }),
-                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True}), {
+                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
                         'doc': 'The industries associated with the org.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {
@@ -427,8 +395,8 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
                     }),
-                    ('subs', ('array', {'type': 'ou:org'}), {
-                        'doc': 'An array of sub-organizations.'
+                    ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An set of sub-organizations.'
                     }),
                     ('orgchart', ('ou:position', {}), {
                         'doc': 'The root node for an orgchart made up ou:position nodes.',
@@ -436,10 +404,10 @@ class OuModule(s_module.CoreModule):
                     ('hq', ('ps:contact', {}), {
                         'doc': 'A collection of contact information for the "main office" of an org.',
                     }),
-                    ('locations', ('array', {'type': 'ps:contact'}), {
+                    ('locations', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts for facilities operated by the org.',
                     }),
-                    ('dns:mx', ('array', {'type': 'inet:fqdn'}), {
+                    ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),
                 )),
@@ -453,7 +421,7 @@ class OuModule(s_module.CoreModule):
                     ('title', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'doc': 'The title of the position.',
                     }),
-                    ('reports', ('array', {'type': 'ou:position'}), {
+                    ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of positions which report to this position.',
                     }),
                 )),
@@ -461,11 +429,11 @@ class OuModule(s_module.CoreModule):
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('types', ('array', {'type': 'ou:contract:type', 'uniq': True, 'split': ','}), {
+                    ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'A list of types that apply to the contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),
-                    ('parties', ('array', {'type': 'ps:contact', 'uniq': True}), {
+                    ('parties', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'The non-sponsor entities bound by the contract.'}),
                     ('document', ('file:bytes', {}), {
                         'doc': 'The best/current contract document.'}),
@@ -485,19 +453,19 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The amount of money budgeted for the contract.'}),
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'Purchase details of the contract.'}),
-                    ('requirements', ('array', {'type': 'ou:goal', 'uniq': True}), {
+                    ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                         'doc': 'The requirements levied upon the parties.'}),
                 )),
                 ('ou:industry', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A terse name for the industry.'}),
-                    ('subs', ('array', {'type': 'ou:industry', 'uniq': True, 'split': ','}), {
+                    ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of sub-industries.'}),
-                    ('sic', ('array', {'type': 'ou:sic', 'uniq': True, 'split': ','}), {
+                    ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
-                    ('naics', ('array', {'type': 'ou:naics', 'uniq': True, 'split': ','}), {
+                    ('naics', ('array', {'type': 'ou:naics', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
-                    ('isic', ('array', {'type': 'ou:isic', 'uniq': True, 'split': ','}), {
+                    ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of ISIC codes that map to the industry.'}),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the industry.',
@@ -639,11 +607,11 @@ class OuModule(s_module.CoreModule):
                     ('organizer', ('ps:contact', {}), {
                         'doc': 'Contact information for the primary organizer of the presentation.'}),
 
-                    ('sponsors', ('array', {'type': 'ps:contact'}), {
-                        'doc': 'An array of contacts which sponsored the presentation.'}),
+                    ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                        'doc': 'A set of contacts which sponsored the presentation.'}),
 
-                    ('presenters', ('array', {'type': 'ps:contact'}), {
-                        'doc': 'An array of contacts which gave the presentation.'}),
+                    ('presenters', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                        'doc': 'A set of contacts which gave the presentation.'}),
 
                     ('title', ('str', {'lower': True}), {
                         'doc': 'The full name of the presentation.',
@@ -720,7 +688,7 @@ class OuModule(s_module.CoreModule):
                     ('organizer', ('ps:contact', {}), {
                         'doc': 'Contact information for the primary organizer of the conference.',
                     }),
-                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                    ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
                     ('name', ('str', {'lower': True}), {
@@ -770,7 +738,7 @@ class OuModule(s_module.CoreModule):
                     ('role:speaker', ('bool', {}), {
                         'doc': 'The person was a speaker or presenter at the conference.',
                     }),
-                    ('roles', ('array', {'type': 'str', 'lower': True}), {
+                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                         'doc': 'List of the roles the person had at the conference.',
                     }),
                  )),
@@ -782,7 +750,7 @@ class OuModule(s_module.CoreModule):
                     ('organizer', ('ps:contact', {}), {
                         'doc': 'Contact information for the primary organizer of the event.',
                     }),
-                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                    ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts which sponsored the event.',
                     }),
                     ('place', ('geo:place', {}), {
@@ -826,7 +794,7 @@ class OuModule(s_module.CoreModule):
                     ('departed', ('time', {}), {
                         'doc': 'The time when a person departed from the conference event.',
                     }),
-                    ('roles', ('array', {'type': 'str', 'lower': True}), {
+                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                         'doc': 'List of the roles the person had at the conference event.',
                     }),
                 )),
