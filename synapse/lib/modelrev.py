@@ -20,7 +20,7 @@ class ModelRev:
             ((0, 2, 5), self.revModel20210801),
         )
 
-    async def _uniqSortArray(self, todoprops):
+    async def _uniqSortArray(self, todoprops, layers):
 
         for layr in layers:
 
@@ -37,6 +37,9 @@ class ModelRev:
                     nodeedits.clear()
 
                 prop = self.core.model.prop(propname)
+                if prop is None:
+                    logger.warning(f'No property named {propname} to sortuniq().')
+                    continue
 
                 propreln = prop.name
                 formname = prop.form.name
@@ -45,7 +48,7 @@ class ModelRev:
 
                 async for buid, propvalu in layr.iterPropRows(formname, propreln):
 
-                    uniqvalu = uniq(propvalu)
+                    uniqvalu = sortuniq(propvalu)
                     if uniqvalu == propvalu:
                         continue
 
@@ -67,7 +70,6 @@ class ModelRev:
         todoprops = (
             'edu:course:prereqs',
             'edu:class:assistants',
-            'edu:education:classes',
 
             'ou:org:subs',
             'ou:org:names',
@@ -97,9 +99,10 @@ class ModelRev:
             'ps:person:nicks',
             'ps:persona:names',
             'ps:persona:nicks',
+            'ps:education:classes',
             'ps:contactlist:contacts',
         )
-        await self._uniqSortArray(todoprops)
+        await self._uniqSortArray(todoprops, layers)
 
     async def revModel20210528(self, layers):
 
