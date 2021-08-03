@@ -36,7 +36,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
-                ('ou:contracttype', ('taxonomy', {}), {
+                ('ou:conttype', ('taxonomy', {}), {
                     'doc': 'A contract type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
@@ -201,20 +201,19 @@ class OuModule(s_module.CoreModule):
                 )),
                 ('ou:vitals', {}, (
 
-                    ('period', ('ival', {}), {
+                    ('asof', ('time', {}), {
+                        'doc': 'The time that the vitals represent.',
                     }),
-                    ('period:min', ('time', {}), {
-                    }),
-                    ('period:max', ('time', {}), {
-                    }),
-
-                    ('period:duration', ('duration', {}), {}),
-
+                    # TODO is modulo time a type?
+                    #('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
                     ('org', ('ou:org', {}), {
-                        'doc': 'The resolved org for the orgname.',
+                        'doc': 'The resolved org.',
                     }),
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The org name as reported by the source of the vitals.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The org FQDN as reported by the source of the vitals.',
                     }),
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of the econ:price values.',
@@ -229,10 +228,13 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The net profit over the period.',
                     }),
                     ('valuation', ('econ:price', {}), {
-                        'doc': 'The assesed value of the organization at the end of the period',
+                        'doc': 'The assesed value of the org.',
+                    }),
+                    ('shares', ('int', {}), {
+                        'doc': 'The number of shares outstanding.',
                     }),
                     ('population', ('int', {}), {
-                        'doc': 'The population of the org at the end of the period.',
+                        'doc': 'The population of the org.',
                     }),
                     ('delta:costs', ('econ:price', {}), {
                         'doc': 'The change in costs over last period.',
@@ -455,11 +457,11 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
-                ('ou:contracttype', {}, ()),
+                ('ou:conttype', {}, ()),
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('type', ('ou:contracttype', {}), {
+                    ('type', ('ou:conttype', {}), {
                         'doc': 'The type of contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),

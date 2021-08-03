@@ -1605,6 +1605,9 @@ class Taxon(Str):
         Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+    def _normForLift(self, valu):
+        return self.norm(valu)[0]
+
     def _normPyStr(self, valu):
         valu = valu.lower().strip()
         parts = taxonre.findall(valu)

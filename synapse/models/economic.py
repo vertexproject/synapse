@@ -103,8 +103,6 @@ class EconModule(s_module.CoreModule):
                 )),
 
                 ('econ:purchase', {}, (
-                    #('type': ('str', {'), {)), # retail, investment,
-
                     ('by:contact', ('ps:contact', {}), {
                         'doc': 'The contact information used to make the purchase.'}),
 

@@ -8,7 +8,9 @@ class BizModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'types': (
-                ('biz:rfp', ('guid', {}), {}),
+                ('biz:rfp', ('guid', {}), {
+                    'doc': 'An RFP (Request for Proposal) soliciting proposals.',
+                }),
                 ('biz:deal', ('guid', {}), {
                     'doc': 'A sales or procurement effort in pursuit of a purchase.',
                 }),
@@ -18,20 +20,22 @@ class BizModule(s_module.CoreModule):
                 ('biz:product', ('guid', {}), {
                     'doc': 'A product which is available for purchase.',
                 }),
-                ('biz:rfpstatus', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
-                    'doc': 'A unique status value for a biz:rfp:status.',
-                }),
-                ('biz:dealstatus', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
-                    'doc': 'A unique status value for a biz:deal:status.',
+                ('biz:dealstatus', ('taxonomy', {}), {
+                    'doc': 'A deal/rfp status taxonomy.',
+                    'interfaces': ('taxonomy',),
                 }),
                 ('biz:dealtype', ('taxonomy', {}), {
                     'doc': 'A deal type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
+                ('biz:prodtype', ('taxonomy', {}), {
+                    'doc': 'A product type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
             ),
             'forms': (
                 ('biz:dealtype', {}, ()),
-                ('biz:rfpstatus', {}, ()),
+                ('biz:prodtype', {}, ()),
                 ('biz:dealstatus', {}, ()),
                 ('biz:rfp', {}, (
                     ('ext:id', ('str', {}), {
@@ -41,9 +45,10 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The title of the RFP.',
                     }),
                     ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
                         'doc': 'A brief summary of the RFP.',
                     }),
-                    ('status', ('biz:rfpstatus', {}), {
+                    ('status', ('biz:dealstatus', {}), {
                         'disp': {'hint': 'enum'},
                         'doc': 'The status of the RFP.',
                     }),
@@ -73,13 +78,11 @@ class BizModule(s_module.CoreModule):
                     }),
                     ('type', ('biz:dealtype', {}), {
                         'doc': 'The type of deal.',
-                        'disp': {'hint': 'tree',
-                                 'lift': 'biz:dealtype:depth=0',
-                                 'walk': '-> biz:dealtype:parent'},
+                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('status', ('biz:dealstatus', {}), {
                         'doc': 'The status of the deal.',
-                        'disp': {'hint': 'enum'},
+                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('updated', ('time', {}), {
                         'doc': 'The last time the deal had a significant update.',
@@ -140,6 +143,10 @@ class BizModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The name of the product.',
                     }),
+                    ('type', ('biz:prodtype', {}), {
+                        'doc': 'The type of product.',
+                        'disp': {'hint': 'taxonomy'},
+                    }),
                     # TODO ('upc', ('biz:upc', {}), {}),
                     ('summary', ('str', {}), {
                         'doc': 'A brief summary of the product.',
@@ -154,6 +161,42 @@ class BizModule(s_module.CoreModule):
                     ('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of bundles included with the product.',
                     }),
+                )),
+                ('biz:stake', {}, (
+                    ('vitals', ('ou:vitals', {}), {
+                        'doc': 'The ou:vitals snapshot this stake is part of.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The resolved org.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The org name as reported by the source of the vitals.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The org FQDN as reported by the source of the vitals.',
+                    }),
+                    ('name', ('str', {}), {
+                        'doc': 'An arbitrary name for this stake. Can be non-contact like "pool".',
+                    }),
+                    ('asof', ('time', {}), {
+                        'doc': 'The time the stake is being measured. Likely as part of an ou:vitals.',
+                    }),
+                    ('shares', ('int', {}), {
+                        'doc': 'The number of shares represented by the stake.',
+                    }),
+                    ('invested', ('econ:price', {}), {
+                        'doc': 'The emount of money invested in the captable iteration.',
+                    }),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The monetary value of the stake.',
+                    }),
+                    ('percent', ('hugenum', {}), {
+                        'doc': 'The percentage ownership represented by this stake.',
+                    }),
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'Contact information of the owner of the stake.',
+                    })
+                    ('purchase', ('econ:purchase', {}), {}),
                 )),
             ),
         )

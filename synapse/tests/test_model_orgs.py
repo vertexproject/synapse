@@ -604,13 +604,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.sorteq((iden1, iden2), nodes[0].get('parties'))
             self.sorteq((goal0, goal1), nodes[0].get('requirements'))
 
-            nodes = await core.nodes('ou:contract -> ou:contracttype')
+            nodes = await core.nodes('ou:contract -> ou:conttype')
             self.len(1, nodes)
             self.eq(1, nodes[0].get('depth'))
             self.eq('bar', nodes[0].get('base'))
             self.eq('foo.', nodes[0].get('parent'))
 
-            nodes = await core.nodes('ou:contracttype')
+            nodes = await core.nodes('ou:conttype')
             self.len(2, nodes)
             self.eq(0, nodes[0].get('depth'))
             self.eq('foo', nodes[0].get('base'))
