@@ -384,9 +384,9 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
-                    ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('type', ('str', {'lower': True, 'strip': True}), {
                         'deprecated': True,
-                        'doc': 'The org type.',
+                        'doc': 'The type of organization.',
                     }),
                     ('orgtype', ('ou:orgtype', {}), {
                         'doc': 'The type of organization.',
