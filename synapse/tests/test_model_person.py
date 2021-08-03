@@ -107,6 +107,11 @@ class PsModelTest(s_t_utils.SynTest):
                     'phone:work': '12345678910',
                     'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
                     'imid': (490154203237518, 310150123456789),
+                    'names': ('vi', 'si'),
+                    'emails': ('visi@vertex.link', 'v@vtx.lk'),
+                    'web:accts': (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')),
+                    'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
+                    'users': ('visi', 'invisigoth'),
                 }
 
                 node = await snap.addNode('ps:contact', con0, cprops)
@@ -133,6 +138,11 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('imid'), (490154203237518, 310150123456789))
                 self.eq(node.get('imid:imei'), 490154203237518)
                 self.eq(node.get('imid:imsi'), 310150123456789)
+                self.eq(node.get('names'), ('si', 'vi'))
+                self.eq(node.get('emails'), ('v@vtx.lk', 'visi@vertex.link'))
+                self.eq(node.get('web:accts'), (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')))
+                self.eq(node.get('users'), ('invisigoth', 'visi'))
+                self.len(2, node.get('id:numbers'))
 
                 nodes = await core.nodes('''[
                     ps:achievement=*
@@ -207,3 +217,38 @@ class PsModelTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
                 self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
                 self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))
+
+                nodes = await core.nodes('''[
+                    ps:workhist = *
+                        :org = *
+                        :orgname = WootCorp
+                        :orgfqdn = wootwoot.com
+                        :contact = *
+                        :jobtype = it.dev
+                        :employment = fulltime.salary
+                        :jobtitle = "Python Developer"
+                        :started = 20210731
+                        :ended = 20220731
+                        :duration = (9999)
+                        :pay = 200000
+                        :currency = usd
+                ]''')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('orgname'), 'wootcorp')
+                self.eq(nodes[0].get('orgfqdn'), 'wootwoot.com')
+                self.eq(nodes[0].get('jobtype'), 'it.dev.')
+                self.eq(nodes[0].get('employment'), 'fulltime.salary.')
+                self.eq(nodes[0].get('jobtitle'), 'python developer')
+                self.eq(nodes[0].get('started'), 1627689600000)
+                self.eq(nodes[0].get('ended'), 1659225600000)
+                self.eq(nodes[0].get('duration'), 9999)
+                self.eq(nodes[0].get('pay'), '200000')
+                self.eq(nodes[0].get('currency'), 'usd')
+
+                self.nn(nodes[0].get('org'))
+                self.nn(nodes[0].get('contact'))
+
+                self.len(1, await core.nodes('ps:workhist -> ou:org'))
+                self.len(1, await core.nodes('ps:workhist -> ps:contact'))
+                self.len(1, await core.nodes('ps:workhist -> ou:jobtitle'))
+                self.len(1, await core.nodes('ps:workhist -> ou:employment'))

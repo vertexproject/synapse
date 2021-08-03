@@ -43,6 +43,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'goal': goal,
                     'goals': (goal,),
                     'actors': (acto,),
+                    'camptype': 'get.pizza',
                     'name': 'MyName',
                     'type': 'MyType',
                     'desc': 'MyDesc',
@@ -55,6 +56,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name'), 'MyName')
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
+                self.eq(node.get('camptype'), 'get.pizza.')
 
             # type norming first
             # ou:name
@@ -149,6 +151,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'loc': 'US.CA',
                     'name': name,
                     'type': 'corp',
+                    'orgtype': 'Corp.Lolz',
                     'names': altnames,
                     'logo': '*',
                     'alias': 'arrow',
@@ -164,6 +167,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid0),
                 self.eq(node.get('loc'), 'us.ca')
                 self.eq(node.get('type'), 'corp')
+                self.eq(node.get('orgtype'), 'corp.lolz.')
                 self.eq(node.get('name'), normname)
                 self.eq(node.get('names'), altnames)
                 self.eq(node.get('alias'), 'arrow')
@@ -176,6 +180,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('dissolved'), 1546300800000)
 
                 self.nn(node.get('logo'))
+                self.len(1, await core.nodes('ou:org -> ou:orgtype'))
 
                 nodes = await snap.nodes('ou:name')
                 self.sorteq([x.ndef[1] for x in nodes], (normname,) + altnames)
@@ -639,3 +644,87 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
+
+    async def test_ou_opening(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ou:opening=*
+                    :org = {[ ou:org=* :name=vertex ]}
+                    :orgname = vertex
+                    :orgfqdn = vertex.link
+                    :postings = {[ inet:url=https://vertex.link ]}
+                    :contact = {[ ps:contact=* :email=visi@vertex.link ]}
+                    :loc = us.va
+                    :jobtype = it.dev
+                    :employment = fulltime.salary
+                    :jobtitle = PyDev
+                    :remote = (1)
+                    :yearlypay = 20
+                    :paycurrency = BTC
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('orgname'), 'vertex')
+            self.eq(nodes[0].get('orgfqdn'), 'vertex.link')
+            self.eq(nodes[0].get('jobtitle'), 'pydev')
+            self.eq(nodes[0].get('remote'), 1)
+            self.eq(nodes[0].get('yearlypay'), '20')
+            self.eq(nodes[0].get('paycurrency'), 'btc')
+            self.eq(nodes[0].get('employment'), 'fulltime.salary.')
+            self.eq(nodes[0].get('postings'), ('https://vertex.link',))
+
+            self.nn(nodes[0].get('org'))
+            self.nn(nodes[0].get('contact'))
+
+            self.len(1, await core.nodes('ou:opening -> ou:org'))
+            self.len(1, await core.nodes('ou:opening -> ou:name'))
+            self.len(1, await core.nodes('ou:opening -> inet:url'))
+            self.len(1, await core.nodes('ou:opening -> inet:fqdn'))
+            self.len(1, await core.nodes('ou:opening -> ou:jobtitle'))
+            self.len(1, await core.nodes('ou:opening -> ou:employment'))
+            self.len(1, await core.nodes('ou:opening :contact -> ps:contact'))
+
+    async def test_ou_vitals(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ou:vitals=*
+                    :asof = 20210731
+                    :org = *
+                    :orgname = WootCorp
+                    :orgfqdn = wootwoot.com
+                    :currency = USD
+                    :costs = 200
+                    :revenue = 500
+                    :profit = 300
+                    :valuation = 1000000000
+                    :shares = 10
+                    :population = 13
+                    :delta:costs = "-30"
+                    :delta:revenue = 100
+                    :delta:profit = 200
+                    :delta:valuation = 999999999999
+                    :delta:population = 3
+                ]
+            ''')
+            self.nn(nodes[0].get('org'))
+            self.eq(nodes[0].get('asof'), 1627689600000)
+            self.eq(nodes[0].get('orgname'), 'wootcorp')
+            self.eq(nodes[0].get('orgfqdn'), 'wootwoot.com')
+            self.eq(nodes[0].get('currency'), 'usd')
+            self.eq(nodes[0].get('costs'), '200')
+            self.eq(nodes[0].get('revenue'), '500')
+            self.eq(nodes[0].get('profit'), '300')
+            self.eq(nodes[0].get('valuation'), '1000000000')
+            self.eq(nodes[0].get('shares'), 10)
+            self.eq(nodes[0].get('population'), 13)
+            self.eq(nodes[0].get('delta:costs'), '-30')
+            self.eq(nodes[0].get('delta:revenue'), '100')
+            self.eq(nodes[0].get('delta:profit'), '200')
+            self.eq(nodes[0].get('delta:valuation'), '999999999999')
+            self.eq(nodes[0].get('delta:population'), 3)
+
+            self.len(1, await core.nodes('ou:vitals -> ou:org'))
+            self.len(1, await core.nodes('ou:vitals -> ou:name'))
+            self.len(1, await core.nodes('ou:vitals -> inet:fqdn'))
