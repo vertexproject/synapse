@@ -173,6 +173,9 @@ class OuModule(s_module.CoreModule):
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The name of the organization as listed in the opening.',
                     }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN of the organization as listed in the opening.',
+                    }),
                     ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'URLs where the opening is listed.',
                     }),
