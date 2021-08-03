@@ -42,6 +42,7 @@ class EconModule(s_module.CoreModule):
                 ('econ:price', ('hugenum', {'norm': False}), {
                     'doc': 'The amount of money expected, required, or given in payment for something',
                     'ex': '2.20'}),
+
                 ('econ:currency', ('str', {'lower': True, 'strip': False}), {
                     'doc': 'The name of a system of money in general use',
                     'ex': 'usd'}),
@@ -103,6 +104,7 @@ class EconModule(s_module.CoreModule):
                 )),
 
                 ('econ:purchase', {}, (
+
                     ('by:contact', ('ps:contact', {}), {
                         'doc': 'The contact information used to make the purchase.'}),
 

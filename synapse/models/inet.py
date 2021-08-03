@@ -1632,6 +1632,7 @@ class InetModule(s_module.CoreModule):
                         ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
                             'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
+
                     )),
 
                     ('inet:iface', {}, (

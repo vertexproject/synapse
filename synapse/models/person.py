@@ -358,7 +358,7 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
                 ('ps:contactlist', {}, (
-                    ('contacts', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ',', 'sorted': True}), {
                         'doc': 'The array of contacts contained in the list.'
                     }),
                     ('source:host', ('it:host', {}), {
