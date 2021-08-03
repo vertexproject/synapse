@@ -30,7 +30,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
                 ('ou:orgtype', ('taxonomy', {}), {
-                    'doc': 'A user specified type for an org.',
+                    'doc': 'An org type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('ou:contract', ('guid', {}), {
@@ -128,7 +128,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An org has an assessed or stated goal.',
                 }),
                 ('ou:camptype', ('taxonomy', {}), {
-                    'doc': 'A user specified type for a campaign.',
+                    'doc': 'An campaign type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('ou:campaign', ('guid', {}), {
