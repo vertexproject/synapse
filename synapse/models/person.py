@@ -282,7 +282,7 @@ class PsModule(s_module.CoreModule):
                 )),
                 ('ps:contact', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The ou:org GUID which owns this contact.',
+                        'doc': 'The org which this contact represents.',
                     }),
                     ('asof', ('time', {}), {
                         'date': 'The time this contact was created or modified.',
@@ -301,6 +301,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The listed org/company name for this contact.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The listed org/company FQDN for this contact.',
                     }),
                     ('user', ('inet:user', {}), {
                         'doc': 'The username or handle for this contact.',
@@ -358,6 +361,22 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('imid:imsi', ('tel:mob:imsi', {}), {
                         'doc': 'An IMSI associated with the contact.',
+                    }),
+                    # A few probable multi-fields for entity resolution
+                    ('names', ('array', {'type': 'ps:name'}), {
+                        'doc': 'The person name listed for the contact.',
+                    }),
+                    ('emails', ('array', {'type': 'inet:email'}), {
+                        'doc': 'An array of secondary/associated email addresses.',
+                    }),
+                    ('web:accts', ('array', {'type': 'inet:web:acct'}), {
+                        'doc': 'An array of secondary/associated web accounts.',
+                    }),
+                    ('id:numbers', ('array', {'type': 'ou:id:number'}), {
+                        'doc': 'An array of secondary/associated IDs.',
+                    }),
+                    ('users', ('array', {'type': 'inet:user'), {
+                        'doc': 'An array of secondary/associated user names.',
                     }),
                 )),
                 ('ps:contactlist', {}, (
