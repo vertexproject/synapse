@@ -14,6 +14,9 @@ class BizModule(s_module.CoreModule):
                 ('biz:deal', ('guid', {}), {
                     'doc': 'A sales or procurement effort in pursuit of a purchase.',
                 }),
+                ('biz:stake', ('guid', {}), {
+                    'doc': 'A stake or partial ownership in a company.',
+                }),
                 ('biz:bundle', ('guid', {}), {
                     'doc': 'Instances of a specific product offered for a price.',
                 }),
@@ -70,7 +73,7 @@ class BizModule(s_module.CoreModule):
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact information given for the org requesting offers.',
                     }),
-                    ('purchases', ('econ:purchase', {}), {
+                    ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
                         'doc': 'Any known purchases that resulted from the RFP.',
                     }),
                     ('requirements', ('array', {'type': 'ou:goal'}), {}),
@@ -198,10 +201,12 @@ class BizModule(s_module.CoreModule):
                     }),
                     ('owner', ('ps:contact', {}), {
                         'doc': 'Contact information of the owner of the stake.',
-                    })
-                    ('purchase', ('econ:purchase', {}), {}),
+                    }),
+                    ('purchase', ('econ:purchase', {}), {
+                        'doc': 'The purchase event for the stake.',
+                    }),
                 )),
             ),
-        )
+        }
         name = 'biz'
         return ((name, modl),)
