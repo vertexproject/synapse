@@ -1645,7 +1645,7 @@ class Taxonomy(Str):
         return norm, {'subs': subs}
 
     def _normPyStr(self, text):
-        return self._normPyList(text.strip('.').split('.'))
+        return self._normPyList(text.strip().strip('.').split('.'))
 
 class Tag(Str):
 
