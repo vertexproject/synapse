@@ -55,6 +55,9 @@ class BizModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The official URL for the RFP.',
                     }),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The RFP document.',
+                    }),
                     ('posted', ('time', {}), {
                         'doc': 'The date/time that the RFP was posted.',
                     }),
@@ -65,7 +68,7 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The date/time that proposals are due.',
                     }),
                     ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information given for the org reqesting offers.',
+                        'doc': 'The contact information given for the org requesting offers.',
                     }),
                     ('purchases', ('econ:purchase', {}), {
                         'doc': 'Any known purchases that resulted from the RFP.',
@@ -156,7 +159,7 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The MSRP price of the product.',
                     }),
                     ('price:bottom', ('econ:price', {}), {
-                        'doc': 'The minium offered or observed price of the product.',
+                        'doc': 'The minimum offered or observed price of the product.',
                     }),
                     ('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of bundles included with the product.',
@@ -185,7 +188,7 @@ class BizModule(s_module.CoreModule):
                         'doc': 'The number of shares represented by the stake.',
                     }),
                     ('invested', ('econ:price', {}), {
-                        'doc': 'The emount of money invested in the captable iteration.',
+                        'doc': 'The amount of money invested in the cap table iteration.',
                     }),
                     ('value', ('econ:price', {}), {
                         'doc': 'The monetary value of the stake.',

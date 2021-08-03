@@ -66,7 +66,10 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The reported fqdn of the org the contact worked for.',
                     }),
                     ('jobtype', ('ou:jobtype', {}), {
-                        'doc': 'The job type taxonomy',
+                        'doc': 'The type of job.',
+                    }),
+                    ('employment', ('ou:employment', {}), {
+                        'doc': 'The type of employment.',
                     }),
                     ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The job title.',
@@ -375,7 +378,7 @@ class PsModule(s_module.CoreModule):
                     ('id:numbers', ('array', {'type': 'ou:id:number', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated IDs.',
                     }),
-                    ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True), {
+                    ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated user names.',
                     }),
                 )),

@@ -156,7 +156,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A job/work opening within an org.',
                 }),
                 ('ou:jobtype', ('taxonomy', {}), {
+                    'ex': 'it.dev.python',
                     'doc': 'A title for a position within an org.',
+                    'interfaces': ('taxonomy',),
+                }),
+                ('ou:employment', ('taxonomy', {}), {
+                    'ex': 'fulltime.salary',
+                    'doc': 'An employment type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
@@ -166,6 +172,7 @@ class OuModule(s_module.CoreModule):
             'forms': (
                 ('ou:jobtype', {}, ()),
                 ('ou:jobtitle', {}, ()),
+                ('ou:employment', {}, ()),
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the opening.',
@@ -187,6 +194,9 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('jobtype', ('ou:jobtype', {}), {
                         'doc': 'The job type taxonomy.',
+                    }),
+                    ('employment', ('ou:employment', {}), {
+                        'doc': 'The type of employment.',
                     }),
                     ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The title of the opening.',
