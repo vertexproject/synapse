@@ -111,8 +111,6 @@ class EconModule(s_module.CoreModule):
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'The contact information used to sell the item.'}),
 
-                    ('via', ('ps:contact', {}), {}), # amazon.com / airbnb.com
-
                     ('time', ('time', {}), {
                         'doc': 'The time of the purchase.'}),
 
@@ -127,9 +125,6 @@ class EconModule(s_module.CoreModule):
 
                     ('settled', ('time', {}), {
                         'doc': 'The point in time where the purchase was settled.'}),
-
-                    ('delivered', ('time', {}), {
-                        'doc': 'The time that the purchase is considered complexly fulfilled.'}),
 
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'The campaign that the purchase was in support of.'}),
@@ -151,10 +146,6 @@ class EconModule(s_module.CoreModule):
                 )),
 
                 ('econ:acct:payment', {}, (
-                    #('type', ('str', {'lower': True, 'strip': True, 'onespace': True}) # donation, purchase, campain contribution
-
-                    ('via', ('ps:contact', {}), {}), # kick starter
-                    ('processor', ('ps:contact', {}), {}), # paypal, stripe
 
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
