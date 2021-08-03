@@ -62,6 +62,9 @@ class PsModule(s_module.CoreModule):
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The reported name of the org the contact worked for.',
                     }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The reported fqdn of the org the contact worked for.',
+                    }),
                     ('jobtype', ('ou:jobtype', {}), {
                         'doc': 'The job type taxonomy',
                     }),
