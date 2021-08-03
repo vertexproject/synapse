@@ -363,19 +363,19 @@ class PsModule(s_module.CoreModule):
                         'doc': 'An IMSI associated with the contact.',
                     }),
                     # A few probable multi-fields for entity resolution
-                    ('names', ('array', {'type': 'ps:name'}), {
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'The person name listed for the contact.',
                     }),
-                    ('emails', ('array', {'type': 'inet:email'}), {
+                    ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated email addresses.',
                     }),
-                    ('web:accts', ('array', {'type': 'inet:web:acct'}), {
+                    ('web:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated web accounts.',
                     }),
-                    ('id:numbers', ('array', {'type': 'ou:id:number'}), {
+                    ('id:numbers', ('array', {'type': 'ou:id:number', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated IDs.',
                     }),
-                    ('users', ('array', {'type': 'inet:user'), {
+                    ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True), {
                         'doc': 'An array of secondary/associated user names.',
                     }),
                 )),
