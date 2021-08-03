@@ -62,8 +62,11 @@ class PsModule(s_module.CoreModule):
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The reported name of the org the contact worked for.',
                     }),
-                    ('title', ('ou:jobtitle', {}), {
-                        'doc': "The contact's title during this period of work.",
+                    ('jobtype', ('ou:jobtype', {}), {
+                        'doc': 'The job type taxonomy',
+                    }),
+                    ('jobtitle', ('ou:jobtitle', {}), {
+                        'doc': 'The job title.',
                     }),
                     ('started', ('time', {}), {
                         'doc': 'The date that the contact began working.',

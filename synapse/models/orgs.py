@@ -29,10 +29,19 @@ class OuModule(s_module.CoreModule):
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
+                ('ou:orgtype', ('taxonomy', {}), {
+                    'doc': 'A user specified type for an org.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
+                ('ou:contracttype', ('taxonomy', {}), {
+                    'doc': 'A contract type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('ou:contract:type', ('str', {'enum': contracttypes}), {
+                    'deprecated': True,
                     'doc': 'A pre-defined set of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
@@ -118,8 +127,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
                     'doc': 'An org has an assessed or stated goal.',
                 }),
-                ('ou:camptype', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                ('ou:camptype', ('taxonomy', {}), {
                     'doc': 'A user specified type for a campaign.',
+                    'interfaces': ('taxonomy',),
                 }),
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
@@ -145,11 +155,17 @@ class OuModule(s_module.CoreModule):
                 ('ou:opening', ('guid', {}), {
                     'doc': 'A job/work opening within an org.',
                 }),
+                ('ou:jobtype', ('taxonomy', {}), {
+                    'doc': 'A title for a position within an org.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('ou:jobtitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
             ),
             'forms': (
+                ('ou:jobtype', {}, ()),
+                ('ou:jobtitle', {}, ()),
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the opening.',
@@ -166,7 +182,10 @@ class OuModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical boundary of the opening.',
                     }),
-                    ('title', ('ou:jobtitle', {}), {
+                    ('jobtype', ('ou:jobtype', {}), {
+                        'doc': 'The job type taxonomy.',
+                    }),
+                    ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The title of the opening.',
                     }),
                     ('remote', ('bool', {}), {
@@ -309,7 +328,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Set if a goal has a limited time window.',
                     }),
                 )),
-                ('ou:camptype', {}, {}),
+                ('ou:camptype', {}, ()),
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
@@ -327,9 +346,13 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'A terse name of the campaign.',
                     }),
-                    ('type', ('ou:camptype', {}), {
-                        'doc': 'A user specified campaign type.',
-                        'disp': {'hint': 'enum'},
+                    ('type', ('str', {}), {
+                        'deprecated': True,
+                        'doc': 'The campaign type.',
+                    }),
+                    ('camptype', ('ou:camptype', {}), {
+                        'doc': 'The campaign type taxonomy.',
+                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the campaign.',
@@ -348,6 +371,7 @@ class OuModule(s_module.CoreModule):
                     ('goal:pop', ('int', {}), {}),
                     ('result:pop', ('int', {}), {}),
                 )),
+                ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'Location for an organization.'
@@ -355,9 +379,13 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'ex': 'threat group',
+                    ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'deprecated': True,
+                        'doc': 'The org type.',
+                    }),
+                    ('orgtype', ('ou:orgtype', {}), {
                         'doc': 'The type of organization.',
+                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',
@@ -418,6 +446,7 @@ class OuModule(s_module.CoreModule):
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact info for the person who holds the position.',
                     }),
+                    # TODO migrate to ou:jobtitle
                     ('title', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'doc': 'The title of the position.',
                     }),
@@ -426,11 +455,12 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
+                ('ou:contracttype', {}, ()),
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'doc': 'A list of types that apply to the contract.'}),
+                    ('type', ('ou:contracttype', {}), {
+                        'doc': 'The type of contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),
                     ('parties', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
@@ -455,6 +485,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Purchase details of the contract.'}),
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                         'doc': 'The requirements levied upon the parties.'}),
+                    ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'deprecated': True,
+                        'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {

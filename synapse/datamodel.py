@@ -527,6 +527,14 @@ class Model:
         item = s_types.HugeNum(self, 'hugenum', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A component of a hierarchical taxonomy.'}
+        item = s_types.Taxon(self, 'taxon', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'A hierarchical taxonomy.'}
+        item = s_types.Taxonomy(self, 'taxonomy', info, {})
+        self.addBaseType(item)
+
         # add the base universal properties...
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
@@ -534,6 +542,14 @@ class Model:
         self.addUnivProp('created', ('time', {}), {
             'ro': True,
             'doc': 'The time the node was created in the cortex.',
+        })
+
+        self.addIface('taxonomy', {
+            'props': (
+                ('base', ('taxon', {}), {'ro': True, 'doc': 'The base taxon.', }),
+                ('depth', ('int', {}), {'ro': True, 'doc': 'The depth indexed from 0.', }),
+                ('parent', ('$self', {}), {'ro': True, 'doc': 'The taxonomy parent.', }),
+            ),
         })
 
     def getPropsByType(self, name):
@@ -804,6 +820,8 @@ class Model:
             raise s_exc.NoSuchName(mesg=mesg)
 
         for propname, typedef, propinfo in iface.get('props', ()):
+            if typedef[0] == '$self':
+                typedef = (form.name, typedef[1])
             self._addFormProp(form, propname, typedef, propinfo)
 
         # TODO use this to allow storm: +foo:iface

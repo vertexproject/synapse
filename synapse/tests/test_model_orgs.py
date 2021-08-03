@@ -303,7 +303,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('departed'), 1520002800000)
                 self.eq(node.get('role:staff'), 0)
                 self.eq(node.get('role:speaker'), 1)
-                self.eq(node.get('roles'), ('usher', 'coatcheck'))
+                self.eq(node.get('roles'), ('coatcheck', 'usher'))
 
                 # ou:conference:event
                 confguid = c0
@@ -358,7 +358,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], (c0, person0))
                 self.eq(node.get('arrived'), 1519932180000)
                 self.eq(node.get('departed'), 1519945200000)
-                self.eq(node.get('roles'), ('staff', 'speaker'))
+                self.eq(node.get('roles'), ('speaker', 'staff'))
 
             nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar ]')
             self.len(1, nodes)
@@ -575,6 +575,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'''
             [ ou:contract=*
                 :title="Fullbright Scholarship"
+                :type=foo.bar
                 :types="nda,grant"
                 :sponsor={iden0}
                 :award:price=20.00
@@ -593,6 +594,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(iden0, nodes[0].get('sponsor'))
             self.eq('20.00', nodes[0].get('award:price'))
             self.eq('21.00', nodes[0].get('budget:price'))
+            self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(1577836800000, nodes[0].get('signed'))
             self.eq(1580515200000, nodes[0].get('begins'))
             self.eq(1583020800000, nodes[0].get('expires'))
@@ -601,6 +603,18 @@ class OuModelTest(s_t_utils.SynTest):
             self.sorteq(('grant', 'nda'), nodes[0].get('types'))
             self.sorteq((iden1, iden2), nodes[0].get('parties'))
             self.sorteq((goal0, goal1), nodes[0].get('requirements'))
+
+            nodes = await core.nodes('ou:contract -> ou:contracttype')
+            self.len(1, nodes)
+            self.eq(1, nodes[0].get('depth'))
+            self.eq('bar', nodes[0].get('base'))
+            self.eq('foo.', nodes[0].get('parent'))
+
+            nodes = await core.nodes('ou:contracttype')
+            self.len(2, nodes)
+            self.eq(0, nodes[0].get('depth'))
+            self.eq('foo', nodes[0].get('base'))
+            self.none(nodes[0].get('parent'))
 
     async def test_ou_industry(self):
 
