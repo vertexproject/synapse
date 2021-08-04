@@ -1526,9 +1526,10 @@ class Slab(s_base.Base):
         self._finiCoXact()
         donetime = s_common.now()
 
-        delta = starttime - donetime
+        delta = donetime - starttime
 
         self.commitstats.append((starttime, xactopslen, delta))
+
         if self.WARN_COMMIT_TIME_MS and delta > self.WARN_COMMIT_TIME_MS:
             logger.warning(f'Commit with {xactopslen} items in {self!r} took {delta} ms.')
         self._initCoXact()

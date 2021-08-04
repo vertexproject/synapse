@@ -333,17 +333,17 @@ class LmdbSlabTest(s_t_utils.SynTest):
         self._nowtime += 1000
         return self._nowtime
 
-    async def test_lmdb_commit_warn(self):
-        with self.getTestDir() as dirn, self.setTstEnvars(SYN_SLAB_COMMIT_WARN='0.001'), \
+    async def test_lmdbslab_commit_warn(self):
+        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
                 patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
-            with self.getLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
+            with self.getAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
                 async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
                     for i in range(10):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-                stream.wait(timeout=1)
+                assert await stream.wait(timeout=1)
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
@@ -353,7 +353,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Make sure that we don't confuse the periodic commit with the max replay log commit
 
-            with self.setTstEnvars(SYN_SLAB_COMMIT_PERIOD='10'):
+            with patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 10):
                 async with await s_lmdbslab.Slab.anit(path, map_size=100000, max_replay_log=my_maxlen) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
