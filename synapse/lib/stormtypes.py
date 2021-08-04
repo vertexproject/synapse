@@ -230,6 +230,7 @@ class StormType:
         self.path = path
         self.ctors = {}
         self.stors = {}
+        self.gtors = {}
         self.locls = {}
 
     def getObjLocals(self):
@@ -278,7 +279,10 @@ class StormType:
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
     async def _derefGet(self, name):
-        return s_common.novalu
+        gtor = self.gtors.get(name)
+        if gtor is None:
+            return s_common.novalu
+        return await gtor()
 
     def ismutable(self):
         return self._ismutable
