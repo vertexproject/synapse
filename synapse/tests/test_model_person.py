@@ -252,3 +252,12 @@ class PsModelTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('ps:workhist -> ps:contact'))
                 self.len(1, await core.nodes('ps:workhist -> ou:jobtitle'))
                 self.len(1, await core.nodes('ps:workhist -> ou:employment'))
+                nodes = await core.nodes('''
+                    ou:employment=fulltime.salary
+                    [ :title=FullTime :summary=HeHe :sort=9 ]
+                    +:base=salary +:parent=fulltime +:depth=1
+                ''')
+                self.len(1, nodes)
+                self.eq(nodes[0].get('title'), 'FullTime')
+                self.eq(nodes[0].get('summary'), 'HeHe')
+                self.eq(nodes[0].get('sort'), 9)
