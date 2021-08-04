@@ -63,9 +63,9 @@ class SmtpMessage(s_stormtypes.StormType):
          'type': {'type': 'function', '_funcname': 'send',
                   'args': (
                     {'name': 'host', 'type': 'str',
-                        'desc': 'A JSON compatible message.'},
-                    {'name': 'port', 'type': 'int', 'defaut': 25,
-                        'desc': 'A JSON compatible message.'},
+                        'desc': 'The hostname or IP address of the SMTP server.'},
+                    {'name': 'port', 'type': 'int', 'default': 25,
+                        'desc': 'The port that the SMTP server is listening on.'},
                     {'name': 'user', 'type': 'str', 'default': None,
                         'desc': 'The user name to use authenticating to the SMTP server.'},
                     {'name': 'passwd', 'type': 'str', 'default': None,
