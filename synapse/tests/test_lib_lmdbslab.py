@@ -343,7 +343,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     byts = b'\x00' * 256
                     for i in range(10):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-                assert await stream.wait(timeout=1)
+                self.true(await stream.wait(timeout=1))
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
