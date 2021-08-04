@@ -197,15 +197,6 @@ The following permissions exist for controlling access to Cortex operations.
 *node.add.<form>*
     Add a specific form of node.  (ex. ``node.add.inet:ipv4``)
 
-*node.data.get*
-    Get the value of any node data property on a node.
-
-*node.data.get.<name>*
-    Get the value of a specific node data property on a node.
-
-*node.data.list*
-    List all of the node data properties on a node.
-
 *node.data.pop*
     Remove and return the value of any node data property on a node.
 
