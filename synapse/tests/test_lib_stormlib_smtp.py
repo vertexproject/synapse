@@ -30,4 +30,4 @@ class SmtpTest(s_test.SynTest):
 
                     return($message.send('smtp.gmail.com', port=465, usetls=true))
                 ''')
-                self.eq(retn, (True, None))
+                self.eq(retn, (True, {}))

@@ -18,7 +18,7 @@ class SmtpLib(s_stormtypes.Lib):
         {'name': 'message', 'desc': 'Construct a new email message.',
          'type': {'type': 'function', '_funcname': 'message',
                           'returns': {'type': 'storm:smtp:message',
-                                      'desc': 'The name of the newly created backup.'}}},
+                                      'desc': 'The newly constructed storm:smtp:message.'}}},
     )
     _storm_lib_path = ('inet', 'smtp',)
 
@@ -95,7 +95,6 @@ class SmtpMessage(s_stormtypes.StormType):
 
         self.locls.update({
             'send': self.send,
-            'attach': self.send,
             'headers': self.headers,
             'recipients': self.recipients,
         })
@@ -180,4 +179,4 @@ class SmtpMessage(s_stormtypes.StormType):
         except Exception as e:
             return (False, s_common.excinfo(e))
 
-        return (True, None)
+        return (True, {})

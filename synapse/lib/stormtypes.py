@@ -279,9 +279,6 @@ class StormType:
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
     async def _derefGet(self, name):
-        return s_common.novalu
-
-    async def _derefGet(self, name):
         gtor = self.gtors.get(name)
         if gtor is None:
             return s_common.novalu
