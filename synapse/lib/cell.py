@@ -416,6 +416,7 @@ class CellApi(s_base.Base):
         await self.cell.auth.reqUser(iden)
 
         if self.user.iden == iden:
+            self.user.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.cell.setUserPasswd(iden, passwd)
 
         self.user.confirm(('auth', 'user', 'set', 'passwd'))

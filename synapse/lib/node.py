@@ -159,6 +159,56 @@ class Node:
 
         return node
 
+    async def getEmbeds(self, embeds):
+        '''
+        Return a dictionary of property embeddings.
+        '''
+        retn = {}
+        cache = {}
+        async def walk(n, p):
+
+            valu = n.props.get(p)
+            if valu is None:
+                return None
+
+            prop = n.form.prop(p)
+            if prop is None:
+                return None
+
+            if prop.modl.form(prop.type.name) is None:
+                return None
+
+            buid = s_common.buid((prop.type.name, valu))
+
+            step = cache.get(buid, s_common.novalu)
+            if step is s_common.novalu:
+                step = cache[buid] = await node.snap.getNodeByBuid(buid)
+
+            return step
+
+        for nodepath, relprops in embeds.items():
+
+            steps = nodepath.split('::')
+
+            node = self
+            for propname in steps:
+                node = await walk(node, propname)
+                if node is None:
+                    break
+
+            if node is None:
+                continue
+
+            embdnode = retn.get(nodepath)
+            if embdnode is None:
+                embdnode = retn[nodepath] = {}
+                embdnode['*'] = s_common.ehex(node.buid)
+
+            for relp in relprops:
+                embdnode[relp] = node.props.get(relp)
+
+        return retn
+
     async def seen(self, tick, source=None):
         '''
         Update the .seen interval and optionally a source specific seen node.
