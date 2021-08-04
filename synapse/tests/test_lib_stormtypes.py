@@ -403,16 +403,8 @@ class StormTypesTest(s_test.SynTest):
             self.eq('bar', await core.callStorm('inet:user=visi return($node.data.cacheget(foo, asof="-30days"))'))
 
             lowuser = await core.auth.addUser('lowuser')
-            await lowuser.addRule((True, ('view', 'add')))
 
             aslow = {'user': lowuser.iden}
-            view = await core.callStorm('return($lib.view.get().fork().iden)', opts=aslow)
-
-            aslow['view'] = view
-            layr = core.getView(view).layers[0]
-            await lowuser.addRule((True, ('node',)), gateiden=layr.iden)
-            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=aslow)
-
             await lowuser.addRule((False, ('auth', 'self', 'set')))
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.auth.users.byname(lowuser).setPasswd(hehehaha)', opts=aslow)
@@ -2154,10 +2146,17 @@ class StormTypesTest(s_test.SynTest):
 
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as asvisi:
-                with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm('test:int | nd.permtest')
-                await visi.addRule((True, 'storm.asroot.cmd.nd.permtest'.split('.')))
-                await asvisi.callStorm('test:int | nd.permtest')
+                self.eq(None, await asvisi.callStorm('test:int return($node.data.get(foo))'))
+
+            await visi.addRule((True, ('view', 'add')))
+
+            asvisi = {'user': visi.iden}
+            view = await core.callStorm('return($lib.view.get().fork().iden)', opts=asvisi)
+
+            asvisi['view'] = view
+            layr = core.getView(view).layers[0]
+            await visi.addRule((True, ('node',)), gateiden=layr.iden)
+            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=asvisi)
 
     async def test_storm_lib_bytes(self):
 
