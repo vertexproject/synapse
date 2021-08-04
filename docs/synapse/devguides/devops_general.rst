@@ -155,7 +155,7 @@ writing to the /proc/sys filesystem.
     This value is appropriate for systems with 128 GiB RAM.   For systems with less RAM, this number should be larger,
     for systems with more, this number may be smaller.
 
-    This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM and
+    This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM, and
     relatively slow storage.
 
 Client-Side Certificates for Authentication
