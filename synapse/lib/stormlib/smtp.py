@@ -39,23 +39,23 @@ class SmtpMessage(s_stormtypes.StormType):
     _storm_locals = (
 
         {'name': 'text',
-         'type': {'type': 'str'},
+         'type': 'str',
          'desc': 'The text body of the email message.'},
 
         {'name': 'html',
-         'type': {'type': 'str'},
+         'type': 'str',
          'desc': 'The HTML body of the email message.'},
 
         {'name': 'sender',
-         'type': {'type': 'str'},
+         'type': 'str',
          'desc': 'The inet:email to use in the MAIL FROM request.'},
 
         {'name': 'recipients',
-         'type': {'type': 'list'},
+         'type': 'list',
          'desc': 'An array of RCPT TO email addresses.'},
 
         {'name': 'headers',
-         'type': {'type': 'dict'},
+         'type': 'dict',
          'desc': 'A dictionary of email header values.'},
 
         {'name': 'send',
