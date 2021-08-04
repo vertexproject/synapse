@@ -402,6 +402,20 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('inet:user=visi return($node.data.cacheget(foo))'))
             self.eq('bar', await core.callStorm('inet:user=visi return($node.data.cacheget(foo, asof="-30days"))'))
 
+            lowuser = await core.auth.addUser('lowuser')
+
+            aslow = {'user': lowuser.iden}
+            await lowuser.addRule((False, ('auth', 'self', 'set')))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).setPasswd(hehehaha)', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).setEmail(v@vtx.lk)', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).name = derpuser', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                async with core.getLocalProxy(user='lowuser') as proxy:
+                    await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
@@ -2132,10 +2146,17 @@ class StormTypesTest(s_test.SynTest):
 
             visi = await core.auth.addUser('visi')
             async with core.getLocalProxy(user='visi') as asvisi:
-                with self.raises(s_exc.AuthDeny):
-                    await asvisi.callStorm('test:int | nd.permtest')
-                await visi.addRule((True, 'storm.asroot.cmd.nd.permtest'.split('.')))
-                await asvisi.callStorm('test:int | nd.permtest')
+                self.eq(None, await asvisi.callStorm('test:int return($node.data.get(foo))'))
+
+            await visi.addRule((True, ('view', 'add')))
+
+            asvisi = {'user': visi.iden}
+            view = await core.callStorm('return($lib.view.get().fork().iden)', opts=asvisi)
+
+            asvisi['view'] = view
+            layr = core.getView(view).layers[0]
+            await visi.addRule((True, ('node',)), gateiden=layr.iden)
+            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=asvisi)
 
     async def test_storm_lib_bytes(self):
 
