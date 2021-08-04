@@ -3,6 +3,7 @@ import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -133,34 +134,34 @@ class SmtpMessage(s_stormtypes.StormType):
 
         self.runt.confirm(('storm', 'inet', 'smtp', 'send'))
 
-        if self.bodytext is None and self.htmltext is None:
-            mesg = 'The storm:smtp:message has no HTML or text body.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
-
-        host = await s_stormtypes.tostr(host)
-        port = await s_stormtypes.toint(port)
-        usetls = await s_stormtypes.tobool(usetls)
-        starttls = await s_stormtypes.tobool(starttls)
-
-        timeout = await s_stormtypes.toint(timeout)
-
-        user = await s_stormtypes.tostr(user, noneok=True)
-        passwd = await s_stormtypes.tostr(passwd, noneok=True)
-
-        message = MIMEMultipart('alternative')
-
-        if self.bodytext is not None:
-            message.attach(MIMEText(self.bodytext, 'plain', 'utf-8'))
-
-        if self.bodyhtml is not None:
-            message.attach(MIMEText(self.bodyhtml, 'html', 'utf-8'))
-
-        for name, valu in self.headers.items():
-            message[await s_stormtypes.tostr(name)] = await s_stormtypes.tostr(valu)
-
-        recipients = [await s_stormtypes.tostr(e) for e in self.recipients]
-
         try:
+            if self.bodytext is None and self.bodyhtml is None:
+                mesg = 'The storm:smtp:message has no HTML or text body.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
+            host = await s_stormtypes.tostr(host)
+            port = await s_stormtypes.toint(port)
+            usetls = await s_stormtypes.tobool(usetls)
+            starttls = await s_stormtypes.tobool(starttls)
+
+            timeout = await s_stormtypes.toint(timeout)
+
+            user = await s_stormtypes.tostr(user, noneok=True)
+            passwd = await s_stormtypes.tostr(passwd, noneok=True)
+
+            message = MIMEMultipart('alternative')
+
+            if self.bodytext is not None:
+                message.attach(MIMEText(self.bodytext, 'plain', 'utf-8'))
+
+            if self.bodyhtml is not None:
+                message.attach(MIMEText(self.bodyhtml, 'html', 'utf-8'))
+
+            for name, valu in self.headers.items():
+                message[await s_stormtypes.tostr(name)] = await s_stormtypes.tostr(valu)
+
+            recipients = [await s_stormtypes.tostr(e) for e in self.recipients]
+
             futu = aiosmtplib.send(message,
                     port=port,
                     hostname=host,
@@ -170,10 +171,13 @@ class SmtpMessage(s_stormtypes.StormType):
                     start_tls=starttls,
                     username=user,
                     password=passwd)
+
             await asyncio.wait_for(futu, timeout=timeout)
-        except asyncio.CancelledError:
+
+        except asyncio.CancelledError: # pragma: no cover
             raise
+
         except Exception as e:
-            return (False, str(e))
+            return (False, s_common.excinfo(e))
 
         return (True, None)

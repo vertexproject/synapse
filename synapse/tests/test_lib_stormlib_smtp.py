@@ -11,6 +11,10 @@ class SmtpTest(s_test.SynTest):
         with mock.patch('aiosmtplib.send', send):
 
             async with self.getTestCore() as core:
+
+                retn = await core.callStorm('return($lib.inet.smtp.message().send(127.0.0.1))')
+                self.false(retn[0])
+
                 retn = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
                     $message.text = HI
@@ -24,7 +28,6 @@ class SmtpTest(s_test.SynTest):
                     if (not $message.text ~= "HI") { $lib.exit() }
                     if (not $message.html ~= "HI") { $lib.exit() }
 
-                    ($ok, $retn) = $message.send('smtp.gmail.com', port=465, usetls=true)
-                    return(($ok, $retn))
+                    return($message.send('smtp.gmail.com', port=465, usetls=true))
                 ''')
                 self.eq(retn, (True, None))
