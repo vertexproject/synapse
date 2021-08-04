@@ -573,7 +573,12 @@ class Slab(s_base.Base):
     synctask = None
     syncevnt = None  # set this event to trigger a sync
 
-    COMMIT_PERIOD = float(os.environ.get('SYN_SLAB_COMMIT_PERIOD', "0.2"))  # time between commits
+    # time between commits
+    COMMIT_PERIOD = float(os.environ.get('SYN_SLAB_COMMIT_PERIOD', '0.2'))
+
+    # warn if commit takes too long
+    WARN_COMMIT_TIME_MS = int(float(os.environ.get('SYN_SLAB_COMMIT_WARN', '5.0')) * 1000)
+
     DEFAULT_MAPSIZE = s_const.gibibyte
     DEFAULT_GROWSIZE = None
 
@@ -1521,8 +1526,12 @@ class Slab(s_base.Base):
         self._finiCoXact()
         donetime = s_common.now()
 
-        self.commitstats.append((starttime, xactopslen, donetime - starttime))
+        delta = donetime - starttime
 
+        self.commitstats.append((starttime, xactopslen, delta))
+
+        if self.WARN_COMMIT_TIME_MS and delta > self.WARN_COMMIT_TIME_MS:
+            logger.warning(f'Commit with {xactopslen} items in {self!r} took {delta} ms.')
         self._initCoXact()
         return True
 
