@@ -261,3 +261,6 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('title'), 'FullTime')
                 self.eq(nodes[0].get('summary'), 'HeHe')
                 self.eq(nodes[0].get('sort'), 9)
+
+                self.len(2, await core.nodes('ou:employment^=fulltime'))
+                self.len(1, await core.nodes('ou:employment:base^=salary'))
