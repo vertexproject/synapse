@@ -13,10 +13,17 @@ class SmtpTest(s_test.SynTest):
             async with self.getTestCore() as core:
                 retn = await core.callStorm('''
                     $message = $lib.inet.smtp.message()
-                    $message.text = hi
+                    $message.text = HI
+                    $message.html = "<html><body><h1>HI!</h1></body></html>"
                     $message.sender = visi@vertex.link
                     $message.headers.Subject = woot
                     $message.recipients.append(visi@vertex.link)
+
+                    // test gtors...
+                    if (not $message.sender ~= "visi") { $lib.exit() }
+                    if (not $message.text ~= "HI") { $lib.exit() }
+                    if (not $message.html ~= "HI") { $lib.exit() }
+
                     ($ok, $retn) = $message.send('smtp.gmail.com', port=465, usetls=true)
                     return(($ok, $retn))
                 ''')
