@@ -111,6 +111,53 @@ You may then submit your CSR file (in this case ``~/.syn/certs/hosts/cortex.vert
 Once your CA returns a signed certificate in PEM format, place it in the expected location (``~/.syn/certs/hosts/cortex.vertex.link.crt`` in this example)
 and it will be loaded when you start your service.
 
+Tips for Better Performance
+***************************
+
+The Cortex process acts as the database for all configuration and graph data.  Inasmuch, it interacts with the
+operating system in similar ways as other database systems like PostgreSQL or MySQL, and recommendations for good
+performance for other database systems may also apply to running a Synapse Cortex.
+
+Database systems run best when the amount of RAM available exceeds the size of the data being stored.  Barring having
+more RAM than data, the closer you can get, the better.
+
+As the database constantly accesses persistent storage, minimizing storage latency is important for a high performance
+Cortex.  Locating the Cortex on a filesystem backed to a mechanical hard drive is strongly discouraged.  For the same
+reason, running the Cortex from an NFS filesystem (including NFS-based systems like AWS EFS) is discouraged.
+
+The default settings of most Linux-based operating systems are not set for ideal performance.
+
+Consider setting the following Linux system variables.  These can be set via /etc/sysctl.conf, the sysctl utility, or
+writing to the /proc/sys filesystem.
+
+``vm.swappiness=10``
+    Reduce preference for kernel to swap out memory-mapped files.
+
+``vm.dirty_expire_centisecs=20``
+    Define "old" data to be anything changed more than 200 ms ago.
+
+``vm.dirty_writeback_centisecs=20``
+    Accelerate writing "old" data back to disk.
+
+``vm.dirty_background_ratio=2``
+    This is expressed as a percentage of total RAM in the system.  After the total amount of dirty memory exceeds this
+    threshold, the kernel will begin writing it to disk in the background.  We want this low to maximize storage I/O
+    throughput utilization.
+
+    This value is appropriate for systems with 128 GiB RAM.  For systems with less RAM, this number should be larger,
+    for systems with more, this number may be smaller.
+
+``vm.dirty_ratio=4``
+    This is expressed as a percentage of total RAM in the system.  After the total amount of dirty memory exceeds this
+    threshold, all writes will become synchronous, which means the Cortex will "pause" waiting for the write to
+    complete.  To avoid large sawtooth-like behavior, this value should be low.
+
+    This value is appropriate for systems with 128 GiB RAM.   For systems with less RAM, this number should be larger,
+    for systems with more, this number may be smaller.
+
+    This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM and
+    relatively slow storage.
+
 Client-Side Certificates for Authentication
 *******************************************
 
