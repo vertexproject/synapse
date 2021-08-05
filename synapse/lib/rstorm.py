@@ -5,6 +5,7 @@ import pprint
 import logging
 import contextlib
 
+import vcr
 import regex
 
 from unittest import mock
@@ -74,6 +75,37 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
         return s_stormhttp.HttpResp(info)
 
+    @contextlib.contextmanager
+    def docmock(self, vcr_kwargs):
+        path = self.ctx.get('mock-http-path')
+        if not vcr_kwargs:
+            vcr_kwargs = {}
+
+        if path:
+            path = os.path.abspath(path)
+            # try it as json first (since yaml can load json...). if it parses, we're old school
+            # if it doesn't, either it doesn't exist/we can't read it/we can't parse it. 
+            # in any of those cases, default to using vcr
+            try:
+                with open(path, 'r') as fd:
+                    byts = json.load(fd)
+            except:
+                byts = None
+
+            if not byts:
+                with vcr.use_cassette(os.path.abspath(path), **vcr_kwargs) as cass:
+                    yield cass
+                    self.ctx.pop('mock-http-path', None)
+            else:  # backwards compat
+                if not os.path.isfile(path):
+                    raise s_exc.NoSuchFile(mesg='Storm HTTP mock filepath does not exist', path=path)
+                self.ctx['mock-http'] = byts
+                with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
+                    yield
+        else:
+            with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
+                yield
+
     def printf(self, mesg, addnl=True, color=None):
         line = f'    {mesg}'
         self.lines.append(line)
@@ -101,7 +133,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         hide_unknown = True
 
         # Let this raise on any errors
-        with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
+        with self.docmock(self.ctx.get('storm-vcr-opts')):
             async for mesg in self.core.storm(text, opts=stormopts):
 
                 if opts.get('debug'):
@@ -150,6 +182,7 @@ class StormRst(s_base.Base):
             'storm-cortex': self._handleStormCortex,
             'storm-expect': self._handleStormExpect,
             'storm-mock-http': self._handleStormMockHttp,
+            'storm-vcr-opts': self._handleStormVcrOpts,
         }
 
     async def _getCell(self, ctor, conf=None):
@@ -289,10 +322,17 @@ class StormRst(s_base.Base):
         Args:
             text (str): Path to a json file with the response.
         '''
-        if not os.path.isfile(text):
-            raise s_exc.NoSuchFile(mesg='Storm HTTP mock filepath does not exist', path=text)
+        self.context['mock-http-path'] = text
 
-        self.context['mock-http'] = s_common.jsload(text)
+    async def _handleStormVcrOpts(self, text):
+        '''
+        Opts to pass to VCRPY for use in generating
+
+        Args:
+            text (str): JSON string, e.g. {"filter_query_args": true}
+        '''
+        item = json.loads(text)
+        self.context['storm-vcr-opts'] = item
 
     async def _readline(self, line):
 

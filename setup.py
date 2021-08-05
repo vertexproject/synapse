@@ -104,6 +104,7 @@ setup(
             'hide-code>=0.5.2,<0.5.3',
             'nbstripout>=0.3.3,<1.0.0',
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
+            'vcrpy>=4.1.1,<4.2.0',
         ],
         'dev': [
             'pytest>=5.1.0,<6.0.0',
