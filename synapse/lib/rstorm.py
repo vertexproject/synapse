@@ -76,7 +76,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         return s_stormhttp.HttpResp(info)
 
     @contextlib.contextmanager
-    def docmock(self, vcr_kwargs):
+    def _shimHttpCalls(self, vcr_kwargs):
         path = self.ctx.get('mock-http-path')
         if not vcr_kwargs:
             vcr_kwargs = {}
@@ -89,7 +89,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
             try:
                 with open(path, 'r') as fd:
                     byts = json.load(fd)
-            except:
+            except (FileNotFoundError, json.decoder.JSONDecodeError):
                 byts = None
 
             if not byts:
@@ -133,7 +133,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         hide_unknown = True
 
         # Let this raise on any errors
-        with self.docmock(self.ctx.get('storm-vcr-opts')):
+        with self._shimHttpCalls(self.ctx.get('storm-vcr-opts')):
             async for mesg in self.core.storm(text, opts=stormopts):
 
                 if opts.get('debug'):
@@ -326,7 +326,7 @@ class StormRst(s_base.Base):
 
     async def _handleStormVcrOpts(self, text):
         '''
-        Opts to pass to VCRPY for use in generating
+        Opts to pass to VCRPY for use in generating docs
 
         Args:
             text (str): JSON string, e.g. {"filter_query_args": true}
