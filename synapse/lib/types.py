@@ -1598,6 +1598,55 @@ class Str(Type):
 
         return norm, info
 
+taxonre = regex.compile('\w+')
+class Taxon(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+
+    def _normForLift(self, valu):
+        return self.norm(valu)[0]
+
+    def _normPyStr(self, valu):
+        valu = valu.lower().strip()
+        parts = taxonre.findall(valu)
+        valu = '_'.join(parts)
+        if len(valu) == 0:
+            mesg = 'Each taxon must be non-zero length.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        return valu, {}
+
+class Taxonomy(Str):
+
+    def postTypeInit(self):
+        Str.postTypeInit(self)
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+        self.taxon = self.modl.type('taxon')
+
+    def _normForLift(self, valu):
+        return self.norm(valu)[0]
+
+    def _normPyList(self, valu):
+
+        toks = [self.taxon.norm(v)[0] for v in valu]
+        subs = {
+            'base': toks[-1],
+            'depth': len(toks) - 1,
+        }
+
+        if len(toks) > 1:
+            subs['parent'] = '.'.join(toks[:-1]) + '.'
+
+        norm = '.'.join(toks) + '.'
+        return norm, {'subs': subs}
+
+    def _normPyStr(self, text):
+        return self._normPyList(text.strip().strip('.').split('.'))
+
 class Tag(Str):
 
     def postTypeInit(self):
