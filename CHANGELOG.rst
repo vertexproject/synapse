@@ -493,7 +493,7 @@ v2.41.1 - 2021-05-27
 
 Bugfixes
 --------
-- Add PR ``#2217`` to bugfix list in CHANGLOG.rst for v2.41.0 :D
+- Add PR ``#2117`` to bugfix list in CHANGLOG.rst for v2.41.0 :D
 
 v2.41.0 - 2021-05-27
 ====================
