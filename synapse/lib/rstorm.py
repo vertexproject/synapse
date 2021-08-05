@@ -84,7 +84,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         if path:
             path = os.path.abspath(path)
             # try it as json first (since yaml can load json...). if it parses, we're old school
-            # if it doesn't, either it doesn't exist/we can't read it/we can't parse it. 
+            # if it doesn't, either it doesn't exist/we can't read it/we can't parse it.
             # in any of those cases, default to using vcr
             try:
                 with open(path, 'r') as fd:
