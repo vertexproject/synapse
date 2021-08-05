@@ -10,17 +10,17 @@ v2.53.0 - 2021-08-05
 
 This release contains an automatic data migration that may cause additional
 startup time on the first boot. This is done to unique array properties which
-should previously were not uniqued. Deployments with startup or liveliness probes
-should have those disabled while this upgrade is performed to prevent accidental
-termination of the Cortex process. Please ensure you have a tested backup available
-before applying this update.
+previously were not uniqued. Deployments with startup or liveliness probes
+should have those disabled while this upgrade is performed to prevent
+accidental termination of the Cortex process. Please ensure you have a tested
+backup available before applying this update.
 
 Features and Enhancements
 -------------------------
-- Add an ``embeds`` option to storm to allow extracting additional data about
+- Add an ``embeds`` option to Storm to allow extracting additional data
   when performing queries.
   (`#2314 <https://github.com/vertexproject/synapse/pull/2314>`_)
-- Enforce node data permissions at the Layer boundary. Remove the,
+- Enforce node data permissions at the Layer boundary. Remove the
   ``node.data.get`` and ``node.data.list`` permissions.
   (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)
 - Add ``auth.self.set.email``, ``auth.self.set.name``,
@@ -39,15 +39,15 @@ Features and Enhancements
   contract, sales, and purchasing lifecycles. This adds the following new forms
   to the data model: ``biz:dealtype``, ``biz:prodtype``, ``biz:dealstatus``,
   ``biz:rfp``, ``biz:deal``, ``biz:bundle``, ``biz:product``, and
-  ``biz:stake``. The Org model is also updated to futher extended to add new
-  forms for supporting parts of the business lifecycle, adding ``ou:jobtype``,
+  ``biz:stake``. The Org model is also updated to add new forms for supporting
+  parts of the business lifecycle, adding ``ou:jobtype``,
   ``ou:jobtitle``, ``ou:employment``, ``ou:opening``, ``ou:vitals``,
   ``ou:camptype``, and ``ou:orgtype``, ``ou:conttype`` forms. The Person model
   got a new form, ``ps:workhist``.
   (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 - Add a ``:deleted`` property to ``inet:web:post``.
   (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
-- Update the following array properties to be unique sets, and add a a data
+- Update the following array properties to be unique sets, and add a data
   model migration to update the data at rest:
   (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 
