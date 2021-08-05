@@ -5,6 +5,81 @@ Synapse Changelog
 *****************
 
 
+v2.53.0 - 2021-08-05
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``embeds`` option to storm to allow extracting additional data about
+  when performing queries.
+  (`#2314 <https://github.com/vertexproject/synapse/pull/2314>`_)'
+- Enforce node data permissions at the Layer boundary. Remove the,
+  ``node.data.get`` and ``node.data.list`` permissions.
+  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)'
+- Add ``auth.self.set.email``, ``auth.self.set.name``,
+  ``auth.self.set.passwd`` permissions on users when changing those values.
+  These permissions default to being allowed, allowing a rule to be created
+  that can deny users from changing these values.
+  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)'
+- Add ``$lib.inet.smtp`` to allow sending email messages from Storm.
+  (`#2315 <https://github.com/vertexproject/synapse/pull/2315>`_)'
+- Warn if a LMDB commit operation takes too long.
+  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)'
+- Add new data types, ``taxon`` and ``taxonomy``, to describe hierarchical
+  taxonomies.
+- Add a new Business Development model. This allows tracking items related to
+  contract, sales, and purchasing lifecycles. This adds the following new forms
+  to the data model: ``biz:dealtype``, ``biz:prodtype``, ``biz:dealstatus``,
+  ``biz:rfp``, ``biz:deal``, ``biz:bundle``, ``biz:product``, and
+  ``biz:stake``. The Org model is also updated to futher extended to add new
+  forms for supporting parts of the business lifecycle, adding ``ou:jobtype``,
+  ``ou:jobtitle``, ``ou:employment``, ``ou:opening``, ``ou:vitals``,
+  ``ou:camptype``, and ``ou:orgtype``, ``ou:conttype`` forms. The Person model
+  got a new form, ``ps:workhist``.
+- Add a ``:deleted`` property to ``inet:web:post``.
+- Add a data model migration to ensure that the following array types are
+  properly uniqued sets:
+    - ``edu:course:prereqs``
+    - ``edu:class:assistants``
+    - ``ou:org:subs``
+    - ``ou:org:names``
+    - ``ou:org:dns:mx``
+    - ``ou:org:locations``
+    - ``ou:org:industries``
+    - ``ou:industry:sic``
+    - ``ou:industry:subs``
+    - ``ou:industry:isic``
+    - ``ou:industry:naics``
+    - ``ou:preso:sponsors``
+    - ``ou:preso:presenters``
+    - ``ou:conference:sponsors``
+    - ``ou:conference:event:sponsors``
+    - ``ou:conference:attendee:roles``
+    - ``ou:conference:event:attendee:roles``
+    - ``ou:contract:types``
+    - ``ou:contract:parties``
+    - ``ou:contract:requirements``
+    - ``ou:position:reports``
+    - ``ps:person:names``
+    - ``ps:person:nicks``
+    - ``ps:persona:names``
+    - ``ps:persona:nicks``
+    - ``ps:education:classes``
+    - ``ps:contactlist:contacts``
+
+
+Bugfixes
+--------
+- Prevent renaming the ``all`` role.
+  (`#2313 <https://github.com/vertexproject/synapse/pull/2313>`_)'
+
+Improved Documentation
+----------------------
+- Add documentation about Linux kernel parameteres which can be tuned to
+  affect Cortex performance.
+  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)'
+
+
 v2.52.1 - 2021-07-30
 ====================
 
