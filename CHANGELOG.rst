@@ -67,7 +67,6 @@ Features and Enhancements
     - ``ps:education:classes``
     - ``ps:contactlist:contacts``
 
-
 Bugfixes
 --------
 - Prevent renaming the ``all`` role.
