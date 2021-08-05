@@ -4,6 +4,12 @@
 Synapse Changelog
 *****************
 
+This release contains an automatic data migration that may cause additional
+startup time on the first boot. This is done to unique array properties which
+should previously were not uniqued. Deployments with startup or liveliness probes
+should have those disabled while this upgrade is performed to prevent accidental
+termination of the Cortex process. Please ensure you have a tested backup available
+before applying this update.
 
 v2.53.0 - 2021-08-05
 ====================
@@ -12,21 +18,22 @@ Features and Enhancements
 -------------------------
 - Add an ``embeds`` option to storm to allow extracting additional data about
   when performing queries.
-  (`#2314 <https://github.com/vertexproject/synapse/pull/2314>`_)'
+  (`#2314 <https://github.com/vertexproject/synapse/pull/2314>`_)
 - Enforce node data permissions at the Layer boundary. Remove the,
   ``node.data.get`` and ``node.data.list`` permissions.
-  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)'
+  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)
 - Add ``auth.self.set.email``, ``auth.self.set.name``,
   ``auth.self.set.passwd`` permissions on users when changing those values.
   These permissions default to being allowed, allowing a rule to be created
   that can deny users from changing these values.
-  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)'
+  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)
 - Add ``$lib.inet.smtp`` to allow sending email messages from Storm.
-  (`#2315 <https://github.com/vertexproject/synapse/pull/2315>`_)'
+  (`#2315 <https://github.com/vertexproject/synapse/pull/2315>`_)
 - Warn if a LMDB commit operation takes too long.
-  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)'
+  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)
 - Add new data types, ``taxon`` and ``taxonomy``, to describe hierarchical
   taxonomies.
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 - Add a new Business Development model. This allows tracking items related to
   contract, sales, and purchasing lifecycles. This adds the following new forms
   to the data model: ``biz:dealtype``, ``biz:prodtype``, ``biz:dealstatus``,
@@ -36,9 +43,12 @@ Features and Enhancements
   ``ou:jobtitle``, ``ou:employment``, ``ou:opening``, ``ou:vitals``,
   ``ou:camptype``, and ``ou:orgtype``, ``ou:conttype`` forms. The Person model
   got a new form, ``ps:workhist``.
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 - Add a ``:deleted`` property to ``inet:web:post``.
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 - Add a data model migration to ensure that the following array types are
   properly uniqued sets:
+
     - ``edu:course:prereqs``
     - ``edu:class:assistants``
     - ``ou:org:subs``
@@ -67,16 +77,18 @@ Features and Enhancements
     - ``ps:education:classes``
     - ``ps:contactlist:contacts``
 
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
+
 Bugfixes
 --------
 - Prevent renaming the ``all`` role.
-  (`#2313 <https://github.com/vertexproject/synapse/pull/2313>`_)'
+  (`#2313 <https://github.com/vertexproject/synapse/pull/2313>`_)
 
 Improved Documentation
 ----------------------
 - Add documentation about Linux kernel parameteres which can be tuned to
   affect Cortex performance.
-  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)'
+  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)
 
 
 v2.52.1 - 2021-07-30
@@ -86,7 +98,7 @@ Bugfixes
 --------
 - Fix a display regression when enumerating Cron jobs with the Storm
   ``cron.list`` command.
-  (`#2309 <https://github.com/vertexproject/synapse/pull/2309>`_)'
+  (`#2309 <https://github.com/vertexproject/synapse/pull/2309>`_)
 
 
 v2.52.0 - 2021-07-29
@@ -96,36 +108,36 @@ Features and Enhancements
 -------------------------
 - Add a new specification for defining input forms that a pure Storm command
   knows how to natively handle.
-  (`#2301 <https://github.com/vertexproject/synapse/pull/2301>`_)'
+  (`#2301 <https://github.com/vertexproject/synapse/pull/2301>`_)
 - Add ``Lib.reverse()`` and ``Lib.sort()`` methods to Stormtypes API.
-  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)'
+  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)
 - Add ``View.parent`` property in Stormtypes API.
-  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)'
+  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)
 - Support Telepath Share objects in Storm.
-  (`#2293 <https://github.com/vertexproject/synapse/pull/2293>`_)'
+  (`#2293 <https://github.com/vertexproject/synapse/pull/2293>`_)
 - Allow users to specify a view to run a cron job against, move a cron job to
   a new view, and update permission check for adding/moving cron jobs to views.
-  (`#2292 <https://github.com/vertexproject/synapse/pull/2292>`_)'
+  (`#2292 <https://github.com/vertexproject/synapse/pull/2292>`_)
 - Add CPE and software name infomation to the ``inet:flow`` form. Add
   ``it:av:prochit``, ``it:exec:thread``, ``it:exec:loadlib``,
   ``it:exec:mmap``, ``it:app:yara:procmatch`` forms to the infotech model.
   Add ``:names`` arrays to ``it:prod:soft`` and ``it:prod:softver`` forms
   to assist in entity resolution of software. Add a ``risk:alert`` form to
   the risk model to allow for capturing arbitrary alerts.
-  (`#2304 <https://github.com/vertexproject/synapse/pull/2304>`_)'
+  (`#2304 <https://github.com/vertexproject/synapse/pull/2304>`_)
 - Allow Storm packages to specify other packages they require and possible
   conflicts would prevent them from being installed in a Cortex.
-  (`#2307 <https://github.com/vertexproject/synapse/pull/2307>`_)'
+  (`#2307 <https://github.com/vertexproject/synapse/pull/2307>`_)
 
 Bugfixes
 --------
 - Specify the View when lifting ``syn:trigger`` runt nodes.
-  (`#2300 <https://github.com/vertexproject/synapse/pull/2300>`_)'
+  (`#2300 <https://github.com/vertexproject/synapse/pull/2300>`_)
 - Update the scrape URL regular expression to ignore trailing periods and
   commas.
-  (`#2302 <https://github.com/vertexproject/synapse/pull/2302>`_)'
+  (`#2302 <https://github.com/vertexproject/synapse/pull/2302>`_)
 - Fix a bug in Path scope for nodes yielding by pure Storm commands.
-  (`#2305 <https://github.com/vertexproject/synapse/pull/2305>`_)'
+  (`#2305 <https://github.com/vertexproject/synapse/pull/2305>`_)
 
 
 v2.51.0 - 2021-07-26
@@ -481,7 +493,7 @@ v2.41.1 - 2021-05-27
 
 Bugfixes
 --------
-- Add PR #2217 to bugfix list in CHANGLOG.rst for v2.41.0 :D
+- Add PR ``#2217`` to bugfix list in CHANGLOG.rst for v2.41.0 :D
 
 v2.41.0 - 2021-05-27
 ====================
@@ -940,9 +952,9 @@ Bugfixes
 Improved Documentation
 ----------------------
 - Update README.rst.
-  (`#2215 <https://github.com/vertexproject/synapse/pull/2115>`_)
-  (`#2217 <https://github.com/vertexproject/synapse/pull/2117>`_)
-  (`#2216 <https://github.com/vertexproject/synapse/pull/2116>`_)
+  (`#2115 <https://github.com/vertexproject/synapse/pull/2115>`_)
+  (`#2117 <https://github.com/vertexproject/synapse/pull/2117>`_)
+  (`#2116 <https://github.com/vertexproject/synapse/pull/2116>`_)
 
 
 v2.29.0 - 2021-03-11
