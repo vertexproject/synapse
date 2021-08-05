@@ -4,15 +4,16 @@
 Synapse Changelog
 *****************
 
+
+v2.53.0 - 2021-08-05
+====================
+
 This release contains an automatic data migration that may cause additional
 startup time on the first boot. This is done to unique array properties which
 should previously were not uniqued. Deployments with startup or liveliness probes
 should have those disabled while this upgrade is performed to prevent accidental
 termination of the Cortex process. Please ensure you have a tested backup available
 before applying this update.
-
-v2.53.0 - 2021-08-05
-====================
 
 Features and Enhancements
 -------------------------
@@ -46,8 +47,9 @@ Features and Enhancements
   (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 - Add a ``:deleted`` property to ``inet:web:post``.
   (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
-- Add a data model migration to ensure that the following array types are
-  properly uniqued sets:
+- Update the following array properties to be unique sets, and add a a data
+  model migration to update the data at rest:
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 
     - ``edu:course:prereqs``
     - ``edu:class:assistants``
@@ -76,8 +78,6 @@ Features and Enhancements
     - ``ps:persona:nicks``
     - ``ps:education:classes``
     - ``ps:contactlist:contacts``
-
-  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
 
 Bugfixes
 --------
