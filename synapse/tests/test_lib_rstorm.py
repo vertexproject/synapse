@@ -208,6 +208,8 @@ class RStormLibTest(s_test.SynTest):
             with s_common.genfile(path) as fd:
                 fd.write(multi_rst_in_http.encode())
             text = await get_rst_text(path)
+            self.isin("<ANSI STANDARD PIZZA>", text)
+            self.isin("<This is (not) a test>", text)
 
             # Pass some vcr opts through
             path = s_common.genpath(dirn, 'http_multi_opts.rst')

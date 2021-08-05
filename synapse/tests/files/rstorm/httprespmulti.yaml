@@ -6,12 +6,12 @@ interactions:
     uri: http://example.com
   response:
     body:
-      string: "<"
+      string: "<ANSI STANDARD PIZZA>"
     headers:
       Accept-Ranges:
       - bytes
       Content-Length:
-      - '1'
+      - '21'
       Content-Type:
       - text/html; charset=UTF-8
     status:
@@ -67,7 +67,7 @@ interactions:
     uri: http://www.foo.com/
   response:
     body:
-      string: "<"
+      string: "<This is (not) a test>"
     headers:
       Content-Type:
       - text/html; charset=utf-8
