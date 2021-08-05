@@ -2340,6 +2340,9 @@ class InetModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The date and time that the post was made.'
                         }),
+                        ('deleted', ('bool', {}), {
+                            'doc': 'The message was deleted by the poster.',
+                        }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The URL where the post is published / visible.'
                         }),
