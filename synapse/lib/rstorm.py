@@ -103,8 +103,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
                 with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
                     yield
         else:
-            with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
-                yield
+            yield
 
     def printf(self, mesg, addnl=True, color=None):
         line = f'    {mesg}'
@@ -183,6 +182,7 @@ class StormRst(s_base.Base):
             'storm-expect': self._handleStormExpect,
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
+            'storm-clear': self._handleStormClear,
         }
 
     async def _getCell(self, ctor, conf=None):
@@ -285,6 +285,19 @@ class StormRst(s_base.Base):
         '''
         item = json.loads(text)
         self.context['storm-opts'] = item
+
+    async def _handleStormClear(self, text):
+        '''
+        Reset the storm http context and any associated opts with it.
+
+        Args:
+            text (str): true if you also want to clear any storm/vcr opts as well
+        '''
+        if text == 'true':
+            self.context.pop('storm-opts', None)
+            self.context.pop('storm-vcr-opts', None)
+        self.context.pop('mock-http-path', None)
+        self.context.pop('mock-http', None)
 
     async def _handleStormCortex(self, text):
         '''

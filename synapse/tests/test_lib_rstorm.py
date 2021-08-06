@@ -83,7 +83,6 @@ rst_in_http = '''
 HI
 ##
 .. storm-cortex:: default
-.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() $lib.print($d)
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp1.json
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp2.json
@@ -103,6 +102,13 @@ multi_rst_in_http_opts = '''
 .. storm-vcr-opts:: {"record_mode": "none"}
 .. storm-mock-http:: /this/path/does/not/exist.yaml
 .. storm:: $resp = $lib.inet.http.get("http://example.com") if $resp.body { $lib.print('unexpected results') } else { $lib.print($lib.str.concat('this', ' test', ' passed')) }
+'''
+
+clear_storm_opts = '''
+.. storm-cortex:: default
+.. storm-opts:: {"vars": {"foobar": "bar"}}
+.. storm-clear:: true
+.. storm:: $lib.print($lib.str.concat($foobar, "bizboz"))
 '''
 
 boom1 = '''
@@ -198,7 +204,6 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(rst_in_http.encode())
 
             text = await get_rst_text(path)
-            self.isin('{}', text)  # no mock gives empty response
             self.isin('inet:ipv4=1.2.3.4', text)  # first mock
             self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
             self.isin('it:dev:str=notjson', text)  # one mock at a time
@@ -217,6 +222,13 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(multi_rst_in_http_opts.encode())
             text = await get_rst_text(path)
             self.isin('this test passed', text)
+
+            # clear the current set of things
+            path = s_common.genpath(dirn, 'clear_storm_opts.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(clear_storm_opts.encode())
+            with self.raises(s_exc.StormRuntimeError):
+                text = await get_rst_text(path)
 
             # boom1 test
             path = s_common.genpath(dirn, 'boom1.rst')
