@@ -649,6 +649,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
 
+            self.len(3, await core.nodes('ou:org | diff | +ou:org', opts=altview))
             nodes = await core.nodes('diff | merge --no-tags --apply', opts=altview)
 
             nodes = await core.nodes('diff | +ou:org', opts=altview)

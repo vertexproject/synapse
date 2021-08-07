@@ -2591,10 +2591,6 @@ class DiffCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if not self.runtsafe:
-            mesg = 'The diff command may only take runtime safe values.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
-
         if runt.snap.view.parent is None:
             mesg = 'You may only generate a diff in a forked view.'
             raise s_exc.StormRuntimeError(mesg=mesg)
@@ -2633,10 +2629,6 @@ class MergeCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
-
-        if not self.runtsafe:
-            mesg = 'The merge command may only take runtime safe values.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
 
         if runt.snap.view.parent is None:
             mesg = 'You may only merge nodes in forked views'
