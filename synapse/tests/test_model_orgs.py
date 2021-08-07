@@ -653,6 +653,8 @@ class OuModelTest(s_t_utils.SynTest):
                     :org = {[ ou:org=* :name=vertex ]}
                     :orgname = vertex
                     :orgfqdn = vertex.link
+                    :posted = 20210807
+                    :removed = 2022
                     :postings = {[ inet:url=https://vertex.link ]}
                     :contact = {[ ps:contact=* :email=visi@vertex.link ]}
                     :loc = us.va
@@ -672,6 +674,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('yearlypay'), '20')
             self.eq(nodes[0].get('paycurrency'), 'btc')
             self.eq(nodes[0].get('employment'), 'fulltime.salary.')
+            self.eq(nodes[0].get('posted'), 1628294400000)
+            self.eq(nodes[0].get('removed'), 1640995200000)
             self.eq(nodes[0].get('postings'), ('https://vertex.link',))
 
             self.nn(nodes[0].get('org'))
@@ -728,3 +732,5 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:vitals -> ou:org'))
             self.len(1, await core.nodes('ou:vitals -> ou:name'))
             self.len(1, await core.nodes('ou:vitals -> inet:fqdn'))
+
+            self.len(1, await core.nodes('ou:org [ :vitals=* ] :vitals -> ou:vitals'))

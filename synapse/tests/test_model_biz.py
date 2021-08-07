@@ -59,6 +59,12 @@ class BizModelTest(s_t_utils.SynTest):
                     :contacted = 20210728
                     :rfp = { biz:rfp }
                     :buyer = {[ ps:contact=* :name=buyer ]}
+                    :buyer:org = *
+                    :buyer:orgname = hehehaha
+                    :buyer:orgfqdn = hehehaha.com
+                    :seller:org = *
+                    :seller:orgname = lololol
+                    :seller:orgfqdn = lololol.com
                     :seller = {[ ps:contact=* :name=seller ]}
                     :currency = USD
                     :buyer:budget = 300000
@@ -84,6 +90,14 @@ class BizModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('buyer'))
             self.nn(nodes[0].get('seller'))
             self.nn(nodes[0].get('purchase'))
+
+            self.nn(nodes[0].get('buyer:org'))
+            self.nn(nodes[0].get('seller:org'))
+
+            self.nn('hehehaha', nodes[0].get('buyer:orgname'))
+            self.nn('hehehaha.com', nodes[0].get('buyer:orgfqdn'))
+            self.nn('lololol', nodes[0].get('seller:orgname'))
+            self.nn('lololol.com', nodes[0].get('seller:orgfqdn'))
 
             self.len(2, await core.nodes('biz:dealtype'))
 
@@ -120,6 +134,9 @@ class BizModelTest(s_t_utils.SynTest):
                 [ biz:product=*
                     :name = WootWoot
                     :type = woot.woot
+                    :madeby:org = *
+                    :madeby:orgname = wootwoot
+                    :madeby:orgfqdn = wootwoot.com
                     :summary = WootWithWootSauce
                     :price:retail = 29.99
                     :price:bottom = 3.20
@@ -135,6 +152,10 @@ class BizModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('price:bottom'), '3.20')
 
             self.nn(nodes[0].get('bundles'))
+
+            self.nn(nodes[0].get('madeby:org'))
+            self.eq(nodes[0].get('madeby:orgname'), 'wootwoot')
+            self.eq(nodes[0].get('madeby:orgfqdn'), 'wootwoot.com')
 
             self.len(2, await core.nodes('biz:prodtype'))
 
