@@ -2583,6 +2583,29 @@ class HelpCmd(Cmd):
 
             await runt.printf('For detailed help on any command, use <cmd> --help')
 
+class DiffCmd(Cmd):
+    '''
+    Generate a list of nodes with changes in the top layer of the current view.
+    '''
+    name = 'diff'
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'The diff command may only take runtime safe values.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if runt.snap.view.parent is None:
+            mesg = 'You may only generate a diff in a forked view.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        async for item in genr:
+            yield item
+
+        async for buid, sode in runt.snap.view.layers[0].getStorNodes():
+            node = await runt.snap.getNodeByBuid(buid)
+            yield node, runt.initPath(node)
+
 class MergeCmd(Cmd):
     '''
     Merge edits from the incoming nodes down to the next layer.
@@ -2605,14 +2628,21 @@ class MergeCmd(Cmd):
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
+        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not merge tags/tagprops or syn:tag nodes.')
         pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'The merge command may only take runtime safe values.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         if runt.snap.view.parent is None:
             mesg = 'You may only merge nodes in forked views'
             raise s_exc.CantMergeView(mesg=mesg)
+
+        notags = self.opts.no_tags
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
@@ -2649,16 +2679,20 @@ class MergeCmd(Cmd):
 
                 if adds:
                     addedits = [(node.buid, node.form.name, adds)]
-                    await runt.snap.view.layers[1].storNodeEdits(addedits, meta=meta)
+                    await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
                     adds.clear()
 
                 if subs:
                     subedits = [(node.buid, node.form.name, subs)]
-                    await runt.snap.view.layers[0].storNodeEdits(subedits, meta=meta)
+                    await runt.snap.view.storNodeEdits(subedits, meta=meta)
                     subs.clear()
 
             # check all node perms first
             form = sode.get('form')
+
+            if form == 'syn:tag' and notags:
+                continue
+
             valu = sode.get('valu')
             if valu is not None:
                 if not self.opts.apply:
@@ -2683,33 +2717,35 @@ class MergeCmd(Cmd):
                     adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
                     subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
-            for tag, valu in sode.get('tags', {}).items():
-                tagperm = tuple(tag.split('.'))
-                if not self.opts.apply:
-                    valurepr = ''
-                    if valu != (None, None):
-                        tagrepr = runt.model.type('ival').repr(valu)
-                        valurepr = f' = {tagrepr}'
-                    await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
-                else:
-                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                    runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            if not notags:
 
-                    adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
-                    subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
-
-            for tag, tagdict in sode.get('tagprops', {}).items():
-                for prop, (valu, stortype) in tagdict.items():
+                for tag, valu in sode.get('tags', {}).items():
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.apply:
-                        valurepr = repr(valu)
-                        await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                        valurepr = ''
+                        if valu != (None, None):
+                            tagrepr = runt.model.type('ival').repr(valu)
+                            valurepr = f' = {tagrepr}'
+                        await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                     else:
                         runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                         runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
-                        adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                        subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+                        adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
+                        subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
+
+                for tag, tagdict in sode.get('tagprops', {}).items():
+                    for prop, (valu, stortype) in tagdict.items():
+                        tagperm = tuple(tag.split('.'))
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                        else:
+                            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+
+                            adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                            subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
             layr = runt.snap.view.layers[0]
             async for name, valu in layr.iterNodeData(node.buid):

@@ -633,6 +633,52 @@ class StormTest(s_t_utils.SynTest):
                 cron.view = None
             await core.nodes('cron.list')
 
+    async def test_storm_diff_merge(self):
+
+        async with self.getTestCore() as core:
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            altview = {'view': viewiden}
+            await core.nodes('[ ou:org=* :name=hehe +#hehe ]')
+            await core.nodes('[ ou:org=* :name=haha +#haha ]', opts=altview)
+
+            with self.raises(s_exc.StormRuntimeError):
+                nodes = await core.nodes('diff')
+
+            nodes = await core.nodes('diff | +ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff | merge --no-tags --apply', opts=altview)
+
+            nodes = await core.nodes('diff | +ou:org', opts=altview)
+            self.len(1, nodes)
+            self.nn(nodes[0].getTag('haha'))
+
+            nodes = await core.nodes('ou:org:name=haha')
+            self.len(1, nodes)
+            self.none(nodes[0].getTag('haha'))
+
+            self.len(2, await core.nodes('ou:org'))
+            self.len(1, await core.nodes('ou:name=haha'))
+            self.len(1, await core.nodes('ou:org:name=haha'))
+
+            self.len(0, await core.nodes('#haha'))
+            self.len(0, await core.nodes('ou:org#haha'))
+            self.len(0, await core.nodes('syn:tag=haha'))
+
+            self.len(1, await core.nodes('#haha', opts=altview))
+            self.len(1, await core.nodes('ou:org#haha', opts=altview))
+            self.len(1, await core.nodes('syn:tag=haha', opts=altview))
+            self.len(1, await core.nodes('diff | +ou:org', opts=altview))
+
+            self.len(2, await core.nodes('diff | merge --apply', opts=altview))
+
+            self.len(1, await core.nodes('#haha'))
+            self.len(1, await core.nodes('ou:org#haha'))
+
+            self.len(0, await core.nodes('diff', opts=altview))
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:
