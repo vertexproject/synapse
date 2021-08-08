@@ -251,12 +251,10 @@ class StormRst(s_base.Base):
         '''
         core = self._reqCore()
 
-        stormopts = self.context.get('storm-opts')
-        if stormopts is None:
-            stormopts = {}
+        self.context.setdefault('storm-opts', {})
 
-        if stormopts.get('vars') is None:
-            stormopts['vars'] = {}
+        stormopts = self.context.get('storm-opts')
+        stormopts.setdefault('vars', {})
 
         # only map env vars in for storm-pre
         stormopts = copy.deepcopy(stormopts)
