@@ -83,13 +83,32 @@ rst_in_http = '''
 HI
 ##
 .. storm-cortex:: default
-.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() $lib.print($d)
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp1.json
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp2.json
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp3.json
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.body.decode() [ it:dev:str=$d ]
+'''
+
+multi_rst_in_http = '''
+.. storm-cortex:: default
+.. storm-mock-http:: synapse/tests/files/rstorm/httprespmulti.yaml
+.. storm:: $r_addr=$lib.inet.http.get("http://example.com") $r_bin=$lib.inet.http.get("http://foo.com") $lib.print($r_addr.body) $lib.print($r_bin.body.decode())
+'''
+
+multi_rst_in_http_opts = '''
+.. storm-cortex:: default
+.. storm-vcr-opts:: {"record_mode": "none"}
+.. storm-mock-http:: /this/path/does/not/exist.yaml
+.. storm:: $resp = $lib.inet.http.get("http://example.com") if $resp.body { $lib.print('unexpected results') } else { $lib.print($lib.str.concat('this', ' test', ' passed')) }
+'''
+
+clear_storm_opts = '''
+.. storm-cortex:: default
+.. storm-opts:: {"vars": {"foobar": "bar"}}
+.. storm-clear-http:: true
+.. storm:: $lib.print($lib.str.concat($foobar, "bizboz"))
 '''
 
 boom1 = '''
@@ -139,13 +158,6 @@ boom7 = '''
 
 boom8 = '''
 
-.. storm-cortex:: default
-.. storm-mock-http:: synapse/tests/files/rstorm/newp.newp
-
-'''
-
-boom9 = '''
-
 .. storm-newp:: newp
 
 '''
@@ -192,10 +204,31 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(rst_in_http.encode())
 
             text = await get_rst_text(path)
-            self.isin('{}', text)  # no mock gives empty response
             self.isin('inet:ipv4=1.2.3.4', text)  # first mock
             self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
             self.isin('it:dev:str=notjson', text)  # one mock at a time
+
+            # multi reqest in 1 rstorm command
+            path = s_common.genpath(dirn, 'http_multi.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(multi_rst_in_http.encode())
+            text = await get_rst_text(path)
+            self.isin("<ANSI STANDARD PIZZA>", text)
+            self.isin("<This is (not) a test>", text)
+
+            # Pass some vcr opts through
+            path = s_common.genpath(dirn, 'http_multi_opts.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(multi_rst_in_http_opts.encode())
+            text = await get_rst_text(path)
+            self.isin('this test passed', text)
+
+            # clear the current set of things
+            path = s_common.genpath(dirn, 'clear_storm_opts.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(clear_storm_opts.encode())
+            with self.raises(s_exc.StormRuntimeError):
+                text = await get_rst_text(path)
 
             # boom1 test
             path = s_common.genpath(dirn, 'boom1.rst')
@@ -257,14 +290,6 @@ class RStormLibTest(s_test.SynTest):
             path = s_common.genpath(dirn, 'boom8.rst')
             with s_common.genfile(path) as fd:
                 fd.write(boom8.encode())
-
-            with self.raises(s_exc.NoSuchFile):
-                await get_rst_text(path)
-
-            # boom9 test
-            path = s_common.genpath(dirn, 'boom9.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(boom9.encode())
 
             with self.raises(s_exc.NoSuchName):
                 await get_rst_text(path)
