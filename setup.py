@@ -94,6 +94,7 @@ setup(
         'packaging>=20.0,<21.0',
         'fastjsonschema>=2.14.3,<2.15',
         'stix2-validator>=3.0.0,<4.0.0',
+        'vcrpy>=4.1.1,<4.2.0',
     ],
 
     extras_require={
