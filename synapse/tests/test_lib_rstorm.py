@@ -113,7 +113,7 @@ clear_storm_opts = '''
 
 stormenv = '''
 .. storm-cortex:: default
-.. storm-envvar:: RST_TEST_FQDN
+.. storm-envvar:: RST_TEST_FQDN=wootwoot.com
 .. storm-pre:: [ inet:fqdn?=$RST_TEST_FQDN ]
 .. storm:: inet:fqdn
 '''
@@ -324,6 +324,7 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(stormenv.encode())
             text = await get_rst_text(path)
             self.notin("vertex.link", text)
+            self.isin("wootwoot.com", text)
 
             os.environ['RST_TEST_FQDN'] = 'vertex.link'
             path = s_common.genpath(dirn, 'stormenv.rst')
@@ -331,3 +332,4 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(stormenv.encode())
             text = await get_rst_text(path)
             self.isin("vertex.link", text)
+            self.notin("wootwoot.com", text)

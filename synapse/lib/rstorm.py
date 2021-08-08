@@ -331,7 +331,10 @@ class StormRst(s_base.Base):
         self.core = await self._getCell(ctor)
 
     async def _handleStormEnvVar(self, text):
-        self.stormvars[text] = os.getenv(text, '')
+        name, valu = text.split('=', 1)
+        name = name.strip()
+        valu = valu.strip()
+        self.stormvars[name] = os.getenv(name, valu)
 
     async def _handleStormExpect(self, text):
         # TODO handle some light weight output confirmation.
