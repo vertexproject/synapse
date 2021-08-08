@@ -107,7 +107,7 @@ multi_rst_in_http_opts = '''
 clear_storm_opts = '''
 .. storm-cortex:: default
 .. storm-opts:: {"vars": {"foobar": "bar"}}
-.. storm-clear:: true
+.. storm-http-clear:: true
 .. storm:: $lib.print($lib.str.concat($foobar, "bizboz"))
 '''
 
