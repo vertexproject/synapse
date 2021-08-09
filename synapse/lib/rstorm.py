@@ -169,6 +169,7 @@ class StormRst(s_base.Base):
 
         self.linesout = []
         self.context = {}
+        self.stormvars = {}
 
         self.core = None
 
@@ -179,6 +180,7 @@ class StormRst(s_base.Base):
             'storm-svc': self._handleStormSvc,
             'storm-opts': self._handleStormOpts,
             'storm-cortex': self._handleStormCortex,
+            'storm-envvar': self._handleStormEnvVar,
             'storm-expect': self._handleStormExpect,
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
@@ -248,7 +250,17 @@ class StormRst(s_base.Base):
             text (str): A valid Storm query
         '''
         core = self._reqCore()
-        soutp = StormOutput(core, self.context, stormopts=self.context.get('storm-opts'))
+
+        self.context.setdefault('storm-opts', {})
+
+        stormopts = self.context.get('storm-opts')
+        stormopts.setdefault('vars', {})
+
+        # only map env vars in for storm-pre
+        stormopts = copy.deepcopy(stormopts)
+        stormopts['vars'].update(self.stormvars)
+
+        soutp = StormOutput(core, self.context, stormopts=stormopts)
         await soutp.runCmdLine(text)
 
     async def _handleStormSvc(self, text):
@@ -315,6 +327,12 @@ class StormRst(s_base.Base):
         ctor = 'synapse.cortex.Cortex' if text == 'default' else text
 
         self.core = await self._getCell(ctor)
+
+    async def _handleStormEnvVar(self, text):
+        name, valu = text.split('=', 1)
+        name = name.strip()
+        valu = valu.strip()
+        self.stormvars[name] = os.getenv(name, valu)
 
     async def _handleStormExpect(self, text):
         # TODO handle some light weight output confirmation.
