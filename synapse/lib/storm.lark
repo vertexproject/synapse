@@ -275,16 +275,13 @@ filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
 
 // Condition used for filters
-_cond: notcond | "(" _WS? _innercondexpr _WS? ")"
+_cond: notcond | "(" _WS? _condexpr _WS? ")"
     | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq | arraycond
-    | _varvalu
-
-// A dollar expression inside a condition may only occur inside another set of parentheses
-_innercond: _cond | dollarexpr
+    | _varvalu | _reqdollarexpr
 
 notcond: "not" _WS _cond
 
@@ -307,7 +304,6 @@ _ARRAYCONDSTART: "*["
 
 // Filter boolean conditions
 _condexpr: _cond | orexpr | andexpr
-_innercondexpr: _innercond | orexpr | andexpr
 orexpr: _condexpr _WS "or" _WS _cond
 andexpr: _condexpr _WS "and" _WS _cond
 
@@ -350,7 +346,9 @@ BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]*)*/
 CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
-dollarexpr: "$"? "(" _WSCOMM? expror _WSCOMM? ")"
+dollarexpr: "$"? _exprcommon
+_reqdollarexpr: "$" _exprcommon
+_exprcommon: "(" _WSCOMM? expror _WSCOMM? ")"
 EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
