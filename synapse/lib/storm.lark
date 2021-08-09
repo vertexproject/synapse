@@ -282,7 +282,7 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq | arraycond
-    | _varvalu | _reqdollarexpr
+    | _varvalu | reqdollarexpr
 
 notcond: "not" _WS _cond
 
@@ -348,7 +348,8 @@ CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 dollarexpr: "$"? _exprcommon
-_reqdollarexpr: "$" _exprcommon
+// A dollar expression with a required dollar
+reqdollarexpr: "$" _exprcommon
 _exprcommon: "(" _WSCOMM? expror _WSCOMM? ")"
 EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"
