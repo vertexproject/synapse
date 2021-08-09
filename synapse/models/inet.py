@@ -1537,6 +1537,18 @@ class InetModule(s_module.CoreModule):
                         ('src:txbytes', ('int', {}), {
                             'doc': 'The number of bytes sent by the source host / process / file.'
                         }),
+                        ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of NIST CPEs identified on the destination host.',
+                        }),
+                        ('dst:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of software names identified on the destination host.',
+                        }),
+                        ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of NIST CPEs identified on the source host.',
+                        }),
+                        ('src:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of software names identified on the source host.',
+                        }),
                     )),
 
                     ('inet:fqdn', {}, (
@@ -2327,6 +2339,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time that the post was made.'
+                        }),
+                        ('deleted', ('bool', {}), {
+                            'doc': 'The message was deleted by the poster.',
                         }),
                         ('url', ('inet:url', {}), {
                             'doc': 'The URL where the post is published / visible.'

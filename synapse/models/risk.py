@@ -15,6 +15,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.'
                 }),
+                ('risk:alert', ('guid', {}), {
+                    'doc': 'An instance of an alert which indicates the presence of a risk.',
+                }),
             ),
             'forms': (
                 ('risk:vuln', {}, (
@@ -141,6 +144,28 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('item', ('mat:item', {}), {
                         'doc': 'The vulnerable material item.',
+                    }),
+                )),
+
+                ('risk:alert', {}, (
+                    ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'doc': 'An alert type.',
+                    }),
+                    ('name', ('str', {}), {
+                        'doc': 'The alert name.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A free-form description / overview of the alert.',
+                    }),
+                    ('detected', ('time', {}), {
+                        'doc': 'The time the alerted condition was detected.',
+                    }),
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The optional vulnerability that the alert indicates.',
+                    }),
+                    ('attack', ('risk:attack', {}), {
+                        'doc': 'A confirmed attack that this alert indicates.',
                     }),
                 )),
 

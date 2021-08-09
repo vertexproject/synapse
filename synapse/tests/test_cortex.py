@@ -101,6 +101,133 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
             self.len(2, await core.nodes('ou:org +#faz'))
 
+            # functions that don't return a generator
+            storm = '''
+            function x() {
+                $lst = $lib.list()
+                [ ou:org=* ou:org=* +#cat ]
+                $lst.append($node)
+                fini { return($lst) }
+            }
+
+            divert $lib.true $x()
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            self.len(2, await core.nodes('ou:org +#cat'))
+
+            storm = '''
+            function x() {
+                $lst = $lib.list()
+                [ ou:org=* ou:org=* +#dog ]
+                $lst.append($node)
+                fini { return($lst) }
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            divert $lib.true $x()
+            '''
+            await self.asyncraises(s_exc.BadArg, core.nodes(storm))
+            self.len(4, await core.nodes('ou:org +#dog'))
+
+            # functions that return a generator
+            storm = '''
+            function y() {
+                [ ou:org=* ou:org=* +#cow ]
+            }
+            function x() {
+                $lib.print(heythere)
+                return($y())
+            }
+
+            divert $lib.true $x()
+            '''
+            mesgs = await core.stormlist(storm)
+            self.len(1, [m for m in mesgs if (m[0] == 'print' and m[1]['mesg'] == 'heythere')])
+            self.len(2, [m for m in mesgs if (m[0] == 'node' and m[1][0][0] == 'ou:org')])
+            self.len(2, await core.nodes('ou:org +#cow'))
+
+            storm = '''
+            function y() {
+                [ ou:org=* ou:org=* +#camel ]
+            }
+            function x() {
+                $lib.print(heythere)
+                return($y())
+            }
+
+            [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+
+            divert $lib.false $x()
+            '''
+            mesgs = await core.stormlist(storm)
+            self.len(3, [m for m in mesgs if (m[0] == 'print' and m[1]['mesg'] == 'heythere')])
+            self.len(2, [m for m in mesgs if (m[0] == 'node' and m[1][0][0] == 'inet:fqdn')])
+            self.len(2, await core.nodes('ou:org +#camel'))
+
+            storm = 'function foo(n) {} divert $lib.true $foo($node)'
+            mesgs = await core.stormlist(storm)
+            self.len(0, [mesg[1] for mesg in mesgs if mesg[0] == 'err'])
+
+            # runtsafe with 0 nodes
+            orgcount = len(await core.nodes('ou:org'))
+            storm = '''
+            function y() {
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+            }
+            divert --size 2 $lib.true $y()
+            '''
+            self.len(2, await core.nodes(storm))
+            self.eq(orgcount + 2, len(await core.nodes('ou:org')))
+
+            orgcount = len(await core.nodes('ou:org'))
+            storm = '''
+            function y() {
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+            }
+            divert --size 2 $lib.false $y()
+            '''
+            self.len(0, await core.nodes(storm))
+            self.eq(orgcount + 2, len(await core.nodes('ou:org')))
+
+            orgcount = len(await core.nodes('ou:org'))
+            storm = '''
+            function y(n) {
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+            }
+
+            [ ps:contact=* ]
+            [ ps:contact=* ]
+            divert --size 2 $lib.true $y($node)
+            '''
+            self.len(4, await core.nodes(storm))
+            self.eq(orgcount + 4, len(await core.nodes('ou:org')))
+
+            orgcount = len(await core.nodes('ou:org'))
+            storm = '''
+            function y(n) {
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+                [ ou:org=* ]
+            }
+
+            [ ps:contact=* ]
+            [ ps:contact=* ]
+            divert --size 2 $lib.false $y($node)
+            '''
+            self.len(2, await core.nodes(storm))
+            self.eq(orgcount + 4, len(await core.nodes('ou:org')))
+
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
             self.len(1, await core.nodes('[ ou:org=* ]'))
@@ -173,10 +300,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('media:news -((refs,foos))> mat:spec'))
             self.len(0, await core.nodes('inet:ipv4 <((refs,foos))- mat:spec'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 self.len(0, await core.nodes('inet:ipv4 <(*)- $(0)'))
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadSyntax):
                 self.len(0, await core.nodes('media:news -(*)> $(0)'))
 
             with self.raises(s_exc.StormRuntimeError):
@@ -247,7 +374,7 @@ class CortexTest(s_t_utils.SynTest):
             # add an edge that exists already to bounce off the layer
             await core.nodes('media:news [ +(refs)> { inet:ipv4=1.2.3.4 } ]')
 
-            with self.raises(s_exc.StormRuntimeError) as cm:
+            with self.raises(s_exc.BadSyntax):
                 await core.nodes('media:news -(refs)> $(10)')
 
             self.eq(1, await core.callStorm('''
@@ -791,7 +918,7 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await wcore.nodes("$foo=('foo', '...V...') $foo=$lib.cast('syn:tag', $foo) [test:int=1 +#$foo]")
             self.len(1, nodes)
-            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.___v___'})
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.v'})
 
             # Cannot norm a list of tag parts directly when making tags on a node
             with self.raises(AttributeError):

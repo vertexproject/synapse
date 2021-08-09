@@ -13,6 +13,7 @@ import logging
 import binascii
 import datetime
 import calendar
+import functools
 import collections
 from typing import Any
 
@@ -229,6 +230,7 @@ class StormType:
         self.path = path
         self.ctors = {}
         self.stors = {}
+        self.gtors = {}
         self.locls = {}
 
     def getObjLocals(self):
@@ -277,7 +279,10 @@ class StormType:
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
     async def _derefGet(self, name):
-        return s_common.novalu
+        gtor = self.gtors.get(name)
+        if gtor is None:
+            return s_common.novalu
+        return await gtor()
 
     def ismutable(self):
         return self._ismutable
@@ -657,7 +662,7 @@ class LibService(Lib):
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
         await self._checkSvcGetPerm(ssvc)
-        return ssvc
+        return Service(self.runt, ssvc)
 
     async def _libSvcHas(self, name):
         ssvc = self.runt.snap.core.getStormSvc(name)
@@ -685,6 +690,53 @@ class LibService(Lib):
             raise s_exc.NoSuchName(mesg=mesg, name=name)
         await self._checkSvcGetPerm(ssvc)
         await ssvc.ready.wait()
+
+@registry.registerLib
+class LibTags(Lib):
+    '''
+    Storm utility functions for tags.
+    '''
+    _storm_lib_path = ('tags',)
+
+    _storm_locals = (
+        {'name': 'prefix', 'desc': '''
+            Normalize and prefix a list of syn:tag:part values so they can be applied.
+
+            Examples:
+
+                Add tag prefixes and then use them to tag nodes::
+
+                    $tags = $lib.tags.prefix($result.tags, vtx.visi)
+                    { for $tag in $tags { [ +#$tag ] } }
+
+         ''',
+         'type': {'type': 'function', '_funcname': 'prefix',
+                  'args': (
+                      {'name': 'names', 'type': 'list', 'desc': 'A list of syn:tag:part values to normalize and prefix.'},
+                      {'name': 'prefix', 'type': 'str', 'desc': 'The string prefix to add to the syn:tag:part values.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of normalized and prefixed syn:tag values.', }}},
+    )
+
+    def getObjLocals(self):
+        return {
+            'prefix': self.prefix,
+        }
+
+    async def prefix(self, names, prefix):
+
+        prefix = await tostr(prefix)
+        tagpart = self.runt.snap.core.model.type('syn:tag:part')
+
+        retn = []
+        async for part in toiter(names):
+            try:
+                partnorm = tagpart.norm(part)[0]
+                retn.append(f'{prefix}.{partnorm}')
+            except s_exc.BadTypeValu:
+                pass
+
+        return retn
 
 @registry.registerLib
 class LibBase(Lib):
@@ -1001,24 +1053,42 @@ class LibBase(Lib):
         }
 
     async def _libBaseImport(self, name, debug=False):
+
+        name = await tostr(name)
+        debug = await tobool(debug)
+
         mdef = await self.runt.snap.core.getStormMod(name)
         if mdef is None:
             mesg = f'No storm module named {name}.'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
-
-        debug = await tobool(debug)
 
         text = mdef.get('storm')
         modconf = mdef.get('modconf')
 
         query = await self.runt.getStormQuery(text)
 
-        perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+        asroot = False
 
-        asroot = self.runt.allowed(perm)
-        if mdef.get('asroot', False) and not asroot:
-            mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
-            raise s_exc.AuthDeny(mesg=mesg)
+        rootperms = mdef.get('asroot:perms')
+        if rootperms is not None:
+
+            for perm in rootperms:
+                if self.runt.allowed(perm):
+                    asroot = True
+                    break
+
+            if not asroot:
+                permtext = ' or '.join(('.'.join(p) for p in rootperms))
+                mesg = f'Module ({name}) requires permission: {permtext}'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+        else:
+            perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+            asroot = self.runt.allowed(perm)
+
+            if mdef.get('asroot', False) and not asroot:
+                mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+                raise s_exc.AuthDeny(mesg=mesg)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
         modr.asroot = asroot
@@ -1086,7 +1156,7 @@ class LibBase(Lib):
             yield item
 
     async def _set(self, *vals):
-        return Set(set(vals))
+        return Set(vals)
 
     async def _list(self, *vals):
         return List(list(vals))
@@ -2449,6 +2519,7 @@ class Queue(StormType):
                   'returns': {'type': 'int', 'desc': 'The number of items in the Queue.', }}},
     )
     _storm_typename = 'storm:queue'
+    _ismutable = False
 
     def __init__(self, runt, name, info):
 
@@ -2461,6 +2532,14 @@ class Queue(StormType):
 
         self.locls.update(self.getObjLocals())
         self.locls['name'] = self.name
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.name))
+
+    def __eq__(self, othr):
+        if not isinstance(othr, type(self)):
+            return False
+        return self.name == othr.name
 
     def getObjLocals(self):
         return {
@@ -2560,7 +2639,7 @@ class LibTelepath(Lib):
         url = await tostr(url)
         scheme = url.split('://')[0]
         self.runt.confirm(('lib', 'telepath', 'open', scheme))
-        return Proxy(await self.runt.getTeleProxy(url))
+        return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
 class Proxy(StormType):
@@ -2589,8 +2668,9 @@ class Proxy(StormType):
     '''
     _storm_typename = 'storm:proxy'
 
-    def __init__(self, proxy, path=None):
+    def __init__(self, runt, proxy, path=None):
         StormType.__init__(self, path=path)
+        self.runt = runt
         self.proxy = proxy
 
     async def deref(self, name):
@@ -2605,7 +2685,7 @@ class Proxy(StormType):
             return ProxyGenrMethod(meth)
 
         if isinstance(meth, s_telepath.Method):
-            return ProxyMethod(meth)
+            return ProxyMethod(self.runt, meth)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.proxy}'
@@ -2615,15 +2695,20 @@ class ProxyMethod(StormType):
 
     _storm_typename = 'storm:proxy:method'
 
-    def __init__(self, meth, path=None):
+    def __init__(self, runt, meth, path=None):
         StormType.__init__(self, path=path)
+        self.runt = runt
         self.meth = meth
 
     async def __call__(self, *args, **kwargs):
         args = await toprim(args)
         kwargs = await toprim(kwargs)
         # TODO: storm types fromprim()
-        return await self.meth(*args, **kwargs)
+        ret = await self.meth(*args, **kwargs)
+        if isinstance(ret, s_telepath.Share):
+            self.runt.snap.onfini(ret)
+            return Proxy(self.runt, ret)
+        return ret
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
@@ -2646,6 +2731,25 @@ class ProxyGenrMethod(StormType):
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.meth}'
+
+# @registry.registerType
+class Service(Proxy):
+
+    def __init__(self, runt, ssvc):
+        Proxy.__init__(self, runt, ssvc.proxy)
+        self.name = ssvc.name
+
+    async def deref(self, name):
+        try:
+            await self.proxy.waitready()
+            return await Proxy.deref(self, name)
+        except asyncio.TimeoutError:
+            mesg = f'Timeout waiting for storm service {self.name}.{name}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
+        except AttributeError as e:  # pragma: no cover
+            # possible client race condition seen in the real world
+            mesg = f'Error dereferencing storm service - {self.name}.{name} - {str(e)}'
+            raise s_exc.StormRuntimeError(mesg=mesg, name=name, service=self.name) from None
 
 @registry.registerLib
 class LibBase64(Lib):
@@ -2696,6 +2800,7 @@ class LibBase64(Lib):
             mesg = f'Error during base64 decoding - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, urlsafe=urlsafe) from None
 
+@functools.total_ordering
 class Prim(StormType):
     '''
     The base type for all Storm primitive values.
@@ -2713,6 +2818,17 @@ class Prim(StormType):
     def __len__(self):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} does not have a length.', name=name)
+
+    def __eq__(self, othr):
+        if not isinstance(othr, type(self)):
+            return False
+        return self.valu == othr.valu
+
+    def __lt__(self, other):
+        if not isinstance(other, type(self)):
+            mesg = f"'<' not supported between instance of {self.__class__.__name__} and {other.__class__.__name__}"
+            raise TypeError(mesg)
+        return self.valu < other.valu
 
     def value(self):
         return self.valu
@@ -2937,6 +3053,15 @@ class Str(Prim):
     def __len__(self):
         return len(self.valu)
 
+    def __hash__(self):
+        # As a note, this hash of the typename and the value means that s_stormtypes.Str('foo') != 'foo'
+        return hash((self._storm_typename, self.valu))
+
+    def __eq__(self, othr):
+        if isinstance(othr, (Str, str)):
+            return str(self) == str(othr)
+        return False
+
     async def _methEncode(self, encoding='utf8'):
         try:
             return self.valu.encode(encoding)
@@ -3078,6 +3203,14 @@ class Bytes(Prim):
     def __str__(self):
         return self.valu.decode()
 
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def __eq__(self, othr):
+        if isinstance(othr, Bytes):
+            return self.valu == othr.valu
+        return False
+
     async def _methDecode(self, encoding='utf8'):
         try:
             return self.valu.decode(encoding)
@@ -3105,6 +3238,7 @@ class Dict(Prim):
     Implements the Storm API for a Dictionary object.
     '''
     _storm_typename = 'dict'
+    _ismutable = True
 
     def __len__(self):
         return len(self.valu)
@@ -3144,6 +3278,10 @@ class CmdOpts(Dict):
     def __len__(self):
         valu = vars(self.valu.opts)
         return len(valu)
+
+    def __hash__(self):
+        valu = vars(self.valu.opts)
+        return hash((self._storm_typename, tuple(valu.items())))
 
     async def setitem(self, name, valu):
         # due to self.valu.opts potentially being replaced
@@ -3213,8 +3351,15 @@ class Set(Prim):
                   'returns': {'type': 'int', 'desc': 'The size of the set.', }}},
     )
     _storm_typename = 'set'
+    _ismutable = True
 
     def __init__(self, valu, path=None):
+        valu = list(valu)
+        for item in valu:
+            if ismutable(item):
+                mesg = f'{repr(item)} is mutable and cannot be used in a set.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+
         Prim.__init__(self, set(valu), path=path)
         self.locls.update(self.getObjLocals())
 
@@ -3243,11 +3388,19 @@ class Set(Prim):
         return item in self.valu
 
     async def _methSetAdd(self, *items):
-        [self.valu.add(i) for i in items]
+        for i in items:
+            if ismutable(i):
+                mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
+                raise s_exc.StormRuntimeError(mesg=mesg)
+            self.valu.add(i)
 
     async def _methSetAdds(self, *items):
         for item in items:
-            [self.valu.add(i) async for i in toiter(item)]
+            async for i in toiter(item):
+                if ismutable(i):
+                    mesg = f'{await torepr(i)} is mutable and cannot be used in a set.'
+                    raise s_exc.StormRuntimeError(mesg=mesg)
+                self.valu.add(i)
 
     async def _methSetRem(self, *items):
         [self.valu.discard(i) for i in items]
@@ -3282,6 +3435,13 @@ class List(Prim):
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
                   'returns': {'type': 'size', 'desc': 'The size of the list.', }}},
+        {'name': 'sort', 'desc': 'Sort the list in place.',
+         'type': {'type': 'function', '_funcname': '_methListSort',
+                  'args': (
+                      {'name': 'reverse', 'type': 'bool', 'desc': 'Sort the list in reverse order.',
+                       'default': False},
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'index', 'desc': 'Return a single field from the list by index.',
          'type': {'type': 'function', '_funcname': '_methListIndex',
                   'args': (
@@ -3297,8 +3457,12 @@ class List(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The item to append to the list.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
+         'type': {'type': 'function', '_funcname': '_methListReverse',
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'list'
+    _ismutable = True
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -3309,9 +3473,11 @@ class List(Prim):
             'has': self._methListHas,
             'pop': self._methListPop,
             'size': self._methListSize,
+            'sort': self._methListSort,
             'index': self._methListIndex,
             'length': self._methListLength,
             'append': self._methListAppend,
+            'reverse': self._methListReverse,
         }
 
     async def setitem(self, name, valu):
@@ -3360,12 +3526,23 @@ class List(Prim):
         try:
             return self.valu[indx]
         except IndexError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=repr(self.valu),
+            raise s_exc.StormRuntimeError(mesg=str(e), valurepr=await self.stormrepr(),
                                           len=len(self.valu), indx=indx) from None
+
+    async def _methListReverse(self):
+        self.valu.reverse()
 
     async def _methListLength(self):
         s_common.deprecated('StormType List.length()')
         return len(self)
+
+    async def _methListSort(self, reverse=False):
+        reverse = await tobool(reverse, noneok=True)
+        try:
+            self.valu.sort(reverse=reverse)
+        except TypeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'Error sorting list: {str(e)}',
+                                          valurepr=await self.stormrepr()) from None
 
     async def _methListSize(self):
         return len(self)
@@ -3395,6 +3572,9 @@ class Bool(Prim):
 
     def __int__(self):
         return int(self.value())
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.value()))
 
 @registry.registerLib
 class LibUser(Lib):
@@ -3566,6 +3746,7 @@ class StormHiveDict(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of tuples containing key, value pairs.', }}},
     )
     _storm_typename = 'storm:hive:dict'
+    _ismutable = True
 
     def __init__(self, runt, info):
         Prim.__init__(self, None)
@@ -3678,7 +3859,6 @@ class Query(Prim):
     )
 
     _storm_typename = 'storm:query'
-    _ismutable = False
 
     def __init__(self, text, varz, runt, path=None):
 
@@ -3746,6 +3926,7 @@ class NodeProps(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
     )
     _storm_typename = 'storm:node:props'
+    _ismutable = True
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -3830,8 +4011,25 @@ class NodeData(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'cacheget',
+         'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
+         'type': {'type': 'function', '_funcname': 'cacheget',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to load.', },
+                      {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The cached value or null.'}}},
+        {'name': 'cacheset',
+         'desc': 'Set a node data value with an envelope that tracks time for cache use.',
+         'type': {'type': 'function', '_funcname': 'cacheset',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the data to set.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:node:data'
+    _ismutable = True
 
     def __init__(self, node, path=None):
 
@@ -3845,31 +4043,54 @@ class NodeData(Prim):
             'pop': self._popNodeData,
             'list': self._listNodeData,
             'load': self._loadNodeData,
+            'cacheget': self.cacheget,
+            'cacheset': self.cacheset,
         }
 
     @stormfunc(readonly=True)
+    async def cacheget(self, name, asof='now'):
+        envl = await self._getNodeData(name)
+        if not envl:
+            return None
+
+        timetype = self.valu.snap.core.model.type('time')
+
+        asoftick = timetype.norm(asof)[0]
+        if envl.get('asof') >= asoftick:
+            return envl.get('data')
+
+        return None
+
+    async def cacheset(self, name, valu):
+        envl = {'asof': s_common.now(), 'data': valu}
+        return await self._setNodeData(name, envl)
+
+    @stormfunc(readonly=True)
     async def _getNodeData(self, name):
-        confirm(('node', 'data', 'get', name))
+        name = await tostr(name)
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
-        confirm(('node', 'data', 'set', name))
+        name = await tostr(name)
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
-        confirm(('node', 'data', 'pop', name))
+        name = await tostr(name)
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
-        confirm(('node', 'data', 'get', name))
+        name = await tostr(name)
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
@@ -3950,6 +4171,7 @@ class Node(Prim):
                   'returns': {'type': 'list', 'desc': 'List of storage node objects.', }}},
     )
     _storm_typename = 'storm:node'
+    _ismutable = False
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -3958,6 +4180,9 @@ class Node(Prim):
         self.ctors['props'] = self._ctorNodeProps
 
         self.locls.update(self.getObjLocals())
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu.iden))
 
     def getObjLocals(self):
         return {
@@ -4059,6 +4284,7 @@ class PathMeta(Prim):
     Put the storm deref/setitem/iter convention on top of path meta information.
     '''
     _storm_typename = 'storm:node:path:meta'
+    _ismutable = True
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
@@ -4083,6 +4309,7 @@ class PathVars(Prim):
     Put the storm deref/setitem/iter convention on top of path variables.
     '''
     _storm_typename = 'storm:node:path:vars'
+    _ismutable = True
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
@@ -4115,7 +4342,7 @@ class Path(Prim):
     _storm_locals = (
         {'name': 'vars', 'desc': 'The PathVars object for the Path.', 'type': 'storm:node:path:vars', },
         {'name': 'meta', 'desc': 'The PathMeta object for the Path.', 'type': 'storm:node:path:meta', },
-        {'name': 'idens', 'desc': 'The list of Node idens which this Path has bee forked from during pivot operations.',
+        {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
         {'name': 'trace',
@@ -4129,6 +4356,7 @@ class Path(Prim):
                               'desc': 'List of tuples containing the name and value of path variables.', }}},
     )
     _storm_typename = 'storm:path'
+    _ismutable = True
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
@@ -4166,10 +4394,14 @@ class Trace(Prim):
                   'returns': {'type': 'list', 'desc': 'A List of Node idens.', }}},
     )
     _storm_typename = 'storm:node:path:trace'
+    _ismutable = False
 
     def __init__(self, trace, path=None):
         Prim.__init__(self, trace, path=path)
         self.locls.update(self.getObjLocals())
+
+    def __hash__(self):
+        return hash((self._storm_typename, tuple([n.iden() for n in self.valu.nodes])))
 
     def getObjLocals(self):
         return {
@@ -4197,6 +4429,7 @@ class Text(Prim):
                   'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
     )
     _storm_typename = 'storm:text'
+    _ismutable = True
 
     def __init__(self, valu, path=None):
         Prim.__init__(self, valu, path=path)
@@ -4271,6 +4504,7 @@ class StatTally(Prim):
                   'returns': {'type': 'int',
                               'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
     )
+    _ismutable = True
 
     def __init__(self, path=None):
         Prim.__init__(self, {}, path=path)
@@ -4506,6 +4740,7 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
     )
     _storm_typename = 'storm:layer'
+    _ismutable = False
 
     def __init__(self, runt, ldef, path=None):
         Prim.__init__(self, ldef, path=path)
@@ -4528,6 +4763,9 @@ class Layer(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -4824,6 +5062,7 @@ class View(Prim):
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``storm:layer`` objects associated with the ``storm:view``.', 'type': 'list', },
+        {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
          'type': 'list', },
         {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
@@ -4887,6 +5126,7 @@ class View(Prim):
                        'desc': "Dictionary containing form names and the count of the nodes in the View's Layers.", }}},
     )
     _storm_typename = 'storm:view'
+    _ismutable = False
 
     def __init__(self, runt, vdef, path=None):
         Prim.__init__(self, vdef, path=path)
@@ -4894,9 +5134,13 @@ class View(Prim):
         self.locls.update(self.getObjLocals())
         self.locls.update({
             'iden': self.valu.get('iden'),
+            'parent': self.valu.get('parent'),
             'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5250,6 +5494,7 @@ class Trigger(Prim):
                   'returns': {'type': 'dict', 'desc': 'The definition.', }}},
     )
     _storm_typename = 'storm:trigger'
+    _ismutable = False
 
     def __init__(self, runt, tdef):
 
@@ -5258,6 +5503,9 @@ class Trigger(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5553,6 +5801,7 @@ class Gate(Prim):
         {'name': 'users', 'desc': 'The user idens which are a member of the Authgate.', 'type': 'list', },
     )
     _storm_typename = 'storm:auth:gate'
+    _ismutable = False
 
     def __init__(self, runt, valu, path=None):
 
@@ -5564,6 +5813,9 @@ class Gate(Prim):
             'roles': self.valu.get('roles', ()),
             'users': self.valu.get('users', ()),
         })
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
 @registry.registerType
 class User(Prim):
@@ -5665,6 +5917,7 @@ class User(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:user'
+    _ismutable = False
 
     def __init__(self, runt, valu, path=None):
 
@@ -5677,6 +5930,9 @@ class User(Prim):
             'name': self._setUserName,
             'email': self._methUserSetEmail,
         })
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5699,6 +5955,7 @@ class User(Prim):
 
         name = await tostr(name)
         if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'name'), default=True)
             await self.runt.snap.core.setUserName(self.valu, name)
             return
 
@@ -5749,6 +6006,7 @@ class User(Prim):
 
     async def _methUserSetEmail(self, email):
         if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
 
@@ -5764,6 +6022,7 @@ class User(Prim):
     async def _methUserSetPasswd(self, passwd):
         if self.runt.user.iden == self.valu:
             passwd = await tostr(passwd, noneok=True)
+            self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
         self.runt.confirm(('auth', 'user', 'set', 'passwd'))
@@ -5816,6 +6075,7 @@ class Role(Prim):
                   'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:role'
+    _ismutable = False
 
     def __init__(self, runt, valu, path=None):
 
@@ -5826,6 +6086,9 @@ class Role(Prim):
         self.stors.update({
             'name': self._setRoleName,
         })
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -5863,6 +6126,9 @@ class Role(Prim):
 
     async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {await self.value()}'
 
 @registry.registerLib
 class LibCron(Lib):
@@ -5907,7 +6173,17 @@ class LibCron(Lib):
                       {'name': 'query', 'type': ['str', 'storm:query'],
                        'desc': 'The new Storm query for the Cron Job.', }
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
+        {'name': 'move', 'desc': 'Move a cron job to a new view.',
+         'type': {'type': 'function', '_funcname': '_methCronMove',
+                  'args': (
+                      {'name': 'prefix', 'type': 'str',
+                       'desc': 'A prefix to match in order to identify a cron job to move. '
+                               'Only a single matching prefix will be modified.', },
+                      {'name': 'view', 'type': 'str',
+                       'desc': 'The iden of the view to move the CrobJob to', }
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
                   'returns': {'type': 'list', 'desc': 'A list of ``storm:cronjob`` objects..', }}},
@@ -5938,6 +6214,7 @@ class LibCron(Lib):
             'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
+            'move': self._methCronMove,
             'enable': self._methCronEnable,
             'disable': self._methCronDisable,
         }
@@ -6196,8 +6473,17 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
+        iden = kwargs.get('iden')
+        if iden:
+            cdef['iden'] = iden
+
+        view = kwargs.get('view')
+        if not view:
+            view = self.runt.snap.view.iden
+        cdef['view'] = view
+
         todo = s_common.todo('addCronJob', cdef)
-        gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
+        gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return CronJob(self.runt, cdef, path=self.path)
@@ -6264,8 +6550,17 @@ class LibCron(Lib):
                 'creator': self.runt.user.iden
                 }
 
+        iden = kwargs.get('iden')
+        if iden:
+            cdef['iden'] = iden
+
+        view = kwargs.get('view')
+        if not view:
+            view = self.runt.snap.view.iden
+        view = self.runt.snap.view.iden
+
         todo = s_common.todo('addCronJob', cdef)
-        gatekeys = ((self.runt.user.iden, ('cron', 'add'), None),)
+        gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
 
         return CronJob(self.runt, cdef, path=self.path)
@@ -6286,6 +6581,13 @@ class LibCron(Lib):
         gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
         await self.dyncall('cortex', todo, gatekeys=gatekeys)
         return iden
+
+    async def _methCronMove(self, prefix, view):
+        cron = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cron['iden']
+
+        self.runt.confirm(('cron', 'set'), gateiden=iden)
+        return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
 
     async def _methCronList(self):
         todo = s_common.todo('listCronJobs')
@@ -6347,12 +6649,16 @@ class CronJob(Prim):
                        'desc': 'A dictionary containing structured data about a cronjob for display purposes.', }}},
     )
     _storm_typename = 'storm:cronjob'
+    _ismutable = False
 
     def __init__(self, runt, cdef, path=None):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.locls['iden']))
 
     def getObjLocals(self):
         return {
@@ -6382,6 +6688,10 @@ class CronJob(Prim):
 
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
+        view = self.valu.get('view')
+        if not view:
+            view = self.runt.snap.core.view.iden
+
         laststart = self.valu.get('laststarttime')
         lastend = self.valu.get('lastfinishtime')
         result = self.valu.get('lastresult')
@@ -6391,6 +6701,8 @@ class CronJob(Prim):
             'iden': iden,
             'idenshort': iden[:8] + '..',
             'user': user or '<None>',
+            'view': view,
+            'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
@@ -6493,7 +6805,7 @@ def ismutable(valu):
         return valu.ismutable()
 
     # N.B. In Python, tuple is immutable, but in Storm, gets converted in toprim to a storm List
-    return isinstance(valu, (set, dict, list, tuple))
+    return isinstance(valu, (set, dict, list, s_node.Path))
 
 async def tostr(valu, noneok=False):
 

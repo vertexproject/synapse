@@ -589,6 +589,9 @@ Queries = [
     'inet:ipv4 +($(0 and 1))',
     '$x=$($x-1)',
     'inet:ipv4=1.2.3.4 +$(:asn + 20 >= 42)',
+    'inet:ipv4 -(seen)> foo:bar:baz',
+    'inet:ipv4 -(seen)> (foo:bar:baz, hehe:haha:hoho)^=lol',
+    'inet:ipv4 -(($foo, $bar))> ($baz,$faz)=lol',
 ]
 
 # Generated with print_parse_list below
@@ -1085,6 +1088,9 @@ _ParseResults = [
     'Query: [LiftProp: [Const: inet:ipv4], FiltOper: [Const: +, DollarExpr: [ExprAndNode: [Const: 0, Const: and, Const: 1]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: x], Const: -, Const: 1]]]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 1.2.3.4], FiltOper: [Const: +, DollarExpr: [ExprNode: [ExprNode: [RelPropValue: [Const: asn], Const: +, Const: 20], Const: >=, Const: 42]]]]',
+    'Query: [LiftProp: [Const: inet:ipv4], N1Walk: [Const: seen, Const: foo:bar:baz]]',
+    'Query: [LiftProp: [Const: inet:ipv4], N1Walk: [Const: seen, List: [Const: foo:bar:baz, Const: hehe:haha:hoho], Const: ^=, Const: lol]]',
+    'Query: [LiftProp: [Const: inet:ipv4], N1Walk: [List: [VarValue: [Const: foo], VarValue: [Const: bar]], List: [VarValue: [Const: baz], VarValue: [Const: faz]], Const: =, Const: lol]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

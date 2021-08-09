@@ -1,6 +1,5 @@
 import os
 import asyncio
-import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -10,6 +9,7 @@ import synapse.lib.base as s_base
 import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
+
 
 class JsonStor(s_base.Base):
     '''

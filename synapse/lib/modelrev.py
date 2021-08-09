@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 4)
+maxvers = (0, 2, 5)
 
 class ModelRev:
 
@@ -17,41 +17,92 @@ class ModelRev:
             ((0, 2, 1), self.revModel20210126),
             ((0, 2, 2), self.revModel20210312),
             ((0, 2, 3), self.revModel20210528),
-            ((0, 2, 4), self.revModel20210622),
+            ((0, 2, 5), self.revModel20210801),
         )
 
-    async def revModel20210622(self, layers):
+    async def _uniqSortArray(self, todoprops, layers):
 
         for layr in layers:
 
-            nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+            for propname in todoprops:
 
-            def uniq(valu):
-                return tuple({v: True for v in valu}.keys())
+                nodeedits = []
+                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
-            async def save():
-                await layr.storNodeEdits(nodeedits, meta)
-                nodeedits.clear()
+                def sortuniq(valu):
+                    return tuple(sorted({v: True for v in valu}.keys()))
 
-            stortype = s_layer.STOR_TYPE_UTF8 | s_layer.STOR_FLAG_ARRAY
-            async for buid, propvalu in layr.iterPropRows('ps:person', 'names'):
+                async def save():
+                    await layr.storNodeEdits(nodeedits, meta)
+                    nodeedits.clear()
 
-                uniqvalu = uniq(propvalu)
-                if uniqvalu == propvalu:
+                prop = self.core.model.prop(propname)
+                if prop is None:
+                    logger.warning(f'No property named {propname} to sortuniq().')
                     continue
 
-                nodeedits.append(
-                    (buid, 'ps:person', (
-                        (s_layer.EDIT_PROP_SET, ('names', uniqvalu, propvalu, stortype), ()),
-                    )),
-                )
+                propreln = prop.name
+                formname = prop.form.name
 
-                if len(nodeedits) >= 1000:
+                stortype = prop.type.stortype | s_layer.STOR_FLAG_ARRAY
+
+                async for buid, propvalu in layr.iterPropRows(formname, propreln):
+
+                    uniqvalu = sortuniq(propvalu)
+                    if uniqvalu == propvalu:
+                        continue
+
+                    nodeedits.append(
+                        (buid, formname, (
+                            (s_layer.EDIT_PROP_SET, (propreln, uniqvalu, propvalu, stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                if nodeedits:
                     await save()
 
-            if nodeedits:
-                await save()
+    async def revModel20210801(self, layers):
+
+        # uniq and sort several array types
+        todoprops = (
+            'edu:course:prereqs',
+            'edu:class:assistants',
+
+            'ou:org:subs',
+            'ou:org:names',
+            'ou:org:dns:mx',
+            'ou:org:locations',
+            'ou:org:industries',
+
+            'ou:industry:sic',
+            'ou:industry:subs',
+            'ou:industry:isic',
+            'ou:industry:naics',
+
+            'ou:preso:sponsors',
+            'ou:preso:presenters',
+
+            'ou:conference:sponsors',
+            'ou:conference:event:sponsors',
+            'ou:conference:attendee:roles',
+            'ou:conference:event:attendee:roles',
+
+            'ou:contract:types',
+            'ou:contract:parties',
+            'ou:contract:requirements',
+            'ou:position:reports',
+
+            'ps:person:names',
+            'ps:person:nicks',
+            'ps:persona:names',
+            'ps:persona:nicks',
+            'ps:education:classes',
+            'ps:contactlist:contacts',
+        )
+        await self._uniqSortArray(todoprops, layers)
 
     async def revModel20210528(self, layers):
 

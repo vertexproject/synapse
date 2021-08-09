@@ -156,6 +156,9 @@ class Snap(s_base.Base):
 
         self.core._logStormQuery(text, user)
 
+        # { form: ( embedprop, ... ) }
+        embeds = opts.get('embeds')
+
         scrubber = None
         # NOTE: This option is still experimental and subject to change.
         if opts.get('scrub') is not None:
@@ -172,6 +175,11 @@ class Snap(s_base.Base):
 
             if scrubber is not None:
                 pode = scrubber.scrub(pode)
+
+            if embeds is not None:
+                embdef = embeds.get(node.form.name)
+                if embdef is not None:
+                    pode[1]['embeds'] = await node.getEmbeds(embdef)
 
             yield pode
 
@@ -601,12 +609,20 @@ class Snap(s_base.Base):
                         subprop = self.core.model.prop(fullname)
                         if subprop is None:
                             continue
+                        if subprop.name in p:
+                            # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
+                            continue
 
                         assert subprop.type.stortype is not None
 
-                        subnorm, subinfo = subprop.type.norm(subvalu)
-
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
+                        subpropform = self.core.model.form(subprop.type.name)
+                        if subpropform:
+                            subnorm, subinfo = subprop.type.norm(subvalu)
+                            psubs = [x async for x in _getadds(subpropform, {}, subnorm, subinfo)]
+                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
+                        else:
+                            subnorm, _ = subprop.type.norm(subvalu)
+                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is not None:
@@ -1162,7 +1178,7 @@ class Snap(s_base.Base):
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
-        todo = s_common.todo('runRuntLift', full, valu, cmpr)
+        todo = s_common.todo('runRuntLift', full, valu, cmpr, self.view.iden)
         async for sode in self.core.dyniter('cortex', todo):
 
             node = s_node.Node(self, sode)

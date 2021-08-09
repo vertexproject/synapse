@@ -27,6 +27,8 @@ reqValidCdef = s_config.getJsValidator({
     'properties': {
         'storm': {'type': 'string'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'doc': {'type': 'string'},
         'incunit': {
@@ -304,17 +306,18 @@ class _Appt:
     Each such entry has a list of ApptRecs.  Each time the appointment is scheduled, the nexttime of the appointment is
     the lowest nexttime of all its ApptRecs.
     '''
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None):
         self.doc = ''
         self.name = ''
         self.stor = stor
         self.iden = iden
-        self.recur = recur # does this appointment repeat
+        self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
-        self.creator = creator # user iden to run query as
+        self.creator = creator  # user iden to run query as
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
-        self._recidxnexttime = None # index of rec who is up next
+        self._recidxnexttime = None  # index of rec who is up next
+        self.view = view
 
         if self.recur and not self.recs:
             raise s_exc.BadTime(mesg='A recurrent appointment with no records')
@@ -373,6 +376,7 @@ class _Appt:
             'enabled': self.enabled,
             'recur': self.recur,
             'iden': self.iden,
+            'view': self.view,
             'indx': self.indx,
             'query': self.query,
             'creator': self.creator,
@@ -392,7 +396,7 @@ class _Appt:
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, val['nexttime'])
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, nexttime=val['nexttime'], view=val.get('view'))
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.laststarttime = val['laststarttime']
@@ -618,6 +622,7 @@ class Agenda(s_base.Base):
         reqs = cdef.get('reqs', {})
         query = cdef.get('storm')
         creator = cdef.get('creator')
+        view = cdef.get('view')
 
         recur = incunit is not None
         indx = self._next_indx
@@ -657,7 +662,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime)
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -706,6 +711,18 @@ class Agenda(s_base.Base):
 
         appt.query = query
         appt.enabled = True  # in case it was disabled for a bad query
+
+        await self._storeAppt(appt)
+
+    async def move(self, croniden, viewiden):
+        '''
+        Move a cronjob from one view to another
+        '''
+        appt = self.appts.get(croniden)
+        if appt is None:
+            raise s_exc.NoSuchIden()
+
+        appt.view = viewiden
 
         await self._storeAppt(appt)
 
@@ -785,6 +802,12 @@ class Agenda(s_base.Base):
             await self._markfailed(appt, 'locked user')
             return
 
+        view = self.core.getView(iden=appt.view, user=user)
+        if view is None:
+            logger.warning('Unknown view %s in stored appointment', appt.view)
+            await self._markfailed(appt, 'unknown view')
+            return
+
         info = {'iden': appt.iden, 'query': appt.query}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
         self._running_tasks.append(task)
@@ -810,11 +833,11 @@ class Agenda(s_base.Base):
         await self._storeAppt(appt, nexs=True)
 
         with s_provenance.claim('cron', iden=appt.iden):
-            logger.info('Agenda executing for iden=%s, user=%s, query={%s}', appt.iden, user.name, appt.query)
+            logger.info('Agenda executing for iden=%s, user=%s, view=%s, query={%s}', appt.iden, user.name, appt.view, appt.query)
             starttime = time.time()
             success = False
             try:
-                opts = {'user': user.iden}
+                opts = {'user': user.iden, 'view': appt.view}
                 async for node in self.core.eval(appt.query, opts=opts):
                     count += 1
             except asyncio.CancelledError:

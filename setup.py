@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.47.0'
+VERSION = '2.53.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -87,6 +87,7 @@ setup(
         'PyYAML>=5.4,<6.0',
         'aiohttp>=3.6.3,<4.0',
         'aiohttp-socks>=0.5.5,<0.6.0',
+        'aiosmtplib>=1.1.6,<2.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark-parser==0.11.2',
         'Pygments>=2.7.4,<2.8.0',

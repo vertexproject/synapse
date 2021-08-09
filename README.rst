@@ -26,27 +26,27 @@ Connect With Us
 * Follow us on LinkedIn_.
 
 .. |circleci| image:: https://circleci.com/gh/vertexproject/synapse/tree/master.svg?style=svg
-..  _circleci: https://circleci.com/gh/vertexproject/synapse/tree/master
+..  _circleci: https://v.vtx.lk/synapse-circleci
 
 .. |codecov| image:: https://codecov.io/gh/vertexproject/synapse/branch/master/graph/badge.svg?branch=master
-.. _codecov: https://codecov.io/gh/vertexproject/synapse
+.. _codecov: https://v.vtx.lk/synapse-codecov
 
 .. |rtd| image:: https://readthedocs.com/projects/vertex-synapse/badge/?version=latest
-.. _rtd: https://synapse.docs.vertex.link/en/latest/?badge=latest
+.. _rtd: https://v.vtx.lk/synapse-docs
 
 .. |slack| image:: http://slackinvite.vertex.link/badge.svg
-.. _slack: http://slackinvite.vertex.link/
+.. _slack: https://v.vtx.lk/slack-invite
 
-.. _dockerhub: https://hub.docker.com/r/vertexproject/synapse/
+.. _dockerhub: https://v.vtx.lk/synapse-dockerhub
 
-.. _pypi: https://pypi.python.org/pypi/synapse
+.. _pypi: https://v.vtx.lk/synapse-pypi
 
-.. _website: http://snip.ly/v3bjz5
+.. _website: https://v.vtx.lk/vertex
 
-.. _training: https://snip.ly/p7vy8p
+.. _training: https://v.vtx.lk/luma
 
-.. _Twitter: https://twitter.com/vtxproject
+.. _Twitter: https://v.vtx.lk/twitter
 
 .. _LinkedIn: https://www.linkedin.com/company/vertexproject
 
-.. _here: https://snip.ly/80wv4t
+.. _here: https://v.vtx.lk/synapse-docs

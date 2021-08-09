@@ -46,7 +46,10 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
+import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
+import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
@@ -441,7 +444,7 @@ class CoreApi(s_cell.CellApi):
         Get a list of Cortex feed functions.
 
         Notes:
-            Each feed dictinonary has the name of the feed function, the
+            Each feed dictionary has the name of the feed function, the
             full docstring for the feed function, and the first line of
             the docstring broken out in their own keys for easy use.
 
@@ -901,6 +904,18 @@ class CoreApi(s_cell.CellApi):
                                                     startvalu=startvalu):
             yield item
 
+    async def getPermDef(self, perm):
+        '''
+        Return a perm definition if it is present in getPermDefs() output.
+        '''
+        return await self.cell.getPermDef(perm)
+
+    async def getPermDefs(self):
+        '''
+        Return a non-comprehensive list of perm definitions.
+        '''
+        return await self.cell.getPermDefs()
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1036,6 +1051,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
 
+        self.permdefs = None
+        self.permlook = None
+
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
@@ -1129,6 +1147,47 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    async def getPermDef(self, perm):
+        if self.permlook is None:
+            permdefs = await self.getPermDefs()
+            self.permlook = {p['perm']: p for p in permdefs}
+        return self.permlook.get(tuple(perm))
+
+    async def getPermDefs(self):
+        if self.permdefs is None:
+            self.permdefs = await self._getPermDefs()
+        return self.permdefs
+
+    async def _getPermDefs(self):
+
+        permdefs = [
+            {'perm': ('node',), 'gate': 'layer',
+                'desc': 'Controls all node edits in a layer.'},
+            {'perm': ('node', 'add'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls adding any form of node in a layer.'},
+            {'perm': ('node', 'del'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls removing any form of node in a layer.'},
+
+            {'perm': ('node', 'tag'), 'gate': 'layer',
+                'desc': 'Controls editing any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'add'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls adding any tag on any node in a layer.'},
+            {'perm': ('node', 'tag', 'del'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls removing any tag on any node in a layer.'},
+
+            {'perm': ('node', 'prop'), 'gate': 'layer',
+                'desc': 'Controls editing any prop on any node in the layer.'},
+            {'perm': ('node', 'prop', 'set'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls setting any prop on any node in a layer.'},
+            {'perm': ('node', 'prop', 'del'), 'gate': 'layer', 'expand': True,
+                'desc': 'Controls removing any prop on any node in a layer.'},
+        ]
+
+        for spkg in await self.getStormPkgs():
+            permdefs.extend(spkg.get('perms', ()))
+
+        return tuple(permdefs)
 
     def _setPropSetHook(self, name, hook):
         self._propSetHooks[name] = hook
@@ -1948,6 +2007,48 @@ class Cortex(s_cell.Cell):  # type: ignore
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
+    async def _reqStormPkgDeps(self, pkgdef):
+
+        deps = pkgdef.get('depends')
+        if deps is None:
+            return
+
+        name = pkgdef.get('name')
+
+        requires = deps.get('requires', ())
+        for require in requires:
+
+            pkgname = require.get('name')
+            cmprvers = require.get('version')
+
+            cpkg = await self.getStormPkg(pkgname)
+            if cpkg is not None:
+                cver = cpkg.get('version')
+                if s_version.matches(cver, cmprvers):
+                    continue
+
+            mesg = f'Storm package {name} requires {pkgname}{cmprvers}.'
+            raise s_exc.StormPkgRequires(mesg=mesg)
+
+        conflicts = deps.get('conflicts', ())
+        for conflict in conflicts:
+
+            pkgname = conflict.get('name')
+
+            cpkg = await self.getStormPkg(pkgname)
+            if cpkg is None:
+                continue
+
+            cmprvers = conflict.get('version')
+            if cmprvers is None:
+                mesg = f'Storm package {name} conflicts with {pkgname}.'
+                raise s_exc.StormPkgConflicts(mesg=mesg)
+
+            cver = cpkg.get('version')
+            if s_version.matches(cver, cmprvers):
+                mesg = f'Storm package {name} conflicts with {pkgname}{cmprvers}.'
+                raise s_exc.StormPkgConflicts(mesg=mesg)
+
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''
         Normalize and validate a storm package (optionally storm code).
@@ -1955,6 +2056,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         version = pkgdef.get('version')
         if isinstance(version, (tuple, list)):
             pkgdef['version'] = '%d.%d.%d' % tuple(version)
+
+        await self._reqStormPkgDeps(pkgdef)
 
         pkgname = pkgdef.get('name')
 
@@ -2006,6 +2109,10 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
+
+        if pkgdef.get('perms'):
+            self.permdefs = None
+            self.permlook = None
 
         # now actually load...
         self.stormpkgs[name] = pkgdef
@@ -2880,6 +2987,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         for cdef in s_storm.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_auth.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
         for cdef in s_stormlib_macro.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
@@ -3101,7 +3211,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         self._runtLiftFuncs[prop] = func
 
-    async def runRuntLift(self, full, valu=None, cmpr=None):
+    async def runRuntLift(self, full, valu=None, cmpr=None, view=None):
         '''
         Execute a runt lift function.
 
@@ -3117,7 +3227,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         func = self._runtLiftFuncs.get(full)
         if func is not None:
-            async for pode in func(full, valu, cmpr):
+            async for pode in func(full, valu, cmpr, view):
                 yield pode
 
     def addRuntPropSet(self, full, func):
@@ -3232,7 +3342,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(iden, 'view')
         await user.setAdmin(True, gateiden=iden, logged=False)
 
-        # worldreadable is not get persisted with the view; the state ends up in perms
+        # worldreadable does not get persisted with the view; the state ends up in perms
         worldread = vdef.pop('worldreadable', False)
 
         if worldread:
@@ -4593,6 +4703,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         s_agenda.reqValidCdef(cdef)
 
+        iden = cdef.get('iden')
+        appt = self.agenda.appts.get(iden)
+        if appt is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate cron iden ({iden})')
+
         incunit = cdef.get('incunit')
         reqs = cdef.get('reqs')
 
@@ -4617,7 +4732,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         except KeyError:
             raise s_exc.BadConfValu('Unrecognized time unit')
 
-        cdef['iden'] = s_common.guid()
+        if not cdef.get('iden'):
+            cdef['iden'] = s_common.guid()
+
+        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+
+        view = self._viewFromOpts(opts)
+        cdef['view'] = view.iden
 
         return await self._push('cron:add', cdef)
 
@@ -4638,6 +4759,23 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         return cdef
+
+    async def moveCronJob(self, useriden, croniden, viewiden):
+        view = self._viewFromOpts({'view': viewiden, 'user': useriden})
+
+        appt = self.agenda.appts.get(croniden)
+        if appt is None:
+            raise s_exc.NoSuchIden(iden=croniden)
+
+        if appt.view == view.iden:
+            return croniden
+
+        return await self._push('cron:move', croniden, viewiden)
+
+    @s_nexus.Pusher.onPush('cron:move')
+    async def _onMoveCronJob(self, croniden, viewiden):
+        await self.agenda.move(croniden, viewiden)
+        return croniden
 
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):

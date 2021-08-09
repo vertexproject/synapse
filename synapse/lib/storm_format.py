@@ -66,6 +66,7 @@ TerminalPygMap = {
     'VARTOKN': p_t.Name.Variable,
     'VBAR': p_t.Punctuation,
     'WHILE': p_t.Keyword,
+    'WILDCARD': p_t.Name,
     'WORDTOKN': p_t.Literal.String,
     'YIELD': p_t.Keyword,
     '_ARRAYCONDSTART': p_t.Punctuation,

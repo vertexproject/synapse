@@ -747,7 +747,7 @@ class Proxy(s_base.Base):
     async def task(self, todo, name=None):
 
         if self.isfini:
-            raise s_exc.IsFini()
+            raise s_exc.IsFini(mesg='Telepath Proxy isfini')
 
         if self.sess is not None:
             return await self.taskv2(todo, name=name)
@@ -906,6 +906,8 @@ class Client(s_base.Base):
         async def fini():
             if self._t_proxy is not None:
                 await self._t_proxy.fini()
+            # Wake any waiters which may be waiting on waitready() calls so those
+            # without timeouts specified are not waiting forever.
             self._t_ready.set()
 
         self.onfini(fini)
@@ -963,18 +965,18 @@ class Client(s_base.Base):
             except Exception as e:
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
-                    logger.info(f'telepath client ({s_urlhelp.sanitizeUrl(url)}): {e}')
+                    logger.exception(f'telepath client ({s_urlhelp.sanitizeUrl(url)}) encountered an error: {e}')
                     lastlog = now
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
     async def proxy(self, timeout=10):
         await self.waitready(timeout=timeout)
-        return self._t_proxy
+        ret = self._t_proxy
+        if ret is None or ret.isfini is True:
+            raise s_exc.IsFini(mesg='Telepath Client Proxy is not available.')
+        return ret
 
     async def _initTeleLink(self, url):
-        if self._t_proxy is not None:
-            await self._t_proxy.fini()
-
         self._t_proxy = await openurl(url, **self._t_opts)
         self._t_methinfo = self._t_proxy.methinfo
         self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
@@ -984,7 +986,8 @@ class Client(s_base.Base):
                 for name in self._t_named_meths:
                     delattr(self, name)
                 self._t_named_meths.clear()
-            await self._fireLinkLoop()
+            if not self.isfini:
+                await self._fireLinkLoop()
 
         self._t_proxy.onfini(fini)
 
@@ -1019,6 +1022,8 @@ class Client(s_base.Base):
                 self._setNextUrl(url)
                 logger.warning(f'telepath task redirected: ({s_urlhelp.sanitizeUrl(url)})')
                 await self._t_proxy.fini()
+
+        raise s_exc.IsFini(mesg='Telepath Client isfini')
 
     async def waitready(self, timeout=10):
         await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))

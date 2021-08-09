@@ -416,6 +416,7 @@ class CellApi(s_base.Base):
         await self.cell.auth.reqUser(iden)
 
         if self.user.iden == iden:
+            self.user.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.cell.setUserPasswd(iden, passwd)
 
         self.user.confirm(('auth', 'user', 'set', 'passwd'))
@@ -1379,7 +1380,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # This is a new process: configure logging
         s_common.setlogging(logger, **logconf)
 
-        with s_t_backup.capturelmdbs(srcdir, onlydirs=lmdbpaths) as lmdbinfo:
+        with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
             pipe.send('captured')
             logger.debug('Acquired LMDB transactions')
             s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)

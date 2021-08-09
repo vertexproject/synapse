@@ -355,6 +355,8 @@ class AuthTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             with self.raises(s_exc.BadArg):
+                await core.auth.setRoleName(core.auth.allrole.iden, 'ninjas')
+            with self.raises(s_exc.BadArg):
                 await core.auth.rootuser.setName(1)
             with self.raises(s_exc.BadArg):
                 await core.auth.allrole.setName(1)

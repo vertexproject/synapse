@@ -184,6 +184,13 @@ def parseVersionParts(text, seps=vseps):
     return ret
 
 
+def matches(vers, cmprvers):
+    '''
+    Check if a version string matches a version comparison string.
+    '''
+    spec = p_specifiers.SpecifierSet(cmprvers)
+    return p_version.Version(vers) in spec
+
 def reqVersion(valu, reqver,
                exc=s_exc.BadVersion,
                mesg='Provided version does not match required version.'):
@@ -216,6 +223,6 @@ def reqVersion(valu, reqver,
 ##############################################################################
 # The following are touched during the release process by bumpversion.
 # Do not modify these directly.
-version = (2, 47, 0)
+version = (2, 53, 0)
 verstring = '.'.join([str(x) for x in version])
 commit = ''

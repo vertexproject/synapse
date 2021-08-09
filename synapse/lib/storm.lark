@@ -275,6 +275,7 @@ filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
 
 // Condition used for filters
+// TODO:  unify cond and dollarexpr
 _cond: notcond | "(" _WS? _condexpr _WS? ")"
     | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond

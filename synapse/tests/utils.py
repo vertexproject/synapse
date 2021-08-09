@@ -445,7 +445,7 @@ class TestModule(s_module.CoreModule):
         for name in items:
             await snap.addNode('test:str', name)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None):
+    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
 
         now = s_common.now()
         modl = self.core.model
@@ -773,6 +773,11 @@ class SynTest(unittest.TestCase):
         diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
+
+    async def checkNodes(self, core, ndefs):
+        for ndef in ndefs:
+            node = await core.nodes('', opts={'ndefs': (ndef,)})
+            self.len(1, node)
 
     def worker(func, *args, **kwargs):
         '''

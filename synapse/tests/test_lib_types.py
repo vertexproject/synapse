@@ -20,6 +20,25 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    def test_taxonomy(self):
+
+        model = s_datamodel.Model()
+        taxo = model.type('taxonomy')
+        self.eq('foo.bar.baz.', taxo.norm('foo.bar.baz')[0])
+        self.eq('foo.bar.baz.', taxo.norm('foo.bar.baz.')[0])
+        self.eq('foo.bar.baz.', taxo.norm('foo.bar.baz.')[0])
+        self.eq('foo.bar.baz.', taxo.norm(('foo', 'bar', 'baz'))[0])
+        self.eq('foo.b_a_r.baz.', taxo.norm('foo.b-a-r.baz.')[0])
+        self.eq('foo.b_a_r.baz.', taxo.norm('foo.  b   a   r  .baz.')[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            taxo.norm('foo.---.baz')
+
+        norm, info = taxo.norm('foo.bar.baz')
+        self.eq(2, info['subs']['depth'])
+        self.eq('baz', info['subs']['base'])
+        self.eq('foo.bar.', info['subs']['parent'])
+
     def test_duration(self):
         model = s_datamodel.Model()
         t = model.type('duration')
@@ -835,10 +854,8 @@ class TypesTest(s_t_utils.SynTest):
         subs = info.get('subs')
         self.eq('foo', subs.get('up'))
 
-        self.raises(s_exc.BadTypeValu, tagtype.norm, '@#R)(Y')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\udcfe.bar')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u200b.bar')
-        self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo\u202e.bar')
+        self.eq('r_y', tagtype.norm('@#R)(Y')[0])
+        self.eq('foo.bar', tagtype.norm('foo\udcfe.bar')[0])
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo.')
         self.raises(s_exc.BadTypeValu, tagtype.norm, 'foo..bar')
         self.raises(s_exc.BadTypeValu, tagtype.norm, '.')

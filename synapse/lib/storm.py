@@ -1,3 +1,4 @@
+import types
 import asyncio
 import logging
 import argparse
@@ -192,6 +193,33 @@ reqValidPkgdef = s_config.getJsValidator({
         'desc': {'type': 'string'},
         'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'onload': {'type': 'string'},
+        'author': {
+            'type': 'object',
+            'properties': {
+                'url': {'type': 'string'},
+                'name': {'type': 'string'},
+            },
+            'required': ['name', 'url'],
+        },
+        'depends': {
+            'properties': {
+                'requires': {'type': 'array', 'items': {'$ref': '#/definitions/require'}},
+                'conflicts': {'type': 'array', 'items': {'$ref': '#/definitions/conflict'}},
+            },
+            'additionalProperties': True,
+        },
+        'perms': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'perm': {'type': 'array', 'items': {'type': 'string'}},
+                    'desc': {'type': 'string'},
+                    'gate': {'type': 'string'},
+                },
+                'required': ['perm', 'desc', 'gate'],
+            },
+        },
     },
     'additionalProperties': True,
     'required': ['name', 'version'],
@@ -211,6 +239,11 @@ reqValidPkgdef = s_config.getJsValidator({
                 'name': {'type': 'string'},
                 'storm': {'type': 'string'},
                 'modconf': {'type': 'object'},
+                'asroot': {'type': 'boolean'},
+                'asroot:perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -226,8 +259,16 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdarg'},
                 },
+                'cmdinputs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdinput'},
+                },
                 'storm': {'type': 'string'},
                 'forms': {'$ref': '#/definitions/cmdformhints'},
+                'perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
             },
             'additionalProperties': True,
             'required': ['name', 'storm']
@@ -248,6 +289,16 @@ reqValidPkgdef = s_config.getJsValidator({
                 }
             ]
         },
+        'cmdinput': {
+            'type': 'object',
+            'properties': {
+                'form': {'type': 'string'},
+                'help': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['form'],
+        },
+        # deprecated
         'cmdformhints': {
             'type': 'object',
             'properties': {
@@ -278,7 +329,25 @@ reqValidPkgdef = s_config.getJsValidator({
                     },
                 },
             }
-        }
+        },
+        'require': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'version': {'type': 'string'},
+            },
+            'additionalItems': True,
+            'required': ('name', 'version'),
+        },
+        'conflict': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'version': {'type': 'string'},
+            },
+            'additionalItems': True,
+            'required': ('name',),
+        },
     }
 })
 
@@ -571,6 +640,36 @@ stormcmds = (
                 $lib.print('Loaded storm packages:')
                 for $pkg in $pkgs {
                     $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                }
+            }
+        '''
+    },
+    {
+        'name': 'pkg.perms.list',
+        'descr': 'List any permissions declared by the package.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package.'}),
+        ),
+        'storm': '''
+            $pdef = $lib.null
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pdef = $pkg
+                    break
+                }
+            }
+
+            if (not $pdef) {
+                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+            } else {
+                if $pdef.perms {
+                    $lib.print("Package ({name}) defines the following permissions:", name=$cmdopts.name)
+                    for $permdef in $pdef.perms {
+                        $permtext = $lib.str.join('.', $permdef.perm).ljust(32)
+                        $lib.print("{permtext} : {desc}", permtext=$permtext, desc=$permdef.desc)
+                    }
+                } else {
+                    $lib.print("Package ({name}) contains no permissions definitions.", name=$cmdopts.name)
                 }
             }
         '''
@@ -873,6 +972,8 @@ stormcmds = (
             ('--daily', {'help': 'Fixed parameters for a daily job.'}),
             ('--monthly', {'help': 'Fixed parameters for a monthly job.'}),
             ('--yearly', {'help': 'Fixed parameters for a yearly job.'}),
+            ('--iden', {'help': 'Fixed iden to assign to the cron job'}),
+            ('--view', {'help': 'View to run the cron job against'}),
         ),
         'storm': '''
             $cron = $lib.cron.add(query=$cmdopts.query,
@@ -884,7 +985,9 @@ stormcmds = (
                                   hourly=$cmdopts.hourly,
                                   daily=$cmdopts.daily,
                                   monthly=$cmdopts.monthly,
-                                  yearly=$cmdopts.yearly)
+                                  yearly=$cmdopts.yearly,
+                                  iden=$cmdopts.iden,
+                                  view=$cmdopts.view,)
 
             if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
             if $cmdopts.name { $cron.set(name, $cmdopts.name) }
@@ -902,6 +1005,8 @@ stormcmds = (
             ('--day', {'help': 'Day(s) to execute at.'}),
             ('--dt', {'help': 'Datetime(s) to execute at.'}),
             ('--now', {'help': 'Execute immediately.', 'default': False, 'action': 'store_true'}),
+            ('--iden', {'help': 'A set iden to assign to the new cron job'}),
+            ('--view', {'help': 'View to run the cron job against'}),
         ),
         'storm': '''
             $cron = $lib.cron.at(query=$cmdopts.query,
@@ -909,7 +1014,9 @@ stormcmds = (
                                  hour=$cmdopts.hour,
                                  day=$cmdopts.day,
                                  dt=$cmdopts.dt,
-                                 now=$cmdopts.now)
+                                 now=$cmdopts.now,
+                                 iden=$cmdopts.iden,
+                                 view=$cmdopts.view)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -923,6 +1030,18 @@ stormcmds = (
         'storm': '''
             $lib.cron.del($cmdopts.iden)
             $lib.print("Deleted cron job: {iden}", iden=$cmdopts.iden)
+        ''',
+    },
+    {
+        'name': 'cron.move',
+        'descr': "Move a cron job from one view to another",
+        'cmdargs': (
+            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
+            ('view', {'help': 'New storm query for the cron job.'}),
+        ),
+        'storm': '''
+            $iden = $lib.cron.move($cmdopts.iden, $cmdopts.view)
+            $lib.print("Moved cron job {iden} to view {view}", iden=$iden, view=$cmdopts.view)
         ''',
     },
     {
@@ -966,13 +1085,14 @@ stormcmds = (
             $crons = $lib.cron.list()
 
             if $crons {
-                $lib.print("user       iden       en? rpt? now? err? # start last start       last end         query")
+                $lib.print("user       iden       view       en? rpt? now? err? # start last start       last end         query")
 
                 for $cron in $crons {
 
                     $job = $cron.pprint()
 
                     $user = $job.user.ljust(10)
+                    $view = $job.viewshort.ljust(10)
                     $iden = $job.idenshort.ljust(10)
                     $enabled = $job.enabled.ljust(3)
                     $isrecur = $job.isrecur.ljust(4)
@@ -982,8 +1102,8 @@ stormcmds = (
                     $laststart = $job.laststart.ljust(16)
                     $lastend = $job.lastend.ljust(16)
 
-       $lib.print("{user} {iden} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
-                               user=$user, iden=$iden, enabled=$enabled, isrecur=$isrecur,
+       $lib.print("{user} {iden} {view} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
+                               user=$user, iden=$iden, view=$view, enabled=$enabled, isrecur=$isrecur,
                                isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
                                laststart=$laststart, lastend=$lastend, query=$job.query)
                 }
@@ -1626,18 +1746,18 @@ class Runtime(s_base.Base):
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
-    def confirm(self, perms, gateiden=None):
+    def confirm(self, perms, gateiden=None, default=False):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
         if self.asroot:
             return
-        return self.user.confirm(perms, gateiden=gateiden)
+        return self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def allowed(self, perms, gateiden=None):
+    def allowed(self, perms, gateiden=None, default=False):
         if self.asroot:
             return True
-        return self.user.allowed(perms, gateiden=gateiden)
+        return self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1762,9 +1882,14 @@ class Parser:
         self.posargs = []
         self.allargs = []
 
+        self.inputs = None
+
         self.reqopts = []
 
         self.add_argument('--help', '-h', action='store_true', default=False, help='Display the command usage.')
+
+    def set_inputs(self, idefs):
+        self.inputs = list(idefs)
 
     def add_argument(self, *names, **opts):
 
@@ -2009,6 +2134,19 @@ class Parser:
             for name, argdef in self.posargs:
                 self._print_posarg(name, argdef)
 
+        if self.inputs:
+            self._printf('')
+            self._printf('Inputs:')
+            self._printf('')
+            formsize = max([len(idef['form']) for idef in self.inputs])
+            for idef in self.inputs:
+                form = idef.get('form').ljust(formsize)
+                text = f'    {form}'
+                desc = idef.get('help')
+                if desc:
+                    text += f' - {desc}'
+                self._printf(text)
+
         if mesg is not None:
             self._printf('')
             self._printf(f'ERROR: {mesg}')
@@ -2198,9 +2336,15 @@ class PureCmd(Cmd):
         return self.cdef.get('name')
 
     def getArgParser(self):
+
         pars = Cmd.getArgParser(self)
         for name, opts in self.cdef.get('cmdargs', ()):
             pars.add_argument(name, **opts)
+
+        inputs = self.cdef.get('cmdinputs')
+        if inputs:
+            pars.set_inputs(inputs)
+
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -2212,6 +2356,21 @@ class PureCmd(Cmd):
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg)
+
+        # if a command requires perms, check em!
+        # ( used to create more intuitive perm boundaries )
+        perms = self.cdef.get('perms')
+        if perms is not None:
+            allowed = False
+            for perm in perms:
+                if runt.allowed(perm):
+                    allowed = True
+                    break
+
+            if not allowed:
+                permtext = ' or '.join(('.'.join(p) for p in perms))
+                mesg = f'Command ({name}) requires permission: {permtext}'
+                raise s_exc.AuthDeny(mesg=mesg)
 
         text = self.cdef.get('storm')
         query = await runt.snap.core.getStormQuery(text)
@@ -2225,16 +2384,34 @@ class PureCmd(Cmd):
             }
         }
 
-        async def genx():
-            async for xnode, xpath in genr:
-                xpath.initframe(initvars={'cmdopts': cmdopts})
-                yield xnode, xpath
+        if self.runtsafe:
+            data = {'pathvars': {}}
+            async def genx():
+                async for xnode, xpath in genr:
+                    data['pathvars'] = xpath.vars.copy()
+                    xpath.initframe(initvars={'cmdopts': cmdopts})
+                    yield xnode, xpath
 
-        async with runt.getCmdRuntime(query, opts=opts) as subr:
-            subr.asroot = asroot
-            async for node, path in subr.execute(genr=genx()):
-                path.finiframe()
-                yield node, path
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+                async for node, path in subr.execute(genr=genx()):
+                    path.finiframe()
+                    path.vars.update(data['pathvars'])
+                    yield node, path
+        else:
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
+                subr.asroot = asroot
+
+                async for node, path in genr:
+                    pathvars = path.vars.copy()
+                    async def genx():
+                        path.initframe(initvars={'cmdopts': cmdopts})
+                        yield node, path
+
+                    async for xnode, xpath in subr.execute(genr=genx()):
+                        path.finiframe()
+                        xpath.vars.update(pathvars)
+                        yield xnode, xpath
 
 class DivertCmd(Cmd):
     '''
@@ -2242,6 +2419,9 @@ class DivertCmd(Cmd):
 
     NOTE: This command is purpose built to facilitate the --yield convention
           common to storm commands.
+
+    NOTE: The genr argument must not be a function that returns, else it will
+          be invoked for each inbound node.
 
     Example:
         divert $cmdopts.yield $fooBarBaz()
@@ -2252,42 +2432,69 @@ class DivertCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('cond', help='The conditional value for the yield option.')
         pars.add_argument('genr', help='The generator function value that yields nodes.')
+        pars.add_argument('--size', default=None, help='The max number of times to iterate the generator.')
         return pars
 
     async def execStormCmd(self, runt, genr):
 
         if self.runtsafe:
 
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
+            count = 0
             if doyield:
 
+                # in a runtsafe yield case we drop all the nodes
                 async for item in genr:
                     await asyncio.sleep(0)
 
                 async for item in self.opts.genr:
                     yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
             else:
 
+                # in a runtsafe non-yield case we pass nodes through
+                async for origitem in genr:
+                    yield origitem
+
                 async for item in self.opts.genr:
                     await asyncio.sleep(0)
-
-                async for item in genr:
-                    yield item
+                    count += 1
+                    if size is not None and count >= size:
+                        return
 
             return
 
+        # non-runtsafe
         async for item in genr:
 
+            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
+                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
+
+            size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
+
+            count = 0
             if doyield:
 
                 async for genritem in self.opts.genr:
                     yield genritem
+                    count += 1
+                    if size is not None and count >= size:
+                        break
             else:
 
                 async for genritem in self.opts.genr:
                     await asyncio.sleep(0)
+                    count += 1
+                    if size is not None and count >= size:
+                        break
 
                 yield item
 

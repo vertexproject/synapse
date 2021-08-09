@@ -813,6 +813,10 @@ class TeleTest(s_t_utils.SynTest):
             rdir1.redir = url0
             self.eq(110, await targ.dostuff(100))
 
+        # client is now fini and methods on longer work
+        with self.raises(s_exc.IsFini):
+            await targ.dostuff(100)
+
         await dmon0.fini()
         await dmon1.fini()
 

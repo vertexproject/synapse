@@ -559,6 +559,108 @@ class StormTest(s_t_utils.SynTest):
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
 
+            pkgdef = {
+                'name': 'foobar',
+                'version': '1.2.3',
+            }
+            await core.addStormPkg(pkgdef)
+
+            with self.raises(s_exc.StormPkgConflicts):
+                await core.addStormPkg({
+                    'name': 'bazfaz',
+                    'version': '2.2.2',
+                    'depends': {
+                        'conflicts': (
+                            {'name': 'foobar'},
+                        ),
+                    }
+                })
+
+            with self.raises(s_exc.StormPkgConflicts):
+                await core.addStormPkg({
+                    'name': 'bazfaz',
+                    'version': '2.2.2',
+                    'depends': {
+                        'conflicts': (
+                            {'name': 'foobar', 'version': '>=1.0.0'},
+                        ),
+                    }
+                })
+
+            with self.raises(s_exc.StormPkgRequires):
+                await core.addStormPkg({
+                    'name': 'bazfaz',
+                    'version': '2.2.2',
+                    'depends': {
+                        'requires': (
+                            {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
+                        ),
+                    }
+                })
+
+            pkgdef = {
+                'name': 'lolzlolz',
+                'version': '1.2.3',
+            }
+            await core.addStormPkg(pkgdef)
+
+            await core.addStormPkg({
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'requires': (
+                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0'},
+                    ),
+                    'conflicts': (
+                        {'name': 'foobar', 'version': '>=3.0.0'},
+                    ),
+                }
+            })
+
+            await core.addStormPkg({
+                'name': 'zoinkszoinks',
+                'version': '2.2.2',
+                'depends': {
+                    'conflicts': (
+                        {'name': 'newpnewp'},
+                    ),
+                }
+            })
+
+            # force old-cron behavior which lacks a view
+            await core.nodes('cron.add --hourly 03 { inet:ipv4 }')
+            for (iden, cron) in core.agenda.list():
+                cron.view = None
+            await core.nodes('cron.list')
+
+    async def test_storm_embeds(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:asn=10 :name=hehe ]')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]')
+            await nodes[0].getEmbeds({'asn::newp': {}})
+            await nodes[0].getEmbeds({'newp::newp': {}})
+            await nodes[0].getEmbeds({'asn::name::foo': {}})
+
+            opts = {'embeds': {'inet:ipv4': {'asn': ('name',)}}}
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4', opts=opts)
+
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            node = nodes[0]
+            self.eq('hehe', node[1]['embeds']['asn']['name'])
+            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
+
+            opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
+            msgs = await core.stormlist('[ ou:org=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+
+            node = nodes[0]
+            self.eq('visi', node[1]['embeds']['hq::email']['user'])
+            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+
     async def test_storm_wget(self):
 
         async def _getRespFromSha(core, mesgs):
@@ -2033,6 +2135,24 @@ class StormTest(s_t_utils.SynTest):
             pars = s_storm.Parser()
             pars.add_argument('--yada', type=int)
 
+    async def test_storm_cmd_help(self):
+
+        async with self.getTestCore() as core:
+            pdef = {
+                'name': 'testpkg',
+                'version': '0.0.1',
+                'commands': (
+                    {'name': 'woot', 'cmdinputs': (
+                        {'form': 'hehe:haha'},
+                        {'form': 'hoho:lol', 'help': 'We know whats up'}
+                    )},
+                ),
+            }
+            await core.loadStormPkg(pdef)
+            msgs = await core.stormlist('woot --help')
+            helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
+            self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
@@ -2578,3 +2698,27 @@ class StormTest(s_t_utils.SynTest):
 
                 node = (await core.nodes('test:str=runt.safety.two'))[0]
                 self.eq(list(node.tags.keys()), ['runt', 'runt.child'])
+
+    async def test_storm_cmdscope(self):
+
+        async with self.getTestCore() as core:
+            await core.loadStormPkg({
+                'name': 'testpkg',
+                'version': '0.0.1',
+                'commands': (
+                    {'name': 'woot', 'cmdargs': (('hehe', {}),), 'storm': 'spin | [ inet:ipv4=1.2.3.4 ]'},
+                ),
+            })
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot lol |
+                $lib.print($path.vars.fqdn)
+            '''))
+
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot $node |
+                $lib.print($path.vars.fqdn)
+            '''))

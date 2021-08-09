@@ -30,7 +30,7 @@ re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNOREC
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
-    ('inet:url', r'[a-zA-Z][a-zA-Z0-9]*://[^ \'\"\t\n\r\f\v]+', {}),
+    ('inet:url', r'[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+', {}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)([a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', r'((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
     ('inet:ipv4', r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)', {}),

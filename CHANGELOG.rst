@@ -5,6 +5,255 @@ Synapse Changelog
 *****************
 
 
+v2.53.0 - 2021-08-05
+====================
+
+This release contains an automatic data migration that may cause additional
+startup time on the first boot. This is done to unique array properties which
+previously were not uniqued. Deployments with startup or liveliness probes
+should have those disabled while this upgrade is performed to prevent
+accidental termination of the Cortex process. Please ensure you have a tested
+backup available before applying this update.
+
+Features and Enhancements
+-------------------------
+- Add an ``embeds`` option to Storm to allow extracting additional data
+  when performing queries.
+  (`#2314 <https://github.com/vertexproject/synapse/pull/2314>`_)
+- Enforce node data permissions at the Layer boundary. Remove the
+  ``node.data.get`` and ``node.data.list`` permissions.
+  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)
+- Add ``auth.self.set.email``, ``auth.self.set.name``,
+  ``auth.self.set.passwd`` permissions on users when changing those values.
+  These permissions default to being allowed, allowing a rule to be created
+  that can deny users from changing these values.
+  (`#2311 <https://github.com/vertexproject/synapse/pull/2311>`_)
+- Add ``$lib.inet.smtp`` to allow sending email messages from Storm.
+  (`#2315 <https://github.com/vertexproject/synapse/pull/2315>`_)
+- Warn if a LMDB commit operation takes too long.
+  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)
+- Add new data types, ``taxon`` and ``taxonomy``, to describe hierarchical
+  taxonomies.
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
+- Add a new Business Development model. This allows tracking items related to
+  contract, sales, and purchasing lifecycles. This adds the following new forms
+  to the data model: ``biz:dealtype``, ``biz:prodtype``, ``biz:dealstatus``,
+  ``biz:rfp``, ``biz:deal``, ``biz:bundle``, ``biz:product``, and
+  ``biz:stake``. The Org model is also updated to add new forms for supporting
+  parts of the business lifecycle, adding ``ou:jobtype``,
+  ``ou:jobtitle``, ``ou:employment``, ``ou:opening``, ``ou:vitals``,
+  ``ou:camptype``, and ``ou:orgtype``, ``ou:conttype`` forms. The Person model
+  got a new form, ``ps:workhist``.
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
+- Add a ``:deleted`` property to ``inet:web:post``.
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
+- Update the following array properties to be unique sets, and add a data
+  model migration to update the data at rest:
+  (`#2312 <https://github.com/vertexproject/synapse/pull/2312>`_)
+
+    - ``edu:course:prereqs``
+    - ``edu:class:assistants``
+    - ``ou:org:subs``
+    - ``ou:org:names``
+    - ``ou:org:dns:mx``
+    - ``ou:org:locations``
+    - ``ou:org:industries``
+    - ``ou:industry:sic``
+    - ``ou:industry:subs``
+    - ``ou:industry:isic``
+    - ``ou:industry:naics``
+    - ``ou:preso:sponsors``
+    - ``ou:preso:presenters``
+    - ``ou:conference:sponsors``
+    - ``ou:conference:event:sponsors``
+    - ``ou:conference:attendee:roles``
+    - ``ou:conference:event:attendee:roles``
+    - ``ou:contract:types``
+    - ``ou:contract:parties``
+    - ``ou:contract:requirements``
+    - ``ou:position:reports``
+    - ``ps:person:names``
+    - ``ps:person:nicks``
+    - ``ps:persona:names``
+    - ``ps:persona:nicks``
+    - ``ps:education:classes``
+    - ``ps:contactlist:contacts``
+
+Bugfixes
+--------
+- Prevent renaming the ``all`` role.
+  (`#2313 <https://github.com/vertexproject/synapse/pull/2313>`_)
+
+Improved Documentation
+----------------------
+- Add documentation about Linux kernel parameteres which can be tuned to
+  affect Cortex performance.
+  (`#2316 <https://github.com/vertexproject/synapse/pull/2316>`_)
+
+
+v2.52.1 - 2021-07-30
+====================
+
+Bugfixes
+--------
+- Fix a display regression when enumerating Cron jobs with the Storm
+  ``cron.list`` command.
+  (`#2309 <https://github.com/vertexproject/synapse/pull/2309>`_)
+
+
+v2.52.0 - 2021-07-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add a new specification for defining input forms that a pure Storm command
+  knows how to natively handle.
+  (`#2301 <https://github.com/vertexproject/synapse/pull/2301>`_)
+- Add ``Lib.reverse()`` and ``Lib.sort()`` methods to Stormtypes API.
+  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)
+- Add ``View.parent`` property in Stormtypes API.
+  (`#2306 <https://github.com/vertexproject/synapse/pull/2306>`_)
+- Support Telepath Share objects in Storm.
+  (`#2293 <https://github.com/vertexproject/synapse/pull/2293>`_)
+- Allow users to specify a view to run a cron job against, move a cron job to
+  a new view, and update permission check for adding/moving cron jobs to views.
+  (`#2292 <https://github.com/vertexproject/synapse/pull/2292>`_)
+- Add CPE and software name infomation to the ``inet:flow`` form. Add
+  ``it:av:prochit``, ``it:exec:thread``, ``it:exec:loadlib``,
+  ``it:exec:mmap``, ``it:app:yara:procmatch`` forms to the infotech model.
+  Add ``:names`` arrays to ``it:prod:soft`` and ``it:prod:softver`` forms
+  to assist in entity resolution of software. Add a ``risk:alert`` form to
+  the risk model to allow for capturing arbitrary alerts.
+  (`#2304 <https://github.com/vertexproject/synapse/pull/2304>`_)
+- Allow Storm packages to specify other packages they require and possible
+  conflicts would prevent them from being installed in a Cortex.
+  (`#2307 <https://github.com/vertexproject/synapse/pull/2307>`_)
+
+Bugfixes
+--------
+- Specify the View when lifting ``syn:trigger`` runt nodes.
+  (`#2300 <https://github.com/vertexproject/synapse/pull/2300>`_)
+- Update the scrape URL regular expression to ignore trailing periods and
+  commas.
+  (`#2302 <https://github.com/vertexproject/synapse/pull/2302>`_)
+- Fix a bug in Path scope for nodes yielding by pure Storm commands.
+  (`#2305 <https://github.com/vertexproject/synapse/pull/2305>`_)
+
+
+v2.51.0 - 2021-07-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``--size`` option to the Storm ``divert`` command to limit the number
+  of times the generator is iterated.
+  (`#2297 <https://github.com/vertexproject/synapse/pull/2297>`_)
+- Add a ``perms`` key to the pure Storm command definition. This allows for
+  adding intuitive permission boundaries for pure Storm commands which are
+  checked prior to command execution.
+  (`#2297 <https://github.com/vertexproject/synapse/pull/2297>`_)
+- Allow full properties with comparators when specifying the destination
+  or source when walking light edges.
+  (`#2298 <https://github.com/vertexproject/synapse/pull/2298>`_)
+
+Bugfixes
+--------
+- Fix an issue with LMDB slabs not being backed up if their directories did
+  not end in ``.lmdb``.
+  (`#2296 <https://github.com/vertexproject/synapse/pull/2296>`_)
+
+
+v2.50.0 - 2021-07-22
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``.cacheget()`` and ``cacheset()`` APIs to the Storm ``storm:node:data``
+  object for easy caching of structured data on nodes based on time.
+  (`#2290 <https://github.com/vertexproject/synapse/pull/2290>`_)
+- Make the Stormtypes unique properly with a Set type. This does disallow the
+  use of mutable types such as dictionaries inside of a Set.
+  (`#2225 <https://github.com/vertexproject/synapse/pull/2225>`_)
+- Skip executing non-runtsafe commands when there are no inbound nodes.
+  (`#2291 <https://github.com/vertexproject/synapse/pull/2291>`_)
+- Add ``asroot:perms`` key to Storm Package modules. This allows package
+  authors to easily declare permissions their packages. Add Storm commands
+  ``auth.user.add``, ``auth.role.add``, ``auth.user.addrule``,
+  ``auth.role.addrule``, and ``pkg.perms.list`` to help with some of the
+  permission management.
+  (`#2294 <https://github.com/vertexproject/synapse/pull/2294>`_)
+
+
+v2.49.0 - 2021-07-19
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``iden`` parameter when creating Cron jobs to allow the creation of
+  jobs with stable identifiers.
+  (`#2264 <https://github.com/vertexproject/synapse/pull/2264>`_)
+- Add ``$lib.cell`` Stormtypes library to allow for introspection of the
+  Cortex from Storm for Admin users.
+  (`#2285 <https://github.com/vertexproject/synapse/pull/2285>`_)
+- Change the Telepath Client connection loop error logging to log at the
+  Error level instead of the Info level.
+  (`#2283 <https://github.com/vertexproject/synapse/pull/2283>`_)
+- Make the tag part normalization more resilient to data containing non-word
+  characters.
+  (`#2289 <https://github.com/vertexproject/synapse/pull/2289>`_)
+- Add ``$lib.tags.prefix()`` Stormtypes to assist with normalizing a list of
+  tags with a common prefix.
+  (`#2289 <https://github.com/vertexproject/synapse/pull/2289>`_)
+- Do not allow the Storm ``divert`` command to work with non-generator
+  functions.
+  (`#2282 <https://github.com/vertexproject/synapse/pull/2282>`_)
+
+Bugfixes
+--------
+- Fix an issue with Storm command execution with non-runtsafe options.
+  (`#2284 <https://github.com/vertexproject/synapse/pull/2284>`_)
+- Log when the process pool fails to initialize. This may occur in certain
+  where CPython multiprocessing primitives are not completely supported.
+  (`#2288 <https://github.com/vertexproject/synapse/pull/2288>`_)
+- In the Telepath Client, fix a race condition which could have raised an
+  AttributeError in Aha resolutions.
+  (`#2286 <https://github.com/vertexproject/synapse/pull/2286>`_)
+- Prevent the reuse of a Telepath Client object when it has been fini'd.
+  (`#2286 <https://github.com/vertexproject/synapse/pull/2286>`_)
+- Fix a race condition in the Aha server when handling distributed changes
+  which could have left the service in a desynchronized state.
+  (`#2287 <https://github.com/vertexproject/synapse/pull/2287>`_)
+
+Improved Documentation
+----------------------
+- Update the documentation for the ``synapse.tools.feed`` tool.
+  (`#2279 <https://github.com/vertexproject/synapse/pull/2279>`_)
+
+
+v2.48.0 - 2021-07-13
+====================
+
+Features and Enhancements
+-------------------------
+- Add a Storm ``divert`` command to ease the implementation of ``--yield``
+  constructs in Storm commands. This optionally yields nodes from a generator,
+  or yields inbound nodes, while still ensuring the generator is conusmed.
+  (`#2277 <https://github.com/vertexproject/synapse/pull/2277>`_)
+- Add Storm runtime debug tracking. This is a boolean flag that can be set or
+  unset via ``$lib.debug``. It can be used by Storm packages to determine if
+  they should take extra actions, such as additional print statements, without
+  needing to track additional function arguments in their implementations.
+  (`#2278 <https://github.com/vertexproject/synapse/pull/2278>`_)
+
+Bugfixes
+--------
+- Fix an ambiguity in the Storm grammar.
+  (`#2280 <https://github.com/vertexproject/synapse/pull/2280>`_)
+- Fix an issue where form autoadds could fail to be created in specific cases of
+  the model.
+  (`#2273 <https://github.com/vertexproject/synapse/pull/2273>`_)
+
+
 v2.47.0 - 2021-07-07
 ====================
 
@@ -244,7 +493,7 @@ v2.41.1 - 2021-05-27
 
 Bugfixes
 --------
-- Add PR #2217 to bugfix list in CHANGLOG.rst for v2.41.0 :D
+- Add PR ``#2117`` to bugfix list in CHANGLOG.rst for v2.41.0 :D
 
 v2.41.0 - 2021-05-27
 ====================
@@ -703,9 +952,9 @@ Bugfixes
 Improved Documentation
 ----------------------
 - Update README.rst.
-  (`#2215 <https://github.com/vertexproject/synapse/pull/2115>`_)
-  (`#2217 <https://github.com/vertexproject/synapse/pull/2117>`_)
-  (`#2216 <https://github.com/vertexproject/synapse/pull/2116>`_)
+  (`#2115 <https://github.com/vertexproject/synapse/pull/2115>`_)
+  (`#2117 <https://github.com/vertexproject/synapse/pull/2117>`_)
+  (`#2116 <https://github.com/vertexproject/synapse/pull/2116>`_)
 
 
 v2.29.0 - 2021-03-11
