@@ -134,8 +134,13 @@ _N1WALKFINI: ")>"
 _N2WALKINIT: "<("
 _N2WALKFINI: ")-"
 
-n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _valu
-n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _valu
+WILDCARD: "*"
+
+// A wild card, full prop, list, or $varvalu
+_wildprops: WILDCARD | PROPS | valulist | _varvalu
+
+n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
+n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
 
 _WALKNPIVON1: "-->"
 _WALKNPIVON2: "<--"
@@ -270,14 +275,16 @@ filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
 
 // Condition used for filters
-// TODO:  unify cond and dollarexpr
-_cond: notcond | "(" _WS? _condexpr _WS? ")"
+_cond: notcond | "(" _WS? _innercondexpr _WS? ")"
     | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
     | condsubq | arraycond
-    | _varvalu | dollarexpr
+    | _varvalu
+
+// A dollar expression inside a condition may only occur inside another set of parentheses
+_innercond: _cond | dollarexpr
 
 notcond: "not" _WS _cond
 
@@ -300,6 +307,7 @@ _ARRAYCONDSTART: "*["
 
 // Filter boolean conditions
 _condexpr: _cond | orexpr | andexpr
+_innercondexpr: _innercond | orexpr | andexpr
 orexpr: _condexpr _WS "or" _WS _cond
 andexpr: _condexpr _WS "and" _WS _cond
 

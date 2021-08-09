@@ -58,7 +58,7 @@ Queries = [
     '[test:int=4\xa0+?#hehe.haha +?#hehe.newp=newp +#hehe.yes=2020]',
     '[test:str=foo :tick?=2019 ]',
     '[test:str=a] switch $node.form() { hehe\xa0: {[+#baz]} }',
-    '[test:type10=2 :strprop=1] spin | test:type10 +$(:strprop) $foo=1 +$foo',
+    '[test:type10=2 :strprop=1] spin | test:type10 +(:strprop) $foo=1 +$foo',
     'inet:fqdn#xxx.xxxxxx.xxxx.xx for $tag in $node.tags(xxx.xxxxxx.*.xx) { <- edge:refs +#xx <- graph:cluster [ +#foo]  ->edge:refs }',
     ' +(syn:tag~=aka.*.mal.*)',
     '+(syn:tag^=aka or syn:tag^=cno or syn:tag^=rep)',
