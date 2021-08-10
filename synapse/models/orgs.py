@@ -183,6 +183,12 @@ class OuModule(s_module.CoreModule):
                     ('orgfqdn', ('inet:fqdn', {}), {
                         'doc': 'The FQDN of the organization as listed in the opening.',
                     }),
+                    ('posted', ('time', {}), {
+                        'doc': 'The date/time that the job opening was posted.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The date/time that the job opening was removed.',
+                    }),
                     ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'URLs where the opening is listed.',
                     }),
@@ -401,6 +407,9 @@ class OuModule(s_module.CoreModule):
                     ('orgtype', ('ou:orgtype', {}), {
                         'doc': 'The type of organization.',
                         'disp': {'hint': 'taxonomy'},
+                    }),
+                    ('vitals', ('ou:vitals', {}), {
+                        'doc': 'The most recent/accurate ou:vitals for the org.',
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',

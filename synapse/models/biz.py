@@ -102,8 +102,26 @@ class BizModule(s_module.CoreModule):
                     ('buyer', ('ps:contact', {}), {
                         'doc': 'The primary contact information for the buyer.',
                     }),
+                    ('buyer:org', ('ou:org', {}), {
+                        'doc': 'The buyer org.',
+                    }),
+                    ('buyer:orgname', ('ou:name', {}), {
+                        'doc': 'The reported ou:name of the buyer org.',
+                    }),
+                    ('buyer:orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The reported inet:fqdn of the buyer org.',
+                    }),
                     ('seller', ('ps:contact', {}), {
                         'doc': 'The primary contact information for the seller.',
+                    }),
+                    ('seller:org', ('ou:org', {}), {
+                        'doc': 'The seller org.',
+                    }),
+                    ('seller:orgname', ('ou:name', {}), {
+                        'doc': 'The reported ou:name of the seller org.',
+                    }),
+                    ('seller:orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The reported inet:fqdn of the seller org.',
                     }),
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of econ:price values associated with the deal.',
@@ -157,6 +175,15 @@ class BizModule(s_module.CoreModule):
                     ('summary', ('str', {}), {
                         'doc': 'A brief summary of the product.',
                         'disp': {'hint': 'text'},
+                    }),
+                    ('madeby:org', ('ou:org', {}), {
+                        'doc': 'The product manufacturer.'
+                    }),
+                    ('madeby:orgname', ('ou:name', {}), {
+                        'doc': 'The reported ou:name of the product manufacturer.'
+                    }),
+                    ('madeby:orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The reported inet:fqdn of the product manufacturer.'
                     }),
                     ('price:retail', ('econ:price', {}), {
                         'doc': 'The MSRP price of the product.',
