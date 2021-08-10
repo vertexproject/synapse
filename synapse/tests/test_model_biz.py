@@ -94,10 +94,10 @@ class BizModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('buyer:org'))
             self.nn(nodes[0].get('seller:org'))
 
-            self.nn('hehehaha', nodes[0].get('buyer:orgname'))
-            self.nn('hehehaha.com', nodes[0].get('buyer:orgfqdn'))
-            self.nn('lololol', nodes[0].get('seller:orgname'))
-            self.nn('lololol.com', nodes[0].get('seller:orgfqdn'))
+            self.eq('hehehaha', nodes[0].get('buyer:orgname'))
+            self.eq('hehehaha.com', nodes[0].get('buyer:orgfqdn'))
+            self.eq('lololol', nodes[0].get('seller:orgname'))
+            self.eq('lololol.com', nodes[0].get('seller:orgfqdn'))
 
             self.len(2, await core.nodes('biz:dealtype'))
 
