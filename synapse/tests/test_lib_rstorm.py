@@ -111,6 +111,13 @@ clear_storm_opts = '''
 .. storm:: $lib.print($lib.str.concat($foobar, "bizboz"))
 '''
 
+stormenv = '''
+.. storm-cortex:: default
+.. storm-envvar:: RST_TEST_FQDN=wootwoot.com
+.. storm-pre:: [ inet:fqdn?=$RST_TEST_FQDN ]
+.. storm:: inet:fqdn
+'''
+
 boom1 = '''
 
 .. storm:: $lib.print(newp)
@@ -310,3 +317,19 @@ class RStormLibTest(s_test.SynTest):
             path = s_common.genpath(dirn, 'newp.newp')
             with self.raises(s_exc.BadConfValu):
                 await get_rst_text(path)
+
+            # storm-envvar
+            path = s_common.genpath(dirn, 'stormenv.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(stormenv.encode())
+            text = await get_rst_text(path)
+            self.notin("vertex.link", text)
+            self.isin("wootwoot.com", text)
+
+            os.environ['RST_TEST_FQDN'] = 'vertex.link'
+            path = s_common.genpath(dirn, 'stormenv.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(stormenv.encode())
+            text = await get_rst_text(path)
+            self.isin("vertex.link", text)
+            self.notin("wootwoot.com", text)
