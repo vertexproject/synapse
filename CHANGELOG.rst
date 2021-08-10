@@ -4,6 +4,39 @@
 Synapse Changelog
 *****************
 
+v2.54.0 - 2021-08-05
+====================
+
+Features and Enhancements
+-------------------------
+
+- Add ``storm-envvar`` directive to RST preprocessor to include environment
+  variables in ``storm-pre`` directive execution context.
+  (`#2321 <https://github.com/vertexproject/synapse/pull/2321>`_)
+- Add new ``diff`` storm command to allow users to easily lift the set of nodes
+  with changes in the top layer of a forked view.  Also adds the ``--no-tags``
+  option to the ``merge`` command to allow users to omit ``tag:add`` node edits
+  and newly constructed ``syn:tag`` nodes when merging selected nodes.
+  (`#2320 <https://github.com/vertexproject/synapse/pull/2320>`_)
+- Adds the following properties to the data model:
+  (`#2319 <https://github.com/vertexproject/synapse/pull/2319>`_)
+
+    - ``biz:deal:buyer:org``
+    - ``biz:deal:buyer:orgname``
+    - ``biz:deal:buyer:orgfqdn``
+    - ``biz:deal:seller:org``
+    - ``biz:deal:seller:orgname``
+    - ``biz:deal:seller:orgfqdn``
+    - ``biz:prod:madeby:org``
+    - ``biz:prod:madeby:orgname``
+    - ``biz:prod:madeby:orgfqdn``
+    - ``ou:opening:posted``
+    - ``ou:opening:removed``
+    - ``ou:org:vitals``
+
+- Updates ``storm-mock-http`` to support multiple HTTP requests/responses
+  in RST preprocessor.
+  (`#2317 <https://github.com/vertexproject/synapse/pull/2317>`_)
 
 v2.53.0 - 2021-08-05
 ====================
