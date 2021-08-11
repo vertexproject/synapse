@@ -4381,6 +4381,18 @@ class StormTypesTest(s_test.SynTest):
             self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
             self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
 
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(lolnope, 42))')
+            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))')
+            self.true(retn)
+            node = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(node[0].props['dns:rev'], 'vertex.link')
+
+            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))')
+            self.true(retn)
+            self.eq(node[0].props['dns:rev'], 'foo.bar.com')
+            node = await core.nodes('inet:ipv4=1.2.3.4')
+
             props = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props)')
             self.eq(20, props['asn'])
 
