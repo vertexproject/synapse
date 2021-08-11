@@ -4392,7 +4392,6 @@ class StormTypesTest(s_test.SynTest):
             self.true(retn)
             node = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(node[0].props['dns:rev'], 'foo.bar.com')
-            node = await core.nodes('inet:ipv4=1.2.3.4')
 
             props = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props)')
             self.eq(20, props['asn'])
