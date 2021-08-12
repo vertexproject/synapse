@@ -29,10 +29,19 @@ class OuModule(s_module.CoreModule):
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
+                ('ou:orgtype', ('taxonomy', {}), {
+                    'doc': 'An org type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
+                ('ou:conttype', ('taxonomy', {}), {
+                    'doc': 'A contract type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('ou:contract:type', ('str', {'enum': contracttypes}), {
+                    'deprecated': True,
                     'doc': 'A pre-defined set of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
@@ -118,6 +127,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
                     'doc': 'An org has an assessed or stated goal.',
                 }),
+                ('ou:camptype', ('taxonomy', {}), {
+                    'doc': 'An campaign type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
@@ -136,8 +149,128 @@ class OuModule(s_module.CoreModule):
                 ('ou:award', ('guid', {}), {
                     'doc': 'An award issued by an organization.',
                 }),
+                ('ou:vitals', ('guid', {}), {
+                    'doc': 'Vital statistics about an org for a given time period.',
+                }),
+                ('ou:opening', ('guid', {}), {
+                    'doc': 'A job/work opening within an org.',
+                }),
+                ('ou:jobtype', ('taxonomy', {}), {
+                    'ex': 'it.dev.python',
+                    'doc': 'A title for a position within an org.',
+                    'interfaces': ('taxonomy',),
+                }),
+                ('ou:employment', ('taxonomy', {}), {
+                    'ex': 'fulltime.salary',
+                    'doc': 'An employment type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
+                ('ou:jobtitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    'doc': 'A title for a position within an org.',
+                }),
             ),
             'forms': (
+                ('ou:jobtype', {}, ()),
+                ('ou:jobtitle', {}, ()),
+                ('ou:employment', {}, ()),
+                ('ou:opening', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org which has the opening.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The name of the organization as listed in the opening.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN of the organization as listed in the opening.',
+                    }),
+                    ('posted', ('time', {}), {
+                        'doc': 'The date/time that the job opening was posted.',
+                    }),
+                    ('removed', ('time', {}), {
+                        'doc': 'The date/time that the job opening was removed.',
+                    }),
+                    ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+                        'doc': 'URLs where the opening is listed.',
+                    }),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact details to inquire about the opening.',
+                    }),
+                    ('loc', ('loc', {}), {
+                        'doc': 'The geopolitical boundary of the opening.',
+                    }),
+                    ('jobtype', ('ou:jobtype', {}), {
+                        'doc': 'The job type taxonomy.',
+                    }),
+                    ('employment', ('ou:employment', {}), {
+                        'doc': 'The type of employment.',
+                    }),
+                    ('jobtitle', ('ou:jobtitle', {}), {
+                        'doc': 'The title of the opening.',
+                    }),
+                    ('remote', ('bool', {}), {
+                        'doc': 'Set to true if the opening will allow a fully remote worker.',
+                    }),
+                    ('yearlypay', ('econ:price', {}), {
+                        'doc': 'The yearly income associated with the opening.',
+                    }),
+                    ('paycurrency', ('econ:currency', {}), {
+                        'doc': 'The currency that the yearly pay was delivered in.',
+                    }),
+                    # TODO a way to encode/normalize requirements.
+                )),
+                ('ou:vitals', {}, (
+
+                    ('asof', ('time', {}), {
+                        'doc': 'The time that the vitals represent.',
+                    }),
+                    # TODO is modulo time a type?
+                    #('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The resolved org.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The org name as reported by the source of the vitals.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The org FQDN as reported by the source of the vitals.',
+                    }),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the econ:price values.',
+                    }),
+                    ('costs', ('econ:price', {}), {
+                        'doc': 'The costs/expendatures over the period.',
+                    }),
+                    ('revenue', ('econ:price', {}), {
+                        'doc': 'The gross revenue over the period.',
+                    }),
+                    ('profit', ('econ:price', {}), {
+                        'doc': 'The net profit over the period.',
+                    }),
+                    ('valuation', ('econ:price', {}), {
+                        'doc': 'The assesed value of the org.',
+                    }),
+                    ('shares', ('int', {}), {
+                        'doc': 'The number of shares outstanding.',
+                    }),
+                    ('population', ('int', {}), {
+                        'doc': 'The population of the org.',
+                    }),
+                    ('delta:costs', ('econ:price', {}), {
+                        'doc': 'The change in costs over last period.',
+                    }),
+                    ('delta:revenue', ('econ:price', {}), {
+                        'doc': 'The change in revenue over last period.',
+                    }),
+                    ('delta:profit', ('econ:price', {}), {
+                        'doc': 'The change in profit over last period.',
+                    }),
+                    ('delta:valuation', ('econ:price', {}), {
+                        'doc': 'The change in valuation over last period.',
+                    }),
+                    ('delta:population', ('int', {}), {
+                        'doc': 'The change in population over last period.',
+                    }),
+                )),
                 ('ou:award', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                         'doc': 'The name of the award.',
@@ -216,7 +349,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Set if a goal has a limited time window.',
                     }),
                 )),
+                ('ou:camptype', {}, ()),
                 ('ou:campaign', {}, (
+                    # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
                         'doc': 'The org carrying out the campaign.',
                     }),
@@ -233,13 +368,31 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A terse name of the campaign.',
                     }),
                     ('type', ('str', {}), {
-                        'doc': 'A user specified campaign type.',
+                        'deprecated': True,
+                        'doc': 'The campaign type.',
+                    }),
+                    ('camptype', ('ou:camptype', {}), {
+                        'doc': 'The campaign type taxonomy.',
+                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the campaign.',
                         'disp': {'hint': 'text'},
                     }),
+
+                    ('period', ('ival', {}), {}),
+                    ('currency', ('econ:currency', {}), {}),
+
+                    ('cost', ('econ:price', {}), {}),
+                    ('budget', ('econ:price', {}), {}),
+
+                    ('goal:revenue', ('econ:price', {}), {}),
+                    ('result:revenue', ('econ:price', {}), {}),
+
+                    ('goal:pop', ('int', {}), {}),
+                    ('result:pop', ('int', {}), {}),
                 )),
+                ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'Location for an organization.'
@@ -248,8 +401,15 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The localized name of an organization.',
                     }),
                     ('type', ('str', {'lower': True, 'strip': True}), {
-                        'ex': 'threat group',
+                        'deprecated': True,
                         'doc': 'The type of organization.',
+                    }),
+                    ('orgtype', ('ou:orgtype', {}), {
+                        'doc': 'The type of organization.',
+                        'disp': {'hint': 'taxonomy'},
+                    }),
+                    ('vitals', ('ou:vitals', {}), {
+                        'doc': 'The most recent/accurate ou:vitals for the org.',
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',
@@ -257,7 +417,7 @@ class OuModule(s_module.CoreModule):
                     ('logo', ('file:bytes', {}), {
                         'doc': 'An image file representing the logo for the organization.',
                     }),
-                    ('names', ('array', {'type': 'ou:name'}), {
+                    ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
@@ -274,7 +434,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'The North American Industry Classification System code for the organization.',
                     }),
-                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True}), {
+                    ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
                         'doc': 'The industries associated with the org.',
                     }),
                     ('us:cage', ('gov:us:cage', {}), {
@@ -287,8 +447,8 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The primary url for the organization.',
                     }),
-                    ('subs', ('array', {'type': 'ou:org'}), {
-                        'doc': 'An array of sub-organizations.'
+                    ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An set of sub-organizations.'
                     }),
                     ('orgchart', ('ou:position', {}), {
                         'doc': 'The root node for an orgchart made up ou:position nodes.',
@@ -296,10 +456,10 @@ class OuModule(s_module.CoreModule):
                     ('hq', ('ps:contact', {}), {
                         'doc': 'A collection of contact information for the "main office" of an org.',
                     }),
-                    ('locations', ('array', {'type': 'ps:contact'}), {
+                    ('locations', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts for facilities operated by the org.',
                     }),
-                    ('dns:mx', ('array', {'type': 'inet:fqdn'}), {
+                    ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),
                 )),
@@ -310,22 +470,24 @@ class OuModule(s_module.CoreModule):
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact info for the person who holds the position.',
                     }),
+                    # TODO migrate to ou:jobtitle
                     ('title', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'doc': 'The title of the position.',
                     }),
-                    ('reports', ('array', {'type': 'ou:position'}), {
+                    ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of positions which report to this position.',
                     }),
                 )),
                 ('ou:name', {}, ()),
+                ('ou:conttype', {}, ()),
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('types', ('array', {'type': 'ou:contract:type', 'uniq': True, 'split': ','}), {
-                        'doc': 'A list of types that apply to the contract.'}),
+                    ('type', ('ou:conttype', {}), {
+                        'doc': 'The type of contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),
-                    ('parties', ('array', {'type': 'ps:contact', 'uniq': True}), {
+                    ('parties', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'The non-sponsor entities bound by the contract.'}),
                     ('document', ('file:bytes', {}), {
                         'doc': 'The best/current contract document.'}),
@@ -345,19 +507,22 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The amount of money budgeted for the contract.'}),
                     ('purchase', ('econ:purchase', {}), {
                         'doc': 'Purchase details of the contract.'}),
-                    ('requirements', ('array', {'type': 'ou:goal', 'uniq': True}), {
+                    ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                         'doc': 'The requirements levied upon the parties.'}),
+                    ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'deprecated': True,
+                        'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A terse name for the industry.'}),
-                    ('subs', ('array', {'type': 'ou:industry', 'uniq': True, 'split': ','}), {
+                    ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of sub-industries.'}),
-                    ('sic', ('array', {'type': 'ou:sic', 'uniq': True, 'split': ','}), {
+                    ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
-                    ('naics', ('array', {'type': 'ou:naics', 'uniq': True, 'split': ','}), {
+                    ('naics', ('array', {'type': 'ou:naics', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of NAICS codes that map to the industry.'}),
-                    ('isic', ('array', {'type': 'ou:isic', 'uniq': True, 'split': ','}), {
+                    ('isic', ('array', {'type': 'ou:isic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of ISIC codes that map to the industry.'}),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the industry.',
@@ -499,11 +664,11 @@ class OuModule(s_module.CoreModule):
                     ('organizer', ('ps:contact', {}), {
                         'doc': 'Contact information for the primary organizer of the presentation.'}),
 
-                    ('sponsors', ('array', {'type': 'ps:contact'}), {
-                        'doc': 'An array of contacts which sponsored the presentation.'}),
+                    ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                        'doc': 'A set of contacts which sponsored the presentation.'}),
 
-                    ('presenters', ('array', {'type': 'ps:contact'}), {
-                        'doc': 'An array of contacts which gave the presentation.'}),
+                    ('presenters', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                        'doc': 'A set of contacts which gave the presentation.'}),
 
                     ('title', ('str', {'lower': True}), {
                         'doc': 'The full name of the presentation.',
@@ -580,7 +745,7 @@ class OuModule(s_module.CoreModule):
                     ('organizer', ('ps:contact', {}), {
                         'doc': 'Contact information for the primary organizer of the conference.',
                     }),
-                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                    ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
                     ('name', ('str', {'lower': True}), {
@@ -630,7 +795,7 @@ class OuModule(s_module.CoreModule):
                     ('role:speaker', ('bool', {}), {
                         'doc': 'The person was a speaker or presenter at the conference.',
                     }),
-                    ('roles', ('array', {'type': 'str', 'lower': True}), {
+                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                         'doc': 'List of the roles the person had at the conference.',
                     }),
                  )),
@@ -642,7 +807,7 @@ class OuModule(s_module.CoreModule):
                     ('organizer', ('ps:contact', {}), {
                         'doc': 'Contact information for the primary organizer of the event.',
                     }),
-                    ('sponsors', ('array', {'type': 'ps:contact'}), {
+                    ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of contacts which sponsored the event.',
                     }),
                     ('place', ('geo:place', {}), {
@@ -686,7 +851,7 @@ class OuModule(s_module.CoreModule):
                     ('departed', ('time', {}), {
                         'doc': 'The time when a person departed from the conference event.',
                     }),
-                    ('roles', ('array', {'type': 'str', 'lower': True}), {
+                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                         'doc': 'List of the roles the person had at the conference event.',
                     }),
                 )),

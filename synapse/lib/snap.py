@@ -156,6 +156,9 @@ class Snap(s_base.Base):
 
         self.core._logStormQuery(text, user)
 
+        # { form: ( embedprop, ... ) }
+        embeds = opts.get('embeds')
+
         scrubber = None
         # NOTE: This option is still experimental and subject to change.
         if opts.get('scrub') is not None:
@@ -172,6 +175,11 @@ class Snap(s_base.Base):
 
             if scrubber is not None:
                 pode = scrubber.scrub(pode)
+
+            if embeds is not None:
+                embdef = embeds.get(node.form.name)
+                if embdef is not None:
+                    pode[1]['embeds'] = await node.getEmbeds(embdef)
 
             yield pode
 

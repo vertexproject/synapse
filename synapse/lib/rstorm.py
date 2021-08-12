@@ -5,6 +5,7 @@ import pprint
 import logging
 import contextlib
 
+import vcr
 import regex
 
 from unittest import mock
@@ -74,6 +75,36 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
         return s_stormhttp.HttpResp(info)
 
+    @contextlib.contextmanager
+    def _shimHttpCalls(self, vcr_kwargs):
+        path = self.ctx.get('mock-http-path')
+        if not vcr_kwargs:
+            vcr_kwargs = {}
+
+        if path:
+            path = os.path.abspath(path)
+            # try it as json first (since yaml can load json...). if it parses, we're old school
+            # if it doesn't, either it doesn't exist/we can't read it/we can't parse it.
+            # in any of those cases, default to using vcr
+            try:
+                with open(path, 'r') as fd:
+                    byts = json.load(fd)
+            except (FileNotFoundError, json.decoder.JSONDecodeError):
+                byts = None
+
+            if not byts:
+                with vcr.use_cassette(os.path.abspath(path), **vcr_kwargs) as cass:
+                    yield cass
+                    self.ctx.pop('mock-http-path', None)
+            else:  # backwards compat
+                if not os.path.isfile(path):
+                    raise s_exc.NoSuchFile(mesg='Storm HTTP mock filepath does not exist', path=path)
+                self.ctx['mock-http'] = byts
+                with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
+                    yield
+        else:
+            yield
+
     def printf(self, mesg, addnl=True, color=None):
         line = f'    {mesg}'
         self.lines.append(line)
@@ -101,7 +132,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         hide_unknown = True
 
         # Let this raise on any errors
-        with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
+        with self._shimHttpCalls(self.ctx.get('storm-vcr-opts')):
             async for mesg in self.core.storm(text, opts=stormopts):
 
                 if opts.get('debug'):
@@ -138,6 +169,7 @@ class StormRst(s_base.Base):
 
         self.linesout = []
         self.context = {}
+        self.stormvars = {}
 
         self.core = None
 
@@ -148,8 +180,11 @@ class StormRst(s_base.Base):
             'storm-svc': self._handleStormSvc,
             'storm-opts': self._handleStormOpts,
             'storm-cortex': self._handleStormCortex,
+            'storm-envvar': self._handleStormEnvVar,
             'storm-expect': self._handleStormExpect,
             'storm-mock-http': self._handleStormMockHttp,
+            'storm-vcr-opts': self._handleStormVcrOpts,
+            'storm-clear-http': self._handleStormClearHttp,
         }
 
     async def _getCell(self, ctor, conf=None):
@@ -215,7 +250,17 @@ class StormRst(s_base.Base):
             text (str): A valid Storm query
         '''
         core = self._reqCore()
-        soutp = StormOutput(core, self.context, stormopts=self.context.get('storm-opts'))
+
+        self.context.setdefault('storm-opts', {})
+
+        stormopts = self.context.get('storm-opts')
+        stormopts.setdefault('vars', {})
+
+        # only map env vars in for storm-pre
+        stormopts = copy.deepcopy(stormopts)
+        stormopts['vars'].update(self.stormvars)
+
+        soutp = StormOutput(core, self.context, stormopts=stormopts)
         await soutp.runCmdLine(text)
 
     async def _handleStormSvc(self, text):
@@ -253,6 +298,19 @@ class StormRst(s_base.Base):
         item = json.loads(text)
         self.context['storm-opts'] = item
 
+    async def _handleStormClearHttp(self, text):
+        '''
+        Reset the storm http context and any associated opts with it.
+
+        Args:
+            text (str): true if you also want to clear any storm/vcr opts as well
+        '''
+        if text == 'true':
+            self.context.pop('storm-opts', None)
+            self.context.pop('storm-vcr-opts', None)
+        self.context.pop('mock-http-path', None)
+        self.context.pop('mock-http', None)
+
     async def _handleStormCortex(self, text):
         '''
         Spin up a default Cortex if ctor=default, else load the defined ctor.
@@ -269,6 +327,12 @@ class StormRst(s_base.Base):
         ctor = 'synapse.cortex.Cortex' if text == 'default' else text
 
         self.core = await self._getCell(ctor)
+
+    async def _handleStormEnvVar(self, text):
+        name, valu = text.split('=', 1)
+        name = name.strip()
+        valu = valu.strip()
+        self.stormvars[name] = os.getenv(name, valu)
 
     async def _handleStormExpect(self, text):
         # TODO handle some light weight output confirmation.
@@ -289,10 +353,17 @@ class StormRst(s_base.Base):
         Args:
             text (str): Path to a json file with the response.
         '''
-        if not os.path.isfile(text):
-            raise s_exc.NoSuchFile(mesg='Storm HTTP mock filepath does not exist', path=text)
+        self.context['mock-http-path'] = text
 
-        self.context['mock-http'] = s_common.jsload(text)
+    async def _handleStormVcrOpts(self, text):
+        '''
+        Opts to pass to VCRPY for use in generating docs
+
+        Args:
+            text (str): JSON string, e.g. {"filter_query_args": true}
+        '''
+        item = json.loads(text)
+        self.context['storm-vcr-opts'] = item
 
     async def _readline(self, line):
 

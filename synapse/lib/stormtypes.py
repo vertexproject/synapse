@@ -230,6 +230,7 @@ class StormType:
         self.path = path
         self.ctors = {}
         self.stors = {}
+        self.gtors = {}
         self.locls = {}
 
     def getObjLocals(self):
@@ -278,7 +279,10 @@ class StormType:
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
 
     async def _derefGet(self, name):
-        return s_common.novalu
+        gtor = self.gtors.get(name)
+        if gtor is None:
+            return s_common.novalu
+        return await gtor()
 
     def ismutable(self):
         return self._ismutable
@@ -4064,30 +4068,29 @@ class NodeData(Prim):
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):
         name = await tostr(name)
-        confirm(('node', 'data', 'get', name))
         return await self.valu.getData(name)
 
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
-        confirm(('node', 'data', 'set', name))
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
         name = await tostr(name)
-        confirm(('node', 'data', 'pop', name))
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
     async def _listNodeData(self):
-        confirm(('node', 'data', 'list'))
         return [x async for x in self.valu.iterData()]
 
     @stormfunc(readonly=True)
     async def _loadNodeData(self, name):
         name = await tostr(name)
-        confirm(('node', 'data', 'get', name))
         valu = await self.valu.getData(name)
         # set the data value into the nodedata dict so it gets sent
         self.valu.nodedata[name] = valu
@@ -5952,6 +5955,7 @@ class User(Prim):
 
         name = await tostr(name)
         if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'name'), default=True)
             await self.runt.snap.core.setUserName(self.valu, name)
             return
 
@@ -6002,6 +6006,7 @@ class User(Prim):
 
     async def _methUserSetEmail(self, email):
         if self.runt.user.iden == self.valu:
+            self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
 
@@ -6017,6 +6022,7 @@ class User(Prim):
     async def _methUserSetPasswd(self, passwd):
         if self.runt.user.iden == self.valu:
             passwd = await tostr(passwd, noneok=True)
+            self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
         self.runt.confirm(('auth', 'user', 'set', 'passwd'))

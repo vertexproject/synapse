@@ -47,8 +47,49 @@ class PsModule(s_module.CoreModule):
                 ('ps:contactlist', ('guid', {}), {
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
+                ('ps:workhist', ('guid', {}), {
+                    'doc': "A GUID representing entry in a contact's work history.",
+                }),
             ),
             'forms': (
+                ('ps:workhist', {}, (
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact which has the work history.',
+                    }),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The org that this work history orgname refers to.',
+                    }),
+                    ('orgname', ('ou:name', {}), {
+                        'doc': 'The reported name of the org the contact worked for.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The reported fqdn of the org the contact worked for.',
+                    }),
+                    ('jobtype', ('ou:jobtype', {}), {
+                        'doc': 'The type of job.',
+                    }),
+                    ('employment', ('ou:employment', {}), {
+                        'doc': 'The type of employment.',
+                    }),
+                    ('jobtitle', ('ou:jobtitle', {}), {
+                        'doc': 'The job title.',
+                    }),
+                    ('started', ('time', {}), {
+                        'doc': 'The date that the contact began working.',
+                    }),
+                    ('ended', ('time', {}), {
+                        'doc': 'The date that the contact stopped working.',
+                    }),
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the period of work.',
+                    }),
+                    ('pay', ('econ:price', {}), {
+                        'doc': 'The estimated/average yearly pay for the work.',
+                    }),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency that the yearly pay was delivered in.',
+                    }),
+                )),
                 ('edu:course', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'ex': 'organic chemistry for beginners',
@@ -64,7 +105,7 @@ class PsModule(s_module.CoreModule):
                     ('institution', ('ps:contact', {}), {
                         'doc': 'The org or department which teaches the course.',
                     }),
-                    ('prereqs', ('array', {'type': 'edu:course'}), {
+                    ('prereqs', ('array', {'type': 'edu:course', 'uniq': True, 'sorted': True}), {
                         'doc': 'The pre-requisite courses for taking this course.',
                     }),
                 )),
@@ -75,7 +116,7 @@ class PsModule(s_module.CoreModule):
                     ('instructor', ('ps:contact', {}), {
                         'doc': 'The primary instructor for the class.',
                     }),
-                    ('assistants', ('array', {'type': 'ps:contact'}), {
+                    ('assistants', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of assistant/co-instructor contacts.',
                     }),
                     ('date:first', ('time', {}), {
@@ -110,7 +151,7 @@ class PsModule(s_module.CoreModule):
                     ('attended:last', ('time', {}), {
                         'doc': 'The last date the student attended a class.',
                     }),
-                    ('classes', ('array', {'type': 'edu:class'}), {
+                    ('classes', ('array', {'type': 'edu:class', 'uniq': True, 'sorted': True}), {
                         'doc': 'The classes attended by the student',
                     }),
                     ('achievement', ('ps:achievement', {}), {
@@ -175,10 +216,10 @@ class PsModule(s_module.CoreModule):
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the person.'
                     }),
-                    ('names', ('array', {'type': 'ps:name', 'uniq': True}), {
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'Variations of the name for the person.'
                     }),
-                    ('nicks', ('array', {'type': 'inet:user'}), {
+                    ('nicks', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'Usernames used by the  person.'
                     }),
                 )),
@@ -207,10 +248,10 @@ class PsModule(s_module.CoreModule):
                     ('name:given', ('ps:tokn', {}), {
                         'doc': 'The given name of the suspected person.'
                     }),
-                    ('names', ('array', {'type': 'ps:name'}), {
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'Variations of the name for a persona.'
                     }),
-                    ('nicks', ('array', {'type': 'inet:user'}), {
+                    ('nicks', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'Usernames used by the persona.'
                     }),
                 )),
@@ -244,7 +285,7 @@ class PsModule(s_module.CoreModule):
                 )),
                 ('ps:contact', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The ou:org GUID which owns this contact.',
+                        'doc': 'The org which this contact represents.',
                     }),
                     ('asof', ('time', {}), {
                         'date': 'The time this contact was created or modified.',
@@ -263,6 +304,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('orgname', ('ou:name', {}), {
                         'doc': 'The listed org/company name for this contact.',
+                    }),
+                    ('orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The listed org/company FQDN for this contact.',
                     }),
                     ('user', ('inet:user', {}), {
                         'doc': 'The username or handle for this contact.',
@@ -321,9 +365,25 @@ class PsModule(s_module.CoreModule):
                     ('imid:imsi', ('tel:mob:imsi', {}), {
                         'doc': 'An IMSI associated with the contact.',
                     }),
+                    # A few probable multi-fields for entity resolution
+                    ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The person name listed for the contact.',
+                    }),
+                    ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of secondary/associated email addresses.',
+                    }),
+                    ('web:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of secondary/associated web accounts.',
+                    }),
+                    ('id:numbers', ('array', {'type': 'ou:id:number', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of secondary/associated IDs.',
+                    }),
+                    ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of secondary/associated user names.',
+                    }),
                 )),
                 ('ps:contactlist', {}, (
-                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ','}), {
+                    ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ',', 'sorted': True}), {
                         'doc': 'The array of contacts contained in the list.'
                     }),
                     ('source:host', ('it:host', {}), {
