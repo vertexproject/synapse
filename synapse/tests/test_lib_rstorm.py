@@ -326,10 +326,10 @@ class RStormLibTest(s_test.SynTest):
             self.notin("vertex.link", text)
             self.isin("wootwoot.com", text)
 
-            os.environ['RST_TEST_FQDN'] = 'vertex.link'
-            path = s_common.genpath(dirn, 'stormenv.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(stormenv.encode())
-            text = await get_rst_text(path)
-            self.isin("vertex.link", text)
-            self.notin("wootwoot.com", text)
+            with self.setTstEnvars(RST_TEST_FQDN='vertex.link'):
+                path = s_common.genpath(dirn, 'stormenv.rst')
+                with s_common.genfile(path) as fd:
+                    fd.write(stormenv.encode())
+                text = await get_rst_text(path)
+                self.isin("vertex.link", text)
+                self.notin("wootwoot.com", text)
