@@ -3973,6 +3973,11 @@ class NodeProps(Prim):
             yield item
 
     async def set(self, prop, valu):
+        formprop = self.valu.form.prop(prop)
+        if formprop is None:
+            raise s_exc.NoSuchProp(name=prop, form=self.valu.form.name)
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(prop, valu)
 
     @stormfunc(readonly=True)

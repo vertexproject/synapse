@@ -4381,14 +4381,19 @@ class StormTypesTest(s_test.SynTest):
             self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
             self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
 
+            fakeuser = await core.auth.addUser('fakeuser')
+            opts = {'user': fakeuser.iden}
             with self.raises(s_exc.NoSuchProp):
                 await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(lolnope, 42))')
-            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))')
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+            await fakeuser.addRule((True, ('node', 'prop', 'set')))
+            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
             self.true(retn)
             node = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(node[0].props['dns:rev'], 'vertex.link')
 
-            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))')
+            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))', opts=opts)
             self.true(retn)
             node = await core.nodes('inet:ipv4=1.2.3.4')
             self.eq(node[0].props['dns:rev'], 'foo.bar.com')
