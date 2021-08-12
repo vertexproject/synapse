@@ -1,4 +1,5 @@
 import types
+import pprint
 import asyncio
 import logging
 import argparse
@@ -155,6 +156,17 @@ Examples:
 
     # Run a query at the end of the year Zulu
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
+'''
+
+wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
+
+Examples:
+
+    # Specify custom headers and parameters
+    inet:fqdn=vertex.link | wget --headers $lib.dict("User-Agent"="Foo/Bar") --params $lib.dict("clientid"="42")
+
+    # Download multiple URL targets without inbound nodes
+    wget https://vertex.link https://vtx.lk
 '''
 
 reqValidPkgdef = s_config.getJsValidator({
@@ -1219,7 +1231,7 @@ stormcmds = (
     },
     {
         'name': 'wget',
-        'descr': 'Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.',
+        'descr': wgetdescr,
         'cmdargs': (
             ('urls', {'nargs': '*', 'help': 'URLs to download.'}),
             ('--no-ssl-verify', {'default': False, 'action': 'store_true', 'help': 'Ignore SSL certificate validation errors.'}),
@@ -1227,12 +1239,12 @@ stormcmds = (
             ('--params', {'default': None, 'help': 'Provide a dict containing url parameters.'}),
             ('--headers', {
                 'default': {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36',
                     'Accept': '*/*',
                     'Accept-Encoding': 'gzip, deflate',
                     'Accept-Language': 'en-US,en;q=0.9',
                 },
-                'help': 'Provide a dict containing custom request headers.'}),
+                'help': 'Provide a Storm dict containing custom request headers.'}),
             ('--no-headers', {'default': False, 'action': 'store_true', 'help': 'Do NOT use any default headers.'}),
         ),
         'storm': '''
@@ -2164,6 +2176,10 @@ class Parser:
         helpstr = argdef.get('help', 'No help available.')
         defval = argdef.get('default', s_common.novalu)
         if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
+            if isinstance(defval, (tuple, list, dict)):
+                defval = pprint.pformat(defval, indent=34, width=100)
+                if '\n' in defval:
+                    defval = '\n' + defval
             helpstr = f'{helpstr} (default: {defval})'
         self._printf(f'{base}: {helpstr}')
 
