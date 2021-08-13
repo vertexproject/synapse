@@ -3027,6 +3027,11 @@ class MoveTagCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'movetag arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         snap = runt.snap
 
         opts = {'vars': {'tag': self.opts.oldtag}}
@@ -3193,6 +3198,10 @@ class IdenCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'iden argument must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         async for x in genr:
             yield x
 
@@ -3287,6 +3296,10 @@ class GraphCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'graph arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
 
         rules = {
             'degrees': self.opts.degrees,
@@ -3486,6 +3499,10 @@ class ParallelCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'parallel arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         size = await s_stormtypes.toint(self.opts.size)
         query = await runt.getStormQuery(self.opts.query)
 
@@ -3561,6 +3578,10 @@ class TeeCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'tee arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
 
         if not self.opts.query:
             raise s_exc.StormRuntimeError(mesg='Tee command must take at least one query as input.',
@@ -3683,6 +3704,10 @@ class TreeCmd(Cmd):
         return pars
 
     async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'tree query must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
 
         text = self.opts.query
 
