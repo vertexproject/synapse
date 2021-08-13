@@ -3921,6 +3921,13 @@ class NodeProps(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'set', 'desc': 'Set a specific property value by name.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                      {'name': 'prop', 'type': 'str', 'desc': 'The name of the property to set.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the property to.'}
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The set value.'}}},
         {'name': 'list', 'desc': 'List the properties and their values from the ``$node``.',
          'type': {'type': 'function', '_funcname': 'list',
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
@@ -3935,6 +3942,7 @@ class NodeProps(Prim):
     def getObjLocals(self):
         return {
             'get': self.get,
+            'set': self.set,
             'list': self.list,
         }
 
@@ -3963,6 +3971,14 @@ class NodeProps(Prim):
         items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
         for item in items:
             yield item
+
+    async def set(self, prop, valu):
+        formprop = self.valu.form.prop(prop)
+        if formprop is None:
+            raise s_exc.NoSuchProp(name=prop, form=self.valu.form.name)
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
+        return await self.valu.set(prop, valu)
 
     @stormfunc(readonly=True)
     async def get(self, name):
