@@ -792,6 +792,7 @@ class Axon(s_cell.Cell):
 
         async for byts in self._get(sha256):
             hashset.update(byts)
+            await asyncio.sleep(0)
 
         return dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
 
