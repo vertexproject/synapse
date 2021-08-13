@@ -305,7 +305,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             sha256 (bytes): The sha256 hash of the file in bytes.
 
         Returns:
-            int: The size of the file, in bytes. If not present, None is returned.
+            dict: A dictionary containing hashes of the file.
         '''
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.hashset(sha256)
