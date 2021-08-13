@@ -1653,7 +1653,7 @@ class LibBytes(Lib):
             Return the size of the bytes stored in the Axon for the given sha256.
 
             Examples:
-                Get the size for a give variable named ``$sha256``::
+                Get the size for a file given a variable named ``$sha256``::
 
                     $size = $lib.bytes.size($sha256)
             ''',
@@ -1663,6 +1663,20 @@ class LibBytes(Lib):
                   ),
                   'returns': {'type': ['int', 'null'],
                               'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+        {'name': 'hashset', 'desc': '''
+            Return additional hashes of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the md5 hash for a file given a variable named ``$sha256``::
+
+                    $hashset = $lib.bytes.hashset($sha256)
+                    $md5 = $hashset.md5
+            ''',
+         'type': {'type': 'function', '_funcname': '_libBytesHashset',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
@@ -1685,6 +1699,7 @@ class LibBytes(Lib):
             'has': self._libBytesHas,
             'size': self._libBytesSize,
             'upload': self._libBytesUpload,
+            'hashset': self._libBytesHashset,
         }
 
     async def _libBytesUpload(self, genr):
@@ -1717,6 +1732,12 @@ class LibBytes(Lib):
         size, sha2 = await self.dyncall('axon', todo)
 
         return (size, s_common.ehex(sha2))
+
+    async def _libBytesHashset(self, sha256):
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('hashset', s_common.uhex(sha256))
+        ret = await self.dyncall('axon', todo)
+        return ret
 
 @registry.registerLib
 class LibLift(Lib):
