@@ -2,7 +2,9 @@ import os
 import sys
 import asyncio
 
+import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 

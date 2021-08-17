@@ -7,6 +7,7 @@ import synapse.cortex as s_cortex
 import synapse.common as s_common
 
 import synapse.lib.aha as s_aha
+import synapse.lib.cell as s_cell
 import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.servers.stemcell as s_stemcell
@@ -36,3 +37,8 @@ class StemCellTest(s_test.SynTest):
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             cell = s_stemcell.getStemCell(dirn)
             self.true(cell is s_aha.AhaCell)
+
+            conf = {'cell:ctor': 'synapse.lib.cell.Cell'}
+            s_common.yamlsave(conf, dirn, 'cell.yaml')
+            cell = s_stemcell.getStemCell(dirn)
+            self.true(cell is s_cell.Cell)
