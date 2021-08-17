@@ -1653,7 +1653,7 @@ class LibBytes(Lib):
             Return the size of the bytes stored in the Axon for the given sha256.
 
             Examples:
-                Get the size for a give variable named ``$sha256``::
+                Get the size for a file given a variable named ``$sha256``::
 
                     $size = $lib.bytes.size($sha256)
             ''',
@@ -1663,6 +1663,20 @@ class LibBytes(Lib):
                   ),
                   'returns': {'type': ['int', 'null'],
                               'desc': 'The size of the file or ``null`` if the file is not found.', }}},
+        {'name': 'hashset', 'desc': '''
+            Return additional hashes of the bytes stored in the Axon for the given sha256.
+
+            Examples:
+                Get the md5 hash for a file given a variable named ``$sha256``::
+
+                    $hashset = $lib.bytes.hashset($sha256)
+                    $md5 = $hashset.md5
+            ''',
+         'type': {'type': 'function', '_funcname': '_libBytesHashset',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
@@ -1685,6 +1699,7 @@ class LibBytes(Lib):
             'has': self._libBytesHas,
             'size': self._libBytesSize,
             'upload': self._libBytesUpload,
+            'hashset': self._libBytesHashset,
         }
 
     async def _libBytesUpload(self, genr):
@@ -1717,6 +1732,12 @@ class LibBytes(Lib):
         size, sha2 = await self.dyncall('axon', todo)
 
         return (size, s_common.ehex(sha2))
+
+    async def _libBytesHashset(self, sha256):
+        await self.runt.snap.core.getAxon()
+        todo = s_common.todo('hashset', s_common.uhex(sha256))
+        ret = await self.dyncall('axon', todo)
+        return ret
 
 @registry.registerLib
 class LibLift(Lib):
@@ -3921,6 +3942,13 @@ class NodeProps(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'set', 'desc': 'Set a specific property value by name.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                      {'name': 'prop', 'type': 'str', 'desc': 'The name of the property to set.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the property to.'}
+                  ),
+                  'returns': {'type': 'prim', 'desc': 'The set value.'}}},
         {'name': 'list', 'desc': 'List the properties and their values from the ``$node``.',
          'type': {'type': 'function', '_funcname': 'list',
                   'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
@@ -3935,6 +3963,7 @@ class NodeProps(Prim):
     def getObjLocals(self):
         return {
             'get': self.get,
+            'set': self.set,
             'list': self.list,
         }
 
@@ -3963,6 +3992,14 @@ class NodeProps(Prim):
         items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.props.items())
         for item in items:
             yield item
+
+    async def set(self, prop, valu):
+        formprop = self.valu.form.prop(prop)
+        if formprop is None:
+            raise s_exc.NoSuchProp(name=prop, form=self.valu.form.name)
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
+        return await self.valu.set(prop, valu)
 
     @stormfunc(readonly=True)
     async def get(self, name):

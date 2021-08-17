@@ -69,6 +69,10 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
             self.true(all([n.get('name') == 'foo' for n in nodes]))
 
+            # Runtsafety test
+            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | parallel $q'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
             # test $lib.exit() and the StormExit handlers
             msgs = [m async for m in core.view.storm('$lib.exit()')]
             self.eq(msgs[-1][0], 'fini')
@@ -1001,6 +1005,10 @@ class StormTest(s_t_utils.SynTest):
             q = '[ inet:fqdn=www.vertex.link ] | tree { inet:fqdn=www.vertex.link }'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
+            # Runtsafety test
+            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tree $q'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_movetag(self):
 
         async with self.getTestCore() as core:
@@ -1240,6 +1248,10 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOperArg):
                 await core.nodes('movetag foo.bar duck.knight')
 
+            # Runtsafety test
+            q = '[ test:str=hehe ]  | movetag $node.iden() haha'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_spin(self):
 
         async with self.getTestCore() as core:
@@ -1306,6 +1318,10 @@ class StormTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.snap', 'iden must be 32 bytes') as stream:
                 await self.agenlen(0, core.eval(q))
                 self.true(stream.wait(1))
+
+            # Runtsafety test
+            q = 'test:str=hehe | iden $node.iden()'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_minmax(self):
 
@@ -1661,6 +1677,10 @@ class StormTest(s_t_utils.SynTest):
             q = 'tee'
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(q)
+
+            # Runtsafety test
+            q = '[ inet:fqdn=www.vertex.link ] $q={ :domain -> inet:fqdn } | tee $q'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
     async def test_storm_yieldvalu(self):
 
