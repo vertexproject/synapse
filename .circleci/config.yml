@@ -325,22 +325,27 @@ commands:
             docker logs test02
             docker logs test03
             docker logs test04
+            docker logs test05
             dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
             dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
             dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
             dstatus04=`docker inspect test04 --format '{{.State.Health.Status}}'`
+            dstatus04=`docker inspect test05 --format '{{.State.Health.Status}}'`
             docker stop test01
             docker stop test02
             docker stop test03
             docker stop test04
+            docker stop test05
             docker rm test01
             docker rm test02
             docker rm test03
             docker rm test04
+            docker rm test05
             if [ $dstatus01 != "healthy" ]; then exit 1; fi
             if [ $dstatus02 != "healthy" ]; then exit 1; fi
             if [ $dstatus03 != "healthy" ]; then exit 1; fi
             if [ $dstatus04 != "healthy" ]; then exit 1; fi
+            if [ $dstatus05 != "healthy" ]; then exit 1; fi
             exit 0
 
   do_docker_login:
@@ -388,7 +393,7 @@ commands:
             docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_TAG}
             docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_TAG}
-            docker run -d --name test05 vertexproject/synapse-stemcell:${CIRCLE_TAG}
+            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_TAG}
       - check_docker_smoketests
       - run:
           name: tag and push container
@@ -438,7 +443,7 @@ commands:
             docker run -d --name test02 vertexproject/synapse-axon:v2.x.x
             docker run -d --name test03 vertexproject/synapse-cortex:v2.x.x
             docker run -d --name test04 vertexproject/synapse-cryotank:v2.x.x
-            docker run -d --name test05 vertexproject/synapse-stemcell:v2.x.x
+            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:v2.x.x
       - check_docker_smoketests
       - run:
           name: tag and push container
@@ -488,7 +493,7 @@ commands:
             docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
-            docker run -d --name test05 vertexproject/synapse-stemcell:${CIRCLE_BRANCH}
+            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_BRANCH}
       - check_docker_smoketests
       - run:
           name: tag and push container
