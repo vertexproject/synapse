@@ -119,7 +119,8 @@ def ehex(byts):
 
 def uhex(text):
     '''
-    Decode bytes to a string using binascii.unhexlify.
+    Decode a hex string into bytes.
+
     Args:
         text (str): Text to decode.
 
