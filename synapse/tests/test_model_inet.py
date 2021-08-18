@@ -412,6 +412,11 @@ class InetModelTest(s_t_utils.SynTest):
             # IP addresses are NOT valid FQDNs
             self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
 
+            # normalization
+            fqdn = '-foo.gov[.]mm) '
+            expected = ('foo.gov.mm', {'subs': {'host': 'foo', 'domain': 'gov.mm'}})
+            self.eq(t.norm(fqdn), expected)
+
             # Form Tests ======================================================
             valu = 'api.vertex.link'
             expected_ndef = (formname, valu)

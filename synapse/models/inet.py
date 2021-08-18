@@ -269,8 +269,22 @@ class Fqdn(s_types.Type):
         valu = valu.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
 
-        # strip leading/trailing .
-        valu = valu.strip().strip('.')
+        # strip any invalid leading/trailing characters
+        clean = False
+        fqdn_tt = regex.compile('[a-z0-9_]', regex.IGNORECASE)
+
+        while not clean:
+            if not valu:
+                break
+            vstrt = valu[0]
+            vend = valu[-1]
+            if not fqdn_tt.search(vstrt):
+                valu = valu.lstrip(vstrt)
+                continue
+            if not fqdn_tt.search(vend):
+                valu = valu.rstrip(vend)
+                continue
+            clean = True
 
         if not fqdnre.match(valu):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
