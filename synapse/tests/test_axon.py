@@ -208,7 +208,13 @@ class AxonTest(s_t_utils.SynTest):
             # test behavior for two concurrent uploads where the file exists once the lock is released
             self.eq(bbufretn, await axon.put(bbuf))
             self.true(await axon.has(bbufhash))
-            self.eq(bbufretn[0], await axon.save(bbufhash, None))
+
+            def emptygen():
+                if False:
+                    yield None
+                return
+
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen()))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
