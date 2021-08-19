@@ -26,7 +26,7 @@ async def agen(item):
 
     Notes:
         Do not use this for a synchronous generator which would cause
-        none-blocking IO; otherwise that IO will block the ioloop.
+        non-blocking IO; otherwise that IO will block the ioloop.
     '''
     if getattr(item, '__aiter__', None) is not None:
         async for x in item:
