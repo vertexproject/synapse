@@ -16,6 +16,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
+import synapse.lib.hashset as s_hashset
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -2167,12 +2168,18 @@ class StormTypesTest(s_test.SynTest):
                 text = '($size, $sha2) = $lib.bytes.put($bytes)'
                 nodes = await core.nodes(text, opts=opts)
 
+            asdf = b'asdfasdf'
+            asdfset = s_hashset.HashSet()
+            asdfset.update(asdf)
+            hashes = dict([(n, s_common.ehex(h)) for (n, h) in asdfset.digests()])
+
             asdfhash_h = '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892'
+            self.eq(asdfhash_h, hashes['sha256'])
 
             ret = await core.callStorm('return($lib.bytes.has($hash))', {'vars': {'hash': asdfhash_h}})
             self.false(ret)
 
-            opts = {'vars': {'bytes': b'asdfasdf'}}
+            opts = {'vars': {'bytes': asdf}}
             text = '($size, $sha2) = $lib.bytes.put($bytes) [ test:int=$size test:str=$sha2 ]'
 
             nodes = await core.nodes(text, opts=opts)
@@ -2180,6 +2187,9 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'sha256': asdfhash_h}}
             self.eq(8, await core.callStorm('return($lib.bytes.size($sha256))', opts=opts))
+
+            hashset = await core.callStorm('return($lib.bytes.hashset($sha256))', opts=opts)
+            self.eq(hashset, hashes)
 
             self.eq(nodes[0].ndef, ('test:int', 8))
             self.eq(nodes[1].ndef, ('test:str', asdfhash_h))
@@ -4380,6 +4390,23 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
             self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
             self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
+
+            fakeuser = await core.auth.addUser('fakeuser')
+            opts = {'user': fakeuser.iden}
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(lolnope, 42))')
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+            await fakeuser.addRule((True, ('node', 'prop', 'set')))
+            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+            self.true(retn)
+            node = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(node[0].props['dns:rev'], 'vertex.link')
+
+            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))', opts=opts)
+            self.true(retn)
+            node = await core.nodes('inet:ipv4=1.2.3.4')
+            self.eq(node[0].props['dns:rev'], 'foo.bar.com')
 
             props = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props)')
             self.eq(20, props['asn'])
