@@ -271,7 +271,7 @@ class Fqdn(s_types.Type):
 
         # strip any invalid leading/trailing characters
         clean = False
-        fqdn_tt = regex.compile('[a-z0-9_]', regex.IGNORECASE)
+        fqdn_tt = regex.compile(r'[\w_-]', regex.IGNORECASE | regex.UNICODE)
 
         while not clean:
             if not valu:

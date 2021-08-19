@@ -413,8 +413,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, '1.2.3.4')
 
             # normalization
-            fqdn = '-foo.gov[.]mm) '
+            fqdn = 'foo.gov[.]mm) '
             expected = ('foo.gov.mm', {'subs': {'host': 'foo', 'domain': 'gov.mm'}})
+            self.eq(t.norm(fqdn), expected)
+
+            fqdn = '中国.brooklyn.com'
+            expected = ('xn--fiqs8s.brooklyn.com', {'subs': {'host': 'xn--fiqs8s', 'domain': 'brooklyn.com'}})
             self.eq(t.norm(fqdn), expected)
 
             # Form Tests ======================================================
