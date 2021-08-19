@@ -2896,6 +2896,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                     ndefs.add(node.ndef)
             self.isin(('inet:asn', 1138), ndefs)
 
+            # Runtsafety test
+            q = '[ test:int=1 ]  | graph --degrees $node.value()'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'

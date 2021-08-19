@@ -665,6 +665,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'An optional hard-coded GUID to store as the permanent GUID for the cell.',
             'type': 'string',
         },
+        'cell:ctor': {
+            'description': 'An optional python path to the Cell class.  Used by stemcell.',
+            'type': 'string',
+        },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
             'type': 'string',
