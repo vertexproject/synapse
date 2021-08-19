@@ -268,6 +268,15 @@ class Fqdn(s_types.Type):
 
         valu = valu.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
+        valu = valu.strip().strip('.')
+
+        # Make sure we *don't* get an IPv6 address
+        try:
+            v6 = ipaddress.IPv6Address(valu)
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg='FQDN Got an IP address instead')
+        except ipaddress.AddressValueError:
+            pass
 
         # strip any invalid leading/trailing characters
         clean = False
@@ -290,6 +299,13 @@ class Fqdn(s_types.Type):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=f'FQDN failed to match fqdnre [{fqdnre.pattern}]')
 
+        try:
+            valu = valu.encode('idna').decode('utf8').lower()
+        except UnicodeError:
+            mesg = 'Failed to encode/decode the value with idna/utf8.'
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=mesg) from None
+
         # Make sure we *don't* get an IP address
         try:
             socket.inet_pton(socket.AF_INET, valu)
@@ -297,13 +313,6 @@ class Fqdn(s_types.Type):
                                     mesg='FQDN Got an IP address instead')
         except OSError:
             pass
-
-        try:
-            valu = valu.encode('idna').decode('utf8').lower()
-        except UnicodeError:
-            mesg = 'Failed to encode/decode the value with idna/utf8.'
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=mesg) from None
 
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
