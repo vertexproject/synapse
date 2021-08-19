@@ -58,6 +58,9 @@ class AxonTest(s_t_utils.SynTest):
             async for _ in axon.get(asdfhash):
                 pass
 
+        with self.raises(s_exc.NoSuchFile):
+            await axon.hashset(asdfhash)
+
         self.len(0, [item async for item in axon.hashes(0)])
 
         async with await axon.upload() as fd:
@@ -405,6 +408,7 @@ class AxonTest(s_t_utils.SynTest):
                 # Ensure the user can't do things with bytes they don't have permissions too.
                 await self.agenraises(s_exc.AuthDeny, prox.get(asdfhash))
                 await self.asyncraises(s_exc.AuthDeny, prox.has(asdfhash))
+                await self.asyncraises(s_exc.AuthDeny, prox.hashset(asdfhash))
                 await self.agenraises(s_exc.AuthDeny, prox.hashes(0))
                 await self.agenraises(s_exc.AuthDeny, prox.history(0))
                 await self.asyncraises(s_exc.AuthDeny, prox.del_(asdfhash))
