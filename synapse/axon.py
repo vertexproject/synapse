@@ -297,6 +297,19 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.size(sha256)
 
+    async def hashset(self, sha256):
+        '''
+        Calculate additional hashes for a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            dict: A dictionary containing hashes of the file.
+        '''
+        await self._reqUserAllowed(('axon', 'has'))
+        return await self.cell.hashset(sha256)
+
     async def hashes(self, offs):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
@@ -761,6 +774,30 @@ class Axon(s_cell.Cell):
         byts = self.axonslab.get(sha256, db=self.sizes)
         if byts is not None:
             return int.from_bytes(byts, 'big')
+
+    async def hashset(self, sha256):
+        '''
+        Calculate additional hashes for a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+
+        Returns:
+            dict: A dictionary containing hashes of the file.
+        '''
+        if not await self.has(sha256):
+            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+
+        fhash = s_common.ehex(sha256)
+        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+
+        hashset = s_hashset.HashSet()
+
+        async for byts in self._get(sha256):
+            hashset.update(byts)
+            await asyncio.sleep(0)
+
+        return dict([(n, s_common.ehex(h)) for (n, h) in hashset.digests()])
 
     async def metrics(self):
         '''
