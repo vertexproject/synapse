@@ -638,6 +638,9 @@ class Axon(s_cell.Cell):
 
         Yields:
             (int, (bytes, int)): An index offset and the file SHA-256 and size.
+
+        Note:
+            If the same hash was deleted and then added back, the same hash will be yielded twice.
         '''
         for item in self.axonseqn.iter(offs):
             if self.axonslab.has(item[1][0], db=self.sizes):
@@ -726,20 +729,20 @@ class Axon(s_cell.Cell):
         Examples:
             Use an UpLoad object to upload a file to the Axon::
 
-                async with axon.upload() as upfd:
+                async with await axon.upload() as upfd:
                     # Assumes bytesGenerator yields bytes
                     async for byts in bytsgenerator():
-                        upfd.write(byts)
-                    upfd.save()
+                        await upfd.write(byts)
+                    await upfd.save()
 
             Use a single UpLoad object to save multiple files::
 
-                async with axon.upload() as upfd:
+                async with await axon.upload() as upfd:
                     for fp in file_paths:
                         # Assumes bytesGenerator yields bytes
                         async for byts in bytsgenerator(fp):
-                            upfd.write(byts)
-                        upfd.save()
+                            await upfd.write(byts)
+                        await upfd.save()
 
         Returns:
             UpLoad: An Upload manager object.
@@ -816,6 +819,15 @@ class Axon(s_cell.Cell):
         Returns:
             int: The size of the bytes saved.
         '''
+        assert genr is not None
+        return await self._populate(sha256, genr)
+
+    async def _populate(self, sha256, genr, size=None):
+        '''
+        Populates the metadata and save the data itself if genr is not None
+        '''
+        assert genr is not None or size is not None
+
         self._reqBelowLimit()
 
         async with self.holdHashLock(sha256):
@@ -827,7 +839,8 @@ class Axon(s_cell.Cell):
             fhash = s_common.ehex(sha256)
             logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
-            size = await self._saveFileGenr(sha256, genr)
+            if genr is not None:
+                size = await self._saveFileGenr(sha256, genr)
 
             self._addSyncItem((sha256, size))
 

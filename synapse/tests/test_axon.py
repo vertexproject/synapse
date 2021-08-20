@@ -39,9 +39,7 @@ bbufretn = (len(bbuf), bbufhash)
 class AxonTest(s_t_utils.SynTest):
 
     async def check_blob(self, axon, fhash):
-        chunks = []
-        async for chunk in axon.get(fhash):
-            chunks.append(chunk)
+        chunks = [chunk async for chunk in axon.get(fhash)]
         buf = b''.join(chunks)
         ahash = hashlib.sha256(buf).digest()
         self.eq(fhash, ahash)
@@ -50,7 +48,7 @@ class AxonTest(s_t_utils.SynTest):
 
         tick = s_common.now()
 
-        logger.info('asdfhash test')
+        # asdfhash test
 
         self.false(await axon.has(asdfhash))
 
@@ -81,7 +79,7 @@ class AxonTest(s_t_utils.SynTest):
         self.true(await axon.has(asdfhash))
         self.eq(8, await axon.size(asdfhash))
 
-        logger.info('bbufhash test')
+        # bbufhash test
 
         self.false(await axon.has(bbufhash))
 
@@ -97,7 +95,7 @@ class AxonTest(s_t_utils.SynTest):
 
         self.eq((), await axon.wants((bbufhash, asdfhash)))
 
-        logger.info('put() / puts() tests')
+        # put() / puts() tests
         # These don't add new data; but exercise apis to load data
         retn = await axon.put(abuf)
         self.eq(retn, asdfretn)
@@ -105,7 +103,7 @@ class AxonTest(s_t_utils.SynTest):
         retn = await axon.puts([abuf, bbuf])
         self.eq(retn, (asdfretn, bbufretn))
 
-        logger.info('History and metrics')
+        # History and metrics
 
         items = [x async for x in axon.hashes(0)]
         self.eq(((0, (asdfhash, 8)), (1, (bbufhash, 33554437))), items)
@@ -120,7 +118,7 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(33554445, info.get('size:bytes'))
         self.eq(2, info.get('file:count'))
 
-        logger.info('Empty file test')
+        # Empty file test
 
         async with await axon.upload() as fd:
             await fd.write(b'')
@@ -136,13 +134,13 @@ class AxonTest(s_t_utils.SynTest):
 
         self.eq(b'', b''.join(bytz))
 
-        logger.info('Healthcheck test')
+        # Healthcheck test
         snfo = await axon.getHealthCheck()
         self.eq(snfo.get('status'), 'nominal')
         axfo = [comp for comp in snfo.get('components') if comp.get('name') == 'axon'][0]
         self.eq(axfo.get('data'), await axon.metrics())
 
-        logger.info('Upload context reuse')
+        # Upload context reuse
         with mock.patch('synapse.axon.MAX_SPOOL_SIZE', s_axon.CHUNK_SIZE * 2):
 
             very_bigbuf = (s_axon.MAX_SPOOL_SIZE + 2) * b'V'
@@ -155,21 +153,21 @@ class AxonTest(s_t_utils.SynTest):
                 retn = await fd.save()
                 self.eq(retn, asdfretn)
 
-                logger.info('Reuse after uploading an existing file')
+                # Reuse after uploading an existing file
                 # Now write a new file
                 await fd.write(pbuf)
                 retn = await fd.save()
                 self.eq(retn, pennretn)
                 await self.check_blob(axon, pennhash)
 
-                logger.info('Reuse test with large file causing a rollover')
+                # Reuse test with large file causing a rollover
                 for chunk in s_common.chunks(very_bigbuf, s_axon.CHUNK_SIZE):
                     await fd.write(chunk)
                 retn = await fd.save()
                 self.eq(retn, vbigretn)
                 await self.check_blob(axon, vbighash)
 
-                logger.info('Reuse test with small file post rollover')
+                # Reuse test with small file post rollover
                 await fd.write(rbuf)
                 retn = await fd.save()
                 self.eq(retn, rgryretn)
@@ -213,7 +211,13 @@ class AxonTest(s_t_utils.SynTest):
             # test behavior for two concurrent uploads where the file exists once the lock is released
             self.eq(bbufretn, await axon.put(bbuf))
             self.true(await axon.has(bbufhash))
-            self.eq(bbufretn[0], await axon.save(bbufhash, None))
+
+            def emptygen():
+                if False:
+                    yield None
+                return
+
+            self.eq(bbufretn[0], await axon.save(bbufhash, emptygen()))
 
     async def test_axon_proxy(self):
         async with self.getTestAxon() as axon:
