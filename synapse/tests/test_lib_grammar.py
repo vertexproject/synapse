@@ -588,7 +588,7 @@ Queries = [
     'inet:ipv4 +(($foo and $bar))',
     'inet:ipv4 +($(0 and 1))',
     '$x=$($x-1)',
-    'inet:ipv4=1.2.3.4 +(:asn + 20 >= 42)',
+    'inet:ipv4=1.2.3.4 +$(:asn + 20 >= 42)',
     'inet:ipv4 -(seen)> foo:bar:baz',
     'inet:ipv4 -(seen)> (foo:bar:baz, hehe:haha:hoho)^=lol',
     'inet:ipv4 -(($foo, $bar))> ($baz,$faz)=lol',

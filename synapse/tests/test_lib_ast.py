@@ -2012,7 +2012,7 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ] +$lib.true'))
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +(#foo and $lib.false)'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +(:asn + 20 >= 42)'))
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +$(:asn + 20 >= 42)'))
 
             opts = {'vars': {'asdf': b'asdf'}}
             await core.nodes('[ file:bytes=$asdf ]', opts=opts)

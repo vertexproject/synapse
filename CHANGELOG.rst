@@ -5,6 +5,23 @@ Synapse Changelog
 *****************
 
 
+v2.56.0 - 2021-08-19
+====================
+
+Features and Enhancements
+-------------------------
+- Refactor some internal Axon APIs for downstream use.
+  (`#2330 <https://github.com/vertexproject/synapse/pull/2330>`_)
+
+Bugfixes
+--------
+- Resolve an ambiguity in the Storm grammar with yield statement and dollar
+  expressions inside filter expression. There is a slight backwards
+  incompatibility with this change, as dollar expressions insider of filter
+  expressions now require a ``$`` prepended where before it was optional.
+  (`#2322 <https://github.com/vertexproject/synapse/pull/2322>`_)
+
+
 v2.55.0 - 2021-08-18
 ====================
 
