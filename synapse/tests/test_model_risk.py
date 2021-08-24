@@ -33,6 +33,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :time=20200202
                     :success=true
                     :targeted=true
+                    :goal=*
                     :campaign={camp}
                     :prev={attk}
                     :actor:org={org0}
@@ -76,6 +77,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:server'), 'tcp://1.2.3.4')
             self.eq(node.get('used:software'), soft)
             self.nn(node.get('used:file'))
+            self.nn(node.get('goal'))
 
             node = await addNode(f'''[
                     risk:vuln={vuln}

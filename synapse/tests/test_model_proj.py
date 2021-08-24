@@ -15,8 +15,9 @@ class ProjModelTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.projects.add(foo))', opts=asvisi)
             await visi.addRule((True, ('project', 'add')), gateiden=core.view.iden)
-            proj = await core.callStorm('return($lib.projects.add(foo))', opts=asvisi)
+            proj = await core.callStorm('return($lib.projects.add(foo, desc=bar))', opts=asvisi)
             self.nn(proj)
+            self.len(1, await core.nodes('proj:project:desc=bar'))
 
             opts = {'user': visi.iden, 'vars': {'proj': proj}}
             with self.raises(s_exc.AuthDeny):

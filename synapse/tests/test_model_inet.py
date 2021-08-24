@@ -595,6 +595,7 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_http_request(self):
         formname = 'inet:http:request'
 
+        sess = s_common.guid()
         client = s_common.guid()
         server = s_common.guid()
 
@@ -614,6 +615,7 @@ class InetModelTest(s_t_utils.SynTest):
             'response:body': 64 * 'b',
             'client:host': client,
             'server:host': server,
+            'session': sess,
         }
         expected_props = {
             'time': 1420070400000,
@@ -637,6 +639,7 @@ class InetModelTest(s_t_utils.SynTest):
             'response:reason': 'OK',
             'response:headers': (('baz', 'faz'),),
             'response:body': 'sha256:' + 64 * 'b',
+            'session': sess,
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
@@ -646,6 +649,10 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
             self.len(1, await core.nodes('inet:http:request -> inet:http:response:header'))
+
+            nodes = await core.nodes('inet:http:request -> inet:http:session [ :contact=* ]')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('contact'))
 
     async def test_iface(self):
         formname = 'inet:iface'

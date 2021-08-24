@@ -179,6 +179,9 @@ class RiskModule(s_module.CoreModule):
                     ('targeted', ('bool', {}), {
                         'doc': 'Set if the attack was assessed to be targeted or not.',
                     }),
+                    ('goal', ('ou:goal', {}), {
+                        'doc': 'The tactical goal of this specific attack.',
+                    }),
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'Set if the attack was part of a larger campaign.',
                     }),
