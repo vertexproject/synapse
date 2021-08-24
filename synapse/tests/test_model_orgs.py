@@ -47,6 +47,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'name': 'MyName',
                     'type': 'MyType',
                     'desc': 'MyDesc',
+                    'success': 1,
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('org'), org0)
@@ -56,6 +57,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('name'), 'MyName')
                 self.eq(node.get('type'), 'MyType')
                 self.eq(node.get('desc'), 'MyDesc')
+                self.eq(node.get('success'), 1)
                 self.eq(node.get('camptype'), 'get.pizza.')
 
             # type norming first

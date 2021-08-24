@@ -62,6 +62,10 @@ class ProjectModule(s_module.CoreModule):
                         ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                             'doc': 'The project name.'}),
 
+                        ('desc', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'The project description.'}),
+
                         ('creator', ('syn:user', {}), {
                             'doc': 'The synapse user who created the project.'}),
 
