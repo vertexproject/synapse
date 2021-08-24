@@ -10,6 +10,10 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            pars = s_t_storm.getArgParser()
+            opts = pars.parse_args(('woot',))
+            self.eq('woot', opts.cortex)
+
             async with core.getLocalProxy() as proxy:
 
                 outp = s_output.OutPutStr()
@@ -32,3 +36,18 @@ class StormCliTest(s_test.SynTest):
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
                     await scli.runCmdLine('!help')
                     self.isin('!quit', str(outp))
+
+                outp = s_output.OutPutStr()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+                    await scli.runCmdLine('$lib.print(woot)')
+                    self.isin('woot', str(outp))
+
+                outp = s_output.OutPutStr()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+                    await scli.runCmdLine('$lib.warn(woot)')
+                    self.isin('WARNING: woot', str(outp))
+
+                outp = s_output.OutPutStr()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+                    await scli.runCmdLine('---')
+                    self.isin("\n---\n ^\nSyntax Error: No terminal defined for '-' at line 1 col 2", str(outp))

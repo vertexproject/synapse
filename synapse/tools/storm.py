@@ -160,8 +160,8 @@ class StormCli(s_cli.Cli):
                                 text = '...' + text
                                 pos = 33
 
-                        self.printf(text, color=BLUE)
-                        self.printf(f'{" "*pos}^', color=BLUE)
+                        self.printf(text)
+                        self.printf(f'{" "*pos}^')
                         self.printf(f'Syntax Error: {mesg}', color=ERROR_COLOR)
                         return
 
