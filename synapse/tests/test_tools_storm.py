@@ -10,6 +10,8 @@ class StormCliTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            await core.addTagProp('foo', ('int', {}), {})
+
             pars = s_t_storm.getArgParser()
             opts = pars.parse_args(('woot',))
             self.eq('woot', opts.cortex)
@@ -18,11 +20,13 @@ class StormCliTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
-                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 ]')
+                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10]')
                     text = str(outp)
                     self.isin('.....', text)
                     self.isin('inet:ipv4=1.2.3.4', text)
                     self.isin(':type = unicast', text)
+                    self.isin('#bar', text)
+                    self.isin('#baz:foo = 10', text)
                     self.isin('#foo = (2012/01/01 00:00:00.000, 2012/01/01 00:00:00.001)', text)
                     self.isin('complete. 1 nodes in', text)
 
@@ -51,3 +55,13 @@ class StormCliTest(s_test.SynTest):
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
                     await scli.runCmdLine('---')
                     self.isin("\n---\n ^\nSyntax Error: No terminal defined for '-' at line 1 col 2", str(outp))
+
+                outp = s_output.OutPutStr()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+                    await scli.runCmdLine('spin |' + ' ' * 80 + '---')
+                    self.isin("...                             ---\n                                 ^", str(outp))
+
+                outp = s_output.OutPutStr()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+                    await scli.runCmdLine('---' + ' ' * 80 + 'spin')
+                    self.isin("---                            ...\n ^", str(outp))
