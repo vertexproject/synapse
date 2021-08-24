@@ -169,6 +169,28 @@ boom8 = '''
 
 '''
 
+multiline00_input = '''
+A multiline secondary property.
+.. storm-cortex:: default
+.. storm-opts:: {"vars": {"name": "Node\\nWith a\\nweird name"}}
+.. storm:: [graph:node=(n1,) :name=$name]
+Bye!
+'''
+
+multiline00_output = '''
+A multiline secondary property.
+::
+
+    > [graph:node=(n1,) :name=$name]
+    graph:node=85d3511b97098d7fd9e07be21f6390de
+            :name = Node
+                    With a
+                    weird name
+
+Bye!
+'''
+
+
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
         lines = await rstorm.run()
@@ -204,6 +226,15 @@ class RStormLibTest(s_test.SynTest):
             text = await get_rst_text(path)
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
             self.eq(text_nocrt, rst_out_props)
+
+            # Multiline secondary properties
+            path = s_common.genpath(dirn, 'multiline00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(multiline00_input.encode())
+            text = await get_rst_text(path)
+            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
+
+            self.eq(text_nocrt, multiline00_output)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')
