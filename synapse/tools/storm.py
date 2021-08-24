@@ -128,7 +128,6 @@ class StormCli(s_cli.Cli):
                 took = max(took, 1)
                 count = mesg[1].get('count')
                 pers = float(count) / float(took / 1000)
-                self.printf('')
                 self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
             elif mesg[0] == 'print':
@@ -183,6 +182,7 @@ async def main(argv):  # pragma: no cover
     async with await s_telepath.openurl(opts.cortex) as proxy:
         proxy.onfini(telefini)
         async with await StormCli.anit(proxy, opts=opts) as cli:
+            cli.colorsenabled = True
             await cli.addSignalHandlers()
             await cli.runCmdLoop()
 
