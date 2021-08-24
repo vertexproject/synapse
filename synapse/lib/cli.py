@@ -491,7 +491,7 @@ class CmdHelp(Cmd):
 
         for name in cmds:
 
-            cmdo = self._cmd_cli.getCmdByName(f'!{name}')
+            cmdo = self._cmd_cli.getCmdByName(name)
             if cmdo is None:
                 self.printf('=== NOT FOUND: %s' % (name,))
                 continue
