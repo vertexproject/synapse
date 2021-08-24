@@ -364,6 +364,9 @@ class OuModule(s_module.CoreModule):
                     ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Additional assessed goals of the campaign.',
                     }),
+                    ('success', ('bool', {}), {
+                        'doc': 'Records the success/failure status of the campaign if known.',
+                    }),
                     ('name', ('str', {}), {
                         'doc': 'A terse name of the campaign.',
                     }),
