@@ -775,7 +775,7 @@ class CmdOper(Oper):
 
         ctor = runt.snap.core.getStormCmd(name)
         if ctor is None:
-            mesg = 'Storm command not found.'
+            mesg = 'Storm command ({name}) not found.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
         runtsafe = self.kids[1].isRuntSafe(runt)
