@@ -313,7 +313,9 @@ async def main(argv, outp=s_output.stdout):
     telefini = await s_telepath.loadTeleEnv(path)
 
     async with await s_telepath.openurl(opts.cortex) as proxy:
-        proxy.onfini(telefini)
+
+        if telefini is not None:
+            proxy.onfini(telefini)
 
         async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
 
