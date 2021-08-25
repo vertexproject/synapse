@@ -4,6 +4,7 @@ import json
 import pprint
 import logging
 import contextlib
+import collections
 
 import vcr
 import regex
@@ -54,6 +55,19 @@ class StormOutput(s_cmds_cortex.StormCmd):
     async def runCmdLine(self, line):
         opts = self.getCmdOpts(f'storm {line}')
         return await self.runCmdOpts(opts)
+
+    def _printNodeProp(self, name, valu):
+        base = f'        {name} = '
+        if '\n' in valu:
+            parts = collections.deque(valu.split('\n'))
+            ws = ' ' * len(base)
+            self.printf(f'{base}{parts.popleft()}')
+            while parts:
+                part = parts.popleft()
+                self.printf(f'{ws}{part}')
+
+        else:
+            self.printf(f'{base}{valu}')
 
     async def _mockHttp(self, *args, **kwargs):
         info = {

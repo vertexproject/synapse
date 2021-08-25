@@ -1054,6 +1054,9 @@ class InetModule(s_module.CoreModule):
                     ('inet:http:param', ('comp', {'fields': (('name', 'str'), ('value', 'str'))}), {
                         'doc': 'An HTTP request path query parameter.'}),
 
+                    ('inet:http:session', ('guid', {}), {
+                        'doc': 'An HTTP session.'}),
+
                     ('inet:http:request', ('guid', {}), {
                         'interfaces': ('inet:proto:request',),
                         'doc': 'A single HTTP request.'}),
@@ -1655,7 +1658,14 @@ class InetModule(s_module.CoreModule):
                         ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
                             'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
+                        ('session', ('inet:http:session', {}), {
+                            'doc': 'The HTTP session this request was part of.'}),
 
+                    )),
+
+                    ('inet:http:session', {}, (
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The ps:contact which owns the session.'}),
                     )),
 
                     ('inet:iface', {}, (

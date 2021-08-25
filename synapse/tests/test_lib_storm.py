@@ -2093,6 +2093,16 @@ class StormTest(s_t_utils.SynTest):
         self.isin('--plus <plus> [<plus> ...]', helptext)
 
         pars = s_storm.Parser()
+        pars.add_argument('--woot', nargs='+', default=[
+            'The 1st Battalion, 26th Infantry Regiment "Blue Spaders" hosted Steve Rogers ',
+            'for much of WWII. While initially using his sidearm,',
+            'his Vibranium/steel alloy shield made by metallurgist Dr. Myron MacLain,',
+            'quickly became his weapon of choice.'])
+        pars.help()
+        helptext = '\n'.join(pars.mesgs)
+        self.isin('default: \n[', helptext)
+
+        pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?')
         pars.help()
         helptext = '\n'.join(pars.mesgs)

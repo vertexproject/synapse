@@ -297,6 +297,9 @@ class StormCmd(s_cli.Cmd):
         if opts.get('show-prov'):
             self.printf(repr(mesg), color=PROVNEW_COLOR)
 
+    def _printNodeProp(self, name, valu):
+        self.printf(f'        {name} = {valu}')
+
     def _onNode(self, mesg, opts):
         node = mesg[1]
 
@@ -316,8 +319,7 @@ class StormCmd(s_cli.Cmd):
 
                 if name[0] != '.':
                     name = ':' + name
-
-                self.printf(f'        {name} = {valu}')
+                self._printNodeProp(name, valu)
 
         if not opts.get('hide-tags'):
 

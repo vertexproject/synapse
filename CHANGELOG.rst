@@ -5,6 +5,35 @@ Synapse Changelog
 *****************
 
 
+v2.57.0 - 2021-08-24
+====================
+
+Features and Enhancements
+-------------------------
+- Add a basic ``synapse.tools.storm`` CLI tool. This can be used to connect
+  to a Cortex via Telepath and directly execute Storm commands.
+  (`#2332 <https://github.com/vertexproject/synapse/pull/2332>`_)
+- Add an ``inet:http:session`` form to track the concept of a prolonged
+  session a user may have with a webserver across multiple HTTP requests.
+  Add an ``:success` property to the ``ou:campaign`` form to track if a
+  campaign was sucessful or not. Add an ``:goal`` property to the
+  ``risk:attack`` form to track the specific goal of the attack. Add an
+  ``:desc`` property to the ``proj:project`` form to capture a description of
+  the project.
+  (`#2333 <https://github.com/vertexproject/synapse/pull/2333>`_)
+
+Bugfixes
+--------
+- Fix an issue with ``synapse.lib.rstorm`` where multiline node properties
+  could produce RST which did not render properly.
+  (`#2331 <https://github.com/vertexproject/synapse/pull/2331>`_)
+
+Improved Documentation
+----------------------
+- Clean up the documentation for the Storm ``wget`` command.
+  (`#2325 <https://github.com/vertexproject/synapse/pull/2325>`_)
+
+
 v2.56.0 - 2021-08-19
 ====================
 
