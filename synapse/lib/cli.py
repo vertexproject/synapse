@@ -436,6 +436,11 @@ class Cli(s_base.Base):
         except asyncio.CancelledError:
             self.printf('Cmd cancelled')
 
+        except s_exc.ParserExit as e:
+            mesg = e.errinfo.get('mesg')
+            if mesg is not None:
+                self.printf(mesg)
+
         except Exception as e:
             exctxt = traceback.format_exc()
             self.printf(exctxt)

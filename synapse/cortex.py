@@ -916,6 +916,15 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getPermDefs()
 
+    async def getAxonUpload(self):
+        self.user.confirm(('axon', 'push'))
+        return await s_axon.UpLoadShare.anit(self.cell.axon, self.link)
+
+    async def getAxonBytes(self, sha256):
+        self.user.confirm(('axon', 'pull'))
+        async for byts in self.cell.axon.get(s_common.uhex(sha256)):
+            yield byts
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
