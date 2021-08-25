@@ -398,6 +398,8 @@ async def processStormCmds(rst, pkgname, commands):
 
     rst.addLines(f'This package implements the following Storm Commands.\n')
 
+    commands = sorted(commands, key=lambda x: x.get('name'))
+
     for cdef in commands:
 
         cname = cdef.get('name')
