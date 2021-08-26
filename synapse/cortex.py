@@ -3067,6 +3067,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Registration for built-in Cortex httpapi endpoints
         '''
+        self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
@@ -4048,9 +4049,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         Add nodes to the Cortex via the packed node format.
         '''
         async for node in snap.addNodes(items):
-            yield node
+            pass
 
     async def _addSynSplice(self, snap, items):
+        s_common.deprecated('addFeedData(syn.splice, ...)')
 
         for item in items:
             func = self.splicers.get(item[0])
@@ -4155,7 +4157,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await node.delTagProp(tag, prop)
 
     async def _addSynNodeEdits(self, snap, items):
-
+        s_common.deprecated('addFeedData(syn.nodeedits, ...)')
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
             await snap.applyNodeEdits(item)
@@ -4315,7 +4317,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
                 # feed the items directly to syn.nodes
                 async for items in q.slices(size=100):
-                    async for node in self._addSynNodes(snap, items):
+                    async for node in snap.addNodes(items):
                         count += 1
 
                 if feedexc is not None:

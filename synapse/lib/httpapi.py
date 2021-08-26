@@ -989,6 +989,60 @@ class OnePassIssueV1(Handler):
 
         return self.sendRestRetn(passwd)
 
+class FeedV1(Handler):
+    '''
+    /api/v1/feed
+
+    {
+        'name': 'syn.nodes',
+        'view': null,
+        'items': [...],
+    }
+    '''
+    async def post(self):
+
+        if not await self.reqAuthUser():
+            return
+
+        user = await self.user()
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        items = body.get('items')
+        name = body.get('name', 'syn.nodes')
+
+        func = self.cell.getFeedFunc(name)
+        if func is None:
+            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.')
+
+        view = self.cell.getView(body.get('view'), user)
+        if view is None:
+            return self.sendRestErr('NoSuchView', 'The specified view does not exist.')
+
+        wlyr = view.layers[0]
+        perm = ('feed:data', *name.split('.'))
+
+        if not user.allowed(perm, gateiden=wlyr.iden):
+            permtext = '.'.join(perm)
+            mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
+            return self.sendRestErr('AuthDeny', mesg)
+
+        try:
+
+            info = {'name': name, 'view': view.iden, 'nitems': len(items)}
+            await self.cell.boss.promote('feeddata', user=user, info=info)
+
+            async with await self.cell.snap(user=user, view=view) as snap:
+                snap.strict = False
+                await snap.addFeedData(name, items)
+
+            return self.sendRestRetn(None)
+
+        except Exception as e: # pragma: no cover
+            return self.sendRestExc(e)
+
 class CoreInfoV1(Handler):
     '''
     /api/v1/core/info
