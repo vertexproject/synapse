@@ -1,4 +1,6 @@
+import os
 import sys
+import copy
 import asyncio
 import logging
 import argparse
@@ -8,9 +10,11 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cli as s_cli
+import synapse.lib.cmd as s_cmd
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.output as s_output
+import synapse.lib.parser as s_parser
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +46,125 @@ class HelpCmd(s_cli.CmdHelp):
     Example:
 
         !help foocmd
-
     '''
     _cmd_name = '!help'
+
+class StormCliCmd(s_cli.Cmd):
+
+    # cut the Cmd instance over to using argparser and cmdrargv split
+
+    def getArgParser(self):
+        desc = self.getCmdDoc()
+        pars = s_cmd.Parser(prog=self._cmd_name, description=desc, outp=self._cmd_cli.outp)
+        return pars
+
+    def getCmdOpts(self, text):
+        pars = self.getArgParser()
+        argv = s_parser.Parser(text).cmdrargs()
+        return pars.parse_args(argv[1:])
+
+class RunFileCmd(StormCliCmd):
+    '''
+    Run a local storm file.
+
+    Example:
+
+        !runfile /path/to/file.storm
+    '''
+
+    _cmd_name = '!runfile'
+
+    def getArgParser(self):
+        pars = StormCliCmd.getArgParser(self)
+        pars.add_argument('stormfile', help='A local file containing a storm query.')
+        return pars
+
+    async def runCmdOpts(self, opts):
+
+        if not os.path.isfile(opts.stormfile):
+            self.printf(f'no such file: {opts.stormfile}')
+            return
+
+        with open(opts.stormfile, 'rb') as fd:
+            text = fd.read().decode()
+
+        self.printf(f'running storm file: {opts.stormfile}')
+        await self._cmd_cli.storm(text)
+
+class PushFileCmd(StormCliCmd):
+    '''
+    Upload a file and create a file:bytes node.
+
+    Example:
+
+        !pushfile /path/to/file
+    '''
+
+    _cmd_name = '!pushfile'
+
+    def getArgParser(self):
+        pars = StormCliCmd.getArgParser(self)
+        pars.add_argument('filepath', help='A local file to push to the Cortex.')
+        return pars
+
+    async def runCmdOpts(self, opts):
+
+        if not os.path.isfile(opts.filepath):
+            self.printf(f'no such file: {opts.filepath}')
+            return
+
+        self.printf(f'uploading file: {opts.filepath}')
+        async with await self._cmd_cli.item.getAxonUpload() as upload:
+
+            with open(opts.filepath, 'rb') as fd:
+
+                byts = fd.read(10000000)
+                while byts:
+                    await upload.write(byts)
+                    byts = fd.read(10000000)
+
+            size, sha256 = await upload.save()
+
+        opts = {'vars': {
+            'sha256': s_common.ehex(sha256),
+            'name': os.path.basename(opts.filepath),
+        }}
+
+        await self._cmd_cli.storm('[ file:bytes=$sha256 ] { -:name [:name=$name] }', opts=opts)
+
+class PullFileCmd(StormCliCmd):
+    '''
+    Download a file by sha256 and store it locally.
+
+    Example:
+
+        !pullfile c00adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3 /path/to/savefile
+    '''
+
+    _cmd_name = '!pullfile'
+
+    def getArgParser(self):
+        pars = StormCliCmd.getArgParser(self)
+        pars.add_argument('sha256', help='The SHA256 of the file to download.')
+        pars.add_argument('filepath', help='The file path to save the downloaded file to.')
+        return pars
+
+    async def runCmdOpts(self, opts):
+
+        self.printf(f'downloading sha256: {opts.sha256}')
+
+        try:
+            with s_common.genfile(opts.filepath) as fd:
+                async for byts in self._cmd_cli.item.getAxonBytes(opts.sha256):
+                    byts = fd.write(byts)
+
+            self.printf(f'saved to: {opts.filepath}')
+
+        except asyncio.CancelledError as e:
+            raise
+
+        except s_exc.SynErr as e:
+            self.printf(e.errinfo.get('mesg', str(e)))
 
 class StormCli(s_cli.Cli):
 
@@ -61,11 +181,12 @@ class StormCli(s_cli.Cli):
         self.hidetags = False
         self.hideprops = False
 
-        self.printf(welcome)
-
     def initCmdClasses(self):
         self.addCmdClass(QuitCmd)
         self.addCmdClass(HelpCmd)
+        self.addCmdClass(RunFileCmd)
+        self.addCmdClass(PullFileCmd)
+        self.addCmdClass(PushFileCmd)
 
     def printf(self, mesg, addnl=True, color=None):
         if self.indented:
@@ -78,7 +199,15 @@ class StormCli(s_cli.Cli):
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
 
-        async for mesg in self.item.storm(line, opts=self.stormopts):
+        await self.storm(line)
+
+    async def storm(self, text, opts=None):
+
+        realopts = copy.deepcopy(self.stormopts)
+        if opts is not None:
+            realopts.update(opts)
+
+        async for mesg in self.item.storm(text, opts=realopts):
 
             if mesg[0] == 'node':
 
@@ -169,10 +298,12 @@ class StormCli(s_cli.Cli):
 
 def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')
-    pars.add_argument('cortex', help='A telepath URL for the Cortex')
+    pars.add_argument('cortex', help='A telepath URL for the Cortex.')
+    pars.add_argument('onecmd', nargs='?', help='A single storm command to run and exit.')
     return pars
 
-async def main(argv):  # pragma: no cover
+async def main(argv, outp=s_output.stdout):
+
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
@@ -180,9 +311,20 @@ async def main(argv):  # pragma: no cover
     telefini = await s_telepath.loadTeleEnv(path)
 
     async with await s_telepath.openurl(opts.cortex) as proxy:
-        proxy.onfini(telefini)
-        async with await StormCli.anit(proxy, opts=opts) as cli:
+
+        if telefini is not None:
+            proxy.onfini(telefini)
+
+        async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
+
+            if opts.onecmd:
+                await cli.runCmdLine(opts.onecmd)
+                return
+
+            # pragma: no cover
             cli.colorsenabled = True
+            cli.printf(welcome)
+
             await cli.addSignalHandlers()
             await cli.runCmdLoop()
 
