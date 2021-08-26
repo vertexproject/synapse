@@ -1036,3 +1036,35 @@ class HttpApiTest(s_tests.SynTest):
                 body = {'name': 'hehe', 'default': 'lolz'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/vars/pop', json=body)
                 self.eq('AuthDeny', (await resp.json())['code'])
+
+    async def test_http_feed(self):
+
+        async with self.getTestCore() as core:
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            root = core.auth.rootuser
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+            await root.setPasswd('secret')
+
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                body = {'view': 'asdf'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
+                self.eq('NoSuchView', (await resp.json())['code'])
+
+                body = {'name': 'asdf'}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
+                self.eq('NoSuchFunc', (await resp.json())['code'])
+
+                body = {'items': [(('inet:ipv4', 0x05050505), {})]}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
+                self.eq('ok', (await resp.json())['status'])
+                self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+
+            async with self.getHttpSess(auth=('visi', 'secret'), port=port) as sess:
+                body = {'items': [(('inet:ipv4', 0x01020304), {})]}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
+                self.eq('AuthDeny', (await resp.json())['code'])
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))

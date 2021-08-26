@@ -894,13 +894,7 @@ class Snap(s_base.Base):
 
         logger.info(f'User ({self.user.name}) adding feed data ({name}): {len(items)}')
 
-        retn = func(self, items)
-
-        # If the feed function is an async generator, run it...
-        if isinstance(retn, types.AsyncGeneratorType):
-            retn = [x async for x in retn]
-        elif s_coro.iscoro(retn):
-            await retn
+        await func(self, items)
 
     async def addTagNode(self, name):
         '''
@@ -1041,140 +1035,128 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        nodeedits = []
-        buids = set()
-        n2buids = set()
-        for (formname, formvalu), forminfo in nodedefs:
-            try:
-                props = forminfo.get('props')
-
-                # remove any universal created props...
-                if props is not None:
-                    props.pop('.created', None)
-
-                oldstrict = self.strict
-                self.strict = False
+        oldstrict = self.strict
+        self.strict = False
+        try:
+            for nodedefn in nodedefs:
                 try:
+                    node = await self._addNodeDef(nodedefn)
+                    if node is not None:
+                        yield node
 
-                    (node, editset) = await self._getAddNodeEdits(formname, formvalu, props=props)
-                    if editset is not None:
-                        buid, form, edits = editset[0]
+                    await asyncio.sleep(0)
 
-                        tags = forminfo.get('tags')
-                        tagprops = forminfo.get('tagprops')
-                        if tagprops is not None:
-                            if tags is None:
-                                tags = {}
+                except asyncio.CancelledError:
+                    raise
 
-                            for tag in tagprops.keys():
-                                tags[tag] = (None, None)
+                except Exception as e:
+                    if oldstrict:
+                        raise
+                    await self.warn(f'addNodes failed on {nodedefn}: {e}')
+                    await asyncio.sleep(0)
+        finally:
+            self.strict = oldstrict
 
-                        if tags is not None:
-                            tagedits = await self._getAddTagEdits(node, tags)
-                            edits.extend(tagedits)
+    async def _addNodeDef(self, nodedefn):
 
-                        if tagprops is not None:
-                            tpedits = await self._getAddTagPropEdits(node, tagprops)
-                            edits.extend(tpedits)
+        n2buids = set()
 
-                        nodedata = forminfo.get('nodedata')
-                        if nodedata is not None:
-                            try:
-                                for name, data in nodedata.items():
-                                    # make sure we have valid nodedata
-                                    if not (isinstance(name, str)):
-                                        await self.warn(f'Nodedata key is not a string: {name}')
-                                        continue
-                                    s_common.reqjsonsafe(data)
-                                    edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
-                            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                                raise
-                            except Exception as e:
-                                await self.warn(f'Failed adding node data on {formname}, {formvalu}, {forminfo}: {e}')
+        (formname, formvalu), forminfo = nodedefn
 
-                        n2edits = []
-                        for verb, n2iden in forminfo.get('edges', ()):
-                            # check for embedded ndef rather than n2iden
-                            if isinstance(n2iden, (list, tuple)):
-                                n2formname, n2valu = n2iden
+        props = forminfo.get('props')
 
-                                n2form = self.core.model.form(n2formname)
-                                if n2form is None:
-                                    await self.warn(f'Failed to make n2 edge node for {n2iden}: invalid form')
-                                    continue
+        # remove any universal created props...
+        if props is not None:
+            props.pop('.created', None)
 
-                                if n2form.isrunt:
-                                    await self.warn(f'Edges cannot be used with runt nodes: {n2formname}')
-                                    continue
+        (node, editset) = await self._getAddNodeEdits(formname, formvalu, props=props)
+        if editset is None:
+            return None
 
-                                try:
-                                    n2norm, _ = n2form.type.norm(n2valu)
-                                    n2buid = s_common.buid((n2form.name, n2norm))
+        buid, form, edits = editset[0]
 
-                                    if not (n2buid in n2buids or n2buid in buids):
-                                        _, n2editset = await self._getAddNodeEdits(n2formname, n2valu)
-                                        n2edits.extend(n2editset)
+        tags = forminfo.get('tags')
+        tagprops = forminfo.get('tagprops')
+        if tagprops is not None:
+            if tags is None:
+                tags = {}
 
-                                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                                    raise
-                                except:
-                                    await self.warn(f'Failed to make n2 edge node for {n2iden}')
-                                    continue
+            for tag in tagprops.keys():
+                tags[tag] = (None, None)
 
-                                n2iden = s_common.ehex(n2buid)
-                                n2buids.add(n2buid)
+        if tags is not None:
+            tagedits = await self._getAddTagEdits(node, tags)
+            edits.extend(tagedits)
 
-                            # make sure a valid iden and verb were passed in
-                            elif not (isinstance(n2iden, str) and len(n2iden) == 64):
-                                await self.warn(f'Invalid n2 iden {n2iden}')
-                                continue
+        if tagprops is not None:
+            tpedits = await self._getAddTagPropEdits(node, tagprops)
+            edits.extend(tpedits)
 
-                            if not (isinstance(verb, str)):
-                                await self.warn(f'Invalid edge verb {verb}')
-                                continue
+        nodedata = forminfo.get('nodedata')
+        if nodedata is not None:
+            try:
+                for name, data in nodedata.items():
+                    # make sure we have valid nodedata
+                    if not (isinstance(name, str)):
+                        await self.warn(f'Nodedata key is not a string: {name}')
+                        continue
+                    s_common.reqjsonsafe(data)
+                    edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
+            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                raise
+            except Exception as e:
+                await self.warn(f'Failed adding node data on {formname}, {formvalu}, {forminfo}: {e}')
 
-                            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+        n2edits = []
+        for verb, n2iden in forminfo.get('edges', ()):
+            # check for embedded ndef rather than n2iden
+            if isinstance(n2iden, (list, tuple)):
+                n2formname, n2valu = n2iden
 
-                        nodeedits.append((buid, form, edits))
-                        nodeedits.extend(n2edits)
-                        buids.add(buid)
-                        await asyncio.sleep(0)
+                n2form = self.core.model.form(n2formname)
+                if n2form is None:
+                    await self.warn(f'Failed to make n2 edge node for {n2iden}: invalid form')
+                    continue
+
+                if n2form.isrunt:
+                    await self.warn(f'Edges cannot be used with runt nodes: {n2formname}')
+                    continue
+
+                try:
+                    n2norm, _ = n2form.type.norm(n2valu)
+                    n2buid = s_common.buid((n2form.name, n2norm))
+
+                    if n2buid not in n2buids:
+                        _, n2editset = await self._getAddNodeEdits(n2formname, n2valu)
+                        n2edits.extend(n2editset)
 
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
 
-                except Exception as e:
-                    if not oldstrict:
-                        await self.warn(f'addNodes failed on {formname}, {formvalu}, {forminfo}: {e}')
-                        await asyncio.sleep(0)
-                        continue
-                    raise
+                except:
+                    await self.warn(f'Failed to make n2 edge node for {n2iden}')
+                    continue
 
-                finally:
-                    self.strict = oldstrict
+                n2iden = s_common.ehex(n2buid)
+                n2buids.add(n2buid)
 
-                if len(buids) >= 1000:
-                    nodes = await self.applyNodeEdits(nodeedits)
-                    for node in nodes:
-                        if node.buid in buids:
-                            yield node
-                            await asyncio.sleep(0)
+            # make sure a valid iden and verb were passed in
+            elif not (isinstance(n2iden, str) and len(n2iden) == 64):
+                await self.warn(f'Invalid n2 iden {n2iden}')
+                continue
 
-                    nodedits = []
-                    buids.clear()
-                    n2buids.clear()
+            if not (isinstance(verb, str)):
+                await self.warn(f'Invalid edge verb {verb}')
+                continue
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
 
-            except Exception:
-                logger.exception(f'Error making node: [{formname}={formvalu}]')
+        nodeedits = [(buid, form, edits)]
+        nodeedits.extend(n2edits)
 
         nodes = await self.applyNodeEdits(nodeedits)
-        for node in nodes:
-            if node.buid in buids:
-                yield node
-                await asyncio.sleep(0)
+        if nodes:
+            return nodes[0]
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 
