@@ -913,6 +913,24 @@ class CertDir:
             caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
 
         '''
+        if hostname is not None and hostname.find(',') != -1:
+            # multi-hostname SNI routing has been requested
+            ctxs = {}
+            names = hostname.split(',')
+            for name in names:
+                ctxs[name] = self._getServerSSLContext(name, caname=caname)
+
+            def snifunc(sslsock, sslname, origctx):
+                sslsock.context = ctxs.get(sslname, origctx)
+                return None
+
+            sslctx = ctxs.get(names[0])
+            sslctx.sni_callback = snifunc
+            return sslctx
+
+        return self._getServerSSLContext(hostname=hostname, caname=caname)
+
+    def _getServerSSLContext(self, hostname=None, caname=None):
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         if hostname is None:
             hostname = socket.gethostname()

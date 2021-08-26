@@ -434,6 +434,34 @@ class TeleTest(s_t_utils.SynTest):
                 self.len(1, sessions)
                 self.eq(sessions[0].get('conninfo').get('family'), 'tls')
 
+    async def test_telepath_tls_sni(self):
+
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+        async with self.getTestDmon() as dmon:
+
+            dmon.certdir.genHostCert('hehe', signas='ca')
+            dmon.certdir.genHostCert('haha', signas='ca')
+            dmon.certdir.genHostCert('nolisten')
+
+            dmon.share('foo', foo)
+            addr = await dmon.listen(f'ssl://127.0.0.1:0?hostname=hehe,haha')
+
+            async with await s_telepath.openurl(f'ssl://127.0.0.1/foo?hostname=hehe', port=addr[1]) as prox:
+                self.eq(30, await prox.bar(10, 20))
+
+            async with await s_telepath.openurl(f'ssl://127.0.0.1/foo?hostname=haha', port=addr[1]) as prox:
+                self.eq(30, await prox.bar(10, 20))
+
+            # Default does not match expected hostname
+            with self.raises(s_exc.BadCertHost) as cm:
+                url = f'ssl://127.0.0.1/foo?hostname=nolisten'
+                async with await s_telepath.openurl(url, port=addr[1]) as prox:
+                    pass
+            mesg = cm.exception.get('mesg')
+            self.eq(mesg, 'Expected: nolisten Got: hehe')
+
     async def test_telepath_surrogate(self):
 
         foo = Foo()
