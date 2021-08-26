@@ -918,7 +918,8 @@ class CoreApi(s_cell.CellApi):
 
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
-        return await s_axon.UpLoadShare.anit(self.cell.axon, self.link)
+        upload = await self.cell.axon.upload()
+        return await s_axon.UpLoadProxy.anit(self.link, upload)
 
     async def getAxonBytes(self, sha256):
         self.user.confirm(('axon', 'get'))

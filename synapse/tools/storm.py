@@ -93,7 +93,7 @@ class RunFileCmd(StormCliCmd):
 
 class PushFileCmd(StormCliCmd):
     '''
-    Push a local file to the Cortex and create a file:bytes node.
+    Upload a file and create a file:bytes node.
 
     Example:
 
@@ -134,7 +134,7 @@ class PushFileCmd(StormCliCmd):
 
 class PullFileCmd(StormCliCmd):
     '''
-    Pull a file down by sha256 and store it locally.
+    Download a file by sha256 and store it locally.
 
     Example:
 
@@ -180,8 +180,6 @@ class StormCli(s_cli.Cli):
         self.stormopts = {'repr': True}
         self.hidetags = False
         self.hideprops = False
-
-        self.printf(welcome)
 
     def initCmdClasses(self):
         self.addCmdClass(QuitCmd)
@@ -325,6 +323,8 @@ async def main(argv, outp=s_output.stdout):
 
             # pragma: no cover
             cli.colorsenabled = True
+            cli.printf(welcome)
+
             await cli.addSignalHandlers()
             await cli.runCmdLoop()
 
