@@ -1049,7 +1049,15 @@ class HttpApiTest(s_tests.SynTest):
             await visi.setPasswd('secret')
             await root.setPasswd('secret')
 
+            async with self.getHttpSess(port=port) as sess:
+                body = {'items': [(('inet:ipv4', 0x05050505), {})]}
+                resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
+                self.eq('NotAuthenticated', (await resp.json())['code'])
+
             async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                resp = await sess.post(f'https://localhost:{port}/api/v1/feed')
+                self.eq('SchemaViolation', (await resp.json())['code'])
+
                 body = {'view': 'asdf'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('NoSuchView', (await resp.json())['code'])

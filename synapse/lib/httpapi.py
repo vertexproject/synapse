@@ -1040,7 +1040,7 @@ class FeedV1(Handler):
 
             return self.sendRestRetn(None)
 
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             return self.sendRestExc(e)
 
 class CoreInfoV1(Handler):

@@ -1133,7 +1133,7 @@ class Snap(s_base.Base):
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
 
-                except:
+                except: # pragma: no cover
                     await self.warn(f'Failed to make n2 edge node for {n2iden}')
                     continue
 
@@ -1145,7 +1145,7 @@ class Snap(s_base.Base):
                 await self.warn(f'Invalid n2 iden {n2iden}')
                 continue
 
-            if not (isinstance(verb, str)):
+            if not (isinstance(verb, str)): # pragma: no cover
                 await self.warn(f'Invalid edge verb {verb}')
                 continue
 
