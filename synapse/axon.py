@@ -238,6 +238,18 @@ class UpLoadShare(UpLoad, s_share.Share):  # type: ignore
         await UpLoad.__anit__(self, axon)
         await s_share.Share.__anit__(self, link, None)
 
+class UpLoadProxy(s_share.Share):
+
+    async def __anit__(self, link, upload):
+        await s_share.Share.__anit__(self, link, upload)
+        self.onfini(upload)
+
+    async def write(self, byts):
+        return await self.item.write(byts)
+
+    async def save(self):
+        return await self.item.save()
+
 class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
     async def __anit__(self, cell, link, user):
