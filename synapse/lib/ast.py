@@ -792,7 +792,7 @@ class CmdOper(Oper):
                 async for node, path in genr:
                     argv = await self.kids[1].compute(runt, path)
                     if not await scmd.setArgv(argv):
-                        raise s_stormctrl.StormExit()
+                        raise s_stormctrl.StormExit(f'Command {name} failed to set arguments.')
 
                     yield node, path
 
@@ -804,7 +804,7 @@ class CmdOper(Oper):
                 if runtsafe:
                     argv = await self.kids[1].compute(runt, None)
                     if not await scmd.setArgv(argv):
-                        raise s_stormctrl.StormExit()
+                        raise s_stormctrl.StormExit(f'Command {name} failed to set arguments.')
 
                 if runtsafe or not empty:
                     async for item in scmd.execStormCmd(runt, genr):
