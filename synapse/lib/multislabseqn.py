@@ -18,14 +18,14 @@ import synapse.lib.coro as s_coro
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.lmdbslab as s_lmdbslab
 
-from typing import List, Tuple, Dict, Optional, Any
+from typing import List, Tuple, Dict, Optional, Any, AsyncIterator
 
 logger = logging.getLogger(__name__)
 
 seqnslabre = regex.compile(r'^seqn([0-9a-f]{16})\.lmdb$')
 
-# Average of 1.26KiB per entry means roughly 1.2 GiB / slab file
-DEF_MAX_IDX_PER_SLAB = 0x1000000
+# Average of 1KiB per entry means roughly 1 GiB / slab file
+DEF_IDX_PER_SLAB = 0x1000000
 
 class MultiSlabSeqn(s_base.Base):
     '''
@@ -34,45 +34,58 @@ class MultiSlabSeqn(s_base.Base):
 
     async def __anit__(self, dirn, slabopts=None):
 
-        self.MAX_IDX_PER_SLAB = int(os.environ.get('SYN_MULTISLAB_MAX_INDEX', DEF_MAX_IDX_PER_SLAB))
-        self.offsevents: List[Tuple[int, int, asyncio.Event]] # as a heap
+        await s_base.Base.__anit__(self)
+
+        self.IDX_PER_SLAB = int(os.environ.get('SYN_MULTISLAB_MAX_INDEX', DEF_IDX_PER_SLAB))
+
+        self.offsevents: List[Tuple[int, int, asyncio.Event]] = [] # as a heap
         self._waitcounter = 0
+
         self.dirn: str = dirn
+        s_common.gendir(self.dirn)
         self.slabopts: Dict[Any] = {} if slabopts is None else slabopts
 
         # The last/current slab
         self.tailslab: Optional[s_lmdbslab.Slab] = None
         self.tailseqn: Optional[s_slabseqn.SlabSeqn] = None
 
-        # The most recently accessed slab/seqn that isn't the last
+        # The most recently accessed slab/seqn that isn't the tail
         self._cacheslab: Optional[s_lmdbslab.Slab] = None
         self._cacheseqn: Optional[s_slabseqn.SlabSeqn] = None
         self._cacheridx = None
 
-        # A startidx -> Slab, Seqn for all open Slabs, so we don't accidentally open the same Slab twice
+        # A startidx -> (Slab, Seqn) dict for all open Slabs, so we don't accidentally open the same Slab twice
         self._openslabs: Dict[int, Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]] = {}
 
+        # Lock to avoid an open race
         self._openlock = asyncio.Lock()
 
-        self._discoverRanges(self)
+        await self._discoverRanges()
 
         async def fini():
-            for slab, _ in self._openslabs:
+            for slab, _ in list(self._openslabs.values()):
+                # We incref the slabs, so might have to fini multiple times
                 count = 1
                 while count:
                     count = await slab.fini()
 
         self.onfini(fini)
 
-    @staticmethod
-    def _getFirstIndx(slab):
-        db = slab.initdb('info')
-        return slab.get('firstindx', db=db)
+    def __repr__(self):
+        return f'MultiSlabSeqn: {self.dirn!r}'
 
     @staticmethod
-    def _putFirstIndx(slab):
+    def _getFirstIndx(slab) -> Optional[int]:
         db = slab.initdb('info')
-        return slab.put('firstindx', db=db)
+        bytz = slab.get(b'firstindx', db=db)
+        if bytz is None:
+            return 0
+        return s_common.int64un(bytz)
+
+    @staticmethod
+    def _setFirstIndx(slab, indx) -> bool:
+        db = slab.initdb('info')
+        return slab.put(b'firstindx', s_common.int64en(indx), db=db)
 
     async def _discoverRanges(self):
         '''
@@ -80,26 +93,24 @@ class MultiSlabSeqn(s_base.Base):
         '''
         fnstartidx = 0
         lastidx = None
-        self._ranges: List[int] = []
-        self.firstindx = 0
+        self._ranges: List[int] = []  # Starting offsets of all the slabs in order
+        self.firstindx = 0  # persistently-stored indicator of lowest index
+        self.indx = 0  # The next place an add() will go
         lowindx = None
 
         # Make sure the files are in order
 
-        for fn in sorted(s_common.listdir(self.dirn, 'seqn*.lmdb')):
+        for fn in sorted(s_common.listdir(self.dirn, glob='*seqn' + '[abcdef01234567890]' * 16 + '.lmdb')):
 
             if not os.path.isdir(fn):
                 logger.warning(f'Found a non-directory {fn} where a directory should be')
                 continue
-            match = seqnslabre.match(fn)
-            if match is None:
-                logger.warning(f"File {fn} has invalid name")
-                continue
+            match = seqnslabre.match(os.path.basename(fn))
+            assert match
 
             newstartidx = int.from_bytes(s_common.uhex(match.group(1)), 'big')
 
-            if newstartidx < fnstartidx:
-                raise s_exc.BadCoreStore(mesg=f'Multislab:  index out of order ({fn})')
+            assert newstartidx >= fnstartidx
 
             fnstartidx = newstartidx
 
@@ -114,36 +125,40 @@ class MultiSlabSeqn(s_base.Base):
                 if fnstartidx != lastidx + 1:
                     logger.debug(f'Multislab:  gap in indices at {fn}.  Previous last index is {lastidx}.')
 
-            async with s_lmdbslab.Slab.anit(fn, **self.slabopts) as slab:
-                self.firstidx = self.getFirstIndx(slab)
+            async with await s_lmdbslab.Slab.anit(fn, **self.slabopts) as slab:
+                self.firstindx = self._getFirstIndx(slab)
                 # We use the old name of the sequence to ease migration from the old system
-                seqn = s_slabseqn.SlabSeqn('nexuslog', slab)
+                seqn = slab.getSeqn('nexuslog')
+                self.indx = seqn.indx
 
-                first = seqn.first()
-                if first is None:
+                firstitem = seqn.first()
+                if firstitem is None:
                     logger.warning(f'Multislab:  found empty seqn in {fn}.  Deleting.')
                     await slab.trash()
                     continue
 
-                firstidx = first[0]
+                firstidx = firstitem[0]  # might not match the separately stored first index due to culling
 
                 if firstidx != fnstartidx:
                     raise s_exc.BadCoreStore('Multislab:  filename inconsistent with contents')
 
-                lastidx = seqn.index()
-            self.idxranges.append((fnstartidx, fn))
+                lastidx = seqn.index() - 1
+            self._ranges.append(fnstartidx)
 
-        # An admin might have manually culled by removing old slabs.  Update firstidx accordingly.
-        if lowindx > self.firstidx:
-            self.firstidx = lowindx
+        # An admin might have manually culled by rm'ing old slabs.  Update firstidx accordingly.
+        if lowindx is not None and lowindx > self.firstindx:
+            self.firstindx = lowindx
 
-        await self._startTailSlab(fnstartidx)
+        if self.firstindx > self.indx:
+            raise s_exc.BadCoreStore('Invalid firstindx value')
+
+        await self._initTailSlab(fnstartidx)
 
     @staticmethod
     def slabFilename(dirn: str, indx: int):
-        return s_common.genpath(dirn, 'seqn{indx:016x}.lmdb')
+        return s_common.genpath(dirn, f'seqn{indx:016x}.lmdb')
 
-    async def _startTailSlab(self, indx):
+    async def _initTailSlab(self, indx: int):
         if self.tailslab:
             await self.tailslab.fini()
 
@@ -151,41 +166,40 @@ class MultiSlabSeqn(s_base.Base):
 
         if not self.tailslab.dbexists('info'):
             self._setFirstIndx(self.tailslab, self.firstindx)
-
-        if not self.tailseqn.index():
             self.tailseqn.indx = indx
+            self._ranges.append(indx)
 
         return indx
 
-    async def _appendSlab(self):
-        self._ranges.append(await self._startTailSlab(self.indx))
-
-    def _wake_waiters(self):
+    def _wake_waiters(self) -> None:
         while self.offsevents and self.offsevents[0][0] < self.indx:
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
 
-    async def cull(self, offs):
+    async def cull(self, offs: int) -> None:
         '''
         Remove entries up to (and including) the given offset.
-
-        Note:  don't bother deleting the ro
         '''
+        # Note:  we don't bother deleting the rows from inside a partially culled slab.  We just update self.firstindx
+        # so nothing will return those rows anymore.  We only delete from disk entire slabs once they are culled.
         if offs < self.firstindx:
             return
 
-        self._cacheridx = None
-        await self._cacheslab.fini()
-        self._cacheslab = self._cacheseqn = None
+        if self._cacheridx is not None:
+            self._cacheridx = None
+            assert self._cacheslab
+            await self._cacheslab.fini()
+            self._cacheslab = self._cacheseqn = None
 
-        if offs > self.indx:
+        # We keep at least one entry;  this avoids offsets possibly going lower after a restart
+        if offs >= self.indx - 1:
             return
 
         for ridx in range(len(self._ranges) - 1):
             startidx = self._ranges[ridx]
 
             if self._openslabs.get(startidx):
-                raise s_exc.SynErr(mesg='Attempt to cull while another task is still using it')
+                raise s_exc.SlabInUse(mesg='Attempt to cull while another task is still using it')
 
             fn = self.slabFilename(self.dirn, startidx)
             if offs < self._ranges[ridx + 1] - 1:
@@ -202,9 +216,9 @@ class MultiSlabSeqn(s_base.Base):
             await asyncio.sleep(0)
 
         self.firstindx = offs + 1
-        await self._setFirstIndx(self.tailslab, offs + 1)
+        self._setFirstIndx(self.tailslab, offs + 1)
 
-        del self.idxranges[:ridx]
+        del self._ranges[:ridx]
 
     def _isTimeToRotate(self, indx):
         return indx > self._ranges[-1] and indx % self.IDX_PER_SLAB == 0
@@ -217,112 +231,116 @@ class MultiSlabSeqn(s_base.Base):
             if item is not None:
                 item[0].incref()
                 return item
+
             fn = self.slabFilename(self.dirn, startidx)
 
             slab = await s_lmdbslab.Slab.anit(fn, **self.slabopts)
-            seqn = slab.getSeqn('nexuslog')  # type: ignore
+            seqn = slab.getSeqn('nexuslog')
 
             self._openslabs[startidx] = slab, seqn
 
             def fini():
-                self._openslabs.pop(startidx)
+                self._openslabs.pop(startidx, None)
 
             slab.onfini(fini)
 
             return slab, seqn
 
     @contextlib.asynccontextmanager
-    async def _getSeqn(self, ridx: int):
+    async def _getSeqn(self, ridx: int) -> AsyncIterator[s_slabseqn.SlabSeqn]:
         '''
         Get the sequence corresponding to an index into self._ranges
         '''
-        # Problem:  what happens if tail is being closed
         if ridx == len(self._ranges) - 1:
-            try:
-                self.tailslab.incref()  # type: ignore
-                yield self.tailseqn
-            finally:
-                await self.tailslab.fini()  # type: ignore
-            return
+            assert self.tailslab and self.tailseqn
+            slab, seqn = self.tailslab, self.tailseqn
 
-        if ridx == self._cacheridx:
-            try:
-                self._cacheslab.incref()  # type: ignore
-                yield self._cacheseqn
-            finally:
-                await self._cacheslab.fini()  # type: ignore
-            return
+        elif ridx == self._cacheridx:
+            assert self._cacheslab and self._cacheseqn
+            slab, seqn = self._cacheslab, self._cacheseqn
 
-        startidx = self._ranges[ridx]
+        else:
+            startidx = self._ranges[ridx]
 
-        if self._cacheslab is not None:
             self._cacheridx = None
 
-            await self._cacheslab.fini()
+            if self._cacheslab is not None:
+                await self._cacheslab.fini()
 
-        self._cacheslab, self._cacheseqn = await self._makeSlab(startidx)
-        self._cacheridx = ridx
-        yield self._cacheseqn
+            slab, seqn = self._cacheslab, self._cacheseqn = await self._makeSlab(startidx)
+            self._cacheridx = ridx
 
-    async def add(self, item, indx=None):
+        slab.incref()
+        try:
+            yield seqn
+        finally:
+            await slab.fini()
+
+    async def add(self, item: Any, indx=None) -> int:
         '''
         Add a single item to the sequence.
         '''
         advances = True
 
         if indx is not None:
-            if indx < self.firstidx:
-                raise s_exc.BadLiftValu(mesg=f'indx lower than first index in sequence {self.firstidx}')
+            if indx < self.firstindx:
+                raise s_exc.BadLiftValu(mesg=f'indx lower than first index in sequence {self.firstindx}')
 
-            if indx < self.ranges[-1]:
+            if indx < self._ranges[-1]:
                 ridx = self._getRangeIndx(indx)
+                assert ridx is not None
+
                 async with self._getSeqn(ridx) as seqn:
                     seqn.add(item, indx=indx)
+
                 return indx
 
             if indx >= self.indx:
                 self.indx = indx
             else:
                 advances = False
+        else:
+            indx = self.indx
 
         if advances and self._isTimeToRotate(self.indx):
-            await self._appendSlab()
+            await self._initTailSlab(self.indx)
 
-        retn = self.tailseqn.put(item, indx=indx)
+        assert self.tailseqn
+        retn = self.tailseqn.add(item, indx=indx)
 
         if advances:
             self.indx += 1
 
-        self._wake_waiters()
+            self._wake_waiters()
 
         return retn
 
-    def last(self):
+    def last(self) -> Tuple[int, Any]:
+        assert self.tailseqn
         return self.tailseqn.last()
 
-    def stat(self):
-        return self.tailslab.stat()
-
-    def index(self):
+    def index(self) -> int:
         '''
         Return the current index to be used
         '''
         return self.indx
 
-    def _getRangeIndx(self, offs):
+    def setIndex(self, indx: int) -> None:
+        self.indx = indx
+
+    def _getRangeIndx(self, offs: int) -> Optional[int]:
         '''
         Return the index into self._ranges that contains the offset
         '''
-        if offs < self.firstidx:
-            raise s_exc.BadLiftValu(mesg=f'offs lower than first index in sequence {self.firstidx}')
-
-        indx = bisect.bisect_left(self.ranges, offs)
-        if indx == 0:
+        if offs < self.firstindx:
             return None
+
+        indx = bisect.bisect_right(self._ranges, offs)
+        assert indx
 
         return indx - 1
 
-    async def iter(self, offs):
+    async def iter(self, offs: int) -> AsyncIterator[Tuple[int, Any]]:
         '''
         Iterate over items in a sequence from a given offset.
 
@@ -332,27 +350,26 @@ class MultiSlabSeqn(s_base.Base):
         Yields:
             (indx, valu): The index and valu of the item.
         '''
-        offs = max(offs, self.firstidx)
+        offs = max(offs, self.firstindx)
 
         ridx = self._getRangeIndx(offs)
-        if ridx is None:
-            ridx = 0
+        assert ridx is not None
 
-        for ri in range(ridx, len(self.ranges)):
+        for ri in range(ridx, len(self._ranges)):
+            if ri > ridx:
+                offs = self._ranges[ri]
 
             async with self._getSeqn(ri) as seqn:
                 for item in seqn.iter(offs):
                     yield item
 
-            offs = self.ranges[ri + 1]
-
-    async def gets(self, offs, wait=True):
+    async def gets(self, offs, wait=True) -> AsyncIterator[Tuple[int, Any]]:
         '''
         Just like iter, but optionally waits for new entries once then end is reached.
         '''
         while True:
 
-            for (indx, valu) in self.iter(offs):
+            async for (indx, valu) in self.iter(offs):
                 yield (indx, valu)
                 offs = indx + 1
 
@@ -361,18 +378,18 @@ class MultiSlabSeqn(s_base.Base):
 
             await self.waitForOffset(self.indx)
 
-    def get(self, offs):
+    async def get(self, offs: int) -> Any:
         '''
         Retrieve a single row by offset
         '''
         ridx = self._getRangeIndx(offs)
         if ridx is None:
-            raise s_exc.BadLiftValu(mesg=f'offs lower than first index in sequence {self.firstidx}')
+            raise s_exc.BadLiftValu(mesg=f'offs lower than first index {self.firstindx}')
 
         async with self._getSeqn(ridx) as seqn:
             return seqn.get(offs)
 
-    def getOffsetEvent(self, offs):
+    def getOffsetEvent(self, offs: int) -> asyncio.Event:
         '''
         Returns an asyncio Event that will be set when the particular offset is written.  The event will be set if the
         offset has already been reached.
@@ -390,7 +407,7 @@ class MultiSlabSeqn(s_base.Base):
 
         return evnt
 
-    async def waitForOffset(self, offs, timeout=None):
+    async def waitForOffset(self, offs: int, timeout=None) -> bool:
         '''
         Returns:
             true if the event got set, False if timed out

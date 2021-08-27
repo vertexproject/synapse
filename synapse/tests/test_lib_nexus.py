@@ -140,6 +140,15 @@ class NexusTest(s_t_utils.SynTest):
                         self.eq(2, eventdict.get('happened'))
                         self.eq(3, eventdict.get('gotindex'))
 
+    async def test_nexus_migration(self):
+        async with self.getRegrCore('reindex-byarray3') as core00:
+            nexsindx = await core00.getNexsIndx()
+            layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
+            self.eq(nexsindx, layrindx)
+
+            retn = await core00.nexsroot.nexslog.get(0)
+            self.nn(retn)
+
     async def test_nexus_setindex(self):
 
         async with self.getRegrCore('migrated-nexuslog') as core00:

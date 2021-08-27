@@ -53,8 +53,9 @@ class SlabSeqn:
         Add a single item to the sequence.
         '''
         if indx is not None:
-            self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
-            if indx >= self.indx:
+            append = indx >= self.indx
+            self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=append, db=self.db)
+            if append:
                 self.indx = indx + 1
                 self._wake_waiters()
             return indx
@@ -68,6 +69,13 @@ class SlabSeqn:
         self._wake_waiters()
 
         return indx
+
+    def first(self):
+
+        for lkey, lval in self.slab.scanByFull(db=self.db):
+            return s_common.int64un(lkey), s_msgpack.un(lval)
+
+        return None
 
     def last(self):
 
@@ -159,6 +167,15 @@ class SlabSeqn:
 
     async def gets(self, offs, wait=True):
         '''
+        Returns an async generator of indx/valu tuples, optionally waiting continuing to yield them as new entries are
+        added
+
+        Args:
+            offs (int): The offset to begin iterating from.
+            wait (bool):  Whether to continue yielding tupls when it hits the end of the sequence.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
         '''
         while True:
 
