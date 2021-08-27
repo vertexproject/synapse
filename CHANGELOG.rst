@@ -4,6 +4,78 @@
 Synapse Changelog
 *****************
 
+v2.58.0 - 2021-08-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``!pushfile``, ``!pullfile``, and ``!runfile`` commands to the
+  ``synapse.tools.storm`` tool.
+  (`#2334 <https://github.com/vertexproject/synapse/pull/2334>`_)
+- Add multiname SNI support to ``ssl://`` listening configurations for
+  the Daemon.
+  (`#2336 <https://github.com/vertexproject/synapse/pull/2336>`_)
+- Add a new Cortex HTTP API Endpoint, ``/api/v1/feed``. This can be used to
+  add nodes to the Cortex in bulk.
+  (`#2337 <https://github.com/vertexproject/synapse/pull/2337>`_)
+- Refactor the ``syn.nodes`` feed API implementation to smooth out the ingest
+  rate.
+  (`#2337 <https://github.com/vertexproject/synapse/pull/2337>`_)
+- Sort the Storm Package commands in documentation created by
+  ``synpse.tools.autodoc`` alphabetically.
+  (`#2335 <https://github.com/vertexproject/synapse/pull/2335>`_)
+
+Deprecations
+------------
+- Deprecate the ``syn.splices`` and ``syn.nodedata`` feed API formats.
+  (`#2337 <https://github.com/vertexproject/synapse/pull/2337>`_)
+
+
+v2.57.0 - 2021-08-24
+====================
+
+Features and Enhancements
+-------------------------
+- Add a basic ``synapse.tools.storm`` CLI tool. This can be used to connect
+  to a Cortex via Telepath and directly execute Storm commands.
+  (`#2332 <https://github.com/vertexproject/synapse/pull/2332>`_)
+- Add an ``inet:http:session`` form to track the concept of a prolonged
+  session a user may have with a webserver across multiple HTTP requests.
+  Add an ``:success` property to the ``ou:campaign`` form to track if a
+  campaign was sucessful or not. Add an ``:goal`` property to the
+  ``risk:attack`` form to track the specific goal of the attack. Add an
+  ``:desc`` property to the ``proj:project`` form to capture a description of
+  the project.
+  (`#2333 <https://github.com/vertexproject/synapse/pull/2333>`_)
+
+Bugfixes
+--------
+- Fix an issue with ``synapse.lib.rstorm`` where multiline node properties
+  could produce RST which did not render properly.
+  (`#2331 <https://github.com/vertexproject/synapse/pull/2331>`_)
+
+Improved Documentation
+----------------------
+- Clean up the documentation for the Storm ``wget`` command.
+  (`#2325 <https://github.com/vertexproject/synapse/pull/2325>`_)
+
+
+v2.56.0 - 2021-08-19
+====================
+
+Features and Enhancements
+-------------------------
+- Refactor some internal Axon APIs for downstream use.
+  (`#2330 <https://github.com/vertexproject/synapse/pull/2330>`_)
+
+Bugfixes
+--------
+- Resolve an ambiguity in the Storm grammar with yield statement and dollar
+  expressions inside filter expression. There is a slight backwards
+  incompatibility with this change, as dollar expressions insider of filter
+  expressions now require a ``$`` prepended where before it was optional.
+  (`#2322 <https://github.com/vertexproject/synapse/pull/2322>`_)
+
 
 v2.55.0 - 2021-08-18
 ====================

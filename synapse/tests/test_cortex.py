@@ -38,6 +38,40 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_axonapi(self):
+
+        # local axon...
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as proxy:
+
+                async with await proxy.getAxonUpload() as upload:
+                    await upload.write(b'asdfasdf')
+                    size, sha256 = await upload.save()
+                    self.eq(8, size)
+
+                bytelist = []
+                async for byts in proxy.getAxonBytes(s_common.ehex(sha256)):
+                    bytelist.append(byts)
+                self.eq(b'asdfasdf', b''.join(bytelist))
+
+        # remote axon...
+        async with self.getTestAxon() as axon:
+            conf = {'axon': axon.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+
+                async with core.getLocalProxy() as proxy:
+
+                    async with await proxy.getAxonUpload() as upload:
+                        await upload.write(b'asdfasdf')
+                        size, sha256 = await upload.save()
+                        self.eq(8, size)
+
+                    bytelist = []
+                    async for byts in proxy.getAxonBytes(s_common.ehex(sha256)):
+                        bytelist.append(byts)
+                    self.eq(b'asdfasdf', b''.join(bytelist))
+
     async def test_cortex_divert(self):
 
         async with self.getTestCore() as core:
@@ -2304,6 +2338,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             msgs = await alist(core.storm('help view'))
             self.stormIsInPrint('view.merge', msgs)
+            with self.raises(AssertionError):
+                self.stormIsInPrint('uniq', msgs)
+
+            msgs = await alist(core.storm('help newp'))
+            self.stormIsInPrint('No commands found matching "newp"', msgs)
             with self.raises(AssertionError):
                 self.stormIsInPrint('uniq', msgs)
 

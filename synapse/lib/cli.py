@@ -227,6 +227,8 @@ class Cli(s_base.Base):
     '''
     A modular / event-driven CLI base object.
     '''
+    histfile = 'cmdr_history'
+
     async def __anit__(self, item, outp=None, **locs):
 
         await s_base.Base.__anit__(self)
@@ -261,6 +263,9 @@ class Cli(s_base.Base):
         self.cmds = {}
         self.cmdprompt = 'cli> '
 
+        self.initCmdClasses()
+
+    def initCmdClasses(self):
         self.addCmdClass(CmdHelp)
         self.addCmdClass(CmdQuit)
         self.addCmdClass(CmdLocals)
@@ -297,7 +302,7 @@ class Cli(s_base.Base):
         Prompt for user input from stdin.
         '''
         if self.sess is None:
-            hist = FileHistory(s_common.getSynPath('cmdr_history'))
+            hist = FileHistory(s_common.getSynPath(self.histfile))
             self.sess = PromptSession(history=hist)
 
         if text is None:
@@ -430,6 +435,9 @@ class Cli(s_base.Base):
 
         except asyncio.CancelledError:
             self.printf('Cmd cancelled')
+
+        except s_exc.ParserExit as e:
+            pass # avoid duplicate print
 
         except Exception as e:
             exctxt = traceback.format_exc()
