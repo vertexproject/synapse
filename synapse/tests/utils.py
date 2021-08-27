@@ -1244,7 +1244,7 @@ class SynTest(unittest.TestCase):
 
         Notes:
             The mirror argument is normally used to mirror test directory
-            under ``synapse/tests/files``.  This is accomplised by passing in
+            under ``synapse/tests/files``.  This is accomplished by passing in
             the name of the directory (such as ``testcore``) as the mirror
             argument.
 
