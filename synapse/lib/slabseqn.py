@@ -167,8 +167,8 @@ class SlabSeqn:
 
     async def gets(self, offs, wait=True):
         '''
-        Returns an async generator of indx/valu tuples, optionally waiting continuing to yield them as new entries are
-        added
+        Returns an async generator of indx/valu tuples, optionally waiting and continuing to yield them as new entries
+        are added
 
         Args:
             offs (int): The offset to begin iterating from.

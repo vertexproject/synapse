@@ -365,7 +365,7 @@ class MultiSlabSeqn(s_base.Base):
 
     async def gets(self, offs, wait=True) -> AsyncIterator[Tuple[int, Any]]:
         '''
-        Just like iter, but optionally waits for new entries once then end is reached.
+        Just like iter, but optionally waits for new entries once the end is reached.
         '''
         while True:
 
