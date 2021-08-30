@@ -720,6 +720,34 @@ stormcmds = (
         '''
     },
     {
+        'name': 'pkg.docs',
+        'descr': 'Display documentation included in a storm package.',
+        'cmdargs': (
+            ('name', {'help': 'The name (or name prefix) of the package.'}),
+        ),
+        'storm': '''
+            $pdef = $lib.null
+            for $pkg in $lib.pkg.list() {
+                if $pkg.name.startswith($cmdopts.name) {
+                    $pdef = $pkg
+                    break
+                }
+            }
+
+            if (not $pdef) {
+                $lib.warn("Package ({name}) not found!", name=$cmdopts.name)
+            } else {
+                if $pdef.docs {
+                    for $doc in $pdef.docs {
+                        $lib.print($doc.content)
+                    }
+                } else {
+                    $lib.print("Package ({name}) contains no documentation.", name=$cmdopts.name)
+                }
+            }
+        '''
+    },
+    {
         'name': 'pkg.load',
         'descr': 'Load a storm package from an HTTP URL.',
         'cmdargs': (
