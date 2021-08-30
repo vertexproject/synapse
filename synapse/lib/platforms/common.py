@@ -55,3 +55,6 @@ def getLibC():
 
 def initHostInfo():
     return {}
+
+def checkhost():
+    return None

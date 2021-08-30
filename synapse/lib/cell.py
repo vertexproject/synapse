@@ -2168,6 +2168,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if outp is None:
             outp = s_output.stdout
 
+        if not int(os.getenv('CELL_CHECKHOST', '1')):
+            s_thisplat.checkhost()
+
         cell = await cls.initFromArgv(argv, outp=outp)
 
         await cell.main()

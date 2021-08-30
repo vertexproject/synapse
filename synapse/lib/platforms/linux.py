@@ -155,3 +155,30 @@ def mmap(address, length, prot, flags, fd, offset):
         yield baseaddr
     finally:
         _munmap(baseaddr, length)
+
+def _catFilePath(path):
+    try:
+        with open(path, 'rb') as fd:
+            return fd.read().decode().strip()
+    except FileNotFoundError as e:
+        return None
+
+def checkhost():
+    try:
+
+        clock = _catFilePath('/sys/devices/system/clocksource/clocksource0/current_clocksource')
+        if clock == 'zen':
+            logger.warning('Detected sub-optimal "zen" clock source.')
+
+        dirty = _catFilePath('/proc/sys/vm/dirty_writeback_centisecs')
+        if dirty is not None:
+            if int(dirty) > 20:
+                logger.warning(f'Sysctl vm.dirty_writeback_centisecs = {dirty}. Recomended: <=20.')
+
+        swapi = _catFilePath('/proc/sys/vm/swappiness')
+        if swapi is not None:
+            if int(swapi) > 10:
+                logger.warning(f'Sysctl vm.swapiness = {swapi}. Recomended: <=10.')
+
+    except Exception as e:
+        logger.exception('Aborting checkhost() and continuing on...')
