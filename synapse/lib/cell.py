@@ -704,7 +704,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'nexslog:maxentries': {
             'default': 0x1000000,
             'description': 'How big can the nexus log get before it gets rotated to another file.',
-            'type': 'int',
+            'type': 'integer',
         },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
@@ -1060,7 +1060,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Initialize a NexsRoot to use for the cell.
         '''
         map_async = self.conf.get('nexslog:async')
-        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async)
+        maxentries = self.conf.get('nexslog:maxentries')
+        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async,
+                                           maxlogentries=maxentries)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
