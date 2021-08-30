@@ -4,6 +4,32 @@
 Synapse Changelog
 *****************
 
+v2.58.0 - 2021-08-26
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``!pushfile``, ``!pullfile``, and ``!runfile`` commands to the
+  ``synapse.tools.storm`` tool.
+  (`#2334 <https://github.com/vertexproject/synapse/pull/2334>`_)
+- Add multiname SNI support to ``ssl://`` listening configurations for
+  the Daemon.
+  (`#2336 <https://github.com/vertexproject/synapse/pull/2336>`_)
+- Add a new Cortex HTTP API Endpoint, ``/api/v1/feed``. This can be used to
+  add nodes to the Cortex in bulk.
+  (`#2337 <https://github.com/vertexproject/synapse/pull/2337>`_)
+- Refactor the ``syn.nodes`` feed API implementation to smooth out the ingest
+  rate.
+  (`#2337 <https://github.com/vertexproject/synapse/pull/2337>`_)
+- Sort the Storm Package commands in documentation created by
+  ``synpse.tools.autodoc`` alphabetically.
+  (`#2335 <https://github.com/vertexproject/synapse/pull/2335>`_)
+
+Deprecations
+------------
+- Deprecate the ``syn.splices`` and ``syn.nodedata`` feed API formats.
+  (`#2337 <https://github.com/vertexproject/synapse/pull/2337>`_)
+
 
 v2.57.0 - 2021-08-24
 ====================

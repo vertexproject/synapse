@@ -56,35 +56,6 @@ class SnapTest(s_t_utils.SynTest):
                 self.eq(events[0], ('warn', {'mesg': 'warn', 'key': 'valu'}))
                 self.eq(events[1], ('warn', {'mesg': 'warn2'}))
 
-    async def test_snap_feed_genr(self):
-
-        async def testGenrFunc(snap, items):
-            yield await snap.addNode('test:str', 'foo')
-            yield await snap.addNode('test:str', 'bar')
-
-        async with self.getTestCore() as core:
-
-            core.setFeedFunc('test.genr', testGenrFunc)
-
-            await core.addFeedData('test.genr', [])
-            self.len(2, await alist(core.eval('test:str')))
-
-            async with await core.snap() as snap:
-                nodes = await alist(snap.addFeedNodes('test.genr', []))
-                self.len(2, nodes)
-
-            # Sad path test
-            async def notagenr(snap, items):
-                pass
-
-            core.setFeedFunc('syn.notagenr', notagenr)
-
-            with self.raises(s_exc.BadCtorType) as cm:
-                await alist(snap.addFeedNodes('syn.notagenr', []))
-
-            self.eq(cm.exception.get('mesg'),
-                    "feed func returned a <class 'coroutine'>, not an async generator.")
-
     async def test_same_node_different_object(self):
         '''
         Test the problem in which a live node might be evicted out of the snap's buidcache causing two node

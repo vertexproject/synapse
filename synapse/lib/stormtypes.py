@@ -2182,7 +2182,12 @@ class LibFeed(Lib):
 
         self.runt.layerConfirm(('feed:data', *name.split('.')))
         with s_provenance.claim('feed:data', name=name):
-            return self.runt.snap.addFeedNodes(name, data)
+            #  small work around for the feed API consistency
+            if name == 'syn.nodes':
+                async for node in self.runt.snap.addNodes(data):
+                    yield node
+                return
+            await self.runt.snap.addFeedData(name, data)
 
     async def _libList(self):
         todo = ('getFeedFuncs', (), {})
