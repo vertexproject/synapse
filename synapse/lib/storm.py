@@ -2549,6 +2549,9 @@ class HelpCmd(Cmd):
 
         if self.opts.command:
             stormcmds = [c for c in stormcmds if self.opts.command in c[0]]
+            if not stormcmds:
+                await runt.printf(f'No commands found matching "{self.opts.command}"')
+                return
 
         stormpkgs = await runt.snap.core.getStormPkgs()
 
