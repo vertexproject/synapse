@@ -72,7 +72,7 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False):  # type: ignore
+    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False, maxlogentries=0x100000):
 
         await s_base.Base.__anit__(self)
 
@@ -112,7 +112,9 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts={'map_async': map_async})
+        logopts = {'maxentries': maxlogentries}
+        slabopts = {'map_async': map_async}
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts, opts=logopts)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()

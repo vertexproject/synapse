@@ -32,18 +32,31 @@ class MultiSlabSeqn(s_base.Base):
     An append-optimized sequence of byte blobs stored across multiple slabs for fast rotating/culling
     '''
 
-    async def __anit__(self, dirn, slabopts=None):
+    async def __anit__(self,  # type: ignore
+                       dirn: str,
+                       opts: Optional[Dict] = None,
+                       slabopts: Optional[Dict] = None):
+        '''
+        Args:
+            dirn (str):  directory where to store the slabs
+            opts (Optional[Dict]):  options for this multislab
+            slabopts (Optional[Dict]):  options to pass through to the slab creation
+
+        '''
 
         await s_base.Base.__anit__(self)
 
-        self.IDX_PER_SLAB = int(os.environ.get('SYN_MULTISLAB_MAX_INDEX', DEF_IDX_PER_SLAB))
+        if opts is None:
+            opts = {}
+
+        self.idx_per_slab = opts.get('maxentries', DEF_IDX_PER_SLAB)
 
         self.offsevents: List[Tuple[int, int, asyncio.Event]] = [] # as a heap
         self._waitcounter = 0
 
         self.dirn: str = dirn
         s_common.gendir(self.dirn)
-        self.slabopts: Dict[Any] = {} if slabopts is None else slabopts
+        self.slabopts: Dict[str, Any] = {} if slabopts is None else slabopts
 
         # The last/current slab
         self.tailslab: Optional[s_lmdbslab.Slab] = None
@@ -52,7 +65,7 @@ class MultiSlabSeqn(s_base.Base):
         # The most recently accessed slab/seqn that isn't the tail
         self._cacheslab: Optional[s_lmdbslab.Slab] = None
         self._cacheseqn: Optional[s_slabseqn.SlabSeqn] = None
-        self._cacheridx = None
+        self._cacheridx: Optional[int] = None
 
         # A startidx -> (Slab, Seqn) dict for all open Slabs, so we don't accidentally open the same Slab twice
         self._openslabs: Dict[int, Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]] = {}
@@ -108,7 +121,7 @@ class MultiSlabSeqn(s_base.Base):
             match = seqnslabre.match(os.path.basename(fn))
             assert match
 
-            newstartidx = int.from_bytes(s_common.uhex(match.group(1)), 'big')
+            newstartidx = int(match.group(1), 16)
 
             assert newstartidx >= fnstartidx
 
@@ -221,7 +234,7 @@ class MultiSlabSeqn(s_base.Base):
         del self._ranges[:ridx]
 
     def _isTimeToRotate(self, indx):
-        return indx > self._ranges[-1] and indx % self.IDX_PER_SLAB == 0
+        return indx > self._ranges[-1] and indx % self.idx_per_slab == 0
 
     async def _makeSlab(self, startidx: int) -> Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]:
 
@@ -284,7 +297,7 @@ class MultiSlabSeqn(s_base.Base):
 
         if indx is not None:
             if indx < self.firstindx:
-                raise s_exc.BadLiftValu(mesg=f'indx lower than first index in sequence {self.firstindx}')
+                raise s_exc.BadIndxValu(mesg=f'indx lower than first index in sequence {self.firstindx}')
 
             if indx < self._ranges[-1]:
                 ridx = self._getRangeIndx(indx)
@@ -384,7 +397,7 @@ class MultiSlabSeqn(s_base.Base):
         '''
         ridx = self._getRangeIndx(offs)
         if ridx is None:
-            raise s_exc.BadLiftValu(mesg=f'offs lower than first index {self.firstindx}')
+            raise s_exc.BadIndxValu(mesg=f'offs lower than first index {self.firstindx}')
 
         async with self._getSeqn(ridx) as seqn:
             return seqn.get(offs)

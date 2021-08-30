@@ -14,10 +14,12 @@ from synapse.tests.utils import alist
 class MultiSlabSeqn(s_t_utils.SynTest):
 
     async def test_multislabseqn(self):
+        opts = {'maxentries': 10}
+        with self.getTestDir() as dirn:
 
-        with self.getTestDir() as dirn, self.setTstEnvars(SYN_MULTISLAB_MAX_INDEX='10'):
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+                s_multislabseqn.logger.debug(f'Repr test {msqn}')
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
                 self.eq(0, msqn.index())
 
                 retn = await alist(msqn.iter(0))
@@ -69,7 +71,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
             # Persistence check
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
                 retn = await alist(msqn.iter(0))
                 self.eq([(0, 'foo'), (1, 'foo2'), (9, 'foo9'), (10, 'foo10')], retn)
 
@@ -156,9 +158,10 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
     async def test_multislabseqn_cull(self):
 
-        with self.getTestDir() as dirn, self.setTstEnvars(SYN_MULTISLAB_MAX_INDEX='10'):
+        with self.getTestDir() as dirn:
+            opts = {'maxentries': 10}
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
                 for i in range(18):
                     await msqn.add(f'foo{i}')
 
@@ -170,7 +173,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.eq('foo4', retn)
 
                 await msqn.cull(4)
-                await self.asyncraises(s_exc.BadLiftValu, msqn.get(4))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.get(4))
 
                 retn = await msqn.get(5)
                 self.eq('foo5', retn)
@@ -185,14 +188,14 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await alist(msqn.iter(1))
                 self.eq([(15, 'foo15'), (16, 'foo16'), (17, 'foo17')], retn)
 
-                await self.asyncraises(s_exc.BadLiftValu, msqn.get(10))
-                await self.asyncraises(s_exc.BadLiftValu, msqn.add('foo', indx=10))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.get(10))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo', indx=10))
 
                 # Make sure it deleted a slab
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(1, fns)
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
                 await msqn.cull(10)
                 retn = await alist(msqn.iter(1))
                 self.eq([(15, 'foo15'), (16, 'foo16'), (17, 'foo17')], retn)
@@ -203,13 +206,14 @@ class MultiSlabSeqn(s_t_utils.SynTest):
         '''
 
         # Speed up copying dirs
+        opts = {'maxentries': 10}
         slabopts = {'map_size': 100000}
 
         with self.getTestDir() as dirn, self.setTstEnvars(SYN_MULTISLAB_MAX_INDEX='10'):
 
             origdirn = s_common.gendir(dirn, 'orig')
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(origdirn, slabopts=slabopts) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(origdirn, opts=opts, slabopts=slabopts) as msqn:
                 for i in range(25):
                     await msqn.add(f'foo{i}')
 
@@ -250,7 +254,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             shutil.rmtree(slab10dirn)
 
             with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'gap in indices') as stream:
-                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
+                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn, opts=opts) as msqn:
                     await self.agenlen(15, msqn.iter(0))
                 await stream.wait(timeout=1)
 
@@ -264,7 +268,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 await seqn.cull(25)
 
             with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'found empty seqn') as stream:
-                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
+                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn, opts=opts) as msqn:
                     await self.agenlen(20, msqn.iter(0))
                 await stream.wait(timeout=1)
 
