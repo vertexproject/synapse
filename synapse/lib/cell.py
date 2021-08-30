@@ -701,6 +701,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
             'type': 'boolean',
         },
+        'nexslog:maxentries': {
+            'default': 0x1000000,
+            'description': 'How big can the nexus log get before it gets rotated to another file.',
+            'type': 'int',
+        },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
             'type': ['string', 'null'],
