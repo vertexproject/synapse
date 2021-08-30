@@ -2341,6 +2341,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(AssertionError):
                 self.stormIsInPrint('uniq', msgs)
 
+            msgs = await alist(core.storm('help newp'))
+            self.stormIsInPrint('No commands found matching "newp"', msgs)
+            with self.raises(AssertionError):
+                self.stormIsInPrint('uniq', msgs)
+
             # test that storm package commands that didn't come from
             # a storm service are displayed
             otherpkg = {
