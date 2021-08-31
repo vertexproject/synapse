@@ -792,6 +792,16 @@ class Snap(s_base.Base):
                     node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
+                if etyp == s_layer.EDIT_NODEDATA_SET:
+                    name, data, oldv = parms
+                    node.nodedata[name] = data
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_DEL:
+                    name, oldv = parms
+                    node.nodedata.pop(name, None)
+                    continue
+
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:
