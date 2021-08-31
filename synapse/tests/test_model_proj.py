@@ -54,14 +54,20 @@ class ProjModelTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.projects.get(hehe))', opts=opts))
             self.none(await core.callStorm('return($lib.projects.get($proj).epics.get(haha))', opts=opts))
             self.none(await core.callStorm('return($lib.projects.get($proj).tickets.get(haha))', opts=opts))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.get($lib.guid()))'
+            self.none(await core.callStorm(scmd, opts=opts))
 
             self.eq(proj, await core.callStorm('return($lib.projects.get($proj))', opts=opts))
             self.eq(epic, await core.callStorm('return($lib.projects.get($proj).epics.get($epic))', opts=opts))
             self.eq(tick, await core.callStorm('return($lib.projects.get($proj).tickets.get($tick))', opts=opts))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.get($comm))'
+            self.eq(comm, await core.callStorm(scmd, opts=opts))
 
             self.eq('foo', await core.callStorm('return($lib.projects.get($proj).name)', opts=opts))
             self.eq('bar', await core.callStorm('return($lib.projects.get($proj).epics.get($epic).name)', opts=opts))
             self.eq('baz', await core.callStorm('return($lib.projects.get($proj).tickets.get($tick).name)', opts=opts))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.get($comm).text)'
+            self.eq('hello', await core.callStorm(scmd, opts=opts))
 
             # test coverage for new storm primitive setitem default impl...
             with self.raises(s_exc.NoSuchName):
