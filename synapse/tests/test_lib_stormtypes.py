@@ -2159,6 +2159,49 @@ class StormTypesTest(s_test.SynTest):
             await visi.addRule((True, ('node',)), gateiden=layr.iden)
             await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=asvisi)
 
+            # test interaction between LibLift and setting node data
+            q = '''
+            for $i in $lib.range((10)) {
+                [test:int=$i]
+                $node.data.set(laststatus, "start")
+            }
+            '''
+            await core.callStorm(q)
+            q = '''
+            for $work in $lib.lift.byNodeData(laststatus) {
+                if ($work.value() > 5) {
+                    $work.data.set(laststatus, "running")
+                } else {
+                    $work.data.set(laststatus, "done")
+                }
+                $status = $work.data.get(laststatus)
+                $lib.print("#{valu} status is {status}", valu=$work.value(), status=$status)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            for i in range(10):
+                if i > 5:
+                    self.stormIsInPrint(f'#{i} status is running', msgs)
+                else:
+                    self.stormIsInPrint(f'#{i} status is done', msgs)
+
+            q = '''
+            for $work in $lib.lift.byNodeData(laststatus) {
+                if ($work.value() = 5) {
+                    $work.data.pop(laststatus)
+                    $status = $work.data.get(laststatus)
+                    $lib.print("#{value} work status is {status}", value=$work.value(), status=$status)
+                } else {
+                    $status = $work.data.get(laststatus)
+                    $lib.print("#{value} is still {status}", value=$work.value(), status=$status)
+                }
+            }
+            '''
+            msgs = await core.stormlist(q)
+            prints = [x for x in msgs if x[0] == 'print']
+            self.len(10, prints)
+            self.stormIsInPrint("#5 work status is None", msgs)
+
     async def test_storm_lib_bytes(self):
 
         async with self.getTestCore() as core:
