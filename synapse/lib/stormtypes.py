@@ -2146,6 +2146,9 @@ class LibCsv(Lib):
 
 @registry.registerLib
 class LibExport(Lib):
+    '''
+    A Storm Library for exporting data.
+    '''
     _storm_lib_path = ('export',)
     _storm_locals = (
         {'name': 'toaxon', 'desc': '''
@@ -2155,7 +2158,8 @@ class LibExport(Lib):
          'type': {'type': 'function', '_funcname': 'toaxon',
                   'args': (
                       {'name': 'query', 'type': 'str', 'desc': 'A query to run as an export.', },
-                      {'name': 'opts', 'type': 'dict', 'desc': 'Storm runtime query option params.', },
+                      {'name': 'opts', 'type': 'dict', 'desc': 'Storm runtime query option params.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'array', 'desc': 'Returns a tuple of (size, sha256).', }}},
     )
