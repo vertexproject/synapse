@@ -37,14 +37,14 @@ def getItems(*paths):
             if not isinstance(item, list):
                 item = [item]
             items.append((path, item))
-        elif path.endswith('.mpk'):
+        elif path.endswith('.mpk') or path.endswith('.nodes'):
             genr = s_msgpack.iterfile(path)
             items.append((path, genr))
         else:  # pragma: no cover
             logger.warning('Unsupported file path: [%s]', path)
     return items
 
-async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0):
+async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=1000, offset=0, viewiden=None):
 
     items = getItems(*paths)
     for path, item in items:
@@ -64,7 +64,7 @@ async def addFeedData(core, outp, feedformat, debug=False, *paths, chunksize=100
                 foff += clen
                 continue
 
-            await core.addFeedData(feedformat, chunk)
+            await core.addFeedData(feedformat, chunk, viewiden=viewiden)
 
             foff += clen
             outp.printf(f'Added [{clen}] items from [{bname}] - offset [{foff}]')
@@ -112,7 +112,7 @@ async def main(argv, outp=None):
                 return 1
             await addFeedData(core, outp, opts.format, opts.debug,
                               chunksize=opts.chunksize,
-                              offset=opts.offset,
+                              offset=opts.offset, viewiden=opts.view,
                               *opts.files)
 
     else:  # pragma: no cover
@@ -141,6 +141,8 @@ def makeargparser():
                       help='Default chunksize for iterating over items.')
     pars.add_argument('--offset', type=int, action='store', default=0,
                       help='Item offset to start consuming data from.')
+    pars.add_argument('--view', type=str, action='store', default=None,
+                      help='The View to ingest the data into.')
     pars.add_argument('files', nargs='*', help='json/yaml/msgpack feed files')
 
     return pars
