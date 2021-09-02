@@ -4804,3 +4804,14 @@ class StormTypesTest(s_test.SynTest):
 
             ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
             self.eq('a-b-c-d', ret)
+
+    async def test_storm_lib_export(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
+            size, sha256 = await core.callStorm('return( $lib.export.toaxon(${.created}) )')
+            byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
+            self.isin(b'vertex.link', byts)
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return( $lib.export.toaxon(${.created}, (bad, opts,)) )')

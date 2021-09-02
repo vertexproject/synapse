@@ -5662,6 +5662,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.feedFromAxon(s_common.ehex(sha256b))
 
+    async def test_cortex_export_toaxon(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
+            size, sha256 = await core.exportStormToAxon('.created')
+            byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
+            self.isin(b'vertex.link', byts)
+
     async def test_cortex_lookup_mode(self):
         async with self.getTestCoreAndProxy() as (_core, proxy):
             retn = await proxy.count('[inet:email=foo.com@vertex.link]')
