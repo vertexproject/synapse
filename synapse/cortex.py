@@ -32,6 +32,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
@@ -4279,6 +4280,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                     pode[1]['edges'] = edges
 
                 yield pode
+
+    async def exportStormToAxon(self, text, opts=None):
+        async with await self.axon.upload() as fd:
+            async for pode in self.exportStorm(text, opts=opts):
+                await fd.write(s_msgpack.en(pode))
+            size, sha256 = await fd.save()
+            return (size, s_common.ehex(sha256))
 
     async def feedFromAxon(self, sha256, opts=None):
 

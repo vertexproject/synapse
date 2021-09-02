@@ -485,3 +485,39 @@ class AxonTest(s_t_utils.SynTest):
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.wget('http://vertex.link')
                 self.ne(-1, resp['mesg'].find('Can not connect to proxy 127.0.0.1:1'))
+
+    async def test_axon_wput(self):
+
+        class HttpPushFile(s_httpapi.StreamHandler):
+
+            async def prepare(self):
+                self.gotsize = 0
+
+            async def data_received(self, byts):
+                self.gotsize += len(byts)
+
+            async def put(self):
+                assert self.gotsize == 8
+                self.sendRestRetn(self.gotsize)
+
+        async with self.getTestCore() as core:
+
+            axon = core.axon
+            axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+
+            async with await axon.upload() as fd:
+                await fd.write(b'asdfasdf')
+                size, sha256 = await fd.save()
+
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
+            async with axon.getLocalProxy() as proxy:
+
+                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                self.eq(True, resp['ok'])
+                self.eq(200, resp['code'])
+
+            opts = {'vars': {'sha256': s_common.ehex(sha256)}}
+            resp = await core.callStorm(f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))', opts=opts)
+            self.eq(True, resp['ok'])
+            self.eq(200, resp['code'])

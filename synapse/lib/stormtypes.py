@@ -1435,6 +1435,24 @@ class LibAxon(Lib):
                        'default': None, }
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
+        {'name': 'wput', 'desc': """
+            A method to upload a blob from the axon to an HTTP(S) endpoint.
+            """,
+         'type': {'type': 'function', '_funcname': 'wput',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file blob to upload.', },
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to upload the file to.', },
+                      {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
+                       'default': None, },
+                      {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
+                       'default': None, },
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT', },
+                      {'name': 'ssl', 'type': 'boolean',
+                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
+                       'default': None, }
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
         {'name': 'urlfile', 'desc': '''
             Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
 
@@ -1507,6 +1525,7 @@ class LibAxon(Lib):
     def getObjLocals(self):
         return {
             'wget': self.wget,
+            'wput': self.wput,
             'urlfile': self.urlfile,
             'del': self.del_,
             'dels': self.dels,
@@ -1559,6 +1578,23 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
                                timeout=timeout)
+
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+
+        url = await tostr(url)
+        sha256 = await tostr(sha256)
+        method = await tostr(method)
+
+        ssl = await tobool(ssl)
+        params = await toprim(params)
+        headers = await toprim(headers)
+        timeout = await toprim(timeout)
+
+        axon = self.runt.snap.core.axon
+        sha256byts = s_common.uhex(sha256)
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout)
 
     async def urlfile(self, *args, **kwargs):
         resp = await self.wget(*args, **kwargs)
@@ -2107,6 +2143,43 @@ class LibCsv(Lib):
     async def _libCsvEmit(self, *args, table=None):
         row = [await toprim(a) for a in args]
         await self.runt.snap.fire('csv:row', row=row, table=table)
+
+@registry.registerLib
+class LibExport(Lib):
+    _storm_lib_path = ('export',)
+    _storm_locals = (
+        {'name': 'toaxon', 'desc': '''
+            Run a query as an export (fully resolving relationships between nodes in the output set)
+            and save the resulting stream of packed nodes to the axon.
+            ''',
+         'type': {'type': 'function', '_funcname': 'toaxon',
+                  'args': (
+                      {'name': 'query', 'type': 'str', 'desc': 'A query to run as an export.', },
+                      {'name': 'opts', 'type': 'dict', 'desc': 'Storm runtime query option params.', },
+                  ),
+                  'returns': {'type': 'array', 'desc': 'Returns a tuple of (size, sha256).', }}},
+    )
+
+    def getObjLocals(self):
+        return {
+            'toaxon': self.toaxon,
+        }
+
+    async def toaxon(self, query, opts=None):
+
+        query = await tostr(query)
+
+        opts = await toprim(opts)
+        if opts is None:
+            opts = {}
+
+        if not isinstance(opts, dict):
+            mesg = '$lib.export.toaxon() opts argument must be a dictionary.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        opts['user'] = self.runt.snap.user.iden
+        opts.setdefault('view', self.runt.snap.view.iden)
+        return await self.runt.snap.core.exportStormToAxon(query, opts=opts)
 
 @registry.registerLib
 class LibFeed(Lib):
