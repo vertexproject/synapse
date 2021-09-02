@@ -4,6 +4,44 @@
 Synapse Changelog
 *****************
 
+
+
+v2.59.0 - 2021-09-02
+====================
+
+Features and Enhancements
+-------------------------
+- Add a new Storm command, ``pkg.docs``, to enumerate any documentation that
+  has been bundled with a Storm package.
+  (`#2341 <https://github.com/vertexproject/synapse/pull/2341>`_)
+- Add support for manipulating ``'proj:comment`` nodes via Stormtypes.
+  (`#2345 <https://github.com/vertexproject/synapse/pull/2345>`_)
+- Add ``Axon.wput()`` and ``$lib.axon.wput()`` to allow POSTing a file from
+  an Axon to a given URL.
+  (`#2347 <https://github.com/vertexproject/synapse/pull/2347>`_)
+- Add ``$lib.export.toaxon()`` to allow exporting a ``.nodes`` file directly
+  to an Axon based on a given storm query and opts.
+  (`#2347 <https://github.com/vertexproject/synapse/pull/2347>`_)
+- The ``synapse.tools.feed`` tool now accepts a ``--view`` argument to feed
+  data to a specific View.
+  (`#2342 <https://github.com/vertexproject/synapse/pull/2342>`_)
+- The ``synapse.tools.feed`` tool now treats ``.nodes`` files as msgpack files
+  for feeding data to a Cortex.
+  (`#2343 <https://github.com/vertexproject/synapse/pull/2343>`_)
+- When the Storm ``help`` command has an argument without any matching
+  commands, it now prints a helpful message.
+  (`#2338 <https://github.com/vertexproject/synapse/pull/2338>`_)
+
+Bugfixes
+--------
+- Fix a caching issue between ``$lib.lift.byNodeData()`` and altering the
+  existing node data on a given node.
+  (`#2344 <https://github.com/vertexproject/synapse/pull/2344>`_)
+- Fix an issue with backups were known lmdbslabs could be omitted from being
+  treated as lmdb databases, resulting in inefficient file copies being made.
+  (`#2346 <https://github.com/vertexproject/synapse/pull/2346>`_)
+
+
 v2.58.0 - 2021-08-26
 ====================
 
