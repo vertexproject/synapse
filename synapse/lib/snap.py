@@ -1200,6 +1200,7 @@ class Snap(s_base.Base):
 
                 async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
                     if edge in edgeset:
+                        await asyncio.sleep(0)
                         continue
 
                     await edgeset.add(edge)
