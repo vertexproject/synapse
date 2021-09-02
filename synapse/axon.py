@@ -976,8 +976,7 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
-                print(e)
-                import traceback; traceback.print_exc()
+                logger.exception(f'Error streaming [{sha256}] to [{url}]')
                 exc = s_common.excinfo(e)
                 mesg = exc.get('errmsg')
                 if not mesg:
