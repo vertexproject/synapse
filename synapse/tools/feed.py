@@ -37,7 +37,7 @@ def getItems(*paths):
             if not isinstance(item, list):
                 item = [item]
             items.append((path, item))
-        elif path.endswith('.mpk'):
+        elif path.endswith('.mpk') or path.endswith('.nodes'):
             genr = s_msgpack.iterfile(path)
             items.append((path, genr))
         else:  # pragma: no cover

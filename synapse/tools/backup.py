@@ -36,7 +36,7 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
     aborted and environments closed when the context is exited.
 
     Yields:
-        Iterable[Tuple[str, lmdb.Environment, lmdb.Transaction]]:  iterable of (path, environment, transaction)
+        Dict[str, Tuple[lmdb.Environment, lmdb.Transaction]]: Maps path to environment, transaction
     '''
     if onlydirs:
         lmdbpaths = onlydirs
@@ -54,7 +54,7 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
         lmdbpaths = [os.path.dirname(fn) for fn in fniter if not
                      any([fnmatch.fnmatch(fn, pattern) for pattern in skipdirs])]
 
-    tupl = []
+    lmdbinfo = {}
 
     with contextlib.ExitStack() as stack:
         for path in lmdbpaths:
@@ -65,20 +65,20 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
             env = stack.enter_context(
                 lmdb.open(path, map_size=map_size, max_dbs=16384, create=False, readonly=True))
             txn = stack.enter_context(env.begin())
-            tupl.append((path, env, txn))
+            assert path not in lmdbinfo
+            lmdbinfo[path] = (env, txn)
 
-        yield tupl
+        yield lmdbinfo
 
 def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
     '''
     Create a backup of a Synapse application under a (hopefully consistent) set of transactions.
 
     Args:
-        lmdbinfo(Tuple[str, lmdb.Environment, lmdb.Transaction]):  source path, environment, open transactions
+        lmdbinfo(Dict[str, Tuple[lmdb.Environment, lmdb.Transaction]]): Maps of path to environment, transaction
         srcdir (str): Path to the directory to backup.
         dstdir (str): Path to backup target directory.
         skipdirs (list or None): Optional list of relative directory name glob patterns to exclude from the backup.
-        compact (bool): Whether to optimize storage while copying to the destination.
 
     Note:
         Running this method from the same process as a running user of the directory may lead to a segmentation fault
@@ -114,19 +114,18 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
 
             dstpath = s_common.genpath(dstdir, relname)
 
-            if name.endswith('.lmdb'):
+            info = lmdbinfo.get(os.path.abspath(srcpath))
+
+            if info is not None:
+                logger.info('backing up lmdb file: %s', srcpath)
                 dnames.remove(name)
-                abssrcpath = os.path.abspath(srcpath)
-                lmdbinfos = [info for info in lmdbinfo if info[0] == abssrcpath]
-                if not lmdbinfos:
-                    logger.warning('lmdb file %s not copied', srcpath)
-                    continue
-
-                assert len(lmdbinfos) == 1
-
-                _, env, txn = lmdbinfos[0]
-
+                env, txn = info
                 backup_lmdb(env, dstpath, txn=txn)
+                continue
+
+            if name.endswith('.lmdb'):
+                logger.warning('lmdb file %s not copied', srcpath)
+                dnames.remove(name)
                 continue
 
             logger.info(f'making dir:{dstpath}')
