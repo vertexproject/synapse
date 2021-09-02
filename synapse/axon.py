@@ -962,7 +962,8 @@ class Axon(s_cell.Cell):
 
             try:
 
-                async with sess.request(method, url, headers=headers, params=params, data=self.get(sha256), ssl=ssl) as resp:
+                async with sess.request(method, url, headers=headers, params=params,
+                                        data=self.get(sha256), ssl=ssl) as resp:
 
                     info = {
                         'ok': True,
@@ -972,7 +973,7 @@ class Axon(s_cell.Cell):
                     }
                     return info
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # pramga: no cover
                 raise
 
             except Exception as e:

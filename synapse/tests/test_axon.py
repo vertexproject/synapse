@@ -521,3 +521,8 @@ class AxonTest(s_t_utils.SynTest):
             resp = await core.callStorm(f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))', opts=opts)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
+
+            opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
+            resp = await core.callStorm(f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))', opts=opts)
+            self.eq(False, resp['ok'])
+            self.isin('Axon does not contain the requested file.', resp.get('mesg'))
