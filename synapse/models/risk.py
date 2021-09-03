@@ -19,7 +19,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'A compromise resulting from an attack.',
+                    'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
                 ('risk:compromisetype', ('taxonomy', {}), {
                     'doc': 'A compromise type taxonomy.',
@@ -199,6 +199,9 @@ class RiskModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'Earliest known evidence of compromise.',
                     }),
+                    ('lasttime', ('time', {}), {
+                        'doc': 'Last known evidence of compromise.',
+                    }),
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the compromise.',
                     }),
@@ -212,13 +215,13 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The total loss of life due to the compromise.',
                     }),
                     ('loss:bytes', ('int', {}), {
-                        'doc': 'An esimate of the volume of data compromised.',
+                        'doc': 'An estimate of the volume of data compromised.',
                     }),
                     ('ransom:paid', ('econ:price', {}), {
                         'doc': 'The value of the ransom paid by the target.',
                     }),
                     ('ransom:price', ('econ:price', {}), {
-                        'doc': 'The value of the ransom demaned by the attacker.',
+                        'doc': 'The value of the ransom demanded by the attacker.',
                     }),
                     ('response:cost', ('econ:price', {}), {
                         'doc': 'The economic cost of the response and mitigation efforts.',
