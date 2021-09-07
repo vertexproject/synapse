@@ -128,3 +128,46 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(2554848000000, nodes[0].get('detected'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
+
+            nodes = await core.nodes('''[
+                    risk:compromise=*
+                    :name = "Visi Wants Pizza"
+                    :desc = "Visi wants a pepperoni and mushroom pizza"
+                    :type = when.noms.attack
+                    :target = {[ ps:contact=* :name=ledo ]}
+                    :attacker = {[ ps:contact=* :name=visi ]}
+                    :campaign = *
+                    :time = 20210202
+                    :lasttime = 20210204
+                    :duration = 2D
+                    :loss:pii = 400
+                    :loss:econ = 1337
+                    :loss:life = 0
+                    :loss:bytes = 1024
+                    :ransom:paid = 1
+                    :ransom:price = 99
+                    :response:cost = 1010
+                    :econ:currency = usd
+            ]''')
+
+            self.eq('visi wants pizza', nodes[0].get('name'))
+            self.eq('Visi wants a pepperoni and mushroom pizza', nodes[0].get('desc'))
+            self.eq('when.noms.attack.', nodes[0].get('type'))
+            self.nn(nodes[0].get('target'))
+            self.nn(nodes[0].get('attacker'))
+            self.nn(nodes[0].get('campaign'))
+            self.eq(1612224000000, nodes[0].get('time'))
+            self.eq(1612396800000, nodes[0].get('lasttime'))
+            self.eq(172800000, nodes[0].get('duration'))
+            self.eq(400, nodes[0].get('loss:pii'))
+            self.eq('1337', nodes[0].get('loss:econ'))
+            self.eq(0, nodes[0].get('loss:life'))
+            self.eq(1024, nodes[0].get('loss:bytes'))
+            self.eq('1', nodes[0].get('ransom:paid'))
+            self.eq('99', nodes[0].get('ransom:price'))
+            self.eq('1010', nodes[0].get('response:cost'))
+            self.eq('usd', nodes[0].get('econ:currency'))
+            self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
+            self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
+            self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
+            self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))

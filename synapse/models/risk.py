@@ -24,6 +24,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:compromisetype', ('taxonomy', {}), {
                     'doc': 'A compromise type taxonomy.',
                     'ex': 'cno.breach',
+                    'interfaces': ('taxonomy',),
                 }),
             ),
             'forms': (
@@ -175,6 +176,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A confirmed attack that this alert indicates.',
                     }),
                 )),
+                ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
                         'doc': 'A brief name for the compromise event.',
