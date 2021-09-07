@@ -258,28 +258,28 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('actor:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :actor:contact to allow entity resolution.',
+                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.',
                     }),
                     ('actor:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :actor:contact to allow entity resolution.',
+                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.',
                     }),
-                    ('actor:contact', ('ps:contact', {}), {
+                    ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information associated with the attacker.',
                     }),
-                    ('target:contact', ('ps:contact', {}), {
+                    ('target', ('ps:contact', {}), {
                         'doc': 'Contact information associated with the target.',
                     }),
                     ('target:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :target:contact to allow entity resolution.',
+                        'doc': 'Deprecated. Please use :target to allow entity resolution.',
                     }),
                     ('target:host', ('it:host', {}), {
                         'doc': 'The host was the target of the attack.',
                     }),
                     ('target:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :target:contact to allow entity resolution.',
+                        'doc': 'Deprecated. Please use :target to allow entity resolution.',
                     }),
                     ('target:place', ('geo:place', {}), {
                         'doc': 'The place that was the target of the attack.',

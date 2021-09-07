@@ -113,3 +113,13 @@ Properties
         - The `ou:org:naics` and `ou:org:sic` properties has been collected into the `ou:org:industries` property, which is an array of type `ou:industry`.
     - `:has`
         - Please use an `edge:has` node or a light edge.
+
+- `risk:attack`
+    - `:actor:org`
+        - Please use the `:attacker` `ps:contact` property to allow entity resolution.
+    - `:actor:person`
+        - Please use the `:attacker` `ps:contact` property to allow entity resolution.
+    - `:target:org`
+        - Please use the `:target` `ps:contact` property to allow entity resolution.
+    - `:target:person`
+        - Please use the `:target` `ps:contact` property to allow entity resolution.

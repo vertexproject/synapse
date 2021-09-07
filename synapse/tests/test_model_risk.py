@@ -38,6 +38,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :prev={attk}
                     :actor:org={org0}
                     :actor:person={pers}
+                    :target = *
+                    :attacker = *
                     :target:org={org0}
                     :target:host={host}
                     :target:place={plac}
@@ -78,6 +80,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('used:software'), soft)
             self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
+            self.nn(node.get('target'))
+            self.nn(node.get('attacker'))
 
             node = await addNode(f'''[
                     risk:vuln={vuln}
@@ -91,6 +95,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'mytype')
             self.eq(node.get('desc'), 'mydesc')
             self.eq(node.get('cve'), 'cve-2013-0000')
+            self.len(1, await core.nodes('risk:attack :target -> ps:contact'))
+            self.len(1, await core.nodes('risk:attack :attacker -> ps:contact'))
 
             node = await addNode(f'''[
                 risk:hasvuln={hasv}
