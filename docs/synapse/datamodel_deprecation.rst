@@ -123,3 +123,7 @@ Properties
         - Please use the `:target` `ps:contact` property to allow entity resolution.
     - `:target:person`
         - Please use the `:target` `ps:contact` property to allow entity resolution.
+
+- `ou:campaign`
+    - `:type`
+        - Please use the `:camptype` `taxonomy` property.
