@@ -372,7 +372,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('type', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'The campaign type.',
+                        'doc': 'Deprecated. Use the :camptype taxonomy.',
                     }),
                     ('camptype', ('ou:camptype', {}), {
                         'doc': 'The campaign type taxonomy.',
