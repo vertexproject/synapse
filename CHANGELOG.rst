@@ -5,6 +5,31 @@ Synapse Changelog
 *****************
 
 
+v2.60.0 - 2021-09-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add new ``risk:compromise`` and ``risk:compromisetype`` forms. Add
+  ``attacker``, ``compromise``, and ``target`` secondary properties to the
+  ``risk:attack`` form.
+  (`#2348 <https://github.com/vertexproject/synapse/pull/2348>`_)
+
+
+Bugfixes
+--------
+- Add a missing ``wait()`` call when calling the ``CoreApi.getAxonUpload()``
+  and ``CoreApi.getAxonBytes()`` Telepath APIs.
+  (`#2349 <https://github.com/vertexproject/synapse/pull/2349>`_)
+
+Deprecations
+------------
+- Deprecate the ``actor:org``, ``actor:person``, ``target:org`` and
+  ``target:person`` properties on ``risk:attack`` in favor of new ``attacker``
+  and ``target`` secondary properties. Deprecate the ``type`` property on
+  ``ou:campaign`` in favor of the ``camptype`` property.
+  (`#2348 <https://github.com/vertexproject/synapse/pull/2348>`_)
+
 
 v2.59.0 - 2021-09-02
 ====================
