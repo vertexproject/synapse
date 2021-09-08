@@ -4827,20 +4827,20 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
             self.eq(nodes[0].iden(), iden)
 
-            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(fromn2=(1)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(fromn2=(0)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(0)) { -> { yield $n2iden } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges(fromn2=(1)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
             self.len(0, nodes)
 
             nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
             self.len(1, nodes)
             self.eq('ou:industry', nodes[0].ndef[0])
 
-            nodes = await core.nodes('ou:industry for ($verb, $n1iden) in $node.edges(fromn2=(1)) { -> { yield $n1iden } }')
+            nodes = await core.nodes('ou:industry for ($verb, $n1iden) in $node.edges(reverse=(1)) { -> { yield $n1iden } }')
             self.len(1, nodes)
             self.eq('inet:ipv4', nodes[0].ndef[0])
 

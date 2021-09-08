@@ -4261,7 +4261,7 @@ class Node(Prim):
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.',
                        'default': None, },
-                      {'name': 'fromn2', 'type': 'boolean', 'desc': 'If true, yield edges with this node as the dest rather than source.',
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'If true, yield edges with this node as the dest rather than source.',
                        'default': False, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
@@ -4354,11 +4354,11 @@ class Node(Prim):
         return self.valu.pack(dorepr=dorepr)
 
     @stormfunc(readonly=True)
-    async def _methNodeEdges(self, verb=None, fromn2=False):
+    async def _methNodeEdges(self, verb=None, reverse=False):
         verb = await toprim(verb)
-        fromn2 = await tobool(fromn2)
+        reverse = await tobool(reverse)
 
-        if fromn2:
+        if reverse:
             async for edge in self.valu.iterEdgesN2(verb=verb):
                 yield edge
         else:
