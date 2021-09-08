@@ -1,5 +1,4 @@
 import copy
-import regex
 import logging
 import collections
 
