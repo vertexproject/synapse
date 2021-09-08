@@ -4101,6 +4101,12 @@ class NodeData(Prim):
     A Storm Primitive representing the NodeData stored for a Node.
     '''
     _storm_locals = (
+        {'name': 'has', 'desc': 'Check if the Node data has the given key set on it',
+         'type': {'type': 'function', '_funcname': '_hasNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the data to check for.', },
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'True if the key is found, otherwise false.', }}},
         {'name': 'get', 'desc': 'Get the Node data for a given name for the Node.',
          'type': {'type': 'function', '_funcname': '_getNodeData',
                   'args': (
@@ -4159,6 +4165,7 @@ class NodeData(Prim):
         return {
             'get': self._getNodeData,
             'set': self._setNodeData,
+            'has': self._hasNodeData,
             'pop': self._popNodeData,
             'list': self._listNodeData,
             'load': self._loadNodeData,
@@ -4183,6 +4190,11 @@ class NodeData(Prim):
     async def cacheset(self, name, valu):
         envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
+
+    @stormfunc(readonly=True)
+    async def _hasNodeData(self, name):
+        name = await tostr(name)
+        return await self.valu.hasData(name)
 
     @stormfunc(readonly=True)
     async def _getNodeData(self, name):

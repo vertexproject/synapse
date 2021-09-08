@@ -2202,6 +2202,31 @@ class StormTypesTest(s_test.SynTest):
             self.len(10, prints)
             self.stormIsInPrint("#5 work status is None", msgs)
 
+            # has
+            q = '''
+            [ test:int=10 ]
+            $node.data.set(data:key, $lib.false)
+            if $node.data.has(lol:nope) {
+                $lib.print("But How?")
+            } else {
+                $lib.print("Working")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
+
+            q = '''
+            [ test:int=27 ]
+            $node.data.set(data:key, $lib.null)
+            if $node.data.has(data:key) {
+                $lib.print("Working")
+            } else {
+                $lib.print("Failure")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
+
     async def test_storm_lib_bytes(self):
 
         async with self.getTestCore() as core:
