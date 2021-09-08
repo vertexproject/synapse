@@ -4365,23 +4365,23 @@ class Node(Prim):
             async for edge in self.valu.iterEdgesN1(verb=verb):
                 yield edge
 
-    async def _methNodeAddEdge(self, verb, dest):
+    async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
-        dest = await tobuid(dest)
+        iden = await tobuid(iden)
 
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
-        await self.valu.addEdge(verb, dest)
+        await self.valu.addEdge(verb, iden)
 
-    async def _methNodeDelEdge(self, verb, dest):
+    async def _methNodeDelEdge(self, verb, iden):
         verb = await tostr(verb)
-        dest = await tobuid(dest)
+        iden = await tobuid(iden)
 
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
-        await self.valu.delEdge(verb, dest)
+        await self.valu.delEdge(verb, iden)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
