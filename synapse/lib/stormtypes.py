@@ -4261,9 +4261,25 @@ class Node(Prim):
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.',
                        'default': None, },
+                      {'name': 'fromn2', 'type': 'boolean', 'desc': 'If true, yield edges with this node as the dest rather than source.',
+                       'default': False, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'A tuple of (verb, iden) values for this nodes edges.', }}},
+        {'name': 'addEdge', 'desc': 'Add a light-weight edge.',
+         'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node.'},
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
+         'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node to remove.'},
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
          'type': {'type': 'function', '_funcname': '_methNodeGlobTags',
                   'args': (
@@ -4312,6 +4328,8 @@ class Node(Prim):
             'repr': self._methNodeRepr,
             'tags': self._methNodeTags,
             'edges': self._methNodeEdges,
+            'addEdge': self._methNodeAddEdge,
+            'delEdge': self._methNodeDelEdge,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
             'isform': self._methNodeIsForm,
@@ -4336,10 +4354,34 @@ class Node(Prim):
         return self.valu.pack(dorepr=dorepr)
 
     @stormfunc(readonly=True)
-    async def _methNodeEdges(self, verb=None):
+    async def _methNodeEdges(self, verb=None, fromn2=False):
         verb = await toprim(verb)
-        async for edge in self.valu.iterEdgesN1(verb=verb):
-            yield edge
+        fromn2 = await tobool(fromn2)
+
+        if fromn2:
+            async for edge in self.valu.iterEdgesN2(verb=verb):
+                yield edge
+        else:
+            async for edge in self.valu.iterEdgesN1(verb=verb):
+                yield edge
+
+    async def _methNodeAddEdge(self, verb, dest):
+        verb = await tostr(verb)
+        dest = await tobuid(dest)
+
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
+
+        await self.valu.addEdge(verb, dest)
+
+    async def _methNodeDelEdge(self, verb, dest):
+        verb = await tostr(verb)
+        dest = await tobuid(dest)
+
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
+
+        await self.valu.delEdge(verb, dest)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
@@ -6987,3 +7029,21 @@ async def torepr(valu, usestr=False):
     if usestr:
         return str(valu)
     return repr(valu)
+
+async def tobuid(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    if isinstance(valu, Node):
+        return valu.valu.iden()
+
+    if isinstance(valu, s_node.Node):
+        return node.iden()
+
+    valu = await tostr(valu)
+    if not s_common.isbuidhex(valu):
+        mesg = f'Invalid buid string: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    return valu

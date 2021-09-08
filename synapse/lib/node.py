@@ -1,4 +1,5 @@
 import copy
+import regex
 import logging
 import collections
 
@@ -70,6 +71,10 @@ class Node:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
             raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'addEdge() got an invalid node iden: {n2iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
         nodeedits = (
             (self.buid, self.form.name, (
                 (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
@@ -78,6 +83,11 @@ class Node:
         await self.snap.applyNodeEdits(nodeedits)
 
     async def delEdge(self, verb, n2iden):
+
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'delEdge() got an invalid node iden: {n2iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
         nodeedits = (
             (self.buid, self.form.name, (
                 (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),

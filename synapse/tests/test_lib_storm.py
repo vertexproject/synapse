@@ -637,6 +637,9 @@ class StormTest(s_t_utils.SynTest):
                 cron.view = None
             await core.nodes('cron.list')
 
+            # test that stormtypes nodes can be yielded
+            self.len(1, await core.nodes('for $x in ${ [inet:ipv4=1.2.3.4] } { yield $x }'))
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:

@@ -4815,3 +4815,41 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return( $lib.export.toaxon(${.created}, (bad, opts,)) )')
+
+    async def test_storm_nodes_edges(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('[ ou:industry=* ] return($node.iden())')
+
+            opts = {'vars': {'iden': iden}}
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            self.eq(nodes[0].iden(), iden)
+
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(fromn2=(1)) { -> { yield $n2iden } }')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(fromn2=(0)) { -> { yield $n2iden } }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges(fromn2=(1)) { -> { yield $n2iden } }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
+            self.len(1, nodes)
+            self.eq('ou:industry', nodes[0].ndef[0])
+
+            nodes = await core.nodes('ou:industry for ($verb, $n1iden) in $node.edges(fromn2=(1)) { -> { yield $n1iden } }')
+            self.len(1, nodes)
+            self.eq('inet:ipv4', nodes[0].ndef[0])
+
+            iden = await core.callStorm('ou:industry=* return($node.iden())')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.delEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            self.len(0, nodes)
+
+            with self.raises(s_exc.BadCast):
+                await core.nodes('ou:industry $node.addEdge(foo, bar)')
+
+            with self.raises(s_exc.BadCast):
+                await core.nodes('ou:industry $node.delEdge(foo, bar)')
