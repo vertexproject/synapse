@@ -494,6 +494,10 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
 
+    async def wput(self, sha256, url, params=None, headers=None, ssl=True, timeout=None):
+        await self._reqUserAllowed(('axon', 'wput'))
+        return await self.cell.wput(sha256, url, params=None, headers=None, ssl=True, timeout=None)
+
     async def metrics(self):
         '''
         Get the runtime metrics of the Axon.
@@ -942,6 +946,47 @@ class Axon(s_cell.Cell):
         async for byts in self.get(s_common.uhex(sha256)):
             for _, item in unpk.feed(byts):
                 yield item
+
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):
+        '''
+        Stream a blob from the axon as the body of an HTTP request.
+        '''
+        connector = None
+        proxyurl = self.conf.get('http:proxy')
+        if proxyurl is not None:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+
+            try:
+
+                async with sess.request(method, url, headers=headers, params=params,
+                                        data=self.get(sha256), ssl=ssl) as resp:
+
+                    info = {
+                        'ok': True,
+                        'url': str(resp.url),
+                        'code': resp.status,
+                        'headers': dict(resp.headers),
+                    }
+                    return info
+
+            except asyncio.CancelledError:  # pramga: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error streaming [{sha256}] to [{url}]')
+                exc = s_common.excinfo(e)
+                mesg = exc.get('errmsg')
+                if not mesg:
+                    mesg = exc.get('err')
+
+                return {
+                    'ok': False,
+                    'mesg': mesg,
+                }
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         '''

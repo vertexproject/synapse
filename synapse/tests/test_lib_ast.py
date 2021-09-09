@@ -879,6 +879,12 @@ class AstTest(s_test.SynTest):
             'name': 'jsonpkg',
             'version': '1.2.3',
             'synapse_minversion': (2, 8, 0),
+            'docs': (
+                {
+                 'title': 'User Guide',
+                 'content': '# User Guide\n\nSuper cool guide.',
+                },
+            )
         }
 
         async with self.getTestCore() as core:
@@ -968,6 +974,15 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('help pkgcmd')
             self.stormIsInPrint('pkgcmd.new', msgs)
             self.stormNotInPrint('pkgcmd.old', msgs)
+
+            msgs = await core.stormlist('pkg.docs asdf')
+            self.stormIsInWarn('Package (asdf) not found!', msgs)
+
+            msgs = await core.stormlist('pkg.docs stormpkg')
+            self.stormIsInPrint('Package (stormpkg) contains no documentation.', msgs)
+
+            msgs = await core.stormlist('pkg.docs jsonpkg')
+            self.stormIsInPrint('# User Guide\n\nSuper cool guide.', msgs)
 
     async def test_function(self):
         async with self.getTestCore() as core:

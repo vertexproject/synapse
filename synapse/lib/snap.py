@@ -792,6 +792,16 @@ class Snap(s_base.Base):
                     node.bylayer['tags'].pop((tag, prop), None)
                     continue
 
+                if etyp == s_layer.EDIT_NODEDATA_SET:
+                    name, data, oldv = parms
+                    node.nodedata[name] = data
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_DEL:
+                    name, oldv = parms
+                    node.nodedata.pop(name, None)
+                    continue
+
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
         if actualedits:
@@ -1176,6 +1186,7 @@ class Snap(s_base.Base):
 
                 async for edge in layr.iterNodeEdgesN1(buid, verb=verb):
                     if edge in edgeset:
+                        await asyncio.sleep(0)
                         continue
 
                     await edgeset.add(edge)
@@ -1189,6 +1200,7 @@ class Snap(s_base.Base):
 
                 async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
                     if edge in edgeset:
+                        await asyncio.sleep(0)
                         continue
 
                     await edgeset.add(edge)
