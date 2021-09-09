@@ -778,10 +778,7 @@ class Node:
         self.snap.livenodes.pop(self.buid, None)
 
     async def hasData(self, name):
-        if name in self.nodedata:
-            return True
-        node = await self.snap.getNodeByBuid(self.buid)
-        return name in node.nodedata
+        return await self.snap.hasNodeData(self.buid, name)
 
     async def getData(self, name):
         valu = self.nodedata.get(name, s_common.novalu)
