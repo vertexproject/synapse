@@ -7039,7 +7039,7 @@ async def tobuid(valu, noneok=False):
         return valu.valu.iden()
 
     if isinstance(valu, s_node.Node):
-        return node.iden()
+        return valu.iden()
 
     valu = await tostr(valu)
     if not s_common.isbuidhex(valu):

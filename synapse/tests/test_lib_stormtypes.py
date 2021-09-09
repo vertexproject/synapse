@@ -417,6 +417,13 @@ class StormTypesTest(s_test.SynTest):
                 async with core.getLocalProxy(user='lowuser') as proxy:
                     await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
 
+            self.none(await s_stormtypes.tobuid(None, noneok=True))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuid(nodes[0]))
+            stormnode = s_stormtypes.Node(nodes[0])
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuid(stormnode))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
