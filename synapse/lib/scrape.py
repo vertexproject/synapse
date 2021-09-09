@@ -26,11 +26,19 @@ FANGS = {
     '[@]': '@',
 }
 
+inverse_prefixs = {
+    '[': ']',
+    '<': '>',
+    '{': '}',
+    '(': ')',
+}
+
+
 re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
-    ('inet:url', r'(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)', {}),
+    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)', {}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
     ('inet:ipv4', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))', {}),
@@ -69,9 +77,7 @@ def scrape(text, ptype=None, refang=True, first=False):
     '''
 
     if refang:
-        print(f'otext {text=}')
         text = refang_text(text)
-        print(f'ntext {text=}')
 
     for ruletype, _, _ in scrape_types:
         if ptype and ptype != ruletype:
@@ -79,9 +85,11 @@ def scrape(text, ptype=None, refang=True, first=False):
 
         regx = regexes.get(ruletype)
         for valu in regx.finditer(text):  # type: regex.Match
-            print(ruletype, valu)
             mnfo = valu.groupdict()
             valu = mnfo.get('valu')
+            prefix = mnfo.get('prefix')
+            if prefix is not None:
+                valu = valu.rstrip(inverse_prefixs.get(prefix))
             yield (ruletype, valu)
             if first:
                 return
