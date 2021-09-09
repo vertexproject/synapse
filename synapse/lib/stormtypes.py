@@ -4367,7 +4367,7 @@ class Node(Prim):
 
     async def _methNodeAddEdge(self, verb, iden):
         verb = await tostr(verb)
-        iden = await tobuid(iden)
+        iden = await tobuidhex(iden)
 
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
@@ -4376,7 +4376,7 @@ class Node(Prim):
 
     async def _methNodeDelEdge(self, verb, iden):
         verb = await tostr(verb)
-        iden = await tobuid(iden)
+        iden = await tobuidhex(iden)
 
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
@@ -7030,7 +7030,7 @@ async def torepr(valu, usestr=False):
         return str(valu)
     return repr(valu)
 
-async def tobuid(valu, noneok=False):
+async def tobuidhex(valu, noneok=False):
 
     if noneok and valu is None:
         return None
