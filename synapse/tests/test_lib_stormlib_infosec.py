@@ -112,6 +112,11 @@ class InfoSecTest(s_test.SynTest):
 
             self.eq(res5, valu)
 
+            props = await core.callStorm('return($lib.infosec.cvss.vectToProps($vect))', opts={'vars': {'vect': vec5}})
+            valu = await core.callStorm('return($lib.infosec.cvss.calculateFromProps($props))',
+                                        opts={'vars': {'props': props}})
+            self.eq(res5, valu)
+
             vect = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
             valu = await core.callStorm('return($lib.infosec.cvss.vectToProps($vect))', opts={'vars': {'vect': vect}})
             self.eq(valu, {
