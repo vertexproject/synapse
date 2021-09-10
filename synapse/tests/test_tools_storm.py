@@ -147,3 +147,7 @@ class StormCliTest(s_test.SynTest):
                     self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
                     for pode in podes:
                         self.sorteq(('bar', 'foo'), pode[1]['tags'])
+
+                await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
+                text = str(outp)
+                self.isin(f'NoSuchProp', text)
