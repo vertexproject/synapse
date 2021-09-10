@@ -3087,7 +3087,7 @@ class Str(Prim):
                     Printing a uppercased string::
 
                         $foo="Duck"
-                        $lib.print($foo.lower())''',
+                        $lib.print($foo.upper())''',
          'type': {'type': 'function', '_funcname': '_methStrUpper',
                   'returns': {'type': 'str', 'desc': 'The uppercased string.', }}},
         {'name': 'slice', 'desc': '''
