@@ -160,8 +160,11 @@ def genrhelp(f):
 def _exectodo(que, todo):
     func, args, kwargs = todo
     try:
-        que.put(func(*args, **kwargs))
+        retn = func(*args, **kwargs)
+        que.put(retn)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         que.put(e)
 
 async def spawn(todo, timeout=None, ctx=None):
@@ -188,9 +191,13 @@ async def spawn(todo, timeout=None, ctx=None):
 
     def execspawn():
         proc.start()
-        proc.join()
         try:
-            return que.get(block=False)
+            # we have to block/wait on the queue because the sender
+            # could need to stream the return value in multiple chunks
+            retn = que.get()
+            # now that we've retrieved the response, he should have exited.
+            proc.join()
+            return retn
         except queue.Empty:
             raise s_exc.SpawnExit(code=proc.exitcode)
 
