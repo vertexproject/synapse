@@ -15,6 +15,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,46 @@ class PullFileCmd(StormCliCmd):
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
 
+class ExportCmd(StormCliCmd):
+    '''
+    Export the results of a storm query into a nodes file.
+
+    Example:
+
+        !export dnsa.nodes { inet:fqdn#mynodes -> inet:dns:a }
+    '''
+
+    _cmd_name = '!export'
+
+    def getArgParser(self):
+        pars = StormCliCmd.getArgParser(self)
+        pars.add_argument('filepath', help='The file path to save the export to.')
+        pars.add_argument('query', help='The Storm query to export nodes from.')
+        pars.add_argument('--includetags', nargs='*', help='Only include the specified tags in output.')
+        return pars
+
+    async def runCmdOpts(self, opts):
+
+        self.printf(f'exporting nodes')
+
+        queryopts = {}
+        if opts.includetags:
+            queryopts['scrub'] = {'include': {'tags': opts.includetags}}
+
+        try:
+            query = opts.query[1:-1]
+            with s_common.genfile(opts.filepath) as fd:
+                async for pode in self._cmd_cli.item.exportStorm(query, opts=queryopts):
+                    byts = fd.write(s_msgpack.en(pode))
+
+            self.printf(f'saved to: {opts.filepath}')
+
+        except asyncio.CancelledError as e:
+            raise
+
+        except s_exc.SynErr as e:
+            self.printf(e.errinfo.get('mesg', str(e)))
+
 class StormCli(s_cli.Cli):
 
     histfile = 'storm_history'
@@ -184,6 +225,7 @@ class StormCli(s_cli.Cli):
     def initCmdClasses(self):
         self.addCmdClass(QuitCmd)
         self.addCmdClass(HelpCmd)
+        self.addCmdClass(ExportCmd)
         self.addCmdClass(RunFileCmd)
         self.addCmdClass(PullFileCmd)
         self.addCmdClass(PushFileCmd)
