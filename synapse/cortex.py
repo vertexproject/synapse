@@ -2926,6 +2926,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
+        if self.inaugural:
+            await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
 
     async def _initCoreAxon(self):

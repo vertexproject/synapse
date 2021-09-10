@@ -91,7 +91,7 @@ def synchelp(f):
     '''
     The synchelp decorator allows the transparent execution of
     a coroutine using the global loop from a thread other than
-    the event loop.  In both use cases, teh actual work is done
+    the event loop.  In both use cases, the actual work is done
     by the global event loop.
 
     Examples:
