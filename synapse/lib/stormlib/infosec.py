@@ -1,8 +1,6 @@
 import math
 
 import synapse.exc as s_exc
-import synapse.common as s_common
-import synapse.lib.node as s_node
 import synapse.lib.stormtypes as s_stormtypes
 
 
@@ -213,16 +211,18 @@ class CvssLib(s_stormtypes.Lib):
 
             score = basescore
 
-            E = props.get('cvss:e')
-            RL = props.get('cvss:rl')
-            RC = props.get('cvss:rc')
+            if basescore:
 
-            if all((basescore, E, RL, RC)):
+                E = props.get('cvss:e')
+                RL = props.get('cvss:rl')
+                RC = props.get('cvss:rc')
 
-                expfactor = CVSS31['E'][E] * CVSS31['RL'][RL] * CVSS31['RC'][RC]
-
-                temporalscore = roundup(basescore * expfactor)
-                score = temporalscore
+                if all((E, RL, RC)):
+                    expfactor = CVSS31['E'][E] * CVSS31['RL'][RL] * CVSS31['RC'][RC]
+                    temporalscore = roundup(basescore * expfactor)
+                    score = temporalscore
+                else:
+                    expfactor = CVSS31['E']['X'] * CVSS31['RL']['X'] * CVSS31['RC']['X']
 
                 MAV = props.get('cvss:mav')
                 MAC = props.get('cvss:mac')
@@ -242,10 +242,11 @@ class CvssLib(s_stormtypes.Lib):
                     if MAV == 'X': MAV = AV
                     if MAC == 'X': MAC = AC
                     if MPR == 'X': MPR = PR
+                    if MUI == 'X': MUI = UI
                     if MS == 'X': MS = S
                     if MC == 'X': MC = C
-                    if MI == 'X': MC = _I
-                    if MA == 'X': MC = A
+                    if MI == 'X': MI = _I
+                    if MA == 'X': MA = A
 
                     modiscbase = min(1.0 - (
                         (1.0 - (CVSS31['C'][MC] * CVSS31['CR'][CR])) *

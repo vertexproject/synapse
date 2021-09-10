@@ -1,8 +1,4 @@
-import os
-import asyncio
-
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.tests.utils as s_test
 
@@ -23,6 +19,18 @@ res4 = {'ok': True, 'version': '3.1', 'score': 5.6, 'scores': {
 vec5 = 'AV:A/AC:L/PR:H/UI:R/S:U/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:C/MC:H/MI:L/MA:N'
 res5 = {'ok': True, 'version': '3.1', 'score': 6.6, 'scores': {
             'base': 4.9, 'temporal': 4.1, 'environmental': 6.6, 'impact': 4.2, 'modifiedimpact': 6.0, 'exploitability': 0.7}}
+
+# no temporal; partial environmental
+# https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X&version=3.1
+vec6 = 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X'
+res6 = {'ok': True, 'version': '3.1', 'score': 4.2, 'scores': {
+    'base': 4.6, 'temporal': None, 'environmental': 4.2, 'impact': 3.4, 'modifiedimpact': 2.9, 'exploitability': 1.2}}
+
+# temporal fully populated; partial environmental (only CR)
+# https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X&version=3.1
+vec7 = 'AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/E:U/RL:O/RC:U/CR:L/IR:X/AR:X/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X'
+res7 = {'ok': True, 'version': '3.1', 'score': 3.4, 'scores': {
+    'base': 4.6, 'temporal': 3.7, 'environmental': 3.4, 'impact': 3.4, 'modifiedimpact': 2.9, 'exploitability': 1.2}}
 
 class InfoSecTest(s_test.SynTest):
 
@@ -116,6 +124,17 @@ class InfoSecTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.infosec.cvss.calculateFromProps($props))',
                                         opts={'vars': {'props': props}})
             self.eq(res5, valu)
+
+            scmd = '''
+                $props = $lib.infosec.cvss.vectToProps($vect)
+                return($lib.infosec.cvss.calculateFromProps($props))
+            '''
+
+            valu = await core.callStorm(scmd, opts={'vars': {'vect': vec6}})
+            self.eq(res6, valu)
+
+            valu = await core.callStorm(scmd, opts={'vars': {'vect': vec7}})
+            self.eq(res7, valu)
 
             vect = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
             valu = await core.callStorm('return($lib.infosec.cvss.vectToProps($vect))', opts={'vars': {'vect': vect}})
