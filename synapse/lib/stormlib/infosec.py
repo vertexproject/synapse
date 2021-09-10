@@ -139,6 +139,8 @@ class CvssLib(s_stormtypes.Lib):
 
     async def calculate(self, node, save=True, vers='3.1'):
 
+        save = await s_stormtypes.tobool(save)
+
         if node.ndef[0] != 'risk:vuln':
             mesg = '$lib.infosec.cvss.calculate() requires a risk:vuln node.'
             raise s_exc.BadArg(mesg=mesg)
