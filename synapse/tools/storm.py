@@ -177,7 +177,7 @@ class ExportCmd(StormCliCmd):
         !export dnsa.nodes { inet:fqdn#mynodes -> inet:dns:a }
 
         // Export nodes to a file and only include specific tags
-        !export dnsa.nodes { inet:fqdn#mynodes } --includetags footag
+        !export fqdn.nodes { inet:fqdn#mynodes } --includetags footag
     '''
 
     _cmd_name = '!export'
