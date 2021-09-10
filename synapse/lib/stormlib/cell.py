@@ -85,7 +85,7 @@ for $view in $absoluteOrder {
 '''
 
 
-storm_fixes = (
+hotfixes = (
     ((1, 0, 0), {
         'desc': 'Create nodes for known missing autoadds.',
         'query': storm_missing_autoadds,
@@ -93,8 +93,8 @@ storm_fixes = (
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'
 
-def getMaxStormFixes():
-    return max([vers for vers, info in storm_fixes])
+def getMaxHotFixes():
+    return max([vers for vers, info in hotfixes])
 
 @s_stormtypes.registry.registerLib
 class CellLib(s_stormtypes.Lib):
@@ -114,13 +114,13 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'getHealthCheck', 'desc': 'Get healthcheck information about the Cortex.',
          'type': {'type': 'function', '_funcname': '_getHealthCheck', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing healthcheck information.', }}},
-        {'name': 'stormFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
-         'type': {'type': 'function', '_funcname': '_stormFixesApply', 'args': (),
+        {'name': 'hotFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
+         'type': {'type': 'function', '_funcname': '_hotFixesApply', 'args': (),
                   'returns': {'type': 'list',
                               'desc': 'Tuple containing the current version after applying the fixes.'}}},
-        {'name': 'stormFixesCheck', 'desc': 'Check to see if there are known data migrations and fixes to apply.',
-         'type': {'type': 'function', '_funcname': '_stormFixesCheck', 'args': (),
-                  'returns': {'type': 'bool', 'desc': 'Bool indicating if there are fixes to apply or not.'}}},
+        {'name': 'hotFixesCheck', 'desc': 'Check to see if there are known hot fixes to apply.',
+         'type': {'type': 'function', '_funcname': '_hotFixesCheck', 'args': (),
+                  'returns': {'type': 'bool', 'desc': 'Bool indicating if there are hot fixes to apply or not.'}}},
     )
     _storm_lib_path = ('cell',)
 
@@ -130,17 +130,17 @@ class CellLib(s_stormtypes.Lib):
             'getBackupInfo': self._getBackupInfo,
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
-            'stormFixesApply': self._stormFixesApply,
-            'stormFixesCheck': self._stormFixesCheck,
+            'hotFixesApply': self._stormFixesApply,
+            'hotFixesCheck': self._stormFixesCheck,
         }
 
-    async def _stormFixesApply(self):
+    async def _hotFixesApply(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.stormFixesApply() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
 
         curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
-        for vers, info in storm_fixes:
+        for vers, info in hotfixes:
             if vers <= curv:
                 continue
 
@@ -169,7 +169,7 @@ class CellLib(s_stormtypes.Lib):
 
         return curv
 
-    async def _stormFixesCheck(self):
+    async def _hotFixesCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
@@ -177,7 +177,7 @@ class CellLib(s_stormtypes.Lib):
         curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
 
         dowork = False
-        for vers, info in storm_fixes:
+        for vers, info in hotfixes:
             if vers <= curv:
                 continue
 

@@ -27,7 +27,7 @@ class StormCellTest(s_test.SynTest):
             vers = await core.callStorm('return ( $lib.globals.get($key) )',
                                         {'vars': {'key': s_cell.runtime_fixes_key}})
             self.nn(vers)
-            self.eq(vers, s_cell.getMaxStormFixes())
+            self.eq(vers, s_cell.getMaxHotFixes())
 
             user = await core.addUser('bob')
             opts = {'user': user.get('iden')}
@@ -78,11 +78,11 @@ class StormCellTest(s_test.SynTest):
                 self.len(0, await core.nodes('inet:ipv6', opts={'view': view}))
                 self.len(0, await core.nodes('inet:fqdn', opts={'view': view}))
 
-            msgs = await core.stormlist('$r = $lib.cell.stormFixesCheck() $lib.print("r={r}", r=$r)')
+            msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
             self.stormIsInPrint('Would apply fix (1, 0, 0) for [Create nodes for known missing autoadds.]', msgs)
             self.stormIsInPrint('r=True', msgs)
 
-            q = '$lib.debug=$lib.true $r = $lib.cell.stormFixesApply() $lib.print("r={r}", r=$r)'
+            q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
             mesg = '\n'.join(['The following Views will be fixed in order:', '68695c660aa6981192d70e954af0c8e3',
                               '18520682d60c09857a12a262c4e2b1ec', '9568f8706b4ce26652dd189b77892e1f',
                               'f2edfe4a9da70308dcffd744a9a50bef', '3a3f351ea0704fc310772096c0291405',
@@ -91,7 +91,7 @@ class StormCellTest(s_test.SynTest):
             self.stormIsInPrint(mesg, msgs)
             self.stormIsInPrint('r=(1, 0, 0)', msgs)
 
-            msgs = await core.stormlist('$r = $lib.cell.stormFixesCheck() $lib.print("r={r}", r=$r)')
+            msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
             self.stormIsInPrint('r=False', msgs)
 
             name2view = await get_regression_views(core)
@@ -123,7 +123,7 @@ class StormCellTest(s_test.SynTest):
 
             # Sad path
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return( $lib.cell.stormFixesApply() )', opts={'user': user.iden})
+                await core.callStorm('return( $lib.cell.hotFixesApply() )', opts={'user': user.iden})
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('return ( $lib.cell.stormFixesCheck()) ', opts={'user': user.iden})
+                await core.callStorm('return ( $lib.cell.hotFixesCheck()) ', opts={'user': user.iden})
