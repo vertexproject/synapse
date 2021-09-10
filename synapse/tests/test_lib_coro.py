@@ -13,8 +13,9 @@ class FakeError(Exception): pass
 def spawnfunc(x, y=10):
     return x + y
 
-def spawnsleep():
-    time.sleep(10)
+def spawnsleep(n=10):
+    time.sleep(n)
+    return True
 
 def spawnfakeit():
     raise FakeError()
@@ -81,6 +82,9 @@ class CoroTest(s_t_utils.SynTest):
 
         todo = (spawnfunc, (20,), {'y': 30})
         self.eq(50, await s_coro.spawn(todo))
+
+        todo = (spawnsleep, (1.5,), {})
+        self.true(await s_coro.spawn(todo))
 
         todo = (spawnsleep, (), {})
         with self.raises(asyncio.TimeoutError):
