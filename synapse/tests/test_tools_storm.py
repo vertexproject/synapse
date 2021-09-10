@@ -126,7 +126,7 @@ class StormCliTest(s_test.SynTest):
                 path = os.path.join(dirn, 'export1.nodes')
                 await s_t_storm.main((lurl, f'!export {path} {{ test:str }}'), outp=outp)
                 text = str(outp)
-                self.isin(f'saved to: {path}', text)
+                self.isin(f'saved 2 nodes to: {path}', text)
 
                 with open(path, 'rb') as fd:
                     byts = fd.read()
@@ -139,7 +139,7 @@ class StormCliTest(s_test.SynTest):
                 q = f'!export {path} {{ test:str }} --includetags foo bar'
                 await s_t_storm.main((lurl, q), outp=outp)
                 text = str(outp)
-                self.isin(f'saved to: {path}', text)
+                self.isin(f'saved 2 nodes to: {path}', text)
 
                 with open(path, 'rb') as fd:
                     byts = fd.read()

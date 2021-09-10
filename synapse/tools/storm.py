@@ -173,7 +173,11 @@ class ExportCmd(StormCliCmd):
 
     Example:
 
+        // Export nodes to a file
         !export dnsa.nodes { inet:fqdn#mynodes -> inet:dns:a }
+
+        // Export nodes to a file and only include specific tags
+        !export dnsa.nodes { inet:fqdn#mynodes } --includetags footag
     '''
 
     _cmd_name = '!export'
@@ -196,10 +200,12 @@ class ExportCmd(StormCliCmd):
         try:
             query = opts.query[1:-1]
             with s_common.genfile(opts.filepath) as fd:
+                cnt = 0
                 async for pode in self._cmd_cli.item.exportStorm(query, opts=queryopts):
                     byts = fd.write(s_msgpack.en(pode))
+                    cnt += 1
 
-            self.printf(f'saved to: {opts.filepath}')
+            self.printf(f'saved {cnt} nodes to: {opts.filepath}')
 
         except asyncio.CancelledError as e:
             raise
