@@ -130,8 +130,8 @@ class CellLib(s_stormtypes.Lib):
             'getBackupInfo': self._getBackupInfo,
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
-            'hotFixesApply': self._stormFixesApply,
-            'hotFixesCheck': self._stormFixesCheck,
+            'hotFixesApply': self._hotFixesApply,
+            'hotFixesCheck': self._hotFixesCheck,
         }
 
     async def _hotFixesApply(self):
