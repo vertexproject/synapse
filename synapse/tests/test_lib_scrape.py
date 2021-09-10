@@ -28,6 +28,21 @@ data1 = '''
     tcp://foo.bar.org:4665/,,..a
 '''
 
+data2 = '''
+A bunch of prefixed urls
+
+<https://www.foobar.com/things.html>
+
+(https://blog.newp.com/scrape/all/the/urls)
+
+[https://www.thingspace.com/blog/giggles.html]
+
+{https://testme.org/test.php}
+
+https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}
+
+'''
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
@@ -63,6 +78,13 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
         nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+
+        nodes = list(s_scrape.scrape(data2))
+        nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
+        nodes.remove(('inet:url', 'https://blog.newp.com/scrape/all/the/urls'))
+        nodes.remove(('inet:url', 'https://www.thingspace.com/blog/giggles.html'))
+        nodes.remove(('inet:url', 'https://testme.org/test.php'))
+        nodes.remove(('inet:url', 'https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}'))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32, )
