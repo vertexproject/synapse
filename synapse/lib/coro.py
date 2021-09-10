@@ -192,7 +192,7 @@ async def spawn(todo, timeout=None, ctx=None):
             # we have to block/wait on the queue because the sender
             # could need to stream the return value in multiple chunks
             retn = que.get()
-            # now that we've retrieved the response, he should have exited.
+            # now that we've retrieved the response, it should have exited.
             proc.join()
             return retn
         except queue.Empty:
