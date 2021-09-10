@@ -160,8 +160,7 @@ def genrhelp(f):
 def _exectodo(que, todo):
     func, args, kwargs = todo
     try:
-        retn = func(*args, **kwargs)
-        que.put(retn)
+        que.put(func(*args, **kwargs))
     except Exception as e:
         import traceback
         traceback.print_exc()
