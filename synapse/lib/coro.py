@@ -187,16 +187,21 @@ async def spawn(todo, timeout=None, ctx=None):
     proc = ctx.Process(target=_exectodo, args=(que, todo))
 
     def execspawn():
+
         proc.start()
-        try:
-            # we have to block/wait on the queue because the sender
-            # could need to stream the return value in multiple chunks
-            retn = que.get()
-            # now that we've retrieved the response, it should have exited.
-            proc.join()
-            return retn
-        except queue.Empty:
-            raise s_exc.SpawnExit(code=proc.exitcode)
+
+        while True:
+            try:
+                # we have to block/wait on the queue because the sender
+                # could need to stream the return value in multiple chunks
+                retn = que.get(timeout=1)
+                # now that we've retrieved the response, it should have exited.
+                proc.join()
+                return retn
+            except queue.Empty:
+                if not proc.is_alive():
+                    proc.join()
+                    raise s_exc.SpawnExit(code=proc.exitcode)
 
     try:
 
