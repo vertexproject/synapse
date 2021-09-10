@@ -2,7 +2,6 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -172,7 +171,7 @@ class CellLib(s_stormtypes.Lib):
 
     async def _stormFixesCheck(self):
         if not self.runt.isAdmin():
-            mesg = '$lib.cell.getHealthCheck() requires admin privs.'
+            mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
 
         curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
