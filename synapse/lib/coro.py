@@ -162,8 +162,6 @@ def _exectodo(que, todo):
     try:
         que.put(func(*args, **kwargs))
     except Exception as e:
-        import traceback
-        traceback.print_exc()
         que.put(e)
 
 async def spawn(todo, timeout=None, ctx=None):
