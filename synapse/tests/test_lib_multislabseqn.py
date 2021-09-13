@@ -162,7 +162,15 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             opts = {'maxentries': 10}
 
             async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
-                for i in range(18):
+
+                for i in range(5):
+                    await msqn.add(f'foo{i}')
+
+                # cull with only one seqn
+                await msqn.cull(2)
+                await self.asyncraises(s_exc.BadIndxValu, msqn.get(2))
+
+                for i in range(5, 18):
                     await msqn.add(f'foo{i}')
 
                 # A no-op

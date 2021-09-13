@@ -568,6 +568,30 @@ class CellTest(s_t_utils.SynTest):
                 self.false(yielded)
                 self.eq(data, [])
 
+    async def test_cell_nexusenable(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {'nexslog:en': False}
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                self.eq(0, await cell.getNexsIndx())
+                await cell.addUser('test00')
+                self.eq(2, await cell.getNexsIndx())
+
+            # create a first entry that will be greater than the slab starting index
+            conf = {'nexslog:en': True}
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                self.eq(2, await cell.getNexsIndx())
+                await cell.addUser('test01')
+                self.eq(4, await cell.getNexsIndx())
+
+            # restart checks seqn consistency
+            conf = {'nexslog:en': True}
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+                self.eq(4, await cell.getNexsIndx())
+                await cell.addUser('test02')
+                self.eq(6, await cell.getNexsIndx())
+
     async def test_cell_authv2(self):
 
         async with self.getTestCore() as core:

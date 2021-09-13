@@ -152,7 +152,7 @@ class MultiSlabSeqn(s_base.Base):
 
                 firstidx = firstitem[0]  # might not match the separately stored first index due to culling
 
-                if firstidx != fnstartidx:
+                if firstidx < fnstartidx:
                     raise s_exc.BadCoreStore('Multislab:  filename inconsistent with contents')
 
                 lastidx = seqn.index() - 1
@@ -208,6 +208,7 @@ class MultiSlabSeqn(s_base.Base):
         if offs >= self.indx - 1:
             return
 
+        ridx = None
         for ridx in range(len(self._ranges) - 1):
             startidx = self._ranges[ridx]
 
@@ -231,7 +232,8 @@ class MultiSlabSeqn(s_base.Base):
         self.firstindx = offs + 1
         self._setFirstIndx(self.tailslab, offs + 1)
 
-        del self._ranges[:ridx]
+        if ridx is not None:
+            del self._ranges[:ridx]
 
     def _isTimeToRotate(self, indx):
         return indx > self._ranges[-1] and indx % self.idx_per_slab == 0
