@@ -235,8 +235,10 @@ class MultiSlabSeqn(s_base.Base):
         if ridx is not None:
             del self._ranges[:ridx]
 
-    def _isTimeToRotate(self, indx):
-        return indx > self._ranges[-1] and indx % self.idx_per_slab == 0
+    def _isTimeToRotate(self):
+        # Only the tailseqn is eligible for rotation
+        assert self.tailseqn
+        return self.tailseqn.size() >= self.idx_per_slab
 
     async def _makeSlab(self, startidx: int) -> Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]:
 
@@ -317,7 +319,7 @@ class MultiSlabSeqn(s_base.Base):
         else:
             indx = self.indx
 
-        if advances and self._isTimeToRotate(self.indx):
+        if self._isTimeToRotate():
             await self._initTailSlab(self.indx)
 
         assert self.tailseqn

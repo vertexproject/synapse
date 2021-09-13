@@ -65,23 +65,38 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = msqn.index()
                 self.eq(11, retn)
 
-                # Make sure it added a new slab
+                # Even though indx > maxentries, not rotated because size < maxentries
+                self.eq(4, msqn.tailseqn.size())
+                fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
+                self.len(1, fns)
+
+                # cause a rotation
+                for i in range(10, 20):
+                    await msqn.add(f'foo{i}')
+
+                self.eq(4, msqn.tailseqn.size())
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(2, fns)
+
+                retn = await alist(msqn.iter(0))
+                self.len(14, retn)
+                self.eq([(19, 'foo18'), (20, 'foo19')], retn[-2:])
 
             # Persistence check
 
             async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
                 retn = await alist(msqn.iter(0))
-                self.eq([(0, 'foo'), (1, 'foo2'), (9, 'foo9'), (10, 'foo10')], retn)
-
-                retn = await alist(msqn.iter(0))
+                self.len(14, retn)
+                self.eq([(0, 'foo'), (1, 'foo2'), (9, 'foo9'), (10, 'foo10')], retn[:4])
+                self.eq([(19, 'foo18'), (20, 'foo19')], retn[-2:])
 
                 retn = await msqn.get(9)
                 self.eq('foo9', retn)
 
                 retn = await alist(msqn.gets(9, wait=False))
-                self.eq([(9, 'foo9'), (10, 'foo10')], retn)
+                self.len(12, retn)
+                self.eq([(9, 'foo9'), (10, 'foo10')], retn[:2])
+                self.eq((20, 'foo19'), retn[-1])
 
                 evnt = asyncio.Event()
 
@@ -99,17 +114,24 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 await msqn.add('done')
 
                 retn = await asyncio.wait_for(task, timeout=1)
-                self.eq([(9, 'foo9'), (10, 'foo10')], retn)
+                self.len(12, retn)
+                self.eq([(9, 'foo9'), (10, 'foo10')], retn[:2])
+                self.eq((20, 'foo19'), retn[-1])
 
                 # Add entries not on the tail
                 retn = await msqn.add('foo10b', indx=10)
                 self.eq(10, retn)
 
+                retn = await msqn.add('foo17b', indx=18)
+                self.eq(18, retn)
+
                 retn = await msqn.add('foo7', indx=7)
                 self.eq(7, retn)
 
                 retn = await alist(msqn.iter(1))
-                self.eq([(1, 'foo2'), (7, 'foo7'), (9, 'foo9'), (10, 'foo10b'), (11, 'done')], retn)
+                self.len(15, retn)
+                self.eq([(1, 'foo2'), (7, 'foo7'), (9, 'foo9'), (10, 'foo10b')], retn[:4])
+                self.eq((21, 'done'), retn[-1])
 
                 # Give a chance for the non-iterated async generators to get cleaned up
                 await asyncio.sleep(0)
@@ -117,7 +139,9 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 # Make sure we're not holding onto more than 2 slabs
 
-                await msqn.add('foo20', indx=20)
+                # cause a rotation
+                for i in range(20, 30):
+                    await msqn.add(f'foo{i}')
 
                 self.len(2, msqn._openslabs)
 
@@ -141,8 +165,8 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.len(2, msqn._openslabs)
 
                 # (Need to evict 0 slab ref from the cacheslab)
-                retn = await msqn.get(10)
-                self.eq(retn, 'foo10b')
+                retn = await msqn.get(18)
+                self.eq(retn, 'foo17b')
 
                 # Should have the tail slab (20), the cache slab (10), and the open iterator (0) slabs
                 self.len(3, msqn._openslabs)
@@ -151,7 +175,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.eq(retn, 'foo2')
 
                 retn = await alist(it)
-                self.len(6, retn)
+                self.len(25, retn)
 
                 # Iterator exhausted: should have just the cache slab (10) and the tail slab (20)
                 self.len(2, msqn._openslabs)
