@@ -148,6 +148,20 @@ class NexusTest(s_t_utils.SynTest):
 
             retn = await core00.nexsroot.nexslog.get(0)
             self.nn(retn)
+            self.eq([0], core00.nexsroot.nexslog._ranges)
+            await self.agenlen(53, core00.nexsroot.nexslog.iter(0))
+
+        # nexus log rotation after migration
+        conf = {'nexslog:maxentries': 10}
+        async with self.getRegrCore('reindex-byarray3', conf=conf) as core00:
+            nexsindx = await core00.getNexsIndx()
+            layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
+            self.eq(nexsindx, layrindx)
+
+            retn = await core00.nexsroot.nexslog.get(0)
+            self.nn(retn)
+            self.eq([0, 52], core00.nexsroot.nexslog._ranges)
+            await self.agenlen(53, core00.nexsroot.nexslog.iter(0))
 
     async def test_nexus_setindex(self):
 

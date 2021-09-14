@@ -49,7 +49,9 @@ class MultiSlabSeqn(s_base.Base):
         if opts is None:
             opts = {}
 
-        self.idx_per_slab = opts.get('maxentries', DEF_IDX_PER_SLAB)
+        self.idx_per_slab = opts.get('maxentries')
+        if self.idx_per_slab is None or self.idx_per_slab <= 0:
+            self.idx_per_slab = DEF_IDX_PER_SLAB
 
         self.offsevents: List[Tuple[int, int, asyncio.Event]] = [] # as a heap
         self._waitcounter = 0
@@ -85,7 +87,7 @@ class MultiSlabSeqn(s_base.Base):
         self.onfini(fini)
 
         if self._isTimeToRotate():
-            logger.debug('Rotating Nexus log at indx %d', self.indx)
+            logger.debug('Rotating %s at indx %d', self.tailslab.path, self.indx)
             await self._initTailSlab(self.indx)
 
     def __repr__(self):
@@ -324,7 +326,7 @@ class MultiSlabSeqn(s_base.Base):
             indx = self.indx
 
         if self._isTimeToRotate():
-            logger.debug('Rotating Nexus log at indx %d', self.indx)
+            logger.debug('Rotating %s at indx %d', self.tailslab.path, self.indx)
             await self._initTailSlab(self.indx)
 
         assert self.tailseqn
