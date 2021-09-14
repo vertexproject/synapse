@@ -140,4 +140,7 @@ class SlabSeqn(s_t_utils.SynTest):
             await seqn.cull(14)
             self.chk_size(seqn)
 
+            seqn.trim(0)
+            self.chk_size(seqn)
+
             await slab.fini()
