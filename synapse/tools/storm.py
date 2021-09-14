@@ -180,6 +180,7 @@ class StormCli(s_cli.Cli):
         self.stormopts = {'repr': True}
         self.hidetags = False
         self.hideprops = False
+        self._print_skips = []
 
     def initCmdClasses(self):
         self.addCmdClass(QuitCmd)
@@ -194,12 +195,41 @@ class StormCli(s_cli.Cli):
             self.indented = False
         return s_cli.Cli.printf(self, mesg, addnl=addnl, color=color)
 
-    async def runCmdLine(self, line):
+    async def runCmdLine(self, line, opts=None):
 
         if line[0] == '!':
             return await s_cli.Cli.runCmdLine(self, line)
 
-        await self.storm(line)
+        await self.storm(line, opts=opts)
+
+    def handleErr(self, mesg):
+        err = mesg[1]
+        if err[0] == 'BadSyntax':
+            pos = err[1].get('at', None)
+            text = err[1].get('text', None)
+            tlen = len(text)
+            mesg = err[1].get('mesg', None)
+            if pos is not None and text is not None and mesg is not None:
+                text = text.replace('\n', ' ')
+                # Handle too-long text
+                if tlen > 60:
+                    text = text[max(0, pos - 30):pos + 30]
+                    if pos < tlen - 30:
+                        text += '...'
+                    if pos > 30:
+                        text = '...' + text
+                        pos = 33
+
+                self.printf(text)
+                self.printf(f'{" " * pos}^')
+                self.printf(f'Syntax Error: {mesg}', color=ERROR_COLOR)
+                return
+
+        text = err[1].get('mesg', err[0])
+        self.printf(f'ERROR: {text}', color=ERROR_COLOR)
+
+    def _printNodeProp(self, name, valu):
+        self.printf(f'        {name} = {valu}')
 
     async def storm(self, text, opts=None):
 
@@ -209,7 +239,12 @@ class StormCli(s_cli.Cli):
 
         async for mesg in self.item.storm(text, opts=realopts):
 
-            if mesg[0] == 'node':
+            mtyp = mesg[0]
+
+            if mtyp in self._print_skips:
+                continue
+
+            if mtyp == 'node':
 
                 node = mesg[1]
                 formname, formvalu = s_node.reprNdef(node)
@@ -225,7 +260,7 @@ class StormCli(s_cli.Cli):
                         if name[0] != '.':
                             name = ':' + name
 
-                        self.printf(f'        {name} = {valu}')
+                        self._printNodeProp(name, valu)
 
                 if not self.hidetags:
 
@@ -246,23 +281,23 @@ class StormCli(s_cli.Cli):
                         if not printed:
                             self.printf(f'        #{tag}')
 
-            elif mesg[0] == 'node:edits':
+            elif mtyp == 'node:edits':
                 edit = mesg[1]
                 count = sum(len(e[2]) for e in edit.get('edits', ()))
                 s_cli.Cli.printf(self, '.' * count, addnl=False, color=NODEEDIT_COLOR)
                 self.indented = True
 
-            elif mesg[0] == 'fini':
+            elif mtyp == 'fini':
                 took = mesg[1].get('took')
                 took = max(took, 1)
                 count = mesg[1].get('count')
                 pers = float(count) / float(took / 1000)
                 self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
-            elif mesg[0] == 'print':
+            elif mtyp == 'print':
                 self.printf(mesg[1].get('mesg'))
 
-            elif mesg[0] == 'warn':
+            elif mtyp == 'warn':
                 info = mesg[1]
                 warn = info.pop('mesg', '')
                 xtra = ', '.join([f'{k}={v}' for k, v in info.items()])
@@ -270,31 +305,8 @@ class StormCli(s_cli.Cli):
                     warn = ' '.join([warn, xtra])
                 self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
-            elif mesg[0] == 'err':
-                err = mesg[1]
-                if err[0] == 'BadSyntax':
-                    pos = err[1].get('at', None)
-                    text = err[1].get('text', None)
-                    tlen = len(text)
-                    mesg = err[1].get('mesg', None)
-                    if pos is not None and text is not None and mesg is not None:
-                        text = text.replace('\n', ' ')
-                        # Handle too-long text
-                        if tlen > 60:
-                            text = text[max(0, pos - 30):pos + 30]
-                            if pos < tlen - 30:
-                                text += '...'
-                            if pos > 30:
-                                text = '...' + text
-                                pos = 33
-
-                        self.printf(text)
-                        self.printf(f'{" "*pos}^')
-                        self.printf(f'Syntax Error: {mesg}', color=ERROR_COLOR)
-                        return
-
-                text = err[1].get('mesg', err[0])
-                self.printf(f'ERROR: {text}', color=ERROR_COLOR)
+            elif mtyp == 'err':
+                self.handleErr(mesg)
 
 def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')

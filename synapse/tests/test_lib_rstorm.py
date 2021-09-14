@@ -190,11 +190,45 @@ A multiline secondary property.
 Bye!
 '''
 
+cli_multiline00_input = '''
+A multiline secondary property.
+.. storm-cortex:: default
+.. storm-opts:: {"vars": {"name": "Node\\nWith a\\nweird name"}}
+.. storm-cli:: [graph:node=(n1,) :name=$name]
+Bye!
+'''
+
+cli_multiline00_output = '''
+A multiline secondary property.
+::
+
+    storm> [graph:node=(n1,) :name=$name]
+    graph:node=85d3511b97098d7fd9e07be21f6390de
+            :name = Node
+                    With a
+                    weird name
+
+Bye!
+'''
+
 
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
         lines = await rstorm.run()
         return ''.join(lines)
+
+def fix_input_for_cli(rst):
+    lines = rst.split('\n')
+    ret = []
+    for line in lines:
+        if line.startswith('.. storm::') and '.. storm:: --' not in line:
+            line = line.replace('.. storm::', '.. storm-cli::')
+        ret.append(line)
+    return '\n'.join(ret)
+
+def fix_output_for_cli(rst):
+    rst = rst.replace('\n    >', '\n    storm>')
+    return rst
 
 class RStormLibTest(s_test.SynTest):
 
@@ -364,3 +398,86 @@ class RStormLibTest(s_test.SynTest):
                 text = await get_rst_text(path)
                 self.isin("vertex.link", text)
                 self.notin("wootwoot.com", text)
+
+    async def test_rstorm_cli(self):
+
+        with self.getTestDir() as dirn:
+
+            # props output
+            path = s_common.genpath(dirn, 'test3.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(rst_in_props).encode())
+
+            text = await get_rst_text(path)
+            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
+            self.eq(text_nocrt, fix_output_for_cli(rst_out_props))
+
+            # Multiline secondary properties
+            path = s_common.genpath(dirn, 'multiline00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(multiline00_input).encode())
+            text = await get_rst_text(path)
+            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
+
+            self.eq(text_nocrt, fix_output_for_cli(multiline00_output))
+
+            # http
+            path = s_common.genpath(dirn, 'http.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(rst_in_http).encode())
+
+            text = await get_rst_text(path)
+            self.isin('inet:ipv4=1.2.3.4', text)  # first mock
+            self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
+            self.isin('it:dev:str=notjson', text)  # one mock at a time
+
+            # multi reqest in 1 rstorm command
+            path = s_common.genpath(dirn, 'http_multi.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(multi_rst_in_http).encode())
+            text = await get_rst_text(path)
+            self.isin("<ANSI STANDARD PIZZA>", text)
+            self.isin("<This is (not) a test>", text)
+
+            # Pass some vcr opts through
+            path = s_common.genpath(dirn, 'http_multi_opts.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(multi_rst_in_http_opts).encode())
+            text = await get_rst_text(path)
+            self.isin('this test passed', text)
+
+            # clear the current set of things
+            path = s_common.genpath(dirn, 'clear_storm_opts.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(clear_storm_opts).encode())
+            with self.raises(s_exc.StormRuntimeError):
+                text = await get_rst_text(path)
+
+            # boom1 test
+            path = s_common.genpath(dirn, 'boom1.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(boom1).encode())
+
+            with self.raises(s_exc.NoSuchVar):
+                await get_rst_text(path)
+
+            # boom2 test - skipped - its a storm-pre
+            # boom3 test
+            path_boom3 = s_common.genpath(dirn, 'boom3.rst')
+            with s_common.genfile(path_boom3) as fd:
+                fd.write(fix_input_for_cli(boom3).encode())
+
+            with self.raises(s_exc.StormRuntimeError):
+                text = await get_rst_text(path_boom3)
+
+            # make sure things get cleaned up
+            async with await s_rstorm.StormRst.anit(path_boom3) as rstorm:
+                try:
+                    await rstorm.run()
+                    self.fail('This must raise')
+                except s_exc.StormRuntimeError:
+                    pass
+
+            self.true(rstorm.core.isfini)
+            self.true(rstorm.isfini)
+            self.false(os.path.exists(rstorm.core.dirn))
