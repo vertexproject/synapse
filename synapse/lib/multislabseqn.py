@@ -376,16 +376,19 @@ class MultiSlabSeqn(s_base.Base):
         '''
         offs = max(offs, self.firstindx)
 
-        ridx = self._getRangeIndx(offs)
+        ri = ridx = self._getRangeIndx(offs)
         assert ridx is not None
 
-        for ri in range(ridx, len(self._ranges)):
+        # ranges could get appended while iterating due to a rotation
+        while ri < len(self._ranges):
             if ri > ridx:
                 offs = self._ranges[ri]
 
             async with self._getSeqn(ri) as seqn:
                 for item in seqn.iter(offs):
                     yield item
+
+            ri += 1
 
     async def gets(self, offs, wait=True) -> AsyncIterator[Tuple[int, Any]]:
         '''

@@ -332,6 +332,41 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     pass
 
+    async def test_multislabseqn_iterrotate(self):
+        opts = {'maxentries': 10}
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+
+                for i in range(9):
+                    await msqn.add(f'foo{i}')
+
+                it = msqn.iter(0)
+                retn = await it.__anext__()
+                self.eq((0, 'foo0'), retn)
+
+                # cause a rotation
+                for i in range(9, 12):
+                    await msqn.add(f'foo{i}')
+
+                self.len(2, msqn._openslabs)
+
+                # can still iterate on the seqn
+                retn = await it.__anext__()
+                self.eq((1, 'foo1'), retn)
+
+                # iterator will pick up the new seqn
+                retn = await alist(it)
+                self.len(10, retn)
+                self.eq([(2, 'foo2'), (11, 'foo11')], [retn[0], retn[-1]])
+                await it.aclose()
+
+                # and we can cull once done
+                await msqn.cull(10)
+                self.len(1, msqn._openslabs)
+
+                self.eq(12, msqn.tailseqn.indx)
+
     async def test_multislabseqn_concurrent(self):
         '''
         Add a bunch of concurrent writers with many rotations
