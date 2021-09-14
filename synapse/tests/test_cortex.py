@@ -4563,7 +4563,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core00.nodes('[ inet:ipv4=10.0.0.0/28 ]')
 
-                await core00.nexsroot.nexslog.cull(12)
+                async with core00.getLocalProxy() as prox:
+                    await prox.cullNexsIndx(12)
 
                 url = core00.getLocalUrl()
 
@@ -4589,8 +4590,28 @@ class CortexBasicTest(s_t_utils.SynTest):
                 core02conf = {'mirror': url}
 
                 async with await s_cortex.Cortex.anit(dirn=path02, conf=core02conf) as core02:
+
                     await core02.sync()
                     self.len(len(ips00), await core02.nodes('inet:ipv4'))
+
+                    # call cull on upstream
+                    await core00.cullNexsIndx(16)
+                    await core02.sync()
+                    self.eq(
+                        len(await alist(core00.nexsroot.nexslog.iter(0))),
+                        len(await alist(core02.nexsroot.nexslog.iter(0)))
+                    )
+
+                    # call cull on downstream
+                    await core02.cullNexsIndx(18)
+                    await core02.sync()
+                    self.eq(
+                        len(await alist(core00.nexsroot.nexslog.iter(0))),
+                        len(await alist(core02.nexsroot.nexslog.iter(0)))
+                    )
+
+                    async with core02.getLocalProxy() as prox:
+                        self.eq(await core00.getNexsIndx(), await prox.getUpstreamNexsIndx())
 
     async def test_cortex_mirror_of_mirror(self):
 

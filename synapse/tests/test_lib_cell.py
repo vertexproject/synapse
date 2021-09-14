@@ -18,6 +18,7 @@ import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
+from synapse.tests.utils import alist
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -591,6 +592,34 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(4, await cell.getNexsIndx())
                 await cell.addUser('test02')
                 self.eq(6, await cell.getNexsIndx())
+
+    async def test_cell_nexuscull(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'nexslog:en': True,
+                'nexslog:maxentries': 5,
+            }
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+
+                for i in range(12):
+                    await cell.setHiveKey(('foo', 'bar'), i)
+
+                async with cell.getLocalProxy() as prox:
+                    await prox.cullNexsIndx(8)
+                    await self.asyncraises(s_exc.BadConfValu, prox.getUpstreamNexsIndx())
+
+                self.len(4, await alist(cell.nexsroot.nexslog.iter(0)))
+
+            # can still call cull with nexslog disabled
+            conf['nexslog:en'] = False
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+
+                async with cell.getLocalProxy() as prox:
+                    await prox.cullNexsIndx(10)
+
+                self.len(2, await alist(cell.nexsroot.nexslog.iter(0)))
 
     async def test_cell_authv2(self):
 
