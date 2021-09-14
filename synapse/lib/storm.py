@@ -2513,10 +2513,10 @@ class DivertCmd(Cmd):
                         count += 1
                         if size is not None and count >= size:
                             return
-
-                return
             finally:
                 await self.opts.genr.aclose()
+
+            return
 
         # non-runtsafe
         async for item in genr:
