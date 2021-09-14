@@ -84,6 +84,10 @@ class MultiSlabSeqn(s_base.Base):
 
         self.onfini(fini)
 
+        if self._isTimeToRotate():
+            logger.debug('Rotating Nexus log at indx %d', self.indx)
+            await self._initTailSlab(self.indx)
+
     def __repr__(self):
         return f'MultiSlabSeqn: {self.dirn!r}'
 
@@ -320,6 +324,7 @@ class MultiSlabSeqn(s_base.Base):
             indx = self.indx
 
         if self._isTimeToRotate():
+            logger.debug('Rotating Nexus log at indx %d', self.indx)
             await self._initTailSlab(self.indx)
 
         assert self.tailseqn

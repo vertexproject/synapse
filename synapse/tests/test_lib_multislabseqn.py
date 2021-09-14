@@ -1,5 +1,6 @@
-import asyncio
 import shutil
+import asyncio
+import itertools
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -206,6 +207,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 await msqn.cull(4)
                 await self.asyncraises(s_exc.BadIndxValu, msqn.get(4))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo4', indx=4))
 
                 retn = await msqn.get(5)
                 self.eq('foo5', retn)
@@ -329,3 +331,34 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             with self.raises(s_exc.BadCoreStore):
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     pass
+
+    async def test_multislabseqn_concurrent(self):
+        '''
+        Add a bunch of concurrent writers with many rotations
+        '''
+        opts = {'maxentries': 2}
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+
+                async def run(name):
+                    keys = []
+                    for i in range(10):
+                        key = f'{name}{i}'
+                        await msqn.add(key)
+                        keys.append(key)
+                        await asyncio.sleep(0)
+                    return keys
+
+                retn = await asyncio.gather(
+                    run('foo'),
+                    run('bar'),
+                    run('cat'),
+                    run('dog'),
+                    run('emu'),
+                    run('fog'),
+                )
+                items = await alist(msqn.iter(0))
+                self.len(60, items)
+                self.len(30, msqn._ranges)
+                self.sorteq(itertools.chain(*retn), [item[1] for item in items])
