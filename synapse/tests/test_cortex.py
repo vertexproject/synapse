@@ -4542,6 +4542,56 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core00.sync()
                     self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
 
+    async def test_cortex_mirror_culled(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+            path02 = s_common.gendir(dirn, 'core02')
+
+            conf = {'nexslog:maxentries': 10}
+
+            async with self.getTestCore(dirn=path00, conf=conf) as core00:
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00, conf=conf) as core00:
+
+                self.false(core00.conf.get('mirror'))
+
+                await core00.nodes('[ inet:ipv4=10.0.0.0/28 ]')
+
+                await core00.nexsroot.nexslog.cull(12)
+
+                url = core00.getLocalUrl()
+
+                core01conf = {'mirror': url}
+
+                with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
+                    async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                        self.true(await stream.wait(6))
+                        self.true(core01.nexsroot.isfini)
+
+            s_tools_backup.backup(path00, path02)
+
+            async with self.getTestCore(dirn=path00, conf=conf) as core00:
+
+                self.false(core00.conf.get('mirror'))
+
+                await core00.nodes('[ inet:ipv4=127.0.0.0/28 ]')
+
+                ips00 = await core00.nodes('inet:ipv4')
+
+                url = core00.getLocalUrl()
+
+                core02conf = {'mirror': url}
+
+                async with await s_cortex.Cortex.anit(dirn=path02, conf=core02conf) as core02:
+                    await core02.sync()
+                    self.len(len(ips00), await core02.nodes('inet:ipv4'))
+
     async def test_cortex_mirror_of_mirror(self):
 
         with self.getTestDir() as dirn:
