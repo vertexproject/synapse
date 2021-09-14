@@ -43,15 +43,20 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('duration')
 
+        self.eq('2D 00:00:00.000', t.repr(172800000))
         self.eq('00:05:00.333', t.repr(300333))
         self.eq('11D 11:47:12.344', t.repr(992832344))
 
         self.eq(300333, t.norm('00:05:00.333')[0])
         self.eq(992832344, t.norm('11D 11:47:12.344')[0])
 
+        self.eq(172800000, t.norm('2D')[0])
         self.eq(60000, t.norm('1:00')[0])
         self.eq(60200, t.norm('1:00.2')[0])
         self.eq(9999, t.norm('9.9999')[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            t.norm('    ')
 
         with self.raises(s_exc.BadTypeValu):
             t.norm('1:2:3:4')

@@ -1713,6 +1713,10 @@ class Duration(IntBase):
     def _normPyStr(self, text):
 
         text = text.strip()
+        if not text:
+            mesg = 'Duration string must have non-zero length.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
         dura = 0
 
         try:
@@ -1720,21 +1724,23 @@ class Duration(IntBase):
             if text.find('D') != -1:
                 daystext, text = text.split('D', 1)
                 dura += int(daystext.strip(), 0) * s_time.oneday
+                text = text.strip()
 
-            if text.find(':') != -1:
-                parts = text.split(':')
-                if len(parts) == 2:
-                    dura += int(parts[0].strip()) * s_time.onemin
-                    dura += int(float(parts[1].strip()) * s_time.onesec)
-                elif len(parts) == 3:
-                    dura += int(parts[0].strip()) * s_time.onehour
-                    dura += int(parts[1].strip()) * s_time.onemin
-                    dura += int(float(parts[2].strip()) * s_time.onesec)
+            if text:
+                if text.find(':') != -1:
+                    parts = text.split(':')
+                    if len(parts) == 2:
+                        dura += int(parts[0].strip()) * s_time.onemin
+                        dura += int(float(parts[1].strip()) * s_time.onesec)
+                    elif len(parts) == 3:
+                        dura += int(parts[0].strip()) * s_time.onehour
+                        dura += int(parts[1].strip()) * s_time.onemin
+                        dura += int(float(parts[2].strip()) * s_time.onesec)
+                    else:
+                        mesg = 'Invalid number of : characters for duration.'
+                        raise s_exc.BadTypeValu(mesg=mesg)
                 else:
-                    mesg = 'Invalid number of : characters for duration.'
-                    raise s_exc.BadTypeValu(mesg=mesg)
-            else:
-                dura += int(float(text.strip()) * s_time.onesec)
+                    dura += int(float(text) * s_time.onesec)
 
         except ValueError:
             mesg = f'Invalid numeric value in duration: {text}.'

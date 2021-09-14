@@ -32,6 +32,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
@@ -918,11 +919,13 @@ class CoreApi(s_cell.CellApi):
 
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
+        await self.cell.axready.wait()
         upload = await self.cell.axon.upload()
         return await s_axon.UpLoadProxy.anit(self.link, upload)
 
     async def getAxonBytes(self, sha256):
         self.user.confirm(('axon', 'get'))
+        await self.cell.axready.wait()
         async for byts in self.cell.axon.get(s_common.uhex(sha256)):
             yield byts
 
@@ -2923,6 +2926,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def _initCoreHive(self):
         stormvarsnode = await self.hive.open(('cortex', 'storm', 'vars'))
         self.stormvars = await stormvarsnode.dict()
+        if self.inaugural:
+            await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
 
     async def _initCoreAxon(self):
@@ -4279,6 +4284,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                     pode[1]['edges'] = edges
 
                 yield pode
+
+    async def exportStormToAxon(self, text, opts=None):
+        async with await self.axon.upload() as fd:
+            async for pode in self.exportStorm(text, opts=opts):
+                await fd.write(s_msgpack.en(pode))
+            size, sha256 = await fd.save()
+            return (size, s_common.ehex(sha256))
 
     async def feedFromAxon(self, sha256, opts=None):
 

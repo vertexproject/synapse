@@ -1653,7 +1653,7 @@ class StormTypesTest(s_test.SynTest):
                     }
                     '''
                     mesgs = await s_test.alist(prox.storm(listq))
-                    self.len(3, [m for m in mesgs if m[0] == 'print'])
+                    self.len(3 + 1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
@@ -2158,6 +2158,49 @@ class StormTypesTest(s_test.SynTest):
             layr = core.getView(view).layers[0]
             await visi.addRule((True, ('node',)), gateiden=layr.iden)
             await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=asvisi)
+
+            # test interaction between LibLift and setting node data
+            q = '''
+            for $i in $lib.range((10)) {
+                [test:int=$i]
+                $node.data.set(laststatus, "start")
+            }
+            '''
+            await core.callStorm(q)
+            q = '''
+            for $work in $lib.lift.byNodeData(laststatus) {
+                if ($work.value() > 5) {
+                    $work.data.set(laststatus, "running")
+                } else {
+                    $work.data.set(laststatus, "done")
+                }
+                $status = $work.data.get(laststatus)
+                $lib.print("#{valu} status is {status}", valu=$work.value(), status=$status)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            for i in range(10):
+                if i > 5:
+                    self.stormIsInPrint(f'#{i} status is running', msgs)
+                else:
+                    self.stormIsInPrint(f'#{i} status is done', msgs)
+
+            q = '''
+            for $work in $lib.lift.byNodeData(laststatus) {
+                if ($work.value() = 5) {
+                    $work.data.pop(laststatus)
+                    $status = $work.data.get(laststatus)
+                    $lib.print("#{value} work status is {status}", value=$work.value(), status=$status)
+                } else {
+                    $status = $work.data.get(laststatus)
+                    $lib.print("#{value} is still {status}", value=$work.value(), status=$status)
+                }
+            }
+            '''
+            msgs = await core.stormlist(q)
+            prints = [x for x in msgs if x[0] == 'print']
+            self.len(10, prints)
+            self.stormIsInPrint("#5 work status is None", msgs)
 
     async def test_storm_lib_bytes(self):
 
@@ -4761,3 +4804,14 @@ class StormTypesTest(s_test.SynTest):
 
             ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
             self.eq('a-b-c-d', ret)
+
+    async def test_storm_lib_export(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[inet:dns:a=(vertex.link, 1.2.3.4)]')
+            size, sha256 = await core.callStorm('return( $lib.export.toaxon(${.created}) )')
+            byts = b''.join([b async for b in core.axon.get(s_common.uhex(sha256))])
+            self.isin(b'vertex.link', byts)
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return( $lib.export.toaxon(${.created}, (bad, opts,)) )')

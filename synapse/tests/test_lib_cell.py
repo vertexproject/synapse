@@ -813,19 +813,28 @@ class CellTest(s_t_utils.SynTest):
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SpawnExit')
 
-                    # Create a rando slab inside cell dir
+                    # Create rando slabs inside cell dir
                     slabpath = s_common.genpath(coredirn, 'randoslab')
+                    async with await s_lmdbslab.Slab.anit(slabpath):
+                        pass
+
+                    slabpath = s_common.genpath(coredirn, 'randodirn', 'randoslab2')
                     async with await s_lmdbslab.Slab.anit(slabpath):
                         pass
 
                     name = await proxy.runBackup()
                     self.eq((name,), await proxy.getBackups())
 
+                    srcreal, _ = s_common.getDirSize(coredirn)
+                    backupdir = s_common.reqdir(backdirn, name)
+                    backreal, _ = s_common.getDirSize(backupdir)
+                    self.le(backreal, srcreal)
+
                     info = await proxy.getBackupInfo()
                     self.none(info['currduration'])
                     laststart4 = info['laststart']
                     self.ne(laststart3, laststart4)
-                    self.lt(0, info['lastsize'])
+                    self.true(0 < info['lastsize'] <= srcreal)
                     self.nn(info['lastend'])
                     self.lt(0, info['lastduration'])
                     self.none(info['lastexception'])
@@ -837,6 +846,7 @@ class CellTest(s_t_utils.SynTest):
                     backupdir = s_common.reqdir(backdirn, backups[0])
                     s_common.reqpath(backupdir, 'cell.yaml')
                     s_common.reqpath(backupdir, 'randoslab', 'data.mdb')
+                    s_common.reqpath(backupdir, 'randodirn', 'randoslab2', 'data.mdb')
 
                     await proxy.delBackup(name)
                     self.eq((), await proxy.getBackups())

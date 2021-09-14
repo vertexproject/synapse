@@ -18,6 +18,14 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
+                ('risk:compromise', ('guid', {}), {
+                    'doc': 'An instance of a compromise and its aggregate impact.',
+                }),
+                ('risk:compromisetype', ('taxonomy', {}), {
+                    'doc': 'A compromise type taxonomy.',
+                    'ex': 'cno.breach',
+                    'interfaces': ('taxonomy',),
+                }),
             ),
             'forms': (
                 ('risk:vuln', {}, (
@@ -168,7 +176,64 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A confirmed attack that this alert indicates.',
                     }),
                 )),
-
+                ('risk:compromisetype', {}, ()),
+                ('risk:compromise', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'doc': 'A brief name for the compromise event.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A prose description of the compromise event.',
+                    }),
+                    ('type', ('risk:compromisetype', {}), {
+                        'ex': 'cno.breach',
+                        'doc': 'The compromise type.',
+                    }),
+                    ('target', ('ps:contact', {}), {
+                        'doc': 'Contact information of the target.',
+                    }),
+                    ('attacker', ('ps:contact', {}), {
+                        'doc': 'Contact information of the attacker.',
+                    }),
+                    ('campaign', ('ou:campaign', {}), {
+                        'doc': 'The campaign that this compromise is part of.',
+                    }),
+                    ('time', ('time', {}), {
+                        'doc': 'Earliest known evidence of compromise.',
+                    }),
+                    ('lasttime', ('time', {}), {
+                        'doc': 'Last known evidence of compromise.',
+                    }),
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the compromise.',
+                    }),
+                    ('loss:pii', ('int', {}), {
+                        'doc': 'The number of records compromised which contain PII.',
+                    }),
+                    ('loss:econ', ('econ:price', {}), {
+                        'doc': 'The total economic cost of the compromise.',
+                    }),
+                    ('loss:life', ('int', {}), {
+                        'doc': 'The total loss of life due to the compromise.',
+                    }),
+                    ('loss:bytes', ('int', {}), {
+                        'doc': 'An estimate of the volume of data compromised.',
+                    }),
+                    ('ransom:paid', ('econ:price', {}), {
+                        'doc': 'The value of the ransom paid by the target.',
+                    }),
+                    ('ransom:price', ('econ:price', {}), {
+                        'doc': 'The value of the ransom demanded by the attacker.',
+                    }),
+                    ('response:cost', ('econ:price', {}), {
+                        'doc': 'The economic cost of the response and mitigation efforts.',
+                    }),
+                    ('econ:currency', ('econ:currency', {}), {
+                        'doc': 'The currency type for the econ:price fields.',
+                    }),
+                    # -(stole)> file:bytes ps:contact file:bytes
+                    # -(compromised)> geo:place it:account it:host
+                )),
                 ('risk:attack', {}, (
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known.',
@@ -185,23 +250,36 @@ class RiskModule(s_module.CoreModule):
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'Set if the attack was part of a larger campaign.',
                     }),
+                    ('compromise', ('risk:compromise', {}), {
+                        'doc': 'A compromise that this attack contributed to.',
+                    }),
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.',
                     }),
                     ('actor:org', ('ou:org', {}), {
-                        'doc': 'The org that carried out the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.',
                     }),
                     ('actor:person', ('ps:person', {}), {
-                        'doc': 'The person that carried out the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.',
+                    }),
+                    ('attacker', ('ps:contact', {}), {
+                        'doc': 'Contact information associated with the attacker.',
+                    }),
+                    ('target', ('ps:contact', {}), {
+                        'doc': 'Contact information associated with the target.',
                     }),
                     ('target:org', ('ou:org', {}), {
-                        'doc': 'The org was the target of the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :target to allow entity resolution.',
                     }),
                     ('target:host', ('it:host', {}), {
                         'doc': 'The host was the target of the attack.',
                     }),
                     ('target:person', ('ps:person', {}), {
-                        'doc': 'The person was the target of the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :target to allow entity resolution.',
                     }),
                     ('target:place', ('geo:place', {}), {
                         'doc': 'The place that was the target of the attack.',
