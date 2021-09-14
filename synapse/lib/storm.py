@@ -2489,31 +2489,34 @@ class DivertCmd(Cmd):
             size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
-            count = 0
-            if doyield:
+            try:
+                count = 0
+                if doyield:
 
-                # in a runtsafe yield case we drop all the nodes
-                async for item in genr:
-                    await asyncio.sleep(0)
+                    # in a runtsafe yield case we drop all the nodes
+                    async for item in genr:
+                        await asyncio.sleep(0)
 
-                async for item in self.opts.genr:
-                    yield item
-                    count += 1
-                    if size is not None and count >= size:
-                        return
-            else:
+                    async for item in self.opts.genr:
+                        yield item
+                        count += 1
+                        if size is not None and count >= size:
+                            return
+                else:
 
-                # in a runtsafe non-yield case we pass nodes through
-                async for origitem in genr:
-                    yield origitem
+                    # in a runtsafe non-yield case we pass nodes through
+                    async for origitem in genr:
+                        yield origitem
 
-                async for item in self.opts.genr:
-                    await asyncio.sleep(0)
-                    count += 1
-                    if size is not None and count >= size:
-                        return
+                    async for item in self.opts.genr:
+                        await asyncio.sleep(0)
+                        count += 1
+                        if size is not None and count >= size:
+                            return
 
-            return
+                return
+            finally:
+                await self.opts.genr.aclose()
 
         # non-runtsafe
         async for item in genr:
@@ -2524,23 +2527,26 @@ class DivertCmd(Cmd):
             size = await s_stormtypes.toint(self.opts.size, noneok=True)
             doyield = await s_stormtypes.tobool(self.opts.cond)
 
-            count = 0
-            if doyield:
+            try:
+                count = 0
+                if doyield:
 
-                async for genritem in self.opts.genr:
-                    yield genritem
-                    count += 1
-                    if size is not None and count >= size:
-                        break
-            else:
+                    async for genritem in self.opts.genr:
+                        yield genritem
+                        count += 1
+                        if size is not None and count >= size:
+                            break
+                else:
 
-                async for genritem in self.opts.genr:
-                    await asyncio.sleep(0)
-                    count += 1
-                    if size is not None and count >= size:
-                        break
+                    async for genritem in self.opts.genr:
+                        await asyncio.sleep(0)
+                        count += 1
+                        if size is not None and count >= size:
+                            break
 
-                yield item
+                    yield item
+            finally:
+                await self.opts.genr.aclose()
 
 class HelpCmd(Cmd):
     '''
