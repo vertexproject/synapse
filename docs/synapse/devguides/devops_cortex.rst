@@ -119,6 +119,12 @@ Cortex ``cell.yaml`` file could have the following configuration::
 For interacting with byte storage inside of Storm, see :ref:`stormlibs-lib-bytes` for APIs related to interacting with
 the Axon.
 
+Using Synapse Power-Ups
+-----------------------
+
+The Vertex Project provides a number of Power-Ups that extend the functionality of Synapse. For
+more information on configuring your Cortex to use Power-Ups, see `the blog post on Synapse Power-Ups`_.
+
 .. _200_migration:
 
 0.1.x to 2.x.x Migration
@@ -131,3 +137,4 @@ For information about migrating older Cortexes to v2.8.0, please refer to the ``
 `here <https://synapse.docs.vertex.link/en/v2.8.0/synapse/devguides/devops_cortex.html#x-to-2-x-x-migration>`_.
 
 .. _Python logging: https://docs.python.org/3.8/library/logging.html#logging-levels
+.. _the blog post on Synapse Power-Ups: https://vertex.link/blogs/synapse-power-ups/
