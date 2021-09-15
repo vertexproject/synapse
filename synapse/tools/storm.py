@@ -177,7 +177,7 @@ class ExportCmd(StormCliCmd):
         !export dnsa.nodes { inet:fqdn#mynodes -> inet:dns:a }
 
         // Export nodes to a file and only include specific tags
-        !export fqdn.nodes { inet:fqdn#mynodes } --includetags footag
+        !export fqdn.nodes { inet:fqdn#mynodes } --include-tags footag
     '''
 
     _cmd_name = '!export'
@@ -186,7 +186,8 @@ class ExportCmd(StormCliCmd):
         pars = StormCliCmd.getArgParser(self)
         pars.add_argument('filepath', help='The file path to save the export to.')
         pars.add_argument('query', help='The Storm query to export nodes from.')
-        pars.add_argument('--includetags', nargs='*', help='Only include the specified tags in output.')
+        pars.add_argument('--include-tags', nargs='*', help='Only include the specified tags in output.')
+        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not include any tags on exported nodes.')
         return pars
 
     async def runCmdOpts(self, opts):
@@ -194,8 +195,11 @@ class ExportCmd(StormCliCmd):
         self.printf(f'exporting nodes')
 
         queryopts = {}
-        if opts.includetags:
-            queryopts['scrub'] = {'include': {'tags': opts.includetags}}
+        if opts.include_tags:
+            queryopts['scrub'] = {'include': {'tags': opts.include_tags}}
+
+        if opts.no_tags:
+            queryopts['scrub'] = {'include': {'tags': []}}
 
         try:
             query = opts.query[1:-1]
