@@ -12,7 +12,7 @@ import synapse.tests.utils as s_t_utils
 class SlabSeqn(s_t_utils.SynTest):
 
     def chk_size(self, seqn):
-        self.eq(seqn.stat()['entries'], seqn.size())
+        self.eq(seqn.stat()['entries'], seqn.size)
 
     async def test_slab_seqn(self):
 

@@ -67,7 +67,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.eq(11, retn)
 
                 # Even though indx > maxentries, not rotated because size < maxentries
-                self.eq(4, msqn.tailseqn.size())
+                self.eq(4, msqn.tailseqn.size)
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(1, fns)
 
@@ -75,7 +75,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 for i in range(10, 20):
                     await msqn.add(f'foo{i}')
 
-                self.eq(4, msqn.tailseqn.size())
+                self.eq(4, msqn.tailseqn.size)
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(2, fns)
 

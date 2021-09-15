@@ -86,7 +86,8 @@ class MultiSlabSeqn(s_base.Base):
 
         self.onfini(fini)
 
-        if self._isTimeToRotate():
+        assert self.tailseqn
+        if self.tailseqn.size >= self.idx_per_slab:
             logger.debug('Rotating %s at indx %d', self.tailslab.path, self.indx)
             await self._initTailSlab(self.indx)
 
@@ -241,11 +242,6 @@ class MultiSlabSeqn(s_base.Base):
         if ridx is not None:
             del self._ranges[:ridx]
 
-    def _isTimeToRotate(self):
-        # Only the tailseqn is eligible for rotation
-        assert self.tailseqn
-        return self.tailseqn.size() >= self.idx_per_slab
-
     async def _makeSlab(self, startidx: int) -> Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]:
 
         async with self._openlock:  # Avoid race in two tasks making the same slab
@@ -325,7 +321,7 @@ class MultiSlabSeqn(s_base.Base):
         else:
             indx = self.indx
 
-        if self._isTimeToRotate():
+        if self.tailseqn.size >= self.idx_per_slab:
             logger.debug('Rotating %s at indx %d', self.tailslab.path, self.indx)
             await self._initTailSlab(self.indx)
 
