@@ -1212,9 +1212,9 @@ class Snap(s_base.Base):
         False otherwise
         '''
         for layr in reversed(self.layers):
-            todo = s_common.todo('getNodeData', buid, name)
-            ok, _ = await self.core.dyncall(layr.iden, todo)
-            if ok:
+            todo = s_common.todo('hasNodeData', buid, name)
+            has = await self.core.dyncall(layr.iden, todo)
+            if has:
                 return True
         return False
 

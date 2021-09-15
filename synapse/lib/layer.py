@@ -1732,6 +1732,13 @@ class Layer(s_nexus.Pusher):
 
         return False
 
+    async def hasNodeData(self, buid, name):
+        try:
+            abrv = self.getPropAbrv(name, None)
+        except s_exc.NoSuchAbrv:
+            return False
+        return self.dataslab.has(buid + abrv, db=self.nodedata)
+
     async def liftTagProp(self, name):
         '''
         Note:
