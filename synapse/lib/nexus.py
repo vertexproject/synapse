@@ -264,11 +264,6 @@ class NexsRoot(s_base.Base):
         else:
             return self.nexshot.get('nexs:indx')
 
-    async def upstreamIndex(self):
-        if self.client is not None:
-            await self.client.waitready()
-            return await self.client.getNexsIndx()
-
     async def cull(self, offs):
         return await self.nexslog.cull(offs)
 

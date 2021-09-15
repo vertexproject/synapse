@@ -222,10 +222,6 @@ class CellApi(s_base.Base):
         return self.cell.getNexsIndx()
 
     @adminapi()
-    async def getUpstreamNexsIndx(self):
-        return await self.cell.getUpstreamNexsIndx()
-
-    @adminapi()
     async def cullNexsIndx(self, offs):
         '''
         Remove Nexus log entries up to (and including) the given offset.
@@ -1084,13 +1080,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('nexslog:cullindex')
     async def cullNexsIndx(self, offs):
         return await self.nexsroot.cull(offs)
-
-    async def getUpstreamNexsIndx(self):
-        if self.conf.get('mirror') is None:
-            mesg = 'getUpstreamNexsIndx() called on non-mirror'
-            raise s_exc.BadConfValu(mesg=mesg)
-
-        return await self.nexsroot.upstreamIndex()
 
     @s_nexus.Pusher.onPushAuto('nexslog:setindex')
     async def setNexsIndx(self, indx):

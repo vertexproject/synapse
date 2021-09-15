@@ -4610,9 +4610,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                         len(await alist(core02.nexsroot.nexslog.iter(0)))
                     )
 
-                    async with core02.getLocalProxy() as prox:
-                        self.eq(await core00.getNexsIndx(), await prox.getUpstreamNexsIndx())
-
     async def test_cortex_mirror_of_mirror(self):
 
         with self.getTestDir() as dirn:

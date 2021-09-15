@@ -608,7 +608,6 @@ class CellTest(s_t_utils.SynTest):
 
                 async with cell.getLocalProxy() as prox:
                     await prox.cullNexsIndx(8)
-                    await self.asyncraises(s_exc.BadConfValu, prox.getUpstreamNexsIndx())
 
                 self.len(4, await alist(cell.nexsroot.nexslog.iter(0)))
 
