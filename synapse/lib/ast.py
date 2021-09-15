@@ -1073,15 +1073,21 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, types.AsyncGeneratorType):
-            async for item in valu:
-                async for node in self.yieldFromValu(runt, item):
-                    yield node
+            try:
+                async for item in valu:
+                    async for node in self.yieldFromValu(runt, item):
+                        yield node
+            finally:
+                await valu.aclose()
             return
 
         if isinstance(valu, types.GeneratorType):
-            for item in valu:
-                async for node in self.yieldFromValu(runt, item):
-                    yield node
+            try:
+                for item in valu:
+                    async for node in self.yieldFromValu(runt, item):
+                        yield node
+            finally:
+                valu.close()
             return
 
         if isinstance(valu, (list, tuple, set)):
