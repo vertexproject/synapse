@@ -190,28 +190,6 @@ A multiline secondary property.
 Bye!
 '''
 
-cli_multiline00_input = '''
-A multiline secondary property.
-.. storm-cortex:: default
-.. storm-opts:: {"vars": {"name": "Node\\nWith a\\nweird name"}}
-.. storm-cli:: [graph:node=(n1,) :name=$name]
-Bye!
-'''
-
-cli_multiline00_output = '''
-A multiline secondary property.
-::
-
-    storm> [graph:node=(n1,) :name=$name]
-    graph:node=85d3511b97098d7fd9e07be21f6390de
-            :name = Node
-                    With a
-                    weird name
-
-Bye!
-'''
-
-
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
         lines = await rstorm.run()
