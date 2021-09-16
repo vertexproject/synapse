@@ -26,7 +26,7 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix for large return return values with ``synapse.lib.coro.spawn()``.
+- Fix for large return values with ``synapse.lib.coro.spawn()``.
   (`#2355 <https://github.com/vertexproject/synapse/pull/2355>`_)
 - Fix ``synapse.lib.scrape.scrape()`` capturing various common characters used
   to enclose URLs.
