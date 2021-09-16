@@ -202,7 +202,7 @@ class StormCli(s_cli.Cli):
 
         await self.storm(line, opts=opts)
 
-    def handleErr(self, mesg):
+    async def handleErr(self, mesg):
         err = mesg[1]
         if err[0] == 'BadSyntax':
             pos = err[1].get('at', None)
@@ -306,7 +306,7 @@ class StormCli(s_cli.Cli):
                 self.printf(f'WARNING: {warn}', color=WARNING_COLOR)
 
             elif mtyp == 'err':
-                self.handleErr(mesg)
+                await self.handleErr(mesg)
 
 def getArgParser():
     pars = argparse.ArgumentParser(prog='synapse.tools.storm')

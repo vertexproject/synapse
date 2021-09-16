@@ -132,6 +132,9 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
     def _onErr(self, mesg, opts):
         # raise on err for rst
+        if self.ctx.pop('storm-fail', None):
+            s_cmds_cortex.StormCmd.handleErr(self, mesg, opts)
+            return
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def runCmdOpts(self, opts):
@@ -182,8 +185,11 @@ class StormCliOutput(s_storm.StormCli):
         mesg = f'    {mesg}'
         s_storm.StormCli.printf(self, mesg, addnl, color)
 
-    def handleErr(self, mesg):
+    async def handleErr(self, mesg):
         #  raise on err for rst
+        if self.ctx.pop('storm-fail', None):
+            await s_storm.StormCli.handleErr(self, mesg)
+            return
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     def _printNodeProp(self, name, valu):
@@ -289,6 +295,7 @@ class StormRst(s_base.Base):
             'storm-pkg': self._handleStormPkg,
             'storm-pre': self._handleStormPre,
             'storm-svc': self._handleStormSvc,
+            'storm-fail': self._handleStormFail,
             'storm-opts': self._handleStormOpts,
             'storm-cortex': self._handleStormCortex,
             'storm-envvar': self._handleStormEnvVar,
@@ -411,6 +418,11 @@ class StormRst(s_base.Base):
         surl = f'tcp://root:root@127.0.0.1:{port}/svc'
         await core.nodes(f'service.add {svcname} {surl}')
         await core.nodes(f'$lib.service.wait({svcname})')
+
+    async def _handleStormFail(self, text):
+        valu = json.loads(text)
+        assert valu in (True, False), f'storm-fail must be a boolean: {text}'
+        self.context['storm-fail'] = valu
 
     async def _handleStormOpts(self, text):
         '''
