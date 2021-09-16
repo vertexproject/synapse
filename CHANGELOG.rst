@@ -20,6 +20,9 @@ Features and Enhancements
 - Add ``$lib.infosec.cvss.calculateFromProps()`` to allow calculating a CVSS
   score from a dictionary of CVSS properties.
   (`#2353 <https://github.com/vertexproject/synapse/pull/2353>`_)
+- Add ``$node.data.has()`` API to Stormtypes to allow easy checking if a node
+  has nodedata for a given name.
+  (`#2350 <https://github.com/vertexproject/synapse/pull/2350>`_)
 
 Bugfixes
 --------
