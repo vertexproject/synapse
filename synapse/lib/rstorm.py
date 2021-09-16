@@ -342,6 +342,7 @@ class StormRst(s_base.Base):
 
         soutp = StormOutput(core, self.context, stormopts=self.context.get('storm-opts'))
         self._printf(await soutp.runCmdLine(text))
+        self.context.pop('storm-fail', None)
 
         self._printf('\n\n')
 
@@ -355,6 +356,7 @@ class StormRst(s_base.Base):
         cli = await StormCliOutput.anit(item=core, outp=outp)
 
         self._printf(await cli.runRstCmdLine(text, self.context, stormopts=self.context.get('storm-opts')))
+        self.context.pop('storm-fail', None)
 
         self._printf('\n')
 
@@ -393,6 +395,8 @@ class StormRst(s_base.Base):
 
         soutp = StormOutput(core, self.context, stormopts=stormopts)
         await soutp.runCmdLine(text)
+
+        self.context.pop('storm-fail', None)
 
     async def _handleStormSvc(self, text):
         '''
