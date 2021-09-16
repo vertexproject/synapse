@@ -397,3 +397,51 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 self.len(60, items)
                 self.len(30, msqn._ranges)
                 self.sorteq(itertools.chain(*retn), [item[1] for item in items])
+
+    async def test_multislabseqn_multicache(self):
+        '''
+        A new consumer can iterate over an older non-cacheslab while the cacheslab is in use
+        '''
+        opts = {'maxentries': 4}
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+
+                for i in range(15):
+                    await msqn.add(f'foo{i}')
+
+                self.len(4, msqn._ranges)
+                self.none(msqn._cacheslab)
+                self.len(1, msqn._openslabs)
+
+                it00 = msqn.iter(5)
+                retn = await it00.__anext__()
+                self.eq((5, 'foo5'), retn)
+
+                self.nn(msqn._cacheslab)
+                self.true(msqn._cacheslab.path.endswith('4.lmdb'))
+                self.len(2, msqn._openslabs)
+
+                it01 = msqn.iter(0)
+                retn = await it01.__anext__()
+                self.eq((0, 'foo0'), retn)
+
+                self.true(msqn._cacheslab.path.endswith('0.lmdb'))
+                self.len(3, msqn._openslabs)
+
+                retn = await it00.__anext__()
+                self.eq((6, 'foo6'), retn)
+
+                retn = await it01.__anext__()
+                self.eq((1, 'foo1'), retn)
+
+                await it00.aclose()
+                await it01.aclose()
+
+                self.true(msqn._cacheslab.path.endswith('0.lmdb'))
+                self.len(2, msqn._openslabs)
+
+                # cache slab remains open, but can be culled
+                await msqn.cull(13)
+                self.none(msqn._cacheslab)
+                self.len(1, msqn._openslabs)
