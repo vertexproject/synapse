@@ -170,8 +170,7 @@ The only difference between "simple" lifts and "lifts using comparison operators
 
 
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
-.. storm-cli:: 
-    #rep.symantec:risk>10
+.. storm-cli:: #rep.symantec:risk>10
 
 
 **Usage Notes:**
