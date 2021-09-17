@@ -279,7 +279,8 @@ def convert_rstorm(_):
                 tick = s_common.now()
 
                 args = ['python', '-m', 'synapse.tools.rstorm', '--save', ofile, sfile]
-                subprocess.run(args, cwd=synpd, env=env)
+                r = subprocess.run(args, cwd=synpd, env=env)
+                assert r.returncode == 0, f'Failed to convert {sfile}'
 
                 tock = s_common.now()
                 took = (tock - tick) / 1000
