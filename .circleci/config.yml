@@ -527,7 +527,7 @@ jobs:
   python37:
     parallelism: 8
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -559,7 +559,7 @@ jobs:
   python37_replay:
     parallelism: 6
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -630,7 +630,7 @@ jobs:
 
   deploy_pypi_37:
     docker:
-      - image: cimg/python:3.8
+      - image: cimg/python:3.7
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py37
