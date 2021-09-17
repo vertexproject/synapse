@@ -190,6 +190,39 @@ A multiline secondary property.
 Bye!
 '''
 
+fail00 = '''
+
+.. storm-cortex:: default
+
+A fail test
+
+.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-fail:: true
+.. storm:: inet:ipv4=woot.com
+
+# Fail state is cleared
+
+.. storm:: inet:ipv4=1.2.3.4
+
+'''
+
+fail01 = fail00 + '''
+Since the fail state was cleared, now we'll fail on the next error.
+
+.. storm:: inet:ipv4=woot.com
+'''
+
+fail02 = '''
+.. storm-cortex:: default
+
+A fail test that expects to fail but does not.
+
+.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-fail:: true
+.. storm:: inet:ipv4=1.2.3.4
+'''
+
+
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
         lines = await rstorm.run()
@@ -377,6 +410,28 @@ class RStormLibTest(s_test.SynTest):
                 self.isin("vertex.link", text)
                 self.notin("wootwoot.com", text)
 
+            # storm-fail tests
+            path = s_common.genpath(dirn, 'fail00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fail00.encode())
+            text = await get_rst_text(path)
+            self.isin('''ERROR: ('BadTypeValu''', text)
+            self.isin('illegal IP address string passed to inet_aton', text)
+            self.isin('> inet:ipv4=1.2.3.4', text)
+            self.isin(':type = unicast', text)
+
+            path = s_common.genpath(dirn, 'fail01.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fail01.encode())
+            with self.raises(s_exc.StormRuntimeError):
+                await get_rst_text(path)
+
+            path = s_common.genpath(dirn, 'fail02.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fail02.encode())
+            with self.raises(s_exc.StormRuntimeError):
+                await get_rst_text(path)
+
     async def test_rstorm_cli(self):
 
         with self.getTestDir() as dirn:
@@ -459,3 +514,25 @@ class RStormLibTest(s_test.SynTest):
             self.true(rstorm.core.isfini)
             self.true(rstorm.isfini)
             self.false(os.path.exists(rstorm.core.dirn))
+
+            # storm-fail tests
+            path = s_common.genpath(dirn, 'fail00.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(fail00).encode())
+            text = await get_rst_text(path)
+            self.isin('''ERROR: illegal IP address string passed to inet_aton''', text)
+            self.isin('illegal IP address string passed to inet_aton', text)
+            self.isin('> inet:ipv4=1.2.3.4', text)
+            self.isin(':type = unicast', text)
+
+            path = s_common.genpath(dirn, 'fail01.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(fail01).encode())
+            with self.raises(s_exc.StormRuntimeError):
+                await get_rst_text(path)
+
+            path = s_common.genpath(dirn, 'fail02.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(fail02).encode())
+            with self.raises(s_exc.StormRuntimeError):
+                await get_rst_text(path)
