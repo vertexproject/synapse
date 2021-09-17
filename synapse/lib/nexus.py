@@ -72,7 +72,7 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False, maxlogentries=0x100000):
+    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False):
 
         await s_base.Base.__anit__(self)
 
@@ -112,9 +112,8 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        logopts = {'maxentries': maxlogentries}
         slabopts = {'map_async': map_async}
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts, opts=logopts)
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
@@ -202,7 +201,7 @@ class NexsRoot(s_base.Base):
         if not self.donexslog: # pragma: no cover
             return
 
-        indxitem = self.nexslog.last()
+        indxitem = await self.nexslog.last()
         if indxitem is None:
             # We have a brand new log
             return
@@ -266,6 +265,12 @@ class NexsRoot(s_base.Base):
 
     async def cull(self, offs):
         return await self.nexslog.cull(offs)
+
+    async def rotate(self):
+        return await self.nexslog.rotate()
+
+    async def waitOffs(self, offs, timeout=None):
+        return await self.nexslog.waitForOffset(offs, timeout)
 
     async def setindex(self, indx):
 

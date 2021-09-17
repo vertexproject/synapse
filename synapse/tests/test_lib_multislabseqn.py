@@ -1,6 +1,5 @@
 import shutil
 import asyncio
-import itertools
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -15,10 +14,10 @@ from synapse.tests.utils import alist
 class MultiSlabSeqn(s_t_utils.SynTest):
 
     async def test_multislabseqn(self):
-        opts = {'maxentries': 10}
+
         with self.getTestDir() as dirn:
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
                 s_multislabseqn.logger.debug(f'Repr test {msqn}')
 
                 self.eq(0, msqn.index())
@@ -26,8 +25,13 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await alist(msqn.iter(0))
                 self.eq([], retn)
 
-                retn = msqn.last()
+                retn = await msqn.last()
                 self.eq(None, retn)
+
+                retn = await msqn.rotate()
+                self.eq(0, retn)
+
+                self.false(await msqn.cull(0))
 
                 retn = await msqn.add('foo')
                 self.eq(0, retn)
@@ -60,44 +64,76 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await alist(msqn.iter(0))
                 self.eq([(0, 'foo'), (1, 'foo2'), (9, 'foo9'), (10, 'foo10')], retn)
 
-                retn = msqn.last()
+                retn = await msqn.last()
                 self.eq((10, 'foo10'), retn)
 
                 retn = msqn.index()
                 self.eq(11, retn)
 
-                # Even though indx > maxentries, not rotated because size < maxentries
                 self.eq(4, msqn.tailseqn.size)
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(1, fns)
 
                 # cause a rotation
-                for i in range(10, 20):
-                    await msqn.add(f'foo{i}')
+                self.eq(11, await msqn.rotate())
+                self.eq(11, msqn.index())
+                self.eq((10, 'foo10'), await msqn.last())
 
-                self.eq(4, msqn.tailseqn.size)
+                retn = await alist(msqn.iter(0))
+                self.eq([(0, 'foo'), (1, 'foo2'), (9, 'foo9'), (10, 'foo10')], retn)
+
+                self.len(0, [x for x in msqn.tailseqn.iter(0)])
+
+                fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
+                self.len(2, fns)
+
+                # Need one entry so can't cull at >= 10
+                self.false(await msqn.cull(10))
+                self.false(await msqn.cull(11))
+
+                self.true(await msqn.cull(9))
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(2, fns)
 
                 retn = await alist(msqn.iter(0))
-                self.len(14, retn)
-                self.eq([(19, 'foo18'), (20, 'foo19')], retn[-2:])
+                self.eq([(10, 'foo10')], retn)
+
+                # Once we write into tailseqn we can actually remove the rotated seqn
+                await msqn.add('foo11')
+                retn = await alist(msqn.iter(0))
+                self.eq([(10, 'foo10'), (11, 'foo11')], retn)
+
+                self.true(await msqn.cull(10))
+                fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
+                self.len(1, fns)
+
+                retn = await alist(msqn.iter(0))
+                self.eq([(11, 'foo11')], retn)
+                self.eq((11, 'foo11'), await msqn.last())
+
+                # Add some values and rotate for persistence check
+                await msqn.add('foo12')
+                await msqn.rotate()
+                await msqn.add('foo13')
+                await msqn.add('foo14')
+
+                exp = [(11, 'foo11'), (12, 'foo12'), (13, 'foo13'), (14, 'foo14')]
+                self.eq(exp, await alist(msqn.iter(0)))
 
             # Persistence check
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
-                retn = await alist(msqn.iter(0))
-                self.len(14, retn)
-                self.eq([(0, 'foo'), (1, 'foo2'), (9, 'foo9'), (10, 'foo10')], retn[:4])
-                self.eq([(19, 'foo18'), (20, 'foo19')], retn[-2:])
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+                self.eq(exp, await alist(msqn.iter(0)))
 
-                retn = await msqn.get(9)
-                self.eq('foo9', retn)
+                self.eq((14, 'foo14'), await msqn.last())
+
+                self.eq('foo11', await msqn.get(11))
+                self.eq('foo12', await msqn.get(12))
+                self.eq('foo13', await msqn.get(13))
+                self.eq('foo14', await msqn.get(14))
 
                 retn = await alist(msqn.gets(9, wait=False))
-                self.len(12, retn)
-                self.eq([(9, 'foo9'), (10, 'foo10')], retn[:2])
-                self.eq((20, 'foo19'), retn[-1])
+                self.eq(exp, retn)
 
                 evnt = asyncio.Event()
 
@@ -115,24 +151,20 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 await msqn.add('done')
 
                 retn = await asyncio.wait_for(task, timeout=1)
-                self.len(12, retn)
-                self.eq([(9, 'foo9'), (10, 'foo10')], retn[:2])
-                self.eq((20, 'foo19'), retn[-1])
+                self.eq(exp, retn)
 
                 # Add entries not on the tail
-                retn = await msqn.add('foo10b', indx=10)
-                self.eq(10, retn)
+                retn = await msqn.add('foo11b', indx=11)
+                self.eq(11, retn)
 
-                retn = await msqn.add('foo17b', indx=18)
-                self.eq(18, retn)
+                retn = await msqn.add('foo13b', indx=13)
+                self.eq(13, retn)
 
-                retn = await msqn.add('foo7', indx=7)
-                self.eq(7, retn)
+                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo7', indx=7))
 
                 retn = await alist(msqn.iter(1))
-                self.len(15, retn)
-                self.eq([(1, 'foo2'), (7, 'foo7'), (9, 'foo9'), (10, 'foo10b')], retn[:4])
-                self.eq((21, 'done'), retn[-1])
+                exp = [(11, 'foo11b'), (12, 'foo12'), (13, 'foo13b'), (14, 'foo14'), (15, 'done')]
+                self.eq(exp, retn)
 
                 # Give a chance for the non-iterated async generators to get cleaned up
                 await asyncio.sleep(0)
@@ -140,43 +172,55 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 # Make sure we're not holding onto more than 2 slabs
 
-                # cause a rotation
-                for i in range(20, 30):
-                    await msqn.add(f'foo{i}')
+                # rotate
+                await msqn.add('foo16')
+                await msqn.rotate()
+                await msqn.add('foo17')
+                await msqn.add('foo18')
+
+                fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
+                self.len(3, fns)
 
                 self.len(2, msqn._openslabs)
 
-                retn = await msqn.get(0)
-                self.eq('foo', retn)
+                retn = await msqn.get(11)  # first
+                self.eq('foo11b', retn)
 
                 self.len(2, msqn._openslabs)
 
-                retn = await msqn.get(10)
-                self.eq('foo10b', retn)
+                retn = await msqn.get(14)  # middle
+                self.eq('foo14', retn)
+
+                self.len(2, msqn._openslabs)
+
+                retn = await msqn.get(17)  # tail
+                self.eq('foo17', retn)
 
                 self.len(2, msqn._openslabs)
 
                 # Make sure we don't open the same slab twice
 
-                # Keep a ref to the 0 slab
+                # Keep a ref to the first slab
                 it = msqn.iter(0)
                 retn = await it.__anext__()
-                self.eq(retn, (0, 'foo'))
+                self.eq(retn, (11, 'foo11b'))
 
                 self.len(2, msqn._openslabs)
 
-                # (Need to evict 0 slab ref from the cacheslab)
-                retn = await msqn.get(18)
-                self.eq(retn, 'foo17b')
+                # (Need to evict first slab ref from the cacheslab)
+                self.true(msqn._cacheslab.path.endswith('b.lmdb'))
+                retn = await msqn.get(14)
+                self.eq(retn, 'foo14')
+                self.true(msqn._cacheslab.path.endswith('d.lmdb'))
 
-                # Should have the tail slab (20), the cache slab (10), and the open iterator (0) slabs
+                # Should have the tail slab, the cache slab, and the open iterator slabs
                 self.len(3, msqn._openslabs)
 
-                retn = await msqn.get(1)
-                self.eq(retn, 'foo2')
+                retn = await msqn.get(12)
+                self.eq(retn, 'foo12')
 
                 retn = await alist(it)
-                self.len(25, retn)
+                self.len(7, retn)
 
                 # Iterator exhausted: should have just the cache slab (10) and the tail slab (20)
                 self.len(2, msqn._openslabs)
@@ -184,55 +228,64 @@ class MultiSlabSeqn(s_t_utils.SynTest):
     async def test_multislabseqn_cull(self):
 
         with self.getTestDir() as dirn:
-            opts = {'maxentries': 10}
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
 
-                for i in range(5):
+                for i in range(10):
                     await msqn.add(f'foo{i}')
 
                 # cull with only one seqn
-                await msqn.cull(2)
+                self.true(await msqn.cull(2))
                 await self.asyncraises(s_exc.BadIndxValu, msqn.get(2))
 
-                for i in range(5, 18):
+                await msqn.rotate()
+
+                for i in range(10, 15):
                     await msqn.add(f'foo{i}')
 
                 # A no-op
-                await msqn.cull(99)
+                self.false(await msqn.cull(99))
 
                 # Ensure there's a cached slab
                 retn = await msqn.get(4)
                 self.eq('foo4', retn)
 
-                await msqn.cull(4)
+                self.true(await msqn.cull(4))
                 await self.asyncraises(s_exc.BadIndxValu, msqn.get(4))
-                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo4', indx=4))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo12', indx=4))
 
                 retn = await msqn.get(5)
                 self.eq('foo5', retn)
 
                 it = msqn.iter(0)
                 retn = await it.__anext__()
-                await self.asyncraises(s_exc.SlabInUse, msqn.cull(14))
+                await self.asyncraises(s_exc.SlabInUse, msqn.cull(6))
                 await it.aclose()
 
-                await msqn.cull(14)
+                # culling on the tail just moves firstindx forward
+                it = msqn.iter(10)
+                retn = await it.__anext__()
+                await msqn.cull(11)
+                self.eq(12, msqn.firstindx)
+                await it.aclose()
 
                 retn = await alist(msqn.iter(1))
-                self.eq([(15, 'foo15'), (16, 'foo16'), (17, 'foo17')], retn)
+                self.eq([(12, 'foo12'), (13, 'foo13'), (14, 'foo14')], retn)
 
-                await self.asyncraises(s_exc.BadIndxValu, msqn.get(10))
-                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo', indx=10))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.get(11))
+                await self.asyncraises(s_exc.BadIndxValu, msqn.add('foo', indx=11))
 
                 # Make sure it deleted a slab
                 fns = sorted(s_common.listdir(dirn, glob='*.lmdb'))
                 self.len(1, fns)
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
-                await msqn.cull(10)
+                # Make sure ranges are updated
+                self.eq([10], msqn._ranges)
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+                await msqn.cull(13)
                 retn = await alist(msqn.iter(1))
-                self.eq([(15, 'foo15'), (16, 'foo16'), (17, 'foo17')], retn)
+                self.eq([(14, 'foo14')], retn)
 
     async def test_multislabseqn_discover(self):
         '''
@@ -240,15 +293,16 @@ class MultiSlabSeqn(s_t_utils.SynTest):
         '''
 
         # Speed up copying dirs
-        opts = {'maxentries': 10}
         slabopts = {'map_size': 100000}
 
-        with self.getTestDir() as dirn, self.setTstEnvars(SYN_MULTISLAB_MAX_INDEX='10'):
+        with self.getTestDir() as dirn:
 
             origdirn = s_common.gendir(dirn, 'orig')
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(origdirn, opts=opts, slabopts=slabopts) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(origdirn, slabopts=slabopts) as msqn:
                 for i in range(25):
+                    if i > 0 and i % 10 == 0:
+                        await msqn.rotate()
                     await msqn.add(f'foo{i}')
 
             baddirn = s_common.genpath(dirn, 'bad1')
@@ -288,7 +342,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             shutil.rmtree(slab10dirn)
 
             with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'gap in indices') as stream:
-                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn, opts=opts) as msqn:
+                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     await self.agenlen(15, msqn.iter(0))
                 await stream.wait(timeout=1)
 
@@ -302,7 +356,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 await seqn.cull(25)
 
             with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'found empty seqn') as stream:
-                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn, opts=opts) as msqn:
+                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     await self.agenlen(20, msqn.iter(0))
                 await stream.wait(timeout=1)
 
@@ -333,10 +387,10 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                     pass
 
     async def test_multislabseqn_iterrotate(self):
-        opts = {'maxentries': 10}
+
         with self.getTestDir() as dirn:
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
 
                 for i in range(9):
                     await msqn.add(f'foo{i}')
@@ -345,9 +399,11 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 retn = await it.__anext__()
                 self.eq((0, 'foo0'), retn)
 
-                # cause a rotation
-                for i in range(9, 12):
-                    await msqn.add(f'foo{i}')
+                # rotate
+                await msqn.add('foo9')
+                await msqn.rotate()
+                await msqn.add('foo10')
+                await msqn.add('foo11')
 
                 self.len(2, msqn._openslabs)
 
@@ -367,47 +423,18 @@ class MultiSlabSeqn(s_t_utils.SynTest):
 
                 self.eq(12, msqn.tailseqn.indx)
 
-    async def test_multislabseqn_concurrent(self):
-        '''
-        Add a bunch of concurrent writers with many rotations
-        '''
-        opts = {'maxentries': 2}
-        with self.getTestDir() as dirn:
-
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
-
-                async def run(name):
-                    keys = []
-                    for i in range(10):
-                        key = f'{name}{i}'
-                        await msqn.add(key)
-                        keys.append(key)
-                        await asyncio.sleep(0)
-                    return keys
-
-                retn = await asyncio.gather(
-                    run('foo'),
-                    run('bar'),
-                    run('cat'),
-                    run('dog'),
-                    run('emu'),
-                    run('fog'),
-                )
-                items = await alist(msqn.iter(0))
-                self.len(60, items)
-                self.len(30, msqn._ranges)
-                self.sorteq(itertools.chain(*retn), [item[1] for item in items])
-
     async def test_multislabseqn_multicache(self):
         '''
         A new consumer can iterate over an older non-cacheslab while the cacheslab is in use
         '''
-        opts = {'maxentries': 4}
+
         with self.getTestDir() as dirn:
 
-            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn, opts=opts) as msqn:
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
 
                 for i in range(15):
+                    if i > 0 and i % 4 == 0:
+                        await msqn.rotate()
                     await msqn.add(f'foo{i}')
 
                 self.len(4, msqn._ranges)

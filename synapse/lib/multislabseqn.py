@@ -24,9 +24,6 @@ logger = logging.getLogger(__name__)
 
 seqnslabre = regex.compile(r'^seqn([0-9a-f]{16})\.lmdb$')
 
-# Average of 1KiB per entry means roughly 1 GiB / slab file
-DEF_IDX_PER_SLAB = 0x1000000
-
 class MultiSlabSeqn(s_base.Base):
     '''
     An append-optimized sequence of byte blobs stored across multiple slabs for fast rotating/culling
@@ -48,10 +45,6 @@ class MultiSlabSeqn(s_base.Base):
 
         if opts is None:
             opts = {}
-
-        self.idx_per_slab = opts.get('maxentries')
-        if self.idx_per_slab is None or self.idx_per_slab <= 0:
-            self.idx_per_slab = DEF_IDX_PER_SLAB
 
         self.offsevents: List[Tuple[int, int, asyncio.Event]] = [] # as a heap
         self._waitcounter = 0
@@ -85,11 +78,6 @@ class MultiSlabSeqn(s_base.Base):
                     count = await slab.fini()
 
         self.onfini(fini)
-
-        assert self.tailseqn
-        if self.tailseqn.size >= self.idx_per_slab:
-            logger.debug('Rotating %s at indx %d', self.tailslab.path, self.indx)
-            await self._initTailSlab(self.indx)
 
     def __repr__(self):
         return f'MultiSlabSeqn: {self.dirn!r}'
@@ -149,13 +137,15 @@ class MultiSlabSeqn(s_base.Base):
                 self.firstindx = self._getFirstIndx(slab)
                 # We use the old name of the sequence to ease migration from the old system
                 seqn = slab.getSeqn('nexuslog')
-                self.indx = seqn.indx
 
                 firstitem = seqn.first()
                 if firstitem is None:
                     logger.warning(f'Multislab:  found empty seqn in {fn}.  Deleting.')
                     await slab.trash()
                     continue
+
+                # must go after checking for an empty slab else indx=0
+                self.indx = seqn.indx
 
                 firstidx = firstitem[0]  # might not match the separately stored first index due to culling
 
@@ -178,7 +168,7 @@ class MultiSlabSeqn(s_base.Base):
     def slabFilename(dirn: str, indx: int):
         return s_common.genpath(dirn, f'seqn{indx:016x}.lmdb')
 
-    async def _initTailSlab(self, indx: int):
+    async def _initTailSlab(self, indx: int) -> int:
         if self.tailslab:
             await self.tailslab.fini()
 
@@ -196,14 +186,40 @@ class MultiSlabSeqn(s_base.Base):
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
 
-    async def cull(self, offs: int) -> None:
+    async def rotate(self) -> int:
+        '''
+        Rotate the Nexus log at the current index.
+
+        Note:
+            After this executes the tailseqn will be empty.
+            Waiting for this indx to be written will indicate
+            when it is possible to cull 1 minus the return value
+            such that the rotated seqn is deleted.
+
+        Returns:
+            int: The starting index of the new seqn
+        '''
+        assert self.tailslab and self.tailseqn and self._ranges
+
+        if self.indx <= self._ranges[-1]:
+            logger.info('Seqn %s at indx %d is empty', self.tailslab.path, self.indx)
+            return self._ranges[-1]
+
+        logger.info('Rotating %s at indx %d', self.tailslab.path, self.indx)
+        return await self._initTailSlab(self.indx)
+
+    async def cull(self, offs: int) -> bool:
         '''
         Remove entries up to (and including) the given offset.
         '''
         # Note:  we don't bother deleting the rows from inside a partially culled slab.  We just update self.firstindx
         # so nothing will return those rows anymore.  We only delete from disk entire slabs once they are culled.
         if offs < self.firstindx:
-            return
+            return False
+
+        # We keep at least one entry;  this avoids offsets possibly going lower after a restart
+        if offs >= self.indx - 1:
+            return False
 
         if self._cacheridx is not None:
             self._cacheridx = None
@@ -211,11 +227,7 @@ class MultiSlabSeqn(s_base.Base):
             await self._cacheslab.fini()
             self._cacheslab = self._cacheseqn = None
 
-        # We keep at least one entry;  this avoids offsets possibly going lower after a restart
-        if offs >= self.indx - 1:
-            return
-
-        ridx = None
+        del_ridx = None
         for ridx in range(len(self._ranges) - 1):
             startidx = self._ranges[ridx]
 
@@ -233,14 +245,18 @@ class MultiSlabSeqn(s_base.Base):
                 pass
 
             shutil.rmtree(fn)
+            del_ridx = ridx
 
+            # TODO: Potential for race since seqn is deleted but still in _ranges?
             await asyncio.sleep(0)
 
         self.firstindx = offs + 1
         self._setFirstIndx(self.tailslab, offs + 1)
 
-        if ridx is not None:
-            del self._ranges[:ridx]
+        if del_ridx is not None:
+            del self._ranges[:del_ridx + 1]
+
+        return True
 
     async def _makeSlab(self, startidx: int) -> Tuple[s_lmdbslab.Slab, s_slabseqn.SlabSeqn]:
 
@@ -321,10 +337,6 @@ class MultiSlabSeqn(s_base.Base):
         else:
             indx = self.indx
 
-        if self.tailseqn.size >= self.idx_per_slab:
-            logger.debug('Rotating %s at indx %d', self.tailslab.path, self.indx)
-            await self._initTailSlab(self.indx)
-
         assert self.tailseqn
         retn = self.tailseqn.add(item, indx=indx)
 
@@ -335,9 +347,12 @@ class MultiSlabSeqn(s_base.Base):
 
         return retn
 
-    def last(self) -> Tuple[int, Any]:
-        assert self.tailseqn
-        return self.tailseqn.last()
+    async def last(self) -> Optional[Tuple[int, Any]]:
+        # tailseqn might be empty, so call get()
+        indx = self.indx - 1
+        if indx < self.firstindx:
+            return None
+        return indx, await self.get(indx)
 
     def index(self) -> int:
         '''

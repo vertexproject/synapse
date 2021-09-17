@@ -595,30 +595,100 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_nexuscull(self):
 
-        with self.getTestDir() as dirn:
+        with self.getTestDir() as dirn, self.withNexusReplay():
+
+            dirn00 = s_common.genpath(dirn, 'cell00')
+            dirn01 = s_common.genpath(dirn, 'cell01')
 
             conf = {
                 'nexslog:en': True,
-                'nexslog:maxentries': 5,
             }
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
-
-                for i in range(12):
-                    await cell.setHiveKey(('foo', 'bar'), i)
+            async with await s_cell.Cell.anit(dirn00, conf=conf) as cell:
 
                 async with cell.getLocalProxy() as prox:
-                    await prox.cullNexsIndx(8)
 
-                self.len(4, await alist(cell.nexsroot.nexslog.iter(0)))
+                    # test backup running
+                    ind = await prox.getNexsIndx()
+                    cell.backuprunning = True
+                    await self.asyncraises(s_exc.SlabInUse, prox.rotateNexsLog())
+                    await self.asyncraises(s_exc.SlabInUse, prox.cullNexsLog(0))
+                    await self.asyncraises(s_exc.SlabInUse, prox.trimNexsLog())
+                    cell.backuprunning = False
+                    self.eq(ind, await prox.getNexsIndx())
 
-            # can still call cull with nexslog disabled
+                    # trim can run on empty log since it generates two events
+                    self.eq(0, await prox.trimNexsLog())
+
+                    for i in range(5):
+                        await prox.setHiveKey(('foo', 'bar'), i)
+
+                    ind = await prox.getNexsIndx()
+                    offs = await prox.rotateNexsLog()
+                    self.eq(ind + 1, offs)
+                    self.eq(ind + 1, await prox.getNexsIndx())
+
+                    # last entry that goes into log is rotate
+                    ent = await cell.nexsroot.nexslog.last()
+                    self.eq('nexslog:rotate', ent[1][1])
+
+                    # tail is empty
+                    self.len(0, [x for x in cell.nexsroot.nexslog.tailseqn.iter(0)])
+
+                    # can't cull because need >= 1 entry
+                    self.false(await prox.cullNexsLog(offs))
+
+                    # but now we've generated another nexus event from no-op cull
+                    # so we can cull
+                    ind = await prox.getNexsIndx()
+                    self.true(await prox.cullNexsLog(offs))
+
+                    # last entry in nexus log is cull
+                    retn = await alist(cell.nexsroot.nexslog.iter(0))
+                    self.len(1, retn)
+                    self.eq(ind, retn[0][0])
+                    self.eq('nexslog:cull', retn[0][1][1])
+
+                    for i in range(6, 10):
+                        await prox.setHiveKey(('foo', 'bar'), i)
+
+                    # trim
+                    ind = await prox.getNexsIndx()
+                    self.eq(ind, await prox.trimNexsLog())
+                    self.eq(ind + 2, await prox.getNexsIndx())  # two entries for rotate, cull
+
+                    retn = await cell.nexsroot.nexslog.last()
+                    self.eq('nexslog:cull', retn[1][1])
+
+                    self.eq(ind + 2, await prox.trimNexsLog())
+
+                    for i in range(10, 15):
+                        await prox.setHiveKey(('foo', 'bar'), i)
+
+            # nexus log exists but logging is disabled
             conf['nexslog:en'] = False
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+            async with await s_cell.Cell.anit(dirn00, conf=conf) as cell:
 
                 async with cell.getLocalProxy() as prox:
-                    await prox.cullNexsIndx(10)
 
-                self.len(2, await alist(cell.nexsroot.nexslog.iter(0)))
+                    ind = await prox.getNexsIndx()
+
+                    # trim raises because we cannot cull at the rotated offset
+                    await self.asyncraises(s_exc.SynErr, prox.trimNexsLog())
+
+                    # we can still manually cull
+                    self.len(2, cell.nexsroot.nexslog._ranges)
+                    self.true(await prox.cullNexsLog(ind - 2))
+
+            # nexus fully disabled
+            async with await s_cell.Cell.anit(dirn01, conf=conf) as cell:
+
+                async with cell.getLocalProxy() as prox:
+
+                    self.eq(0, await prox.getNexsIndx())
+
+                    self.eq(0, await prox.rotateNexsLog())
+                    self.false(await prox.cullNexsLog(3))
+                    await self.asyncraises(s_exc.SynErr, prox.trimNexsLog())
 
     async def test_cell_authv2(self):
 

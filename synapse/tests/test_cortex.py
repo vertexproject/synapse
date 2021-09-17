@@ -4546,69 +4546,123 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            path00 = s_common.gendir(dirn, 'core00')
-            path01 = s_common.gendir(dirn, 'core01')
-            path02 = s_common.gendir(dirn, 'core02')
+            path00 = s_common.gendir(dirn, 'core00')    # upstream
+            path01 = s_common.gendir(dirn, 'core01')    # mirror
+            path02 = s_common.gendir(dirn, 'core02')    # mirror of mirror
+            path02b = s_common.gendir(dirn, 'core02b')  # mirror of mirror restore
 
-            conf = {'nexslog:maxentries': 10}
-
-            async with self.getTestCore(dirn=path00, conf=conf) as core00:
+            async with self.getTestCore(dirn=path00) as core00:
                 await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
 
             s_tools_backup.backup(path00, path01)
-
-            async with self.getTestCore(dirn=path00, conf=conf) as core00:
-
-                self.false(core00.conf.get('mirror'))
-
-                await core00.nodes('[ inet:ipv4=10.0.0.0/28 ]')
-
-                async with core00.getLocalProxy() as prox:
-                    await prox.cullNexsIndx(12)
-
-                url = core00.getLocalUrl()
-
-                core01conf = {'mirror': url}
-
-                with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
-                    async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
-                        self.true(await stream.wait(6))
-                        self.true(core01.nexsroot.isfini)
-
             s_tools_backup.backup(path00, path02)
 
-            async with self.getTestCore(dirn=path00, conf=conf) as core00:
+            async with self.getTestCore(dirn=path00) as core00:
 
-                self.false(core00.conf.get('mirror'))
+                url00 = core00.getLocalUrl()
 
-                await core00.nodes('[ inet:ipv4=127.0.0.0/28 ]')
+                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
 
-                ips00 = await core00.nodes('inet:ipv4')
+                    url01 = core01.getLocalUrl()
 
-                url = core00.getLocalUrl()
+                    async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
 
-                core02conf = {'mirror': url}
+                        url02 = core02.getLocalUrl()
+                        consumers = [url01, url02]
 
-                async with await s_cortex.Cortex.anit(dirn=path02, conf=core02conf) as core02:
+                        await core00.nodes('[ inet:ipv4=10.0.0.0/28 ]')
+                        ips00 = await core00.count('inet:ipv4')
 
-                    await core02.sync()
-                    self.len(len(ips00), await core02.nodes('inet:ipv4'))
+                        await core01.sync()
+                        await core02.sync()
 
-                    # call cull on upstream
-                    await core00.cullNexsIndx(16)
-                    await core02.sync()
-                    self.eq(
-                        len(await alist(core00.nexsroot.nexslog.iter(0))),
-                        len(await alist(core02.nexsroot.nexslog.iter(0)))
-                    )
+                        self.eq(ips00, await core01.count('inet:ipv4'))
+                        self.eq(ips00, await core02.count('inet:ipv4'))
 
-                    # call cull on downstream
-                    await core02.cullNexsIndx(18)
-                    await core02.sync()
-                    self.eq(
-                        len(await alist(core00.nexsroot.nexslog.iter(0))),
-                        len(await alist(core02.nexsroot.nexslog.iter(0)))
-                    )
+                        ind = await core00.getNexsIndx()
+                        ret = await core00.trimNexsLog(consumers=consumers)
+                        self.eq(ind, ret)
+
+                        await core01.sync()
+                        await core02.sync()
+
+                        # all the logs match
+                        log00 = await alist(core00.nexsroot.nexslog.iter(0))
+                        log01 = await alist(core01.nexsroot.nexslog.iter(0))
+                        log02 = await alist(core02.nexsroot.nexslog.iter(0))
+                        self.true(log00 == log01 == log02)
+
+                        # simulate a waiter timing out
+                        with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
+                            await self.asyncraises(s_exc.SynErr, core00.trimNexsLog(consumers=consumers))
+
+                    # consumer offline
+                    await asyncio.sleep(0)
+                    await self.asyncraises(ConnectionRefusedError, core00.trimNexsLog(consumers=consumers))
+
+                    # admin can still cull and break the mirror
+                    await core00.nodes('[ inet:ipv4=127.0.0.1/28 ]')
+
+                    ind = await core00.rotateNexsLog()
+                    await core01.sync()
+                    self.true(await core00.cullNexsLog(ind - 1))
+                    await core01.sync()
+
+                    log00 = await alist(core00.nexsroot.nexslog.iter(0))
+                    log01 = await alist(core01.nexsroot.nexslog.iter(0))
+                    self.eq(log00, log01)
+
+                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'mirror desync') as stream:
+                        async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
+                            self.true(await stream.wait(6))
+                            self.true(core02.nexsroot.isfini)
+
+                # restore mirror
+                s_tools_backup.backup(path01, path02b)
+
+                async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
+
+                    url01 = core01.getLocalUrl()
+
+                    async with self.getTestCore(dirn=path02b, conf={'mirror': url01}) as core02:
+
+                        url02 = core02.getLocalUrl()
+                        consumers = [url01, url02]
+
+                        await core00.nodes('[ inet:ipv4=11.0.0.0/28 ]')
+                        ips00 = await core00.count('inet:ipv4')
+
+                        await core01.sync()
+                        await core02.sync()
+
+                        self.eq(ips00, await core01.count('inet:ipv4'))
+                        self.eq(ips00, await core02.count('inet:ipv4'))
+
+                        # all the logs match
+                        log00 = await alist(core00.nexsroot.nexslog.iter(0))
+                        log01 = await alist(core01.nexsroot.nexslog.iter(0))
+                        log02 = await alist(core02.nexsroot.nexslog.iter(0))
+                        self.true(log00 == log01 == log02)
+
+                        rng00 = core00.nexsroot.nexslog._ranges
+                        rng01 = core01.nexsroot.nexslog._ranges
+                        rng02 = core02.nexsroot.nexslog._ranges
+                        self.true(rng00 == rng01 == rng02)
+
+                        # can call trim from a mirror
+                        # NOTE: core02 will have a prox to itself to wait for offset
+                        ind = await core02.getNexsIndx()
+                        ret = await core02.trimNexsLog(consumers=consumers)
+                        self.eq(ind, ret)
+
+                        await core01.sync()
+                        await core02.sync()
+
+                        # all the logs match
+                        log00 = await alist(core00.nexsroot.nexslog.iter(0))
+                        log01 = await alist(core01.nexsroot.nexslog.iter(0))
+                        log02 = await alist(core02.nexsroot.nexslog.iter(0))
+                        self.true(log00 == log01 == log02)
 
     async def test_cortex_mirror_of_mirror(self):
 
