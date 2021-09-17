@@ -629,6 +629,24 @@ class StormTypesTest(s_test.SynTest):
             self.eq(fires[0][1].get('data').get('q'),
                     "$lib.print('fire in the hole')")
 
+            q = '''
+            $q=${ [test:int=1 test:int=2] }
+            return($q.size())
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q=${ [test:int=1 test:int=2] return($node.value()) }
+            return($q.size())
+            '''
+            self.eq(0, await core.callStorm(q))
+
+            q = '''
+            $q=${ [test:int=1 test:int=2] fini { return($lib.null) } }
+            return($q.size())
+            '''
+            self.eq(2, await core.callStorm(q))
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')
