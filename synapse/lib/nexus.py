@@ -138,6 +138,8 @@ class NexsRoot(s_base.Base):
         Close the slab, move it to the new multislab location, then copy out the nexshot
         values, then drop the nexshot db from the multislab
         '''
+        logger.warning('Migrating Nexus log v1->v2')
+
         # avoid import cycle
         import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.multislabseqn as s_multislabseqn
@@ -171,6 +173,8 @@ class NexsRoot(s_base.Base):
             newslab.dropdb(db)
 
         self.nexshot.set('version', 2)
+
+        logger.warning('...Nexus log migration complete')
 
     @contextlib.contextmanager
     def _getResponseFuture(self, iden=None):
