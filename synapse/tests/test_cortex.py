@@ -4561,6 +4561,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url00 = core00.getLocalUrl()
 
+                lowuser = await core00.auth.addUser('low')
+                opts = {'user': lowuser.iden}
+                await self.asyncraises(s_exc.AuthDeny, core00.callStorm('$lib.cell.trimNexsLog()', opts=opts))
+
                 async with self.getTestCore(dirn=path01, conf={'mirror': url00}) as core01:
 
                     url01 = core01.getLocalUrl()
@@ -4569,6 +4573,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         url02 = core02.getLocalUrl()
                         consumers = [url01, url02]
+                        opts = {'vars': {'cons': consumers}}
+                        strim = 'return($lib.cell.trimNexsLog(consumers=$cons))'
 
                         await core00.nodes('[ inet:ipv4=10.0.0.0/28 ]')
                         ips00 = await core00.count('inet:ipv4')
@@ -4580,7 +4586,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.eq(ips00, await core02.count('inet:ipv4'))
 
                         ind = await core00.getNexsIndx()
-                        ret = await core00.trimNexsLog(consumers=consumers)
+                        ret = await core00.callStorm(strim, opts=opts)
                         self.eq(ind, ret)
 
                         await core01.sync()
@@ -4594,11 +4600,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         # simulate a waiter timing out
                         with patch('synapse.cortex.CoreApi.waitNexsOffs', return_value=False):
-                            await self.asyncraises(s_exc.SynErr, core00.trimNexsLog(consumers=consumers))
+                            await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
                     await asyncio.sleep(0)
-                    await self.asyncraises(ConnectionRefusedError, core00.trimNexsLog(consumers=consumers))
+                    await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror
                     await core00.nodes('[ inet:ipv4=127.0.0.1/28 ]')
@@ -4628,6 +4634,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         url02 = core02.getLocalUrl()
                         consumers = [url01, url02]
+                        opts = {'vars': {'cons': consumers}}
+                        strim = 'return($lib.cell.trimNexsLog(consumers=$cons))'
 
                         await core00.nodes('[ inet:ipv4=11.0.0.0/28 ]')
                         ips00 = await core00.count('inet:ipv4')
@@ -4652,7 +4660,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         # can call trim from a mirror
                         # NOTE: core02 will have a prox to itself to wait for offset
                         ind = await core02.getNexsIndx()
-                        ret = await core02.trimNexsLog(consumers=consumers)
+                        ret = await core02.callStorm(strim, opts=opts)
                         self.eq(ind, ret)
 
                         await core01.sync()

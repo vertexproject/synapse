@@ -251,7 +251,7 @@ class CellApi(s_base.Base):
     @adminapi()
     async def trimNexsLog(self, consumers=None, timeout=60):
         '''
-        Rotate and cull the Nexus log (and optionally those of any consumers) at the current offset.
+        Rotate and cull the Nexus log (and those of any consumers) at the current offset.
 
         Note:
             If the consumers argument is provided they will first be checked

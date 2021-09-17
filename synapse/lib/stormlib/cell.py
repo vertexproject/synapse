@@ -121,6 +121,22 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'hotFixesCheck', 'desc': 'Check to see if there are known hot fixes to apply.',
          'type': {'type': 'function', '_funcname': '_hotFixesCheck', 'args': (),
                   'returns': {'type': 'bool', 'desc': 'Bool indicating if there are hot fixes to apply or not.'}}},
+        {'name': 'trimNexsLog', 'desc': '''
+            Rotate and cull the Nexus log (and any consumers) at the current offset.
+
+            If the consumers argument is provided they will first be checked
+            if online before rotating and raise otherwise.
+            After rotation, all consumers provided must catch-up to the offset to cull at
+            within the specified timeout before executing the cull, and will raise otherwise.
+         ''',
+         'type': {'type': 'function', '_funcname': '_trimNexsLog',
+                  'args': (
+                      {'name': 'consumers', 'type': 'array', 'default': None,
+                       'desc': 'List of Telepath URLs for consumers of the Nexus log.'},
+                      {'name': 'timeout', 'type': 'int', 'default': 30,
+                       'desc': 'Time (in seconds) to wait for consumers to catch-up before culling.'}
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The offset that was culled (up to and including).'}}},
     )
     _storm_lib_path = ('cell',)
 
@@ -132,6 +148,7 @@ class CellLib(s_stormtypes.Lib):
             'getHealthCheck': self._getHealthCheck,
             'hotFixesApply': self._hotFixesApply,
             'hotFixesCheck': self._hotFixesCheck,
+            'trimNexsLog': self._trimNexsLog,
         }
 
     async def _hotFixesApply(self):
@@ -210,3 +227,9 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getHealthCheck()
+
+    async def _trimNexsLog(self, consumers=None, timeout=30):
+        if not self.runt.isAdmin():
+            mesg = '$lib.cell.trimNexsLog() requires admin privs.'
+            raise s_exc.AuthDeny(mesg=mesg)
+        return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)

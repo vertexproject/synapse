@@ -125,6 +125,26 @@ Using Synapse Power-Ups
 The Vertex Project provides a number of Power-Ups that extend the functionality of Synapse. For
 more information on configuring your Cortex to use Power-Ups, see `the blog post on Synapse Power-Ups`_.
 
+Managing Nexus log size
+-----------------------
+
+The Cortex supports Telepath APIs for rotating (see ``synapse.lib.cell.CellApi.rotateNexsLog``)
+and culling (see ``synapse.lib.cell.CellApi.cullNexsLog``) the Nexus log.
+These operations are also distributed to downstream consumers of the Nexus log (e.g. mirrors),
+and therefore it is recommended to use the trim API (see ``synapse.lib.cell.CellApi.trimNexsLog``).
+The trim API can also be invoked from Storm (see :ref:`stormlibs-lib-cell-trimNexsLog`).
+
+The trim API executes the following steps:
+
+- If a list of consumers are provided, check that they are all online.
+- Rotate the Nexus log at the current offset, which is also distributed downstream.
+- If consumers are provided, wait until they catch-up to the current offset.
+- Cull the Nexus log, which deletes entries up to and including the current offset.
+
+.. warning::
+    Culling the Nexus log directly can result in mirror desync if they are not
+    caught up to the culled offset.
+
 .. _200_migration:
 
 0.1.x to 2.x.x Migration

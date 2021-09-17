@@ -247,7 +247,6 @@ class MultiSlabSeqn(s_base.Base):
             shutil.rmtree(fn)
             del_ridx = ridx
 
-            # TODO: Potential for race since seqn is deleted but still in _ranges?
             await asyncio.sleep(0)
 
         self.firstindx = offs + 1
