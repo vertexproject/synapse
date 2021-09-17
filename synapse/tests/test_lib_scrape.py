@@ -43,48 +43,112 @@ https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}
 
 '''
 
+btc_addresses = '''
+1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
+
+# Fails checksum
+1BvBMSEYstWetqTFn5Au4m4GFg7xJaNNN2
+
+# No match
+2BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
+
+another16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYweLikeString
+
+bound in some16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe words
+and other 16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwecharactesr
+and bare 16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe
+it'll be found
+
+a p2sh hash also
+
+3279PyBGjZTnu1GNSXamReTj98kiYgZdtW
+
+and another
+
+3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy
+
+invalid
+3279PyBGjZTnu1GNSXamReTj98kiYgZdtX
+
+bech32 segwit values from bip0173
+Mainnet P2WPKH: bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
+Testnet P2WPKH: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+Mainnet P2WSH: bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3
+Testnet P2WSH: tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7
+
+bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx
+
+Newpnet bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5
+newpnet tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k8
+
+'''
+
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
 
-        nodes = set(s_scrape.scrape(data0))
+        # nodes = set(s_scrape.scrape(data0))
+        #
+        # self.len(9, nodes)
+        # nodes.remove(('hash:md5', 'a' * 32))
+        # nodes.remove(('inet:ipv4', '1.2.3.4'))
+        # nodes.remove(('inet:ipv4', '5.6.7.8'))
+        # nodes.remove(('inet:fqdn', 'WOOT.COM'))
+        # nodes.remove(('inet:fqdn', 'hehe.taxi'))
+        # nodes.remove(('inet:fqdn', 'vertex.link'))
+        # nodes.remove(('inet:server', '5.6.7.8:16'))
+        # nodes.remove(('inet:email', 'BOB@WOOT.COM'))
+        # nodes.remove(('inet:email', 'visi@vertex.link'))
+        # self.len(0, nodes)
+        #
+        # nodes = set(s_scrape.scrape(data0, 'inet:email'))
+        # self.len(2, nodes)
+        # nodes.remove(('inet:email', 'BOB@WOOT.COM'))
+        # nodes.remove(('inet:email', 'visi@vertex.link'))
+        # self.len(0, nodes)
+        #
+        # nodes = list(s_scrape.scrape(data1))
+        # self.len(10, nodes)
+        # for _ in range(5):
+        #     nodes.remove(('inet:fqdn', 'foo.bar.org'))
+        #
+        # # URLs should not include any trailing periods or commas.
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+        #
+        # nodes = list(s_scrape.scrape(data2))
+        # nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
+        # nodes.remove(('inet:url', 'https://blog.newp.com/scrape/all/the/urls'))
+        # nodes.remove(('inet:url', 'https://www.thingspace.com/blog/giggles.html'))
+        # nodes.remove(('inet:url', 'https://testme.org/test.php'))
+        # nodes.remove(('inet:url', 'https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}'))
 
+        from pprint import pprint
+
+        nodes = list(s_scrape.scrape(btc_addresses))
         self.len(9, nodes)
-        nodes.remove(('hash:md5', 'a' * 32))
-        nodes.remove(('inet:ipv4', '1.2.3.4'))
-        nodes.remove(('inet:ipv4', '5.6.7.8'))
-        nodes.remove(('inet:fqdn', 'WOOT.COM'))
-        nodes.remove(('inet:fqdn', 'hehe.taxi'))
-        nodes.remove(('inet:fqdn', 'vertex.link'))
-        nodes.remove(('inet:server', '5.6.7.8:16'))
-        nodes.remove(('inet:email', 'BOB@WOOT.COM'))
-        nodes.remove(('inet:email', 'visi@vertex.link'))
-        self.len(0, nodes)
-
-        nodes = set(s_scrape.scrape(data0, 'inet:email'))
-        self.len(2, nodes)
-        nodes.remove(('inet:email', 'BOB@WOOT.COM'))
-        nodes.remove(('inet:email', 'visi@vertex.link'))
-        self.len(0, nodes)
-
-        nodes = list(s_scrape.scrape(data1))
-        self.len(10, nodes)
-        for _ in range(5):
-            nodes.remove(('inet:fqdn', 'foo.bar.org'))
-
-        # URLs should not include any trailing periods or commas.
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
-
-        nodes = list(s_scrape.scrape(data2))
-        nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
-        nodes.remove(('inet:url', 'https://blog.newp.com/scrape/all/the/urls'))
-        nodes.remove(('inet:url', 'https://www.thingspace.com/blog/giggles.html'))
-        nodes.remove(('inet:url', 'https://testme.org/test.php'))
-        nodes.remove(('inet:url', 'https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}'))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', '16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', '3279PyBGjZTnu1GNSXamReTj98kiYgZdtW')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
+        nodes.remove(('crypto:currency:address',
+                      ('btc', 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx')))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32, )

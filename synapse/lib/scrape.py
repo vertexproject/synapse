@@ -1,6 +1,13 @@
+import collections
+import logging
+
 import regex
+import base58
+import bech32
 
 import synapse.data as s_data
+
+logger = logging.getLogger(__name__)
 
 tldlist = list(s_data.get('iana.tlds'))
 
@@ -36,6 +43,21 @@ inverse_prefixs = {
 
 re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
+
+def btc_bech32(text):
+    r = bech32.bech32_decode(text)
+    if r == (None, None):
+        return None
+    return ('btc', text)
+
+def btc_base58(text):
+    try:
+        base58.b58decode_check(text)
+    except ValueError:
+        return None
+    return ('btc', text)
+
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)', {}),
@@ -46,9 +68,19 @@ scrape_types = [  # type: ignore
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
+     {'callback': btc_base58}),
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
+     {'callback': btc_base58}),
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
+     {'callback': btc_bech32}),
 ]
 
-regexes = {name: regex.compile(rule, regex.IGNORECASE) for (name, rule, opts) in scrape_types}
+_regexes = collections.defaultdict(list)
+for (name, rule, opts) in scrape_types:
+    blob = (regex.compile(rule, regex.IGNORECASE), opts)
+    _regexes[name].append(blob)
+
 
 def refang_text(txt):
     '''
@@ -79,17 +111,25 @@ def scrape(text, ptype=None, refang=True, first=False):
     if refang:
         text = refang_text(text)
 
-    for ruletype, _, _ in scrape_types:
+    for ruletype, blobs in _regexes.items():
         if ptype and ptype != ruletype:
             continue
 
-        regx = regexes.get(ruletype)
-        for valu in regx.finditer(text):  # type: regex.Match
-            mnfo = valu.groupdict()
-            valu = mnfo.get('valu')
-            prefix = mnfo.get('prefix')
-            if prefix is not None:
-                valu = valu.rstrip(inverse_prefixs.get(prefix))
-            yield (ruletype, valu)
-            if first:
-                return
+        for (regx, opts) in blobs:
+            cb = opts.get('callback')
+
+            for valu in regx.finditer(text):  # type: regex.Match
+                mnfo = valu.groupdict()
+                valu = mnfo.get('valu')
+                prefix = mnfo.get('prefix')
+                if prefix is not None:
+                    valu = valu.rstrip(inverse_prefixs.get(prefix))
+
+                if cb:
+                    valu = cb(valu)
+                    if valu is None:
+                        continue
+
+                yield (ruletype, valu)
+                if first:
+                    return
