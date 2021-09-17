@@ -3293,7 +3293,7 @@ class SleepCmd(Cmd):
     async def execStormCmd(self, runt, genr):
         async for item in genr:
             yield item
-            await asyncio.sleep(self.opts.delay)
+            await self.runt.waitfini(self.opts.delay)
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
