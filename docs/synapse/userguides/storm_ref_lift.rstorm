@@ -170,8 +170,7 @@ The only difference between "simple" lifts and "lifts using comparison operators
 
 
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
-.. storm-cli:: 
-    #rep.symantec:risk>10
+.. storm-cli:: #rep.symantec:risk>10
 
 
 **Usage Notes:**
@@ -210,7 +209,6 @@ To suppress errors, and prevent premature query termination, Storm supports the 
 
 - Try to lift the MD5 node ``174cc541c8d9e1accef73025293923a6``:
 
-
 .. storm-pre:: [hash:md5 = 174cc541c8d9e1accef73025293923a6]
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 .. storm-cli::  hash:md5 ?= 174cc541c8d9e1accef73025293923a6
@@ -218,16 +216,13 @@ To suppress errors, and prevent premature query termination, Storm supports the 
 
 - Try to lift the DNS nodes whose ``inet:dns:a:ipv4`` secondary property value equals ``'192.168.0.100'``. Notice that an error message is not displayed, despite an invalid IPv4 address ``'192.168.0.1000'`` being entered:
 
-
-.. storm-fail:: true
 .. storm-cli:: inet:dns:a:ipv4 ?= 192.168.0.1000
 
 
 - Try to lift the email address nodes ``'jack@soso.net'`` and ``'jane@goodgirl.com'``. Notice that despite the first email address being entered incorrectly, the error message is suppressed, and the query executes to completion.
 
-
 .. storm-pre:: [inet:email="jane@goodgirl.com"]
-.. storm-fail:: true
+.. storm-opts:: {}
 .. storm-cli:: inet:email ?= "jack[at]soso.net" inet:email ?= "jane@goodgirl.com"
 
 
@@ -394,7 +389,7 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of :ref:`typ
 - Lift all DNS A records whose ``.seen`` values fall between July 1, 2018 and August 1, 2018:
 
 
-.. storm-pre:: [inet:dns:a=(nodns2.qipian.org, 72.52.178.23) (2008/07/27 00:41:26.000, 2019/03/04 19:41:35.970) ]
+.. storm-pre:: [inet:dns:a=(nodns2.qipian.org, 72.52.178.23) .seen=(2008/07/27 00:41:26.000, 2019/03/04 19:41:35.970) ]
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 .. storm-cli:: inet:dns:a.seen@=(2018/07/01, 2018/08/01)
 
@@ -481,8 +476,7 @@ The range extended comparator (``*range=``) supports lifting nodes whose *<form>
 
 .. storm-pre:: [inet:ipv4=192.168.0.1]
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
-.. storm-cli:: 
-    inet:ipv4*range=(192.168.0.0, 192.168.0.10)
+.. storm-cli:: inet:ipv4*range=(192.168.0.0, 192.168.0.10)
 
 
 *Lift by secondary property in range:*
