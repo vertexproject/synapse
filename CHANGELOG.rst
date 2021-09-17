@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.60.1 - TBD
+v2.61.0 - 2021-09-17
 ====================
 
 Features and Enhancements
