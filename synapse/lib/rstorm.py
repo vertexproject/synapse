@@ -133,7 +133,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
     def _onErr(self, mesg, opts):
         # raise on err for rst
         if self.ctx.pop('storm-fail', None):
-            s_cmds_cortex.StormCmd.handleErr(self, mesg, opts)
+            s_cmds_cortex.StormCmd._onErr(self, mesg, opts)
             return
         raise s_exc.StormRuntimeError(mesg=mesg)
 
@@ -342,7 +342,9 @@ class StormRst(s_base.Base):
 
         soutp = StormOutput(core, self.context, stormopts=self.context.get('storm-opts'))
         self._printf(await soutp.runCmdLine(text))
-        self.context.pop('storm-fail', None)
+
+        if self.context.pop('storm-fail', None):
+            raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
 
         self._printf('\n\n')
 
@@ -356,7 +358,9 @@ class StormRst(s_base.Base):
         cli = await StormCliOutput.anit(item=core, outp=outp)
 
         self._printf(await cli.runRstCmdLine(text, self.context, stormopts=self.context.get('storm-opts')))
-        self.context.pop('storm-fail', None)
+
+        if self.context.pop('storm-fail', None):
+            raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
 
         self._printf('\n')
 
