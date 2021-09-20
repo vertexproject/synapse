@@ -3962,6 +3962,10 @@ class Query(Prim):
         {'name': 'size',
          'desc': 'Execute the Query in a sub-runtime and return the number of nodes yielded.',
          'type': {'type': 'function', '_funcname': '_methQuerySize',
+                  'args': (
+                      {'name': 'limit', 'type': 'int', 'default': 1000,
+                       'desc': 'Limit the maximum number of nodes produced by the query.', },
+                  ),
                   'returns': {'type': 'int',
                               'desc': 'The number of nodes yielded by the query.', }}},
     )
@@ -4014,13 +4018,18 @@ class Query(Prim):
         except asyncio.CancelledError:  # pragma: no cover
             raise
 
-    async def _methQuerySize(self):
-        logger.info(f'Executing storm query via size() {{{self.text}}} as [{self.runt.user.name}]')
+    async def _methQuerySize(self, limit=1000):
+        limit = await toint(limit)
+
+        logger.info(f'Executing storm query via size(limit={limit}) {{{self.text}}} as [{self.runt.user.name}]')
         size = 0
         try:
             async for item in self._getRuntGenr():
                 size += 1
+                if size >= limit:
+                    break
                 await asyncio.sleep(0)
+
         except s_stormctrl.StormReturn as e:
             pass
         except asyncio.CancelledError:  # pragma: no cover

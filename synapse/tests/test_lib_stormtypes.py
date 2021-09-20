@@ -647,6 +647,12 @@ class StormTypesTest(s_test.SynTest):
             '''
             self.eq(2, await core.callStorm(q))
 
+            q = '''
+            $q=${ [test:int=1 test:int=2 test:int=3] }
+            return($q.size(limit=2))
+            '''
+            self.eq(2, await core.callStorm(q))
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')
