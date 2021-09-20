@@ -4263,7 +4263,10 @@ class Node(Prim):
                   'args': (
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. '
-                               'If this is provided, only tags which match the expression are returned.', },
+                               'If this is provided, only tags which match the expression are returned. '
+                               'Notes:\n'
+                               'A single asterisk(*) will replace exactly one dot-delimited component of a tag. '
+                               'A double asterisk(**) will replace one or more of any character.', },
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
