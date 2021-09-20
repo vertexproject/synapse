@@ -35,6 +35,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -221,7 +222,7 @@ class CellApi(s_base.Base):
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
 
-    @adminapi()
+    @adminapi(log=True)
     async def cullNexsLog(self, offs):
         '''
         Remove Nexus log entries up to (and including) the given offset.
@@ -238,7 +239,7 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.cullNexsLog(offs)
 
-    @adminapi()
+    @adminapi(log=True)
     async def rotateNexsLog(self):
         '''
         Rotate the Nexus log at the current offset.
@@ -248,7 +249,7 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.rotateNexsLog()
 
-    @adminapi()
+    @adminapi(log=True)
     async def trimNexsLog(self, consumers=None, timeout=60):
         '''
         Rotate and cull the Nexus log (and those of any consumers) at the current offset.
@@ -1147,24 +1148,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async with await s_base.Base.anit() as base:
 
             if consumers is not None:
-                proxs = []
+                cons_opened = []
                 for turl in consumers:
                     prox = await s_telepath.openurl(turl)
                     base.onfini(prox.fini)
-                    proxs.append(prox)
+                    cons_opened.append((s_urlhelp.sanitizeUrl(turl), prox))
 
             offs = await self.rotateNexsLog()
             cullat = offs - 1
 
-            # wait for all consumers to catch up
+            # wait for all consumers to catch up and raise otherwise
             if consumers is not None:
-                ret = await asyncio.gather(*[prox.waitNexsOffs(cullat, timeout=timeout) for prox in proxs])
-                if not all(ret):
-                    mesg = 'trimNexsLog timed out waiting for consumers to reach the rotation offset'
-                    raise s_exc.SynErr(mesg=mesg, offs=cullat)
 
-            didcull = await self.cullNexsLog(cullat)
-            if not didcull:
+                async def waitFor(turl_sani, prox_):
+                    logger.debug('trimNexsLog waiting for consumer %s to write offset %d', turl_sani, cullat)
+                    if not await prox_.waitNexsOffs(cullat, timeout=timeout):
+                        mesg_ = 'trimNexsLog timed out waiting for consumer to write rotation offset'
+                        raise s_exc.SynErr(mesg=mesg_, offs=cullat, timeout=timeout, url=turl_sani)
+                    logger.info('trimNexsLog consumer %s successfully wrote offset', turl_sani)
+
+                await asyncio.gather(*[waitFor(*cons) for cons in cons_opened])
+
+            if not await self.cullNexsLog(cullat):
                 mesg = 'trimNexsLog did not execute cull at the rotated offset'
                 raise s_exc.SynErr(mesg=mesg, offs=cullat)
 

@@ -709,7 +709,6 @@ class CellTest(s_t_utils.SynTest):
 
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
 
-                # the empty slab gets deleted and then recreated
                 self.len(2, cell.nexsroot.nexslog._ranges)
                 self.eq(0, cell.nexsroot.nexslog.tailseqn.size)
 
