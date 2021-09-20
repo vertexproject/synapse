@@ -56,7 +56,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link  inet:fqdn=google.com inet:ipv4=127.0.0.1 ] +inet:fqdn
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:fqdn
@@ -67,8 +66,7 @@ The only difference between "simple" filters and "filters using comparison opera
 - Downselect to exclude the domain ``google.com``:
 
 
-.. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
+.. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com -inet:fqdn=google.com
 ::
     
     <query> -inet:fqdn=google.com
@@ -80,7 +78,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: [inet:dns:soa="*" :email=happygogo@yahoo.net ] -inet:dns:soa:email
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -inet:dns:soa:email
@@ -88,7 +85,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: inet:dns:soa:email -:email
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -:email
@@ -100,7 +96,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +inet:fqdn:iszone=1
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:fqdn:iszone=1
@@ -108,7 +103,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +:iszone=1
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:iszone=1
@@ -120,7 +114,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +inet:fqdn.seen
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:fqdn.seen
@@ -128,7 +121,6 @@ The only difference between "simple" filters and "filters using comparison opera
 
 
 .. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +.seen
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +.seen
@@ -162,7 +154,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +inet:fqdn != google.com
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:fqdn != google.com
@@ -174,7 +165,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: [inet:whois:rec=(wellsfargo.com, 2019/11/24 03:30:07.000) :created="1993/02/19 05:00:00.000"] +inet:whois:rec:asof < 2017/01/01 
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:whois:rec:asof < 2017/01/01
@@ -182,7 +172,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: inet:whois:rec +:asof < 2017/01/01
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:asof < 2017/01/01
@@ -194,7 +183,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: [file:bytes=sha256:00ecd10902d3a3c52035dfa0da027d4942494c75f59b6d6d6670564d85376c94 :size=4096]  -file:bytes:size > 4096
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -file:bytes:size > 4096
@@ -202,7 +190,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: file:bytes  -:size > 4096
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -:size > 4096
@@ -214,7 +201,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: inet:whois:rec +inet:whois:rec:created <= "2018/01/01 12:00"
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:whois:rec:created <= "2018/01/01 12:00"
@@ -222,7 +208,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: inet:whois:rec +:created <= "2018/01/01 12:00"
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:created <= "2018/01/01 12:00"
@@ -234,7 +219,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: [ps:person='*' :name="kelly moto" :dob=19700101] +ps:person:dob >= 1980/01/01
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +ps:person:dob >= 1980/01/01
@@ -242,7 +226,6 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 
 .. storm-pre:: ps:person +:dob >= 1980/01/01
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:dob >= 1980/01/01
@@ -285,7 +268,6 @@ The extended comparator ``~=`` is used to filter nodes based on standard regular
 
 
 .. storm-pre:: [it:dev:mutex=Network]  +it:dev:mutex ~= "^Net"
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +it:dev:mutex ~= "^Net"
@@ -314,7 +296,6 @@ Synapse performs prefix indexing on string types, which optimizes filtering node
 
 
 .. storm-pre:: [inet:user=pinky inet:user=kelly] +inet:user ^= pinky
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:user ^= pinky
@@ -326,7 +307,6 @@ Synapse performs prefix indexing on string types, which optimizes filtering node
 
 
 .. storm-pre:: [ou:org="*" :name=ibm :names=(ibm, "international business machines")] +ou:org:name ^= international
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +ou:org:name ^= international
@@ -334,7 +314,6 @@ Synapse performs prefix indexing on string types, which optimizes filtering node
 
 
 .. storm-pre:: ou:org +:name ^= international
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:name ^= international
@@ -367,7 +346,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: [inet:dns:a = (woot.com, 1.2.3.4) .seen=20200101] +inet:dns:a.seen@=(2018/07/01, 2018/08/01)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:dns:a.seen@=(2018/07/01, 2018/08/01)
@@ -375,7 +353,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:dns:a +.seen@=(2018/07/01, 2018/08/01)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +.seen@=(2018/07/01, 2018/08/01)
@@ -385,7 +362,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:fqdn=woot.com +#cno.infra.anon.tor@=(2016/06/01, 2016/09/30)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +#cno.infra.anon.tor@=(2016/06/01, 2016/09/30)
@@ -397,7 +373,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: [inet:dns:request="*" :time="2018/03/03 21:09:04.000"] +inet:dns:request:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:dns:request:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
@@ -405,7 +380,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:dns:request +:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:time@=("2017/11/12 14:00:00", "2017/11/14 09:30:00")
@@ -417,7 +391,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:dns:a +inet:dns:a.seen@=2017/12/01
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:dns:a.seen@=2017/12/01
@@ -425,7 +398,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:dns:a +.seen@=2017/12/01
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +.seen@=2017/12/01
@@ -437,7 +409,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:whois:rec +inet:whois:rec:created@="1986/03/19 05:00:00"
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:whois:rec:created@="1986/03/19 05:00:00"
@@ -445,7 +416,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:whois:rec +:created@="1986/03/19 05:00:00"
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:created@="1986/03/19 05:00:00"
@@ -457,7 +427,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: [inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:whois:email.seen@=(2018/01/01, now)
@@ -465,7 +434,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:whois:email +.seen@=(2018/01/01, now)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +.seen@=(2018/01/01, now)
@@ -475,7 +443,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:dns:request +inet:dns:request:time@=(2018/10/15, "+ 7 days")
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:dns:request:time@=(2018/10/15, "+ 7 days")
@@ -483,7 +450,6 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 
 
 .. storm-pre:: inet:dns:request +:time@=(2018/10/15, "+ 7 days")
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:time@=(2018/10/15, "+ 7 days")
@@ -522,8 +488,7 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 - Downselect to include all IP addresses between 192.168.0.0 and 192.168.0.10:
 
 
-.. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com]
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
+.. storm-pre:: inet:ipv4 +inet:ipv4*range=(192.168.0.0, 192.168.0.10)
 ::
     
     <query> +inet:ipv4*range=(192.168.0.0, 192.168.0.10)
@@ -535,7 +500,6 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 
 .. storm-pre:: file:bytes +file:bytes:size*range=(1000, 100000)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +file:bytes:size*range=(1000, 100000)
@@ -543,7 +507,6 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 
 .. storm-pre:: file:bytes +:size*range=(1000, 100000)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:size*range=(1000, 100000)
@@ -553,7 +516,6 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 
 .. storm-pre:: inet:whois:rec +inet:whois:rec:asof*range=(2013/11/29, 2016/06/14) 
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:whois:rec:asof*range=(2013/11/29, 2016/06/14)
@@ -561,7 +523,6 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 
 .. storm-pre:: inet:whois:rec +:asof*range=(2013/11/29, 2016/06/14) 
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:asof*range=(2013/11/29, 2016/06/14)
@@ -571,7 +532,6 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 
 .. storm-pre:: inet:dns:request +inet:dns:request:time*range=(2018/12/01, "+-1 day")
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:dns:request:time*range=(2018/12/01, "+-1 day")
@@ -579,7 +539,6 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 
 .. storm-pre:: inet:dns:request +:time*range=(2018/12/01, "+-1 day")
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:time*range=(2018/12/01, "+-1 day")
@@ -609,7 +568,6 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 
 .. storm-pre:: inet:ipv4 +inet:ipv4*in=(127.0.0.1, 192.168.0.100, 255.255.255.254)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +inet:ipv4*in=(127.0.0.1, 192.168.0.100, 255.255.255.254)
@@ -621,7 +579,6 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 
 .. storm-pre:: file:bytes +file:bytes:size*in=(4096, 16384, 65536)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +file:bytes:size*in=(4096, 16384, 65536)
@@ -629,7 +586,6 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 
 .. storm-pre:: file:bytes +:size*in=(4096, 16384, 65536)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:size*in=(4096, 16384, 65536)
@@ -639,7 +595,6 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 
 .. storm-pre:: [syn:tag=foo.bar.baz] -syn:tag:base*in=(foo, bar, baz)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -syn:tag:base*in=(foo, bar, baz)
@@ -647,7 +602,6 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 
 .. storm-pre:: syn:tag -:base*in=(foo, bar, baz)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -:base*in=(foo, bar, baz)
@@ -672,7 +626,6 @@ The proximity extended comparator (``*near=``) supports filtering nodes by "near
 
 
 .. storm-pre:: [geo:place="*" :latlong="37.7825315,-122.4236523"] +geo:place:latlong*near=((47.6050632,-122.3339756),1km)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +geo:place:latlong*near=((47.6050632,-122.3339756),1km)
@@ -680,7 +633,6 @@ The proximity extended comparator (``*near=``) supports filtering nodes by "near
 
 
 .. storm-pre:: geo:place +:latlong*near=((47.6050632,-122.3339756),1km)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:latlong*near=((47.6050632,-122.3339756),1km)
@@ -715,7 +667,6 @@ Storm uses a special "by" syntax to filter (or lift) by comparison with one or m
 
 
 .. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com]
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +:identities:emails*[=root@localhost.localdomain]
@@ -725,7 +676,6 @@ Storm uses a special "by" syntax to filter (or lift) by comparison with one or m
 
 
 .. storm-pre:: ou:org -:names*[^=international]
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -:names*[^=international]
@@ -761,7 +711,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com +#aka.feye.mal.greencat
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +#aka.feye.mal.greencat
@@ -771,7 +720,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: inet:ipv4 -#cno.infra.anon.tor
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -#cno.infra.anon.tor
@@ -781,7 +729,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: inet:ipv4 -#cno.infra.sink.hole
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -#cno.infra.sink.hole
@@ -793,7 +740,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: $tagpropinfo = $lib.dict(doc="A test tagprop doc.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=woot.com +#rep.symantec:risk=100] +#rep.domaintools:risk
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +#rep.domaintools:risk
@@ -805,7 +751,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: inet:fqdn -#rep.domaintools:risk<70
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -#rep.domaintools:risk<70
@@ -817,7 +762,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: inet:fqdn +#cno.infra.anon.tor@=2019/12/12
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +#cno.infra.anon.tor@=2019/12/12
@@ -829,7 +773,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: [inet:fqdn=woot.com inet:fqdn=vertex.link inet:fqdn=google.com]
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +#cno.infra.sink.hole@=(2017/01/01, 2018/01/01)
@@ -839,7 +782,6 @@ The tag extended comparator (``#``) supports filtering nodes based on a given ta
 
 
 .. storm-pre:: inet:fqdn -#cno.threat.t17.tc@=(2019/01/01, now)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -#cno.threat.t17.tc@=(2019/01/01, now)
@@ -868,7 +810,6 @@ Storm allows the use of the logical operators **and**, **or**, and **not** (incl
 
 
 .. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)
@@ -876,7 +817,6 @@ Storm allows the use of the logical operators **and**, **or**, and **not** (incl
 
 
 .. storm-pre:: file:bytes -(:size <= 16384 and :mime:pe:compiled < 2014/01/01)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> -(:size <= 16384 and :mime:pe:compiled < 2014/01/01)
@@ -886,7 +826,6 @@ Storm allows the use of the logical operators **and**, **or**, and **not** (incl
 
 
 .. storm-pre:: .created +((file:bytes or inet:fqdn) and #aka.feye.thr.apt1)
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +((file:bytes or inet:fqdn) and #aka.feye.thr.apt1)
@@ -896,7 +835,6 @@ Storm allows the use of the logical operators **and**, **or**, and **not** (incl
 
 
 .. storm-pre:: .created +((file:bytes or inet:fqdn) and (#aka.feye.thr.apt1 and not #cno.infra.sink.hole))
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
     
     <query> +((file:bytes or inet:fqdn) and (#aka.feye.thr.apt1 and not #cno.infra.sink.hole))
@@ -935,7 +873,6 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 
 .. storm-pre:: inet:fqdn +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#aka.trend.thr.pawnstorm }
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
 
     <inet:fqdn> +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#aka.trend.thr.pawnstorm }
@@ -945,7 +882,6 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 
 .. storm-pre:: inet:ipv4 +{ :asn -> inet:asn +:name^="makonix" }
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
 
     <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
@@ -955,7 +891,6 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 
 .. storm-pre:: file:bytes +{ -> it:av:filehit }>=10
-.. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 ::
 
     <file:bytes> +{ -> it:av:filehit }>=10
