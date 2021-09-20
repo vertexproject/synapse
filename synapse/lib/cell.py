@@ -1144,11 +1144,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def trimNexsLog(self, consumers=None, timeout=30):
 
-        async with contextlib.AsyncExitStack() as stack:
+        async with await s_base.Base.anit() as base:
 
-            # open consumers here to make sure they are online
             if consumers is not None:
-                proxs = [await stack.enter_async_context(await s_telepath.openurl(turl)) for turl in consumers]
+                proxs = []
+                for turl in consumers:
+                    prox = await s_telepath.openurl(turl)
+                    base.onfini(prox.fini)
+                    proxs.append(prox)
 
             offs = await self.rotateNexsLog()
             cullat = offs - 1

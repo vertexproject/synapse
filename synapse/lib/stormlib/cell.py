@@ -232,4 +232,10 @@ class CellLib(s_stormtypes.Lib):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.trimNexsLog() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
+
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
+
+        if consumers is not None:
+            consumers = [await s_stormtypes.tostr(turl) async for turl in s_stormtypes.toiter(consumers)]
+
         return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)

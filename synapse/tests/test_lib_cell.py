@@ -690,6 +690,35 @@ class CellTest(s_t_utils.SynTest):
                     self.false(await prox.cullNexsLog(3))
                     await self.asyncraises(s_exc.SynErr, prox.trimNexsLog())
 
+    async def test_cell_nexusrotate(self):
+
+        with self.getTestDir() as dirn, self.withNexusReplay():
+
+            conf = {
+                'nexslog:en': True,
+            }
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+
+                await cell.setHiveKey(('foo', 'bar'), 0)
+                await cell.setHiveKey(('foo', 'bar'), 1)
+
+                await cell.rotateNexsLog()
+
+                self.len(2, cell.nexsroot.nexslog._ranges)
+                self.eq(0, cell.nexsroot.nexslog.tailseqn.size)
+
+            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+
+                # the empty slab gets deleted and then recreated
+                self.len(2, cell.nexsroot.nexslog._ranges)
+                self.eq(0, cell.nexsroot.nexslog.tailseqn.size)
+
+                await cell.setHiveKey(('foo', 'bar'), 2)
+
+                # new item is added to the right log
+                self.len(2, cell.nexsroot.nexslog._ranges)
+                self.eq(1, cell.nexsroot.nexslog.tailseqn.size)
+
     async def test_cell_authv2(self):
 
         async with self.getTestCore() as core:

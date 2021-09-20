@@ -139,20 +139,19 @@ class MultiSlabSeqn(s_base.Base):
                 seqn = slab.getSeqn('nexuslog')
 
                 firstitem = seqn.first()
+
                 if firstitem is None:
-                    logger.warning(f'Multislab:  found empty seqn in {fn}.  Deleting.')
-                    await slab.trash()
-                    continue
+                    self.indx = fnstartidx
+                else:
+                    self.indx = seqn.indx
 
-                # must go after checking for an empty slab else indx=0
-                self.indx = seqn.indx
+                    firstidx = firstitem[0]  # might not match the separately stored first index due to culling
 
-                firstidx = firstitem[0]  # might not match the separately stored first index due to culling
+                    if firstidx < fnstartidx:
+                        raise s_exc.BadCoreStore('Multislab:  filename inconsistent with contents')
 
-                if firstidx < fnstartidx:
-                    raise s_exc.BadCoreStore('Multislab:  filename inconsistent with contents')
+                    lastidx = seqn.index() - 1
 
-                lastidx = seqn.index() - 1
             self._ranges.append(fnstartidx)
 
         # An admin might have manually culled by rm'ing old slabs.  Update firstidx accordingly.
@@ -212,6 +211,9 @@ class MultiSlabSeqn(s_base.Base):
         '''
         Remove entries up to (and including) the given offset.
         '''
+
+        logger.info('Culling %s at offs %d', self.dirn, offs)
+
         # Note:  we don't bother deleting the rows from inside a partially culled slab.  We just update self.firstindx
         # so nothing will return those rows anymore.  We only delete from disk entire slabs once they are culled.
         if offs < self.firstindx:
@@ -244,6 +246,7 @@ class MultiSlabSeqn(s_base.Base):
             except FileNotFoundError:  # pragma: no cover
                 pass
 
+            logger.info('Removing log %s with startidx %d', fn, startidx)
             shutil.rmtree(fn)
             del_ridx = ridx
 
@@ -347,11 +350,12 @@ class MultiSlabSeqn(s_base.Base):
         return retn
 
     async def last(self) -> Optional[Tuple[int, Any]]:
-        # tailseqn might be empty, so call get()
-        indx = self.indx - 1
-        if indx < self.firstindx:
+        ridx = self._getRangeIndx(self.indx - 1)
+        if ridx is None:
             return None
-        return indx, await self.get(indx)
+
+        async with self._getSeqn(ridx) as seqn:
+            return seqn.last()
 
     def index(self) -> int:
         '''

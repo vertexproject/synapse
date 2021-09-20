@@ -355,10 +355,8 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 seqn = slab.getSeqn('nexuslog')
                 await seqn.cull(25)
 
-            with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'found empty seqn') as stream:
-                async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
-                    await self.agenlen(20, msqn.iter(0))
-                await stream.wait(timeout=1)
+            async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
+                await self.agenlen(20, msqn.iter(0))
 
             # Overlapping seqns
             baddirn = s_common.genpath(dirn, 'bad5')
@@ -472,3 +470,26 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 await msqn.cull(13)
                 self.none(msqn._cacheslab)
                 self.len(1, msqn._openslabs)
+
+    async def test_multislabseqn_last(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
+
+                self.none(await msqn.last())
+
+                for i in range(5):
+                    await msqn.add(f'foo{i}')
+
+                self.eq((4, 'foo4'), await msqn.last())
+
+                # rotate so we have an empty tail slab
+                await msqn.rotate()
+                self.eq(0, msqn.tailseqn.size)
+
+                self.eq((4, 'foo4'), await msqn.last())
+
+                # create a hole in the index
+                await msqn.add('foo6', indx=6)
+                self.eq((6, 'foo6'), await msqn.last())

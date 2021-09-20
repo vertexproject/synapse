@@ -4633,9 +4633,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                     async with self.getTestCore(dirn=path02b, conf={'mirror': url01}) as core02:
 
                         url02 = core02.getLocalUrl()
-                        consumers = [url01, url02]
-                        opts = {'vars': {'cons': consumers}}
-                        strim = 'return($lib.cell.trimNexsLog(consumers=$cons))'
+                        opts = {'vars': {'url01': url01, 'url02': url02}}
+                        strim = 'return($lib.cell.trimNexsLog(consumers=$lib.list($url01, $url02), timeout=$lib.null))'
 
                         await core00.nodes('[ inet:ipv4=11.0.0.0/28 ]')
                         ips00 = await core00.count('inet:ipv4')
