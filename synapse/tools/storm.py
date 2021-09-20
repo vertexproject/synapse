@@ -15,6 +15,7 @@ import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,56 @@ class PullFileCmd(StormCliCmd):
         except s_exc.SynErr as e:
             self.printf(e.errinfo.get('mesg', str(e)))
 
+class ExportCmd(StormCliCmd):
+    '''
+    Export the results of a storm query into a nodes file.
+
+    Example:
+
+        // Export nodes to a file
+        !export dnsa.nodes { inet:fqdn#mynodes -> inet:dns:a }
+
+        // Export nodes to a file and only include specific tags
+        !export fqdn.nodes { inet:fqdn#mynodes } --include-tags footag
+    '''
+
+    _cmd_name = '!export'
+
+    def getArgParser(self):
+        pars = StormCliCmd.getArgParser(self)
+        pars.add_argument('filepath', help='The file path to save the export to.')
+        pars.add_argument('query', help='The Storm query to export nodes from.')
+        pars.add_argument('--include-tags', nargs='*', help='Only include the specified tags in output.')
+        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not include any tags on exported nodes.')
+        return pars
+
+    async def runCmdOpts(self, opts):
+
+        self.printf(f'exporting nodes')
+
+        queryopts = {}
+        if opts.include_tags:
+            queryopts['scrub'] = {'include': {'tags': opts.include_tags}}
+
+        if opts.no_tags:
+            queryopts['scrub'] = {'include': {'tags': []}}
+
+        try:
+            query = opts.query[1:-1]
+            with s_common.genfile(opts.filepath) as fd:
+                cnt = 0
+                async for pode in self._cmd_cli.item.exportStorm(query, opts=queryopts):
+                    byts = fd.write(s_msgpack.en(pode))
+                    cnt += 1
+
+            self.printf(f'saved {cnt} nodes to: {opts.filepath}')
+
+        except asyncio.CancelledError as e:
+            raise
+
+        except s_exc.SynErr as e:
+            self.printf(e.errinfo.get('mesg', str(e)))
+
 class StormCli(s_cli.Cli):
 
     histfile = 'storm_history'
@@ -185,6 +236,7 @@ class StormCli(s_cli.Cli):
     def initCmdClasses(self):
         self.addCmdClass(QuitCmd)
         self.addCmdClass(HelpCmd)
+        self.addCmdClass(ExportCmd)
         self.addCmdClass(RunFileCmd)
         self.addCmdClass(PullFileCmd)
         self.addCmdClass(PushFileCmd)
