@@ -1206,6 +1206,18 @@ class Snap(s_base.Base):
                     await edgeset.add(edge)
                     yield edge
 
+    async def hasNodeData(self, buid, name):
+        '''
+        Return True if the buid has nodedata set on it under the given name
+        False otherwise
+        '''
+        for layr in reversed(self.layers):
+            todo = s_common.todo('hasNodeData', buid, name)
+            has = await self.core.dyncall(layr.iden, todo)
+            if has:
+                return True
+        return False
+
     async def getNodeData(self, buid, name, defv=None):
         '''
         Get nodedata from closest to write layer, no merging involved
