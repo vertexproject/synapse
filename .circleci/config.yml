@@ -67,6 +67,7 @@ commands:
       - run:
           name: install deps
           command: |
+            sudo apt-get update
             sudo apt-get -y install pandoc
 
       - restore_cache:
@@ -109,11 +110,6 @@ commands:
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
-      - run:
-          name: install deps
-          command: |
-            sudo apt-get -y install cron
-
       - restore_cache:
           keys:
             - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
@@ -151,11 +147,6 @@ commands:
           name: checkout regression repo
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
-
-      - run:
-          name: install deps
-          command: |
-            sudo apt-get -y install cron
 
       - restore_cache:
           keys:
@@ -527,7 +518,7 @@ jobs:
   python37:
     parallelism: 8
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -543,7 +534,7 @@ jobs:
   python38:
     parallelism: 8
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYVERS: 3.8
           RUN_SYNTAX: 1
@@ -559,7 +550,7 @@ jobs:
   python37_replay:
     parallelism: 6
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -576,7 +567,7 @@ jobs:
   python38_replay:
     parallelism: 6
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYVERS: 3.8
           RUN_SYNTAX: 1
@@ -593,7 +584,7 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYVERS: 3.7
 
@@ -604,7 +595,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
@@ -616,7 +607,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
@@ -630,7 +621,7 @@ jobs:
 
   deploy_pypi_37:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py37
