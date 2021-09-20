@@ -23,6 +23,10 @@ class SlabSeqn:
         self.offsevents = []  # type: ignore # List[Tuple[int, int, asyncio.Event]] as a heap
         self._waitcounter = 0
 
+        # NOTE: This is intended to be publicly accessible
+        # and therefore must always represent the true size.
+        self.size = self.stat()['entries']
+
     def _wake_waiters(self):
         while self.offsevents and self.offsevents[0][0] < self.indx:
             _, _, evnt = heapq.heappop(self.offsevents)
@@ -34,6 +38,7 @@ class SlabSeqn:
         '''
         byts = self.slab.pop(s_common.int64en(offs), db=self.db)
         if byts is not None:
+            self.size -= 1
             return (offs, s_msgpack.un(byts))
 
     async def cull(self, offs):
@@ -45,7 +50,8 @@ class SlabSeqn:
             if itemoffs > offs:
                 return
 
-            self.slab.delete(s_common.int64en(itemoffs), db=self.db)
+            if self.slab.delete(s_common.int64en(itemoffs), db=self.db):
+                self.size -= 1
             await asyncio.sleep(0)
 
     def add(self, item, indx=None):
@@ -53,10 +59,16 @@ class SlabSeqn:
         Add a single item to the sequence.
         '''
         if indx is not None:
-            self.slab.put(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
             if indx >= self.indx:
+                self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
                 self.indx = indx + 1
+                self.size += 1
                 self._wake_waiters()
+                return indx
+
+            oldv = self.slab.replace(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+            if oldv is None:
+                self.size += 1
             return indx
 
         indx = self.indx
@@ -64,10 +76,18 @@ class SlabSeqn:
         assert retn, "Not adding the largest index"
 
         self.indx += 1
+        self.size += 1
 
         self._wake_waiters()
 
         return indx
+
+    def first(self):
+
+        for lkey, lval in self.slab.scanByFull(db=self.db):
+            return s_common.int64un(lkey), s_msgpack.un(lval)
+
+        return None
 
     def last(self):
 
@@ -115,6 +135,8 @@ class SlabSeqn:
 
         assert retn, "Not adding the largest indices"
 
+        self.size += retn[1]
+
         origindx = self.indx
         self.indx = indx
 
@@ -159,6 +181,15 @@ class SlabSeqn:
 
     async def gets(self, offs, wait=True):
         '''
+        Returns an async generator of indx/valu tuples, optionally waiting and continuing to yield them as new entries
+        are added
+
+        Args:
+            offs (int): The offset to begin iterating from.
+            wait (bool):  Whether to continue yielding tupls when it hits the end of the sequence.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
         '''
         while True:
 
@@ -180,7 +211,8 @@ class SlabSeqn:
         startkey = s_common.int64en(offs)
         for lkey, _ in self.slab.scanByRange(startkey, db=self.db):
             retn = True
-            self.slab.delete(lkey, db=self.db)
+            if self.slab.delete(lkey, db=self.db):
+                self.size -= 1
 
         if retn:
             self.indx = self.nextindx()

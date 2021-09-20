@@ -35,6 +35,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -220,6 +221,67 @@ class CellApi(s_base.Base):
     @adminapi()
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
+
+    @adminapi(log=True)
+    async def cullNexsLog(self, offs):
+        '''
+        Remove Nexus log entries up to (and including) the given offset.
+
+        Note:
+            If there are consumers of this cell's nexus log they must
+            be caught up to aleast the offs argument before culling.
+
+        Args:
+            offs (int): The offset to remove entries up to.
+
+        Returns:
+            bool: Whether the cull was executed
+        '''
+        return await self.cell.cullNexsLog(offs)
+
+    @adminapi(log=True)
+    async def rotateNexsLog(self):
+        '''
+        Rotate the Nexus log at the current offset.
+
+        Returns:
+            int: The starting index of the active Nexus log
+        '''
+        return await self.cell.rotateNexsLog()
+
+    @adminapi(log=True)
+    async def trimNexsLog(self, consumers=None, timeout=60):
+        '''
+        Rotate and cull the Nexus log (and those of any consumers) at the current offset.
+
+        Note:
+            If the consumers argument is provided they will first be checked
+            if online before rotating and raise otherwise.
+            After rotation, all consumers must catch-up to the offset to cull
+            at before executing the cull, and will raise otherwise.
+
+        Args:
+            consumers (list or None): Optional list of telepath URLs for downstream Nexus log consumers.
+            timeout (int): Time in seconds to wait for downstream consumers to be caught up.
+
+        Returns:
+            int: The offset that the Nexus log was culled up to and including.
+        '''
+        return await self.cell.trimNexsLog(consumers=consumers, timeout=timeout)
+
+    @adminapi()
+    async def waitNexsOffs(self, offs, timeout=None):
+        '''
+        Wait for the Nexus log to write an offset.
+
+        Args:
+            offs (int): The offset to wait for.
+            timeout (int or None): An optional timeout in seconds.
+
+        Returns:
+            bool: True if the offset was written, False if it timed out.
+        '''
+        return await self.cell.waitNexsOffs(offs, timeout=timeout)
 
     @adminapi()
     async def promote(self):
@@ -1059,6 +1121,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
+
+    async def cullNexsLog(self, offs):
+        if self.backuprunning:
+            raise s_exc.SlabInUse(mesg='Cannot cull Nexus log while a backup is running')
+        return await self._push('nexslog:cull', offs)
+
+    @s_nexus.Pusher.onPush('nexslog:cull')
+    async def _cullNexsLog(self, offs):
+        return await self.nexsroot.cull(offs)
+
+    async def rotateNexsLog(self):
+        if self.backuprunning:
+            raise s_exc.SlabInUse(mesg='Cannot rotate Nexus log while a backup is running')
+        return await self._push('nexslog:rotate')
+
+    @s_nexus.Pusher.onPush('nexslog:rotate')
+    async def _rotateNexsLog(self):
+        return await self.nexsroot.rotate()
+
+    async def waitNexsOffs(self, offs, timeout=None):
+        return await self.nexsroot.waitOffs(offs, timeout=timeout)
+
+    async def trimNexsLog(self, consumers=None, timeout=30):
+
+        async with await s_base.Base.anit() as base:
+
+            if consumers is not None:
+                cons_opened = []
+                for turl in consumers:
+                    prox = await s_telepath.openurl(turl)
+                    base.onfini(prox.fini)
+                    cons_opened.append((s_urlhelp.sanitizeUrl(turl), prox))
+
+            offs = await self.rotateNexsLog()
+            cullat = offs - 1
+
+            # wait for all consumers to catch up and raise otherwise
+            if consumers is not None:
+
+                async def waitFor(turl_sani, prox_):
+                    logger.debug('trimNexsLog waiting for consumer %s to write offset %d', turl_sani, cullat)
+                    if not await prox_.waitNexsOffs(cullat, timeout=timeout):
+                        mesg_ = 'trimNexsLog timed out waiting for consumer to write rotation offset'
+                        raise s_exc.SynErr(mesg=mesg_, offs=cullat, timeout=timeout, url=turl_sani)
+                    logger.info('trimNexsLog consumer %s successfully wrote offset', turl_sani)
+
+                await asyncio.gather(*[waitFor(*cons) for cons in cons_opened])
+
+            if not await self.cullNexsLog(cullat):
+                mesg = 'trimNexsLog did not execute cull at the rotated offset'
+                raise s_exc.SynErr(mesg=mesg, offs=cullat)
+
+            return cullat
 
     @s_nexus.Pusher.onPushAuto('nexslog:setindex')
     async def setNexsIndx(self, indx):

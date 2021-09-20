@@ -1530,6 +1530,10 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 6:
             await self._layrV5toV6()
 
+        if self.layrvers != 6:
+            mesg = f'Got layer version {self.layrvers}.  Expected 6.  Accidental downgrade?'
+            raise s_exc.BadStorageVersion(mesg=mesg)
+
     async def getLayerSize(self):
         '''
         Get the total storage size for the layer.
