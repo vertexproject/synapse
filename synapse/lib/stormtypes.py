@@ -3959,6 +3959,15 @@ class Query(Prim):
          'type': {'type': 'function', '_funcname': '_methQueryExec',
                   'returns': {'type': ['none', 'any'],
                               'desc': 'A value specified with a return statement, or none.', }}},
+        {'name': 'size',
+         'desc': 'Execute the Query in a sub-runtime and return the number of nodes yielded.',
+         'type': {'type': 'function', '_funcname': '_methQuerySize',
+                  'args': (
+                      {'name': 'limit', 'type': 'int', 'default': 1000,
+                       'desc': 'Limit the maximum number of nodes produced by the query.', },
+                  ),
+                  'returns': {'type': 'int',
+                              'desc': 'The number of nodes yielded by the query.', }}},
     )
 
     _storm_typename = 'storm:query'
@@ -3978,6 +3987,7 @@ class Query(Prim):
     def getObjLocals(self):
         return {
             'exec': self._methQueryExec,
+            'size': self._methQuerySize,
         }
 
     def __str__(self):
@@ -4007,6 +4017,24 @@ class Query(Prim):
             return e.item
         except asyncio.CancelledError:  # pragma: no cover
             raise
+
+    async def _methQuerySize(self, limit=1000):
+        limit = await toint(limit)
+
+        logger.info(f'Executing storm query via size(limit={limit}) {{{self.text}}} as [{self.runt.user.name}]')
+        size = 0
+        try:
+            async for item in self._getRuntGenr():
+                size += 1
+                if size >= limit:
+                    break
+                await asyncio.sleep(0)
+
+        except s_stormctrl.StormReturn as e:
+            pass
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        return size
 
     async def stormrepr(self):
         return f'{self._storm_typename}: "{self.text}"'
