@@ -3,7 +3,8 @@ import logging
 
 import regex
 import base58
-import bech32
+import bitcoin
+import bitcoin.bech32 as bitcoin_b32
 
 import synapse.data as s_data
 
@@ -45,10 +46,23 @@ re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNOREC
 
 
 def btc_bech32(text):
-    r = bech32.bech32_decode(text)
-    if r == (None, None):
+    prefix, _ = text.split('1', 1)
+    prefix = prefix.lower()
+    if prefix == 'bc':
+        bitcoin.SelectParams('mainnet')
+    elif prefix == 'tb':
+        bitcoin.SelectParams('testnet')
+    elif prefix == 'bcrt':
+        bitcoin.SelectParams('regtest')
+    else:  # pragma: no cover
+        raise ValueError(f'Unknown prefix {text}')
+    try:
+        _ = bitcoin_b32.CBech32Data(text)
+    except bitcoin_b32.Bech32Error:
         return None
-    return ('btc', text)
+    # The proper form of a bech32 address is lowercased. We do not want to verify
+    # a mixed case form, so lowercase it prior to returning.
+    return ('btc', text.lower())
 
 def btc_base58(text):
     try:
@@ -72,7 +86,7 @@ scrape_types = [  # type: ignore
      {'callback': btc_base58}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
      {'callback': btc_base58}),
-    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|bcrt|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
      {'callback': btc_bech32}),
 ]
 

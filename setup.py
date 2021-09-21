@@ -96,7 +96,7 @@ setup(
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
         'base58==2.1.0',
-        'bech32==1.2.0',
+        'python-bitcoinlib==0.11.0',
     ],
 
     extras_require={
