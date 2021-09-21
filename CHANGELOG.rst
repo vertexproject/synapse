@@ -5,6 +5,30 @@ Synapse Changelog
 *****************
 
 
+v2.62.0 - 2021-09-XX
+====================
+
+Features and Enhancements
+-------------------------
+- Add APIs to support trimming, rotating and culling Nexus logs from Cells
+  with Nexus logging enabled. These operations are distributed to downstream
+  consumers, of the Nexus log (e.g. mirrors). For the Cortex, this can be
+  invoked in Storm with the ``$lib.cell.trimNexsLog()`` Stormtypes API. The
+  Cortex devops documentation contains more information about Nexus log
+  rotation.
+  (`#2339 <https://github.com/vertexproject/synapse/pull/2339>`_)
+  (`#2371 <https://github.com/vertexproject/synapse/pull/2371>`_)
+- Add ``.size()`` API to the Stormtypes ``storm:query`` object. This will run
+  the query and return the number of nodes it would have yielded.
+  (`#2363 <https://github.com/vertexproject/synapse/pull/2363>`_)
+
+Improved Documentation
+----------------------
+- Document the tag glob meanings on the Stormtypes ``$node.tags()`` API.
+  (`#2368 <https://github.com/vertexproject/synapse/pull/2368>`_)
+
+
+
 v2.61.0 - 2021-09-17
 ====================
 

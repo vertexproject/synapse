@@ -229,7 +229,7 @@ class CellApi(s_base.Base):
 
         Note:
             If there are consumers of this cell's nexus log they must
-            be caught up to aleast the offs argument before culling.
+            be caught up to at least the offs argument before culling.
 
             Only rotated logs where the last index is less than the
             provided offset will be removed from disk.
