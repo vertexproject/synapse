@@ -216,11 +216,14 @@ class MultiSlabSeqn(s_base.Base):
 
         # Note:  we don't bother deleting the rows from inside a partially culled slab.  We just update self.firstindx
         # so nothing will return those rows anymore.  We only delete from disk entire slabs once they are culled.
+
         if offs < self.firstindx:
+            logger.warning('Unable to cull %s; offs (%d) < starting indx (%d)', self.dirn, offs, self.firstindx)
             return False
 
         # We keep at least one entry;  this avoids offsets possibly going lower after a restart
         if offs >= self.indx - 1:
+            logger.warning('Unable to cull %s at offs %d; must keep at least one entry', self.dirn, offs)
             return False
 
         if self._cacheridx is not None:
@@ -238,6 +241,7 @@ class MultiSlabSeqn(s_base.Base):
 
             fn = self.slabFilename(self.dirn, startidx)
             if offs < self._ranges[ridx + 1] - 1:
+                logger.warning('Log %s will not be deleted since offs is less than last indx', fn)
                 break
 
             optspath = s_common.switchext(fn, ext='.opts.yaml')
@@ -257,6 +261,11 @@ class MultiSlabSeqn(s_base.Base):
 
         if del_ridx is not None:
             del self._ranges[:del_ridx + 1]
+
+        # Log if there was an attempt to cull into the tailseqn
+        if offs >= self._ranges[-1]:
+            fn = self.tailslab.path
+            logger.warning('Log %s will not be deleted since offs is in the currently active log', fn)
 
         return True
 

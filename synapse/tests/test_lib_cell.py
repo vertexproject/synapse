@@ -670,14 +670,17 @@ class CellTest(s_t_utils.SynTest):
 
                 async with cell.getLocalProxy() as prox:
 
-                    ind = await prox.getNexsIndx()
-
                     # trim raises because we cannot cull at the rotated offset
-                    await self.asyncraises(s_exc.SynErr, prox.trimNexsLog())
+                    await self.asyncraises(s_exc.BadConfValu, prox.trimNexsLog())
 
                     # we can still manually cull
-                    self.len(2, cell.nexsroot.nexslog._ranges)
-                    self.true(await prox.cullNexsLog(ind - 2))
+                    offs = await prox.rotateNexsLog()
+                    rngs = cell.nexsroot.nexslog._ranges
+                    self.len(2, rngs)
+                    self.true(await prox.cullNexsLog(offs - 2))
+
+                    # rotated log still exists on disk
+                    self.nn(await cell.nexsroot.nexslog.get(rngs[-1] - 1))
 
             # nexus fully disabled
             async with await s_cell.Cell.anit(dirn01, conf=conf) as cell:
@@ -688,7 +691,7 @@ class CellTest(s_t_utils.SynTest):
 
                     self.eq(0, await prox.rotateNexsLog())
                     self.false(await prox.cullNexsLog(3))
-                    await self.asyncraises(s_exc.SynErr, prox.trimNexsLog())
+                    await self.asyncraises(s_exc.BadConfValu, prox.trimNexsLog())
 
     async def test_cell_nexusrotate(self):
 
