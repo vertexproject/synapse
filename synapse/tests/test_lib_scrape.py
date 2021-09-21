@@ -108,85 +108,128 @@ tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv
 bc1gmk9yu
 '''
 
+eth_addresses = '''
+demo address 0x001d3f1ef827552ae1114027bd3ecf1f086ba0f9
+
+eip-55 address test vectors
+# All caps
+0x52908400098527886E0F7030069857D2E4169EE7
+0x8617E340B3D01FA5F11F306F4090FD50E238070D
+# All Lower
+0xde709f2102306220921060314715629080e2fb77
+0x27b1fdb04752bbc536007a920d24acb045561c26
+# Normal
+0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed
+0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359
+0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB
+0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb
+
+# Bad vectors!
+0x8617E340B3D01FA5F11F306F4090FD50E238070d
+0x27B1fdb04752bbc536007a920d24acb045561c26
+0xfB6916095ca1df60bB79Ce92cE3Ea74c37C5D359
+'''
 
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
+        # nodes = set(s_scrape.scrape(data0))
+        #
+        # self.len(9, nodes)
+        # nodes.remove(('hash:md5', 'a' * 32))
+        # nodes.remove(('inet:ipv4', '1.2.3.4'))
+        # nodes.remove(('inet:ipv4', '5.6.7.8'))
+        # nodes.remove(('inet:fqdn', 'WOOT.COM'))
+        # nodes.remove(('inet:fqdn', 'hehe.taxi'))
+        # nodes.remove(('inet:fqdn', 'vertex.link'))
+        # nodes.remove(('inet:server', '5.6.7.8:16'))
+        # nodes.remove(('inet:email', 'BOB@WOOT.COM'))
+        # nodes.remove(('inet:email', 'visi@vertex.link'))
+        # self.len(0, nodes)
+        #
+        # nodes = set(s_scrape.scrape(data0, 'inet:email'))
+        # self.len(2, nodes)
+        # nodes.remove(('inet:email', 'BOB@WOOT.COM'))
+        # nodes.remove(('inet:email', 'visi@vertex.link'))
+        # self.len(0, nodes)
+        #
+        # nodes = list(s_scrape.scrape(data1))
+        # self.len(10, nodes)
+        # for _ in range(5):
+        #     nodes.remove(('inet:fqdn', 'foo.bar.org'))
+        #
+        # # URLs should not include any trailing periods or commas.
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
+        # nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
+        #
+        # nodes = list(s_scrape.scrape(data2))
+        # nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
+        # nodes.remove(('inet:url', 'https://blog.newp.com/scrape/all/the/urls'))
+        # nodes.remove(('inet:url', 'https://www.thingspace.com/blog/giggles.html'))
+        # nodes.remove(('inet:url', 'https://testme.org/test.php'))
+        # nodes.remove(('inet:url', 'https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}'))
+        #
+        # nodes = list(s_scrape.scrape(btc_addresses))
+        # self.len(11, nodes)
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', '16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', '3279PyBGjZTnu1GNSXamReTj98kiYgZdtW')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'bcrt1qs758ursh4q9z627kt3pp5yysm78ddny6txaqgw')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
+        # nodes.remove(('crypto:currency:address',
+        #               ('btc', 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx')))
+        # self.len(0, nodes)
 
-        nodes = set(s_scrape.scrape(data0))
-
+        from pprint import pprint
+        nodes = list(s_scrape.scrape(eth_addresses))
         self.len(9, nodes)
-        nodes.remove(('hash:md5', 'a' * 32))
-        nodes.remove(('inet:ipv4', '1.2.3.4'))
-        nodes.remove(('inet:ipv4', '5.6.7.8'))
-        nodes.remove(('inet:fqdn', 'WOOT.COM'))
-        nodes.remove(('inet:fqdn', 'hehe.taxi'))
-        nodes.remove(('inet:fqdn', 'vertex.link'))
-        nodes.remove(('inet:server', '5.6.7.8:16'))
-        nodes.remove(('inet:email', 'BOB@WOOT.COM'))
-        nodes.remove(('inet:email', 'visi@vertex.link'))
-        self.len(0, nodes)
-
-        nodes = set(s_scrape.scrape(data0, 'inet:email'))
-        self.len(2, nodes)
-        nodes.remove(('inet:email', 'BOB@WOOT.COM'))
-        nodes.remove(('inet:email', 'visi@vertex.link'))
-        self.len(0, nodes)
-
-        nodes = list(s_scrape.scrape(data1))
-        self.len(10, nodes)
-        for _ in range(5):
-            nodes.remove(('inet:fqdn', 'foo.bar.org'))
-
-        # URLs should not include any trailing periods or commas.
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/'))
-        nodes.remove(('inet:url', 'tcp://foo.bar.org:4665/,,..a'))
-
-        nodes = list(s_scrape.scrape(data2))
-        nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
-        nodes.remove(('inet:url', 'https://blog.newp.com/scrape/all/the/urls'))
-        nodes.remove(('inet:url', 'https://www.thingspace.com/blog/giggles.html'))
-        nodes.remove(('inet:url', 'https://testme.org/test.php'))
-        nodes.remove(('inet:url', 'https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}'))
-
-        nodes = list(s_scrape.scrape(btc_addresses))
-        self.len(11, nodes)
-        nodes.remove(('crypto:currency:address',
-                      ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', '16ftSEQ4ctQFDtVZiUBusQUjRrGhM3JYwe')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', '3279PyBGjZTnu1GNSXamReTj98kiYgZdtW')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'bcrt1qs758ursh4q9z627kt3pp5yysm78ddny6txaqgw')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qccfmv3')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7')))
-        nodes.remove(('crypto:currency:address',
-                      ('btc', 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0x001d3f1ef827552ae1114027bd3ecf1f086ba0f9')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0x8617e340b3d01fa5f11f306f4090fd50e238070d')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0xde709f2102306220921060314715629080e2fb77')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0x27b1fdb04752bbc536007a920d24acb045561c26')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB')))
+        nodes.remove(('crypto:current:address',
+                      ('eth', '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb')))
         self.len(0, nodes)
 
     def test_scrape_sequential(self):
-        md5 = ('a' * 32, 'b' * 32, )
-        sha1 = ('c' * 40, 'd' * 40, )
-        sha256 = ('e' * 64, 'f' * 64, )
-        url = ('http://foobar.com', 'http://cat.net', )
-        ipv4 = ('1.2.3.4', '5.6.7.8', )
-        server = ('7.7.7.7:123', '8.8.8.8:456', )
-        fqdn = ('woot.com', 'baz.io', )
-        email = ('me@bar.io', 'you@zee.com', )
+        md5 = ('a' * 32, 'b' * 32,)
+        sha1 = ('c' * 40, 'd' * 40,)
+        sha256 = ('e' * 64, 'f' * 64,)
+        url = ('http://foobar.com', 'http://cat.net',)
+        ipv4 = ('1.2.3.4', '5.6.7.8',)
+        server = ('7.7.7.7:123', '8.8.8.8:456',)
+        fqdn = ('woot.com', 'baz.io',)
+        email = ('me@bar.io', 'you@zee.com',)
 
         txt = f'hehe {md5[0]} {md5[1]} haha'
         self.eq({md5[0], md5[1], }, {n[1] for n in s_scrape.scrape(txt)})
@@ -237,7 +280,6 @@ class ScrapeTest(s_t_utils.SynTest):
         self.eq({email[0], 'bar.io', fqdn[0], }, {n[1] for n in s_scrape.scrape(txt)})
 
     def test_refang(self):
-
         defanged = '10[.]0[.]0[.]1'
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})

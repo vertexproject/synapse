@@ -1,12 +1,15 @@
-import collections
 import logging
+import collections
 
 import regex
 import base58
+import _pysha3  # do not import the sha3 library directly.
 import bitcoin
 import bitcoin.bech32 as bitcoin_b32
 
+
 import synapse.data as s_data
+import synapse.common as s_common
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +74,47 @@ def btc_base58(text):
         return None
     return ('btc', text)
 
+def ether_eip55(body: str):
+    # From EIP-55 reference implementation
+    addr_byts = s_common.uhex(body)
+    hex_addr = addr_byts.hex()
+    checksummed_buffer = ""
+    hashed_address = _pysha3.keccak_256(hex_addr.encode()).hexdigest()
+
+    for nibble_index, character in enumerate(hex_addr):
+        if character in "0123456789":
+            # We can't upper-case the decimal digits
+            checksummed_buffer += character
+        elif character in "abcdef":
+            # Check if the corresponding hex digit (nibble) in the hash is 8 or higher
+            hashed_address_nibble = int(hashed_address[nibble_index], 16)
+            if hashed_address_nibble > 7:
+                checksummed_buffer += character.upper()
+            else:
+                checksummed_buffer += character
+        else:
+            return None
+
+    return "0x" + checksummed_buffer
+
+def eth_check(text: str):
+    prefix, body = text.split('x')  # type: str, str
+    # Checksum if we're mixed case or not
+    if not body.isupper() and not body.islower():
+
+        logger.info(f'Checksumming {text=}')
+
+        ret = ether_eip55(body)
+        if ret is None:
+            return None
+
+        if ret != text:
+            return None
+
+        return ('eth', text)
+
+    return ('eth', text.lower())
+
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
@@ -88,6 +132,10 @@ scrape_types = [  # type: ignore
      {'callback': btc_base58}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|bcrt|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
      {'callback': btc_bech32}),
+    # The following ethererum address can look like a SHA256 but must have
+    # a leading 0x and may require checksum validation for mixed case.
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>0x[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))',
+     {'callback': eth_check})
 ]
 
 _regexes = collections.defaultdict(list)
