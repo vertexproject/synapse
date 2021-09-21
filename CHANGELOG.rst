@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.62.0 - 2021-09-XX
+v2.62.0 - 2021-09-21
 ====================
 
 Features and Enhancements
@@ -26,7 +26,6 @@ Improved Documentation
 ----------------------
 - Document the tag glob meanings on the Stormtypes ``$node.tags()`` API.
   (`#2368 <https://github.com/vertexproject/synapse/pull/2368>`_)
-
 
 
 v2.61.0 - 2021-09-17
