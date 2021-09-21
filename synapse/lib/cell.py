@@ -229,7 +229,7 @@ class CellApi(s_base.Base):
 
         Note:
             If there are consumers of this cell's nexus log they must
-            be caught up to aleast the offs argument before culling.
+            be caught up to at least the offs argument before culling.
 
         Args:
             offs (int): The offset to remove entries up to.
