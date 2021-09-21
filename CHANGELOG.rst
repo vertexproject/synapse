@@ -17,6 +17,7 @@ Features and Enhancements
   Cortex devops documentation contains more information about Nexus log
   rotation.
   (`#2339 <https://github.com/vertexproject/synapse/pull/2339>`_)
+  (`#2371 <https://github.com/vertexproject/synapse/pull/2371>`_)
 - Add ``.size()`` API to the Stormtypes ``storm:query`` object. This will run
   the query and return the number of nodes it would have yielded.
   (`#2363 <https://github.com/vertexproject/synapse/pull/2363>`_)
