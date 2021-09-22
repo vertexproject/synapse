@@ -138,7 +138,7 @@ class NexsRoot(s_base.Base):
         Close the slab, move it to the new multislab location, then copy out the nexshot
         values, then drop the nexshot db from the multislab
         '''
-        logger.warning('Migrating Nexus log v1->v2')
+        logger.warning(f'Migrating Nexus log v1->v2 for {nexspath}')
 
         # avoid import cycle
         import synapse.lib.lmdbslab as s_lmdbslab
@@ -162,9 +162,13 @@ class NexsRoot(s_base.Base):
         fn = s_multislabseqn.MultiSlabSeqn.slabFilename(logpath, firstidx)
         logger.warning(f'Existing nexslog will be migrated from {nexspath} to {fn}')
 
-        # Check for partial migration here
-        # if os.path.exists(fn):
-        #     os.unlink(fn)
+        if os.path.ismount(nexspath):
+            logger.error(f'{nexspath} is its own mountpoint! danger!')
+
+        # if fn exists
+        if os.path.exists(fn):
+            logger.warning(f'Removing old migration which may have failed. This should not exist: {fn}')
+            shutil.rmtree(fn)
 
         os.makedirs(fn, exist_ok=True)
         logger.warning(f'Moving existing nexslog')
