@@ -167,8 +167,7 @@ class NexsRoot(s_base.Base):
         fn = s_multislabseqn.MultiSlabSeqn.slabFilename(logpath, firstidx)
         logger.warning(f'Existing nexslog will be migrated from {nexspath} to {fn}')
 
-        # if fn exists
-        if os.path.exists(fn):
+        if os.path.exists(fn):  # pragma: no cover
             logger.warning(f'Removing old migration which may have failed. This should not exist: {fn}')
             shutil.rmtree(fn)
 
@@ -176,7 +175,7 @@ class NexsRoot(s_base.Base):
         logger.warning(f'Moving existing nexslog')
         try:
             os.replace(nexspath, fn)
-        except OSError as e:
+        except OSError as e:  # pragma: no cover
             logger.exception('Error during nexslog migration.')
             raise s_exc.BadCoreStore(mesg='Error during nexslogV1toV2', nexspath=nexspath, fn=fn) from e
 
