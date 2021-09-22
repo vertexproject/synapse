@@ -151,6 +151,8 @@ class NexsRoot(s_base.Base):
             # Nothing in the sequence.  Drop and move along.
             self.nexsslab.dropdb('nexuslog')
             self.nexshot.set('version', 2)
+            logger.warning('Nothing in the nexuslog sequence to migrate.')
+            logger.warning('...Nexus log migration complete')
             return
 
         await self.nexsslab.fini()
@@ -158,12 +160,22 @@ class NexsRoot(s_base.Base):
         firstidx = first[0]
 
         fn = s_multislabseqn.MultiSlabSeqn.slabFilename(logpath, firstidx)
-        shutil.move(nexspath, fn)
+        logger.warning(f'Existing nexslog will be migrated from {nexspath} to {fn}')
+
+        # Check for partial migration here
+        # if os.path.exists(fn):
+        #     os.unlink(fn)
+
+        os.makedirs(fn, exist_ok=True)
+        logger.warning(f'Moving existing nexslog')
+        os.replace(nexspath, fn)
 
         # Open a fresh slab where the old one used to be
+        logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
         self.nexsslab = await s_lmdbslab.Slab.anit(nexspath, map_async=self.map_async)
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
+        logger.warning('Copying nexs:indx data from migrated slab to the fresh nexslog')
         # There's only one value in nexs:indx, so this should be fast
         async with await s_lmdbslab.Slab.anit(fn) as newslab:
             olddb = self.nexsslab.initdb('nexs:indx')
