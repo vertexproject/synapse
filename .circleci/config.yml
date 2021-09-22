@@ -72,7 +72,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v2-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: setup venv
@@ -112,7 +112,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - do_venv_setup
 
@@ -150,7 +150,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - do_venv_setup
 
@@ -214,7 +214,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: install python dependencies
