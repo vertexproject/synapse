@@ -144,7 +144,6 @@ class NexusTest(s_t_utils.SynTest):
 
     async def test_nexus_migration(self):
         with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
-            print(regrdirn)
             slabsize00 = s_common.getDirSize(regrdirn)
             async with await s_cortex.Cortex.anit(regrdirn) as core00:
                 slabsize01 = s_common.getDirSize(regrdirn)
