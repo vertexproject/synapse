@@ -756,6 +756,7 @@ workflows:
             branches:
               only:
                 - master
+                - bug_nexs_migr
 
       - gh-release/dorelease:
           requires:
