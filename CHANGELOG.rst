@@ -5,6 +5,18 @@ Synapse Changelog
 *****************
 
 
+v2.62.1 - 2021-09-22
+====================
+
+Bugfixes
+--------
+- Fix an issue in the Nexus log V1 to V2 migration code which resulted in
+  LMDB file copies being made instead of having directories renamed. This can
+  result in a sparse file copy of the Nexus log, resulting in a condition
+  where the volume containing the Cell directory may run out of space.
+  (`#2374 <https://github.com/vertexproject/synapse/pull/2374>`_)
+
+
 v2.62.0 - 2021-09-21
 ====================
 
