@@ -239,7 +239,7 @@ The same syntax is used to apply a new property or modify an existing property.
     <inet:dns:a> [ .seen=("2017/08/01 01:23", "2017/08/01 04:56") ]
 
 
-*Add (or modify) a string property to a null value:*
+*Add (or modify) a string property to an empty string value:*
 
 
 .. storm-pre:: media:news [ :summary="" ]
