@@ -140,6 +140,11 @@ class NexsRoot(s_base.Base):
         '''
         logger.warning(f'Migrating Nexus log v1->v2 for {nexspath}')
 
+        if os.path.ismount(nexspath):  # pragma: no cover
+            # Fail fast if the nexspath is its own mountpoint.
+            mesg = f'The nexpath={nexspath} is located at its own mount point. This configuration cannot be migrated.'
+            raise s_exc.BadCoreStore(mesg=mesg, nexspath=nexspath)
+
         # avoid import cycle
         import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.multislabseqn as s_multislabseqn
@@ -161,9 +166,6 @@ class NexsRoot(s_base.Base):
 
         fn = s_multislabseqn.MultiSlabSeqn.slabFilename(logpath, firstidx)
         logger.warning(f'Existing nexslog will be migrated from {nexspath} to {fn}')
-
-        if os.path.ismount(nexspath):
-            logger.error(f'{nexspath} is its own mountpoint! danger!')
 
         # if fn exists
         if os.path.exists(fn):
