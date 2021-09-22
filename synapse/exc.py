@@ -224,6 +224,7 @@ class DmonSpawn(SynErr):
 class SchemaViolation(SynErr): pass
 
 class SlabAlreadyOpen(SynErr): pass
+class SlabInUse(SynErr): pass
 class SpawnExit(SynErr): pass
 class FeatureNotSupported(SynErr): pass
 
