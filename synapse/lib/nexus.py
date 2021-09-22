@@ -172,7 +172,11 @@ class NexsRoot(s_base.Base):
 
         os.makedirs(fn, exist_ok=True)
         logger.warning(f'Moving existing nexslog')
-        os.replace(nexspath, fn)
+        try:
+            os.replace(nexspath, fn)
+        except OSError as e:
+            logger.exception('Error during nexslog migration.')
+            raise s_exc.BadCoreStore(mesg='Error during nexslogV1toV2', nexspath=nexspath, fn=fn) from e
 
         # Open a fresh slab where the old one used to be
         logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
