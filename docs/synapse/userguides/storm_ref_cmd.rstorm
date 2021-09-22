@@ -1,0 +1,1675 @@
+.. highlight:: none
+
+.. storm-cortex:: default
+
+.. _storm-ref-cmd:
+
+Storm Reference - Storm Commands
+================================
+
+Storm commands are built-in or custom commands that can be used with the Synapse :ref:`syn-storm` command itself. As such, Storm commands must be executed following the ``storm`` command:
+
+**storm** *<command>*
+
+or
+
+**storm** *<query>* **|** *<command>* [ **|** *<query>* ]
+
+The pipe symbol ( ``|`` ) is used to send (pipe) the output from a Storm query to any of the Storm commands, and to send the output from a Storm command back to a Storm query.
+
+**Built-in commands** are native to the Storm library and loaded by default within a given Cortex. Built-in commands comprise a set of helper commands that perform a variety of specialized tasks that are useful regardless of the types of data stored in the Cortex or the types of analysis performed.
+
+**Custom commands** are Storm commands that have been added to a Cortex to invoke the execution of dynamically loaded modules. Dynamically loaded modules are typically custom modules that have been added to Synapse to support domain-specific analysis. For example, a knowledge domain that requires tracking of IP addresses might have access to a third-party service such as Maxmind to obtain up-to-date data on the assigned Autonomous System (AS) or geographical location of a given IP address. A custom ``maxmind`` module and associated Storm command could be added to Synapse to query the Maxmind database and update the appropriate secondary properties on the associated ``inet:ipv4`` nodes directly from Storm.
+
+The full list of storm commands (built-in and custom) available in a given Cortex can be displayed with ``storm help``.
+
+Help for a specific Storm command can be displayed with ``storm <command> --help``.
+
+This section details the usage and syntax for built-in Storm commands. Many of the commands below, such as ``count``, ``limit``, ``max`` / ``min``, or ``delnode``, directly support analyst tasks within Storm. Other commands, such as those used to manage daemons, queues, packages, or services, may be primarily of interest to Synapse administrators or developers.
+
+- `help`_
+- `background`_
+- `count`_
+- `cron`_
+- `delnode`_
+- `dmon`_
+- `edges`_
+- `feed`_
+- `graph`_
+- `iden`_
+- `layer`_
+- `lift`_
+- `limit`_
+- `macro`_
+- `max`_
+- `merge`_
+- `min`_
+- `model`_
+- `movetag`_
+- `parallel`_
+- `pkg`_
+- `ps`_
+- `queue`_
+- `reindex`_
+- `scrape`_
+- `service`_
+- `sleep`_
+- `spin`_
+- `splice`_
+- `tag`_
+- `tee`_
+- `tree`_
+- `trigger`_
+- `uniq`_
+- `view`_
+
+See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
+
+The Storm query language is covered in detail starting with the :ref:`storm-ref-intro` section of the Synapse User Guide.
+
+.. NOTE::
+
+  Storm commands, including custom commands, are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cmd``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
+
+**Example**
+
+Lift the ``syn:cmd`` node for the Storm ``movetag`` command:
+
+
+.. storm-cli:: syn:cmd=movetag
+
+.. NOTE::
+
+  While the documentation for built-in Storm commands is relatively basic, the ``syn:cmd`` form within the data model includes additional secondary properties that can be used to make commands (particularly custom commands) more "self-documenting" to users, because detail about the command can be introspected directly within the data model from within Storm. For example, the ``:input`` and ``:output`` properties can be used to specify a list (:ref:`type-array`) of forms that can be input (submitted) to the command and a list of forms that may be created by the command, respectively.
+
+
+.. _storm-help:
+
+help
+----
+
+The ``help`` command (``storm help``) displays the list of available built-in commands and a brief message describing each command. Help on individual commands is available via ``<command> --help``.
+
+**Syntax:**
+
+
+.. storm-cli:: help --help
+
+.. _storm-background:
+
+background
+----------
+
+The ``background`` command allows you to execute a Storm query as a background task (e.g., to free up the cmdr CLI / Storm runtime for additional queries). Use of ``background`` is a "fire-and-forget" process - any status messages (warnings or errors) are not returned to the console, and if the query is interrupted for any reason, it will not resume.
+
+See also :ref:`storm-parallel`.
+
+**Syntax:**
+
+
+.. storm-cli:: background --help
+   
+.. _storm-count:
+
+count
+-----
+
+The ``count`` command enumerates the number of nodes returned from a given Storm query and displays the resultant nodes and associated node count.
+
+**Syntax:**
+
+
+.. storm-cli:: count --help
+    
+
+**Examples:**
+
+- Count the number of email address nodes:
+
+
+.. storm-pre:: inet:email | count
+::
+
+    inet:email | count
+
+
+- Count the number of DNS A records for the domain woot.com:
+
+
+.. storm-pre:: inet:dns:a:fqdn=woot.com | count
+::
+
+    inet:dns:a:fqdn=woot.com | count
+
+
+**Usage Notes:**
+
+- ``count`` does not consume nodes, so Storm will stream the nodes being counted to the CLI output while the command executes. To count nodes without streaming the output, ``count`` can be piped to the `spin`_ command (i.e., *<query>* | count | spin). ``Spin`` consumes nodes and so will prevent nodes processed by the ``count`` command from streaming.
+
+.. _storm-cron:
+
+cron
+----
+
+.. NOTE::
+  See the :ref:`storm-ref-automation` guide for additional background on cron jobs (as well as triggers and macros), including examples.
+
+Storm includes ``cron.*`` commands that allow you to create scheduled :ref:`gloss-cron` jobs. Within Synapse, jobs are Storm queries that execute within a Cortex on a recurring or non-recurring (``cron.at``) basis.
+
+- `cron.add`_
+- `cron.at`_
+- `cron.cleanup`_
+- `cron.list`_
+- `cron.stat`_
+- `cron.mod`_
+- `cron.disable`_
+- `cron.enable`_
+- `cron.del`_
+
+Help for individual ``cron.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+Cron jobs (including jobs created with ``cron.at``) are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
+
+.. NOTE::
+
+  The Storm ``cron.*`` commands replace the Synapse cmdr-based :ref:`syn-cron` command, which is being deprecated.
+
+.. _storm-cron-add:
+
+cron.add
+++++++++
+
+The ``cron.add`` command creates an individual cron job within a Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.add --help
+
+.. _storm-cron-at:
+
+cron.at
++++++++
+
+The ``cron.at`` command creates a non-recurring cron job within a Cortex. Note that just like standard cron jobs, jobs created with ``cron.at`` will persist (remain in the list of cron jobs and as ``syn:cron`` runt nodes) until they are explicitly removed using ``cron.del``.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.at --help
+
+
+.. _storm-cron-cleanup:
+
+cron.cleanup
+++++++++++++
+
+The ``cron.cleanup`` command can be used to remove any one-time cron jobs ("at" jobs) that have completed.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.cleanup --help
+
+
+.. _storm-cron-list:
+
+cron.list
++++++++++
+
+The ``cron.list`` command displays the set of cron jobs in the Cortex that the current user can view / modify based on their permissions.
+
+Cron jobs are displayed in alphanumeric order by job :ref:`gloss-iden`. Jobs are sorted upon Cortex initialization, so newly-created jobs will be displayed at the bottom of the list until the list is re-sorted the next time the Cortex is restarted.
+
+.. NOTE::
+
+  Jobs can also be viewed in runt node form as ``syn:cron`` nodes.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.list --help
+
+.. _storm-cron-stat:
+
+cron.stat
++++++++++
+
+The ``cron.stat`` command displays statistics for an individual cron job and provides more detail on an individual job vs. ``cron.list``, including any errors and the interval at which the job executes. To view the stats for a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.stat --help
+
+.. _storm-cron-mod:
+
+cron.mod
+++++++++
+
+The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+
+
+.. NOTE::
+
+  Other aspects of the cron job, such as its schedule for execution, cannot be modified once the job has been created. To change these aspects you must delete and re-add the job.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.mod --help
+
+
+.. _storm-cron-disable:
+
+cron.disable
+++++++++++++
+
+The ``cron.disable`` command disables a job and prevents it from executing without removing it from the Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.disable --help
+    
+.. _storm-cron-enable:
+
+cron.enable
++++++++++++
+
+The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+
+.. NOTE::
+
+  Cron jobs, including non-recurring jobs added with ``cron.at``, are enabled by default upon creation.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.enable --help
+
+
+.. _storm-cron-del:
+
+cron.del
+++++++++
+
+The ``cron.del`` command permanently removes a cron job from the Cortex. To delete a job, you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained using ``cron.list`` or by lifting the appropriate ``syn:cron`` node.
+
+**Syntax:**
+
+
+.. storm-cli:: cron.del --help
+    
+.. _storm-delnode:
+
+delnode
+-------
+
+The ``delnode`` command deletes a node or set of nodes from a Cortex.
+
+.. WARNING::
+  The Storm ``delnode`` command has the potential to be destructive if executed on an incorrect, badly formed, or mistyped query. Users are strongly encouraged to validate their query by first executing it on its own to confirm it returns the expected nodes before piping the query to the ``delnode`` command.
+
+**Syntax:**
+
+
+.. storm-cli:: delnode --help
+
+
+**Examples:**
+
+- Delete the node for the domain woowoo.com:
+
+
+.. storm-pre:: inet:fqdn=woowoo.com | delnode
+::
+
+    inet:fqdn=woowoo.com | delnode
+
+
+- Forcibly delete all nodes with the #testing tag:
+
+
+.. storm-pre:: #testing | delnode --force
+::
+
+    #testing | delnode --force
+
+
+**Usage Notes:**
+
+- ``delnode`` operates on the output of a previous Storm query.
+- ``delnode`` will attempt to perform some basic sanity-checking to help prevent egregious mistakes. For example, ``delnode`` will return an error if you attempt to delete a node that is still referenced by another node (such as an ``inet:fqdn`` that is referenced by an ``inet:dns:a`` node). Similarly, delnode will return an error if you attempt to delete a ``syn:tag`` node if that tag is still applied to other nodes. **However, delnode cannot prevent all mistakes.**
+  
+  - Edge / digraph nodes (such as ``edge:refs`` or ``edge:has``) are **exempt** from these "reference checks". It is possible to delete an edge node where ``n1`` and / or ``n2`` still exist and without affecting ``n1`` or ``n2``. This is generally desired behavior as the relationship between the nodes (the edge) may need to be removed without affecting the nodes themselves.
+  - However, the opposite is also true - since ``delnode`` does not check for references to edge nodes when deleting nodes, it is possible to leave "orphaned" edge nodes with a missing ``n1`` or ``n2``.
+
+- The ``--force`` parameter will forcibly delete the nodes input to the command, regardless of any sanity-checking errors or other conditions. **This parameter should be used with extreme caution as it may result in broken references within the Cortex.**
+
+.. _storm-dmon:
+
+dmon
+----
+
+Storm includes ``dmon.*`` commands that allow you to work with daemons (see :ref:`gloss-daemon`).
+
+- `dmon.list`_
+
+Help for individual ``dmon.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-dmon-list:
+
+dmon.list
++++++++++
+
+The ``dmon.list`` command displays the set of running dmon queries in the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: dmon.list --help
+
+
+.. _storm-edges:
+
+edges
+-----
+
+Storm includes ``edges.*`` commands that allow you to work with lightweight (light) edges. Also see the ``lift.byverb`` and ``model.edge.*`` commands under :ref:`storm-lift` and :ref:`storm-model` below.
+
+- `edges.del`_
+
+Help for individual ``edge.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-edges-del:
+
+edges.del
++++++++++
+
+The ``edges.del`` command is designed to delete multiple light edges to (or from) a set of nodes (contrast with using Storm edit syntax - see :ref:`light-edge-del`).
+
+**Syntax:**
+
+
+.. storm-cli:: edges.del --help
+
+
+.. _storm-feed:
+
+feed
+----
+
+Storm includes ``feed.*`` commands that allow you to work with feeds (see :ref:`gloss-feed`).
+
+- `feed.list`_
+
+Help for individual ``feed.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+
+.. _storm-feed-list:
+
+feed.list
++++++++++
+
+The ``feed.list`` command displays available feed functions in the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: feed.list --help
+
+.. _storm-graph:
+
+graph
+-----
+
+The ``graph`` command generates a subgraph based on a specified set of nodes and parameters.
+
+**Syntax:**
+
+
+.. storm-cli:: graph --help
+
+
+.. _storm-iden:
+
+iden
+----
+
+The ``iden`` command lifts one or more nodes by their node identifier (node ID / iden).
+
+**Syntax:**
+
+
+.. storm-cli:: iden --help
+
+
+**Example:**
+
+- Lift the node with node ID d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849:
+
+
+.. storm-pre:: iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
+::
+
+    iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
+
+
+**Usage Notes:**
+
+- The node ID (iden) for a given node can be obtained by lifting the node using the ``--debug`` or ``--raw`` option to the :ref:`syn-storm` command:
+
+  - ``storm --debug inet:fqdn=woot.com``
+
+.. _storm-layer:
+
+layer
+-----
+
+Storm includes ``layer.*`` commands that allow you to work with layers (see :ref:`gloss-layer`).
+
+- `layer.add`_
+- `layer.set`_
+- `layer.get`_
+- `layer.list`_
+- `layer.del`_
+
+Help for individual ``layer.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-layer-add:
+
+layer.add
++++++++++
+
+The ``layer.add`` command adds a layer to the Cortex.
+
+**Syntax**
+
+
+.. storm-cli:: layer.add --help
+
+
+.. _storm-layer-set:
+
+layer.set
++++++++++
+
+The ``layer.set`` command sets an option for the specified layer.
+
+**Syntax**
+
+
+.. storm-cli:: layer.set --help
+
+.. _storm-layer-get:
+
+layer.get
++++++++++
+
+The ``layer.get`` command retrieves the specified layer from a Cortex.
+
+**Syntax**
+
+
+.. storm-cli:: layer.get --help
+
+
+.. _storm-layer-list:
+
+layer.list
+++++++++++
+
+The ``layer.list`` command lists the available layers in a Cortex.
+
+**Syntax**
+
+
+.. storm-cli:: layer.list --help
+
+
+.. _storm-layer-del:
+
+layer.del
++++++++++
+
+The ``layer.del`` command deletes a layer from a Cortex.
+
+**Syntax**
+
+
+.. storm-cli:: layer.del --help
+
+.. _storm-lift:
+
+lift
+----
+
+Storm includes ``lift.*`` commands that allow you to perform specialized lift operations.
+
+- `lift.byverb`_
+
+Help for individual ``lift.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-lift-byverb:
+
+lift.byverb
++++++++++++
+
+The ``lift.byverb`` command lifts nodes that are connected by the specified lightweight (light) edge. By default, the command lifts the N1 nodes (i.e., the nodes on the left side of the directional light edge relationship: ``n1 -(<verb>)> n2``)
+
+.. NOTE::
+  For other commands associated with light edges, see ``edges.del`` and ``model.edge.*`` under :ref:`storm-edges` and :ref:`storm-model` respectively.
+
+**Syntax:**
+
+
+.. storm-cli:: lift.byverb --help
+
+
+.. _storm-limit:
+
+limit
+-----
+
+The ``limit`` command restricts the number of nodes returned from a given Storm query to the specified number of nodes.
+
+**Syntax:**
+
+
+.. storm-cli:: limit --help
+    
+
+**Example:**
+
+- Lift ten IP address nodes:
+
+
+.. storm-pre:: inet:ipv4 | limit 10
+::
+
+    inet:ipv4 | limit 10
+
+
+**Usage Notes:**
+
+- If the limit number specified (i.e., ``limit 100``) is greater than the total number of nodes returned from the Storm query, no limit will be applied to the resultant nodes (i.e., all nodes will be returned).
+- By design, ``limit`` imposes an artificial limit on the nodes returned by a query, which may impair effective analysis of data by restricting results. As such, ``limit`` is most useful for viewing a subset of a large result set or an exemplar node for a given form.
+- While ``limit`` returns a sampling of nodes, it is not statistically random for the purposes of population sampling for algorithmic use.
+
+.. _storm-macro:
+
+macro
+-----
+
+.. NOTE::
+  See the :ref:`storm-ref-automation` guide for additional background on macros (as well as triggers and cron jobs), including examples.
+
+Storm includes ``macro.*`` commands that allow you to work with macros (see :ref:`gloss-macro`).
+
+- `macro.list`_
+- `macro.set`_
+- `macro.get`_
+- `macro.exec`_
+- `macro.del`_
+
+Help for individual ``macro.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-macro-list:
+
+macro.list
+++++++++++
+
+The ``macro.list`` command lists the macros in a Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: macro.list --help
+
+
+.. _storm-macro-set:
+
+macro.set
++++++++++
+
+The ``macro.set`` command creates (or modifies) a macro in a Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: macro.set --help
+
+
+.. _storm-macro-get:
+
+macro.get
++++++++++
+
+The ``macro.get`` command retrieves and displays the specified macro.
+
+**Syntax:**
+
+
+.. storm-cli:: macro.get --help
+
+
+.. _storm-macro-exec:
+
+macro.exec
+++++++++++
+
+The ``macro.exec`` command executes the specified macro.
+
+**Syntax:**
+
+
+.. storm-cli:: macro.exec --help
+
+.. _storm-macro-del:
+
+macro.del
++++++++++
+
+The ``macro.del`` command deletes the specified macro from a Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: macro.del --help
+
+
+.. _storm-max:
+
+max
+---
+
+The ``max`` command returns the node from a given set that contains the highest value for a specified secondary property, tag interval, or variable.
+
+**Syntax:**
+
+
+.. storm-cli:: max --help
+    
+
+**Examples:**
+
+- Return the DNS A record for woot.com with the most recent ``.seen`` value:
+
+
+.. storm-pre:: inet:dns:a:fqdn=woot.com | max .seen
+::
+
+    inet:dns:a:fqdn=woot.com | max .seen
+
+
+- Return the most recent WHOIS record for domain woot.com:
+
+
+.. storm-pre:: inet:whois:rec:fqdn=woot.com | max :asof
+::
+
+    inet:whois:rec:fqdn=woot.com | max :asof
+
+
+.. _storm-merge:
+
+merge
+-----
+
+The ``merge`` command takes a subset of nodes from a forked view and merges them down to the next layer. The nodes can optionally be reviewed without actually merging them.
+
+Contrast with :ref:`storm-view-merge` for merging the entire contents of a forked view.
+
+See the :ref:`storm-view` and :ref:`storm-layer` commands for working with views and layers.
+
+**Syntax:**
+
+
+.. storm-cli:: merge --help
+
+
+.. _storm-min:
+
+min
+---
+
+The ``min`` command returns the node from a given set that contains the lowest value for a specified secondary property, tag interval, or variable.
+
+**Syntax:**
+
+
+.. storm-cli:: min --help
+
+
+**Examples:**
+
+- Return the DNS A record for woot.com with the oldest ``.seen`` value:
+
+
+.. storm-pre:: inet:dns:a:fqdn=woot.com | min .seen
+::
+
+    inet:dns:a:fqdn=woot.com | min .seen
+
+
+- Return the oldest WHOIS record for domain woot.com:
+
+
+.. storm-pre:: inet:whois:rec:fqdn=woot.com | min :asof
+::
+
+    inet:whois:rec:fqdn=woot.com | min :asof
+
+
+.. _storm-model:
+
+model
+-----
+
+Storm includes ``model.*`` commands that allow you to work with model elements.
+
+``model.deprecated.*`` commands allow you to view model elements (forms or properties) that have been marked as "deprecated", determine whether your Cortex contains deprecated nodes / nodes with deprecated properties, and optionally lock / unlock those properties to prevent (or allow) continued creation of deprecated model elements.
+
+``model.edge.*`` commands allow you to work with lightweight (light) edges. (See also the ``edges.del`` and ``lift.byverb`` commands under :ref:`storm-edges` and :ref:`storm-lift`, respectively.)
+
+- `model.deprecated.check`_
+- `model.deprecated.lock`_
+- `model.deprecated.locks`_
+- `model.edge.list`_
+- `model.edge.set`_
+- `model.edge.get`_
+- `model.edge.del`_
+
+Help for individual ``model.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-model-deprecated-check:
+
+model.deprecated.check
+++++++++++++++++++++++
+
+The ``model.deprecated.check`` command lists deprecated elements, their lock status, and whether deprecated elements exist in the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: model.deprecated.check --help
+
+
+.. _storm-model-deprecated-lock:
+
+model.deprecated.lock
++++++++++++++++++++++
+
+The ``model.deprecated.lock`` command allows you to lock or unlock (e.g., disallow or allow the use of) deprecated model elements in a Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: model.deprecated.lock --help
+
+
+.. _storm-model-deprecated-locks:
+
+model.deprecated.locks
+++++++++++++++++++++++
+
+The ``model.deprecated.locks`` command displays the lock status of all deprecated model elements.
+
+**Syntax:**
+
+
+.. storm-cli:: model.deprecated.locks --help
+
+
+.. _storm-model-edge-list:
+
+model.edge.list
++++++++++++++++
+
+The ``model.edge.list`` command displays the set of light edges currently defined in the Cortex and any ``doc`` values they have set on them.
+
+**Syntax:**
+
+
+.. storm-cli:: model.edge.list --help
+
+
+.. _storm-model-edge-set:
+
+model.edge.set
+++++++++++++++
+
+The ``model.edge.set`` command allows you to set the value of a given key on a light edge (such as a ``doc``  value to specify a definition for the light edge). The current list of valid keys include the following:
+
+- ``doc``
+
+**Syntax:**
+
+
+.. storm-cli:: model.edge.set --help
+
+
+.. _storm-model-edge-get:
+
+model.edge.get
+++++++++++++++
+
+The ``model.edge.get`` command allows you to retrieve all of the keys that have been set on a light edge.
+
+**Syntax:**
+
+
+.. storm-cli:: model.edge.get --help
+
+
+.. _storm-model-edge-del:
+
+model.edge.del
+++++++++++++++
+
+The ``model.edge.del`` command allows you to delete the key from a light edge (such as a ``doc`` property to specify a definition for the light edge). Deleting a key from a specific light edge does not delete the key from Synapse (e.g., the property can be re-added to the light edge or to other light edges).
+
+**Syntax:**
+
+
+.. storm-cli:: model.edge.del --help
+
+
+.. _storm-movetag:
+
+movetag
+-------
+
+The ``movetag`` command moves a Synapse tag and its associated tag tree from one location in a tag hierarchy to another location. It is equivalent to "renaming" a given tag and all of its subtags. Moving a tag consists of:
+
+- Creating the new ``syn:tag`` node(s).
+- Copying the definitions (``:title`` and ``:doc`` properties) from the old ``syn:tag`` node to the new ``syn:tag`` node.
+- Applying the new tag(s) to the nodes with the old tag(s).
+
+  - If the old tag(s) have associated timestamps / time intervals, they will be applied to the new tag(s).
+
+- Deleting the old tag(s) from the nodes.
+- Setting the ``:isnow`` property of the old ``syn:tag`` node(s) to reference the new ``syn:tag`` node.
+
+  - The old ``syn:tag`` nodes are **not** deleted.
+  - Once the ``:isnow`` property is set, attempts to apply the old tag will automatically result in the new tag being applied.
+
+See also the :ref:`storm-tag` command.
+
+**Syntax:**
+
+
+.. storm-cli:: movetag --help
+
+
+**Examples:**
+
+- Move the tag named #research to #internal.research:
+
+
+.. storm-pre::  [syn:tag=research] | spin | movetag research internal.research
+::
+
+    movetag research internal.research
+
+
+- Move the tag tree #aka.fireeye.malware to #rep.feye.mal:
+
+
+.. storm-pre:: [syn:tag=aka.fireeye.malware] | spin | movetag aka.fireeye.malware rep.feye.mal
+::
+
+    movetag aka.fireeye.malware aka.feye.mal
+
+
+**Usage Notes:**
+
+.. WARNING::
+  ``movetag`` should be used with caution as when used incorrectly it can result in "deleted" (inadvertently moved / removed) or orphaned (inadvertently retained) tags. For example, in the second example query above, all ``aka.fireeye.malware`` tags are renamed ``rep.feye.mal``, but the tag ``aka.fireeye`` still exists and is still applied to all of the original nodes. In other words, the result of the above command will be that nodes previously tagged ``aka.fireeye.malware`` will now be tagged both ``rep.feye.mal`` **and** ``aka.fireeye``. Users may wish to test the command on sample data first to understand its effects before applying it in a live Cortex.
+
+.. _storm-pkg:
+
+pkg
+---
+
+Storm includes ``pkg.*`` commands that allow you to work with Storm packages (see :ref:`gloss-package`).
+
+- `pkg.list`_
+- `pkg.load`_
+- `pkg.del`_
+
+Help for individual ``pkg.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+Packages typically contain extended Storm commands and Storm library code used to implement a Storm :ref:`gloss-service`.
+
+.. _storm-pkg-list:
+
+pkg.list
+++++++++
+
+The ``pkg.list`` command lists each Storm package loaded in the Cortex. Output is displayed in tabular form and includes the package name and version information.
+
+**Syntax:**
+
+
+.. storm-cli:: pkg.list --help
+    
+.. _storm-pkg-load:
+
+pkg.load
+++++++++
+
+The ``pgk.load`` command loads the specified package into the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: pkg.load --help
+
+
+.. _storm-pkg-del:
+
+pkg.del
++++++++
+
+The ``pkg.del`` command removes a Storm package from the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: pkg.del --help
+
+
+.. _storm-ps:
+
+ps
+--
+
+Storm includes ``ps.*`` commands that allow you to work with Storm tasks/queries.
+
+- `ps.list`_
+- `ps.kill`_
+
+Help for individual ``ps.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-ps-list:
+
+ps.list
++++++++
+
+The ``ps.list`` command lists the currently executing tasks/queries. By default, the command displays the first 120 characters of the executing query. The ``--verbose`` option can be used to display the full query regardless of length.
+
+**Syntax:**
+
+
+.. storm-cli:: ps.list --help
+
+
+.. _storm-ps-kill:
+
+ps.kill
++++++++
+
+The ``ps.kill`` command can be used to terminate an executing task/query. The command requires the :ref:`gloss-iden` of the task to be terminated, which can be obtained with :ref:`storm-ps-list`.
+
+**Syntax:**
+
+
+.. storm-cli:: ps.kill --help
+
+
+.. _storm-parallel:
+
+parallel
+--------
+
+The Storm ``parallel`` command allows you to execute a Storm query using a specified number of query pipelines. This can improve performance for some queries.
+
+See also :ref:`storm-background`.
+
+**Syntax:**
+
+
+.. storm-cli:: parallel --help
+
+
+.. _storm-queue:
+
+queue
+-----
+
+Storm includes ``queue.*`` commands that allow you to work with queues (see :ref:`gloss-queue`).
+
+- `queue.add`_
+- `queue.list`_
+- `queue.del`_
+
+Help for individual ``queue.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-queue-add:
+
+queue.add
++++++++++
+
+The ``queue.add`` command adds a queue to the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: queue.add --help
+
+
+.. _storm-queue-list:
+
+queue.list
+++++++++++
+
+The ``queue.list`` command lists each queue in the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: queue.list --help
+
+.. _storm-queue-del:
+
+queue.del
++++++++++
+
+The ``queue.del`` command removes a queue from the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: queue.del --help
+
+
+.. _storm-reindex:
+
+reindex
+-------
+
+The ``reindex`` command reindexes a given node property. This is an administrative command that is typically used when data model updates have been pushed to a Cortex and existing node properties must be migrated to the new model.
+
+**Syntax:**
+
+
+.. storm-cli:: reindex --help
+
+
+.. _storm-scrape:
+
+scrape
+------
+
+The ``scrape`` command parses one or more secondary properties or variables of the inbound node(s), attempts to identify ("scrape") common forms from the content, and returns nodes for the identified forms (creating the nodes if they do not already exist). This is useful (for example) to extract forms such as email addresses, domains, URLs, hashes, etc. from unstructured text.
+
+``scrape`` can optionally link the source nodes(s) to the scraped forms via ``refs`` light edges.
+
+By default, the scrape command will yield the nodes that it received as input (i.e., the command will not consume nodes by default) to allow command chaining.  However if executed with the option ``--yield`` the ``scrape`` command will yield the **scraped nodes** rather than the input nodes.
+
+
+.. storm-cli:: scrape --help
+
+
+**Examples:**
+
+- Scrape common forms and create nodes from the body of domain WHOIS record(s) for domain woot.com:
+
+
+.. storm-pre:: inet:whois:rec:fqdn=woot.com | scrape :text
+::
+
+    inet:whois:rec:fqdn=woot.com | scrape :text
+
+
+- Scrape common forms from the content of a set of Internet posts from a given account, link the created nodes to the original posts, and uniq the results:
+
+
+.. storm-pre:: inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
+::
+
+    inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
+
+
+**Usage Notes:**
+
+- If no properties or variables are specified, ``scrape`` will attempt to scrape all properties by default.
+- If any scraped secondary properties are already recognizable / common properties, those properties will also be scraped (and optionally linked, if ``--refs`` is also specified). That is, scraping the ``:md5`` secondary property of a node will return a ``hash:md5`` node with that property's value.
+- ``scrape`` will only scrape node properties; it will not scrape the content of any files that may be referenced by those properties. For example, attempting to scrape the ``:file`` property of a ``media:news`` node will scrape and extract the **value** of the property (typically a SHA256 hash) if present; it will not extract indicators from the referenced file itself.
+- With respect to cyber threat data in particular, ``scrape`` cannot identify and extract "defanged" values such as "hxxp://" for URLs or "woot[.]com" for domains.
+
+.. _storm-service:
+
+service
+-------
+
+Storm includes ``service.*`` commands that allow you to work with Storm services (see :ref:`gloss-service`).
+
+- `service.add`_
+- `service.list`_
+- `service.del`_
+
+Help for individual ``service.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-service-add:
+
+service.add
++++++++++++
+
+The ``service.add`` command adds a Storm service to the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: service.add --help
+
+.. _storm-service-list:
+
+service.list
+++++++++++++
+
+The ``service.list`` command lists each Storm service in the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: service.list --help
+
+
+.. _storm-service-del:
+
+service.del
++++++++++++
+
+The ``service.del`` command removes a Storm service from the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: service.del --help
+
+
+.. _storm-sleep:
+
+sleep
+-----
+
+The ``sleep`` command adds a delay in returning each result for a given Storm query. By default, query results are streamed back and displayed as soon as they arrive for optimal performance. A ``sleep`` delay effectively slows the display of results.
+
+**Syntax:**
+
+
+.. storm-cli:: sleep --help
+
+
+**Example:**
+
+- Retrieve domain nodes from a Cortex every second:
+
+
+.. storm-pre:: inet:email | sleep 1.0
+::
+
+    inet:email | sleep 1.0
+
+
+.. _storm-spin:
+
+spin
+----
+
+The ``spin`` command is used to suppress the output of a Storm query. ``Spin`` simply consumes all nodes sent to the command, so no nodes are output to the CLI. This allows you to execute a Storm query and view messages and results without displaying the associated nodes.
+
+**Syntax:**
+
+
+.. storm-cli:: spin --help
+
+
+**Examples:**
+
+- Count the number of email addresses without displaying the inet:email nodes:
+
+
+.. storm-pre:: inet:email | count | spin
+::
+
+    inet:email | count | spin
+
+
+- Add the tag #int.research to any domain containing the string "firefox" but do not display the nodes.
+
+
+.. storm-pre:: inet:fqdn~=firefox [+#int.research] | spin
+::
+
+    inet:fqdn~=firefox [+#int.research] | spin
+
+
+.. _storm-splice:
+
+splice
+------
+
+Storm includes ``splice.*`` commands that allow you to work with splices (see :ref:`gloss-splice`).
+
+- `splice.list`_
+- `splice.undo`_
+
+Splices are represented as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:splice``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
+
+Help for individual ``splice.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-splice-list:
+
+splice.list
++++++++++++
+
+The ``splice.list`` command allows you to list (view) splices in the splice log. By default, splices are displayed starting with the most recent and working backwards through the log.
+
+**Syntax:**
+
+
+.. storm-cli:: splice.list --help
+
+
+.. _storm-splice-undo:
+
+splice.undo
++++++++++++
+
+The ``splice.undo`` command allows a user with appropriate permissions to roll back or undo the specified set of splices (changes).
+
+**Syntax:**
+
+
+.. storm-cli:: splice.undo --help
+
+
+.. _storm-tag:
+
+tag
+---
+
+Storm includes ``tag.*`` commands that allow you to work with tags (see :ref:`gloss-tag`).
+
+- `tag.prune`_
+
+Help for individual ``tag.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+  
+See also the related :ref:`storm-movetag` command.
+
+.. _storm-tag-prune:
+
+tag.prune
++++++++++
+
+The ``tag.prune`` command will delete the tags from incoming nodes, as well as all of their parent tags that
+don't have other tags as children.
+
+**Syntax:**
+
+
+.. storm-cli:: tag.prune --help
+
+
+.. _storm-tee:
+
+tee
+---
+
+The ``tee`` command executes multiple Storm queries on the inbound nodes and returns the combined result set.
+
+**Syntax:**
+
+
+.. storm-cli:: tee --help
+
+
+**Examples:**
+
+- Return the set of domains and IP addresses associated with a set of DNS A records.
+
+
+.. storm-pre:: [inet:dns:a=(mydomain.com,1.1.1.1)] | spin | inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
+::
+
+    inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
+
+
+- Return the set of domains and IP addresses associated with a set of DNS A records along with the original DNS A records.
+
+
+.. storm-pre:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
+::
+
+    inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
+
+
+**Usage Notes:**
+
+- ``tee`` can take an arbitrary number of Storm queries (i.e., 1 to n queries) as arguments.
+
+.. _storm-tree:
+
+tree
+----
+
+The ``tree`` command recursively performs the specified pivot until no additional nodes are returned.
+
+**Syntax:**
+
+
+.. storm-cli:: tree --help
+
+
+**Example:**
+
+- List the full set of tags in the "TTP" tag hierarchy.
+
+
+.. storm-pre:: [ inet:fqdn = woot.com ]
+::
+
+    syn:tag=ttp | tree { $node.value() -> syn:tag:up }
+
+
+**Usage Notes:**
+
+- ``tree`` is useful for "walking" a set of properties with a single command vs. performing an arbitrary number of pivots until the end of the data is reached.
+
+.. _storm-trigger:
+
+trigger
+-------
+
+.. NOTE::
+  See the :ref:`storm-ref-automation` guide for additional background on triggers (as well as cron jobs and macros), including examples.
+
+Storm includes ``trigger.*`` commands that allow you to create automated event-driven triggers (see :ref:`gloss-trigger`) using the Storm query syntax.
+
+- `trigger.add`_
+- `trigger.list`_
+- `trigger.mod`_
+- `trigger.disable`_
+- `trigger.enable`_
+- `trigger.del`_
+
+Help for individual ``trigger.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+Triggers are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:trigger``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
+
+.. NOTE::
+
+  The Storm ``trigger.*`` commands replace the Synapse cmdr-based :ref:`syn-trigger` command, which is being deprecated.
+
+.. _storm-trigger-add:
+
+trigger.add
++++++++++++
+
+The ``trigger.add`` command adds a trigger to a Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: trigger.add --help
+
+
+.. _storm-trigger-list:
+
+trigger.list
+++++++++++++
+
+The ``trigger-list`` command displays the set of triggers in the Cortex that the current user can view / modify based on their permissions. Triggers are displayed at the cmdr CLI in tabular format, with columns including the user who created the trigger, the :ref:`gloss-iden` of the trigger, the condition that fires the trigger (i.e., ``node:add``), and the Storm query associated with the trigger.
+
+Triggers are displayed in alphanumeric order by iden. Triggers are sorted upon Cortex initialization, so newly-created triggers will be displayed at the bottom of the list until the list is re-sorted the next time the Cortex is restarted.
+
+.. NOTE::
+
+  Triggers can also be viewed in runt node form as ``syn:trigger`` nodes.
+
+**Syntax:**
+
+
+.. storm-cli:: trigger.list --help
+
+
+.. _storm-trigger-mod:
+
+trigger.mod
++++++++++++
+
+The ``trigger.mod`` command modifies the Storm query associated with a specific trigger. To modify a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
+
+.. NOTE::
+
+  Other aspects of the trigger, such as the condition used to fire the trigger or the tag or property associated with the trigger, cannot be modified once the trigger has been created. To change these aspects, you must delete and re-add the trigger.
+
+**Syntax:**
+
+
+.. storm-cli:: trigger.mod --help
+
+
+.. _storm-trigger-disable:
+
+trigger.disable
++++++++++++++++
+
+The ``trigger.disable`` command disables a trigger and prevents it from firing without removing it from the Cortex. To disable a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
+
+**Syntax:**
+
+
+.. storm-cli:: trigger.disable --help
+
+.. _storm-trigger-enable:
+
+trigger.enable
+++++++++++++++
+
+The ``trigger-enable`` command enables a disabled trigger. To enable a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
+
+.. NOTE::
+
+  Triggers are enabled by default upon creation.
+
+**Syntax:**
+
+
+.. storm-cli:: trigger.enable --help
+
+
+.. _storm-trigger-del:
+
+trigger.del
++++++++++++
+
+The ``trigger.del`` command permanently removes a trigger from the Cortex. To delete a trigger, you must provide the first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified), which can be obtained using ``trigger.list`` or by lifting the appropriate ``syn:trigger`` node.
+
+**Syntax:**
+
+
+.. storm-cli:: trigger.del --help
+
+
+.. _storm-uniq:
+
+uniq
+----
+
+The ``uniq`` command removes duplicate results from a Storm query. Results are uniqued based on each node's node identifier (node ID / iden) so that only the first node with a given node ID is returned.
+
+**Syntax:**
+
+
+.. storm-cli:: uniq --help
+
+
+**Examples:**
+
+- Lift all of the unique IP addresses that domains associated with the Fancy Bear threat group have resolved to:
+
+
+.. storm-pre:: inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+::
+
+    inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+
+
+.. _storm-view:
+
+view
+----
+
+Storm includes ``view.*`` commands that allow you to work with views (see :ref:`gloss-view`).
+
+- `view.add`_
+- `view.fork`_
+- `view.set`_
+- `view.get`_
+- `view.list`_
+- `view.exec`_
+- `view.merge`_
+- `view.del`_
+
+Help for individual ``view.*`` commands can be displayed using:
+
+  ``storm <command> --help | -h``
+
+.. _storm-view-add:
+
+view.add
+++++++++
+
+The ``view.add`` command adds a view to the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: view.add --help
+
+
+.. _storm-view-fork:
+
+view.fork
++++++++++
+
+The ``view.fork`` command forks an existing view from the Cortex. Forking a view creates a new view with a new writeable layer on top of the set of layers from the previous (forked) view.
+
+**Syntax:**
+
+
+.. storm-cli:: view.fork --help
+
+.. _storm-view-set:
+
+view.set
+++++++++
+
+The ``view.set`` command sets a property on the specified view.
+
+**Syntax:**
+
+
+.. storm-cli:: view.set --help
+
+
+.. _storm-view-get:
+
+view.get
+++++++++
+
+The ``view.get`` command retrieves an existing view from the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: view.get --help
+
+
+.. _storm-view-list:
+
+view.list
++++++++++
+
+The ``view.list`` command lists the views in the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: view.list --help
+
+
+.. _storm-view-exec:
+
+view.exec
++++++++++
+
+The ``view.exec`` command executes a Storm query in the specified view.
+
+**Syntax:**
+
+
+.. storm-cli:: view.exec --help
+
+
+.. _storm-view-merge:
+
+view.merge
+++++++++++
+
+The ``view.merge`` command merges all data from a forked view into its parent view.
+
+Contrast with :ref:`storm-merge` which can merge a subset of nodes.
+
+**Syntax:**
+
+
+.. storm-cli:: view.merge --help
+
+.. _storm-view-del:
+
+view.del
+++++++++
+
+The ``view.del`` command permanently deletes a view from the Cortex.
+
+**Syntax:**
+
+
+.. storm-cli:: view.del --help
+
