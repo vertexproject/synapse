@@ -152,10 +152,7 @@ For illustrative purposes, in the **first** example the newly created trigger is
 - Add a trigger that fires when an ``inet:whois:email`` node is created. If the email address is associated with a privacy-protected registration service (e.g., the email address is tagged ``#whois.private``), then also tag the ``inet:whois:email`` node.
 
 
-.. storm-pre:: trigger.add node:add --form inet:whois:email --query { +{ -> inet:email +#whois.private } [ +#whois.private ] } 
-::
-
-    trigger.add node:add --form inet:whois:email --query { +{ -> inet:email +#whois.private } [ +#whois.private ] } 
+.. storm-cli:: trigger.add --name "tag privacy protected inet:whois:email" node:add --form inet:whois:email --query { +{ -> inet:email +#whois.private } [ +#whois.private ] } 
 
 
 *Newly created trigger via trigger.list*
@@ -185,37 +182,29 @@ While runt nodes (:ref:`gloss-node-runt`) are typically read-only, ``syn:trigger
 - Add a trigger that fires when the ``:exe`` property of an ``inet:dns:request`` node is set. Check to see whether the queried FQDN is malicious; if so, tag the associated ``file:bytes`` node for analyst review.
 
 
-.. storm-pre:: trigger.add prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#malicious } :exe -> file:bytes [ +#review ] }
-::
-
-    trigger.add prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#malicious } :exe -> file:bytes [ +#review ] }
+.. storm-cli:: trigger.add --name "tag file:bytes for review" prop:set --prop inet:dns:request:exe --query { +{ :query:name -> inet:fqdn +#malicious } :exe -> file:bytes [ +#review ] }
 
 
 - Add a trigger that fires when the tag ``#ttp.phish.attach`` (indicating that a file was an attachment to a phishing email) is applied to a ``file:bytes`` node. Use the trigger to **also** apply the tag ``#attck.t1566.001`` (indicating MITRE ATT&CK technique “spear phishing attachment”).
 
 
-.. storm-pre:: trigger.add tag:add --form file:bytes --tag ttp.phish.attach --query { [ +#attck.t1566.001 ] }
-::
-
-    trigger.add tag:add --form file:bytes --tag ttp.phish.attach --query { [ +#attck.t1566.001 ] }
+.. storm-cli:: trigger.add --name "tag phish attachment with #attck.t1566.001" tag:add --form file:bytes --tag ttp.phish.attach --query { [ +#attck.t1566.001 ] }
 
 
 - Add a trigger that fires when the tag ``#osint`` (indicating that the node was listed as a malicious indicator in public reporting) is applied to an FQDN. The trigger should call extended Storm commands to submit the FQDN to third-party services (such as a domain whois service, a passive DNS service, or a malware execution / sandbox service) to enrich the FQDN. (**Note:** Synapse does not include these services in its public distribution; this trigger assumes such services have been implemented).
 
 
-.. storm-pre:: [ inet:fqdn = woot.com ]
-::
-
-    trigger.add tag:add --form inet:fqdn --tag osint --query { | whois | pdns | malware }
+.. storm-cli:: trigger.add --name "enrich osint fqdn" tag:add --form inet:fqdn --tag osint --query { | whois | pdns | malware }
 
 
 - Add a trigger that fires when the tag ``#osint`` (indicating that the node was listed as a malicious indicator in public reporting) is applied to **any** node. The trigger should call (execute) a macro called ``enrich``. The macro contains a Storm query that uses a switch case to call the appropriate extended Storm commands based on the tagged node’s form (e.g., perform different enrichment / call different third-party services based on whether the node is an FQDN, an IPv4, an email address, a URL, etc.).
 
 
-.. storm-pre:: trigger.add tag:add --tag osint --query { | macro.exec enrich }
-::
-
-    trigger.add tag:add --tag osint --query { | macro.exec enrich }
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: macro.set enrich ${ switch $node.form() {/* You can put comments in macros!!! */ "inet:fqdn": { | whois | pdns | malware } "inet:ipv4": { | pdns } "inet:email": { | revwhois } *: { } } }
+.. storm-cli:: trigger.add --name "enrich osint" tag:add --tag osint --query { | macro.exec enrich }
 
 
 .. _auto-cron:
@@ -246,10 +235,7 @@ For illustrative purposes, in the **first** example the newly created cron job i
 - Add a one-time / non-recurring cron job to run at 7:00 PM to create the RFC1918 IPv4 addresses in the 172.16.0.0/16 range.
 
 
-.. storm-pre:: cron.at --hour 19 { [ inet:ipv4=172.16.0.0/16 ] }
-::
-
-    cron.at --hour 19 { [ inet:ipv4=172.16.0.0/16 ] }
+.. storm-cli:: cron.at --hour 19 { [ inet:ipv4=172.16.0.0/16 ] }
 
 
 *Newly created cron job via cron.list*
@@ -281,19 +267,13 @@ While runt nodes (:ref:`gloss-node-runt`) are typically read-only, ``syn:cron`` 
 - Add a cron job to run every Tuesday, Thursday, and Saturday at 2:00 AM that lifts 1,000 IPv4 address nodes with missing geolocation data (i.e., no ``:loc`` property) and submits them to an extended Storm command that calls an IP geolocation service. (**Note:** Synapse does not include a geolocation service in its public distribution; this cron job assumes such a service has been implemented).
 
 
-.. storm-pre:: cron.add --day Tue,Thu,Sat --hour 2 { inet:ipv4 -:loc | limit 1000 | ipgeoloc }
-::
-
-    cron.add --day Tue,Thu,Sat --hour 2 { inet:ipv4 -:loc | limit 1000 | ipgeoloc }
+.. storm-cli:: cron.add --day Tue,Thu,Sat --hour 2 { inet:ipv4 -:loc | limit 1000 | ipgeoloc }
 
 
 - Add a cron job to run on the 15th of every month to lift all MD5, SHA1, and SHA256 hashes tagged "malicious" that do not have corresponding file (``file:bytes``) nodes and submit them to an extended Storm command that queries a third-party malware service for those files. (**Note:** Synapse does not include a malware service in its public distribution; this cron job assumes such a service has been implemented).
 
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malwaresvc, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: cron.add --day 15 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
-::
-
-    cron.add --day 15 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
+.. storm-cli:: cron.add --day 15 { hash:md5#malicious hash:sha1#malicious hash:sha256#malicious -{ -> file:bytes } | malwaresvc }
 
 
 .. _auto-macros:
@@ -328,19 +308,13 @@ Macros are created, modified, viewed, and deleted using the Storm ``macro.*``  c
 - Add a macro named ``sinkhole.check`` that lifts all IPv4 addresses tagged as sinkholes (``#infra.sinkhole``) and submits those nodes to an extended Storm command that calls a third-party passive DNS service. (**Note:** Synapse does not include a passive DNS service in its public distribution; the macro assumes such a service has been implemented).
 
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: macro.set sinkhole.check ${ inet:ipv4#infra.sinkhole | pdns }
-::
-
-    macro.set sinkhole.check ${ inet:ipv4#infra.sinkhole | pdns }
+.. storm-cli:: macro.set sinkhole.check ${ inet:ipv4#infra.sinkhole | pdns }
 
 
 - Add a macro named ``check.c2`` that takes an inbound set of ``file:bytes`` nodes and returns any FQDNs that the files query and any IPv4 addresses the files connect to. Use a filter in the macro to ensure that the macro code only attempts to process inbound ``file:bytes`` nodes.
 
 
-.. storm-pre:: macro.set check.c2 ${ +file:bytes | tee { -> inet:dns:request :query:name -> inet:fqdn | uniq } { -> inet:flow:src:exe :dst:ipv4 -> inet:ipv4 | uniq } }
-::
-
-    macro.set check.c2 ${ +file:bytes | tee { -> inet:dns:request :query:name -> inet:fqdn | uniq } { -> inet:flow:src:exe :dst:ipv4 -> inet:ipv4 | uniq } }
+.. storm-cli:: macro.set check.c2 ${ +file:bytes | tee { -> inet:dns:request :query:name -> inet:fqdn | uniq } { -> inet:flow:src:exe :dst:ipv4 -> inet:ipv4 | uniq } }
 
 
 Add a macro named ``enrich`` that takes **any** node as input and uses a ``switch`` statement to call extended Storm commands for third-party services able to enrich a given form (line breaks and indentations used for readability). (**Note:** Synapse does not include third-party services / connectors in its public distribution; the macro assumes such services have been implemented.)
@@ -348,7 +322,6 @@ Add a macro named ``enrich`` that takes **any** node as input and uses a ``switc
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: macro.set enrich ${ switch $node.form() {/* You can put comments in macros!!! */ "inet:fqdn": { | whois | pdns | malware } "inet:ipv4": { | pdns } "inet:email": { | revwhois } *: { } } }
 ::
 
     macro.set enrich ${ switch $node.form() {
