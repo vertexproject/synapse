@@ -449,6 +449,7 @@ class StormRst(s_base.Base):
         key, valu = text.split('=', 1)
         assert key.isupper()
         valu = json.loads(valu)
+        assert isinstance(valu, str)
         multi = self.context.get('multiline', {})
         multi[key] = valu
         self.context['multiline'] = multi
