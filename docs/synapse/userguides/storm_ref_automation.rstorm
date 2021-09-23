@@ -322,6 +322,7 @@ Add a macro named ``enrich`` that takes **any** node as input and uses a ``switc
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=revwhois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+<<<<<<< HEAD
 ::
 
     macro.set enrich ${ switch $node.form() {
@@ -333,6 +334,10 @@ Add a macro named ``enrich`` that takes **any** node as input and uses a ``switc
         "inet:email": { | revwhois }
         *: { }
     } }
+=======
+.. storm-multiline:: ENRICH="macro.set enrich ${ switch $node.form() {\n\n    /* You can put comments in macros!!! */\n\n    \"inet:fqdn\": { | whois | pdns | malware }\n    \"inet:ipv4\": { | pdns }\n    \"inet:email\": { | revwhois }\n    *: { }\n} }"
+.. storm-cli:: MULTILINE=ENRICH
+>>>>>>> 221b3f3542f88cb1443240f77bd7eed4128d024f
 
 
 .. NOTE::
