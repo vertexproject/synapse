@@ -29,6 +29,25 @@ re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
 
 logger = logging.getLogger(__name__)
 
+
+class OutPutRst(s_output.OutPutStr):
+    '''
+    Rst specific helper for output intended to be indented
+    in RST text as a literal block.
+    '''
+    prefix = '    '
+
+    def printf(self, mesg, addnl=True):
+
+        if '\n' in mesg:
+            logger.debug(f'Newline found in [{mesg=}]')
+            parts = mesg.split('\n')
+            mesg0 = '\n'.join([self.prefix + part for part in parts[1:]])
+            mesg = '\n'.join((parts[0], mesg0))
+
+        return s_output.OutPutStr.printf(self, mesg, addnl)
+
+
 class StormOutput(s_cmds_cortex.StormCmd):
     '''
     Produce standard output from a stream of storm runtime messages.
@@ -352,7 +371,7 @@ class StormRst(s_base.Base):
 
     async def _handleStormCli(self, text):
         core = self._reqCore()
-        outp = s_output.OutPutStr()
+        outp = OutPutRst()
         text = self._getStormMultiline(text)
 
         self._printf('::\n')
