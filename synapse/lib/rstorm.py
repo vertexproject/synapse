@@ -300,6 +300,7 @@ class StormRst(s_base.Base):
             'storm-cortex': self._handleStormCortex,
             'storm-envvar': self._handleStormEnvVar,
             'storm-expect': self._handleStormExpect,
+            'storm-multiline': self._handleStormMultiline,
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
             'storm-clear-http': self._handleStormClearHttp,
@@ -336,6 +337,7 @@ class StormRst(s_base.Base):
             text (str): A valid Storm query.
         '''
         core = self._reqCore()
+        text = self._getStormMultiline(text)
 
         self._printf('::\n')
         self._printf('\n')
@@ -351,6 +353,7 @@ class StormRst(s_base.Base):
     async def _handleStormCli(self, text):
         core = self._reqCore()
         outp = s_output.OutPutStr()
+        text = self._getStormMultiline(text)
 
         self._printf('::\n')
         self._printf('\n')
@@ -431,6 +434,24 @@ class StormRst(s_base.Base):
         valu = json.loads(text)
         assert valu in (True, False), f'storm-fail must be a boolean: {text}'
         self.context['storm-fail'] = valu
+
+    def _getStormMultiline(self, text):
+        if '=' in text:
+            sentinel, key = text.split('=', 1)
+            if sentinel != 'MULTILINE':
+                return text
+            ret = self.context.get('multiline', {}).get(key)
+            assert ret is not None, f'Invalid multiline text: {text}'
+            return ret
+        return text
+
+    async def _handleStormMultiline(self, text):
+        key, valu = text.split('=', 1)
+        assert key.isupper()
+        valu = json.loads(valu)
+        multi = self.context.get('multiline', {})
+        multi[key] = valu
+        self.context['multiline'] = multi
 
     async def _handleStormOpts(self, text):
         '''
