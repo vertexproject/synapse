@@ -119,10 +119,14 @@ Once a tag property is created, it can be applied (appended) to any tag.
 
 An example of how a custom tag property can provide additional context is the idea of a "risk" or "reputation" score. With respect to cyber threat data, many commercial security companies provide a "risk" score for various indicators, such as domains or URLs. Different companies may provide different risk scores (based on their data and algorithms) for the same indicator, so it would be convenient to use tags to show which companies consider an indicator to be "risky".
  
-Companies providing risk scores typically do so using a numerical scale, say between 0 - 100. This metric provides more context to the idea of risk - specifically how "risky" something is based on the company's assessment. If we wish to track this type of reporting, we can define the custom tag property ``:risk`` as an integer type with a minimum value of 0 (no risk) and a maximum value of 100 (confirmed malicious). 
- 
+Companies providing risk scores typically do so using a numerical scale, say between 0 - 100. This metric provides more context to the idea of risk - specifically how "risky" something is based on the company's assessment. If we wish to track this type of reporting, we can define the custom tag property ``:risk`` as an integer type with a minimum value of 0 (no risk) and a maximum value of 100 (confirmed malicious). This tag property can be created directly in Storm.
+
+.. storm-cli:: $tagpropinfo = $lib.dict(doc="Risk tag property.") $lib.model.ext.addTagProp(risk, (int, $lib.dict(min=(0), max=(100))), $tagpropinfo) | syn:tagprop
 
 Once created, the ``:risk`` property and its associated value can then be appended to any appropriate tags (e.g., ``#rep.symantec:risk=80`` or ``#rep.domaintools:risk=63``).
+
+.. storm-pre:: [inet:fqdn=woot.com]
+.. storm-cli:: inet:fqdn=woot.com [ +#rep.symantec:risk=80 ]
 
 See :ref:`storm-ref-data-mod` for additional detail on adding, modifying, and removing tag properties.
 
@@ -133,8 +137,7 @@ Tag Display
 
 When a tag is used as a **label** applied to a node, the data is displayed differently than it is for a ``syn:tag`` node itself. This example shows a node with multiple **tags** applied:
 
-
-.. storm-pre:: $tagpropinfo = $lib.dict(doc="A risk tagprop.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo)  [inet:fqdn=aunewsonline.com +#aka.feye.thr.apt1 +#cno.threat.t15.tc=(2009/09/08,2013/09/08) +#rep.symantec:risk=92]
+.. storm-pre:: [inet:fqdn=aunewsonline.com +#aka.feye.thr.apt1 +#cno.threat.t15.tc=(2009/09/08,2013/09/08) +#rep.symantec:risk=92]
 .. storm-cli:: inet:fqdn = aunewsonline.com
 
 
