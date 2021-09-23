@@ -48,7 +48,8 @@ inverse_prefixs = {
 re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
 
-def btc_bech32(text):
+def btc_bech32(match: regex.Match):
+    text = match.groupdict().get('valu')
     prefix, _ = text.split('1', 1)
     prefix = prefix.lower()
     if prefix == 'bc':
@@ -67,7 +68,8 @@ def btc_bech32(text):
     # a mixed case form, so lowercase it prior to returning.
     return ('btc', text.lower())
 
-def btc_base58(text):
+def btc_base58(match: regex.Match):
+    text = match.groupdict().get('valu')
     # FIXME - Replace this with base58 decoding from bitcoin library
     try:
         base58.b58decode_check(text)
@@ -98,7 +100,8 @@ def ether_eip55(body: str):
 
     return "0x" + checksummed_buffer
 
-def eth_check(text: str):
+def eth_check(match: regex.Match):
+    text = match.groupdict().get('valu')
     prefix, body = text.split('x')  # type: str, str
     # Checksum if we're mixed case or not
     if not body.isupper() and not body.islower():
@@ -113,13 +116,21 @@ def eth_check(text: str):
             return None
 
         return ('eth', text)
-
+    # any valid 0x<40 character> hex string is possibly a ETH address.
     return ('eth', text.lower())
 
+def fqdn_prefix(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+    prefix = mnfo.get('prefix')
+    if prefix is not None:
+        valu = valu.rstrip(inverse_prefixs.get(prefix))
+    return valu
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
-    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)', {}),
+    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
+     {'callback': fqdn_prefix}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
     ('inet:ipv4', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))', {}),
@@ -133,8 +144,6 @@ scrape_types = [  # type: ignore
      {'callback': btc_base58}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|bcrt|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
      {'callback': btc_bech32}),
-    # The following ethererum address can look like a SHA256 but must have
-    # a leading 0x and may require checksum validation for mixed case.
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>0x[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))',
      {'callback': eth_check})
 ]
@@ -182,16 +191,14 @@ def scrape(text, ptype=None, refang=True, first=False):
             cb = opts.get('callback')
 
             for valu in regx.finditer(text):  # type: regex.Match
-                mnfo = valu.groupdict()
-                valu = mnfo.get('valu')
-                prefix = mnfo.get('prefix')
-                if prefix is not None:
-                    valu = valu.rstrip(inverse_prefixs.get(prefix))
 
                 if cb:
                     valu = cb(valu)
                     if valu is None:
                         continue
+                else:
+                    mnfo = valu.groupdict()
+                    valu = mnfo.get('valu')
 
                 yield (ruletype, valu)
                 if first:
