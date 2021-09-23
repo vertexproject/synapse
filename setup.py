@@ -98,6 +98,7 @@ setup(
         'base58==2.1.0',
         'python-bitcoinlib==0.11.0',
         'pysha3==1.0.2',
+        'cashaddress==1.0.6',
     ],
 
     extras_require={

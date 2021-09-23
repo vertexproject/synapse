@@ -130,6 +130,21 @@ eip-55 address test vectors
 0xfB6916095ca1df60bB79Ce92cE3Ea74c37C5D359
 '''
 
+bch_addresses = '''
+bitcoin cash address
+bitcoincash:qqeht8vnwag20yv8dvtcrd4ujx09fwxwsqqqw93w88
+#testnet
+bchtest:pqc3tyspqwn95retv5k3c5w4fdq0cxvv95u36gfk00
+# another valu but in uppercase
+BITCOINCASH:QQKV9WR69RY2P9L53LXP635VA4H86WV435995W8P2H
+
+
+# Bad csums
+bitcoincash:qqeht8vnwag20yv8dvtcrd4ujx09fwxwsqqqw93w89
+bitcoincash:aqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h
+bitcoincash:qqqqqqqq9ry2p9l53lxp635va4h86wv435995w8p2h
+'''
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
@@ -220,6 +235,15 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('crypto:current:address',
                       ('eth', '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb')))
         self.len(0, nodes)
+
+        nodes = list(s_scrape.scrape(bch_addresses))
+        self.len(3, nodes)
+        nodes.remove(('crypto:current:address',
+                      ('bch', 'bitcoincash:qqeht8vnwag20yv8dvtcrd4ujx09fwxwsqqqw93w88')))
+        nodes.remove(('crypto:current:address',
+                      ('bch', 'bchtest:pqc3tyspqwn95retv5k3c5w4fdq0cxvv95u36gfk00')))
+        nodes.remove(('crypto:current:address',
+                      ('bch', 'bitcoincash:qqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h')))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)

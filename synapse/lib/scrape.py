@@ -6,6 +6,7 @@ import base58
 import _pysha3  # do not import the sha3 library directly.
 import bitcoin
 import bitcoin.bech32 as bitcoin_b32
+import cashaddress.convert as cashaddr_convert  # BCH support
 
 
 import synapse.data as s_data
@@ -106,8 +107,6 @@ def eth_check(match: regex.Match):
     # Checksum if we're mixed case or not
     if not body.isupper() and not body.islower():
 
-        logger.info(f'Checksumming {text=}')
-
         ret = ether_eip55(body)
         if ret is None:
             return None
@@ -118,6 +117,19 @@ def eth_check(match: regex.Match):
         return ('eth', text)
     # any valid 0x<40 character> hex string is possibly a ETH address.
     return ('eth', text.lower())
+
+def bch_check(match: regex.Match):
+    text = match.groupdict().get('valu')
+    # Checksum if we're mixed case or not
+    prefix, body = text.split(':', 1)
+    if not body.isupper() and not body.islower():
+        return None
+    try:
+        cashaddr_convert.Address._cash_string(text)
+    except:
+        return None
+    text = text.lower()
+    return ('bch', text)
 
 def fqdn_prefix(match: regex.Match):
     mnfo = match.groupdict()
@@ -145,7 +157,9 @@ scrape_types = [  # type: ignore
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|bcrt|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
      {'callback': btc_bech32}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>0x[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))',
-     {'callback': eth_check})
+     {'callback': eth_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bitcoincash|bchtest):[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{42})(?:[^A-Za-z0-9]|$))',
+     {'callback': bch_check}),
 ]
 
 _regexes = collections.defaultdict(list)
