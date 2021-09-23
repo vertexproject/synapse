@@ -6200,6 +6200,9 @@ class User(Prim):
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {await self.value()}'
+
 @registry.registerType
 class Role(Prim):
     '''
