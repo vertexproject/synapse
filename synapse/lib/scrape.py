@@ -68,6 +68,7 @@ def btc_bech32(text):
     return ('btc', text.lower())
 
 def btc_base58(text):
+    # FIXME - Replace this with base58 decoding from bitcoin library
     try:
         base58.b58decode_check(text)
     except ValueError:
