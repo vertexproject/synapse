@@ -40,7 +40,7 @@ class OutPutRst(s_output.OutPutStr):
     def printf(self, mesg, addnl=True):
 
         if '\n' in mesg:
-            logger.debug(f'Newline found in [{mesg=}]')
+            logger.debug(f'Newline found in [{mesg}]')
             parts = mesg.split('\n')
             mesg0 = '\n'.join([self.prefix + part for part in parts[1:]])
             mesg = '\n'.join((parts[0], mesg0))
