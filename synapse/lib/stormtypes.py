@@ -4287,12 +4287,18 @@ class Node(Prim):
                        'default': None, },
                   ),
                   'returns': {'type': 'str', 'desc': 'The string representation of the requested value.', }}},
-        {'name': 'tags', 'desc': 'Get a list of the tags on the Node.',
+        {'name': 'tags', 'desc': '''
+         Get a list of the tags on the Node.
+
+         Notes:
+            When providing a glob argument, the following rules are used. A single asterisk(*) will replace exactly
+            one dot-delimited component of a tag. A double asterisk(**) will replace one or more of any character.
+         ''',
          'type': {'type': 'function', '_funcname': '_methNodeTags',
                   'args': (
                       {'name': 'glob', 'type': 'str', 'default': None,
-                       'desc': 'A tag glob expression. '
-                               'If this is provided, only tags which match the expression are returned.', },
+                       'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
+                               'are returned.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
@@ -6194,6 +6200,9 @@ class User(Prim):
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {await self.value()}'
 
 @registry.registerType
 class Role(Prim):
