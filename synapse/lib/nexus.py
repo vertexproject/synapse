@@ -138,7 +138,12 @@ class NexsRoot(s_base.Base):
         Close the slab, move it to the new multislab location, then copy out the nexshot
         values, then drop the nexshot db from the multislab
         '''
-        logger.warning('Migrating Nexus log v1->v2')
+        logger.warning(f'Migrating Nexus log v1->v2 for {nexspath}')
+
+        if os.path.ismount(nexspath):  # pragma: no cover
+            # Fail fast if the nexspath is its own mountpoint.
+            mesg = f'The nexpath={nexspath} is located at its own mount point. This configuration cannot be migrated.'
+            raise s_exc.BadCoreStore(mesg=mesg, nexspath=nexspath)
 
         # avoid import cycle
         import synapse.lib.lmdbslab as s_lmdbslab
@@ -151,6 +156,8 @@ class NexsRoot(s_base.Base):
             # Nothing in the sequence.  Drop and move along.
             self.nexsslab.dropdb('nexuslog')
             self.nexshot.set('version', 2)
+            logger.warning('Nothing in the nexuslog sequence to migrate.')
+            logger.warning('...Nexus log migration complete')
             return
 
         await self.nexsslab.fini()
@@ -158,12 +165,26 @@ class NexsRoot(s_base.Base):
         firstidx = first[0]
 
         fn = s_multislabseqn.MultiSlabSeqn.slabFilename(logpath, firstidx)
-        shutil.move(nexspath, fn)
+        logger.warning(f'Existing nexslog will be migrated from {nexspath} to {fn}')
+
+        if os.path.exists(fn):  # pragma: no cover
+            logger.warning(f'Removing old migration which may have failed. This should not exist: {fn}')
+            shutil.rmtree(fn)
+
+        os.makedirs(fn, exist_ok=True)
+        logger.warning(f'Moving existing nexslog')
+        try:
+            os.replace(nexspath, fn)
+        except OSError as e:  # pragma: no cover
+            logger.exception('Error during nexslog migration.')
+            raise s_exc.BadCoreStore(mesg='Error during nexslogV1toV2', nexspath=nexspath, fn=fn) from e
 
         # Open a fresh slab where the old one used to be
+        logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
         self.nexsslab = await s_lmdbslab.Slab.anit(nexspath, map_async=self.map_async)
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
+        logger.warning('Copying nexs:indx data from migrated slab to the fresh nexslog')
         # There's only one value in nexs:indx, so this should be fast
         async with await s_lmdbslab.Slab.anit(fn) as newslab:
             olddb = self.nexsslab.initdb('nexs:indx')

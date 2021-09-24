@@ -282,6 +282,9 @@ class MultiSlabSeqn(s_t_utils.SynTest):
                 # Make sure ranges are updated
                 self.eq([10], msqn._ranges)
 
+                # Can't cull before firstidx
+                self.false(await msqn.cull(10))
+
             async with await s_multislabseqn.MultiSlabSeqn.anit(dirn) as msqn:
                 await msqn.cull(13)
                 retn = await alist(msqn.iter(1))
