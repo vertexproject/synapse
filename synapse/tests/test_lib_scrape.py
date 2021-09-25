@@ -145,6 +145,32 @@ bitcoincash:aqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h
 bitcoincash:qqqqqqqq9ry2p9l53lxp635va4h86wv435995w8p2h
 '''
 
+xrp_addresses = '''
+XRP addresses
+rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC
+rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp
+rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD
+# xddresses
+X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ
+# case sensitivity is checked during validation so this fails
+x7acgcsbl6xdcub289x4mj8djcdykab5hjdwmarnxr61cqz
+# invalid xaddress
+XVLhHMPHU98es4dbozjVtdWzVrDjtV18pX8zeUygYrCgrPh
+# tagged addr
+ripple:rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC'
+
+# Bad addreses
+rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw2
+rECnmynR4QWrx3TscC5d8x5kCJZ3TDRZjzs
+
+# special addresses
+rrrrrrrrrrrrrrrrrrrrrhoLvTp
+rrrrrrrrrrrrrrrrrrrrBZbvji
+rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh
+rrrrrrrrrrrrrrrrrNAMEtxvNvQ
+rrrrrrrrrrrrrrrrrrrn5RM1rHd
+'''
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
@@ -244,6 +270,22 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('bch', 'bchtest:pqc3tyspqwn95retv5k3c5w4fdq0cxvv95u36gfk00')))
         nodes.remove(('crypto:current:address',
                       ('bch', 'bitcoincash:qqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h')))
+
+        nodes = list(s_scrape.scrape(xrp_addresses))
+        self.len(10, nodes)
+        nodes.remove(('crypto:current:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
+        nodes.remove(('crypto:current:address',
+                      ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')),)
+        nodes.remove(('crypto:current:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrNAMEtxvNvQ')))
+        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrn5RM1rHd')))
+
+        pprint(nodes)
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)

@@ -99,6 +99,7 @@ setup(
         'python-bitcoinlib==0.11.0',
         'pysha3==1.0.2',
         'cashaddress==1.0.6',
+        'xrpl-py==1.1.1',
     ],
 
     extras_require={

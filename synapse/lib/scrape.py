@@ -7,7 +7,7 @@ import _pysha3  # do not import the sha3 library directly.
 import bitcoin
 import bitcoin.bech32 as bitcoin_b32
 import cashaddress.convert as cashaddr_convert  # BCH support
-
+import xrpl.core.addresscodec as xrp_addresscodec  # xrp support
 
 import synapse.data as s_data
 import synapse.common as s_common
@@ -131,6 +131,13 @@ def bch_check(match: regex.Match):
     text = text.lower()
     return ('bch', text)
 
+def xrp_check(match: regex.Match):
+    text = match.groupdict().get('valu')
+    if xrp_addresscodec.is_valid_classic_address(text) or xrp_addresscodec.is_valid_xaddress(text):
+        return ('xrp', text)
+    logger.warning(f'invalid {text}')
+    return None
+
 def fqdn_prefix(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
@@ -160,6 +167,8 @@ scrape_types = [  # type: ignore
      {'callback': eth_check}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bitcoincash|bchtest):[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{42})(?:[^A-Za-z0-9]|$))',
      {'callback': bch_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[xr][a-zA-HJ-NP-Z0-9]{25,46})(?:[^A-Za-z0-9]|$))',
+     {'callback': xrp_check}),
 ]
 
 _regexes = collections.defaultdict(list)
