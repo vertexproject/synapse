@@ -1149,6 +1149,13 @@ class InetModule(s_module.CoreModule):
                         'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
                     }),
 
+                    # This could alternatively be a guid which relies on a user to grind it and then do entity
+                    # resolution based on secondary properties.
+                    ('inet:web:channel', ('comp', {'fields': (('site', 'inet:fqn'), ('id', 'str')), 'sepr': '/'}), {
+                        'doc': 'A channel identifier for a given site',
+                        'ex': 'irc.vertex.link/#synapse-dev',
+                    }),
+
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
                     }),
@@ -1979,6 +1986,22 @@ class InetModule(s_module.CoreModule):
                             'doc': 'Extracted/matched text from the matched content.'}),
                     )),
 
+                    ('inet:web:channel', {}, (
+                        ('site', ('inet:fqdn', {}), {
+                            'ro': True,
+                            'doc': 'The site or service associated with the channel.'
+                        }),
+                        ('id', ('str', {}), {
+                            'ro': True,
+                            'doc': 'The channel identifier.'
+                        }),
+                        ('aliases', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of alternate names for the channel.',
+                        }),
+                        ('group', ('inet:web:group', {}), {
+                            'doc': 'The group a channel may be be associated with.'
+                        }),
+                    )),
 
                     ('inet:web:acct', {}, (
                         ('avatar', ('file:bytes', {}), {
@@ -2373,6 +2396,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('mentions:groups', ('array', {'type': 'inet:web:group', 'uniq': True, 'sorted': True, 'split': ','}), {
                             'doc': 'Groups mentioned within the post.',
+                        }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel the post was sent in.'
                         }),
                         # location protocol...
                         ('loc', ('loc', {}), {
