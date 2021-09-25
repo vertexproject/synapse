@@ -1151,7 +1151,7 @@ class InetModule(s_module.CoreModule):
 
                     # This could alternatively be a guid which relies on a user to grind it and then do entity
                     # resolution based on secondary properties.
-                    ('inet:web:channel', ('comp', {'fields': (('site', 'inet:fqn'), ('id', 'str')), 'sepr': '/'}), {
+                    ('inet:web:channel', ('comp', {'fields': (('site', 'inet:fqdn'), ('id', 'str')), 'sepr': '/'}), {
                         'doc': 'A channel identifier for a given site',
                         'ex': 'irc.vertex.link/#synapse-dev',
                     }),
