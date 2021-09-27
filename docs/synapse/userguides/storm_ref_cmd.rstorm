@@ -131,7 +131,7 @@ The ``count`` command enumerates the number of nodes returned from a given Storm
 .. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | count
 
 
-- Count the number of DNS A records for the domain woot.com:
+- Count the number of DNS A records for the domain woot.com where the lift produces no results:
 
 
 .. storm-cli:: inet:dns:a:fqdn=woot.com | count
@@ -163,7 +163,7 @@ Storm includes ``cron.*`` commands that allow you to create scheduled :ref:`glos
 
 Help for individual ``cron.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 Cron jobs (including jobs created with ``cron.at``) are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
 
@@ -350,7 +350,7 @@ Storm includes ``dmon.*`` commands that allow you to work with daemons (see :ref
 
 Help for individual ``dmon.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-dmon-list:
 
@@ -376,7 +376,7 @@ Storm includes ``edges.*`` commands that allow you to work with lightweight (lig
 
 Help for individual ``edge.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-edges-del:
 
@@ -402,7 +402,7 @@ Storm includes ``feed.*`` commands that allow you to work with feeds (see :ref:`
 
 Help for individual ``feed.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 
 .. _storm-feed-list:
@@ -447,8 +447,8 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 
 - Lift the node with node ID 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f:
 
-
-.. storm-cli:: iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
+.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-cli:: iden 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f
 
 
 **Usage Notes:**
@@ -472,7 +472,7 @@ Storm includes ``layer.*`` commands that allow you to work with layers (see :ref
 
 Help for individual ``layer.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-layer-add:
 
@@ -548,7 +548,7 @@ Storm includes ``lift.*`` commands that allow you to perform specialized lift op
 
 Help for individual ``lift.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-lift-byverb:
 
@@ -611,7 +611,7 @@ Storm includes ``macro.*`` commands that allow you to work with macros (see :ref
 
 Help for individual ``macro.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-macro-list:
 
@@ -770,7 +770,7 @@ Storm includes ``model.*`` commands that allow you to work with model elements.
 
 Help for individual ``model.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-model-deprecated-check:
 
@@ -898,14 +898,14 @@ See also the :ref:`storm-tag` command.
 
 
 
-.. storm-pre:: [syn:tag=research]
+.. storm-pre:: [inet:asn=1138 +#research]
 .. storm-cli:: movetag research internal.research
 
 
 - Move the tag tree #aka.fireeye.malware to #rep.feye.mal:
 
 
-.. storm-pre:: [syn:tag=aka.fireeye.malware] 
+.. storm-pre:: [inet:fqdn=blackcake.net +#aka.fireeye.malware]
 .. storm-cli:: movetag aka.fireeye.malware rep.feye.mal
 
 
@@ -927,7 +927,7 @@ Storm includes ``pkg.*`` commands that allow you to work with Storm packages (se
 
 Help for individual ``pkg.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 Packages typically contain extended Storm commands and Storm library code used to implement a Storm :ref:`gloss-service`.
 
@@ -981,7 +981,7 @@ Storm includes ``ps.*`` commands that allow you to work with Storm tasks/queries
 
 Help for individual ``ps.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-ps-list:
 
@@ -1037,7 +1037,7 @@ Storm includes ``queue.*`` commands that allow you to work with queues (see :ref
 
 Help for individual ``queue.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-queue-add:
 
@@ -1116,7 +1116,7 @@ By default, the scrape command will yield the nodes that it received as input (i
 - Scrape common forms from the content of a set of Internet posts from a given account, link the created nodes to the original posts, and uniq the results:
 
 
-.. storm-pre:: [inet:web:post=((twitter.com,finley1589),20160918105200) :acct=(twitter.com,finley1589) :time=20160918105200 :url=http://twitter.com/finley1589/statuses/777460180225261568 :text="THOSE THAT LOVE THE USA PRAY! https://t.co/q5EPZrxGKk RT #STOPIslam #TCOT #CCOT #MakeDCListen #TeaParty #Conservatives"]
+.. storm-pre:: [inet:web:post=((twitter.com,finley1589),20160918105200) :acct=(twitter.com,finley1589) :time=20160918105200 :url=http://twitter.com/finley1589/statuses/777460180225261568 :text="THOSE THAT LOVE THE USA PRAY! https://t.co/q5EPZrxGKk "]
 .. storm-cli:: inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
 
 
@@ -1140,7 +1140,7 @@ Storm includes ``service.*`` commands that allow you to work with Storm services
 
 Help for individual ``service.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-service-add:
 
@@ -1245,7 +1245,7 @@ Splices are represented as **runtime nodes** ("runt nodes" - see :ref:`gloss-nod
 
 Help for individual ``splice.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-splice-list:
 
@@ -1284,7 +1284,7 @@ Storm includes ``tag.*`` commands that allow you to work with tags (see :ref:`gl
 
 Help for individual ``tag.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
   
 See also the related :ref:`storm-movetag` command.
 
@@ -1380,7 +1380,7 @@ Storm includes ``trigger.*`` commands that allow you to create automated event-d
 
 Help for individual ``trigger.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 Triggers are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:trigger``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
 
@@ -1518,7 +1518,7 @@ Storm includes ``view.*`` commands that allow you to work with views (see :ref:`
 
 Help for individual ``view.*`` commands can be displayed using:
 
-  ``storm <command> --help | -h``
+  ``<command> --help``
 
 .. _storm-view-add:
 
