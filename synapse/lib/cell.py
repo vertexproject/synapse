@@ -229,7 +229,10 @@ class CellApi(s_base.Base):
 
         Note:
             If there are consumers of this cell's nexus log they must
-            be caught up to aleast the offs argument before culling.
+            be caught up to at least the offs argument before culling.
+
+            Only rotated logs where the last index is less than the
+            provided offset will be removed from disk.
 
         Args:
             offs (int): The offset to remove entries up to.
@@ -1144,6 +1147,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return await self.nexsroot.waitOffs(offs, timeout=timeout)
 
     async def trimNexsLog(self, consumers=None, timeout=30):
+
+        if not self.donexslog:
+            mesg = 'trimNexsLog requires nexslog:en=True'
+            raise s_exc.BadConfValu(mesg=mesg)
 
         async with await s_base.Base.anit() as base:
 

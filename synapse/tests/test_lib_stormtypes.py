@@ -1620,6 +1620,10 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('root', mesgs)
             self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
+            msgs = await core.stormlist('$lib.print($lib.auth.users.list().0)')
+            self.stormIsInPrint('storm:auth:user', msgs)
+            self.stormIsInPrint("'name': 'root'", msgs)
+
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:

@@ -141,6 +141,9 @@ The trim API executes the following steps:
 - If consumers are provided, wait until they catch-up to the current offset.
 - Cull the Nexus log, which deletes entries up to and including the current offset.
 
+If the cull API is called directly, only rotated logs where the last index is less than
+the provided offset will be removed from disk.
+
 .. warning::
     Culling the Nexus log directly, or not providing a complete list of consumers to trim,
     can result in mirror desync if they are not caught up to the culled offset.
