@@ -124,22 +124,17 @@ The ``count`` command enumerates the number of nodes returned from a given Storm
 
 **Examples:**
 
-- Count the number of email address nodes:
+- Count the number of IP address nodes reported by FireEye and associated with the threat group APT1:
 
 
-.. storm-pre:: inet:email | count
-::
-
-    inet:email | count
+.. storm-pre:: [inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#aka.feye.thr.apt1]
+.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | count
 
 
 - Count the number of DNS A records for the domain woot.com:
 
 
-.. storm-pre:: inet:dns:a:fqdn=woot.com | count
-::
-
-    inet:dns:a:fqdn=woot.com | count
+.. storm-cli:: inet:dns:a:fqdn=woot.com | count
 
 
 **Usage Notes:**
@@ -324,19 +319,14 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
 - Delete the node for the domain woowoo.com:
 
 
-.. storm-pre:: inet:fqdn=woowoo.com | delnode
-::
-
-    inet:fqdn=woowoo.com | delnode
+.. storm-pre:: [inet:fqdn=woowoo.com]
+.. storm-cli:: inet:fqdn=woowoo.com | delnode
 
 
 - Forcibly delete all nodes with the #testing tag:
 
 
-.. storm-pre:: #testing | delnode --force
-::
-
-    #testing | delnode --force
+.. storm-cli:: #testing | delnode --force
 
 
 **Usage Notes:**
@@ -458,10 +448,8 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 - Lift the node with node ID d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849:
 
 
-.. storm-pre:: iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
-::
+.. storm-cli:: iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
 
-    iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
 
 
 **Usage Notes:**
@@ -594,13 +582,10 @@ The ``limit`` command restricts the number of nodes returned from a given Storm 
 
 **Example:**
 
-- Lift ten IP address nodes:
+- Lift a single IP address that FireEye associates with the threat group APT1:
 
 
-.. storm-pre:: inet:ipv4 | limit 10
-::
-
-    inet:ipv4 | limit 10
+.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | limit 1
 
 
 **Usage Notes:**
@@ -711,19 +696,14 @@ The ``max`` command returns the node from a given set that contains the highest 
 - Return the DNS A record for woot.com with the most recent ``.seen`` value:
 
 
-.. storm-pre:: inet:dns:a:fqdn=woot.com | max .seen
-::
-
-    inet:dns:a:fqdn=woot.com | max .seen
+.. storm-pre:: [(inet:dns:a=(woot.com,107.21.53.159) .seen=(2014/08/13,2014/08/14)) (inet:dns:a=(woot.com,75.101.146.4) .seen=(2013/09/21,2013/09/22))] 
+.. storm-cli:: inet:dns:a:fqdn=woot.com | max .seen
 
 
 - Return the most recent WHOIS record for domain woot.com:
 
-
-.. storm-pre:: inet:whois:rec:fqdn=woot.com | max :asof
-::
-
-    inet:whois:rec:fqdn=woot.com | max :asof
+.. storm-pre:: [inet:whois:rec=(woot.com,2018/05/22) :text="domain name: woot.com"]
+.. storm-cli:: inet:whois:rec:fqdn=woot.com | max :asof
 
 
 .. _storm-merge:
@@ -761,19 +741,13 @@ The ``min`` command returns the node from a given set that contains the lowest v
 - Return the DNS A record for woot.com with the oldest ``.seen`` value:
 
 
-.. storm-pre:: inet:dns:a:fqdn=woot.com | min .seen
-::
-
-    inet:dns:a:fqdn=woot.com | min .seen
+.. storm-cli:: inet:dns:a:fqdn=woot.com | min .seen
 
 
 - Return the oldest WHOIS record for domain woot.com:
 
 
-.. storm-pre:: inet:whois:rec:fqdn=woot.com | min :asof
-::
-
-    inet:whois:rec:fqdn=woot.com | min :asof
+.. storm-cli:: inet:whois:rec:fqdn=woot.com | min :asof
 
 
 .. _storm-model:
@@ -924,19 +898,16 @@ See also the :ref:`storm-tag` command.
 - Move the tag named #research to #internal.research:
 
 
-.. storm-pre::  [syn:tag=research] | spin | movetag research internal.research
-::
 
-    movetag research internal.research
+.. storm-pre:: [syn:tag=research]
+.. storm-cli:: movetag research internal.research
 
 
 - Move the tag tree #aka.fireeye.malware to #rep.feye.mal:
 
 
-.. storm-pre:: [syn:tag=aka.fireeye.malware] | spin | movetag aka.fireeye.malware rep.feye.mal
-::
-
-    movetag aka.fireeye.malware aka.feye.mal
+.. storm-pre:: [syn:tag=aka.fireeye.malware] 
+.. storm-cli:: movetag aka.fireeye.malware rep.feye.mal
 
 
 **Usage Notes:**
@@ -1140,19 +1111,14 @@ By default, the scrape command will yield the nodes that it received as input (i
 - Scrape common forms and create nodes from the body of domain WHOIS record(s) for domain woot.com:
 
 
-.. storm-pre:: inet:whois:rec:fqdn=woot.com | scrape :text
-::
-
-    inet:whois:rec:fqdn=woot.com | scrape :text
+.. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
 
 
 - Scrape common forms from the content of a set of Internet posts from a given account, link the created nodes to the original posts, and uniq the results:
 
 
-.. storm-pre:: inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
-::
-
-    inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
+.. storm-pre:: [inet:web:post=((twitter.com,finley1589),20160918105200) :acct=(twitter.com,finley1589) :time=20160918105200 :url=http://twitter.com/finley1589/statuses/777460180225261568 :text="THOSE THAT LOVE THE USA PRAY! https://t.co/q5EPZrxGKk RT #STOPIslam #TCOT #CCOT #MakeDCListen #TeaParty #Conservatives"]
+.. storm-cli:: inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
 
 
 **Usage Notes:**
@@ -1230,13 +1196,11 @@ The ``sleep`` command adds a delay in returning each result for a given Storm qu
 
 **Example:**
 
-- Retrieve domain nodes from a Cortex every second:
+- Retrieve email nodes from a Cortex every second:
 
 
-.. storm-pre:: inet:email | sleep 1.0
-::
-
-    inet:email | sleep 1.0
+.. storm-pre:: [inet:email=foo@gmail.com inet:email=bar@gmail.com inet:email=baz@gmail.com]
+.. storm-cli:: inet:email | sleep 1.0
 
 
 .. _storm-spin:
@@ -1257,19 +1221,15 @@ The ``spin`` command is used to suppress the output of a Storm query. ``Spin`` s
 - Count the number of email addresses without displaying the inet:email nodes:
 
 
-.. storm-pre:: inet:email | count | spin
-::
-
-    inet:email | count | spin
+.. 
+.. storm-cli:: inet:email | count | spin
 
 
 - Add the tag #int.research to any domain containing the string "firefox" but do not display the nodes.
 
 
-.. storm-pre:: inet:fqdn~=firefox [+#int.research] | spin
-::
-
-    inet:fqdn~=firefox [+#int.research] | spin
+.. storm-pre:: [inet:fqdn=firefoxupdata.com inet:fqdn=fakefirefox.net]
+.. storm-cli:: inet:fqdn~=firefox [+#int.research] | spin
 
 
 .. _storm-splice:
@@ -1361,19 +1321,15 @@ The ``tee`` command executes multiple Storm queries on the inbound nodes and ret
 - Return the set of domains and IP addresses associated with a set of DNS A records.
 
 
-.. storm-pre:: [inet:dns:a=(mydomain.com,1.1.1.1)] | spin | inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
-::
+.. storm-pre:: [inet:dns:a=(foo.mydomain.com,8.8.8.8) inet:dns:a=(bar.mydomain.com,34.56.78.90) inet:dns:a=(baz.mydomain.com,127.0.0.2)] 
+.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
 
-    inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
 
 
 - Return the set of domains and IP addresses associated with a set of DNS A records along with the original DNS A records.
 
 
-.. storm-pre:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
-::
-
-    inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
+.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
 
 
 **Usage Notes:**
@@ -1398,10 +1354,8 @@ The ``tree`` command recursively performs the specified pivot until no additiona
 - List the full set of tags in the "TTP" tag hierarchy.
 
 
-.. storm-pre:: [ inet:fqdn = woot.com ]
-::
-
-    syn:tag=ttp | tree { $node.value() -> syn:tag:up }
+.. storm-pre:: [syn:tag=ttp.opsec.anon syn:tag=ttp.se.masq syn:tag=ttp.phish.payload]
+.. storm-cli:: syn:tag=ttp | tree { $node.value() -> syn:tag:up }
 
 
 **Usage Notes:**
@@ -1543,11 +1497,8 @@ The ``uniq`` command removes duplicate results from a Storm query. Results are u
 
 - Lift all of the unique IP addresses that domains associated with the Fancy Bear threat group have resolved to:
 
-
-.. storm-pre:: inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
-::
-
-    inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+.. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn +#aka.threatconnect.thr.fancybear 
+.. storm-cli:: inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
 
 
 .. _storm-view:
