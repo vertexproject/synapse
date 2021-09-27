@@ -1,5 +1,7 @@
 .. highlight:: none
 
+.. storm-cortex:: default
+
 .. _storm-ref-model-introspect:
 
 Storm Reference - Model Introspection
@@ -37,85 +39,63 @@ Example Queries
 - Display all current types / forms / properties:
 
 
-.. parsed-literal::
-
-    syn:type
+.. storm-cli:: syn:type | limit 2
 
 
 
-.. parsed-literal::
-
-    syn:form
+.. storm-cli:: syn:form | limit 2
 
 
 
-.. parsed-literal::
-
-    syn:prop
+.. storm-cli:: syn:prop | limit 2
 
 
 - Display all types that are sub-types of 'string':
 
 
-.. parsed-literal::
-
-    syn:type:subof = str
+.. storm-cli:: syn:type:subof = str | limit 2
 
 
 - Display a specific type:
 
 
-.. parsed-literal::
-
-    syn:type = inet:fqdn
+.. storm-cli:: syn:type = inet:fqdn 
 
 
 - Display a specific form:
 
 
-.. parsed-literal::
-
-    syn:form = inet:fqdn
+.. storm-cli:: syn:form = inet:fqdn
 
 
 - Display a specific property of a specific form:
 
 
-.. parsed-literal::
-
-    syn:prop = inet:ipv4:loc
+.. storm-cli:: syn:prop = inet:ipv4:loc
 
 
 - Display a specific form and all its secondary properties (including universal properties):
 
 
-.. parsed-literal::
-
-    syn:prop:form = inet:fqdn
+.. storm-cli:: syn:prop:form = inet:fqdn | limit 2
 
 
 - Display all properties whose type is ``inet:fqdn``:
 
 
-.. parsed-literal::
-
-    syn:prop:type = inet:fqdn
+.. storm-cli:: syn:prop:type = inet:fqdn | limit 2 
 
 
 - Display all forms **referenced by** a specific form (i.e., the specified form contains secondary properties that are themselves forms):
 
 
-.. parsed-literal::
-
-    syn:prop:form = inet:whois:rec :type -> syn:form
+.. storm-cli:: syn:prop:form = inet:whois:rec :type -> syn:form
 
 
 - Display all forms that **reference** a specific form (i.e., the specified form is a secondary property of another form):
 
 
-.. parsed-literal::
-
-    syn:form = inet:whois:rec -> syn:prop:type :form -> syn:form
+.. storm-cli:: syn:form = inet:whois:rec -> syn:prop:type :form -> syn:form
 
 
 Analytical Model
@@ -134,42 +114,32 @@ Example Queries
 
 - Lift a single tag:
 
-
-.. parsed-literal::
-
-    syn:tag = cno.infra.anon.tor
+.. storm-pre:: [(syn:tag=cno.infra :doc="Top-level tag for infrastructre." :title = "Infrastructure") (syn:tag=cno.infra.anon :doc = "Top-level tag for anonymization services." :title="Anonymization services") (syn:tag = cno.infra.anon.tor :doc="Various types of Tor infrastructure, including: a server representing a Tor service or the associated IP address; a host known to be a Tor node / hosting a Tor service; contact information associated with an entity responsible for a given Tor node." :title="Tor Infrastructure") (syn:tag=cno.infra.anon.vpn :doc="A server representing an anonymous VPN service, or the associated IP address. Alternately, an FQDN explicilty denoting an anonymous VPN that resolves to the associated IP." :title = "Anonymous VPN")]
+.. storm-cli:: syn:tag = cno.infra.anon.tor
 
 
 - Lift all root tags:
 
 
-.. parsed-literal::
-
-    syn:tag:depth = 0
+.. storm-cli:: syn:tag:depth = 0
 
 
 - Lift all tags one level "down" from the specified tag:
 
 
-.. parsed-literal::
-
-    syn:tag:up = cno.infra.anon
+.. storm-cli:: syn:tag:up = cno.infra.anon
 
 
 - Lift all tags that start with a given prefix, regardless of depth:
 
 
-.. parsed-literal::
-
-    syn:tag ^= cno.infra
+.. storm-cli:: syn:tag ^= cno.infra
 
 
 - Lift all tags that share the same base (rightmost) element:
 
-
-.. parsed-literal::
-
-    syn:tag:base = sofacy
+.. storm-pre:: [(syn:tag=rep.uscert.sofacy :doc="Indicator or activity uscert calls (or associates with) sofacy." :title="sofacy(uscert)") (syn:tag=rep.talos.sofacy :doc="Indicator or activity talos calls (or associates with) sofacy." :title="sofacy(talos)")]
+.. storm-cli:: syn:tag:base = sofacy
 
 
 
