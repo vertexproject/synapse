@@ -445,11 +445,10 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 
 **Example:**
 
-- Lift the node with node ID d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849:
+- Lift the node with node ID 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f:
 
 
 .. storm-cli:: iden d7fb3ae625e295c9279c034f5d91a7ad9132c79a9c2b16eecffc8d1609d75849
-
 
 
 **Usage Notes:**
@@ -1497,7 +1496,7 @@ The ``uniq`` command removes duplicate results from a Storm query. Results are u
 
 - Lift all of the unique IP addresses that domains associated with the Fancy Bear threat group have resolved to:
 
-.. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn +#aka.threatconnect.thr.fancybear 
+.. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn [+#aka.threatconnect.thr.fancybear ]
 .. storm-cli:: inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
 
 
