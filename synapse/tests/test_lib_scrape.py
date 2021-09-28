@@ -171,6 +171,30 @@ rrrrrrrrrrrrrrrrrNAMEtxvNvQ
 rrrrrrrrrrrrrrrrrrrn5RM1rHd
 '''
 
+substrate_addresses = '''
+# This is a DOT address
+12uxb9baJaiHhCvMzijnCYbkiXpGQ24jhj4AmhNvrMEzWuoV
+1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg
+
+# KSM addresses
+JL1eTcbzuZP99FjeySkDrMygNREPdbhRyV7iD5AsV4fDRcg
+CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp
+
+# This is a generic substrate address - we don't scrape these
+5DyfSpLWSoSpFfur35gn4PmbrupchiWbdEKgcQPaJGDULHGd
+
+# invalid addresses
+1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fh
+CxDDSH8gS7jecsxaRL8Txf8H5kqesLXAEAEgp76Yz632J9M
+pjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp
+EVH78gP5ATklKjHonVpxM8c1W6rWPKn5cAS14fXn4Ry5NxK
+
+# random addresses
+2q5qF1LqDpINWGC1JJaCzmPQMGPZPKQ76f2XqzxMBjwmadxW
+jRaQ6PPzcqNnckcLStwqrTjEvpKnJUP2Jw65Ut36LQQUycd
+4dFhts6694CTKKV4btQdnzB3yzxrNcjUVaztvJXmX8eYeXox
+'''
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
@@ -285,7 +309,16 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrNAMEtxvNvQ')))
         nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrn5RM1rHd')))
 
-        pprint(nodes)
+        nodes = list(s_scrape.scrape(substrate_addresses))
+        self.len(4, nodes)
+        nodes.remove(('crypto:current:address',
+                      ('dot', '12uxb9baJaiHhCvMzijnCYbkiXpGQ24jhj4AmhNvrMEzWuoV')))
+        nodes.remove(('crypto:current:address',
+                      ('dot', '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg')))
+        nodes.remove(('crypto:current:address',
+                      ('ksm', 'JL1eTcbzuZP99FjeySkDrMygNREPdbhRyV7iD5AsV4fDRcg')))
+        nodes.remove(('crypto:current:address',
+                      ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)

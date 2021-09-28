@@ -8,6 +8,7 @@ import bitcoin
 import bitcoin.bech32 as bitcoin_b32
 import cashaddress.convert as cashaddr_convert  # BCH support
 import xrpl.core.addresscodec as xrp_addresscodec  # xrp support
+import substrateinterface.utils.ss58 as substrate_ss58  # polkadot support
 
 import synapse.data as s_data
 import synapse.common as s_common
@@ -135,7 +136,6 @@ def xrp_check(match: regex.Match):
     text = match.groupdict().get('valu')
     if xrp_addresscodec.is_valid_classic_address(text) or xrp_addresscodec.is_valid_xaddress(text):
         return ('xrp', text)
-    logger.warning(f'invalid {text}')
     return None
 
 def fqdn_prefix(match: regex.Match):
@@ -145,6 +145,20 @@ def fqdn_prefix(match: regex.Match):
     if prefix is not None:
         valu = valu.rstrip(inverse_prefixs.get(prefix))
     return valu
+
+def substrate_check(match: regex.Match):
+    text = match.groupdict().get('valu')
+    prefix = text[0]  # str
+    if prefix == '1' and substrate_ss58.is_valid_ss58_address(text, valid_ss58_format=0):
+        # polkadot
+        return ('dot', text)
+    elif prefix.isupper() and substrate_ss58.is_valid_ss58_address(text, valid_ss58_format=2):
+        # kusuma
+        return ('ksm', text)
+    else:
+        # Do nothing with generic substrate matches
+        # Generic substrate addresses are checked with valid_ss58_format=42
+        return None
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
@@ -169,6 +183,8 @@ scrape_types = [  # type: ignore
      {'callback': bch_check}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[xr][a-zA-HJ-NP-Z0-9]{25,46})(?:[^A-Za-z0-9]|$))',
      {'callback': xrp_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1a-z][a-zA-HJ-NP-Z0-9]{46,47})(?:[^A-Za-z0-9]|$))',
+     {'callback': substrate_check}),
 ]
 
 _regexes = collections.defaultdict(list)
