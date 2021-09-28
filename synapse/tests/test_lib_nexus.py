@@ -1,4 +1,6 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
+import synapse.cortex as s_cortex
 
 import synapse.lib.nexus as s_nexus
 import synapse.tests.utils as s_t_utils
@@ -139,6 +141,24 @@ class NexusTest(s_t_utils.SynTest):
                         self.eq('foo', await nexus2.doathing2(eventdict))
                         self.eq(2, eventdict.get('happened'))
                         self.eq(3, eventdict.get('gotindex'))
+
+    async def test_nexus_migration(self):
+        with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
+            slabsize00 = s_common.getDirSize(regrdirn)
+            async with await s_cortex.Cortex.anit(regrdirn) as core00:
+                slabsize01 = s_common.getDirSize(regrdirn)
+                # Ensure that realsize hasn't grown wildly. That would be indicative
+                # of a sparse file copy and not a directory move.
+                self.lt(slabsize01[0], 3 * slabsize00[0])
+
+                nexsindx = await core00.getNexsIndx()
+                layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
+                self.eq(nexsindx, layrindx)
+
+                retn = await core00.nexsroot.nexslog.get(0)
+                self.nn(retn)
+                self.eq([0], core00.nexsroot.nexslog._ranges)
+                await self.agenlen(53, core00.nexsroot.nexslog.iter(0))
 
     async def test_nexus_setindex(self):
 

@@ -786,6 +786,9 @@ class Node:
         await self.snap.applyNodeEdit((self.buid, formname, edits))
         self.snap.livenodes.pop(self.buid, None)
 
+    async def hasData(self, name):
+        return await self.snap.hasNodeData(self.buid, name)
+
     async def getData(self, name):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:

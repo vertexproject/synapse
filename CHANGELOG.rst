@@ -5,6 +5,78 @@ Synapse Changelog
 *****************
 
 
+v2.62.1 - 2021-09-22
+====================
+
+Bugfixes
+--------
+- Fix an issue in the Nexus log V1 to V2 migration code which resulted in
+  LMDB file copies being made instead of having directories renamed. This can
+  result in a sparse file copy of the Nexus log, resulting in a condition
+  where the volume containing the Cell directory may run out of space.
+  (`#2374 <https://github.com/vertexproject/synapse/pull/2374>`_)
+
+
+v2.62.0 - 2021-09-21
+====================
+
+Features and Enhancements
+-------------------------
+- Add APIs to support trimming, rotating and culling Nexus logs from Cells
+  with Nexus logging enabled. These operations are distributed to downstream
+  consumers, of the Nexus log (e.g. mirrors). For the Cortex, this can be
+  invoked in Storm with the ``$lib.cell.trimNexsLog()`` Stormtypes API. The
+  Cortex devops documentation contains more information about Nexus log
+  rotation.
+  (`#2339 <https://github.com/vertexproject/synapse/pull/2339>`_)
+  (`#2371 <https://github.com/vertexproject/synapse/pull/2371>`_)
+- Add ``.size()`` API to the Stormtypes ``storm:query`` object. This will run
+  the query and return the number of nodes it would have yielded.
+  (`#2363 <https://github.com/vertexproject/synapse/pull/2363>`_)
+
+Improved Documentation
+----------------------
+- Document the tag glob meanings on the Stormtypes ``$node.tags()`` API.
+  (`#2368 <https://github.com/vertexproject/synapse/pull/2368>`_)
+
+
+v2.61.0 - 2021-09-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``!export`` command to the Storm CLI to save query results to a
+  ``.nodes`` file.
+  (`#2356 <https://github.com/vertexproject/synapse/pull/2356>`_)
+- Add ``$lib.cell.hotFixesCheck()`` and ``$lib.cell.hotFixesApply()``
+  Stormtypes functions. These can be used to apply optional hotfixes to a
+  Cortex on demand by an admin.
+  (`#2348 <https://github.com/vertexproject/synapse/pull/2348>`_)
+- Add ``$lib.infosec.cvss.calculateFromProps()`` to allow calculating a CVSS
+  score from a dictionary of CVSS properties.
+  (`#2353 <https://github.com/vertexproject/synapse/pull/2353>`_)
+- Add ``$node.data.has()`` API to Stormtypes to allow easy checking if a node
+  has nodedata for a given name.
+  (`#2350 <https://github.com/vertexproject/synapse/pull/2350>`_)
+
+Bugfixes
+--------
+- Fix for large return values with ``synapse.lib.coro.spawn()``.
+  (`#2355 <https://github.com/vertexproject/synapse/pull/2355>`_)
+- Fix ``synapse.lib.scrape.scrape()`` capturing various common characters used
+  to enclose URLs.
+  (`#2352 <https://github.com/vertexproject/synapse/pull/2352>`_)
+- Ensure that generators being yielded from are always being closed.
+  (`#2358 <https://github.com/vertexproject/synapse/pull/2358>`_)
+- Fix docstring for ``str.upper()`` in Stormtypes.
+  (`#2354 <https://github.com/vertexproject/synapse/pull/2354>`_)
+
+Improved Documentation
+----------------------
+- Add link to the Power-Ups blog post from the Cortex dev-ops documentation.
+  (`#2357 <https://github.com/vertexproject/synapse/pull/2357>`_)
+
+
 v2.60.0 - 2021-09-07
 ====================
 
@@ -14,7 +86,6 @@ Features and Enhancements
   ``attacker``, ``compromise``, and ``target`` secondary properties to the
   ``risk:attack`` form.
   (`#2348 <https://github.com/vertexproject/synapse/pull/2348>`_)
-
 
 Bugfixes
 --------

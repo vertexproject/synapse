@@ -11,6 +11,9 @@ import synapse.tests.utils as s_t_utils
 
 class SlabSeqn(s_t_utils.SynTest):
 
+    def chk_size(self, seqn):
+        self.eq(seqn.stat()['entries'], seqn.size)
+
     async def test_slab_seqn(self):
 
         with self.getTestDir() as dirn:
@@ -19,12 +22,14 @@ class SlabSeqn(s_t_utils.SynTest):
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000)
 
             seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
+            self.chk_size(seqn)
 
             self.eq(seqn.nextindx(), 0)
             items = ('foo', 10, 20)
             seqn.save(items)
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
+            self.chk_size(seqn)
 
             self.raises(s_exc.NotMsgpackSafe, seqn.save, ({'set'},))
             retn = tuple(seqn.iter(0))
@@ -39,6 +44,7 @@ class SlabSeqn(s_t_utils.SynTest):
 
             seqn = s_slabseqn.SlabSeqn(slab, 'seqn:test')
             self.eq(seqn.index(), 3)
+            self.chk_size(seqn)
 
             self.eq(seqn.nextindx(), 3)
             seqn.save(items)
@@ -66,6 +72,7 @@ class SlabSeqn(s_t_utils.SynTest):
             seqn.save(items)
             retn = tuple(seqn.iter(0))
             self.len(9, retn)
+            self.chk_size(seqn)
 
             self.eq('foo', seqn.getByIndxByts(b'\x00' * 8))
 
@@ -97,6 +104,7 @@ class SlabSeqn(s_t_utils.SynTest):
 
             self.eq((0, 'foo'), seqn.pop(0))
             self.none(seqn.pop(0))
+            self.chk_size(seqn)
 
             async def getter():
                 retn = []
@@ -113,7 +121,26 @@ class SlabSeqn(s_t_utils.SynTest):
             self.eq(((8, 20), (9, 'bar')), await asyncio.wait_for(task, timeout=3))
 
             await seqn.cull(8)
+            self.chk_size(seqn)
 
             self.eq(((9, 'bar'), (10, None)), [x async for x in seqn.gets(8, wait=False)])
+
+            # overwrite existing
+            seqn.add('baz', indx=9)
+            self.chk_size(seqn)
+
+            # no oldv for smaller indx
+            seqn.add('bam', indx=8)
+            self.chk_size(seqn)
+
+            # append indx
+            seqn.add('faz', indx=15)
+            self.chk_size(seqn)
+
+            await seqn.cull(14)
+            self.chk_size(seqn)
+
+            seqn.trim(0)
+            self.chk_size(seqn)
 
             await slab.fini()

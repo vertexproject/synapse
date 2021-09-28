@@ -636,6 +636,30 @@ class StormTypesTest(s_test.SynTest):
             self.eq(fires[0][1].get('data').get('q'),
                     "$lib.print('fire in the hole')")
 
+            q = '''
+            $q=${ [test:int=1 test:int=2] }
+            return($q.size())
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q=${ [test:int=1 test:int=2] return($node.value()) }
+            return($q.size())
+            '''
+            self.eq(0, await core.callStorm(q))
+
+            q = '''
+            $q=${ [test:int=1 test:int=2] fini { return($lib.null) } }
+            return($q.size())
+            '''
+            self.eq(2, await core.callStorm(q))
+
+            q = '''
+            $q=${ [test:int=1 test:int=2 test:int=3] }
+            return($q.size(limit=2))
+            '''
+            self.eq(2, await core.callStorm(q))
+
     async def test_storm_lib_node(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:str=woot :tick=2001] [ test:int=$node.isform(test:str) ] +test:int')
@@ -1603,6 +1627,10 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('root', mesgs)
             self.eq(core.auth.rootuser.iden, await core.callStorm('return($lib.user.iden)'))
 
+            msgs = await core.stormlist('$lib.print($lib.auth.users.list().0)')
+            self.stormIsInPrint('storm:auth:user', msgs)
+            self.stormIsInPrint("'name': 'root'", msgs)
+
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -1660,7 +1688,7 @@ class StormTypesTest(s_test.SynTest):
                     }
                     '''
                     mesgs = await s_test.alist(prox.storm(listq))
-                    self.len(3, [m for m in mesgs if m[0] == 'print'])
+                    self.len(3 + 1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
@@ -2208,6 +2236,76 @@ class StormTypesTest(s_test.SynTest):
             prints = [x for x in msgs if x[0] == 'print']
             self.len(10, prints)
             self.stormIsInPrint("#5 work status is None", msgs)
+
+            # has
+            q = '''
+            [ test:int=10 ]
+            $node.data.set(data:key, $lib.false)
+            if $node.data.has(lol:nope) {
+                $lib.print("But How?")
+            } else {
+                $lib.print("Working")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
+
+            q = '''
+            [ test:int=27 ]
+            $node.data.set(data:key, $lib.null)
+            if $node.data.has(data:key) {
+                $lib.print("Working")
+            } else {
+                $lib.print("Failure")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
+
+            q = '''
+            test:int=27
+            if ($node.data.has(data:key) = $lib.true) {
+                $lib.print("Working")
+            } else {
+                $lib.print("Failure")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
+
+            q = '''
+            test:int=10
+            if ($node.data.has(lol:nope) = $lib.false) {
+                $lib.print("Working")
+            } else {
+                $lib.print("Failure")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
+
+            q = '''
+            $count = (0)
+            for $int in $lib.lift.byNodeData(lol:nope) {
+                $count = ($count + 1)
+            }
+            $lib.print("Count: {c}", c=$count)
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Count: 0", msgs)
+
+            q = '[test:int=127] $node.data.set(neato:key, $lib.false)'
+            await core.nodes(q)
+            q = '''
+            test:int=127
+            if ($node.data.has(neato:key) = $lib.true) {
+                $lib.print("Working")
+            } else {
+                $lib.print("Failure")
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("Working", msgs)
 
     async def test_storm_lib_bytes(self):
 
