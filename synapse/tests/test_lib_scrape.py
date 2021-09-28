@@ -195,6 +195,25 @@ jRaQ6PPzcqNnckcLStwqrTjEvpKnJUP2Jw65Ut36LQQUycd
 4dFhts6694CTKKV4btQdnzB3yzxrNcjUVaztvJXmX8eYeXox
 '''
 
+cardano_addresses = '''
+# byron - icarus style
+Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi
+Ae2tdPwUPEYzs5BRbGcoS3DXvK8mwgggmESz4HqUwMyaS9eNksZGz1LMS9v
+Ae2tdPwUPEYxYNJw1He1esdZYvjmr4NtPzUsGTiqL9zd8ohjZYQcwu6kom7
+# byron - daedalus style
+DdzFFzCqrhtCNjPk5Lei7E1FxnoqMoAYtJ8VjAWbFmDb614nNBWBwv3kt6QHJa59cGezzf6piMWsbK7sWRB5sv325QqWdRuusMqqLdMt
+DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTg
+# shelly era
+addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w
+addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4
+
+# Newp
+Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAX
+DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTX
+addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80X
+addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
+'''
+
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
@@ -319,6 +338,25 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('ksm', 'JL1eTcbzuZP99FjeySkDrMygNREPdbhRyV7iD5AsV4fDRcg')))
         nodes.remove(('crypto:current:address',
                       ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
+
+        nodes = list(s_scrape.scrape(cardano_addresses))
+        self.len(7, nodes)
+        nodes.remove(('crypto:current:address',
+                      ('ada', 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
+        nodes.remove(('crypto:current:address',
+                      ('ada', 'Ae2tdPwUPEYzs5BRbGcoS3DXvK8mwgggmESz4HqUwMyaS9eNksZGz1LMS9v')))
+        nodes.remove(('crypto:current:address',
+                      ('ada', 'Ae2tdPwUPEYxYNJw1He1esdZYvjmr4NtPzUsGTiqL9zd8ohjZYQcwu6kom7')))
+        nodes.remove(('crypto:current:address',
+                      ('ada',
+                       'DdzFFzCqrhtCNjPk5Lei7E1FxnoqMoAYtJ8VjAWbFmDb614nNBWBwv3kt6QHJa59cGezzf6piMWsbK7sWRB5sv325QqWdRuusMqqLdMt')))
+        nodes.remove(('crypto:current:address',
+                      ('ada',
+                       'DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTg')))
+        nodes.remove(('crypto:current:address',
+                      ('ada', 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
+        nodes.remove(('crypto:current:address',
+                      ('ada', 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)

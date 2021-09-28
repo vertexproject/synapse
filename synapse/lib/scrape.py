@@ -2,16 +2,11 @@ import logging
 import collections
 
 import regex
-import base58
-import _pysha3  # do not import the sha3 library directly.
-import bitcoin
-import bitcoin.bech32 as bitcoin_b32
-import cashaddress.convert as cashaddr_convert  # BCH support
-import xrpl.core.addresscodec as xrp_addresscodec  # xrp support
-import substrateinterface.utils.ss58 as substrate_ss58  # polkadot support
 
 import synapse.data as s_data
-import synapse.common as s_common
+
+import synapse.lib.crypto.coin as s_coin
+
 
 logger = logging.getLogger(__name__)
 
@@ -47,98 +42,7 @@ inverse_prefixs = {
 }
 
 
-re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
-
-
-def btc_bech32(match: regex.Match):
-    text = match.groupdict().get('valu')
-    prefix, _ = text.split('1', 1)
-    prefix = prefix.lower()
-    if prefix == 'bc':
-        bitcoin.SelectParams('mainnet')
-    elif prefix == 'tb':
-        bitcoin.SelectParams('testnet')
-    elif prefix == 'bcrt':
-        bitcoin.SelectParams('regtest')
-    else:  # pragma: no cover
-        raise ValueError(f'Unknown prefix {text}')
-    try:
-        _ = bitcoin_b32.CBech32Data(text)
-    except bitcoin_b32.Bech32Error:
-        return None
-    # The proper form of a bech32 address is lowercased. We do not want to verify
-    # a mixed case form, so lowercase it prior to returning.
-    return ('btc', text.lower())
-
-def btc_base58(match: regex.Match):
-    text = match.groupdict().get('valu')
-    # FIXME - Replace this with base58 decoding from bitcoin library
-    try:
-        base58.b58decode_check(text)
-    except ValueError:
-        return None
-    return ('btc', text)
-
-def ether_eip55(body: str):
-    # From EIP-55 reference implementation
-    addr_byts = s_common.uhex(body)
-    hex_addr = addr_byts.hex()
-    checksummed_buffer = ""
-    hashed_address = _pysha3.keccak_256(hex_addr.encode()).hexdigest()
-
-    for nibble_index, character in enumerate(hex_addr):
-        if character in "0123456789":
-            # We can't upper-case the decimal digits
-            checksummed_buffer += character
-        elif character in "abcdef":
-            # Check if the corresponding hex digit (nibble) in the hash is 8 or higher
-            hashed_address_nibble = int(hashed_address[nibble_index], 16)
-            if hashed_address_nibble > 7:
-                checksummed_buffer += character.upper()
-            else:
-                checksummed_buffer += character
-        else:
-            return None
-
-    return "0x" + checksummed_buffer
-
-def eth_check(match: regex.Match):
-    text = match.groupdict().get('valu')
-    prefix, body = text.split('x')  # type: str, str
-    # Checksum if we're mixed case or not
-    if not body.isupper() and not body.islower():
-
-        ret = ether_eip55(body)
-        if ret is None:
-            return None
-
-        if ret != text:
-            return None
-
-        return ('eth', text)
-    # any valid 0x<40 character> hex string is possibly a ETH address.
-    return ('eth', text.lower())
-
-def bch_check(match: regex.Match):
-    text = match.groupdict().get('valu')
-    # Checksum if we're mixed case or not
-    prefix, body = text.split(':', 1)
-    if not body.isupper() and not body.islower():
-        return None
-    try:
-        cashaddr_convert.Address._cash_string(text)
-    except:
-        return None
-    text = text.lower()
-    return ('bch', text)
-
-def xrp_check(match: regex.Match):
-    text = match.groupdict().get('valu')
-    if xrp_addresscodec.is_valid_classic_address(text) or xrp_addresscodec.is_valid_xaddress(text):
-        return ('xrp', text)
-    return None
-
-def fqdn_prefix(match: regex.Match):
+def fqdn_prefix_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
     prefix = mnfo.get('prefix')
@@ -146,24 +50,13 @@ def fqdn_prefix(match: regex.Match):
         valu = valu.rstrip(inverse_prefixs.get(prefix))
     return valu
 
-def substrate_check(match: regex.Match):
-    text = match.groupdict().get('valu')
-    prefix = text[0]  # str
-    if prefix == '1' and substrate_ss58.is_valid_ss58_address(text, valid_ss58_format=0):
-        # polkadot
-        return ('dot', text)
-    elif prefix.isupper() and substrate_ss58.is_valid_ss58_address(text, valid_ss58_format=2):
-        # kusuma
-        return ('ksm', text)
-    else:
-        # Do nothing with generic substrate matches
-        # Generic substrate addresses are checked with valid_ss58_format=42
-        return None
+
+re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
-     {'callback': fqdn_prefix}),
+     {'callback': fqdn_prefix_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
     ('inet:ipv4', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))', {}),
@@ -172,19 +65,23 @@ scrape_types = [  # type: ignore
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
-     {'callback': btc_base58}),
+     {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
-     {'callback': btc_base58}),
+     {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|bcrt|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
-     {'callback': btc_bech32}),
+     {'callback': s_coin.btc_bech32_check}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>0x[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))',
-     {'callback': eth_check}),
+     {'callback': s_coin.eth_check}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bitcoincash|bchtest):[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{42})(?:[^A-Za-z0-9]|$))',
-     {'callback': bch_check}),
+     {'callback': s_coin.bch_check}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[xr][a-zA-HJ-NP-Z0-9]{25,46})(?:[^A-Za-z0-9]|$))',
-     {'callback': xrp_check}),
+     {'callback': s_coin.xrp_check}),
     ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1a-z][a-zA-HJ-NP-Z0-9]{46,47})(?:[^A-Za-z0-9]|$))',
-     {'callback': substrate_check}),
+     {'callback': s_coin.substrate_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(DdzFF|Ae2td)[a-zA-HJ-NP-Z0-9]{54,99})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.cardano_byron_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>addr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{53})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.cardano_shelly_check}),
 ]
 
 _regexes = collections.defaultdict(list)

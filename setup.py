@@ -101,6 +101,7 @@ setup(
         'cashaddress==1.0.6',
         'xrpl-py==1.1.1',
         'substrate-interface==1.0.0',
+        'cbor==1.0.0',
     ],
 
     extras_require={
