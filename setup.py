@@ -102,6 +102,7 @@ setup(
         'xrpl-py==1.1.1',
         'substrate-interface==1.0.0',
         'cbor==1.0.0',
+        'bech32==1.2.0',
     ],
 
     extras_require={
