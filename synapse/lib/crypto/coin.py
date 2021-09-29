@@ -9,7 +9,7 @@ import _pysha3  # do not import the sha3 library directly.
 import bitcoin  # btc
 import bitcoin.bech32 as bitcoin_b32  # btc
 import cashaddress.convert as cashaddr_convert  # BCH support
-import xrpl.core.addresscodec as xrp_addresscodec  # xrp support
+import synapse.vendor.xrpl.core.addresscodec as xrp_addresscodec  # xrp support
 import substrateinterface.utils.ss58 as substrate_ss58  # polkadot support
 
 import synapse.common as s_common
