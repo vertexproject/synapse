@@ -100,7 +100,7 @@ setup(
         'pysha3==1.0.2',
         'cashaddress==1.0.6',
         'typing-extensions==3.7.4',
-        'substrate-interface==1.0.0',
+        'scalecodec==1.0.2',
         'cbor==1.0.0',
         'bech32==1.2.0',
     ],
