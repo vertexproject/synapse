@@ -13,6 +13,8 @@ Features and Enhancements
 - Add a ``risk:attacktype`` taxonomy to the risk model. Add ``:desc`` and
   ``:type`` properties to the ``risk:attack`` form.
   (`#2386 <https://github.com/vertexproject/synapse/pull/2386>`_)
+- Add ``:path`` property to the ``it:prod:softfile`` form.
+  (`#2388 <https://github.com/vertexproject/synapse/pull/2388>`_)
 
 Bugfixes
 --------
