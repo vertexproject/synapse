@@ -21,6 +21,10 @@ class RiskModule(s_module.CoreModule):
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
+                ('risk:attacktype', ('taxonomy', {}), {
+                    'doc': 'An attack type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('risk:compromisetype', ('taxonomy', {}), {
                     'doc': 'A compromise type taxonomy.',
                     'ex': 'cno.breach',
@@ -234,7 +238,16 @@ class RiskModule(s_module.CoreModule):
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
                 )),
+                ('risk:attacktype', {}, ()),
                 ('risk:attack', {}, (
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the attack.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('type', ('risk:attacktype', {}), {
+                        'ex': 'cno.phishing',
+                        'doc': 'The attack type.',
+                    }),
                     ('time', ('time', {}), {
                         'doc': 'Set if the time of the attack is known.',
                     }),

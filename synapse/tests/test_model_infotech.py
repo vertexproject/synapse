@@ -498,9 +498,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('host'), host0)
                 self.eq(node.get('softver'), ver0)
 
-                softfile = await snap.addNode('it:prod:softfile', (ver0, file0))
+                softfileprops = {'path': '/path/to/nowhere'}
+                softfile = await snap.addNode('it:prod:softfile', (ver0, file0), props=softfileprops)
                 self.eq(softfile.get('soft'), ver0)
                 self.eq(softfile.get('file'), f'sha256:{file0}')
+                self.eq('/path/to/nowhere', softfile.get('path'))
+                self.len(1, await core.nodes('it:prod:softfile -> file:path'))
 
                 ver1 = s_common.guid()
                 softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))
