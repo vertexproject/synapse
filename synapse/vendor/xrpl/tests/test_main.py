@@ -1,6 +1,6 @@
-import synapse.vendor.tests.utils as s_v_utils
+import synapse.vendor.utils as s_v_utils
 
-from synapse.vendor.tests.xrpl.test_main_test_cases import test_cases
+from synapse.vendor.xrpl.tests.test_main_test_cases import test_cases
 from synapse.vendor.xrpl.core import addresscodec
 from synapse.vendor.xrpl.core.addresscodec.main import MAX_32_BIT_UNSIGNED_INT
 

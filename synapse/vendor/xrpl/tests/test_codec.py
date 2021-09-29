@@ -1,4 +1,4 @@
-import synapse.vendor.tests.utils as s_v_utils
+import synapse.vendor.utils as s_v_utils
 
 from synapse.vendor.xrpl.constants import CryptoAlgorithm
 from synapse.vendor.xrpl.core import addresscodec
