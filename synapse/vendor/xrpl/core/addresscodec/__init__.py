@@ -1,4 +1,5 @@
 """Functions for encoding and decoding XRP Ledger addresses and seeds."""
+# It has been modified for vendored imports.
 from synapse.vendor.xrpl.core.addresscodec.codec import (
     SEED_LENGTH,
     decode_account_public_key,

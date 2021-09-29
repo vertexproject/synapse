@@ -13,6 +13,7 @@
 # -----------------------------------------------------------------------------------------------------------------------0
 #
 # The vendored library is a subset of the xrpl-py v1.1.1 library for the purposes of Cryptocurrency address validation.
+# It has been modified for vendored imports.
 # '''
 
 from synapse.vendor.xrpl import core

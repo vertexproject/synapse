@@ -1,5 +1,5 @@
 """This module encodes and decodes various types of base58 encodings."""
-
+# It has been modified for vendored imports.
 from typing import Dict, List, Tuple
 
 import base58

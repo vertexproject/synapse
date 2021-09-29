@@ -1,5 +1,5 @@
 """This module handles everything related to X-Addresses."""
-
+# It has been modified for vendored imports.
 from typing import Optional, Tuple
 
 import base58

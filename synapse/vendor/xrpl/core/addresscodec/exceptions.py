@@ -1,4 +1,5 @@
 """General XRPL Address Codec Exceptions."""
+# It has been modified for vendored imports.
 from synapse.vendor.xrpl.constants import XRPLException
 
 
