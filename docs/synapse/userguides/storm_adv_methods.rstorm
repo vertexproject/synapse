@@ -35,13 +35,11 @@ $node
 - Print the value of ``$node`` for an ``inet:dns:a`` node:
 
 .. storm-pre:: [inet:dns:a=(woot.com,54.173.9.236) .seen=("2016/12/28 20:46:31.000","2016/12/28 20:46:31.001")]
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236)
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node) | spin
 
 - Print the value of ``$node`` for an ``inet:fqdn`` node with tags present:
 
 .. storm-pre:: [inet:fqdn=aunewsonline.com +#aka.feye.thr.apt1 +#cno.infra.sink.hole.kleissner=(2013/11/26,2016/11/26)]
-.. storm-cli:: inet:fqdn=aunewsonline.com
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node) | spin
 
 .. NOTE::
@@ -105,14 +103,12 @@ See :ref:`meth-node-tags` to access full tags (vs. tag substrings).
 
 - Print the set of top-level (root) tags from any tags applied to the current node:
 
-.. storm-cli:: inet:fqdn=aunewsonline.com
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags("*")) | spin
 
 
 - Print the list of numbers associated with any threat group tags applied to the current node:
 
 .. storm-pre:: [inet:fqdn=aunewsonline.com  +#aka.symantec.thr.commentcrew +#cno.threat.t83.tc +#foo.bar.baz +#faz.baz +#foo.derp]
-.. storm-cli:: inet:fqdn=aunewsonline.com 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.globtags(cno.threat.t*)) | spin
 
 
@@ -247,7 +243,6 @@ See :ref:`meth-node-globtags` to access tag substrings (vs. full tags).
 - Print the list of all tags associated with an ``inet:fqdn`` node:
 
 
-.. storm-cli:: inet:fqdn=aunewsonline.com 
 .. storm-cli:: inet:fqdn=aunewsonline.com $lib.print($node.tags()) | spin
 
 
