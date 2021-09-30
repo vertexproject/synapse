@@ -1058,6 +1058,8 @@ class ItModule(s_module.CoreModule):
 
                     ('file', ('file:bytes', {}), {'ro': True,
                         'doc': 'The file distributed by the software.'}),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The default installation path of the file.'}),
                 )),
 
                 ('it:hostsoft', {}, (

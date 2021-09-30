@@ -34,6 +34,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :success=true
                     :targeted=true
                     :goal=*
+                    :type=foo.bar
+                    :desc=wootwoot
                     :campaign={camp}
                     :prev={attk}
                     :actor:org={org0}
@@ -58,6 +60,8 @@ class RiskModelTest(s_t_utils.SynTest):
             ]''')
             self.eq(node.ndef, ('risk:attack', attk))
             self.eq(node.get('time'), 1580601600000)
+            self.eq(node.get('desc'), 'wootwoot')
+            self.eq(node.get('type'), 'foo.bar.')
             self.eq(node.get('success'), True)
             self.eq(node.get('targeted'), True)
             self.eq(node.get('campaign'), camp)
@@ -82,6 +86,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('goal'))
             self.nn(node.get('target'))
             self.nn(node.get('attacker'))
+
+            self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
 
             node = await addNode(f'''[
                     risk:vuln={vuln}

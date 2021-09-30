@@ -5,6 +5,24 @@ Synapse Changelog
 *****************
 
 
+v2.63.0 - 2021-09-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``risk:attacktype`` taxonomy to the risk model. Add ``:desc`` and
+  ``:type`` properties to the ``risk:attack`` form.
+  (`#2386 <https://github.com/vertexproject/synapse/pull/2386>`_)
+- Add ``:path`` property to the ``it:prod:softfile`` form.
+  (`#2388 <https://github.com/vertexproject/synapse/pull/2388>`_)
+
+Bugfixes
+--------
+- Fix the repr for the``storm:auth:user``  Stormtype when printing a user
+  object in Storm.
+  (`#2383 <https://github.com/vertexproject/synapse/pull/2383>`_)
+
+
 v2.62.1 - 2021-09-22
 ====================
 
