@@ -2561,6 +2561,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The full text of the record.',
                             'disp': {'hint': 'text'},
                         }),
+                        ('desc', ('str', {'lower': True}), {
+                            'doc': 'Notes concerning the record.',
+                            'disp': {'hint': 'text'},
+                        }),
                         ('asn', ('inet:asn', {}), {
                             'doc': 'The associated Autonomous System Number (ASN).'
                         }),
