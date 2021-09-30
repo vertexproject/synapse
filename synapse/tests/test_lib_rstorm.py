@@ -169,6 +169,28 @@ boom8 = '''
 
 '''
 
+multiline_storm_input = '''
+.. storm-cortex:: default
+Hello
+.. storm-multiline:: QUERY="[inet:ipv4=1.4.2.3]\\n[+#test.tag]"
+.. storm:: MULTILINE=QUERY
+Bye!
+'''
+
+multiline_storm_output = '''
+Hello
+::
+
+    > [inet:ipv4=1.4.2.3]
+    [+#test.tag]
+    inet:ipv4=1.4.2.3
+            :type = unicast
+            #test.tag
+
+Bye!
+'''
+
+
 multiline00_input = '''
 A multiline secondary property.
 .. storm-cortex:: default
@@ -278,8 +300,14 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(multiline00_input.encode())
             text = await get_rst_text(path)
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
-
             self.eq(text_nocrt, multiline00_output)
+
+            path = s_common.genpath(dirn, 'multiline_input.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(multiline_storm_input.encode())
+            text = await get_rst_text(path)
+            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
+            self.eq(text_nocrt, multiline_storm_output)
 
             # http
             path = s_common.genpath(dirn, 'http.rst')
@@ -453,6 +481,13 @@ class RStormLibTest(s_test.SynTest):
             text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
 
             self.eq(text_nocrt, fix_output_for_cli(multiline00_output))
+
+            path = s_common.genpath(dirn, 'multiline_input.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(fix_input_for_cli(multiline_storm_input).encode())
+            text = await get_rst_text(path)
+            text_nocrt = '\n'.join(line for line in text.split('\n') if '.created =' not in line)
+            self.eq(text_nocrt, fix_output_for_cli(multiline_storm_output))
 
             # http
             path = s_common.genpath(dirn, 'http.rst')

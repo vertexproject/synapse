@@ -73,6 +73,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         self.core = core
         self.ctx = ctx
         self.lines = []
+        self.prefix = '    '
 
     async def runCmdLine(self, line):
         opts = self.getCmdOpts(f'storm {line}')
@@ -142,7 +143,13 @@ class StormOutput(s_cmds_cortex.StormCmd):
             yield
 
     def printf(self, mesg, addnl=True, color=None):
-        line = f'    {mesg}'
+        line = f'{self.prefix}{mesg}'
+        if '\n' in line:
+            logger.debug(f'Newline found in [{mesg}]')
+            parts = line.split('\n')
+            mesg0 = '\n'.join([self.prefix + part for part in parts[1:]])
+            line = '\n'.join((parts[0], mesg0))
+
         self.lines.append(line)
         return line
 
