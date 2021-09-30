@@ -46,7 +46,6 @@ def btc_bech32_check(match: regex.Match):
 
 def btc_base58_check(match: regex.Match):
     text = match.groupdict().get('valu')
-    # FIXME - Replace this with base58 decoding from bitcoin library
     try:
         base58.b58decode_check(text)
     except ValueError:
