@@ -279,7 +279,6 @@ Two types of examples are used below:
 
 
 .. storm-pre:: [inet:web:acct=(twitter.com,bert) :email=bert@gmail.com]
-.. storm-cli:: inet:web:acct=(twitter.com,bert) 
 .. storm-cli:: inet:web:acct=(twitter.com,bert) $user=:user $lib.print($user) | spin
     
    
@@ -294,7 +293,6 @@ Two types of examples are used below:
 - Assign the ``.seen`` universal property from a DNS A node to the variable ``$time``:
 
 .. storm-pre:: [inet:dns:a=(woot.com,1.2.3.4) .seen=("2018/11/27 03:28:14","2019/08/15 18:32:47")]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4)
 .. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen $lib.print($time) | spin
     
 
@@ -328,7 +326,6 @@ Two types of examples are used below:
 - Assign the times associated with Threat Group 20’s use of a malicious domain to the variable ``$time``:
 
 .. storm-pre:: [inet:fqdn=evildomain.com +#cno.threat.t20.tc=(2015/09/08,2017/09/08)]
-.. storm-cli:: inet:fqdn=evildomain.com 
 .. storm-cli:: inet:fqdn=evildomain.com $time=#cno.threat.t20.tc $lib.print($time) | spin
     
 
@@ -344,7 +341,6 @@ Two types of examples are used below:
 
 
 .. storm-pre:: $tagpropinfo = $lib.dict(doc="A tagprop doc.") $lib.model.ext.addTagProp(risk, (int, $lib.dict()), $tagpropinfo) [inet:fqdn=badsite.org +#rep.domaintools:risk=85]
-.. storm-cli:: inet:fqdn=badsite.org 
 .. storm-cli:: inet:fqdn=badsite.org $risk=#rep.domaintools:risk $lib.print($risk) | spin
 
 
@@ -397,7 +393,6 @@ Two types of examples are used below:
 - Assign a value to the variable ``$mytag`` using a library function (example 2):
 
 .. storm-pre:: [ file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 +#code.fam.sofacy ]
-.. storm-cli:: file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 
 .. storm-cli:: file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 for $tag in $node.tags(code.fam.*) { $malfam=$tag.split(".").index(2) $mytag=$lib.str.format("cno.mal.{malfam}", malfam=$malfam) $lib.print($mytag) } | spin
     
 
