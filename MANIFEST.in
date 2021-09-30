@@ -1,3 +1,4 @@
 include synapse/data/*.mpk
 include synapse/lib/storm.lark
 graft synapse/tests/files
+graft synapse/vendor/*/LICENSE
