@@ -282,7 +282,6 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('btc', 'bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx')))
         self.len(0, nodes)
 
-        from pprint import pprint
         nodes = list(s_scrape.scrape(eth_addresses))
         self.len(9, nodes)
         nodes.remove(('crypto:current:address',
