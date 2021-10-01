@@ -790,7 +790,6 @@ workflows:
               only:
                 - master
 
-      # FIXME - tighten these up
       - python38_vendortests:
           filters:
             tags:
