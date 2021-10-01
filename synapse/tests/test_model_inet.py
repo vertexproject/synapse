@@ -1911,6 +1911,7 @@ class InetModelTest(s_t_utils.SynTest):
             'created': 2554858000000,
             'updated': 2554858000000,
             'text': 'this is  a bunch of \nrecord text 123123',
+            'desc': 'these are some notes\n about record 123123',
             'asn': 12345,
             'id': 'NET-10-0-0-0-1',
             'name': 'vtx',

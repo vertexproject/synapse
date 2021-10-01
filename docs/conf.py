@@ -255,9 +255,41 @@ def convert_ipynb(_):
                 took = (tock - tick) / 1000
                 print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
 
+
+def convert_rstorm(_):
+    import subprocess
+
+    import synapse
+    import synapse.common as s_common
+    abssynf = os.path.abspath(synapse.__file__)
+    synbd = os.path.split(abssynf)[0]  # Split off __init__
+    synpd = os.path.split(synbd)[0]  # split off the synapse module directory
+    env = {**os.environ, 'SYN_LOG_LEVEL': 'DEBUG'}
+
+    cwd = os.getcwd()
+    for fdir, dirs, fns in os.walk(cwd):
+        for fn in fns:
+            if fn.endswith('.rstorm'):
+
+                oname = fn.rsplit('.', 1)[0]
+                oname = oname + '.rst'
+                sfile = os.path.join(fdir, fn)
+                ofile = os.path.join(fdir, oname)
+
+                tick = s_common.now()
+
+                args = ['python', '-m', 'synapse.tools.rstorm', '--save', ofile, sfile]
+                r = subprocess.run(args, cwd=synpd, env=env)
+                assert r.returncode == 0, f'Failed to convert {sfile}'
+
+                tock = s_common.now()
+                took = (tock - tick) / 1000
+                print(f'convert_rstorm: Rstorm {fn} execution took {took} seconds.')
+
 def setup(app):
     app.connect('builder-inited', run_apidoc)
     app.connect('builder-inited', run_modeldoc)
     app.connect('builder-inited', run_confdocs)
     app.connect('builder-inited', convert_ipynb)
+    app.connect('builder-inited', convert_rstorm)
     app.connect('builder-inited', run_stormtypes)
