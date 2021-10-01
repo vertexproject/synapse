@@ -47,7 +47,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
   do_replay_test_execution:
     description: "Execute unit tests via pytest"
@@ -130,37 +130,6 @@ commands:
 
 
       - do_test_execution
-      - do_report_coverage
-
-      - store_test_results:
-          path: test-reports
-
-      - store_artifacts:
-          path: test-reports
-
-  test_steps_vendored:
-    description: "Vendored Python test steps"
-    steps:
-      - checkout
-
-      - restore_cache:
-          keys:
-            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-      - do_venv_setup
-
-      - save_cache:
-          paths:
-            - ./venv
-          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            mkdir test-reports
-            circleci tests glob synapse/vendor/*/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
-
       - do_report_coverage
 
       - store_test_results:
@@ -553,6 +522,7 @@ jobs:
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -569,6 +539,7 @@ jobs:
         environment:
           PYVERS: 3.8
           RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -611,17 +582,6 @@ jobs:
 
     steps:
       - test_steps_python_replay
-
-  python38_vendortests:
-    parallelism: 1
-    docker:
-      - image: cimg/python:3.8
-        environment:
-          SYN_VENDOR_TEST: 1
-          CODECOV_FLAG: linux_vendor
-          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
-    steps:
-      - test_steps_vendored
 
   doctests:
     parallelism: 1
@@ -790,13 +750,6 @@ workflows:
               only:
                 - master
 
-      - python38_vendortests:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              only: /.*/
-
       - gh-release/dorelease:
           requires:
             - doctests
@@ -867,4 +820,3 @@ workflows:
       - osx38
       - python37
       - python37_replay
-      - python38_vendortests
