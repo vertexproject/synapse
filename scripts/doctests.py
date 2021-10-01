@@ -74,7 +74,7 @@ def main():
     try:
         check_rstorm(docspath)
     except subprocess.CalledProcessError as e:
-        print(f'Error executing notebook: {str(e)}')
+        print(f'Error executing rstorm: {str(e)}')
         print(f'Stdout:\n{e.stdout.decode()}')
         print(f'Stderr:\n{e.stderr.decode()}')
         return 1
