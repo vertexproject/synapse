@@ -98,9 +98,8 @@ setup(
         'base58==2.1.0',
         'python-bitcoinlib==0.11.0',
         'pysha3==1.0.2',
-        'cashaddress==1.0.6',
-        'xrpl-py==1.1.1',
-        'substrate-interface==1.0.0',
+        'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
+        'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
         'cbor==1.0.0',
         'bech32==1.2.0',
     ],

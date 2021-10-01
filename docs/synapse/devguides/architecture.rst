@@ -37,6 +37,10 @@ synapse.tests
 synapse.tools
   The tools module contains various tools used to interact with the Synapse ecosystem.
 
+synapse.vendor
+  This contains third-party code and associated LICENSE files. This is for internal library use only; no external API
+  stability is guaranteed for any libraries under this module.
+
 Object hierarchies
 ==================
 
