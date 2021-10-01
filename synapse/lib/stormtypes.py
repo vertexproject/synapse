@@ -379,6 +379,7 @@ class LibPkg(Lib):
 
     async def _libPkgAdd(self, pkgdef):
         self.runt.confirm(('pkg', 'add'), None)
+        pkgdef = await toprim(pkgdef)
         await self.runt.snap.core.addStormPkg(pkgdef)
 
     async def _libPkgGet(self, name):

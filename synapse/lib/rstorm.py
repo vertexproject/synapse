@@ -15,16 +15,38 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.stormhttp as s_stormhttp
 
 import synapse.cmds.cortex as s_cmds_cortex
 
+import synapse.tools.storm as s_storm
 import synapse.tools.genpkg as s_genpkg
+
 
 re_directive = regex.compile(r'^\.\.\s(storm.*|[^:])::(?:\s(.*)$|$)')
 
 logger = logging.getLogger(__name__)
+
+
+class OutPutRst(s_output.OutPutStr):
+    '''
+    Rst specific helper for output intended to be indented
+    in RST text as a literal block.
+    '''
+    prefix = '    '
+
+    def printf(self, mesg, addnl=True):
+
+        if '\n' in mesg:
+            logger.debug(f'Newline found in [{mesg}]')
+            parts = mesg.split('\n')
+            mesg0 = '\n'.join([self.prefix + part for part in parts[1:]])
+            mesg = '\n'.join((parts[0], mesg0))
+
+        return s_output.OutPutStr.printf(self, mesg, addnl)
+
 
 class StormOutput(s_cmds_cortex.StormCmd):
     '''
@@ -51,6 +73,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
         self.core = core
         self.ctx = ctx
         self.lines = []
+        self.prefix = '    '
 
     async def runCmdLine(self, line):
         opts = self.getCmdOpts(f'storm {line}')
@@ -120,7 +143,13 @@ class StormOutput(s_cmds_cortex.StormCmd):
             yield
 
     def printf(self, mesg, addnl=True, color=None):
-        line = f'    {mesg}'
+        line = f'{self.prefix}{mesg}'
+        if '\n' in line:
+            logger.debug(f'Newline found in [{mesg}]')
+            parts = line.split('\n')
+            mesg0 = '\n'.join([self.prefix + part for part in parts[1:]])
+            line = '\n'.join((parts[0], mesg0))
+
         self.lines.append(line)
         return line
 
@@ -129,6 +158,9 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
     def _onErr(self, mesg, opts):
         # raise on err for rst
+        if self.ctx.pop('storm-fail', None):
+            s_cmds_cortex.StormCmd._onErr(self, mesg, opts)
+            return
         raise s_exc.StormRuntimeError(mesg=mesg)
 
     async def runCmdOpts(self, opts):
@@ -164,6 +196,102 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
         return '\n'.join(self.lines)
 
+class StormCliOutput(s_storm.StormCli):
+
+    async def __anit__(self, item, outp=s_output.stdout, opts=None):
+        await s_storm.StormCli.__anit__(self, item, outp, opts)
+        self.ctx = {}
+        self._print_skips.append('init')
+        self._print_skips.append('fini')
+        self._print_skips.append('prov:new')
+        self._print_skips.append('node:edits')
+        self._print_skips.append('node:edits:count')
+
+    def printf(self, mesg, addnl=True, color=None):
+        mesg = f'    {mesg}'
+        s_storm.StormCli.printf(self, mesg, addnl, color)
+
+    async def handleErr(self, mesg):
+        #  raise on err for rst
+        if self.ctx.pop('storm-fail', None):
+            await s_storm.StormCli.handleErr(self, mesg)
+            return
+        raise s_exc.StormRuntimeError(mesg=mesg)
+
+    def _printNodeProp(self, name, valu):
+        base = f'        {name} = '
+        if '\n' in valu:
+            parts = collections.deque(valu.split('\n'))
+            ws = ' ' * len(base)
+            self.printf(f'{base}{parts.popleft()}')
+            while parts:
+                part = parts.popleft()
+                self.printf(f'{ws}{part}')
+
+        else:
+            self.printf(f'{base}{valu}')
+
+    async def _mockHttp(self, *args, **kwargs):
+        info = {
+            'code': 200,
+            'body': '{}',
+        }
+
+        resp = self.ctx.get('mock-http')
+        if resp:
+            body = resp.get('body')
+
+            if isinstance(body, (dict, list)):
+                body = json.dumps(body)
+
+            info = {
+                'code': resp.get('code', 200),
+                'body': body.encode(),
+            }
+
+        return s_stormhttp.HttpResp(info)
+
+    @contextlib.contextmanager
+    def _shimHttpCalls(self, vcr_kwargs):
+        path = self.ctx.get('mock-http-path')
+        if not vcr_kwargs:
+            vcr_kwargs = {}
+
+        if path:
+            path = os.path.abspath(path)
+            # try it as json first (since yaml can load json...). if it parses, we're old school
+            # if it doesn't, either it doesn't exist/we can't read it/we can't parse it.
+            # in any of those cases, default to using vcr
+            try:
+                with open(path, 'r') as fd:
+                    byts = json.load(fd)
+            except (FileNotFoundError, json.decoder.JSONDecodeError):
+                byts = None
+
+            if not byts:
+                with vcr.use_cassette(os.path.abspath(path), **vcr_kwargs) as cass:
+                    yield cass
+                    self.ctx.pop('mock-http-path', None)
+            else:  # backwards compat
+                if not os.path.isfile(path):
+                    raise s_exc.NoSuchFile(mesg='Storm HTTP mock filepath does not exist', path=path)
+                self.ctx['mock-http'] = byts
+                with mock.patch('synapse.lib.stormhttp.LibHttp._httpRequest', new=self._mockHttp):
+                    yield
+        else:
+            yield
+
+    async def runRstCmdLine(self, text, ctx, stormopts=None):
+        self.ctx = ctx
+
+        self.printf(self.cmdprompt + text)
+
+        with self._shimHttpCalls(self.ctx.get('storm-vcr-opts')):
+
+            await self.runCmdLine(text, opts=stormopts)
+
+        return str(self.outp)
+
 @contextlib.asynccontextmanager
 async def getCell(ctor, conf):
     with s_common.getTempDir() as dirn:
@@ -189,13 +317,16 @@ class StormRst(s_base.Base):
 
         self.handlers = {
             'storm': self._handleStorm,
+            'storm-cli': self._handleStormCli,
             'storm-pkg': self._handleStormPkg,
             'storm-pre': self._handleStormPre,
             'storm-svc': self._handleStormSvc,
+            'storm-fail': self._handleStormFail,
             'storm-opts': self._handleStormOpts,
             'storm-cortex': self._handleStormCortex,
             'storm-envvar': self._handleStormEnvVar,
             'storm-expect': self._handleStormExpect,
+            'storm-multiline': self._handleStormMultiline,
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
             'storm-clear-http': self._handleStormClearHttp,
@@ -232,6 +363,7 @@ class StormRst(s_base.Base):
             text (str): A valid Storm query.
         '''
         core = self._reqCore()
+        text = self._getStormMultiline(text)
 
         self._printf('::\n')
         self._printf('\n')
@@ -239,7 +371,27 @@ class StormRst(s_base.Base):
         soutp = StormOutput(core, self.context, stormopts=self.context.get('storm-opts'))
         self._printf(await soutp.runCmdLine(text))
 
+        if self.context.pop('storm-fail', None):
+            raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
+
         self._printf('\n\n')
+
+    async def _handleStormCli(self, text):
+        core = self._reqCore()
+        outp = OutPutRst()
+        text = self._getStormMultiline(text)
+
+        self._printf('::\n')
+        self._printf('\n')
+
+        cli = await StormCliOutput.anit(item=core, outp=outp)
+
+        self._printf(await cli.runRstCmdLine(text, self.context, stormopts=self.context.get('storm-opts')))
+
+        if self.context.pop('storm-fail', None):
+            raise s_exc.StormRuntimeError(mesg='Expected a failure, but none occurred.')
+
+        self._printf('\n')
 
     async def _handleStormPkg(self, text):
         '''
@@ -277,6 +429,8 @@ class StormRst(s_base.Base):
         soutp = StormOutput(core, self.context, stormopts=stormopts)
         await soutp.runCmdLine(text)
 
+        self.context.pop('storm-fail', None)
+
     async def _handleStormSvc(self, text):
         '''
         Load a Storm service by ctor and add to the Cortex.
@@ -301,6 +455,30 @@ class StormRst(s_base.Base):
         surl = f'tcp://root:root@127.0.0.1:{port}/svc'
         await core.nodes(f'service.add {svcname} {surl}')
         await core.nodes(f'$lib.service.wait({svcname})')
+
+    async def _handleStormFail(self, text):
+        valu = json.loads(text)
+        assert valu in (True, False), f'storm-fail must be a boolean: {text}'
+        self.context['storm-fail'] = valu
+
+    def _getStormMultiline(self, text):
+        if '=' in text:
+            sentinel, key = text.split('=', 1)
+            if sentinel != 'MULTILINE':
+                return text
+            ret = self.context.get('multiline', {}).get(key)
+            assert ret is not None, f'Invalid multiline text: {text}'
+            return ret
+        return text
+
+    async def _handleStormMultiline(self, text):
+        key, valu = text.split('=', 1)
+        assert key.isupper()
+        valu = json.loads(valu)
+        assert isinstance(valu, str)
+        multi = self.context.get('multiline', {})
+        multi[key] = valu
+        self.context['multiline'] = multi
 
     async def _handleStormOpts(self, text):
         '''
