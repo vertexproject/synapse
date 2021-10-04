@@ -4,8 +4,6 @@ import synapse.common as s_common
 import synapse.models.crypto as s_m_crypto
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
-
 
 class InfotechModelTest(s_t_utils.SynTest):
 
@@ -114,6 +112,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 it:mitre:attack:software=S0100
                     :software=*
                     :name=redtree
+                    :names=("redtree alt", eviltree)
                     :desc=redtreestuff
                     :url=https://redtree.link
                     :tag=cno.mitre.s0100
@@ -124,6 +123,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
             self.nn(nodes[0].get('software'))
             self.eq(nodes[0].get('name'), 'redtree')
+            self.eq(nodes[0].get('names'), ('eviltree', 'redtree alt'))
             self.eq(nodes[0].get('desc'), 'redtreestuff')
             self.eq(nodes[0].get('tag'), 'cno.mitre.s0100')
             self.eq(nodes[0].get('url'), 'https://redtree.link')

@@ -840,6 +840,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK software.',
                     }),
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Associated names for the ATT&CK software.',
+                    }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
