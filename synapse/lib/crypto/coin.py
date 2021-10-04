@@ -54,8 +54,7 @@ def btc_base58_check(match: regex.Match):
 
 def ether_eip55(body: str):
     # From EIP-55 reference implementation
-    addr_byts = s_common.uhex(body)
-    hex_addr = addr_byts.hex()
+    hex_addr = body.lower()
     checksummed_buffer = ""
     hashed_address = _pysha3.keccak_256(hex_addr.encode()).hexdigest()
 
