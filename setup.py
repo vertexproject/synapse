@@ -100,7 +100,7 @@ setup(
         'pysha3==1.0.2',
         'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
         'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
-        'cbor==1.0.0',
+        'cbor2==5.4.1',
         'bech32==1.2.0',
     ],
 

@@ -1,7 +1,7 @@
 import logging
 import binascii
 
-import cbor  # cardano
+import cbor2  # cardano
 import regex
 import bech32  # cardano
 import base58  # btc and cardano
@@ -130,14 +130,14 @@ def cardano_byron_check(match: regex.Match):
     # Try a base58 / cbor decoding
     try:
         decoded_text = base58.b58decode(text)
-        message = cbor.loads(decoded_text)
+        message = cbor2.loads(decoded_text)
         if len(message) != 2:
             raise AssertionError('invalid length')
         csum = message[1]
         computed_checksum = binascii.crc32(message[0].value)
         if csum == computed_checksum:
             return ('ada', text)
-    except Exception as e:
+    except (ValueError, cbor2.CBORError):
         pass
     return None
 
