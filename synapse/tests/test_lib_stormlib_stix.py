@@ -9,8 +9,6 @@ import synapse.tests.utils as s_test
 
 # flake8: noqa: E501
 
-from pprint import pprint
-
 class StormlibModelTest(s_test.SynTest):
 
     def bundeq(self, bund0, bund1):

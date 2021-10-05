@@ -1,6 +1,14 @@
+import logging
+import collections
+
 import regex
 
 import synapse.data as s_data
+
+import synapse.lib.crypto.coin as s_coin
+
+
+logger = logging.getLogger(__name__)
 
 tldlist = list(s_data.get('iana.tlds'))
 
@@ -34,11 +42,21 @@ inverse_prefixs = {
 }
 
 
+def fqdn_prefix_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+    prefix = mnfo.get('prefix')
+    if prefix is not None:
+        valu = valu.rstrip(inverse_prefixs.get(prefix))
+    return valu
+
+
 re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
-    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)', {}),
+    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
+     {'callback': fqdn_prefix_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
     ('inet:ipv4', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))', {}),
@@ -46,9 +64,31 @@ scrape_types = [  # type: ignore
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.btc_base58_check}),
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.btc_base58_check}),
+    ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bc|bcrt|tb)1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{3,71})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.btc_bech32_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>0x[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.eth_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(bitcoincash|bchtest):[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{42})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.bch_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[xr][a-zA-HJ-NP-Z0-9]{25,46})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.xrp_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1a-z][a-zA-HJ-NP-Z0-9]{46,47})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.substrate_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>(DdzFF|Ae2td)[a-zA-HJ-NP-Z0-9]{54,99})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.cardano_byron_check}),
+    ('crypto:current:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>addr1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{53})(?:[^A-Za-z0-9]|$))',
+     {'callback': s_coin.cardano_shelly_check}),
 ]
 
-regexes = {name: regex.compile(rule, regex.IGNORECASE) for (name, rule, opts) in scrape_types}
+_regexes = collections.defaultdict(list)
+for (name, rule, opts) in scrape_types:
+    blob = (regex.compile(rule, regex.IGNORECASE), opts)
+    _regexes[name].append(blob)
+
 
 def refang_text(txt):
     '''
@@ -79,17 +119,23 @@ def scrape(text, ptype=None, refang=True, first=False):
     if refang:
         text = refang_text(text)
 
-    for ruletype, _, _ in scrape_types:
+    for ruletype, blobs in _regexes.items():
         if ptype and ptype != ruletype:
             continue
 
-        regx = regexes.get(ruletype)
-        for valu in regx.finditer(text):  # type: regex.Match
-            mnfo = valu.groupdict()
-            valu = mnfo.get('valu')
-            prefix = mnfo.get('prefix')
-            if prefix is not None:
-                valu = valu.rstrip(inverse_prefixs.get(prefix))
-            yield (ruletype, valu)
-            if first:
-                return
+        for (regx, opts) in blobs:
+            cb = opts.get('callback')
+
+            for valu in regx.finditer(text):  # type: regex.Match
+
+                if cb:
+                    valu = cb(valu)
+                    if valu is None:
+                        continue
+                else:
+                    mnfo = valu.groupdict()
+                    valu = mnfo.get('valu')
+
+                yield (ruletype, valu)
+                if first:
+                    return
