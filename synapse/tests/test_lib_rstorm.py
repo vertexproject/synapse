@@ -107,6 +107,12 @@ multi_rst_in_http_opts = '''
 .. storm:: $resp = $lib.inet.http.get("http://example.com") if $resp.body { $lib.print('unexpected results') } else { $lib.print($lib.str.concat('this', ' test', ' passed')) }
 '''
 
+storm_http_sadpath_callback = '''
+.. storm-cortex:: default
+.. storm-vcr-callback:: synapse.tests.test_lib_rstorm.newp
+'''
+
+
 clear_storm_opts = '''
 .. storm-cortex:: default
 .. storm-opts:: {"vars": {"foobar": "bar"}}
@@ -344,6 +350,13 @@ class RStormLibTest(s_test.SynTest):
             text = await get_rst_text(path)
             self.isin('this test passed', text)
             self.true(callback_dict.get('called'))
+
+            # Sad path test on a callback
+            path = s_common.genpath(dirn, 'http_sadpath_callback.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(storm_http_sadpath_callback.encode())
+            with self.raises(s_exc.NoSuchCtor):
+                await get_rst_text(path)
 
             # clear the current set of things
             path = s_common.genpath(dirn, 'clear_storm_opts.rst')
