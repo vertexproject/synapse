@@ -49,6 +49,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
+import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
