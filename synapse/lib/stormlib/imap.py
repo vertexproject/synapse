@@ -244,14 +244,14 @@ class ImapServer(s_stormtypes.StormType):
             Examples:
                 Mark a single messsage as deleted and expunge::
 
-                    ($ok, $valu) = $server.markDeleted("8182")
+                    ($ok, $valu) = $server.delete("8182")
 
                 Mark ranges of messages as deleted and expunge::
 
-                    ($ok, $valu) = $server.markDeleted("1:3,6:9")
+                    ($ok, $valu) = $server.delete("1:3,6:9")
             ''',
             'type': {
-                'type': 'function', '_funcname': 'markDeleted',
+                'type': 'function', '_funcname': 'delete',
                 'args': (
                     {'type': 'str', 'name': 'uid_set',
                      'desc': 'The UID message set to apply the flag to.'},
