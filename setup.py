@@ -96,6 +96,13 @@ setup(
         'fastjsonschema>=2.14.3,<2.15',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
+        'base58==2.1.0',
+        'python-bitcoinlib==0.11.0',
+        'pysha3==1.0.2',
+        'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
+        'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
+        'cbor2==5.4.1',
+        'bech32==1.2.0',
     ],
 
     extras_require={
