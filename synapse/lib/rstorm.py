@@ -565,7 +565,7 @@ class StormRst(s_base.Base):
 
     async def _handleStormVcrCallback(self, text):
         '''
-        Get a callback function as a dynmeth
+        Get a callback function as a dynlocal
         '''
         cb = s_dyndeps.getDynLocal(text)
         if cb is None:
