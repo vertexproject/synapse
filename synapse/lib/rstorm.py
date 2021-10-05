@@ -130,7 +130,11 @@ class StormOutput(s_cmds_cortex.StormCmd):
                 byts = None
 
             if not byts:
-                with vcr.use_cassette(os.path.abspath(path), **vcr_kwargs) as cass:
+                recorder = vcr.VCR(**vcr_kwargs)
+                vcrcb = self.ctx.get('storm-vcr-callback', None)
+                if vcrcb:
+                    vcrcb(recorder)
+                with recorder.use_cassette(os.path.abspath(path)) as cass:
                     yield cass
                     self.ctx.pop('mock-http-path', None)
             else:  # backwards compat
@@ -330,6 +334,7 @@ class StormRst(s_base.Base):
             'storm-mock-http': self._handleStormMockHttp,
             'storm-vcr-opts': self._handleStormVcrOpts,
             'storm-clear-http': self._handleStormClearHttp,
+            'storm-vcr-callback': self._handleStormVcrCallback,
         }
 
     async def _getCell(self, ctor, conf=None):
@@ -500,6 +505,7 @@ class StormRst(s_base.Base):
         if text == 'true':
             self.context.pop('storm-opts', None)
             self.context.pop('storm-vcr-opts', None)
+            self.context.pop('storm-vcr-callback', None)
         self.context.pop('mock-http-path', None)
         self.context.pop('mock-http', None)
 
@@ -556,6 +562,15 @@ class StormRst(s_base.Base):
         '''
         item = json.loads(text)
         self.context['storm-vcr-opts'] = item
+
+    async def _handleStormVcrCallback(self, text):
+        '''
+        Get a callback function as a dynmeth
+        '''
+        cb = s_dyndeps.getDynLocal(text)
+        if cb is None:
+            raise s_exc.NoSuchCtor(mesg=f'Failed to get callback "{text}"', ctor=text)
+        self.context['storm-vcr-callback'] = cb
 
     async def _readline(self, line):
 
