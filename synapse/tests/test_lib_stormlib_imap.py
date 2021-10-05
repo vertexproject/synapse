@@ -117,7 +117,7 @@ class ImapTest(s_test.SynTest):
 
                 # list mailboxes
                 scmd = '''
-                    $server = $lib.inet.imap.server(hello)
+                    $server = $lib.inet.imap.connect(hello)
                     $server.login("vtx@email.com", "secret")
                     return($server.list())
                 '''
@@ -126,7 +126,7 @@ class ImapTest(s_test.SynTest):
 
                 # search for UIDs
                 scmd = '''
-                    $server = $lib.inet.imap.server(hello)
+                    $server = $lib.inet.imap.connect(hello)
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
                     return($server.search("FROM", "foo@mail.com"))
@@ -135,7 +135,7 @@ class ImapTest(s_test.SynTest):
                 self.eq((True, ('8181', '8192', '8194')), retn)
 
                 scmd = '''
-                    $server = $lib.inet.imap.server(search.empty)
+                    $server = $lib.inet.imap.connect(search.empty)
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
                     return($server.search("FROM", "newp@mail.com"))
@@ -145,7 +145,7 @@ class ImapTest(s_test.SynTest):
 
                 # mark seen
                 scmd = '''
-                    $server = $lib.inet.imap.server(hello, ssl=$lib.false)
+                    $server = $lib.inet.imap.connect(hello, ssl=$lib.false)
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
                     return($server.markSeen("1:4"))
@@ -153,28 +153,19 @@ class ImapTest(s_test.SynTest):
                 retn = await core.callStorm(scmd)
                 self.eq((True, None), retn)
 
-                # mark deleted
+                # delete
                 scmd = '''
-                    $server = $lib.inet.imap.server(hello)
+                    $server = $lib.inet.imap.connect(hello)
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
-                    return($server.markDeleted("1:4"))
-                '''
-                retn = await core.callStorm(scmd)
-                self.eq((True, None), retn)
-
-                scmd = '''
-                    $server = $lib.inet.imap.server(hello)
-                    $server.login("vtx@email.com", "secret")
-                    $server.select("INBOX")
-                    return($server.markDeleted("1:4", expunge=$lib.false))
+                    return($server.delete("1:4"))
                 '''
                 retn = await core.callStorm(scmd)
                 self.eq((True, None), retn)
 
                 # fetch and save a message
                 scmd = '''
-                    $server = $lib.inet.imap.server(hello)
+                    $server = $lib.inet.imap.connect(hello)
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
                     yield $server.fetch("1")
@@ -190,7 +181,7 @@ class ImapTest(s_test.SynTest):
 
                 # fetch must only be for a single message
                 scmd = '''
-                    $server = $lib.inet.imap.server(hello)
+                    $server = $lib.inet.imap.connect(hello)
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
                     $server.fetch("1:*")
@@ -203,7 +194,7 @@ class ImapTest(s_test.SynTest):
                 function foo(s) {
                     return($s.login("vtx@email.com", "secret"))
                 }
-                $server = $lib.inet.imap.server(hello)
+                $server = $lib.inet.imap.connect(hello)
                 $ret00 = $foo($server)
                 $ret01 = $server.list()
                 return(($ret00, $ret01))
@@ -213,32 +204,32 @@ class ImapTest(s_test.SynTest):
 
                 # sad paths
 
-                mesgs = await core.stormlist('$lib.inet.imap.server(hello.timeout, timeout=(1))')
+                mesgs = await core.stormlist('$lib.inet.imap.connect(hello.timeout, timeout=(1))')
                 self.stormIsInErr('Timed out waiting for IMAP server hello', mesgs)
 
                 scmd = '''
-                    $server = $lib.inet.imap.server(login.timeout, timeout=(1))
+                    $server = $lib.inet.imap.connect(login.timeout, timeout=(1))
                     $server.login("vtx@email.com", "secret")
                 '''
                 mesgs = await core.stormlist(scmd)
                 self.stormIsInErr('Timed out waiting for IMAP server response', mesgs)
 
                 scmd = '''
-                    $server = $lib.inet.imap.server(login.bad)
+                    $server = $lib.inet.imap.connect(login.bad)
                     $server.login("vtx@email.com", "secret")
                 '''
                 mesgs = await core.stormlist(scmd)
                 self.stormIsInErr('[AUTHENTICATIONFAILED] Invalid credentials (Failure)', mesgs)
 
                 scmd = '''
-                    $server = $lib.inet.imap.server(login.noerr)
+                    $server = $lib.inet.imap.connect(login.noerr)
                     $server.login("vtx@email.com", "secret")
                 '''
                 mesgs = await core.stormlist(scmd)
                 self.stormIsInErr('IMAP server returned an error', mesgs)
 
                 scmd = '''
-                    $server = $lib.inet.imap.server(list.bad)
+                    $server = $lib.inet.imap.connect(list.bad)
                     $server.login("vtx@email.com", "secret")
                     $server.list()
                 '''

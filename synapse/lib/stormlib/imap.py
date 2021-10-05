@@ -12,17 +12,17 @@ async def run_imap_coro(coro):
     try:
         status, data = await coro
     except asyncio.TimeoutError:
-        raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server response.') from None
+        raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server response.') from None
 
     if status == 'OK':
         return data
 
     try:
         mesg = data[0].decode()
-    except (TypeError, AttributeError, IndexError):
+    except (TypeError, AttributeError, IndexError, UnicodeDecodeError):
         mesg = 'IMAP server returned an error'
 
-    raise s_exc.SynErr(mesg=mesg, status=status)
+    raise s_exc.StormRuntimeError(mesg=mesg, status=status)
 
 @s_stormtypes.registry.registerLib
 class ImapLib(s_stormtypes.Lib):
@@ -31,15 +31,15 @@ class ImapLib(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {
-            'name': 'server',
+            'name': 'connect',
             'desc': '''
             Open a connection to an IMAP server.
 
             This method will wait for a "hello" response from the server
-            before returning storm:imap:server instance.
+            before returning the ``storm:imap:server`` instance.
             ''',
             'type': {
-                'type': 'function', '_funcname': 'server',
+                'type': 'function', '_funcname': 'connect',
                 'args': (
                     {'type': 'str', 'name': 'host',
                      'desc': 'The IMAP hostname.'},
@@ -61,10 +61,13 @@ class ImapLib(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
-            'server': self.server,
+            'connect': self.connect,
         }
 
-    async def server(self, host, port=993, timeout=30, ssl=True):
+    async def connect(self, host, port=993, timeout=30, ssl=True):
+
+        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)
         port = await s_stormtypes.toint(port)
@@ -84,7 +87,7 @@ class ImapLib(s_stormtypes.Lib):
         try:
             await imap_cli.wait_hello_from_server()
         except asyncio.TimeoutError:
-            raise s_exc.TimeOut(mesg='Timed out waiting for IMAP server hello.') from None
+            raise s_exc.StormRuntimeError(mesg='Timed out waiting for IMAP server hello.') from None
 
         return ImapServer(self.runt, imap_cli)
 
@@ -121,7 +124,7 @@ class ImapServer(s_stormtypes.StormType):
             'desc': '''
             Fetch a message by UID in RFC822 format.
 
-            The message is saved to the Axon, and a file:bytes node is returned.
+            The message is saved to the Axon, and a ``file:bytes`` node is returned.
 
             Examples:
                 Fetch a message, save to the Axon, and yield ``file:bytes`` node::
@@ -231,12 +234,11 @@ class ImapServer(s_stormtypes.StormType):
             },
         },
         {
-            'name': 'markDeleted',
+            'name': 'delete',
             'desc': '''
-            Mark messages as deleted by an RFC2060 UID message set.
+            Mark an RFC2060 UID message as deleted and expunge the mailbox.
 
             The command uses the +FLAGS.SILENT command and applies the \\Deleted flag.
-            By default the expunge command will also be executed on the mailbox.
             The actual behavior of these commands are mailbox configuration dependent.
 
             Examples:
@@ -247,18 +249,12 @@ class ImapServer(s_stormtypes.StormType):
                 Mark ranges of messages as deleted and expunge::
 
                     ($ok, $valu) = $server.markDeleted("1:3,6:9")
-
-                Mark a set of messages of messages as deleted but do not expunge::
-
-                    ($ok, $valu) = $server.markDeleted("1,4,6", expunge=$lib.false)
             ''',
             'type': {
                 'type': 'function', '_funcname': 'markDeleted',
                 'args': (
                     {'type': 'str', 'name': 'uid_set',
                      'desc': 'The UID message set to apply the flag to.'},
-                    {'type': 'boolean', 'name': 'expunge', 'default': True,
-                     'desc': 'Execute the expunge command on the mailbox after setting the flag.'},
                 ),
                 'returns': {
                     'type': 'list',
@@ -280,10 +276,10 @@ class ImapServer(s_stormtypes.StormType):
             'list': self.list,
             'fetch': self.fetch,
             'login': self.login,
+            'delete': self.delete,
             'search': self.search,
             'select': self.select,
             'markSeen': self.markSeen,
-            'markDeleted': self.markDeleted,
         }
 
     async def login(self, user, passwd):
@@ -333,9 +329,6 @@ class ImapServer(s_stormtypes.StormType):
         however this method forces fetching a single uid
         to prevent retrieving a very large blob of data.
         '''
-
-        self.runt.confirm(('storm', 'lib', 'imap', 'fetch'))
-
         uid = await s_stormtypes.toint(uid)
 
         await self.runt.snap.core.getAxon()
@@ -353,13 +346,11 @@ class ImapServer(s_stormtypes.StormType):
         filenode = await self.runt.snap.addNode('file:bytes', props['sha256'], props=props)
         return filenode
 
-    async def markDeleted(self, uid_set, expunge=True):
-        expunge = await s_stormtypes.tobool(expunge)
+    async def delete(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)
 
-        retn = await self._store(uid_set, '+FLAGS.SILENT (\\Deleted)')
-        if not expunge:
-            return retn
+        coro = self.imap_cli.uid('STORE', uid_set, '+FLAGS.SILENT (\\Deleted)')
+        await run_imap_coro(coro)
 
         coro = self.imap_cli.expunge()
         await run_imap_coro(coro)
@@ -368,9 +359,8 @@ class ImapServer(s_stormtypes.StormType):
 
     async def markSeen(self, uid_set):
         uid_set = await s_stormtypes.tostr(uid_set)
-        return await self._store(uid_set, '+FLAGS.SILENT (\\Seen)')
 
-    async def _store(self, *args):
-        coro = self.imap_cli.uid('STORE', *args)
+        coro = self.imap_cli.uid('STORE', uid_set, '+FLAGS.SILENT (\\Seen)')
         await run_imap_coro(coro)
+
         return True, None
