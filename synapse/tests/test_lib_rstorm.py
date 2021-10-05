@@ -1,5 +1,7 @@
 import os
 
+import vcr
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -100,9 +102,16 @@ multi_rst_in_http = '''
 multi_rst_in_http_opts = '''
 .. storm-cortex:: default
 .. storm-vcr-opts:: {"record_mode": "none"}
+.. storm-vcr-callback:: synapse.tests.test_lib_rstorm.vcrcallbacktst
 .. storm-mock-http:: /this/path/does/not/exist.yaml
 .. storm:: $resp = $lib.inet.http.get("http://example.com") if $resp.body { $lib.print('unexpected results') } else { $lib.print($lib.str.concat('this', ' test', ' passed')) }
 '''
+
+storm_http_sadpath_callback = '''
+.. storm-cortex:: default
+.. storm-vcr-callback:: synapse.tests.test_lib_rstorm.newp
+'''
+
 
 clear_storm_opts = '''
 .. storm-cortex:: default
@@ -263,6 +272,11 @@ def fix_output_for_cli(rst):
     rst = rst.replace('\n    >', '\n    storm>')
     return rst
 
+callback_dict = {}
+def vcrcallbacktst(recorder: vcr.VCR):
+    assert isinstance(recorder, vcr.VCR), f'Wrong callback type, got a {type(recorder)}'
+    callback_dict['called'] = True
+
 class RStormLibTest(s_test.SynTest):
 
     async def test_lib_rstorm(self):
@@ -328,11 +342,21 @@ class RStormLibTest(s_test.SynTest):
             self.isin("<This is (not) a test>", text)
 
             # Pass some vcr opts through
+            callback_dict.clear()
+            self.notin('called', callback_dict)
             path = s_common.genpath(dirn, 'http_multi_opts.rst')
             with s_common.genfile(path) as fd:
                 fd.write(multi_rst_in_http_opts.encode())
             text = await get_rst_text(path)
             self.isin('this test passed', text)
+            self.true(callback_dict.get('called'))
+
+            # Sad path test on a callback
+            path = s_common.genpath(dirn, 'http_sadpath_callback.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(storm_http_sadpath_callback.encode())
+            with self.raises(s_exc.NoSuchCtor):
+                await get_rst_text(path)
 
             # clear the current set of things
             path = s_common.genpath(dirn, 'clear_storm_opts.rst')
