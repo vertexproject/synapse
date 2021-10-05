@@ -81,10 +81,7 @@ def eth_check(match: regex.Match):
     if not body.isupper() and not body.islower():
 
         ret = ether_eip55(body)
-        if ret is None:
-            return None
-
-        if ret != text:
+        if ret is None or ret != text:
             return None
 
         return ('eth', text)
@@ -131,7 +128,7 @@ def cardano_byron_check(match: regex.Match):
         decoded_text = base58.b58decode(text)
         message = cbor2.loads(decoded_text)
         if len(message) != 2:
-            raise AssertionError('invalid length')
+            return None
         csum = message[1]
         computed_checksum = binascii.crc32(message[0].value)
         if csum == computed_checksum:
