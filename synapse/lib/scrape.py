@@ -113,7 +113,7 @@ def scrape(text, ptype=None, refang=True, first=False):
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
 
     Returns:
-        (str, str): Yield tuples of type, valu strings.
+        (str, object): Yield tuples of node ndef values.
     '''
 
     if refang:
