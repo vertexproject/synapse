@@ -49,6 +49,9 @@ Bugfixes
 - Fix a caching issue where tagprops were not always being populated in a
   ``Node`` tagprop dictionary.
   (`#2396 <https://github.com/vertexproject/synapse/pull/2396>`_)
+- Add a ``mesg`` argument to a few ``NoSuchVar`` and ``BadTypeValu``
+  exceptions.
+  (`#2403 <https://github.com/vertexproject/synapse/pull/2403>`_)
 
 Improved Documentation
 ----------------------
