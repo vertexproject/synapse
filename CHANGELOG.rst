@@ -12,6 +12,7 @@ Features and Enhancements
 - Add support for scraping the following cryptocurrency addresses to the
   ``synapse.lib.scrape`` APIs and Storm ``scrape`` command.
   (`#2387 <https://github.com/vertexproject/synapse/pull/2387>`_)
+  (`#2401 <https://github.com/vertexproject/synapse/pull/2401>`_)
 
     - Bitcoin
     - Bitcoin Cash
