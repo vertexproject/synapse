@@ -288,77 +288,77 @@ class ScrapeTest(s_t_utils.SynTest):
 
         nodes = list(s_scrape.scrape(eth_addresses))
         self.len(9, nodes)
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0x001d3f1ef827552ae1114027bd3ecf1f086ba0f9')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0x8617e340b3d01fa5f11f306f4090fd50e238070d')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0xde709f2102306220921060314715629080e2fb77')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0x27b1fdb04752bbc536007a920d24acb045561c26')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('eth', '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb')))
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(bch_addresses))
         self.len(3, nodes)
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('bch', 'bitcoincash:qqeht8vnwag20yv8dvtcrd4ujx09fwxwsqqqw93w88')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('bch', 'bchtest:pqc3tyspqwn95retv5k3c5w4fdq0cxvv95u36gfk00')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('bch', 'bitcoincash:qqkv9wr69ry2p9l53lxp635va4h86wv435995w8p2h')))
 
         nodes = list(s_scrape.scrape(xrp_addresses))
         self.len(10, nodes)
-        nodes.remove(('crypto:current:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
+        nodes.remove(('crypto:currency:address',
                       ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')),)
-        nodes.remove(('crypto:current:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrNAMEtxvNvQ')))
-        nodes.remove(('crypto:current:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrn5RM1rHd')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrNAMEtxvNvQ')))
+        nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrn5RM1rHd')))
 
         nodes = list(s_scrape.scrape(substrate_addresses))
         self.len(4, nodes)
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('dot', '12uxb9baJaiHhCvMzijnCYbkiXpGQ24jhj4AmhNvrMEzWuoV')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('dot', '1FRMM8PEiWXYax7rpS6X4XZX1aAAxSWx1CrKTyrVYhV24fg')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ksm', 'JL1eTcbzuZP99FjeySkDrMygNREPdbhRyV7iD5AsV4fDRcg')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ksm', 'CpjsLDC1JFyrhm3ftC9Gs4QoyrkHKhZKtK7YqGTRFtTafgp')))
 
         nodes = list(s_scrape.scrape(cardano_addresses))
         self.len(7, nodes)
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada', 'Ae2tdPwUPEZFRbyhz3cpfC2CumGzNkFBN2L42rcUc2yjQpEkxDbkPodpMAi')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada', 'Ae2tdPwUPEYzs5BRbGcoS3DXvK8mwgggmESz4HqUwMyaS9eNksZGz1LMS9v')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada', 'Ae2tdPwUPEYxYNJw1He1esdZYvjmr4NtPzUsGTiqL9zd8ohjZYQcwu6kom7')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada',
                        'DdzFFzCqrhtCNjPk5Lei7E1FxnoqMoAYtJ8VjAWbFmDb614nNBWBwv3kt6QHJa59cGezzf6piMWsbK7sWRB5sv325QqWdRuusMqqLdMt')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada',
                        'DdzFFzCqrhsfdzUZxvuBkhV8Lpm9p43p9ubh79GCTkxJikAjKh51qhtCFMqUniC5tv5ZExyvSmAte2Du2tGimavSo6qSgXbjiy8qZRTg')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80w')))
-        nodes.remove(('crypto:current:address',
+        nodes.remove(('crypto:currency:address',
                       ('ada', 'addr1v8fet8gavr6elqt6q50skkjf025zthqu6vr56l5k39sp9aqlvz2g4')))
 
     def test_scrape_sequential(self):
