@@ -37,7 +37,7 @@ class DnsName(s_types.Str):
             parts = [c for c in norm[:-len(self.inarpa6)][::-1] if c != '.']
             try:
                 if len(parts) != 32:
-                    raise s_exc.BadTypeValu
+                    raise s_exc.BadTypeValu(mesg='Invalid number of ipv6 parts')
                 temp = int(''.join(parts), 16)
                 ipv6norm, info = self.modl.type('inet:ipv6').norm(temp)
             except s_exc.BadTypeValu as e:

@@ -2618,7 +2618,7 @@ class VarValue(Value):
 
     def validate(self, runt):
         if runt.runtvars.get(self.name) is None:
-            raise s_exc.NoSuchVar(name=self.name)
+            raise s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name)
 
     def prepare(self):
         assert isinstance(self.kids[0], Const)
@@ -2638,7 +2638,7 @@ class VarValue(Value):
         if valu is not s_common.novalu:
             return valu
 
-        raise s_exc.NoSuchVar(name=self.name)
+        raise s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name)
 
 class VarDeref(Value):
 

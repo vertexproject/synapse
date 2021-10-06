@@ -703,11 +703,11 @@ class HugeNum(Type):
         huge = s_common.hugenum(valu)
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
-            raise s_exc.BadTypeValu(mesg)
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         if abs(huge) > hugemax:
             mesg = f'Value ({valu}) is too small for hugenum.'
-            raise s_exc.BadTypeValu(mesg)
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         if self.opts.get('norm'):
             huge.normalize(), {}
