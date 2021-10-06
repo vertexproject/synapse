@@ -4321,6 +4321,67 @@ class EdgesDelCmd(Cmd):
                 await self.delEdges(node, verb, n2)
                 yield node, path
 
+class OnceCmd(Cmd):
+    '''
+    Ensure a named action only runs on a node once.
+
+    For example, update the seen times on a set of files just once:
+
+        file:bytes#my.files | once node:seen | [ +.seen=$lib.time.now() ]
+
+    If you insert the once command with the same name on the same nodes, they will be
+    dropped from the pipeline. So in the above example, if we run it again, none of
+    the seen times will be updated, and all the nodes will be dropped from the pipeline.
+
+    So this:
+
+        file:bytes#my.files | once node:seen
+
+    Yields no nodes.
+
+    The once command utilizes a node's nodedata cache, and you can use the --asof parameter
+    to update the named action's timestamp in order to bypass/update the once timestamp. So
+    this command:
+
+        inet:ipv4#my.addresses | once node:enrich --asof now | my.enrich.command
+
+    Will yield all the enriched nodes the first time around. The second time that command is
+    run, all of those nodes will be re-enriched, as the asof timestamp will be greater the
+    second time around, so no nodes will be dropped.
+    '''
+    name = 'once'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('name', help='Name of the action to only perform once')
+        pars.add_argument('--asof', default='', help='')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        async for node, path in genr:
+            name = self.opts.name
+            key = f'once:{name}'
+            envl = await node.getData(key)
+            if not envl:
+                envl = {'asof': s_common.now()}
+                await node.setData(key, envl)
+                yield node, path
+            else:
+                ts = envl.get('asof')
+                if not ts:
+                    envl['asof'] = s_common.now()
+                    await node.setData(key, envl)
+                    yield node, path
+                else:
+                    norm = None
+                    if self.opts.asof:
+                        timetype = node.snap.core.model.type('time')
+                        norm = timetype.norm(self.opts.asof)[0]
+                    if norm and norm > ts:
+                        envl['asof'] = norm
+                        await node.setData(key, envl)
+                        yield node, path
+
 class TagPruneCmd(Cmd):
     '''
     Prune a tag (or tags) from nodes.
