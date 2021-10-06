@@ -4,8 +4,8 @@
 Synapse Changelog
 *****************
 
-Unreleased
-==========
+v2.64.0 - 2021-10-06
+====================
 
 Features and Enhancements
 -------------------------
