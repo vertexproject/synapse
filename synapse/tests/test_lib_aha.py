@@ -1,3 +1,5 @@
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -7,6 +9,12 @@ import synapse.lib.aha as s_aha
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_test
+
+realaddsvc = s_aha.AhaCell.addAhaSvc
+async def mockaddsvc(self, name, info, network=None):
+    if getattr(self, 'testerr', False):
+        raise s_exc.SynErr(mesg='newp')
+    return await realaddsvc(self, name, info, network=network)
 
 class AhaTest(s_test.SynTest):
     aha_ctor = s_aha.AhaCell.anit
@@ -340,3 +348,46 @@ class AhaTest(s_test.SynTest):
 
                         async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                             self.fail('Should never reach a connection.')
+
+    async def test_lib_aha_onlink_fail(self):
+
+        with self.getTestDir() as dirn:
+
+            with mock.patch('synapse.lib.aha.AhaCell.addAhaSvc', mockaddsvc):
+
+                async with await self.aha_ctor(dirn) as aha:
+
+                    cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
+
+                    host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+                    await aha.auth.rootuser.setPasswd('secret')
+
+                    aha.testerr = True
+
+                    wait00 = aha.waiter(1, 'aha:svcadd')
+                    conf = {
+                        'aha:name': '0.cryo.mynet',
+                        'aha:admin': 'root@cryo.mynet',
+                        'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
+                        'dmon:listen': 'tcp://0.0.0.0:0/',
+                    }
+                    async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+
+                        await cryo.auth.rootuser.setPasswd('secret')
+
+                        self.none(await wait00.wait(timeout=2))
+
+                        svc = await aha.getAhaSvc('0.cryo.mynet')
+                        self.none(svc)
+
+                        wait01 = aha.waiter(1, 'aha:svcadd')
+                        aha.testerr = False
+
+                        self.nn(await wait01.wait(timeout=2))
+
+                        svc = await aha.getAhaSvc('0.cryo.mynet')
+                        self.nn(svc)
+                        self.nn(svc.get('svcinfo', {}).get('online'))
+
+                        async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                            self.nn(await proxy.getCellIden())
