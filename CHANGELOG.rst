@@ -5,6 +5,77 @@ Synapse Changelog
 *****************
 
 
+v2.64.1 - 2021-10-08
+====================
+
+Bugfixes
+--------
+- Add a retry loop in the base ``Cell`` class when attempting to register with
+  an ``Aha`` server.
+  (`#2405 <https://github.com/vertexproject/synapse/pull/2405>`_)
+- Change the behavior of ``synapse.common.yamlload()`` to not create files
+  when the expected file is not present on disk, and open existing files in
+  read-only mode.
+  (`#2396 <https://github.com/vertexproject/synapse/pull/2396>`_)
+
+
+v2.64.0 - 2021-10-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for scraping the following cryptocurrency addresses to the
+  ``synapse.lib.scrape`` APIs and Storm ``scrape`` command.
+  (`#2387 <https://github.com/vertexproject/synapse/pull/2387>`_)
+  (`#2401 <https://github.com/vertexproject/synapse/pull/2401>`_)
+
+    - Bitcoin
+    - Bitcoin Cash
+    - Ethereum
+    - Ripple
+    - Cardano
+    - Polkadot
+
+  The internal cache of regular expressions in the ``synapse.lib.scrape``
+  library is also now a private member; API users should use the
+  ``synapse.lib.scrape.scrape()`` function moving forward.
+
+- Add ``:names`` property to the ``it:mitre:attack:software`` form.
+  (`#2397 <https://github.com/vertexproject/synapse/pull/2397>`_)
+- Add a ``:desc`` property to the ``inet:whois:iprec`` form.
+  (`#2392 <https://github.com/vertexproject/synapse/pull/2392>`_)
+- Added several new Rstorm directives.
+  (`#2359 <https://github.com/vertexproject/synapse/pull/2359>`_)
+  (`#2400 <https://github.com/vertexproject/synapse/pull/2400>`_)
+
+  - ``storm-cli`` - Runs a Storm query with the Storm CLI tool
+  - ``storm-fail`` - Toggles whether or not the following Storm command
+    should fail or not.
+  - ``storm-multiline`` - Allows embedding a multiline Storm query as a JSON
+    encoded string for future execution.
+  - ``storm-vcr-callback`` - Allows specifying a custom callback which a VCR
+    object is sent too.
+
+Bugfixes
+--------
+- Fix a missing ``toprim()`` call when loading a Storm package directly with
+  Storm.
+  (`#2359 <https://github.com/vertexproject/synapse/pull/2359>`_)
+- Fix a caching issue where tagprops were not always being populated in a
+  ``Node`` tagprop dictionary.
+  (`#2396 <https://github.com/vertexproject/synapse/pull/2396>`_)
+- Add a ``mesg`` argument to a few ``NoSuchVar`` and ``BadTypeValu``
+  exceptions.
+  (`#2403 <https://github.com/vertexproject/synapse/pull/2403>`_)
+
+Improved Documentation
+----------------------
+- Storm reference docs have been converted from Jupyter notebook format to
+  Synapse ``.rstorm`` format, and now display examples using the Storm CLI
+  tool, instead of the Cmdr CLI tool.
+  (`#2359 <https://github.com/vertexproject/synapse/pull/2359>`_)
+
+
 v2.63.0 - 2021-09-29
 ====================
 

@@ -1102,9 +1102,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahainfo = ahainfo
 
         async def onlink(proxy):
-            await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
-            if self.isactive and ahalead is not None:
-                await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
+            while not proxy.isfini:
+
+                try:
+                    await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
+                    if self.isactive and ahalead is not None:
+                        await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
+
+                    return
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+
+                except Exception:
+                    logger.exception('Error in _initAhaService() onlink')
+
+                await proxy.waitfini(1)
 
         async def fini():
             await self.ahaclient.offlink(onlink)
