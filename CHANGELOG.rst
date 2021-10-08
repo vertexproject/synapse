@@ -4,6 +4,21 @@
 Synapse Changelog
 *****************
 
+
+v2.64.1 - 2021-10-08
+====================
+
+Bugfixes
+--------
+- Add a retry loop in the base ``Cell`` class when attempting to register with
+  an ``Aha`` server.
+  (`#2405 <https://github.com/vertexproject/synapse/pull/2405>`_)
+- Change the behavior of ``synapse.common.yamlload()`` to not create files
+  when the expected file is not present on disk, and open existing files in
+  read-only mode.
+  (`#2396 <https://github.com/vertexproject/synapse/pull/2396>`_)
+
+
 v2.64.0 - 2021-10-06
 ====================
 
