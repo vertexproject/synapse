@@ -4323,7 +4323,10 @@ class EdgesDelCmd(Cmd):
 
 class OnceCmd(Cmd):
     '''
-    Ensure a named action only runs on a node once.
+    The once command ensures that a node makes it through the once command but a single time,
+    even across independent queries. The gating is keyed by a required name parameter to
+    the once command, so a node can be run through different queries, each a single time, so
+    long as the names differ.
 
     For example, update the seen times on a set of files just once:
 
@@ -4337,7 +4340,19 @@ class OnceCmd(Cmd):
 
         file:bytes#my.files | once node:seen
 
-    Yields no nodes.
+    Yields no nodes. Similarly, even though the rest of the pipeline is different, this query:
+
+        file:bytes#my.files | once node:seen | [ +:size=1234 ]
+
+    would not set the size secondary property on any file:bytes nodes, as the "node:seen"
+    name has already been seen to occur on the file:bytes passing through the once command.
+
+    However, this query:
+
+        file:bytes#my.files | once look:at:my:nodes
+
+    Would yield all the file:bytes tagged with #my.files, as the name parameter given to
+    the once command differs from the original one.
 
     The once command utilizes a node's nodedata cache, and you can use the --asof parameter
     to update the named action's timestamp in order to bypass/update the once timestamp. So
@@ -4353,17 +4368,20 @@ class OnceCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('name', help='Name of the action to only perform once')
-        pars.add_argument('--asof', default='', help='')
+        pars.add_argument('name', type='str', help='Name of the action to only perform once.')
+        pars.add_argument('--asof', default=None, type='time', help='The associated time the name was updated/performed.')
         return pars
 
     async def execStormCmd(self, runt, genr):
         async for node, path in genr:
-            name = self.opts.name
+            name = await s_stormtypes.tostr(self.opts.name)
             key = f'once:{name}'
             envl = await node.getData(key)
             if not envl:
-                envl = {'asof': s_common.now()}
+                if self.opts.asof:
+                    envl = {'asof': self.opts.asof}
+                else:
+                    envl = {'asof': s_common.now()}
                 await node.setData(key, envl)
                 yield node, path
             else:
@@ -4373,10 +4391,7 @@ class OnceCmd(Cmd):
                     await node.setData(key, envl)
                     yield node, path
                 else:
-                    norm = None
-                    if self.opts.asof:
-                        timetype = node.snap.core.model.type('time')
-                        norm = timetype.norm(self.opts.asof)[0]
+                    norm = self.opts.asof
                     if norm and norm > ts:
                         envl['asof'] = norm
                         await node.setData(key, envl)

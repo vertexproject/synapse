@@ -1308,7 +1308,7 @@ class StormTest(s_t_utils.SynTest):
 
             # run it again and see all the things get swatted to the floor
             q = 'test:str=foo | once tagger | [+#less.cool.tag]'
-            self.agenlen(0, core.eval(q))
+            await self.agenlen(0, core.eval(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
@@ -1357,11 +1357,28 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.isin('lottastrings', node.tags)
 
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str | once ninja --asof EXPLOSIONS | [ +#lolnope ]'))
-
-            nodes = await core.nodes('test:str')
+            nodes = await core.nodes('test:str | once beep --asof -30days | [ +#boop ]')
+            self.len(6, nodes)
             for node in nodes:
-                self.notin('lolnope', node.tags)
+                self.isin('boop', node.tags)
+
+            # timestamp is more recent than the last, so the things get to run again
+            nodes = await core.nodes('test:str | once beep --asof -15days | [ +#zomg ]')
+            self.len(6, nodes)
+            for node in nodes:
+                self.isin('zomg', node.tags)
+
+            # we update to the more recent timestamp, so providing now should update things
+            nodes = await core.nodes('test:str | once beep --asof now | [ +#bbq ]')
+            self.len(6, nodes)
+            for node in nodes:
+                self.isin('bbq', node.tags)
+
+            # but still, no time means if it's ever been done
+            nodes = await core.nodes('test:str | once beep | [ +#metal]')
+            self.len(0, nodes)
+            for node in nodes:
+                self.notin('meta', node.tags)
 
     async def test_storm_iden(self):
         async with self.getTestCore() as core:
