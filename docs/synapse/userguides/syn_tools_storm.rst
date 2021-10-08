@@ -58,6 +58,10 @@ To view a list of available Storm commands, type ``help`` from the Storm CLI pro
 
 For additional detail on Storm commands, see :ref:`storm-ref-cmd`.
 
+To exit the Storm CLI, enter ``!quit``:
+
+``storm> !quit``
+
 
 Accessing Synapse Tools from the Storm CLI
 ------------------------------------------
