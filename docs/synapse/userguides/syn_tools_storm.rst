@@ -5,11 +5,11 @@
 Synapse Tools - storm
 =====================
 
-The Synapse Storm tool (commonly referred to as the **Storm CLI**) is a text-based interpreter that leverages the Storm query language (see :ref:`storm-ref-intro`). The Storm CLI replaces the Synapse ``cmdr`` tool (see :ref:`syn-tools-cmdr`) as the preferred means for users to interact with a Synapse Cortex. Because the Storm CLI is a native Storm interpreter, users do not need to use the :ref:`syn-storm` command before entering and executing Storm queries or commands.
+The Synapse Storm tool (commonly referred to as the **Storm CLI**) is a text-based interpreter that leverages the Storm query language (see :ref:`storm-ref-intro`). The Storm CLI replaces the Synapse ``cmdr`` tool (see :ref:`syn-tools-cmdr`) as the preferred means for users to interact with a Synapse Cortex. Because the Storm CLI is a native Storm interpreter, users do not need to use the :ref:`syn-storm` command before entering and executing Storm queries or Storm commands.
 
 - `Connecting to a Cortex with the Storm CLI`_
 - `Storm CLI Basics`_
-- `Accessing Synapse Tools from the Storm CLI`_
+- `Accessing External Commands`_
 
 Connecting to a Cortex with the Storm CLI
 -----------------------------------------
@@ -48,39 +48,45 @@ Once connected, you will be presented with the following Storm CLI command promp
 Storm CLI Basics
 ----------------
 
-Once connected to a Synapse Cortex with the Storm CLI, you can execute any Storm queries or commands directly (i.e., without needing to precede them with the :ref:`syn-storm` command).
+Once connected to a Synapse Cortex with the Storm CLI, you can execute any Storm queries or Storm commands directly (i.e., without needing to precede them with the :ref:`syn-storm` command). Detailed information on using the Storm query language to interact with data in a Synapse Cortex can be found in the :ref:`userguide_storm_ref`.
 
-For information on using the Storm query language to interact with data in a Synapse Cortex, see :ref:`storm-ref-intro` and related Storm documentation.
-
-To view a list of available Storm commands, type ``help`` from the Storm CLI prompt:
+To view a list of available **Storm commands,** type ``help`` from the Storm CLI prompt:
 
 ``storm> help``
 
-For additional detail on Storm commands, see :ref:`storm-ref-cmd`.
+ - Detailed help for any command can be viewed by entering ``-h`` or ``--help`` after the individual command.
+ - For additional detail on Storm commands, see :ref:`storm-ref-cmd`.
 
 To exit the Storm CLI, enter ``!quit``:
 
 ``storm> !quit``
 
+ - The ``!quit`` command is technically an "external" (to Storm) command, so must be preceded by the bang (exclamation point) symbol.
+ 
+ 
+Accessing External Commands
+---------------------------
 
-Accessing Synapse Tools from the Storm CLI
-------------------------------------------
+You can access a subset of external Synapse tools and commands from within the Storm CLI. External commands differ from native Storm commands in that they are preceded by a bang / exclamation point ( ``!`` ) symbol.
 
-Most of the commands for working in and with a Synapse Cortex are native Storm commands that can be viewed using the ``help`` command and executed directly from the Storm CLI. 
+You can view the available **external commands** by typing ``!help`` from the Storm CLI prompt:
 
-The Storm CLI also allows you to access a few external Synapse tools. Specifically, the Synapse ``pushfile`` and ``pullfile`` tools can be used to upload and download files from a Synapse storage :ref:`gloss-axon`. These tools can be accessed from the Storm CLI by preceding the command with a bang / exclamation point ( ``!``) character:
+``storm> !help``
+
+Notably, the Synapse ``pushfile`` and ``pullfile`` tools (used to upload and download files from a Synapse storage :ref:`gloss-axon`) are accessible from the Storm CLI:
 
 ``storm> !pushfile``
 
 ``storm> !pullfile``
 
-Similarly, **help** for each tool can be viewed by entering ``-h`` or ``--help`` after each "bang" command:
-
-``storm> !pushfile -h``
-
-``storm> !pullfile --help``
-
 See :ref:`syn-tools-pushfile` and :ref:`syn-tools-pullfile` for additional detail on these tools.
+
+**Help** for any external command can be viewed by entering ``-h`` or ``--help`` after the command:
+
+``storm> !export -h``
+
+``storm> !export --help``
+
 
 
 .. _Quickstart: https://github.com/vertexproject/synapse-quickstart
