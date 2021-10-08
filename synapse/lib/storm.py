@@ -4328,31 +4328,33 @@ class OnceCmd(Cmd):
     the once command, so a node can be run through different queries, each a single time, so
     long as the names differ.
 
-    For example, update the seen times on a set of files just once:
+    For example, to run an enrichment command on a set of nodes just once:
 
-        file:bytes#my.files | once node:seen | [ +.seen=$lib.time.now() ]
+        file:bytes#my.files | once enrich:foo | enrich.foo
 
     If you insert the once command with the same name on the same nodes, they will be
-    dropped from the pipeline. So in the above example, if we run it again, none of
-    the seen times will be updated, and all the nodes will be dropped from the pipeline.
+    dropped from the pipeline. So in the above example, if we run it again, the enrichment
+    will not run a second time, as all the nodes will be dropped from the pipeline before
+    reaching the enrich.foo portion of the pipeline.
 
-    So this:
+    Simlarly, running this:
 
-        file:bytes#my.files | once node:seen
+        file:bytes#my.files | once enrich:foo
 
-    Yields no nodes. Similarly, even though the rest of the pipeline is different, this query:
+    Also yields no nodes. And even though the rest of the pipeline is different, this query:
 
-        file:bytes#my.files | once node:seen | [ +:size=1234 ]
+        file:bytes#my.files | once enrich:foo | enrich.bar
 
-    would not set the size secondary property on any file:bytes nodes, as the "node:seen"
-    name has already been seen to occur on the file:bytes passing through the once command.
+    would not run the enrich.bar command, as the name "enrich:foo" has already been seen to
+    occur on the file:bytes passing through the once command, so all of the nodes will be
+    dropped from the pipeline.
 
     However, this query:
 
         file:bytes#my.files | once look:at:my:nodes
 
     Would yield all the file:bytes tagged with #my.files, as the name parameter given to
-    the once command differs from the original one.
+    the once command differs from the original "enrich:foo".
 
     The once command utilizes a node's nodedata cache, and you can use the --asof parameter
     to update the named action's timestamp in order to bypass/update the once timestamp. So
@@ -4363,6 +4365,16 @@ class OnceCmd(Cmd):
     Will yield all the enriched nodes the first time around. The second time that command is
     run, all of those nodes will be re-enriched, as the asof timestamp will be greater the
     second time around, so no nodes will be dropped.
+
+    As state tracking data for the once command is stored as nodedata, it is stored in your
+    view's write layer, making it view-specific. So if you have two views, A and B, and they
+    do not share any layers between them, and you execute this query in view A:
+
+        inet:ipv4=8.8.8.8 | once enrich:address | enrich.baz
+
+    And then you run it in view B, the node will still pass through the once command to the
+    enrich.baz portion of the pipeline, as the nodedata for the once command does not yet
+    exist in view B.
     '''
     name = 'once'
 
