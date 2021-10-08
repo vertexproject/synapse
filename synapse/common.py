@@ -443,7 +443,12 @@ def jssave(js, *paths):
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
 def yamlload(*paths):
-    with genfile(*paths) as fd:
+
+    path = genpath(*paths)
+    if not os.path.isfile(path):
+        return None
+
+    with io.open(path, 'rb') as fd:
         byts = fd.read()
         if not byts:
             return None
