@@ -3538,7 +3538,7 @@ class List(Prim):
                   'returns': {'type': 'any', 'desc': 'The last item from the list.', }}},
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
-                  'returns': {'type': 'size', 'desc': 'The size of the list.', }}},
+                  'returns': {'type': 'integer', 'desc': 'The size of the list.', }}},
         {'name': 'sort', 'desc': 'Sort the list in place.',
          'type': {'type': 'function', '_funcname': '_methListSort',
                   'args': (
@@ -3668,7 +3668,7 @@ class Bool(Prim):
     '''
     Implements the Storm API for a boolean instance.
     '''
-    _storm_typename = 'bool'
+    _storm_typename = 'boolean'
     _ismutable = False
 
     def __str__(self):
@@ -3958,7 +3958,7 @@ class Query(Prim):
                 The ``.exec()`` method can return a value if the Storm query
                 contains a ``return( ... )`` statement in it.''',
          'type': {'type': 'function', '_funcname': '_methQueryExec',
-                  'returns': {'type': ['none', 'any'],
+                  'returns': {'type': ['null', 'any'],
                               'desc': 'A value specified with a return statement, or none.', }}},
         {'name': 'size',
          'desc': 'Execute the Query in a sub-runtime and return the number of nodes yielded.',

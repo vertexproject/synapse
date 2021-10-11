@@ -292,8 +292,8 @@ class LibModel(s_stormtypes.Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the prop to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:prop', 'null'],
-                              'desc': 'The ``storm:model:prop`` instance if the type if present or null.',
+                  'returns': {'type': ['storm:model:property', 'null'],
+                              'desc': 'The ``storm:model:property`` instance if the type if present or null.',
                               }}},
         {'name': 'form', 'desc': 'Get a form object by name.',
          'type': {'type': 'function', '_funcname': '_methForm',
@@ -361,8 +361,8 @@ class ModelForm(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The property to retrieve.', },
                   ),
-                  'returns': {'type': ['storm:model:prop', 'null'],
-                              'desc': 'The ``storm:model:prop`` instance if the property if present on the form or null.'
+                  'returns': {'type': ['storm:model:property', 'null'],
+                              'desc': 'The ``storm:model:property`` instance if the property if present on the form or null.'
                               }}},
     )
     _storm_typename = 'storm:model:form'
