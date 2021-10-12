@@ -37,6 +37,14 @@ and BOB@WOOT.COM is another
     ۽0--asdf.com
 
     foo.com.c
+
+    foo.com．c
+
+    foo.com． 
+
+    baz.com．
+
+    bar.com．
 '''
 
 data1 = '''
@@ -242,10 +250,13 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape(self):
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(16, nodes)
+        self.len(19, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
+        nodes.remove(('inet:fqdn', 'bar.com'))
+        nodes.remove(('inet:fqdn', 'baz.com'))
+        nodes.remove(('inet:fqdn', 'foo.com'))
         nodes.remove(('inet:fqdn', 'WOOT.COM'))
         nodes.remove(('inet:fqdn', 'hehe.taxi'))
         nodes.remove(('inet:fqdn', 'vertex.link'))
