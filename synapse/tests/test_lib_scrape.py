@@ -29,6 +29,8 @@ and BOB@WOOT.COM is another
     vertex…net
 
     xn--lskfjaslkdfjaslfj.link
+
+    foo(．)bar[。]baz｡lol'
 '''
 
 data1 = '''
@@ -234,7 +236,7 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape(self):
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(13, nodes)
+        self.len(14, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
@@ -245,6 +247,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', 'faß.de'))
         nodes.remove(('inet:fqdn', '👁️👄👁️.fm'))
         nodes.remove(('inet:fqdn', '👁👄👁.com'))
+        nodes.remove(('inet:fqdn', 'foo．bar。baz｡lol'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
