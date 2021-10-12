@@ -28,7 +28,9 @@ and BOB@WOOT.COM is another
 
     vertex…net
 
-    xn--lskfjaslkdfjaslfj.link
+    vĕr-tex.link
+
+    xn--asdf.link
 
     foo(．)bar[。]baz｡lol'
 '''
@@ -236,7 +238,7 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape(self):
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(14, nodes)
+        self.len(16, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
@@ -244,10 +246,12 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', 'hehe.taxi'))
         nodes.remove(('inet:fqdn', 'vertex.link'))
         nodes.remove(('inet:fqdn', 'vĕrtex.com'))
+        nodes.remove(('inet:fqdn', 'vĕr-tex.link'))
         nodes.remove(('inet:fqdn', 'faß.de'))
         nodes.remove(('inet:fqdn', '👁️👄👁️.fm'))
         nodes.remove(('inet:fqdn', '👁👄👁.com'))
         nodes.remove(('inet:fqdn', 'foo．bar。baz｡lol'))
+        nodes.remove(('inet:fqdn', 'xn--asdf.link'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
