@@ -3742,40 +3742,6 @@ class Bool(Prim):
     def __hash__(self):
         return hash((self._storm_typename, self.value()))
 
-# @registry.registerType
-# class Integer(Prim):
-#     '''
-#     Implements the Storm API for a interger instance.
-#     '''
-#     _storm_typename = 'integer'
-#     _ismutable = False
-#
-#     def __str__(self):
-#         return str(self.value())
-#
-#     def __int__(self):
-#         self.value()
-#
-#     def __hash__(self):
-#         return hash(self.value())
-#
-# @registry.registerType
-# class Null(Prim):
-#     '''
-#     Implements the Storm API for a $lib.null instance.
-#     '''
-#     _storm_typename = 'null'
-#     _ismutable = False
-#
-#     def __str__(self):
-#         return '$lib.null'
-#
-#     def __int__(self):
-#         raise s_exc.BadCast(mesg='Cannot make a integer from null')
-#
-#     def __hash__(self):
-#         return hash((self._storm_typename, self.value()))
-
 @registry.registerLib
 class LibUser(Lib):
     '''
