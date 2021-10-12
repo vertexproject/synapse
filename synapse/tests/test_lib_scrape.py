@@ -32,7 +32,9 @@ and BOB@WOOT.COM is another
 
     xn--asdf.link
 
-    foo(．)bar[。]baz｡lol'
+    foo(．)bar[。]baz｡lol
+
+    ۽0--asdf.com
 '''
 
 data1 = '''
