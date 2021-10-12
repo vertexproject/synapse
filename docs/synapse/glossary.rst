@@ -336,12 +336,12 @@ See :ref:`filter-subquery` for additional detail.
 Fork
 ----
 
-Within Synpse, fork refers to the process of "copying" the data in a :ref:`gloss-view` to a new View instance.
-View specific automation, such as triggers, dmons, or cron jobs, are not copied over to the new view. Note
-that the view is not technically duplicated in full; rather a new writable :ref:`gloss-layer`
-is created on top of a read-only copy of the original view.
-
-Any changes made within a forked view can optionally be merged back in to the original view, or discarded.
+Within Synapse, forking refers to the process of creating a new, empty, writable :ref:`gloss-layer` on top of
+the fork's original :ref:`gloss-view`. The writable layer from the original view becomes read-only with
+respect to the fork. Any changes made within a forked view are made within the new writable layer. These
+changes can optionally be merged back into the original view, or discarded. (Note that any view-specific
+automation, such as triggers, dmons, or cron jobs, are **not** copied to the forked view. However, depending
+on the automation, it may be activated if / when data is merged down into the original view.
 
 .. _gloss-form:
 
