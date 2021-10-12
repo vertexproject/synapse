@@ -35,6 +35,8 @@ and BOB@WOOT.COM is another
     foo(．)bar[。]baz｡lol
 
     ۽0--asdf.com
+
+    foo.com.c
 '''
 
 data1 = '''
