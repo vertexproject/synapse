@@ -155,8 +155,7 @@ class StormTypesRegistry:
 
         for tdoc in docs:
             basepath = tdoc.get('path')
-            # assert len(basepath) == 1
-            # self.known_types.add(basepath[0])
+            assert basepath[0] == 'lib'
             locls = tdoc.get('locals')
             for info in locls:
                 path = basepath + (info.get('name'),)
@@ -165,8 +164,7 @@ class StormTypesRegistry:
                     self.rtypes[path].add(ityp)
                     continue
                 retv = ityp.get('returns')
-                rtyp = retv\
-                    .get('type')
+                rtyp = retv.get('type')
                 if isinstance(rtyp, (list, tuple)):
                     [self.rtypes[path].add(r) for r in rtyp]
                     continue
@@ -211,8 +209,7 @@ class StormTypesRegistry:
                     self.rtypes[path].add(ityp)
                     continue
                 retv = ityp.get('returns')
-                rtyp = retv\
-                    .get('type')
+                rtyp = retv.get('type')
                 if isinstance(rtyp, (list, tuple)):
                     [self.rtypes[path].add(r) for r in rtyp]
                     continue
