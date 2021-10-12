@@ -273,7 +273,6 @@ class Fqdn(s_types.Type):
         valu = unicodedata.normalize('NFKC', valu)
 
         valu = regex.sub(udots, '.', valu)
-
         valu = valu.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
 
