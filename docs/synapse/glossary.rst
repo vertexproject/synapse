@@ -338,7 +338,7 @@ Fork
 
 Within Synpse, fork refers to the process of "copying" the data in a :ref:`gloss-view` to a new View instance.
 View specific automation, such as triggers, dmons, or cron jobs, are not copied over to the new view. Note
-that the view is not technically duplicated in full; rather a new writeable :ref:`gloss-layer`
+that the view is not technically duplicated in full; rather a new writable :ref:`gloss-layer`
 is created on top of a read-only copy of the original view.
 
 Any changes made within a forked view can optionally be merged back in to the original view, or discarded.
