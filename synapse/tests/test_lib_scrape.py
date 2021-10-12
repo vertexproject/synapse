@@ -40,7 +40,7 @@ and BOB@WOOT.COM is another
 
     foo.com．c
 
-    foo.com． 
+    foobar.com． 
 
     baz.com．
 
@@ -256,7 +256,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:ipv4', '5.6.7.8'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
-        nodes.remove(('inet:fqdn', 'foo.com'))
+        nodes.remove(('inet:fqdn', 'foobar.com'))
         nodes.remove(('inet:fqdn', 'WOOT.COM'))
         nodes.remove(('inet:fqdn', 'hehe.taxi'))
         nodes.remove(('inet:fqdn', 'vertex.link'))
