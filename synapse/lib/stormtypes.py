@@ -172,7 +172,7 @@ class StormTypesRegistry:
 
         for path, rtyps in self.rtypes.items():
             for rtyp in rtyps:
-                if rtyp not in self.known_types and rtyp not in self.undefined_types:
+                if rtyp not in self.known_types and rtyp not in self.undefined_types:  # pragma: no cover
                     raise s_exc.NoSuchType(mesg=f'The return type {rtyp} for {path} is unknown.', type=rtyp)
 
         return docs
@@ -217,7 +217,7 @@ class StormTypesRegistry:
 
         for path, rtyps in self.rtypes.items():
             for rtyp in rtyps:
-                if rtyp not in self.known_types and rtyp not in self.undefined_types:
+                if rtyp not in self.known_types and rtyp not in self.undefined_types:  # pragma: no cover
                     raise s_exc.NoSuchType(mesg=f'The return type {rtyp} for {path} is unknown.', type=rtyp)
 
         return docs
