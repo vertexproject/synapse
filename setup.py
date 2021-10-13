@@ -103,6 +103,8 @@ setup(
         'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
         'cbor2==5.4.1',
         'bech32==1.2.0',
+        'oauthlib>=3.1.0,<4.0.0',
+        'yarl>=1.4.2,<2.0.0',
     ],
 
     extras_require={
