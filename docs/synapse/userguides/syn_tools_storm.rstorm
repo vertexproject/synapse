@@ -1,5 +1,7 @@
 .. highlight:: none
 
+.. storm-cortex:: default
+
 .. _syn-tools-storm:
 
 Synapse Tools - storm
@@ -71,7 +73,7 @@ You can access a subset of external Synapse tools and commands from within the S
 
 You can view the available **external commands** by typing ``!help`` from the Storm CLI prompt:
 
-``storm> !help``
+.. storm-cli:: !help
 
 Notably, the Synapse ``pushfile`` and ``pullfile`` tools (used to upload and download files from a Synapse storage :ref:`gloss-axon`) are accessible from the Storm CLI:
 

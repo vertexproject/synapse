@@ -211,7 +211,7 @@ Storm has several notable features in the way it interacts with and operates on 
 Operation Chaining
 ++++++++++++++++++
 
-As noted above, users commonly interact with data (nodes) in Synapse using operations such as lift, filter, and pivot. Storm allows multiple operations to be chained together to form increasingly complex queries. When Storm operations are concatenated in this manner, they are processed **in order from left to right** with each operation (lift, filter, or pivot) acting on the output of the previous operation.
+As noted above, users commonly interact with data (nodes) in a Synapse Cortex using operations such as lift, filter, and pivot. Storm allows multiple operations to be chained together to form increasingly complex queries. When Storm operations are concatenated in this manner, they are processed **in order from left to right** with each operation (lift, filter, or pivot) acting on the output of the previous operation.
 
 ..  NOTE::
 
