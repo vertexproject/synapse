@@ -3121,6 +3121,7 @@ class MoveTagCmd(Cmd):
             tagcycle.append(isnow)
             newtag = await snap.addTagNode(isnow)
             isnow = newtag.get('isnow')
+            await asyncio.sleep(0)
 
         if oldstr in tagcycle:
             raise s_exc.BadOperArg(mesg=f'Tag cycle detected when moving tag {oldstr} to tag {newstr}',
@@ -3153,6 +3154,7 @@ class MoveTagCmd(Cmd):
             # Copy any tags over to the newnode if any are present.
             for k, v in node.tags.items():
                 await newnode.addTag(k, v)
+                await asyncio.sleep(0)
 
             retag[tagstr] = newtag
             await node.set('isnow', newtag)
@@ -3170,6 +3172,7 @@ class MoveTagCmd(Cmd):
 
                 newt = retag.get(name)
                 if newt is None:
+                    await asyncio.sleep(0)
                     continue
 
                 # Capture tagprop information before moving tags
