@@ -5521,7 +5521,7 @@ class LibTrigger(Lib):
                                'Only a single matching prefix will be deleted.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the deleted trigger which matched the prefix.', }}},
-        {'name': 'list', 'desc': 'Get a list of Triggers in the Cortex.',
+        {'name': 'list', 'desc': 'Get a list of Triggers in the current view.',
          'type': {'type': 'function', '_funcname': '_methTriggerList',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``storm:trigger`` objects the user is allowed to access.', }}},
