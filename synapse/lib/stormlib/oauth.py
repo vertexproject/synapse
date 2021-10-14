@@ -67,7 +67,7 @@ class OAuthV1Client(s_stormtypes.StormType):
                 'type': 'function', '_funcname': '_methSign',
                 'args': (
                     {'name': 'baseurl', 'type': 'str', 'desc': 'The base url to sign and query.'},
-                    {'name': 'method', 'type': 'dict', 'default': None,
+                    {'name': 'method', 'type': 'dict', 'default': 'GET',
                      'desc': 'The HTTP Method to use as part of signing.'},
                     {'name': 'headers', 'type': 'dict', 'default': None,
                      'desc': 'Optional headers used for signing. Can override the "Content-Type" header if the signature type is set to SIG_BODY'},
