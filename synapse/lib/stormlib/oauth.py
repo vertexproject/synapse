@@ -21,15 +21,15 @@ class OAuthV1Lib(s_stormtypes.Lib):
                 'type': 'function', '_funcname': '_methClient',
                 'args': (
                     {'name': 'ckey', 'type': 'str',
-                     'desc': 'Consumer Key'},
+                     'desc': 'The OAuthV1 Consumer Key to store and use for sigining requests.'},
                     {'name': 'csecret', 'type': 'str',
-                     'desc': 'Consumer Key Secret'},
+                     'desc': 'The OAuthV1 Consumer Secret used to sign requests.'},
                     {'name': 'atoken', 'type': 'str',
-                     'desc': 'Access Token'},
+                     'desc': 'The OAuthV1 Access Token (or resource owner key) to use to sign requests.)'},
                     {'name': 'asecret', 'type': 'str',
-                     'desc': 'Access Token Secret'},
+                     'desc': 'The OAuthV1 Access Token Secret (or resource owner secret) to use to sign requests.'},
                     {'name': 'sigtype', 'type': 'str', 'default': oauth1.SIGNATURE_TYPE_QUERY,
-                     'desc': 'Signature Type'},
+                     'desc': 'Where to populate the signature (in the HTTP body, in the query parameters, or in the header)'},
                 ),
                 'returns': {
                     'type': 'storm:oauth:v1:client',
@@ -39,7 +39,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
         },
     )
 
-    _storm_lib_path = ('oauth', 'v1',)
+    _storm_lib_path = ('inet', 'oauth', 'v1',)
 
     def getObjLocals(self):
         return {
@@ -49,8 +49,8 @@ class OAuthV1Lib(s_stormtypes.Lib):
             'SIG_HEADER': oauth1.SIGNATURE_TYPE_AUTH_HEADER,
         }
 
-    async def _methClient(self, ckey, csecret, atoken, asecret, sigtyp=oauth1.SIGNATURE_TYPE_QUERY):
-        return OAuthV1Client(self.runt, ckey, csecret, atoken, asecret, sigtyp)
+    async def _methClient(self, ckey, csecret, atoken, asecret, sigtype=oauth1.SIGNATURE_TYPE_QUERY):
+        return OAuthV1Client(self.runt, ckey, csecret, atoken, asecret, sigtype)
 
 @s_stormtypes.registry.registerType
 class OAuthV1Client(s_stormtypes.StormType):
@@ -70,7 +70,7 @@ class OAuthV1Client(s_stormtypes.StormType):
                     {'name': 'method', 'type': 'dict', 'default': None,
                      'desc': 'The HTTP Method to use as part of signing.'},
                     {'name': 'headers', 'type': 'dict', 'default': None,
-                     'desc': 'Optional headers used for signing.'},
+                     'desc': 'Optional headers used for signing. Can override the "Content-Type" header if the signature type is set to SIG_BODY'},
                     {'name': 'params', 'type': 'dict', 'default': None,
                      'desc': 'Optional query parameters to pass to url construction and/or signing.'},
                     {'name': 'body', 'type': 'bytes', 'default': None,
@@ -78,10 +78,7 @@ class OAuthV1Client(s_stormtypes.StormType):
                 ),
                 'returns': {
                     'type': 'list',
-                    'desc': '''
-                    A 3-element tuple of ($url, $headers, $body). The OAuth signature
-                    will be embedded in the element specified when constructing the client
-                    '''
+                    'desc': 'A 3-element tuple of ($url, $headers, $body). The OAuth signature elements will be embedded in the element specified when constructing the client.'
                 },
             },
         },
