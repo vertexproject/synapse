@@ -111,6 +111,24 @@ You may then submit your CSR file (in this case ``~/.syn/certs/hosts/cortex.vert
 Once your CA returns a signed certificate in PEM format, place it in the expected location (``~/.syn/certs/hosts/cortex.vertex.link.crt`` in this example)
 and it will be loaded when you start your service.
 
+Client-Side Certificates for Authentication
+*******************************************
+
+To use client-side certificates for authentication, the CA certificate to use for validating client certificates
+must be specified in the ``--telepath`` listen url. For example, to use the "vertex" CA certificate previously generated,
+the listen url would be: ``ssl://0.0.0.0/?hostname=cortex.vertex.link&ca=vertex``.
+
+To generate a client certificate for the user ``user@cortex.vertex.link``, ``easycert`` can be used as follows::
+
+    python -m synapse.tools.easycert user@cortex.vertex.link --signas vertex
+    cert saved: /home/cisphyx/.syn/certs/users/user@cortex.vertex.link.crt
+    key saved: /home/cisphyx/.syn/certs/users/user@cortex.vertex.link.key
+
+The user will need to add both of the generated files to their users certificate directory, located by default at ``~/.syn/certs/users``.
+Once in place, the user will be able to connect to the Cortex using certificate authentication instead of a password::
+
+    python -m synapse.tools.cmdr ssl://user@cortex.vertex.link/
+
 Tips for Better Performance
 ***************************
 
@@ -157,8 +175,3 @@ writing to the /proc/sys filesystem.
 
     This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM, and
     relatively slow storage.
-
-Client-Side Certificates for Authentication
-*******************************************
-
-TODO
