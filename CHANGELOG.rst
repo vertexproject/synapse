@@ -5,6 +5,47 @@ Synapse Changelog
 *****************
 
 
+v2.65.0 - 2021-10-15
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for interacting with IMAP email servers though Storm, using the
+  ``$lib.inet.smtp.connect()`` function. This returns a object that can be
+  used to delete, read, and search emails in a given IMAP mailbox.
+  (`#2399 <https://github.com/vertexproject/synapse/pull/2399>`_)
+- Add a new Storm command, ``once``. This command can be used to 'gate' a node
+  in a Storm pipeline such that the node only passes through the command
+  exactly one time for a given named 'gate'. The gate information is stored in
+  nodedata, so it is inspectable and subject to all other features that
+  apply to nodedata.
+  (`#2404 <https://github.com/vertexproject/synapse/pull/2404>`_)
+- Add a ``tryLoadPkgProto`` convenience function to the
+  ``synapse.tools.genpkg`` for Storm service package generation with inline
+  documentation.
+  (`#2414 <https://github.com/vertexproject/synapse/pull/2414>`_)
+
+Bugfixes
+--------
+- Add ``asyncio.sleep(0)`` calls in the ``movetag`` implementation to address
+  some possible hot-loops.
+  (`#2411 <https://github.com/vertexproject/synapse/pull/2411>`_)
+- Clarify and sanitize URLS in a Aha related log message i
+  ``synapse.telepath``.
+  (`#2415 <https://github.com/vertexproject/synapse/pull/2415>`_)
+
+Improved Documentation
+----------------------
+- Update our ``fork`` definition documentation.
+  (`#2409 <https://github.com/vertexproject/synapse/pull/2409>`_)
+- Add documentation for using client-side TLS certificates in Telepath.
+  (`#2412 <https://github.com/vertexproject/synapse/pull/2412>`_)
+- Update the Storm CLI tool documentation.
+  (`#2406 <https://github.com/vertexproject/synapse/pull/2406>`_)
+- The Storm types and Storm library documentation now automatically links
+  from return values to return types.
+  (`#2410 <https://github.com/vertexproject/synapse/pull/2410>`_)
+
 v2.64.1 - 2021-10-08
 ====================
 
