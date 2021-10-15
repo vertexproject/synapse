@@ -15,7 +15,7 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'text', 'type': 'str', 'desc': 'A storm expression string.'},
                       {'name': 'cast', 'type': 'str', 'desc': 'A type to cast the result to.', 'default': None},
                   ),
-                  'returns': {'type': 'item', 'desc': 'The value of the expression and optional cast.', }}},
+                  'returns': {'type': 'any', 'desc': 'The value of the expression and optional cast.', }}},
     )
     _storm_lib_path = ('storm',)
 

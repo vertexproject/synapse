@@ -120,7 +120,7 @@ class CellLib(s_stormtypes.Lib):
                               'desc': 'Tuple containing the current version after applying the fixes.'}}},
         {'name': 'hotFixesCheck', 'desc': 'Check to see if there are known hot fixes to apply.',
          'type': {'type': 'function', '_funcname': '_hotFixesCheck', 'args': (),
-                  'returns': {'type': 'bool', 'desc': 'Bool indicating if there are hot fixes to apply or not.'}}},
+                  'returns': {'type': 'boolean', 'desc': 'Bool indicating if there are hot fixes to apply or not.'}}},
         {'name': 'trimNexsLog', 'desc': '''
             Rotate and cull the Nexus log (and any consumers) at the current offset.
 

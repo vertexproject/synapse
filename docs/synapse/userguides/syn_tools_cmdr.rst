@@ -5,24 +5,34 @@
 Synapse Tools - cmdr
 ====================
 
-The Synapse command line interface (CLI) is a text-based interpreter used to communicate with a Synapse Cortex. The Synapse ``cmdr`` module is a command line tool used to connect and provide an interactive CLI to an existing local or remote Cortex. This section will cover the following Synapse CLI topics:
+The Synapse ``cmdr`` module is a command line tool used to connect and provide an interactive CLI to an existing local or remote Synapse Cortex.
+
+.. note::
+  
+  While the ``cmdr`` CLI is still supported, the Synapse storm tool (**Storm CLI**) is the preferred method for users to interact with a Synapse Cortex from the command line. The Storm CLI includes a native Storm interpreter that allows users to execute Storm queries and commands directly, without using the :ref:`syn-storm` command required by ``cmdr`` (see :ref:`syn-tools-storm`).
+
+This section will cover the following Synapse ``cmdr`` CLI topics:
 
 - `Obtaining a Command Line Interface`_
 - `Command Line Interface Basics`_
 
-See the :ref:`syn-ref-cmd` for a list of available Synapse commands.
+See the :ref:`syn-ref-cmd` for a list of Synapse commands available via ``cmdr``.
+
+.. note::
+  
+  ``cmdr`` commands are still supported, but the majority are being deprecated in favor of their Storm equivalents (see :ref:`storm-ref-cmd`).
 
 Obtaining a Command Line Interface
 ----------------------------------
 
-In order to obtain access to the Synapse CLI you must use the ``cmdr`` module connected to a local or remote Cortex. If you have access to an existing local or remote Cortex, proceed to `Connecting to an Existing Cortex`_ for instructions on how to connect to the Cortex. However, if you do not have access to an existing Cortex, proceed to `Connecting to a Temporary Cortex`_ for instructions on creating and connecting to a temporary Cortex on your local machine.
+The Synapse ``cmdr`` module can be used to obtain CLI access to a local or remote Synapse Cortex. If you have access to an existing Cortex, proceed to `Connecting to an Existing Cortex`_ for instructions on how to connect to the Cortex. However, if you do not have access to an existing Cortex, proceed to `Connecting to a Temporary Cortex`_ for instructions on creating and connecting to a temporary Cortex on your local machine via ``cmdr``.
 
 .. _cortex-connect:
 
 Connecting to an Existing Cortex
 ++++++++++++++++++++++++++++++++
 
-To connect to an existing local or remote Cortex, run the Synapse ``cmdr`` module by executing the following Python command from a terminal window, where the *<url>* parameter is the URL path to the Cortex.
+To connect to an existing local or remote Cortex using ``cmdr``, run the Synapse ``cmdr`` module by executing the following Python command from a terminal window, where the *<url>* parameter is the URL path to the Cortex.
 
 ``python -m synapse.tools.cmdr <url>``
 
@@ -36,23 +46,25 @@ or
 
 if authentication is used.
 
-.. NOTE::
-  The path to a storage Axon is specified in the same manner. That is:
-  
-    ``<scheme>://<server>:<port>/<axon>``
-
-or
-  
-    ``<scheme>://<user>:<password>@<server>:<port>/<axon>``
-
 **Example URL paths:**
 
 - ``tcp://synapse.woot.com:1234/cortex01``
 - ``ssl://synapse.woot.com:1234/cortex01``
 
-Once connected the Cortex, you will be presented with the following Synapse CLI command prompt:
+Once connected the Cortex, you will be presented with the following Synapse ``cmdr`` CLI command prompt:
 
 ``cli>``
+
+.. NOTE::
+  
+  The path to a storage Axon is specified in the same manner as the path to a data Cortex. That is:
+  
+    ``<scheme>://<server>:<port>/<axon>``
+  
+  or
+    
+    ``<scheme>://<user>:<password>@<server>:<port>/<axon>``
+
 
 .. _temporary:
 
@@ -68,6 +80,10 @@ To create and connect to a temporary local Cortex using the ``feed`` module, exe
 Once connected the Cortex, you will be presented with the following Synapse CLI command prompt:
 
 ``cli>``
+
+.. note::
+  
+  The Synapse Quickstart_ can be used to quickly set up and connect to a local Cortex using the preferred **Storm CLI** (:ref:`syn-tools-storm`).
 
 Command Line Interface Basics
 -----------------------------
@@ -160,3 +176,4 @@ The commands below demonstrate assignment and comparison operations that **requi
   
   ``cli> storm file:base = "windows,update.exe"``
 
+.. _Quickstart: https://github.com/vertexproject/synapse-quickstart

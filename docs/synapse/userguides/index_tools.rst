@@ -4,11 +4,12 @@
 Tools
 #####
 
-Synapse includes a number of tools. **cmdr** provides an interactive command shell to a Cortex, while other tools allow
-users to perform specific tasks. These tools are documented below.
+Synapse includes a number of tools. **storm** provides an interactive command line interface to a Synapse Cortex using the Storm query language - it is the primary means for users to interact with Synapse. **cmdr** provides an interactive command shell to a Cortex, primarily intended for developers or administrator use. Other tools focus on specific tasks. These tools are documented below.
 
 .. toctree::
     :titlesonly:
+
+    syn_tools_storm
 
     syn_tools_cmdr
     syn_ref_cmdr

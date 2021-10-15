@@ -109,6 +109,12 @@ class GenPkgTest(s_test.SynTest):
             retn = await s_genpkg.main(argv)
             self.eq(1, retn)
 
+    def test_tools_tryloadpkg(self):
+        ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nosuchfile.yaml')
+        pkg = s_genpkg.tryLoadPkgProto(ymlpath)
+        # Ensure it ran the fallback to do_docs=False
+        self.eq(pkg.get('docs'), [{'title': 'newp', 'path': 'docs/newp.md', 'content': ''}])
+
     def test_files(self):
         assets = s_files.getAssets()
         self.isin('test.dat', assets)
