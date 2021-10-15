@@ -39,7 +39,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
         },
     )
 
-    _storm_lib_path = ('inet', 'oauth', 'v1',)
+    _storm_lib_path = ('inet', 'http', 'oauth', 'v1',)
 
     def getObjLocals(self):
         return {

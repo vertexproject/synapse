@@ -16,7 +16,7 @@ class OAuthTest(s_test.SynTest):
             $csec = bar
             $atkn = biz
             $asec = baz
-            $client = $lib.inet.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.oauth.v1.SIG_QUERY)
+            $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_QUERY)
             return($client.sign($url))
             '''
             url, headers, body = await core.callStorm(q)
@@ -42,7 +42,7 @@ class OAuthTest(s_test.SynTest):
             $headers = $lib.dict(
                 "content-type"="application/json"
             )
-            $client = $lib.inet.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.oauth.v1.SIG_HEADER)
+            $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_HEADER)
             return($client.sign($url, headers=$headers))
             '''
             url, headers, body = await core.callStorm(q)
@@ -80,7 +80,7 @@ class OAuthTest(s_test.SynTest):
                 foo = bar,
                 biz = baz,
             )
-            $client = $lib.inet.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.oauth.v1.SIG_BODY)
+            $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
             return($client.sign($url, method='POST', headers=$headers, body=$body))
             '''
             url, headers, body = await core.callStorm(q)
@@ -98,6 +98,26 @@ class OAuthTest(s_test.SynTest):
             self.isin('oauth_token=neato', body)
             self.isin('oauth_signature_method=HMAC-SHA1', body)
 
+            # headers should auto-populate if not given
+            q = '''
+            $url = "https://vertex.link/fakeapi"
+            $ckey = beep
+            $csec = boop
+            $atkn = neato
+            $asec = burrito
+            $body = $lib.dict(
+                awesome = possum,
+            )
+            $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
+            return($client.sign($url, method='POST', headers=$lib.null, body=$body))
+            '''
+            url, headers, body = await core.callStorm(q)
+            uri = yarl.URL(url)
+            self.eq(str(url), 'https://vertex.link/fakeapi')
+            self.eq(headers, {'Content-Type': 'application/x-www-form-urlencoded'})
+            self.isin('awesome=possum', body)
+
+            # body can't be used on GET requests (which is the default method)
             q = '''
             $url = "https://vertex.link/fakeapi"
             $ckey = beep
@@ -111,7 +131,7 @@ class OAuthTest(s_test.SynTest):
                 foo = bar,
                 biz = baz,
             )
-            $client = $lib.inet.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.oauth.v1.SIG_BODY)
+            $client = $lib.inet.http.oauth.v1.client($ckey, $csec, $atkn, $asec, $lib.inet.http.oauth.v1.SIG_BODY)
             return($client.sign($url, headers=$headers, body=$body))
             '''
             with self.raises(s_exc.StormRuntimeError):
