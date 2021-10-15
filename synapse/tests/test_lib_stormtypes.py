@@ -358,6 +358,18 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Invalid clamp length.', err[1].get('mesg'))
 
+            # lib.guid()
+            guid00 = await core.callStorm('return($lib.guid($x))', opts={'vars': {'x': {'foo': 'bar'}}})
+            guid01 = await core.callStorm('$x=$lib.dict(foo=bar) return($lib.guid($x))')
+            self.eq(guid00, guid01)
+
+            guid00 = await core.callStorm('return($lib.guid(foo))')
+            guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
+            self.eq(guid00, guid01)
+
+            mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
+            self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
+
             # lib.range()
             q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
 
