@@ -44,7 +44,34 @@ def loadOpticFiles(pkgdef, path):
                     'file': base64.b64encode(fd.read()).decode(),
                 }
 
+def tryLoadPkgProto(fp, opticdir=None):
+    '''
+    Try to get a Storm Package prototype from disk with or without inline documentation.
+
+    Args:
+        fp (str): Path to the package .yaml file on disk.
+        opticdir (str): Path to optional Optic module code to add to the Storm Package.
+
+    Returns:
+        dict: A Storm package definition.
+    '''
+    try:
+        return loadPkgProto(fp, opticdir=opticdir)
+    except s_exc.NoSuchFile:
+        return loadPkgProto(fp, opticdir=opticdir, no_docs=True)
+
 def loadPkgProto(path, opticdir=None, no_docs=False):
+    '''
+    Get a Storm Package definition from disk.
+
+    Args:
+        fp (str): Path to the package .yaml file on disk.
+        opticdir (str): Path to optional Optic module code to add to the Storm Package.
+        no_docs (bool): If true, omit inline documentation content if it is not present on disk.
+
+    Returns:
+        dict: A Storm package definition.
+    '''
 
     full = s_common.genpath(path)
     pkgdef = s_common.yamlload(full)
