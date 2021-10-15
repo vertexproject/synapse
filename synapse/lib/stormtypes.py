@@ -46,6 +46,20 @@ def allowed(perm, gateiden=None):
     return s_scope.get('runt').allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
+    # The following types are currently undefined.
+    undefined_types = (
+        'any',
+        'int',
+        'null',
+        'prim',
+        'undef',
+        'integer',
+        'storm:lib',  # lib.import
+        'generator',
+    )
+    known_types = set()
+    rtypes = collections.defaultdict(set)  # callable -> return types, populated on demand.
+
     def __init__(self):
         self._LIBREG = {}
         self._TYPREG = {}
@@ -118,6 +132,9 @@ class StormTypesRegistry:
                        f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
 
     def getLibDocs(self):
+        # Ensure type docs are loaded/verified.
+        _ = self.getTypeDocs()
+
         libs = self.iterLibs()
         libs.sort(key=lambda x: x[0])
         docs = []
@@ -135,6 +152,28 @@ class StormTypesRegistry:
                 locs.append(info)
 
             docs.append(tdoc)
+
+        for tdoc in docs:
+            basepath = tdoc.get('path')
+            assert basepath[0] == 'lib'
+            locls = tdoc.get('locals')
+            for info in locls:
+                path = basepath + (info.get('name'),)
+                ityp = info.get('type')
+                if isinstance(ityp, str):
+                    self.rtypes[path].add(ityp)
+                    continue
+                retv = ityp.get('returns')
+                rtyp = retv.get('type')
+                if isinstance(rtyp, (list, tuple)):
+                    [self.rtypes[path].add(r) for r in rtyp]
+                    continue
+                self.rtypes[path].add(rtyp)
+
+        for path, rtyps in self.rtypes.items():
+            for rtyp in rtyps:
+                if rtyp not in self.known_types and rtyp not in self.undefined_types:  # pragma: no cover
+                    raise s_exc.NoSuchType(mesg=f'The return type {rtyp} for {path} is unknown.', type=rtyp)
 
         return docs
 
@@ -157,6 +196,29 @@ class StormTypesRegistry:
                 locs.append(info)
 
             docs.append(tdoc)
+
+        for tdoc in docs:
+            basepath = tdoc.get('path')
+            assert len(basepath) == 1
+            self.known_types.add(basepath[0])
+            locls = tdoc.get('locals')
+            for info in locls:
+                path = basepath + (info.get('name'),)
+                ityp = info.get('type')
+                if isinstance(ityp, str):
+                    self.rtypes[path].add(ityp)
+                    continue
+                retv = ityp.get('returns')
+                rtyp = retv.get('type')
+                if isinstance(rtyp, (list, tuple)):
+                    [self.rtypes[path].add(r) for r in rtyp]
+                    continue
+                self.rtypes[path].add(rtyp)
+
+        for path, rtyps in self.rtypes.items():
+            for rtyp in rtyps:
+                if rtyp not in self.known_types and rtyp not in self.undefined_types:  # pragma: no cover
+                    raise s_exc.NoSuchType(mesg=f'The return type {rtyp} for {path} is unknown.', type=rtyp)
 
         return docs
 
@@ -947,11 +1009,11 @@ class LibBase(Lib):
         ''',
          'type': {'type': 'function', '_funcname': '_range',
                   'args': (
-                      {'name': 'stop', 'type': 'integer', 'desc': 'The value to stop at.', },
-                      {'name': 'start', 'type': 'integer', 'desc': 'The value to start at.', 'default': None, },
-                      {'name': 'step', 'type': 'integer', 'desc': 'The range step size.', 'default': None, },
+                      {'name': 'stop', 'type': 'int', 'desc': 'The value to stop at.', },
+                      {'name': 'start', 'type': 'int', 'desc': 'The value to start at.', 'default': None, },
+                      {'name': 'step', 'type': 'int', 'desc': 'The range step size.', 'default': None, },
                   ),
-                  'returns': {'name': 'Yields', 'type': 'intger', 'desc': 'The sequence of integers.'}}},
+                  'returns': {'name': 'Yields', 'type': 'integer', 'desc': 'The sequence of integers.'}}},
         {'name': 'pprint', 'desc': 'The pprint API should not be considered a stable interface.',
          'type': {'type': 'function', '_funcname': '_pprint',
                   'args': (
@@ -1465,7 +1527,7 @@ class LibAxon(Lib):
                       {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
                       {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
                   ),
-                  'returns': {'type': ['storm:node', 'null '],
+                  'returns': {'type': ['storm:node', 'null'],
                               'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
         {'name': 'del', 'desc': '''
             Remove the bytes from the Cortex's Axon by sha256.
@@ -1480,7 +1542,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'hash:sha256',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
-                  'returns': {'type': 'bool', 'desc': 'True if the bytes were found and removed.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.', }}},
 
         {'name': 'dels', 'desc': '''
             Remove multiple byte blobs from the Cortex's Axon by a list of sha256 hashes.
@@ -2046,7 +2108,7 @@ class LibRegx(Lib):
             Example:
                 Replace a portion of a string with a new part based on a regex::
 
-                    $norm = $lib.regex.replace("\sAND\s", " & ", "Ham and eggs!", $lib.regex.flags.i)
+                    $norm = $lib.regex.replace("\\sAND\\s", " & ", "Ham and eggs!", $lib.regex.flags.i)
             ''',
          'type': {'type': 'function', '_funcname': 'replace',
                   'args': (
@@ -2162,7 +2224,7 @@ class LibExport(Lib):
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm runtime query option params.',
                        'default': None, },
                   ),
-                  'returns': {'type': 'array', 'desc': 'Returns a tuple of (size, sha256).', }}},
+                  'returns': {'type': 'list', 'desc': 'Returns a tuple of (size, sha256).', }}},
     )
 
     def getObjLocals(self):
@@ -3538,7 +3600,7 @@ class List(Prim):
                   'returns': {'type': 'any', 'desc': 'The last item from the list.', }}},
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
-                  'returns': {'type': 'size', 'desc': 'The size of the list.', }}},
+                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'sort', 'desc': 'Sort the list in place.',
          'type': {'type': 'function', '_funcname': '_methListSort',
                   'args': (
@@ -3554,7 +3616,7 @@ class List(Prim):
                   'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
         {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
          'type': {'type': 'function', '_funcname': '_methListLength',
-                  'returns': {'type': 'integer', 'desc': 'The size of the list.', }}},
+                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a value to the list.',
          'type': {'type': 'function', '_funcname': '_methListAppend',
                   'args': (
@@ -3668,7 +3730,7 @@ class Bool(Prim):
     '''
     Implements the Storm API for a boolean instance.
     '''
-    _storm_typename = 'bool'
+    _storm_typename = 'boolean'
     _ismutable = False
 
     def __str__(self):
@@ -3701,7 +3763,7 @@ class LibUser(Lib):
          'type': 'storm:hive:dict', },
         {'name': 'profile', 'desc': 'Get a Hive dictionary representing the current users profile information.',
          'type': 'storm:hive:dict', },
-        {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'guid'},
+        {'name': 'iden', 'desc': 'The user GUID for the current storm user.', 'type': 'str'},
     )
     _storm_lib_path = ('user', )
 
@@ -3958,7 +4020,7 @@ class Query(Prim):
                 The ``.exec()`` method can return a value if the Storm query
                 contains a ``return( ... )`` statement in it.''',
          'type': {'type': 'function', '_funcname': '_methQueryExec',
-                  'returns': {'type': ['none', 'any'],
+                  'returns': {'type': ['null', 'any'],
                               'desc': 'A value specified with a return statement, or none.', }}},
         {'name': 'size',
          'desc': 'Execute the Query in a sub-runtime and return the number of nodes yielded.',
