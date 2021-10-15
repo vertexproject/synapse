@@ -1231,7 +1231,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _guid(self, *args):
         if args:
-            args = [await toprim(a) for a in args]
+            args = await toprim(args)
             return s_common.guid(args)
         return s_common.guid()
 
