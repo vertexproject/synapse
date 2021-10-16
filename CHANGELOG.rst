@@ -20,6 +20,9 @@ Features and Enhancements
   nodedata, so it is inspectable and subject to all other features that
   apply to nodedata.
   (`#2404 <https://github.com/vertexproject/synapse/pull/2404>`_)
+- Add a ``:released`` property to ``it:prod:softver`` to record when a
+  software version was released.
+  (`#2419 <https://github.com/vertexproject/synapse/pull/2419>`_)
 - Add a ``tryLoadPkgProto`` convenience function to the
   ``synapse.tools.genpkg`` for Storm service package generation with inline
   documentation.
