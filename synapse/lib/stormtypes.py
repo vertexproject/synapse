@@ -568,7 +568,7 @@ class LibDmon(Lib):
 
     async def _libDmonAdd(self, text, name='noname'):
         text = await tostr(text)
-        varz = await toprim(self.runt.vars)
+        varz = await toprim(self.runt.vars, allow_exc=True)
 
         viewiden = self.runt.snap.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
@@ -6959,7 +6959,11 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None):
+async def toprim(valu, path=None, allow_exc=False):
+
+    excs = ()
+    if allow_exc:
+        excs = (s_exc.NoSuchType,)
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -6969,7 +6973,7 @@ async def toprim(valu, path=None):
         for v in valu:
             try:
                 retn.append(await toprim(v))
-            except s_exc.NoSuchType:
+            except excs:
                 pass
         return tuple(retn)
 
@@ -6978,7 +6982,7 @@ async def toprim(valu, path=None):
         for k, v in valu.items():
             try:
                 retn[k] = await toprim(v)
-            except s_exc.NoSuchType:
+            except excs:
                 pass
         return retn
 

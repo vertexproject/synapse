@@ -4632,8 +4632,12 @@ class StormTypesTest(s_test.SynTest):
         self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Bytes(b'asdf')))
         self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
 
-        self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
-        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
+        self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3], allow_exc=True))
+        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}, allow_exc=True))['foo'])
+        with self.raises(s_exc.NoSuchType):
+            self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
+        with self.raises(s_exc.NoSuchType):
+            self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
 
         self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
         self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
