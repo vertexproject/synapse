@@ -11,7 +11,7 @@ v2.65.0 - 2021-10-15
 Features and Enhancements
 -------------------------
 - Add support for interacting with IMAP email servers though Storm, using the
-  ``$lib.inet.smtp.connect()`` function. This returns a object that can be
+  ``$lib.inet.imap.connect()`` function. This returns a object that can be
   used to delete, read, and search emails in a given IMAP mailbox.
   (`#2399 <https://github.com/vertexproject/synapse/pull/2399>`_)
 - Add a new Storm command, ``once``. This command can be used to 'gate' a node
