@@ -458,6 +458,10 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
+                with self.raises(s_exc.NoSuchType):
+                    q = '$x=($lib.undef, 1, 2, $lib.queue.gen(beep)) return($x)'
+                    await proxy.callStorm(q)
+
                 with self.raises(s_exc.StormRuntimeError):
                     q = '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'
                     await proxy.callStorm(q)

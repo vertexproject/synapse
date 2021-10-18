@@ -828,7 +828,7 @@ class StixBundle(s_stormtypes.Prim):
         self.objs = {}  # id -> STIX obj(dict)
         self.maxsize = config.get('maxsize', 10000)
 
-    async def value(self, notype_ok=True):
+    async def value(self, allow_exc=False):
         return self.pack()
 
     def getObjLocals(self):
