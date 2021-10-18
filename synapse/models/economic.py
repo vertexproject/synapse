@@ -39,13 +39,13 @@ class EconModule(s_module.CoreModule):
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment or crypto currency transaction.'}),
 
-                ('econ:acct:balance', ('guid', {}), {
-                    'doc': 'A snapshot of the balance of an account at a point in time.'}),
-
                 ('econ:acct:paymentstatus', ('taxonomy', {}), {
                     'doc': 'A payment status taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
+
+                ('econ:acct:balance', ('guid', {}), {
+                    'doc': 'A snapshot of the balance of an account at a point in time.'}),
 
                 ('econ:price', ('hugenum', {'norm': False}), {
                     'doc': 'The amount of money expected, required, or given in payment for something',
@@ -236,8 +236,6 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The currency of the balance amount.'}),
                     ('delta', ('econ:price', {}), {
                         'doc': 'The change since last regular sample.'}),
-                    ('sequences', ('array', {'type': 'guid'}), {
-                        'doc': 'The sequences this sample belongs to.'}),
                 )),
 
 
