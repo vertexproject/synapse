@@ -466,6 +466,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 url1 = 'https://vertex.link/products/balloonmaker/release_101-beta.exe'
                 vprops = {
                     'vers': 'V1.0.1-beta+exp.sha.5114f85',
+                    'released': '2018-04-03 08:44:22',
                     'url': url1,
                     'software': prod0,
                     'arch': 'amd64'
@@ -475,6 +476,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 self.eq(node.ndef[1], ver0)
                 self.eq(node.get('arch'), 'amd64')
+                self.eq(node.get('released'), 1522745062000)
                 self.eq(node.get('software'), prod0)
                 self.eq(node.get('software:name'), 'balloon maker')
                 self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')

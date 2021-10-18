@@ -1022,6 +1022,9 @@ class ItModule(s_module.CoreModule):
                     ('arch', ('it:dev:str', {}), {
                         'doc': 'Software architecture.',
                     }),
+                    ('released', ('time', {}), {
+                        'doc': 'Timestamp for when this version of the software was released.',
+                    }),
                     ('semver', ('it:semver', {}), {
                         'doc': 'System normalized semantic version number.',
                     }),
