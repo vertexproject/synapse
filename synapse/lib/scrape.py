@@ -20,6 +20,8 @@ tldlist.reverse()
 tldcat = '|'.join(tldlist)
 fqdn_re = regex.compile(r'((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))' % tldcat)
 udots = regex.compile(r'[\u3002\uff0e\uff61]')
+
+# avoid thread safety issues due to uts46_remap() importing uts46data
 idna.encode('init', uts46=True)
 
 FANGS = {
