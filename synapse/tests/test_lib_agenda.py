@@ -788,6 +788,7 @@ class AgendaTest(s_t_utils.SynTest):
             await prox.callStorm('cron.at --now --view $newview { [test:str=gotcha] | $lib.queue.get(testq).put($node) }', opts=opts)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
             self.eq((3, 'gotcha'), retn)
+            await core.callStorm('$lib.queue.get(testq).cull(3)')
             atjob = await core.callStorm('return($lib.cron.list())')
             self.len(1, atjob)
             self.eq(atjob[0]['view'], newview)
@@ -796,3 +797,16 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(0, nodes)
             nodes = await core.nodes('test:str', opts={'view': newview})
             self.len(1, nodes)
+
+            croniden = atjob[0]['iden']
+            await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
+
+            await prox.callStorm('cron.at --now { [test:int=97] | $lib.queue.get(testq).put($node) }')
+            retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            await core.callStorm('$lib.queue.get(testq).cull(4)')
+            self.eq((4, 97), retn)
+
+            nodes = await core.nodes('test:int=97', opts={'view': defview.iden})
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=97', opts={'view': newview})
+            self.len(0, nodes)
