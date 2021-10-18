@@ -769,6 +769,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(jobs, samejobs)
 
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            await core.callStorm('$lib.queue.get(testq).cull(2)')
 
             node = await core.nodes('test:guid', opts={'view': defview.iden})
             self.len(1, node)
@@ -780,3 +781,18 @@ class AgendaTest(s_t_utils.SynTest):
             appt.view = "ThisViewStillDoesntExist"
             await core.agenda._execute(appt)
             self.eq(appt.lastresult, 'Failed due to unknown view')
+
+            await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
+
+            opts = {'vars': {'newview': newview}}
+            await prox.callStorm('cron.at --now --view $newview { [test:str=gotcha] | $lib.queue.get(testq).put($node) }', opts=opts)
+            retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            self.eq((3, 'gotcha'), retn)
+            atjob = await core.callStorm('return($lib.cron.list())')
+            self.len(1, atjob)
+            self.eq(atjob[0]['view'], newview)
+
+            nodes = await core.nodes('test:str', opts={'view': defview.iden})
+            self.len(0, nodes)
+            nodes = await core.nodes('test:str', opts={'view': newview})
+            self.len(1, nodes)
