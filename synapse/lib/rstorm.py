@@ -298,8 +298,10 @@ class StormCliOutput(s_storm.StormCli):
 
 @contextlib.asynccontextmanager
 async def getCell(ctor, conf):
+    loc = s_dyndeps.getDynLocal(ctor)
+    if loc is None:
+        raise s_exc.NoSuchCtor(mesg=f'Unable to resolve ctor [{ctor}]', ctor=ctor)
     with s_common.getTempDir() as dirn:
-        loc = s_dyndeps.getDynLocal(ctor)
         async with await loc.anit(dirn, conf=conf) as cell:
             yield cell
 
