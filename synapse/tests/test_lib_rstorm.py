@@ -253,6 +253,12 @@ A fail test that expects to fail but does not.
 .. storm:: inet:ipv4=1.2.3.4
 '''
 
+ctor_fail = '''
+HI
+##
+.. storm-cortex:: path.to.NewpCell
+'''
+
 
 async def get_rst_text(rstfile):
     async with await s_rstorm.StormRst.anit(rstfile) as rstorm:
@@ -482,6 +488,12 @@ class RStormLibTest(s_test.SynTest):
             with s_common.genfile(path) as fd:
                 fd.write(fail02.encode())
             with self.raises(s_exc.StormRuntimeError):
+                await get_rst_text(path)
+
+            path = s_common.genpath(dirn, 'ctor_fail.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(ctor_fail.encode())
+            with self.raises(s_exc.NoSuchCtor):
                 await get_rst_text(path)
 
     async def test_rstorm_cli(self):
