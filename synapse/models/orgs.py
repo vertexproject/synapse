@@ -515,6 +515,12 @@ class OuModule(s_module.CoreModule):
                     ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'deprecated': True,
                         'doc': 'A list of types that apply to the contract.'}),
+                    ('crypto:address', ('crypto:currency:address', {}), {
+                        'doc': 'The crypto currency address of this smart contract.'}),
+                    ('crypto:creator', ('crypto:currency:address', {}), {
+                        'doc': 'The crypto currency address that created this smart contract.'}),
+                    ('crypto:eth:bytecode', ('file:bytes', {}), {
+                        'doc': 'A link to the binary bytecode which implements the ETH contract.'}),
                 )),
                 ('ou:industry', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
