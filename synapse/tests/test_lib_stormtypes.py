@@ -368,6 +368,24 @@ class StormTypesTest(s_test.SynTest):
             guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
             self.eq(guid00, guid01)
 
+            scmd = 'return($lib.guid($lib.undef))'
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+
+            scmd = 'return($lib.guid(($lib.undef,)))'
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+
+            scmd = '$x=$lib.list($lib.undef) return($lib.guid($x))'
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+
+            scmd = '$x=$lib.list(($lib.undef,)) return($lib.guid($x))'
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+
+            scmd = '$x=$lib.dict(foo=($lib.undef,)) return($lib.guid($x))'
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+
+            opts = {'vars': {'x': {'y': s_stormtypes.undef}}}
+            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid($x))', opts=opts))
+
             mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
             self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
 
