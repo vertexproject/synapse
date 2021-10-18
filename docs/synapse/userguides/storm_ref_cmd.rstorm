@@ -1219,8 +1219,7 @@ The ``spin`` command is used to suppress the output of a Storm query. ``Spin`` s
 
 - Count the number of email addresses without displaying the inet:email nodes:
 
-
-.. 
+ 
 .. storm-cli:: inet:email | count | spin
 
 
