@@ -199,16 +199,35 @@ def genCallsig(rtype):
     ret = f"({', '.join(items)})"
     return ret
 
-def getReturnLines(rtype):
+def getLink(sname, linkprefix, ref=False, suffix=None):
+    sname = sname.replace(":", ".").replace(".", "-")
+    if suffix:
+        sname = f'{sname}-{suffix}'
+    if ref:
+        link = f':ref:`{linkprefix}-{sname}`'
+    else:
+        link = f'.. _{linkprefix}-{sname}:'
+    return link
+
+def getRtypeStr(rtype, known_types, types_prefix, suffix):
+    if rtype in known_types:
+        rtype = getLink(rtype, types_prefix, ref=True, suffix=suffix)
+    else:
+        rtype = f'``{rtype}``'
+    return rtype
+
+def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None):
     # Allow someone to plumb in name=Yields as a return type.
     lines = ['']
+    if known_types is None:
+        known_types = set()
 
     if isinstance(rtype, str):
         lines.append('Returns:')
-        lines.append(f'    The type is ``{rtype}``.')
+        lines.append(f'    The type is {getRtypeStr(rtype, known_types, types_prefix, suffix)}.')
     elif isinstance(rtype, (list, tuple)):
         assert len(rtype) > 1
-        tdata = ', '.join([f'``{obj}``' for obj in rtype])
+        tdata = ', '.join([f'{getRtypeStr(obj, known_types, types_prefix, suffix)}' for obj in rtype])
         lines.append('Returns:')
         lines.append(f'    The type may be one of the following: {tdata}.')
     elif isinstance(rtype, dict):
@@ -227,10 +246,10 @@ def getReturnLines(rtype):
             parts.append(desc)
 
         if isinstance(rettype, str):
-            parts.append(f"The return type is ``{rettype}``.")
+            parts.append(f"The return type is {getRtypeStr(rettype, known_types, types_prefix, suffix)}.")
         elif isinstance(rettype, (list, tuple)):
             assert len(rettype) > 1
-            tdata = ', '.join([f'``{obj}``' for obj in rettype])
+            tdata = ', '.join([f'{getRtypeStr(obj, known_types, types_prefix, suffix)}' for obj in rettype])
             rline = f'The return type may be one of the following: {tdata}.'
             parts.append(rline)
         elif isinstance(rettype, dict):
@@ -243,8 +262,9 @@ def getReturnLines(rtype):
         lines.append(line)
     return lines
 
-
-def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1):
+def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
+                  known_types=None, types_prefix=None, types_suffix=None,
+                  ):
     '''
     Process a list of StormTypes doc information to add them to a a RstHelp object.
 
@@ -264,6 +284,9 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1):
         None
     '''
 
+    if known_types is None:
+        known_types = set()
+
     for info in docinfo:
         reqValidStormTypeDoc(info)
 
@@ -271,12 +294,12 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1):
 
         sname = '.'.join(path)
 
-        link = f'.. _{linkprefix}-{sname.replace(":", ".").replace(".", "-")}:'  # XXX Rename to objlink or something
-
         safesname = sname.replace(':', '\\:')
         if islib:
+            link = getLink(sname, linkprefix)
             page.addHead(f"${safesname}", lvl=lvl, link=link)
         else:
+            link = getLink(sname, linkprefix, suffix=types_suffix)
             page.addHead(safesname, lvl=lvl, link=link)
 
         typedoc = info.get('desc')
@@ -306,7 +329,8 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1):
                 arglines = getArgLines(rtype)
                 lines.extend(arglines)
 
-                retlines = getReturnLines(rtype)
+                retlines = getReturnLines(rtype, known_types=known_types, types_prefix=types_prefix,
+                                          suffix=types_suffix)
                 lines.extend(retlines)
 
                 callsig = genCallsig(rtype)
@@ -317,7 +341,9 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1):
                 header = name
                 lines = prepareRstLines(desc)
 
-                lines.extend(getReturnLines(rtype))
+                retlines = getReturnLines(rtype, known_types=known_types, types_prefix=types_prefix,
+                                          suffix=types_suffix)
+                lines.extend(retlines)
 
             if islib:
                 header = '.'.join((safesname, header))

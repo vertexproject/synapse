@@ -30,7 +30,7 @@ Where:
   
 - ``--debug`` specifies to drop into an interactive prompt to inspect the state of the Cortex post-ingest. 
 
-  - See :ref:`_syn-ref-cmdr` for how to use the interactive prompt
+  - See :ref:`syn-tools-cmdr` and :ref:`syn-ref-cmd` for how to use the interactive prompt
   
 - ``FORMAT`` specifies the format of the input files. 
 
@@ -40,7 +40,7 @@ Where:
 - ``MODULES`` specifies a path to a Synapse CoreModule class that will be loaded into the temporary Cortex.
 
   - This option has no effect if the ``--test`` option is not specified
-  - For more on Core Modules, see :ref:`_dev_cortex_quickstart`
+  - For more on Core Modules, see :ref:`dev_cortex_quickstart`
 - ``CHUNKSIZE`` specifies how many lines or chunks of data to read at a time from the given files.
 
   - Defaults to 1000 if not specified

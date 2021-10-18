@@ -51,7 +51,7 @@ Because an ``array`` is a list of typed values, ``array`` elements can be input 
 Insertion
 +++++++++
 
-As a list, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the list contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). The list of array values will be set in the order in which they are specified. Single or double quotes are required in accordance with the standard rules for :ref:`whitespace` and :ref:`literals`.
+As a list, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the list contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). The list of array values will be set in the order in which they are specified. Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 
 **Example:**
 
@@ -525,7 +525,7 @@ Downselect a set of DNS A records to those with domains ending with ``.museum``:
 
 **Usage Notes**
 
-- Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or double quotes (see :ref:`whitespace` and :ref:`literals`).
+- Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or double quotes (see :ref:`storm-whitespace-literals`).
 - Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to lift by a string at the beginning of a domain. For example, ``inet:fqdn="yahoo*"`` and ``inet:fqdn^=yahoo`` are both invalid.
 - Domains can be **filtered** by prefix (``^=``). For example, ``inet:fqdn="*.biz" +inet:fqdn^=smtp`` is valid.
 - Domains cannot be filtered based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
@@ -623,7 +623,7 @@ Parsing
 
 An ``ival`` type is typically specified as two comma-separated time values enclosed in parentheses. Alternately, an ``ival`` can be specified as a single time value with no parentheses (see **Insertion** below for ``ival`` behavior when specifying a single time value).
 
-Single or double quotes are required in accordance with the standard rules for :ref:`whitespace` and :ref:`literals`. For example:
+Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`. For example:
 
 - ``.seen=("2017/03/24 12:13:27", "2017/08/05 17:23:46")``
 - ``+#sometag=(2018/09/15, "+24 hours")``
@@ -747,7 +747,7 @@ To appropriately represent the "city" element of the above location, an alternat
 - ``:loc = "us.fl.saint petersburg"``
 - ...etc.
 
-As an extension of the ``str`` type, ``loc`` types are subject to Synapse’s restrictions regarding :ref:`whitespace` and :ref:`literals`.
+As an extension of the ``str`` type, ``loc`` types are subject to Synapse’s restrictions regarding using :ref:`storm-whitespace-literals`.
 
 Insertion
 +++++++++
@@ -838,7 +838,7 @@ Parsing
 
 Some string types and string-derived types are normalized to all lowercase to facilitate pivoting across like values without case-sensitivity. For types that are normalized in this fashion, the string can be entered in mixed-case and will be automatically converted to lowercase.
 
-Strings are subject to Synapse’s restrictions regarding :ref:`whitespace` and :ref:`literals`.
+Strings are subject to Synapse’s restrictions regarding using :ref:`storm-whitespace-literals`.
 
 Insertion
 +++++++++
@@ -897,7 +897,7 @@ Components of a ``syn:tag`` value must be separated by the dot ( ``.`` ) charact
 
 ``syn:tag`` values can be input using any case (uppercase, lowercase, mixed case) but will be normalized to lowercase.
 
-As ``syn:tag`` values cannot contain whitespace (spaces) or escaped characters, the Synapse restrictions regarding  :ref:`whitespace` and :ref:`literals` do not apply.
+As ``syn:tag`` values cannot contain whitespace (spaces) or escaped characters, the Synapse restrictions regarding using :ref:`storm-whitespace-literals` do **not** apply.
 
 **Examples**
 
@@ -1086,7 +1086,7 @@ Parsing
 
 Despite storing ``time`` types as epoch millis, Storm does not accept millis format as direct input. For example, it is not possible to input a time value in the format ``1544953072324`` (Storm will attempt to interpret that as the string ``YYYYMMDDhhmmssmmmm`` and return an error).
 
-Standard rules regarding :ref:`whitespace` and :ref:`literals` apply. For example, ``"2018/12/16 09:37:52.324"`` needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times and the special time value ``?`` need to be placed in single or double quotes.
+Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``"2018/12/16 09:37:52.324"`` needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times and the special time value ``?`` need to be placed in single or double quotes.
 
 .. NOTE::
   Synapse does not support the storage of an explicit named time zone with a time value (i.e., PST, America/New_York). Synapse is intended to store time values in UTC for consistency, so users will need to convert date / time values to UTC before entering them and convert values to UTC during any automated ingest. Alternatively, the time zone can be provided in +/-hh:mm format, which will then be used to convert the time to UTC for storage.
