@@ -27,6 +27,8 @@ class PolModule(s_module.CoreModule):
                         ('int', {}),
                         {'doc': 'The ISO integer country code.', 'ex': '840'}
                     ),
+                    ('pol:citizen', ('guid', {}), {
+                        'doc': 'A citizenship record.'}),
 
                 ),
 
@@ -41,6 +43,23 @@ class PolModule(s_module.CoreModule):
                         ('name', ('str', {'lower': True}), {}),
                         ('pop', ('int', {}), {}),
                         ('tld', ('inet:fqdn', {}), {}),
+                    )),
+                    ('pol:citizen', {}, (
+                        ('country:org', ('ou:org', {}), {
+                            'doc': 'The country which the contact is a citizen of.'}),
+                        ('issuer:orgname', ('ou:name', {}), {
+                            'doc': 'The country name. Used for entity resolution.'}),
+                        ('country:orgfqdn', ('ou:org', {}), {
+                            'doc': 'The country FQDN. Used for entity resolution.'}),
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The contact information of the citizen.'}),
+                        ('type', ('pol:citizentype', {}), {
+                            'ex': 'birth',
+                            'doc': 'A taxonomy of types of citizenship.'}),
+                        ('granted', ('time', {}), {
+                            'doc': 'The date on which citizenship was granted.'}),
+                        ('revoked', ('time', {}), {
+                            'doc': 'The date on which citizenship was revoked.'}),
                     )),
 
                 ),

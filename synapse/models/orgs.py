@@ -135,7 +135,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
                 ('ou:id:type', ('guid', {}), {
-                    'doc': 'A type of id number issued by an org.',
+                    'doc': 'A type of id number defined by an org.',
                 }),
                 ('ou:id:value', ('str', {'strip': True}), {
                     'doc': 'The value of an org:id:number.',
@@ -301,6 +301,15 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.',
+                    }),
+                    ('issuer:org', ('ou:org', {}), {
+                        'doc': 'The org that issued the ID if it differs from the ou:id:type.',
+                    }),
+                    ('issuer:orgname', ('ou:name', {}), {
+                        'doc': 'The reported orgname that issued the ID if it differs from the ou:id:type. Used for entity resolution.',
+                    }),
+                    ('issuer:orgfqdn', ('inet:fqdn', {}), {
+                        'doc': 'The reported orgfqdn that issued the ID if it differs from the ou:id:type. Used for entity resolution.',
                     }),
                     ('issued', ('time', {}), {
                         'doc': 'The time at which the org issued the ID number.',

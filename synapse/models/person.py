@@ -323,6 +323,12 @@ class PsModule(s_module.CoreModule):
                     ('dod', ('time', {}), {
                         'doc': 'The date of death for this contact.',
                     }),
+                    ('birth:place', ('geo:place', {}), {
+                        'doc': 'The place of birth for this contact.',
+                    }),
+                    ('death:place', ('geo:place', {}), {
+                        'doc': 'The place of death for this contact.',
+                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The home or main site for this contact.',
                     }),

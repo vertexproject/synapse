@@ -158,6 +158,9 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The year the vessel was constructed.'}),
                     ('operator', ('ps:contact', {}), {
                         'doc': 'The contact information of the operator.'}),
+                    # TODO radio callsign as a form?
+                    ('callsign', ('str', {'upper': True, 'strip': True}), {
+                        'doc': 'The callsign of the vessel.'}),
                     # TODO tonnage / gross tonnage?
                 )),
                 ('transport:sea:telem', {}, (
