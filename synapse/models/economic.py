@@ -207,7 +207,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'A small note specified by the payer common in financial transactions.'}),
 
                     ('crypto:eth:gasused', ('int', {}), {
-                        'doc': 'The amount gas used to execute this transaction for this transaction.'}),
+                        'doc': 'The amount gas used to execute this transaction.'}),
 
                     ('crypto:eth:gaslimit', ('int', {}), {
                         'doc': 'The ETH gas limit specified for this transaction.'}),
