@@ -545,12 +545,6 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
 
-    def test_http_header(self):
-        pass # this is tested below...
-
-    def test_http_header_name(self):
-        pass # this is tested below...
-
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'
         valu = ('Cool', 'Cooler')

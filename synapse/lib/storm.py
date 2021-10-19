@@ -1576,7 +1576,7 @@ class Runtime(s_base.Base):
 
         self.query = query
 
-        self.readonly = opts.get('readonly', False) # EXPERIMENTAL: Make it safe to run untrusted queries
+        self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
@@ -2308,7 +2308,7 @@ class Cmd:
 
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax: # pragma: no cover
+        except s_exc.BadSyntax:  # pragma: no cover
             pass
 
         for line in self.pars.mesgs:
@@ -2316,7 +2316,7 @@ class Cmd:
 
         return not self.pars.exited
 
-    async def execStormCmd(self, runt, genr): # pragma: no cover
+    async def execStormCmd(self, runt, genr):  # pragma: no cover
         ''' Abstract base method '''
         raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
         for item in genr:
@@ -3547,7 +3547,7 @@ class ParallelCmd(Cmd):
 
             await outq.put(None)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
         except Exception as e:
@@ -3574,7 +3574,7 @@ class ParallelCmd(Cmd):
                     async for pumpitem in genr:
                         await inq.put(pumpitem)
                     [await inq.put(None) for i in range(size)]
-                except asyncio.CancelledError: # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
                 except Exception as e:
                     await outq.put(e)

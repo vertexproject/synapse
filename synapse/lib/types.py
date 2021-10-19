@@ -42,7 +42,7 @@ class Type:
         self.modl = modl
         self.name = name
         self.info = info
-        self.form = None # this will reference a Form() if the type is a form
+        self.form = None  # this will reference a Form() if the type is a form
         self.subof = None  # This references the name that a type was extended from.
 
         self.info.setdefault('bases', ())
@@ -52,7 +52,7 @@ class Type:
 
         self._type_norms = {}   # python type to norm function map str: _norm_str
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
-        self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
+        self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)

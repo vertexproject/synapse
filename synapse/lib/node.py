@@ -635,7 +635,7 @@ class Node:
 
             prop = self.snap.core.model.getTagProp(tagprop)
 
-            if prop is None: # pragma: no cover
+            if prop is None:  # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype), ()))
@@ -678,7 +678,7 @@ class Node:
         try:
             norm, info = prop.type.norm(valu)
         except Exception as e:
-            mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
+            mesg = f'Bad property value:  #{tag}:{prop.name}={valu!r}'
             return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
         edits = (

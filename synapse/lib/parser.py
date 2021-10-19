@@ -298,7 +298,7 @@ class AstConverter(lark.Transformer):
                 continue
 
             # this one should never happen, but is here in case
-            if isinstance(kid, s_ast.Const): # pragma: no cover
+            if isinstance(kid, s_ast.Const):  # pragma: no cover
                 argv.append(kid.valu)
                 continue
 

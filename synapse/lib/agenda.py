@@ -475,7 +475,7 @@ class Agenda(s_base.Base):
         self._wake_event = asyncio.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
 
-        self._hivenode = await self.core.hive.open(('agenda', 'appts')) # Persistent storage
+        self._hivenode = await self.core.hive.open(('agenda', 'appts'))  # Persistent storage
         self.onfini(self.stop)
 
         self.enabled = False

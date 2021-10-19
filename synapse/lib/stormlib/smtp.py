@@ -173,7 +173,7 @@ class SmtpMessage(s_stormtypes.StormType):
 
             await asyncio.wait_for(futu, timeout=timeout)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
         except Exception as e:

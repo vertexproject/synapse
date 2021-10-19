@@ -598,7 +598,7 @@ Queries = [
 _ParseResults = [
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
     'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
-    'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
+    'Query: [SetVarOper: [Const: q, EmbedQuery:  #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
     'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: newp.com], CmdOper: [Const: tee, List: [ArgvQuery: [Query: [LiftProp: [Const: inet:fqdn]]]]], CmdOper: [Const: uniq, Const: ()]]',

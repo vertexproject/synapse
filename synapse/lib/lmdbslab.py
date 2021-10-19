@@ -617,7 +617,7 @@ class Slab(s_base.Base):
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
-            except Exception: # pragma: no cover
+            except Exception:  # pragma: no cover
                 logger.exception('Slab.syncLoopTask')
 
     @classmethod
@@ -787,7 +787,7 @@ class Slab(s_base.Base):
         }
 
     def _acqXactForReading(self):
-        if self.isfini: # pragma: no cover
+        if self.isfini:  # pragma: no cover
             raise s_exc.IsFini()
         if not self.readonly:
             return self.xact
@@ -982,7 +982,7 @@ class Slab(s_base.Base):
             while prev_memend < goal_end:
                 new_memend = min(prev_memend + MAX_LOCK_AT_ONCE, goal_end)
                 memlen = new_memend - prev_memend
-                PROT = 1 # PROT_READ
+                PROT = 1  # PROT_READ
                 FLAGS = 0x8001  # MAP_POPULATE | MAP_SHARED (Linux only)  (for fast prefaulting)
                 try:
                     self.prefaulting = True

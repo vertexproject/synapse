@@ -684,7 +684,7 @@ class CellApi(s_base.Base):
         await self.cell.iterBackupArchive(name, user=self.user)
 
         # Make this a generator
-        if False: # pragma: no cover
+        if False:  # pragma: no cover
             yield
 
     @adminapi()
@@ -701,7 +701,7 @@ class CellApi(s_base.Base):
         await self.cell.iterNewBackupArchive(user=self.user, name=name, remove=remove)
 
         # Make this a generator
-        if False: # pragma: no cover
+        if False:  # pragma: no cover
             yield
 
     @adminapi()
@@ -1227,7 +1227,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             proxy = await self.ahaclient.proxy(timeout=2)
 
-        except TimeoutError: # pragma: no cover
+        except TimeoutError:  # pragma: no cover
             return None
 
         # if we went inactive, bump the aha proxy
@@ -1238,9 +1238,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahanetw = self.conf.get('aha:network')
         try:
             await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             logger.warning(f'_setAhaActive failed: {e}')
 
     def addActiveCoro(self, func, iden=None, base=None):
@@ -1338,10 +1338,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._setAhaActive()
 
-    async def initServiceActive(self): # pragma: no cover
+    async def initServiceActive(self):  # pragma: no cover
         pass
 
-    async def initServicePassive(self): # pragma: no cover
+    async def initServicePassive(self):  # pragma: no cover
         pass
 
     async def getNexusChanges(self, offs):
