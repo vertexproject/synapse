@@ -1247,7 +1247,7 @@ def chopurl(url, **opts):
 
         info = s_urlhelp.chopurl(url)
 
-        #flatten query params into info
+        # flatten query params into info
         query = info.pop('query', None)
         if query is not None:
             info.update(query)

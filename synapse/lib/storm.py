@@ -1618,13 +1618,13 @@ class Runtime(s_base.Base):
                 await valu.fini()
 
     async def dyncall(self, iden, todo, gatekeys=()):
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
@@ -1637,7 +1637,7 @@ class Runtime(s_base.Base):
         gatekeys = ()
         if perm is not None:
             gatekeys = ((self.user.iden, perm, None),)
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)

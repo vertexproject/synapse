@@ -838,8 +838,8 @@ class StixBundle(s_stormtypes.Prim):
         }
 
     # TODO config modification helpers
-    #async def addPropMap(self, formname, stixtype, propname, stormtext):
-    #async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
+    # async def addPropMap(self, formname, stixtype, propname, stormtext):
+    # async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
 
     async def add(self, node, stixtype=None):
 

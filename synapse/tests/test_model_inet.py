@@ -422,8 +422,8 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('host'), 'api')
-                #self.eq(node.get('issuffix'), 0)
-                #self.eq(node.get('iszone'), 0)
+                # self.eq(node.get('issuffix'), 0)
+                # self.eq(node.get('iszone'), 0)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:

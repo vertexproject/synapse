@@ -126,8 +126,8 @@ class SmtpMessage(s_stormtypes.StormType):
     async def _getEmailHtml(self):
         return self.bodyhtml
 
-    #TODO
-    #async def attach(self, sha256, name, mime):
+    # TODO
+    # async def attach(self, sha256, name, mime):
 
     async def send(self, host, port=25, user=None, passwd=None, usetls=False, starttls=False, timeout=60):
 

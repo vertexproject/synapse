@@ -828,12 +828,12 @@ class SetVarOper(Oper):
             valu = await vkid.compute(runt, path)
             if valu is undef:
                 await runt.popVar(name)
-                #TODO detect which to update here
+                # TODO detect which to update here
                 await path.popVar(name)
 
             else:
                 await runt.setVar(name, valu)
-                #TODO detect which to update here
+                # TODO detect which to update here
                 await path.setVar(name, valu)
 
             yield node, path
