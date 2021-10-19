@@ -1598,7 +1598,7 @@ class Str(Type):
 
         return norm, info
 
-taxonre = regex.compile('\w+')
+taxonre = regex.compile('\\w+')
 class Taxon(Str):
 
     def postTypeInit(self):
@@ -1678,7 +1678,7 @@ class Tag(Str):
         toks = text.strip('#').split('.')
         return self._normPyList(toks)
 
-tagpartre = regex.compile('\w+')
+tagpartre = regex.compile('\\w+')
 class TagPart(Str):
 
     def postTypeInit(self):
