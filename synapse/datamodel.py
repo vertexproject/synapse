@@ -783,6 +783,10 @@ class Model:
 
     def addUnivProp(self, name, tdef, info):
 
+        if not s_grammar.isBaseProp(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
         base = '.' + name
         univ = Prop(self, None, base, tdef, info)
 
@@ -801,6 +805,9 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm(name=formname)
+        if not s_grammar.isBaseProp(propname):
+            mesg = f'Invalid prop name {propname}'
+            raise s_exc.BadPropDef(name=propname, mesg=mesg)
         return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):

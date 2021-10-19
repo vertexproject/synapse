@@ -41,6 +41,28 @@ class SynTest(s_test.SynTest):
             self.none(core.model.prop('_visi:int:tick'))
             self.none(core.model.tagprop('score'))
 
+            # Underscores can exist in extended names but only at specific locations
+            q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
+            $lib.model.ext.addFormProp('test:str', '_test:_myprop', $l, $d)
+            '''
+            self.none(await core.callStorm(q))
+            q = '$lib.model.ext.addUnivProp(_woot:_stuff, (int, $lib.dict()), $lib.dict())'
+            self.none(await core.callStorm(q))
+
+            with self.raises(s_exc.BadPropDef):
+                q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
+                $lib.model.ext.addFormProp('test:str', '_test:_my_prop', $l, $d)
+                '''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadPropDef):
+                q = '''$lib.model.ext.addUnivProp(_woot_stuff, (int, $lib.dict()), $lib.dict())'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadPropDef):
+                q = '''$lib.model.ext.addUnivProp(_woot:_stuff_2, (int, $lib.dict()), $lib.dict())'''
+                await core.callStorm(q)
+
             visi = await core.auth.addUser('visi')
             opts = {'user': visi.iden}
             with self.raises(s_exc.AuthDeny):
