@@ -2480,6 +2480,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
+        if not s_grammar.isBaseProp(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
+
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
@@ -2530,6 +2534,10 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def addFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+
+        if not s_grammar.isBaseProp(prop):
+            mesg = f'Invalid prop name {prop}'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
