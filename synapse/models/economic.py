@@ -39,11 +39,6 @@ class EconModule(s_module.CoreModule):
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment or crypto currency transaction.'}),
 
-                ('econ:acct:paymentstatus', ('taxonomy', {}), {
-                    'doc': 'A payment status taxonomy.',
-                    'interfaces': ('taxonomy',),
-                }),
-
                 ('econ:acct:balance', ('guid', {}), {
                     'doc': 'A snapshot of the balance of an account at a point in time.'}),
 
@@ -160,9 +155,6 @@ class EconModule(s_module.CoreModule):
 
                     ('fee', ('econ:price', {}), {
                         'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
-
-                    ('status', ('econ:paymentstatus', {}), {
-                        'doc': 'The transaction fee paid to the payment processor.'}),
 
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
