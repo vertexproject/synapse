@@ -801,7 +801,6 @@ class Model:
         form = self.forms.get(formname)
         if form is None:
             raise s_exc.NoSuchForm(name=formname)
-
         return self._addFormProp(form, propname, tdef, info)
 
     def _addFormProp(self, form, name, tdef, info):
