@@ -114,7 +114,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'An analyst specified description of the transaction.'}),
 
                     ('block', ('crypto:currency:block', {}), {
-                        'doc': 'The number of the block which records the transaction.'}),
+                        'doc': 'The block which records the transaction.'}),
                     ('block:coin', ('int', {}), {
                         'doc': 'The coin/blockchain of the block which records this transaction.'}),
                     ('block:offset', ('int', {}), {
