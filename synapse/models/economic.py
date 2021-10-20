@@ -158,14 +158,8 @@ class EconModule(s_module.CoreModule):
                     ('txnid', ('str', {'strip': True}), {
                         'doc': 'A payment processor specific transaction id.'}),
 
-                    ('payer:txnfee', ('econ:price', {}), {
-                        'doc': 'The transaction fee paid by the sender to the payment processor.'}),
-
-                    ('payee:txnfee', ('econ:price', {}), {
+                    ('fee', ('econ:price', {}), {
                         'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
-
-                    ('parent', ('econ:acct:payment', {}), {
-                        'doc': 'A parent payment. Most commonly used for atomic multi-payment mechanisms.'}),
 
                     ('status', ('econ:paymentstatus', {}), {
                         'doc': 'The transaction fee paid to the payment processor.'}),
