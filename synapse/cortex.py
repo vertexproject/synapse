@@ -688,6 +688,9 @@ class CoreApi(s_cell.CellApi):
         Extended properties *must* begin with _
         '''
         self.user.confirm(('model', 'prop', 'add', form))
+        if not s_grammar.isBasePropNoPivprop(prop):
+            mesg = f'Invalid prop name {prop}'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         return await self.cell.addFormProp(form, prop, tdef, info)
 
     async def delFormProp(self, form, name):
@@ -704,6 +707,9 @@ class CoreApi(s_cell.CellApi):
         Extended properties *must* begin with _
         '''
         self.user.confirm(('model', 'univ', 'add'))
+        if not s_grammar.isBasePropNoPivprop(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
         return await self.cell.addUnivProp(name, tdef, info)
 
     async def delUnivProp(self, name):
@@ -718,6 +724,9 @@ class CoreApi(s_cell.CellApi):
         Add a tag property to record data about tags on nodes.
         '''
         self.user.confirm(('model', 'tagprop', 'add'))
+        if not s_grammar.isBasePropNoPivprop(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
         return await self.cell.addTagProp(name, tdef, info)
 
     async def delTagProp(self, name):
