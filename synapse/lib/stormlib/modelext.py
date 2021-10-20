@@ -1,3 +1,6 @@
+import synapse.exc as s_exc
+import synapse.lib.grammar as s_grammar
+
 from synapse.lib.stormtypes import Lib, registry, confirm, tostr, toprim
 
 @registry.registerLib
@@ -97,6 +100,9 @@ class LibModelExt(Lib):
         typedef = await toprim(typedef)
         propinfo = await toprim(propinfo)
         confirm(('model', 'prop', 'add', formname))
+        if not s_grammar.isBaseProp(propname):
+            mesg = f'Invalid prop name {propname}'
+            raise s_exc.BadPropDef(prop=propname, mesg=mesg)
         await self.runt.snap.core.addFormProp(formname, propname, typedef, propinfo)
 
     async def addUnivProp(self, propname, typedef, propinfo):
@@ -104,6 +110,9 @@ class LibModelExt(Lib):
         typedef = await toprim(typedef)
         propinfo = await toprim(propinfo)
         confirm(('model', 'univ', 'add'))
+        if not s_grammar.isBaseProp(propname):
+            mesg = f'Invalid prop name {propname}'
+            raise s_exc.BadPropDef(name=propname, mesg=mesg)
         await self.runt.snap.core.addUnivProp(propname, typedef, propinfo)
 
     async def addTagProp(self, propname, typedef, propinfo):
@@ -111,6 +120,9 @@ class LibModelExt(Lib):
         typedef = await toprim(typedef)
         propinfo = await toprim(propinfo)
         confirm(('model', 'tagprop', 'add'))
+        if not s_grammar.isBaseProp(propname):
+            mesg = f'Invalid prop name {propname}'
+            raise s_exc.BadPropDef(name=propname, mesg=mesg)
         await self.runt.snap.core.addTagProp(propname, typedef, propinfo)
 
     async def delForm(self, formname):

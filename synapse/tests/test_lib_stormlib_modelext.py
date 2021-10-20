@@ -49,6 +49,12 @@ class SynTest(s_test.SynTest):
             q = '$lib.model.ext.addUnivProp(_woot:_stuff, (int, $lib.dict()), $lib.dict())'
             self.none(await core.callStorm(q))
 
+            q = '''$lib.model.ext.addTagProp(_score, (int, $lib.dict()), $lib.dict())'''
+            self.none(await core.callStorm(q))
+
+            q = '''$lib.model.ext.addTagProp(some:_score, (int, $lib.dict()), $lib.dict())'''
+            self.none(await core.callStorm(q))
+
             with self.raises(s_exc.BadPropDef):
                 q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
                 $lib.model.ext.addFormProp('test:str', '_test:_my_prop', $l, $d)
@@ -63,6 +69,15 @@ class SynTest(s_test.SynTest):
                 q = '''$lib.model.ext.addUnivProp(_woot:_stuff_2, (int, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
+            with self.raises(s_exc.BadPropDef):
+                q = '''$lib.model.ext.addTagProp(some_score, (int, $lib.dict()), $lib.dict())'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadPropDef):
+                q = '''$lib.model.ext.addTagProp(_someones:_score_value, (int, $lib.dict()), $lib.dict())'''
+                await core.callStorm(q)
+
+            # Permission errors
             visi = await core.auth.addUser('visi')
             opts = {'user': visi.iden}
             with self.raises(s_exc.AuthDeny):
