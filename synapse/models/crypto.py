@@ -23,7 +23,7 @@ class CryptoModule(s_module.CoreModule):
             'types': (
 
                 ('crypto:currency:transaction', ('guid', {}), {
-                    'doc': 'An individual crypto currency transaction recorded on the block chain.',
+                    'doc': 'An individual crypto currency transaction recorded on the blockchain.',
                 }),
                 ('crypto:currency:block', ('comp', {'fields': (
                                                         ('coin', 'crypto:currency:coin'),
