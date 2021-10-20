@@ -206,20 +206,8 @@ class EconModule(s_module.CoreModule):
                     ('memo', ('str', {}), {
                         'doc': 'A small note specified by the payer common in financial transactions.'}),
 
-                    ('crypto:eth:gasused', ('int', {}), {
-                        'doc': 'The amount gas used to execute this transaction.'}),
-
-                    ('crypto:eth:gaslimit', ('int', {}), {
-                        'doc': 'The ETH gas limit specified for this transaction.'}),
-
-                    ('crypto:eth:gasprice', ('econ:price', {}), {
-                        'doc': 'The gas price (in ETH) specified for this transaction.'}),
-
-                    ('crypto:input', ('file:bytes', {}), {
-                        'doc': 'The smart contract inputs specified in this transaction.'}),
-
-                    ('crypto:output', ('file:bytes', {}), {
-                        'doc': 'The smart contract outputs returned by this transaction.'}),
+                    ('crypto:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'A crypto currency transaction that initiated the payment.'}),
 
                 )),
 
