@@ -120,6 +120,13 @@ class CryptoModule(s_module.CoreModule):
                     ('block:offset', ('int', {}), {
                         'doc': 'The offset of the block which records this transaction.'}),
 
+                    ('success', ('bool', {}), {
+                        'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
+                    ('status:code', ('int', {}), {
+                        'doc': 'A coin specific status code which may represent an error reason.'}),
+                    ('status:message', ('str', {}), {
+                        'doc': 'A coin specific status message which main contain an error reason.'}),
+
                     ('to', ('crypto:currency:address', {}), {
                         'doc': 'The destination address of the transaction.'}),
                     ('from', ('crypto:currency:address', {}), {
