@@ -62,6 +62,12 @@ class SynTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
+                q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
+                $lib.model.ext.addFormProp('test:str', '_test::_myprop', $l, $d)
+                '''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadPropDef):
                 q = '''$lib.model.ext.addUnivProp(_woot_stuff, (int, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 

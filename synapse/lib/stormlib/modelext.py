@@ -100,7 +100,7 @@ class LibModelExt(Lib):
         typedef = await toprim(typedef)
         propinfo = await toprim(propinfo)
         confirm(('model', 'prop', 'add', formname))
-        if not s_grammar.isBaseProp(propname):
+        if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(prop=propname, mesg=mesg)
         await self.runt.snap.core.addFormProp(formname, propname, typedef, propinfo)
@@ -110,7 +110,7 @@ class LibModelExt(Lib):
         typedef = await toprim(typedef)
         propinfo = await toprim(propinfo)
         confirm(('model', 'univ', 'add'))
-        if not s_grammar.isBaseProp(propname):
+        if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
         await self.runt.snap.core.addUnivProp(propname, typedef, propinfo)
@@ -120,7 +120,7 @@ class LibModelExt(Lib):
         typedef = await toprim(typedef)
         propinfo = await toprim(propinfo)
         confirm(('model', 'tagprop', 'add'))
-        if not s_grammar.isBaseProp(propname):
+        if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
         await self.runt.snap.core.addTagProp(propname, typedef, propinfo)
