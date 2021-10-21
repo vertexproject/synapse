@@ -543,6 +543,11 @@ class Axon(s_cell.Cell):
             'description': 'An aiohttp-socks compatible proxy URL to use in the wget API.',
             'type': 'string',
         },
+        'http:inject:cas': {
+            'description': 'Inject the cell certdir CAs into the TLS CA chain for the wget API.',
+            'type': 'boolean',
+            'default': False
+        },
     }
 
     async def __anit__(self, dirn, conf=None):  # type: ignore
@@ -951,10 +956,23 @@ class Axon(s_cell.Cell):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
-        connector = None
         proxyurl = self.conf.get('http:proxy')
+        inject_cas = self.conf.get('http:inject:cas')
+
+        connector = None
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        if not ssl:
+            ssl = False
+        elif inject_cas:
+            # This is a heavy call to make for **each** time we use this client context.
+            # It requires us to do os.listdir() and potential disk io for each http call.
+            # Is there a good place where we can cache this?
+            ssl = self.certdir.getClientSSLContext()
+        else:
+            # default aiohttp behavior
+            ssl = None
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -1028,12 +1046,25 @@ class Axon(s_cell.Cell):
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=url))
 
-        connector = None
         proxyurl = self.conf.get('http:proxy')
+        inject_cas = self.conf.get('http:inject:cas')
+
+        connector = None
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        if not ssl:
+            ssl = False
+        elif inject_cas:
+            # This is a heavy call to make for **each** time we use this client context.
+            # It requires us to do os.listdir() and potential disk io for each http call.
+            # Is there a good place where we can cache this?
+            ssl = self.certdir.getClientSSLContext()
+        else:
+            # default aiohttp behavior
+            ssl = None
 
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 

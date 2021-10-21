@@ -749,6 +749,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_certdir_inet
 
       - gh-release/dorelease:
           requires:

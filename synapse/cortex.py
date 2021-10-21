@@ -1022,6 +1022,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
         },
+        'http:inject:cas': {
+            'description': 'Inject the cell certdir CAs into the TLS CA chain for Storm HTTP API calls.',
+            'type': 'boolean',
+            'default': False
+        },
     }
 
     cellapi = CoreApi
