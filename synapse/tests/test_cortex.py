@@ -5183,6 +5183,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await prox.delForm('_hehe:hoho')
                     self.none(core.model.form('_hehe:hoho'))
 
+                    with self.raises(s_exc.BadPropDef):
+                        await prox.addFormProp('test:str', '_blah:blah_blah', ('int', {}), {})
+                    with self.raises(s_exc.BadPropDef):
+                        await prox.addUnivProp('_blah:blah_blah', ('int', {}), {})
+                    with self.raises(s_exc.BadPropDef):
+                        await prox.addTagProp('_blah:blah_blah', ('int', {}), {})
+
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
             # By default, a cortex has a local Axon instance available

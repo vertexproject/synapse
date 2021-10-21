@@ -1546,9 +1546,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
             # test runtsafe and non-runtsafe failure to create node
-            msgs = await core.stormlist('scrape "https://t.c…"')
+            msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormIsInWarn('BadTypeValue', msgs)
-            msgs = await core.stormlist('[ media:news=* :title="https://t.c…" ] | scrape :title')
+            msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormIsInWarn('BadTypeValue', msgs)
 
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')

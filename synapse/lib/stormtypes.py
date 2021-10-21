@@ -6788,7 +6788,7 @@ class LibCron(Lib):
         view = kwargs.get('view')
         if not view:
             view = self.runt.snap.view.iden
-        view = self.runt.snap.view.iden
+        cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
