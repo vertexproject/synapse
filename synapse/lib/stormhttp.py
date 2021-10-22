@@ -245,6 +245,7 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
+        ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
         allow_redirects = await s_stormtypes.tobool(allow_redirects)
 
         kwargs = {'allow_redirects': allow_redirects}
@@ -258,7 +259,7 @@ class LibHttp(s_stormtypes.Lib):
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
-        if not ssl_verify:
+        if ssl_verify is False:
             kwargs['ssl'] = False
         elif inject_cas:
             # This is a heavy call to make for **each** time we use this client context.

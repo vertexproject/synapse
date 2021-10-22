@@ -463,7 +463,8 @@ class AxonTest(s_t_utils.SynTest):
             sha2 = s_common.ehex(sha256)
             async with axon.getLocalProxy() as proxy:
 
-                resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}', ssl=False)
+                resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{sha2}',
+                                        ssl=False)
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
                 self.eq(8, resp['size'])
@@ -474,9 +475,9 @@ class AxonTest(s_t_utils.SynTest):
 
                 async def timeout(self):
                     await asyncio.sleep(2)
-
                 with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
-                    resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/active', timeout=1)
+                    resp = await proxy.wget(f'https://visi:secret@127.0.0.1:{port}/api/v1/active', timeout=1,
+                                            ssl=False)
                     self.eq(False, resp['ok'])
                     self.eq('TimeoutError', resp['mesg'])
 
@@ -518,11 +519,12 @@ class AxonTest(s_t_utils.SynTest):
                 self.eq(200, resp['code'])
 
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
-            resp = await core.callStorm(f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))', opts=opts)
+            q = f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))'
+            resp = await core.callStorm(q, opts=opts)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
-            resp = await core.callStorm(f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))', opts=opts)
+            resp = await core.callStorm(q, opts=opts)
             self.eq(False, resp['ok'])
             self.isin('Axon does not contain the requested file.', resp.get('mesg'))

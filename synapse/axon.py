@@ -496,7 +496,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
     async def wput(self, sha256, url, params=None, headers=None, ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.wput(sha256, url, params=None, headers=None, ssl=True, timeout=None)
+        return await self.cell.wput(sha256, url, params=params, headers=headers, ssl=ssl, timeout=timeout)
 
     async def metrics(self):
         '''
@@ -962,8 +962,8 @@ class Axon(s_cell.Cell):
         connector = None
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
-
-        if not ssl:
+        logger.info(f'inbound TLS {ssl=}')
+        if ssl is False:
             ssl = False
         elif inject_cas:
             # This is a heavy call to make for **each** time we use this client context.
@@ -1055,7 +1055,7 @@ class Axon(s_cell.Cell):
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
-        if not ssl:
+        if ssl is False:
             ssl = False
         elif inject_cas:
             # This is a heavy call to make for **each** time we use this client context.
