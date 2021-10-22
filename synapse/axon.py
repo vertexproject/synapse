@@ -962,7 +962,7 @@ class Axon(s_cell.Cell):
         connector = None
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
-        logger.info(f'inbound TLS {ssl=}')
+
         if ssl is False:
             ssl = False
         elif inject_cas:
