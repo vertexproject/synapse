@@ -1,7 +1,9 @@
 import logging
 import collections
 
+import idna
 import regex
+import unicodedata
 
 import synapse.data as s_data
 
@@ -17,6 +19,10 @@ tldlist.reverse()
 
 tldcat = '|'.join(tldlist)
 fqdn_re = regex.compile(r'((?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))' % tldcat)
+udots = regex.compile(r'[\u3002\uff0e\uff61]')
+
+# avoid thread safety issues due to uts46_remap() importing uts46data
+idna.encode('init', uts46=True)
 
 FANGS = {
     'hxxp:': 'http:',
@@ -26,7 +32,13 @@ FANGS = {
     'hxxp(:)': 'http:',
     'hxxps(:)': 'https:',
     '[.]': '.',
+    '[．]': '．',
+    '[。]': '。',
+    '[｡]': '｡',
     '(.)': '.',
+    '(．)': '．',
+    '(。)': '。',
+    '(｡)': '｡',
     '[:]': ':',
     'fxp': 'ftp',
     'fxps': 'ftps',
@@ -50,6 +62,22 @@ def fqdn_prefix_check(match: regex.Match):
         valu = valu.rstrip(inverse_prefixs.get(prefix))
     return valu
 
+def fqdn_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+
+    nval = unicodedata.normalize('NFKC', valu)
+    nval = regex.sub(udots, '.', valu)
+    nval = valu.strip().strip('.')
+
+    try:
+        idna.encode(nval, uts46=True).decode('utf8')
+    except idna.IDNAError:
+        try:
+            nval.encode('idna').decode('utf8').lower()
+        except UnicodeError:
+            return None
+    return valu
 
 re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
@@ -60,7 +88,7 @@ scrape_types = [  # type: ignore
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?):[0-9]{1,5})', {}),
     ('inet:ipv4', r'(?P<valu>(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))', {}),
-    ('inet:fqdn', r'(?=(?:[^a-z0-9_.-]|^)(?P<valu>(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
+    ('inet:fqdn', r'(?=(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|^)(?P<valu>(?:[\p{L}\p{M}\p{N}\p{S}_-]{1,63}[\u3002\uff0e\uff61\.]){1,10}(?:%s))(?:[^\p{L}\p{M}\p{N}\p{S}\u3002\uff0e\uff61_.-]|[\u3002\uff0e\uff61.]([\p{Z}\p{Cc}]|$)|$))' % tldcat, {'callback': fqdn_check}),
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
