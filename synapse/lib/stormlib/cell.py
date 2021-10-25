@@ -84,11 +84,26 @@ for $view in $absoluteOrder {
 }
 '''
 
+storm_missing_coins = '''
+    for $view in $lib.view.list(deporder=$lib.true) {
+        view.exec $view {
+            $coins = $lib.set()
+            crypto:currency:address
+            $coins.add(:coin) | spin
+            for $coin in $coins {[ crypto:currency:coin=$coin ]}
+        }
+    }
+'''
+
 
 hotfixes = (
     ((1, 0, 0), {
         'desc': 'Create nodes for known missing autoadds.',
         'query': storm_missing_autoadds,
+    }),
+    ((2, 0, 0), {
+        'desc': 'Populate crypto:currency:coin nodes from existing addresses.',
+        'query': storm_missing_coins,
     }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'

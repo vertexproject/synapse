@@ -3526,8 +3526,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         if view is not None:
             return await view.pack()
 
-    async def getViewDefs(self):
-        return [await v.pack() for v in list(self.views.values())]
+    async def getViewDefs(self, deporder=False):
+
+        views = list(self.views.values())
+        if not deporder:
+            return [await v.pack() for v in views]
+
+        def depth(view):
+            x = 0
+            llen = len(view.layers)
+            while view:
+                x += 1
+                view = view.parent
+            return (x, llen)
+        views.sort(key=lambda x: depth(x))
+
+        return [await v.pack() for v in views]
 
     async def addLayer(self, ldef=None, nexs=True):
         '''
