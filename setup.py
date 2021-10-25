@@ -98,11 +98,13 @@ setup(
         'vcrpy>=4.1.1,<4.2.0',
         'base58==2.1.0',
         'python-bitcoinlib==0.11.0',
-        'pysha3==1.0.2',
+        'pycryptodome==3.11.0',
         'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
         'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
         'cbor2==5.4.1',
         'bech32==1.2.0',
+        'oauthlib>=3.1.1,<4.0.0',
+        'idna==3.2',
     ],
 
     extras_require={
@@ -116,12 +118,12 @@ setup(
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
         ],
         'dev': [
-            'pytest>=5.1.0,<6.0.0',
+            'pytest>=6.2.5,<7.0.0',
             'autopep8>=1.5.4,<2.0.0',
-            'pytest-cov>=2.9.0,<3.0.0',
-            'pycodestyle>=2.6.0,<3.0.0',
-            'bump2version>=1.0.0,<1.1.0',
-            'pytest-xdist>=1.32.0,<2.0.0',
+            'pytest-cov>=3.0.0,<4.0.0',
+            'pycodestyle>=2.8.0,<3.0.0',
+            'bump2version>=1.0.1,<1.1.0',
+            'pytest-xdist>=2.4.0,<3.0.0',
         ],
     },
 
