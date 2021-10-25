@@ -1,4 +1,6 @@
 import io
+import os
+import shutil
 import asyncio
 import hashlib
 import logging
@@ -11,6 +13,7 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 
@@ -35,6 +38,18 @@ emptyretn = (0, emptyhash)
 pennretn = (9, pennhash)
 rgryretn = (11, rgryhash)
 bbufretn = (len(bbuf), bbufhash)
+
+class HttpPushFile(s_httpapi.StreamHandler):
+
+    async def prepare(self):
+        self.gotsize = 0
+
+    async def data_received(self, byts):
+        self.gotsize += len(byts)
+
+    async def put(self):
+        assert self.gotsize == 8
+        self.sendRestRetn(self.gotsize)
 
 class AxonTest(s_t_utils.SynTest):
 
@@ -489,18 +504,6 @@ class AxonTest(s_t_utils.SynTest):
 
     async def test_axon_wput(self):
 
-        class HttpPushFile(s_httpapi.StreamHandler):
-
-            async def prepare(self):
-                self.gotsize = 0
-
-            async def data_received(self, byts):
-                self.gotsize += len(byts)
-
-            async def put(self):
-                assert self.gotsize == 8
-                self.sendRestRetn(self.gotsize)
-
         async with self.getTestCore() as core:
 
             axon = core.axon
@@ -528,3 +531,53 @@ class AxonTest(s_t_utils.SynTest):
             resp = await core.callStorm(q, opts=opts)
             self.eq(False, resp['ok'])
             self.isin('Axon does not contain the requested file.', resp.get('mesg'))
+
+    async def test_axon_tlscapath(self):
+
+        with self.getTestDir() as dirn:
+            cdir = s_common.gendir(dirn, 'certs')
+            cadir = s_common.gendir(cdir, 'cas')
+            tdir = s_certdir.CertDir(cdir)
+            tdir.genCaCert('somelocalca')
+            tdir.genHostCert('localhost', signas='somelocalca')
+
+            localkeyfp = tdir.getHostKeyPath('localhost')
+            localcertfp = tdir.getHostCertPath('localhost')
+            shutil.copyfile(localkeyfp, s_common.genpath(dirn, 'sslkey.pem'))
+            shutil.copyfile(localcertfp, s_common.genpath(dirn, 'sslcert.pem'))
+
+            tlscadir = s_common.gendir(dirn, 'cadir')
+            for fn in os.listdir(cadir):
+                if fn.endswith('.crt'):
+                    shutil.copyfile(os.path.join(cadir, fn), os.path.join(tlscadir, fn))
+
+            conf = {'auth:passwd': 'root'}
+            async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
+                host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+                url = f'https://root:root@127.0.0.1:{port}/api/v1/active'
+                resp = await axon.wget(url)
+                self.false(resp.get('ok'))
+                self.isin('unable to get local issuer certificate', resp.get('mesg'))
+
+                retn = await axon.put(abuf)
+                self.eq(retn, asdfretn)
+                axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+                url = f'https://root:root@127.0.0.1:{port}/api/v1/pushfile'
+                resp = await axon.wput(asdfhash, url)
+                self.false(resp.get('ok'))
+                self.isin('unable to get local issuer certificate', resp.get('mesg'))
+
+            conf = {'auth:passwd': 'root', 'http:tls:ca:dir': tlscadir}
+            async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
+                host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+                url = f'https://root:root@localhost:{port}/api/v1/active'
+                resp = await axon.wget(url)
+                print(resp)
+                self.true(resp.get('ok'))
+
+                retn = await axon.put(abuf)
+                self.eq(retn, asdfretn)
+                axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
+                url = f'https://root:root@localhost:{port}/api/v1/pushfile'
+                resp = await axon.wput(asdfhash, url)
+                self.true(resp.get('ok'))

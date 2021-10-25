@@ -1091,6 +1091,7 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
+                logger.exception(f'Failed to wget {url}')
                 exc = s_common.excinfo(e)
                 mesg = exc.get('errmsg')
                 if not mesg:
