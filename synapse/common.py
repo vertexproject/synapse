@@ -1,5 +1,6 @@
 import io
 import os
+import ssl
 import sys
 import json
 import stat
@@ -46,6 +47,8 @@ version = (major, minor, micro)
 guidre = regex.compile('^[0-9a-f]{32}$')
 
 novalu = NoValu()
+
+logger = logging.getLogger(__name__)
 
 def now():
     '''
@@ -1000,3 +1003,23 @@ async def merggenr2(genrs, cmprkey=None, reverse=False):
         yield valu
         async for valu in genrs[abs(order)]:
             yield valu
+
+def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
+    '''
+    Create as SSL Context and load certificates from a given directory.
+
+    Args:
+        cadir (str): Path to load certificates from.
+        purpose: SSLContext purposes flags.
+
+    Returns:
+        ssl.SSLContext: A SSL Context object.
+    '''
+    sslctx = ssl.create_default_context(purpose=purpose)
+    for name in os.listdir(cadir):
+        certpath = os.path.join(cadir, name)
+        try:
+            sslctx.load_verify_locations(cafile=certpath)
+        except Exception:  # pragma: no cover
+            logger.exception(f'Error loading {certpath}')
+    return sslctx
