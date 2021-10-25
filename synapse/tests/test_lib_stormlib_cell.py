@@ -89,7 +89,8 @@ class StormCellTest(s_test.SynTest):
                               'd427e8e7f2cd9b92123a80669216e763'])
             msgs = await core.stormlist(q)
             self.stormIsInPrint(mesg, msgs)
-            self.stormIsInPrint('r=(1, 0, 0)', msgs)
+            self.stormIsInPrint('fix (1, 0, 0)', msgs)
+            self.stormIsInPrint('fix (2, 0, 0)', msgs)
 
             msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
             self.stormIsInPrint('r=False', msgs)

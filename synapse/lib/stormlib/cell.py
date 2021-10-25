@@ -86,10 +86,10 @@ for $view in $absoluteOrder {
 
 storm_missing_coins = '''
     for $view in $lib.view.list(deporder=$lib.true) {
-        view.exec $view {
+        view.exec $view.iden {
             $coins = $lib.set()
             crypto:currency:address
-            $coins.add(:coin) | spin
+            $coins.add(:coin) | spin |
             for $coin in $coins {[ crypto:currency:coin=$coin ]}
         }
     }
