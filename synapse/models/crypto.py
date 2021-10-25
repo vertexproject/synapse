@@ -115,7 +115,7 @@ class CryptoModule(s_module.CoreModule):
 
                     ('block', ('crypto:currency:block', {}), {
                         'doc': 'The block which records the transaction.'}),
-                    ('block:coin', ('int', {}), {
+                    ('block:coin', ('crypto:currency:coin', {}), {
                         'doc': 'The coin/blockchain of the block which records this transaction.'}),
                     ('block:offset', ('int', {}), {
                         'doc': 'The offset of the block which records this transaction.'}),
@@ -181,12 +181,12 @@ class CryptoModule(s_module.CoreModule):
                 )),
 
                 ('crypto:currency:address', {}, (
-                    ('coin', ('str', {}), {
+                    ('coin', ('crypto:currency:coin', {}), {
                         'doc': 'The crypto coin to which the address belongs.'}),
-                    ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the address.'}),
                     ('iden', ('str', {}), {
                         'doc': 'The coin specific address identifier.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A free-form description of the address.'}),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Contact information associated with the address.'}),
                 )),
