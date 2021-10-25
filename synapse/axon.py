@@ -17,6 +17,7 @@ import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -543,7 +544,7 @@ class Axon(s_cell.Cell):
             'description': 'An aiohttp-socks compatible proxy URL to use in the wget API.',
             'type': 'string',
         },
-        'http:tls:ca:dir': {
+        'tls:ca:dir': {
             'description': 'An optional directory of CAs which are added to the TLS CA chain for wget and wput APIs.',
             'type': 'string',
         },
@@ -956,7 +957,7 @@ class Axon(s_cell.Cell):
         Stream a blob from the axon as the body of an HTTP request.
         '''
         proxyurl = self.conf.get('http:proxy')
-        cadir = self.conf.get('http:tls:ca:dir')
+        cadir = self.conf.get('tls:ca:dir')
 
         connector = None
         if proxyurl is not None:
@@ -991,7 +992,7 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
-                logger.exception(f'Error streaming [{sha256}] to [{url}]')
+                logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
                 exc = s_common.excinfo(e)
                 mesg = exc.get('errmsg')
                 if not mesg:
@@ -1040,10 +1041,10 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A information dictionary containing the results of the request.
         '''
-        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=url))
+        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
         proxyurl = self.conf.get('http:proxy')
-        cadir = self.conf.get('http:tls:ca:dir')
+        cadir = self.conf.get('tls:ca:dir')
 
         connector = None
         if proxyurl is not None:
@@ -1091,7 +1092,7 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
-                logger.exception(f'Failed to wget {url}')
+                logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
                 exc = s_common.excinfo(e)
                 mesg = exc.get('errmsg')
                 if not mesg:

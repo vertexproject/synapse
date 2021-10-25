@@ -567,7 +567,7 @@ class AxonTest(s_t_utils.SynTest):
                 self.false(resp.get('ok'))
                 self.isin('unable to get local issuer certificate', resp.get('mesg'))
 
-            conf = {'auth:passwd': 'root', 'http:tls:ca:dir': tlscadir}
+            conf = {'auth:passwd': 'root', 'tls:ca:dir': tlscadir}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
                 host, port = await axon.addHttpsPort(0, host='127.0.0.1')
                 url = f'https://root:root@localhost:{port}/api/v1/active'

@@ -137,7 +137,7 @@ class StormHttpTest(s_test.SynTest):
                 self.eq(code, -1)
                 self.eq('ClientConnectorCertificateError', errname)
 
-            conf = {'http:tls:ca:dir': tlscadir}
+            conf = {'tls:ca:dir': tlscadir}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
                 addr, port = await core.addHttpsPort(0)
                 core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})

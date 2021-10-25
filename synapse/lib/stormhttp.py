@@ -252,7 +252,7 @@ class LibHttp(s_stormtypes.Lib):
             kwargs['params'] = params
 
         proxyurl = self.runt.snap.core.conf.get('http:proxy')
-        cadir = self.runt.snap.core.conf.get('http:tls:ca:dir')
+        cadir = self.runt.snap.core.conf.get('tls:ca:dir')
 
         connector = None
         if proxyurl is not None:
