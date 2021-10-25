@@ -1,4 +1,3 @@
-import ssl
 import json
 import asyncio
 import logging
@@ -253,7 +252,7 @@ class LibHttp(s_stormtypes.Lib):
             kwargs['params'] = params
 
         proxyurl = self.runt.snap.core.conf.get('http:proxy')
-        inject_cas = self.runt.snap.core.conf.get('http:inject:cas')
+        cadir = self.runt.snap.core.conf.get('http:tls:ca:dir')
 
         connector = None
         if proxyurl is not None:
@@ -261,11 +260,8 @@ class LibHttp(s_stormtypes.Lib):
 
         if ssl_verify is False:
             kwargs['ssl'] = False
-        elif inject_cas:
-            # This is a heavy call to make for **each** time we use this client context.
-            # It requires us to do os.listdir() and potential disk io for each http call.
-            # Is there a good place where we can cache this? Maybe on the snap?
-            kwargs['ssl'] = self.runt.snap.core.certdir.getClientSSLContext()
+        elif cadir:
+            kwargs['ssl'] = s_common.getSslCtx(cadir)
         else:
             # default aiohttp behavior
             kwargs['ssl'] = None

@@ -1,3 +1,4 @@
+import os
 import json
 import shutil
 
@@ -103,6 +104,7 @@ class StormHttpTest(s_test.SynTest):
 
         with self.getTestDir() as dirn:
             cdir = s_common.gendir(dirn, 'certs')
+            cadir = s_common.gendir(cdir, 'cas')
             tdir = s_certdir.CertDir(cdir)
             tdir.genCaCert('somelocalca')
             tdir.genHostCert('localhost', signas='somelocalca')
@@ -112,8 +114,12 @@ class StormHttpTest(s_test.SynTest):
             shutil.copyfile(localkeyfp, s_common.genpath(dirn, 'sslkey.pem'))
             shutil.copyfile(localcertfp, s_common.genpath(dirn, 'sslcert.pem'))
 
-            conf = {'http:inject:cas': False}
-            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+            tlscadir = s_common.gendir(dirn, 'cadir')
+            for fn in os.listdir(cadir):
+                if fn.endswith('.crt'):
+                    shutil.copyfile(os.path.join(cadir, fn), os.path.join(tlscadir, fn))
+
+            async with self.getTestCore(dirn=dirn) as core:
 
                 root = await core.auth.getUserByName('root')
                 await root.setPasswd('root')
@@ -131,7 +137,7 @@ class StormHttpTest(s_test.SynTest):
                 self.eq(code, -1)
                 self.eq('ClientConnectorCertificateError', errname)
 
-            conf = {'http:inject:cas': True}
+            conf = {'http:tls:ca:dir': tlscadir}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
                 addr, port = await core.addHttpsPort(0)
                 core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
