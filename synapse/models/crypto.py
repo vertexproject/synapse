@@ -28,7 +28,7 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:currency:block', ('comp', {'fields': (
                                                         ('coin', 'crypto:currency:coin'),
                                                         ('offset', 'int'),
-                                                   ), 'sepr': '/'}),
+                                                   ), 'sepr': '/'}), {
                     'doc': 'An individual crypto currency block record on the blockchain.',
                 }),
                 ('crypto:smart:contract', ('guid', {}), {

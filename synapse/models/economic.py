@@ -205,7 +205,7 @@ class EconModule(s_module.CoreModule):
                     ('crypto:address', ('crypto:currency:address', {}), {
                         'doc': 'The crypto currency address holding the balance.'}),
                     ('amount', ('econ:price', {}), {
-                        'doc': 'The address which had the balance.'}),
+                        'doc': 'The account balance at the time.'}),
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency of the balance amount.'}),
                     ('delta', ('econ:price', {}), {
