@@ -244,20 +244,27 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
+        ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
         allow_redirects = await s_stormtypes.tobool(allow_redirects)
 
         kwargs = {'allow_redirects': allow_redirects}
-        if not ssl_verify:
-            kwargs['ssl'] = False
         if params:
             kwargs['params'] = params
 
-        todo = s_common.todo('getConfOpt', 'http:proxy')
-        proxyurl = await self.runt.dyncall('cortex', todo)
+        proxyurl = self.runt.snap.core.conf.get('http:proxy')
+        cadir = self.runt.snap.core.conf.get('tls:ca:dir')
 
         connector = None
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        if ssl_verify is False:
+            kwargs['ssl'] = False
+        elif cadir:
+            kwargs['ssl'] = s_common.getSslCtx(cadir)
+        else:
+            # default aiohttp behavior
+            kwargs['ssl'] = None
 
         timeout = aiohttp.ClientTimeout(total=timeout)
 
