@@ -3490,7 +3490,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.vars, allow_exc=True)
+        runtprims = await s_stormtypes.toprim(self.runt.vars)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {

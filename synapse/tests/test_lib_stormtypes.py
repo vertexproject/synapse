@@ -368,23 +368,14 @@ class StormTypesTest(s_test.SynTest):
             guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
             self.eq(guid00, guid01)
 
-            scmd = 'return($lib.guid($lib.undef))'
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+            guid = await core.callStorm('return($lib.guid($lib.undef))')
+            self.eq(s_common.guid(()), guid)
 
-            scmd = 'return($lib.guid(($lib.undef,)))'
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
+            guid = await core.callStorm('return($lib.guid(($lib.undef,)))')
+            self.eq(s_common.guid(((),)), guid)
 
-            scmd = '$x=$lib.list($lib.undef) return($lib.guid($x))'
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
-
-            scmd = '$x=$lib.list(($lib.undef,)) return($lib.guid($x))'
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
-
-            scmd = '$x=$lib.dict(foo=($lib.undef,)) return($lib.guid($x))'
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm(scmd))
-
-            opts = {'vars': {'x': {'y': s_stormtypes.undef}}}
-            await self.asyncraises(s_exc.NoSuchType, core.callStorm('return($lib.guid($x))', opts=opts))
+            guid = await core.callStorm('return($lib.guid($lib.dict(foo=($lib.undef,))))')
+            self.eq(s_common.guid(({'foo': ()},)), guid)
 
             mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
             self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
@@ -4650,12 +4641,8 @@ class StormTypesTest(s_test.SynTest):
         self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Bytes(b'asdf')))
         self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
 
-        self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3], allow_exc=True))
-        self.eq({'foo': 'bar'}, (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}, allow_exc=True)))
-        with self.raises(s_exc.NoSuchType):
-            self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
-        with self.raises(s_exc.NoSuchType):
-            self.eq({'foo': 'bar'}, (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr})))
+        self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
+        self.eq({'foo': 'bar'}, (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr})))
 
         self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
         self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))

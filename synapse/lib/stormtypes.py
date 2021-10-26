@@ -568,7 +568,7 @@ class LibDmon(Lib):
 
     async def _libDmonAdd(self, text, name='noname'):
         text = await tostr(text)
-        varz = await toprim(self.runt.vars, allow_exc=True)
+        varz = await toprim(self.runt.vars)
 
         viewiden = self.runt.snap.view.iden
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
@@ -2997,8 +2997,7 @@ class Prim(StormType):
             raise TypeError(mesg)
         return self.valu < other.valu
 
-    def value(self, allow_exc=False):
-        # allow_exc is to be passed to any toprim() calls in this method
+    def value(self):
         return self.valu
 
     async def iter(self): # pragma: no cover
@@ -3426,9 +3425,8 @@ class Dict(Prim):
     async def deref(self, name):
         return self.valu.get(name)
 
-    async def value(self, allow_exc=False):
-        return {await toprim(k, allow_exc=allow_exc): await toprim(v, allow_exc=allow_exc)
-                for (k, v) in self.valu.items()}
+    async def value(self):
+        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
     async def stormrepr(self):
         reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]
@@ -3461,9 +3459,9 @@ class CmdOpts(Dict):
     async def deref(self, name):
         return getattr(self.valu.opts, name, None)
 
-    async def value(self, allow_exc=False):
+    async def value(self):
         valu = vars(self.valu.opts)
-        return {await toprim(k, allow_exc=allow_exc): await toprim(v, allow_exc=allow_exc) for (k, v) in valu.items()}
+        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
 
     async def iter(self):
         valu = vars(self.valu.opts)
@@ -3716,8 +3714,8 @@ class List(Prim):
     async def _methListSize(self):
         return len(self)
 
-    async def value(self, allow_exc=False):
-        return tuple([await toprim(v, allow_exc=allow_exc) for v in self.valu])
+    async def value(self):
+        return tuple([await toprim(v) for v in self.valu])
 
     async def iter(self):
         for item in self.valu:
@@ -3953,7 +3951,7 @@ class StormHiveDict(Prim):
         for item in list(self.info.items()):
             yield item
 
-    def value(self, allow_exc=False):
+    def value(self):
         return self.info.pack()
 
 @registry.registerLib
@@ -4186,7 +4184,7 @@ class NodeProps(Prim):
         return list(self.valu.props.items())
 
     @stormfunc(readonly=True)
-    def value(self, allow_exc=False):
+    def value(self):
         return dict(self.valu.props)
 
 @registry.registerType
@@ -4762,7 +4760,7 @@ class StatTally(Prim):
     async def get(self, name):
         return self.counters.get(name, 0)
 
-    def value(self, allow_exc=False):
+    def value(self):
         return dict(self.counters)
 
     async def iter(self):
@@ -6263,7 +6261,7 @@ class User(Prim):
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
 
-    async def value(self, allow_exc=False):
+    async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)
 
     async def stormrepr(self):
@@ -6358,7 +6356,7 @@ class Role(Prim):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
-    async def value(self, allow_exc=False):
+    async def value(self):
         return await self.runt.snap.core.getRoleDef(self.valu)
 
     async def stormrepr(self):
@@ -6961,11 +6959,7 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None, allow_exc=False):
-
-    excs = ()
-    if allow_exc:
-        excs = (s_exc.NoSuchType,)
+async def toprim(valu, path=None):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -6974,8 +6968,8 @@ async def toprim(valu, path=None, allow_exc=False):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v, allow_exc=allow_exc))
-            except excs:
+                retn.append(await toprim(v))
+            except s_exc.NoSuchType:
                 pass
         return tuple(retn)
 
@@ -6983,13 +6977,13 @@ async def toprim(valu, path=None, allow_exc=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v, allow_exc=allow_exc)
-            except excs:
+                retn[k] = await toprim(v)
+            except s_exc.NoSuchType:
                 pass
         return retn
 
     if isinstance(valu, Prim):
-        return await s_coro.ornot(valu.value, allow_exc=allow_exc)
+        return await s_coro.ornot(valu.value)
 
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]

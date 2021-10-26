@@ -31,7 +31,7 @@ class ProjectEpic(s_stormtypes.Prim):
             'name': self.node.get('name'),
         }
 
-    async def value(self, allow_exc=False):
+    async def value(self):
         return self.node.ndef[1]
 
     async def _setEpicName(self, valu):
@@ -152,7 +152,7 @@ class ProjectTicketComment(s_stormtypes.Prim):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def value(self, allow_exc=False):
+    async def value(self):
         if self.node is None:
             raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
         return self.node.ndef[1]
@@ -296,7 +296,7 @@ class ProjectTicket(s_stormtypes.Prim):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def value(self, allow_exc=False):
+    async def value(self):
         return self.node.ndef[1]
 
     async def _setName(self, valu):
@@ -569,7 +569,7 @@ class ProjectSprint(s_stormtypes.Prim):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def value(self, allow_exc=False):
+    async def value(self):
         return self.node.ndef[1]
 
 @s_stormtypes.registry.registerType
@@ -717,7 +717,7 @@ class Project(s_stormtypes.Prim):
         await self.node.set('name', await tostr(valu))
 
     @s_stormtypes.stormfunc(readonly=True)
-    def value(self, allow_exc=False):
+    def value(self):
         return self.node.ndef[1]
 
     async def _getProjEpic(self, name):
