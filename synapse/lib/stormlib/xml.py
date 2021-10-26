@@ -21,7 +21,7 @@ class XmlElement(s_stormtypes.Prim):
                       {'name': 'nested', 'type': 'bool', 'default': True,
                         'desc': 'Set to $lib.false to only find direct children.'},
                   ),
-                  'returns': {'type': 'genr', 'desc': 'A generator which yields xml:elements.'}}},
+                  'returns': {'type': 'generator', 'desc': 'A generator which yields xml:elements.'}}},
 
         {'name': 'get', 'desc': 'Get a single child element by XML tag name.',
          'type': {'type': 'function', '_funcname': 'get',
