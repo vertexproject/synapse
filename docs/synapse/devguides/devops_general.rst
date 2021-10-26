@@ -161,7 +161,7 @@ Once in place, the user will be able to connect to the Cortex using certificate 
     python -m synapse.tools.cmdr ssl://user@cortex.vertex.link/
 
 Tips for Better Performance
-***************************
+---------------------------
 
 The Cortex process acts as the database for all configuration and graph data.  Inasmuch, it interacts with the
 operating system in similar ways as other database systems like PostgreSQL or MySQL, and recommendations for good
