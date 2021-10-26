@@ -69,7 +69,7 @@ webserver will use:
     version: '3'
     services:
       cortex:
-        image: vertexproject/cortex:v2.x.x
+        image: vertexproject/synapse-cortex:v2.x.x
         ports:
           # Expose 4443 to point to the Cortex HTTP server
           - "4443:4443"
