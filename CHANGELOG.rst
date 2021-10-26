@@ -10,9 +10,9 @@ v2.66.0 - 2021-10-26
 
 Features and Enhancements
 -------------------------
-- Improve unicode/IDNA support for scraping and normaliing FQDNs.
+- Improve unicode/IDNA support for scraping and normalizing FQDNs.
   (`#2408 <https://github.com/vertexproject/synapse/pull/2408>`_)
-- Add ``$lib.inet.http.ouath`` to support OAuth based workflows in storm,
+- Add ``$lib.inet.http.ouath`` to support OAuth based workflows in Storm,
   starting with OAuth v1.0 support.
   (`#2413 <https://github.com/vertexproject/synapse/pull/2413>`_)
 - Replace ``pysha3`` requirement with ``pycryptodome``.
