@@ -62,7 +62,9 @@ these would be ``/vertex/storage/sslcert.pem`` and ``/vertex/storage/sslkey.pem`
 
 These files can be replaced on disk with your own certificate and private key. The certifcate should be a full
 certificate chain. The following Docker-Compose example shows how to map in your own TLS key material that the Cortex
-webserver will use::
+webserver will use:
+
+::
 
     version: '3'
     services:
