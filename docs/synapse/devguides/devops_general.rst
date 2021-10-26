@@ -83,8 +83,8 @@ webserver will use:
           - SYN_LOG_LEVEL=DEBUG
           - SYN_CORTEX_AUTH_PASSWD=root
 
-TLS/SSL Deployments
--------------------
+Telepath TLS/SSL Deployments
+----------------------------
 
 For production deployments, it is recommended that all services use the built-in ``telepath`` SSL/TLS
 protocol. You may deploy a service using TLS encryption by specifying a ``--telepath`` listen URL option, such
