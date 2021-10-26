@@ -358,6 +358,28 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Invalid clamp length.', err[1].get('mesg'))
 
+            # lib.guid()
+            opts = {'vars': {'x': {'foo': 'bar'}, 'y': ['foo']}}
+            guid00 = await core.callStorm('return($lib.guid($x, $y))', opts=opts)
+            guid01 = await core.callStorm('$x=$lib.dict(foo=bar) $y=$lib.list(foo) return($lib.guid($x, $y))')
+            self.eq(guid00, guid01)
+
+            guid00 = await core.callStorm('return($lib.guid(foo))')
+            guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
+            self.eq(guid00, guid01)
+
+            guid = await core.callStorm('return($lib.guid($lib.undef))')
+            self.eq(s_common.guid(()), guid)
+
+            guid = await core.callStorm('return($lib.guid(($lib.undef,)))')
+            self.eq(s_common.guid(((),)), guid)
+
+            guid = await core.callStorm('return($lib.guid($lib.dict(foo=($lib.undef,))))')
+            self.eq(s_common.guid(({'foo': ()},)), guid)
+
+            mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
+            self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
+
             # lib.range()
             q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
 
@@ -4620,7 +4642,7 @@ class StormTypesTest(s_test.SynTest):
         self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
 
         self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
-        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
+        self.eq({'foo': 'bar'}, (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr})))
 
         self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
         self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
