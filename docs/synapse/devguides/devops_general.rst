@@ -52,6 +52,35 @@ this would involve running the following shell commands::
     cp -R /backups/cortex00_20200519 /data/cortex00
     python -m synapse.servers.cortex /path/to/cortex
 
+Cell HTTPS Server
+-----------------
+
+Each Synapse cell will generate and use self-signed certificates by default for its webserver. These allow a user to
+quickly get started with testing HTTP interfaces on Cells, but is not recommended for a production deployment.
+Each cell loads the certificate and key material from ``./sslcert.pem`` and ``./sslkey.pem``. In our Docker containers,
+these would be ``/vertex/storage/sslcert.pem`` and ``/vertex/storage/sslkey.pem``.
+
+These files can be replaced on disk with your own certificate and private key. The certifcate should be a full
+certificate chain. The following Docker-Compose example shows how to map in your own TLS key material that the Cortex
+webserver will use::
+
+    version: '3'
+    services:
+      cortex:
+        image: vertexproject/cortex:v2.x.x
+        ports:
+          # Expose 4443 to point to the Cortex HTTP server
+          - "4443:4443"
+        volumes:
+          # Map in local Cortex dir
+          - ./cortex:/vertex/storage
+          # Map in ssl certs from ../certs
+          - ../certs/fullchain.pem:/vertex/storage/sslcert.pem
+          - ../certs/privkey.pem:/vertex/storage/sslkey.pem
+        environment:
+          - SYN_LOG_LEVEL=DEBUG
+          - SYN_CORTEX_AUTH_PASSWD=root
+
 TLS/SSL Deployments
 -------------------
 
