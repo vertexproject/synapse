@@ -104,6 +104,7 @@ async def _doIterBackup(path, chunksize=1024):
         if not byts:
             break
         yield byts
+        await asyncio.sleep(0)
 
     await coro
     await link0.fini()
