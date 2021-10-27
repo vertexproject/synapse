@@ -1,9 +1,13 @@
+import os
 import json
-import traceback
+import shutil
 
-import synapse.exc as s_exc
-import synapse.tests.utils as s_test
+import synapse.common as s_common
+
+import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+
+import synapse.tests.utils as s_test
 
 class TstWebSock(s_httpapi.WebSocket):
 
@@ -85,6 +89,68 @@ class StormHttpTest(s_test.SynTest):
             code, (errname, _) = await core.callStorm(q, opts=opts)
             self.eq(code, -1)
             self.eq('TypeError', errname)
+
+            # SSL Verify enabled results in a aiohttp.ClientConnectorCertificateError
+            q = '''
+            $params=((foo, bar), (key, valu))
+            $resp = $lib.inet.http.get($url, params=$params)
+            return ( ($resp.code, $resp.err) )
+            '''
+            code, (errname, _) = await core.callStorm(q, opts=opts)
+            self.eq(code, -1)
+            self.eq('ClientConnectorCertificateError', errname)
+
+    async def test_storm_http_inject_ca(self):
+
+        with self.getTestDir() as dirn:
+            cdir = s_common.gendir(dirn, 'certs')
+            cadir = s_common.gendir(cdir, 'cas')
+            tdir = s_certdir.CertDir(cdir)
+            tdir.genCaCert('somelocalca')
+            tdir.genHostCert('localhost', signas='somelocalca')
+
+            localkeyfp = tdir.getHostKeyPath('localhost')
+            localcertfp = tdir.getHostCertPath('localhost')
+            shutil.copyfile(localkeyfp, s_common.genpath(dirn, 'sslkey.pem'))
+            shutil.copyfile(localcertfp, s_common.genpath(dirn, 'sslcert.pem'))
+
+            tlscadir = s_common.gendir(dirn, 'cadir')
+            for fn in os.listdir(cadir):
+                if fn.endswith('.crt'):
+                    shutil.copyfile(os.path.join(cadir, fn), os.path.join(tlscadir, fn))
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                root = await core.auth.getUserByName('root')
+                await root.setPasswd('root')
+
+                addr, port = await core.addHttpsPort(0)
+                core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+                url = f'https://root:root@localhost:{port}/api/v0/test'
+                opts = {'vars': {'url': url}}
+                q = '''
+                $params=((foo, bar), (key, valu))
+                $resp = $lib.inet.http.get($url, params=$params)
+                return ( ($resp.code, $resp.err) )
+                '''
+                code, (errname, _) = await core.callStorm(q, opts=opts)
+                self.eq(code, -1)
+                self.eq('ClientConnectorCertificateError', errname)
+
+            conf = {'tls:ca:dir': tlscadir}
+            async with self.getTestCore(dirn=dirn, conf=conf) as core:
+                addr, port = await core.addHttpsPort(0)
+                core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+                url = f'https://root:root@localhost:{port}/api/v0/test'
+                opts = {'vars': {'url': url}}
+                q = '''
+                $params=((foo, bar), (key, valu))
+                $resp = $lib.inet.http.get($url, params=$params)
+                return ( $resp.json() )
+                '''
+                resp = await core.callStorm(q, opts=opts)
+                data = resp.get('result')
+                self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
 
     async def test_storm_http_head(self):
 
