@@ -45,6 +45,7 @@ majmin = (major, minor)
 version = (major, minor, micro)
 
 guidre = regex.compile('^[0-9a-f]{32}$')
+buidre = regex.compile('^[0-9a-f]{64}$')
 
 novalu = NoValu()
 
@@ -134,6 +135,9 @@ def uhex(text):
 
 def isguid(text):
     return guidre.match(text) is not None
+
+def isbuidhex(text):
+    return buidre.match(text) is not None
 
 def intify(x):
     '''
