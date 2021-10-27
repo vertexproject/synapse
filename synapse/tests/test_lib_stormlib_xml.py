@@ -35,6 +35,24 @@ class XmlTest(s_test.SynTest):
             valu = await core.callStorm('''
                 $retn = $lib.list()
                 $root = $lib.xml.parse($xmltext)
+                for $elem in $root {
+                    $retn.append((
+                        $elem.name,
+                        $elem.attrs.name,
+                        $elem.get(rank).text,
+                    ))
+                }
+                return($retn)
+            ''', opts={'vars': {'xmltext': xml0}})
+            self.eq(valu, (
+                ('country', 'Liechtenstein', '1'),
+                ('country', 'Singapore', '4'),
+                ('country', 'Panama', '68'),
+            ))
+
+            valu = await core.callStorm('''
+                $retn = $lib.list()
+                $root = $lib.xml.parse($xmltext)
                 for $elem in $root.find(country) {
                     $retn.append((
                         $elem.name,
