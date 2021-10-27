@@ -13,7 +13,7 @@ class LibYaml(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'save', 'desc': 'Encode data as a YAML string.',
-         'type': {'type': 'function', '_funcname': '_encode',
+         'type': {'type': 'function', '_funcname': 'save',
                   'args': (
                       {'name': 'valu', 'type': 'object', 'desc': 'The object to encode.'},
                   ),
@@ -23,7 +23,7 @@ class LibYaml(s_stormtypes.Lib):
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The string to decode.', },
                   ),
-                  'returns': {'type': 'obj', 'desc': 'A bytes object for the decoded data.', }}},
+                  'returns': {'type': 'prim', 'desc': 'A bytes object for the decoded data.', }}},
     )
     _storm_lib_path = ('yaml',)
 
