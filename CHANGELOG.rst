@@ -5,6 +5,176 @@ Synapse Changelog
 *****************
 
 
+v2.66.0 - 2021-10-26
+====================
+
+Features and Enhancements
+-------------------------
+- Improve unicode/IDNA support for scraping and normalizing FQDNs.
+  (`#2408 <https://github.com/vertexproject/synapse/pull/2408>`_)
+- Add ``$lib.inet.http.ouath`` to support OAuth based workflows in Storm,
+  starting with OAuth v1.0 support.
+  (`#2413 <https://github.com/vertexproject/synapse/pull/2413>`_)
+- Replace ``pysha3`` requirement with ``pycryptodome``.
+  (`#2422 <https://github.com/vertexproject/synapse/pull/2422>`_)
+- Add a ``tls:ca:dir`` configuration option to the Cortex and Axon. This can
+  be used to provide a directory of CA certificate files which are used in
+  Storm HTTP API and Axon wget/wput APIs.
+  (`#2429 <https://github.com/vertexproject/synapse/pull/2429>`_)
+
+Bugfixes
+--------
+- Catch and raise bad ctors given in RStorm ``storm-cortex`` directives.
+  (`#2424 <https://github.com/vertexproject/synapse/pull/2424>`_)
+- Fix an issue with the ``cron.at`` command not properly capturing the current
+  view when making the Cron job.
+  (`#2425 <https://github.com/vertexproject/synapse/pull/2425>`_)
+- Disallow the creation of extended properties, universal properties, and tag
+  properties which are not valid properties in the Storm grammar.
+  (`#2428 <https://github.com/vertexproject/synapse/pull/2428>`_)
+- Fix an issue with ``$lib.guid()`` missing a ``toprim()`` call on its input.
+  (`#2421 <https://github.com/vertexproject/synapse/pull/2421>`_)
+
+Improved Documentation
+----------------------
+- Update our Cell devops documentation to note how to replace the TLS keypair
+  used by the built in webserver with third party certificates.
+  (`#2432 <https://github.com/vertexproject/synapse/pull/2432>`_)
+
+
+v2.65.0 - 2021-10-16
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for interacting with IMAP email servers though Storm, using the
+  ``$lib.inet.imap.connect()`` function. This returns a object that can be
+  used to delete, read, and search emails in a given IMAP mailbox.
+  (`#2399 <https://github.com/vertexproject/synapse/pull/2399>`_)
+- Add a new Storm command, ``once``. This command can be used to 'gate' a node
+  in a Storm pipeline such that the node only passes through the command
+  exactly one time for a given named 'gate'. The gate information is stored in
+  nodedata, so it is inspectable and subject to all other features that
+  apply to nodedata.
+  (`#2404 <https://github.com/vertexproject/synapse/pull/2404>`_)
+- Add a ``:released`` property to ``it:prod:softver`` to record when a
+  software version was released.
+  (`#2419 <https://github.com/vertexproject/synapse/pull/2419>`_)
+- Add a ``tryLoadPkgProto`` convenience function to the
+  ``synapse.tools.genpkg`` for Storm service package generation with inline
+  documentation.
+  (`#2414 <https://github.com/vertexproject/synapse/pull/2414>`_)
+
+Bugfixes
+--------
+- Add ``asyncio.sleep(0)`` calls in the ``movetag`` implementation to address
+  some possible hot-loops.
+  (`#2411 <https://github.com/vertexproject/synapse/pull/2411>`_)
+- Clarify and sanitize URLS in a Aha related log message i
+  ``synapse.telepath``.
+  (`#2415 <https://github.com/vertexproject/synapse/pull/2415>`_)
+
+Improved Documentation
+----------------------
+- Update our ``fork`` definition documentation.
+  (`#2409 <https://github.com/vertexproject/synapse/pull/2409>`_)
+- Add documentation for using client-side TLS certificates in Telepath.
+  (`#2412 <https://github.com/vertexproject/synapse/pull/2412>`_)
+- Update the Storm CLI tool documentation.
+  (`#2406 <https://github.com/vertexproject/synapse/pull/2406>`_)
+- The Storm types and Storm library documentation now automatically links
+  from return values to return types.
+  (`#2410 <https://github.com/vertexproject/synapse/pull/2410>`_)
+
+v2.64.1 - 2021-10-08
+====================
+
+Bugfixes
+--------
+- Add a retry loop in the base ``Cell`` class when attempting to register with
+  an ``Aha`` server.
+  (`#2405 <https://github.com/vertexproject/synapse/pull/2405>`_)
+- Change the behavior of ``synapse.common.yamlload()`` to not create files
+  when the expected file is not present on disk, and open existing files in
+  read-only mode.
+  (`#2396 <https://github.com/vertexproject/synapse/pull/2396>`_)
+
+
+v2.64.0 - 2021-10-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for scraping the following cryptocurrency addresses to the
+  ``synapse.lib.scrape`` APIs and Storm ``scrape`` command.
+  (`#2387 <https://github.com/vertexproject/synapse/pull/2387>`_)
+  (`#2401 <https://github.com/vertexproject/synapse/pull/2401>`_)
+
+    - Bitcoin
+    - Bitcoin Cash
+    - Ethereum
+    - Ripple
+    - Cardano
+    - Polkadot
+
+  The internal cache of regular expressions in the ``synapse.lib.scrape``
+  library is also now a private member; API users should use the
+  ``synapse.lib.scrape.scrape()`` function moving forward.
+
+- Add ``:names`` property to the ``it:mitre:attack:software`` form.
+  (`#2397 <https://github.com/vertexproject/synapse/pull/2397>`_)
+- Add a ``:desc`` property to the ``inet:whois:iprec`` form.
+  (`#2392 <https://github.com/vertexproject/synapse/pull/2392>`_)
+- Added several new Rstorm directives.
+  (`#2359 <https://github.com/vertexproject/synapse/pull/2359>`_)
+  (`#2400 <https://github.com/vertexproject/synapse/pull/2400>`_)
+
+  - ``storm-cli`` - Runs a Storm query with the Storm CLI tool
+  - ``storm-fail`` - Toggles whether or not the following Storm command
+    should fail or not.
+  - ``storm-multiline`` - Allows embedding a multiline Storm query as a JSON
+    encoded string for future execution.
+  - ``storm-vcr-callback`` - Allows specifying a custom callback which a VCR
+    object is sent too.
+
+Bugfixes
+--------
+- Fix a missing ``toprim()`` call when loading a Storm package directly with
+  Storm.
+  (`#2359 <https://github.com/vertexproject/synapse/pull/2359>`_)
+- Fix a caching issue where tagprops were not always being populated in a
+  ``Node`` tagprop dictionary.
+  (`#2396 <https://github.com/vertexproject/synapse/pull/2396>`_)
+- Add a ``mesg`` argument to a few ``NoSuchVar`` and ``BadTypeValu``
+  exceptions.
+  (`#2403 <https://github.com/vertexproject/synapse/pull/2403>`_)
+
+Improved Documentation
+----------------------
+- Storm reference docs have been converted from Jupyter notebook format to
+  Synapse ``.rstorm`` format, and now display examples using the Storm CLI
+  tool, instead of the Cmdr CLI tool.
+  (`#2359 <https://github.com/vertexproject/synapse/pull/2359>`_)
+
+
+v2.63.0 - 2021-09-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``risk:attacktype`` taxonomy to the risk model. Add ``:desc`` and
+  ``:type`` properties to the ``risk:attack`` form.
+  (`#2386 <https://github.com/vertexproject/synapse/pull/2386>`_)
+- Add ``:path`` property to the ``it:prod:softfile`` form.
+  (`#2388 <https://github.com/vertexproject/synapse/pull/2388>`_)
+
+Bugfixes
+--------
+- Fix the repr for the``storm:auth:user``  Stormtype when printing a user
+  object in Storm.
+  (`#2383 <https://github.com/vertexproject/synapse/pull/2383>`_)
+
+
 v2.62.1 - 2021-09-22
 ====================
 

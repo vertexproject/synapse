@@ -4,8 +4,6 @@ import synapse.common as s_common
 import synapse.models.crypto as s_m_crypto
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
-
 
 class InfotechModelTest(s_t_utils.SynTest):
 
@@ -114,6 +112,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 it:mitre:attack:software=S0100
                     :software=*
                     :name=redtree
+                    :names=("redtree alt", eviltree)
                     :desc=redtreestuff
                     :url=https://redtree.link
                     :tag=cno.mitre.s0100
@@ -124,6 +123,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
             self.nn(nodes[0].get('software'))
             self.eq(nodes[0].get('name'), 'redtree')
+            self.eq(nodes[0].get('names'), ('eviltree', 'redtree alt'))
             self.eq(nodes[0].get('desc'), 'redtreestuff')
             self.eq(nodes[0].get('tag'), 'cno.mitre.s0100')
             self.eq(nodes[0].get('url'), 'https://redtree.link')
@@ -466,6 +466,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 url1 = 'https://vertex.link/products/balloonmaker/release_101-beta.exe'
                 vprops = {
                     'vers': 'V1.0.1-beta+exp.sha.5114f85',
+                    'released': '2018-04-03 08:44:22',
                     'url': url1,
                     'software': prod0,
                     'arch': 'amd64'
@@ -475,6 +476,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 self.eq(node.ndef[1], ver0)
                 self.eq(node.get('arch'), 'amd64')
+                self.eq(node.get('released'), 1522745062000)
                 self.eq(node.get('software'), prod0)
                 self.eq(node.get('software:name'), 'balloon maker')
                 self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
@@ -498,9 +500,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('host'), host0)
                 self.eq(node.get('softver'), ver0)
 
-                softfile = await snap.addNode('it:prod:softfile', (ver0, file0))
+                softfileprops = {'path': '/path/to/nowhere'}
+                softfile = await snap.addNode('it:prod:softfile', (ver0, file0), props=softfileprops)
                 self.eq(softfile.get('soft'), ver0)
                 self.eq(softfile.get('file'), f'sha256:{file0}')
+                self.eq('/path/to/nowhere', softfile.get('path'))
+                self.len(1, await core.nodes('it:prod:softfile -> file:path'))
 
                 ver1 = s_common.guid()
                 softlib = await snap.addNode('it:prod:softlib', (ver0, ver1))

@@ -401,6 +401,34 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
 
+            # Use IDNA2008 if possible
+            fqdn = "faß.de"
+            ex_fqdn = 'xn--fa-hia.de'
+            expected = (ex_fqdn, {'subs': {'domain': 'de', 'host': 'xn--fa-hia'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)
+
+            # Emojis are valid IDNA2003
+            fqdn = '👁👄👁.fm'
+            ex_fqdn = 'xn--mp8hai.fm'
+            expected = (ex_fqdn, {'subs': {'domain': 'fm', 'host': 'xn--mp8hai'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)
+
+            # Variant forms get normalized
+            varfqdn = '👁️👄👁️.fm'
+            self.eq(t.norm(varfqdn), expected)
+            self.ne(varfqdn, fqdn)
+
+            # Unicode full stops are okay but get normalized
+            fqdn = 'foo(．)bar[。]baz｡lol'
+            ex_fqdn = 'foo.bar.baz.lol'
+            expected = (ex_fqdn, {'subs': {'domain': 'bar.baz.lol', 'host': 'foo'}})
+            self.eq(t.norm(fqdn), expected)
+
+            # Ellipsis shouldn't make it through
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex…link')
+
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
             expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
@@ -1911,6 +1939,7 @@ class InetModelTest(s_t_utils.SynTest):
             'created': 2554858000000,
             'updated': 2554858000000,
             'text': 'this is  a bunch of \nrecord text 123123',
+            'desc': 'these are some notes\n about record 123123',
             'asn': 12345,
             'id': 'NET-10-0-0-0-1',
             'name': 'vtx',

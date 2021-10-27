@@ -49,11 +49,13 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
+import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
+import synapse.lib.stormlib.oauth as s_stormlib_oauth # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
@@ -687,6 +689,9 @@ class CoreApi(s_cell.CellApi):
         Extended properties *must* begin with _
         '''
         self.user.confirm(('model', 'prop', 'add', form))
+        if not s_grammar.isBasePropNoPivprop(prop):
+            mesg = f'Invalid prop name {prop}'
+            raise s_exc.BadPropDef(prop=prop, mesg=mesg)
         return await self.cell.addFormProp(form, prop, tdef, info)
 
     async def delFormProp(self, form, name):
@@ -703,6 +708,9 @@ class CoreApi(s_cell.CellApi):
         Extended properties *must* begin with _
         '''
         self.user.confirm(('model', 'univ', 'add'))
+        if not s_grammar.isBasePropNoPivprop(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
         return await self.cell.addUnivProp(name, tdef, info)
 
     async def delUnivProp(self, name):
@@ -717,6 +725,9 @@ class CoreApi(s_cell.CellApi):
         Add a tag property to record data about tags on nodes.
         '''
         self.user.confirm(('model', 'tagprop', 'add'))
+        if not s_grammar.isBasePropNoPivprop(name):
+            mesg = f'Invalid prop name {name}'
+            raise s_exc.BadPropDef(name=name, mesg=mesg)
         return await self.cell.addTagProp(name, tdef, info)
 
     async def delTagProp(self, name):
@@ -1009,6 +1020,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
+            'type': 'string',
+        },
+        'tls:ca:dir': {
+            'description': 'An optional directory of CAs which are added to the TLS CA chain for Storm HTTP API calls.',
             'type': 'string',
         },
     }
@@ -2971,6 +2986,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.MinCmd)
         self.addStormCmd(s_storm.TeeCmd)
         self.addStormCmd(s_storm.DiffCmd)
+        self.addStormCmd(s_storm.OnceCmd)
         self.addStormCmd(s_storm.TreeCmd)
         self.addStormCmd(s_storm.HelpCmd)
         self.addStormCmd(s_storm.IdenCmd)

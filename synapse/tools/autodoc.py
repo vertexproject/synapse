@@ -708,7 +708,13 @@ async def docStormTypes():
     )
     libspage.addLines(*lines)
 
-    s_autodoc.docStormTypes(libspage, libsinfo, linkprefix='stormlibs', islib=True)
+    # This value is appended to the end of the ref to the first level header of a type.
+    # This prevents accidental cross linking between parts of the docs; which can happen
+    # when secondary properties of a type may overlap with the main name of the type.
+    types_suffix = 'f527'
+
+    s_autodoc.docStormTypes(libspage, libsinfo, linkprefix='stormlibs', islib=True,
+                            known_types=registry.known_types, types_prefix='stormprims', types_suffix=types_suffix)
 
     priminfo = registry.getTypeDocs()
     typespage = s_autodoc.RstHelp()
@@ -721,7 +727,8 @@ async def docStormTypes():
         ''
     )
     typespage.addLines(*lines)
-    s_autodoc.docStormTypes(typespage, priminfo, linkprefix='stormprims')
+    s_autodoc.docStormTypes(typespage, priminfo, linkprefix='stormprims', known_types=registry.known_types,
+                            types_prefix='stormprims', types_suffix=types_suffix)
 
     return libspage, typespage
 
