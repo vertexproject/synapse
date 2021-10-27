@@ -1096,10 +1096,12 @@ class YieldValu(Oper):
                     yield node
             return
 
+        if isinstance(valu, s_stormtypes.Node):
+            yield valu.valu
+            return
+
         if isinstance(valu, s_node.Node):
-            node = await runt.snap.getNodeByBuid(valu.buid)
-            if node is not None:
-                yield node
+            yield valu
             return
 
         if isinstance(valu, s_stormtypes.Query):

@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.67.0 - 2021-10-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$node.addEdge()`` and ``$node.delEdge()`` APIs in Storm to allow for
+  programatically setting edges. Add a ``reverse`` argument to
+  ``$node.edges()`` that allows traversing edges in reverse.
+  (`#2351 <https://github.com/vertexproject/synapse/pull/2351>`_)
+
+Bugfixes
+--------
+- Fix a pair of regressions related to unicode/IDNA support for scraping and
+  normalizing FQDNs.
+  (`#2436 <https://github.com/vertexproject/synapse/pull/2436>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the Cortex ``api/v1/storm/call`` HTTP API endpoint.
+  (`#2435 <https://github.com/vertexproject/synapse/pull/2435>`_)
+
+
 v2.66.0 - 2021-10-26
 ====================
 

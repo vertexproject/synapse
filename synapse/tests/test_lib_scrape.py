@@ -10,6 +10,22 @@ and BOB@WOOT.COM is another
 
     hehe.taxi
 
+    id=mcafee.support.customer.com
+
+    pound£.com
+
+    dollar$.com
+
+    math+sign1.com
+
+    math⁺sign2.com
+
+    math=sign3.com
+
+    math₌sign4.com
+
+    small˜tilde.com
+
     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
     aa:bb:cc:dd:ee:ff
@@ -250,7 +266,7 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape(self):
         nodes = set(s_scrape.scrape(data0))
 
-        self.len(19, nodes)
+        self.len(26, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
         nodes.remove(('inet:ipv4', '1.2.3.4'))
         nodes.remove(('inet:ipv4', '5.6.7.8'))
@@ -267,6 +283,13 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:fqdn', '👁👄👁.com'))
         nodes.remove(('inet:fqdn', 'foo．bar。baz｡lol'))
         nodes.remove(('inet:fqdn', 'xn--asdf.link'))
+        nodes.remove(('inet:fqdn', 'mcafee.support.customer.com'))
+        nodes.remove(('inet:fqdn', 'pound£.com'))
+        nodes.remove(('inet:fqdn', 'sign1.com'))
+        nodes.remove(('inet:fqdn', 'sign2.com'))
+        nodes.remove(('inet:fqdn', 'sign3.com'))
+        nodes.remove(('inet:fqdn', 'sign4.com'))
+        nodes.remove(('inet:fqdn', 'tilde.com'))
         nodes.remove(('inet:server', '5.6.7.8:16'))
         nodes.remove(('inet:email', 'BOB@WOOT.COM'))
         nodes.remove(('inet:email', 'visi@vertex.link'))
