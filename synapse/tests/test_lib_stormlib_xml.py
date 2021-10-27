@@ -69,3 +69,7 @@ class XmlTest(s_test.SynTest):
                 return($retn)
             ''', opts={'vars': {'xmltext': xml0}})
             self.eq(valu, [])
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'bytes': b'asdf'}}
+                await core.callStorm('$lib.xml.parse($bytes)', opts=opts)

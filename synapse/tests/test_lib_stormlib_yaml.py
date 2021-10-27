@@ -19,3 +19,10 @@ class YamlTest(s_test.SynTest):
                 return($lib.yaml.load($yaml00))
             ''', opts={'vars': {'yaml00': yaml00}})
             self.eq(valu, {'foo': 'bar', 'baz': 'faz'})
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'bytes': b'foo: bar: baz:'}}
+                await core.callStorm('$lib.yaml.load($bytes)', opts=opts)
+
+            with self.raises(s_exc.NoSuchType):
+                await core.callStorm('$lib.yaml.save($lib.queue.gen(foo))', opts=opts)

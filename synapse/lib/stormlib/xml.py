@@ -87,4 +87,7 @@ class LibXml(s_stormtypes.Lib):
 
     async def parse(self, valu):
         valu = await s_stormtypes.tostr(valu)
-        return XmlElement(self.runt, xml_et.fromstring(valu))
+        try:
+            return XmlElement(self.runt, xml_et.fromstring(valu))
+        except xml_et.ParseError as e:
+            raise s_exc.BadArg(mesg=f'Invalid XML text: {str(e)}')
