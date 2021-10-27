@@ -687,7 +687,7 @@ class Node:
         try:
             norm, info = prop.type.norm(valu)
         except Exception as e:
-            mesg = f'Bad property value:  #{tag}:{prop.name}={valu!r}'
+            mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
             return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
 
         edits = (

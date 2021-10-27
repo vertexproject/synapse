@@ -971,7 +971,7 @@ class Snap(s_base.Base):
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
                 except Exception as e:
-                    await self.warn(f'Bad tag value:  #{tag}={valu}')
+                    await self.warn(f'Bad tag value: #{tag}={valu}')
                     continue
 
             curv = None
@@ -1012,7 +1012,7 @@ class Snap(s_base.Base):
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
                 except Exception as e:
-                    await self.warn(f'Bad property value:  #{tag}:{prop.name}={valu!r}')
+                    await self.warn(f'Bad property value: #{tag}:{prop.name}={valu!r}')
                     continue
 
                 tagkey = (tag, name)
