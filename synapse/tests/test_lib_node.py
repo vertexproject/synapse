@@ -436,3 +436,12 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
             node.tagprops['foo.test'].pop('limit')
             self.eq(node.tagprops, {'foo.test': {}})
+
+    async def test_node_edges(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5]')
+            with self.raises(s_exc.BadArg):
+                await nodes[0].addEdge('foo', 'bar')
+            with self.raises(s_exc.BadArg):
+                await nodes[0].delEdge('foo', 'bar')
