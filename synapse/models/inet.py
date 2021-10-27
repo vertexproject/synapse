@@ -281,7 +281,7 @@ class Fqdn(s_types.Type):
 
         try:
             valu = idna.encode(valu, uts46=True).decode('utf8')
-        except idna.IDNAError:
+        except (idna.IDNAError, UnicodeError):
             try:
                 valu = valu.encode('idna').decode('utf8').lower()
             except UnicodeError:
