@@ -314,7 +314,7 @@ class Fqdn(s_types.Type):
     def repr(self, valu):
         try:
             return idna.decode(valu.encode('utf8'), uts46=True)
-        except idna.IDNAError:
+        except (idna.IDNAError, UnicodeError):
             try:
                 return valu.encode('utf8').decode('idna')
             except UnicodeError:
