@@ -1231,6 +1231,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _guid(self, *args):
         if args:
+            args = await toprim(args)
             return s_common.guid(args)
         return s_common.guid()
 
@@ -4370,9 +4371,25 @@ class Node(Prim):
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'If provided, only return edges with this verb.',
                        'default': None, },
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'If true, yield edges with this node as the dest rather than source.',
+                       'default': False, },
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'A tuple of (verb, iden) values for this nodes edges.', }}},
+        {'name': 'addEdge', 'desc': 'Add a light-weight edge.',
+         'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node.'},
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
+         'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
+                  'args': (
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node to remove.'},
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
          'type': {'type': 'function', '_funcname': '_methNodeGlobTags',
                   'args': (
@@ -4421,6 +4438,8 @@ class Node(Prim):
             'repr': self._methNodeRepr,
             'tags': self._methNodeTags,
             'edges': self._methNodeEdges,
+            'addEdge': self._methNodeAddEdge,
+            'delEdge': self._methNodeDelEdge,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
             'isform': self._methNodeIsForm,
@@ -4445,10 +4464,34 @@ class Node(Prim):
         return self.valu.pack(dorepr=dorepr)
 
     @stormfunc(readonly=True)
-    async def _methNodeEdges(self, verb=None):
+    async def _methNodeEdges(self, verb=None, reverse=False):
         verb = await toprim(verb)
-        async for edge in self.valu.iterEdgesN1(verb=verb):
-            yield edge
+        reverse = await tobool(reverse)
+
+        if reverse:
+            async for edge in self.valu.iterEdgesN2(verb=verb):
+                yield edge
+        else:
+            async for edge in self.valu.iterEdgesN1(verb=verb):
+                yield edge
+
+    async def _methNodeAddEdge(self, verb, iden):
+        verb = await tostr(verb)
+        iden = await tobuidhex(iden)
+
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
+
+        await self.valu.addEdge(verb, iden)
+
+    async def _methNodeDelEdge(self, verb, iden):
+        verb = await tostr(verb)
+        iden = await tobuidhex(iden)
+
+        gateiden = self.valu.snap.wlyr.iden
+        confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
+
+        await self.valu.delEdge(verb, iden)
 
     @stormfunc(readonly=True)
     async def _methNodeIsForm(self, name):
@@ -6788,7 +6831,7 @@ class LibCron(Lib):
         view = kwargs.get('view')
         if not view:
             view = self.runt.snap.view.iden
-        view = self.runt.snap.view.iden
+        cdef['view'] = view
 
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
@@ -7099,3 +7142,21 @@ async def torepr(valu, usestr=False):
     if usestr:
         return str(valu)
     return repr(valu)
+
+async def tobuidhex(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    if isinstance(valu, Node):
+        return valu.valu.iden()
+
+    if isinstance(valu, s_node.Node):
+        return valu.iden()
+
+    valu = await tostr(valu)
+    if not s_common.isbuidhex(valu):
+        mesg = f'Invalid buid string: {valu}'
+        raise s_exc.BadCast(mesg=mesg)
+
+    return valu

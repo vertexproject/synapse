@@ -358,6 +358,28 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Invalid clamp length.', err[1].get('mesg'))
 
+            # lib.guid()
+            opts = {'vars': {'x': {'foo': 'bar'}, 'y': ['foo']}}
+            guid00 = await core.callStorm('return($lib.guid($x, $y))', opts=opts)
+            guid01 = await core.callStorm('$x=$lib.dict(foo=bar) $y=$lib.list(foo) return($lib.guid($x, $y))')
+            self.eq(guid00, guid01)
+
+            guid00 = await core.callStorm('return($lib.guid(foo))')
+            guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
+            self.eq(guid00, guid01)
+
+            guid = await core.callStorm('return($lib.guid($lib.undef))')
+            self.eq(s_common.guid(()), guid)
+
+            guid = await core.callStorm('return($lib.guid(($lib.undef,)))')
+            self.eq(s_common.guid(((),)), guid)
+
+            guid = await core.callStorm('return($lib.guid($lib.dict(foo=($lib.undef,))))')
+            self.eq(s_common.guid(({'foo': ()},)), guid)
+
+            mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
+            self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
+
             # lib.range()
             q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
 
@@ -416,6 +438,13 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 async with core.getLocalProxy(user='lowuser') as proxy:
                     await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
+
+            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(nodes[0]))
+            stormnode = s_stormtypes.Node(nodes[0])
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
 
     async def test_storm_lib_ps(self):
 
@@ -4620,7 +4649,7 @@ class StormTypesTest(s_test.SynTest):
         self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
 
         self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
-        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
+        self.eq({'foo': 'bar'}, (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr})))
 
         self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
         self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
@@ -4913,3 +4942,41 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return( $lib.export.toaxon(${.created}, (bad, opts,)) )')
+
+    async def test_storm_nodes_edges(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('[ ou:industry=* ] return($node.iden())')
+
+            opts = {'vars': {'iden': iden}}
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            self.eq(nodes[0].iden(), iden)
+
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(0)) { -> { yield $n2iden } }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
+            self.len(1, nodes)
+            self.eq('ou:industry', nodes[0].ndef[0])
+
+            nodes = await core.nodes('ou:industry for ($verb, $n1iden) in $node.edges(reverse=(1)) { -> { yield $n1iden } }')
+            self.len(1, nodes)
+            self.eq('inet:ipv4', nodes[0].ndef[0])
+
+            iden = await core.callStorm('ou:industry=* return($node.iden())')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.delEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            self.len(0, nodes)
+
+            with self.raises(s_exc.BadCast):
+                await core.nodes('ou:industry $node.addEdge(foo, bar)')
+
+            with self.raises(s_exc.BadCast):
+                await core.nodes('ou:industry $node.delEdge(foo, bar)')

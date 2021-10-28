@@ -209,20 +209,22 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('for $x in $lib.axon.list() { $lib.print($x) }', opts=opts)
 
             # test wget runtsafe / per-node / per-node with cmdopt
-            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active')
+            nodes = await core.nodes(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:urlfile')
 
-            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget')
+            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:urlfile')
 
-            nodes = await core.nodes(f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget :url')
+            q = f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify :url'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:urlfile')
 
             # check that the file name got set...
-            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
+            q = f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
             sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
@@ -245,7 +247,7 @@ class StormTest(s_t_utils.SynTest):
             items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.len(0, items)
 
-            msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
+            msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
 
             self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
@@ -264,7 +266,7 @@ class StormTest(s_t_utils.SynTest):
                 await asyncio.sleep(2)
 
             with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
-                msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active --timeout 1')
                 self.stormIsInWarn('TimeoutError', msgs)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
@@ -636,6 +638,9 @@ class StormTest(s_t_utils.SynTest):
             for (iden, cron) in core.agenda.list():
                 cron.view = None
             await core.nodes('cron.list')
+
+            # test that stormtypes nodes can be yielded
+            self.len(1, await core.nodes('for $x in ${ [inet:ipv4=1.2.3.4] } { yield $x }'))
 
     async def test_storm_diff_merge(self):
 
@@ -1546,9 +1551,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
             # test runtsafe and non-runtsafe failure to create node
-            msgs = await core.stormlist('scrape "https://t.c…"')
+            msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormIsInWarn('BadTypeValue', msgs)
-            msgs = await core.stormlist('[ media:news=* :title="https://t.c…" ] | scrape :title')
+            msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormIsInWarn('BadTypeValue', msgs)
 
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')

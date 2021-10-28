@@ -458,6 +458,10 @@ class CortexTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as proxy:
                 self.eq('qwer', await proxy.callStorm('return (qwer)'))
 
+                q = '$x=($lib.undef, 1, 2, $lib.queue.gen(beep)) return($x)'
+                retn = await proxy.callStorm(q)
+                self.eq(('1', '2'), retn)
+
                 with self.raises(s_exc.StormRuntimeError):
                     q = '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'
                     await proxy.callStorm(q)
@@ -5182,6 +5186,13 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.nodes('_hehe:hoho | delnode')
                     await prox.delForm('_hehe:hoho')
                     self.none(core.model.form('_hehe:hoho'))
+
+                    with self.raises(s_exc.BadPropDef):
+                        await prox.addFormProp('test:str', '_blah:blah_blah', ('int', {}), {})
+                    with self.raises(s_exc.BadPropDef):
+                        await prox.addUnivProp('_blah:blah_blah', ('int', {}), {})
+                    with self.raises(s_exc.BadPropDef):
+                        await prox.addTagProp('_blah:blah_blah', ('int', {}), {})
 
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
