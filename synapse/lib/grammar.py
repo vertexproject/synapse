@@ -15,6 +15,8 @@ formrestr = r'[a-z_][a-z0-9]*(:[a-z0-9]+)+'
 formre = regex.compile(formrestr)
 tagrestr = r'(\w+\.)*\w+'
 tagre = regex.compile(tagrestr)
+basepropnopivpropstr = r'[a-z_][a-z0-9]*(?:(\:|\.)[a-z_][a-z0-9]*)*'
+basepropnopivpropre = regex.compile(basepropnopivpropstr)
 
 whites = set(' \t\n')
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
@@ -30,6 +32,9 @@ def isUnivName(name):
 
 def isFormName(name):
     return formre.fullmatch(name) is not None
+
+def isBasePropNoPivprop(name):
+    return basepropnopivpropre.fullmatch(name) is not None
 
 floatre = regex.compile(r'\s*-?\d+(\.\d+)?')
 

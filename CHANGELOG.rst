@@ -5,6 +5,65 @@ Synapse Changelog
 *****************
 
 
+v2.67.0 - 2021-10-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$node.addEdge()`` and ``$node.delEdge()`` APIs in Storm to allow for
+  programatically setting edges. Add a ``reverse`` argument to
+  ``$node.edges()`` that allows traversing edges in reverse.
+  (`#2351 <https://github.com/vertexproject/synapse/pull/2351>`_)
+
+Bugfixes
+--------
+- Fix a pair of regressions related to unicode/IDNA support for scraping and
+  normalizing FQDNs.
+  (`#2436 <https://github.com/vertexproject/synapse/pull/2436>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the Cortex ``api/v1/storm/call`` HTTP API endpoint.
+  (`#2435 <https://github.com/vertexproject/synapse/pull/2435>`_)
+
+
+v2.66.0 - 2021-10-26
+====================
+
+Features and Enhancements
+-------------------------
+- Improve unicode/IDNA support for scraping and normalizing FQDNs.
+  (`#2408 <https://github.com/vertexproject/synapse/pull/2408>`_)
+- Add ``$lib.inet.http.ouath`` to support OAuth based workflows in Storm,
+  starting with OAuth v1.0 support.
+  (`#2413 <https://github.com/vertexproject/synapse/pull/2413>`_)
+- Replace ``pysha3`` requirement with ``pycryptodome``.
+  (`#2422 <https://github.com/vertexproject/synapse/pull/2422>`_)
+- Add a ``tls:ca:dir`` configuration option to the Cortex and Axon. This can
+  be used to provide a directory of CA certificate files which are used in
+  Storm HTTP API and Axon wget/wput APIs.
+  (`#2429 <https://github.com/vertexproject/synapse/pull/2429>`_)
+
+Bugfixes
+--------
+- Catch and raise bad ctors given in RStorm ``storm-cortex`` directives.
+  (`#2424 <https://github.com/vertexproject/synapse/pull/2424>`_)
+- Fix an issue with the ``cron.at`` command not properly capturing the current
+  view when making the Cron job.
+  (`#2425 <https://github.com/vertexproject/synapse/pull/2425>`_)
+- Disallow the creation of extended properties, universal properties, and tag
+  properties which are not valid properties in the Storm grammar.
+  (`#2428 <https://github.com/vertexproject/synapse/pull/2428>`_)
+- Fix an issue with ``$lib.guid()`` missing a ``toprim()`` call on its input.
+  (`#2421 <https://github.com/vertexproject/synapse/pull/2421>`_)
+
+Improved Documentation
+----------------------
+- Update our Cell devops documentation to note how to replace the TLS keypair
+  used by the built in webserver with third party certificates.
+  (`#2432 <https://github.com/vertexproject/synapse/pull/2432>`_)
+
+
 v2.65.0 - 2021-10-16
 ====================
 
