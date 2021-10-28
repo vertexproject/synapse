@@ -18,13 +18,13 @@ class LibYaml(s_stormtypes.Lib):
                   'args': (
                       {'name': 'valu', 'type': 'object', 'desc': 'The object to encode.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'A YAML string.', }}},
+                  'returns': {'type': 'str', 'desc': 'A YAML string.'}}},
         {'name': 'load', 'desc': 'Decode a YAML string/bytes into an object.',
          'type': {'type': 'function', '_funcname': 'load',
                   'args': (
-                      {'name': 'valu', 'type': 'str', 'desc': 'The string to decode.', },
+                      {'name': 'valu', 'type': 'str', 'desc': 'The string to decode.'},
                   ),
-                  'returns': {'type': 'prim', 'desc': 'A bytes object for the decoded data.', }}},
+                  'returns': {'type': 'prim', 'desc': 'The decoded primitive object.'}}},
     )
     _storm_lib_path = ('yaml',)
 
