@@ -125,7 +125,7 @@ class CryptoModule(s_module.CoreModule):
                     ('status:code', ('int', {}), {
                         'doc': 'A coin specific status code which may represent an error reason.'}),
                     ('status:message', ('str', {}), {
-                        'doc': 'A coin specific status message which main contain an error reason.'}),
+                        'doc': 'A coin specific status message which may contain an error reason.'}),
 
                     ('to', ('crypto:currency:address', {}), {
                         'doc': 'The destination address of the transaction.'}),
@@ -140,7 +140,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The time this transaction was initiated.'}),
 
                     ('eth:gasused', ('int', {}), {
-                        'doc': 'The amount gas used to execute this transaction.'}),
+                        'doc': 'The amount of gas used to execute this transaction.'}),
                     ('eth:gaslimit', ('int', {}), {
                         'doc': 'The ETH gas limit specified for this transaction.'}),
                     ('eth:gasprice', ('econ:price', {}), {
