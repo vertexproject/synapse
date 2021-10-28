@@ -102,6 +102,10 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
         return self.slab.get(pkey, db=self.pathdb)
 
+    async def hasPathObj(self, path):
+        pkey = self._pathToPkey(path)
+        return self.slab.has(pkey, db=self.pathdb)
+
     async def delPathObj(self, path):
         '''
         Remove a path and decref the object it references.
@@ -137,7 +141,9 @@ class JsonStor(s_base.Base):
             return None
 
         for name in self._pathToTupl(prop):
-            item = item[name]
+            item = item.get(name, s_common.novalu)
+            if item is s_common.novalu:
+                return None
 
         return item
 
@@ -246,6 +252,26 @@ class JsonStor(s_base.Base):
         step.pop(name, None)
         self.dirty[buid] = item
         return True
+
+    async def popPathObjProp(self, path, prop, defv=None):
+
+        buid = self._pathToBuid(path)
+        if buid is None:
+            return defv
+
+        item = self._getBuidItem(buid)
+        if item is None:
+            return defv
+
+        step = item
+        names = self._pathToTupl(prop)
+        for name in names[:-1]:
+            step = step[name]
+
+        retn = step.pop(names[-1], defv)
+        self.dirty[buid] = item
+
+        return retn
 
 class JsonStorApi(s_cell.CellApi):
 
