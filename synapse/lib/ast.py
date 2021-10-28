@@ -612,8 +612,6 @@ class TryCatch(AstNode):
                 async for item in block.run(runt, s_common.agen()):
                     yield item
 
-            return
-
     async def getErrValu(self, e):
         mesg = e.errinfo.pop('mesg', 'No message given.')
         info = await s_stormtypes.toprim(e.errinfo)

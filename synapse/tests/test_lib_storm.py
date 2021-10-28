@@ -74,6 +74,47 @@ class StormTest(s_t_utils.SynTest):
                     } catch FooBar as err {}
                 ''')
 
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('''
+                    try {
+                        [ hurr:durr=vertex.link ]
+                    } catch FooBar as err {}
+                ''')
+
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                try {
+                    $lib.print($node.repr())
+                } catch FooBar as err {
+                    $lib.print(FooBar)
+                }
+            '''))
+
+            self.len(1, await core.nodes('''
+                try {
+                    [ inet:fqdn=vertex.link ]
+                } catch FooBar as err {
+                    $lib.print(FooBar)
+                }
+            '''))
+
+            self.len(1, await core.nodes('''
+                try {
+                    $lib.raise(FooBar, foobar)
+                } catch FooBar as err {
+                    [ inet:fqdn=vertex.link ]
+                }
+            '''))
+
+            self.len(2, await core.nodes('''
+                [ inet:fqdn=woot.link ]
+                try {
+                    $lib.raise(FooBar, foobar)
+                } catch FooBar as err {
+                    [ inet:fqdn=vertex.link ]
+                }
+            '''))
+
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction
         async with self.getTestCore() as core:
