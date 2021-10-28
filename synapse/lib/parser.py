@@ -77,7 +77,6 @@ terminalEnglishMap = {
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
     'TRY': 'try',
-    'EXCEPT': 'except',
     'TAGMATCH': 'tag name with asterisks',
     'UNIVNAME': 'universal property',
     'VARTOKN': 'variable',
