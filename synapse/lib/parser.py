@@ -16,12 +16,14 @@ import synapse.lib.datfile as s_datfile
 
 # For easier-to-understand syntax errors
 terminalEnglishMap = {
+    'AS': 'as',
     'ABSPROP': 'absolute or universal property',
     'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
     'BOOL': 'boolean',
     'BREAK': 'break',
+    'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDOPT': 'command line option',
@@ -74,6 +76,8 @@ terminalEnglishMap = {
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
+    'TRY': 'try',
+    'EXCEPT': 'except',
     'TAGMATCH': 'tag name with asterisks',
     'UNIVNAME': 'universal property',
     'VARTOKN': 'variable',
@@ -148,6 +152,16 @@ class AstConverter(lark.Transformer):
         kid.hasyield = hasyield
 
         return kid
+
+    @lark.v_args(meta=True)
+    def trycatch(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.TryCatch(kids=kids)
+
+    @lark.v_args(meta=True)
+    def catchblock(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.CatchBlock(kids=kids)
 
     @lark.v_args(meta=True)
     def baresubquery(self, kids, meta):

@@ -21,6 +21,59 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_trycatch(self):
+
+        async with self.getTestCore() as core:
+            self.eq(1, await core.callStorm('''
+                try {
+                    $lib.raise(FooBar, "Foo that bars!", baz=faz)
+                    return((0))
+                } catch FooBar as err {
+                    return((1))
+                }
+            '''))
+
+            self.eq(1, await core.callStorm('''
+                try {
+                    $lib.raise(FooBar, "Foo that bars!", baz=faz)
+                    return((0))
+                } catch (FooBar, BazFaz) as err {
+                    return((1))
+                } catch * as err {
+                    return((2))
+                }
+            '''))
+
+            self.eq('Gronk', await core.callStorm('''
+                try {
+                    $lib.raise(Gronk, "Foo that bars!", baz=faz)
+                    return((0))
+                } catch (FooBar, BazFaz) as err {
+                    return((1))
+                } catch * as err {
+                    return($err.name)
+                }
+            '''))
+
+            msgs = await core.stormlist('''
+                [ inet:fqdn=vertex.link ]
+                try {
+                    [ :lolz = 10 ]
+                } catch * as err {
+                    $lib.print($err.name)
+                }
+            ''')
+            self.stormIsInPrint('NoSuchProp', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('''
+                    [ inet:fqdn=vertex.link ]
+                    try {
+                        [ :lolz = 10 ]
+                    } catch FooBar as err {}
+                ''')
+
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction
         async with self.getTestCore() as core:

@@ -54,13 +54,16 @@ _TRYSET: "?=" | "?+=" | "?-="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
-_oper: stormfunc | initblock | finiblock | subquery | _formpivot | formjoin | formpivotin | formjoinin
-     | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
+_oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
+     | formjoinin | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
 BREAK: "break"
 CONTINUE: "continue"
+
+catchblock: "catch" _WSCOMM _valu _WSCOMM? "as" _WSCOMM? VARTOKN _WSCOMM? "{" query "}"
+trycatch: "try" _WSCOMM? "{" query "}" _WSCOMM? catchblock (_WSCOMM? catchblock)?
 
 _RETURN: "return"
 return: _RETURN _WS? "("[ _WS? _valu ] _WS?")"
@@ -268,7 +271,7 @@ varderef: _varvaluatom "." DEREFMATCHNOSEP
 DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: "(" [_WS? (kwarg | _valu) (_WS? "," _WS? (kwarg | _valu))*] _WS? ["," _WS?] ")"
+_callargs: "(" [_WSCOMM? (kwarg | _valu) (_WSCOMM? "," _WSCOMM? (kwarg | _valu))*] _WSCOMM? ["," _WSCOMM?] ")"
 kwarg: VARTOKN _WS? "=" _WS? _valu
 
 filtoper: FILTPREFIX _cond
@@ -344,7 +347,7 @@ RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
 BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]*)*/
 
 // The name of a storm command
-CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and)\b)[a-z][a-z0-9.]+\b/
+CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 dollarexpr: "$"? _exprcommon
