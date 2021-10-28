@@ -84,9 +84,9 @@ class StormCellTest(s_test.SynTest):
 
             q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
             mesg = '\n'.join(['The following Views will be fixed in order:', '68695c660aa6981192d70e954af0c8e3',
-                              '18520682d60c09857a12a262c4e2b1ec', '9568f8706b4ce26652dd189b77892e1f',
-                              'f2edfe4a9da70308dcffd744a9a50bef', '3a3f351ea0704fc310772096c0291405',
-                              'd427e8e7f2cd9b92123a80669216e763'])
+                              '3a3f351ea0704fc310772096c0291405', '18520682d60c09857a12a262c4e2b1ec',
+                              '9568f8706b4ce26652dd189b77892e1f', 'd427e8e7f2cd9b92123a80669216e763',
+                              'f2edfe4a9da70308dcffd744a9a50bef'])
             msgs = await core.stormlist(q)
             self.stormIsInPrint(mesg, msgs)
             self.stormIsInPrint('fix (1, 0, 0)', msgs)
