@@ -67,7 +67,7 @@ class StormCellTest(s_test.SynTest):
             ret = await cortex.callStorm(q)
             return ret
 
-        async with self.getRegrCore('2.47.0-autoadds-fix/') as core:  # type: s_cortex.Cortex
+        async with self.getRegrCore('2.47.0-autoadds-fix') as core:  # type: s_cortex.Cortex
 
             user = await core.auth.addUser('user', passwd='user')
 
@@ -128,3 +128,21 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.hotFixesCheck()) ', opts={'user': user.iden})
+
+    async def test_stormfix_cryptocoin(self):
+
+        async with self.getRegrCore('2.68.0-cryptocoin-fix') as core:  # type: s_cortex.Cortex
+
+            self.len(0, await core.nodes('crypto:currency:coin'))
+
+            msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
+            m = 'Would apply fix (2, 0, 0) for [Populate crypto:currency:coin nodes from existing addresses.]'
+            self.stormIsInPrint(m, msgs)
+            self.stormIsInPrint('r=True', msgs)
+
+            q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
+
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Applied fix (2, 0, 0)', msgs)
+
+            self.len(2, await core.nodes('crypto:currency:coin'))
