@@ -14,9 +14,6 @@ class SynErr(Exception):
         displ = ' '.join(['%s=%r' % (p, v) for (p, v) in props])
         return '%s: %s' % (self.__class__.__name__, displ)
 
-    def name(self):
-        return self.__class__.__name__
-
     def items(self):
         return {k: v for k, v in self.errinfo.items()}
 
