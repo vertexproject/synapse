@@ -640,8 +640,6 @@ class CatchBlock(AstNode):
         catchvalu = await self.kids[0].compute(runt, path)
         catchvalu = await s_stormtypes.toprim(catchvalu)
 
-        logger.info(f'{catchvalu=}')
-
         if isinstance(catchvalu, str):
             if catchvalu == '*':
                 return True
