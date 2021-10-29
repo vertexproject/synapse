@@ -21,6 +21,30 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_storm_ifcond_fix(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('''
+                [ inet:fqdn=vertex.link inet:fqdn=foo.com inet:fqdn=bar.com ]
+
+                function stuff(x) {
+                  if ($x.0 = "vertex.link") {
+                      return((1))
+                  }
+                  return((0))
+                }
+
+                $alerts = $lib.list()
+                { $alerts.append($node.repr()) }
+
+                $bool = $stuff($alerts)
+
+                if $bool { $lib.print($alerts) }
+
+                | spin
+            ''')
+            self.stormNotInPrint('foo.com', msgs)
+
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction
         async with self.getTestCore() as core:
