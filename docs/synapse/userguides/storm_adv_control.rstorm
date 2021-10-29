@@ -24,14 +24,122 @@ See also the follwing User Guide and reference sections for additional informati
 - :ref:`stormtypes-libs-header`
 - :ref:`stormtypes-prim-header`
 
-It may also be helpful to review the general :ref:`storm-op-concepts` and keep them in mind for control flow operations.
+
+.. _storm-adv-tips:
+
+Advanced Storm - Tips
+---------------------
+
+.. _storm-adv-concepts:
+
+Storm Operating Concepts - Review
++++++++++++++++++++++++++++++++++
+
+.. NOTE::
+
+  It is essential to keep the Storm Operating Concepts in mind when using more advanced Storm queries and constructs. For standard Storm queries, these concepts are intuitive (you don't really need to think about them - Storm "just works"). However, these concepts are critical to writing more complex Storm - remembering these fundamentals can save you time and headaches trying to debug a Storm query that is not behaving the way you think it should.
+
+
+Users are **strongly encouraged** to review the :ref:`storm-op-concepts` as well as the additional data below.
+
+Recall that:
+
+ - We use the term **working set** to refer to the set of nodes you're operating on in Storm.
+ 
+   - The nodes you "start with" (often by performing an initial lift operation) are your **initial working set**.
+   - The nodes at any given point in a Storm query are your **current working set**.
+ 
+ - Storm operations (lifts, filters, pivots, subqueries, commands...) can be **chained** together to form longer, more complex queries. However, each operation is executed **individually** and **in sequence**.
+ 
+ - Each Storm operation typically **changes your current working set**. (We sometimes say that Storm operations **consume** nodes to refer to the fact that in many cases the nodes that "come out" of a Storm operation are not the same nodes that "went in".)
+ 
+   - For example, if you perform a filter operation, the resulting set of nodes is typically a subset of the ones you started with. If you use a pivot operation to navigate from one set of nodes to another, you typically leave your "original" nodes behind and "move to" the new nodes. In most cases, your current working set is consistently changing.
+  
+ - A Storm query made up of multiple chained operations acts as a **pipeline** through which **each** node passes individually.
+   
+   - This means that a Storm query is executed once for **each** node that passes through the pipeline - **not** "just once" for the entire set of nodes.
+   - The fact that each inbound node is processed independently by each Storm operation impacts your current working set.
+   
+   A simple example of this is the "duplication" of results (nodes) following some pivot operations - this is expected behavior. If you pivot from a set of FQDNs (``inet:fqdn``) to their DNS A records (``inet:dns:a``) and then to the associated IPv4 addresses (``inet:ipv4``), your results may include multiple instances of the same IPv4 node if more than one FQDN resolved to the same IPv4 address. In short, you get one "copy" of the IPv4 for **each** FQDN that resolved to (had a DNS A record for) that address. (Hence the Storm :ref:`storm-uniq` command to de-duplicate the nodes in the current working set).
+   
+The way Storm behaves - these operating concepts - impacts advanced constructs such as control flow, and are important to understand when writing and debugging more advanced Storm.
+
+
+.. _storm-adv-debug:
+
+Storm Debugging Tips
+++++++++++++++++++++
+
+This documentation is not meant as a tutorial on advanced Storm, but we can offer a few helpful tips:
+
+ - Be aware of your pipeline - that is, understand what is in your current working set at any point in your query. A significant part of Storm troubleshooting comes down to figuring out that the current working set is not what you think it is.
+ - Similarly, because each node passes through each operation in a Storm query individually, each operation (including control flow operations) may execute multiple times. If you don't account for this, it can result in things like:
+   
+   - An exponentially increasing working set (if each node passing through an operation generates multiple results, and the results are not deduplicated / uniq'ed appropriately).
+   - A variable that is set by an operation being consistently changed (re-set) for each node passing through the operation (commonly resulting in "last node wins").
+   - A variable that **fails** to be set for a node that does **not** pass through the operation where the variable is assigned (resulting in a ``NoSuchVar`` error).
+ 
+ - It is common to use **subqueries** (see :ref:`storm-ref-subquery`) with advanced Storm to isolate certain operations and keep the "primary" nodes passing through the overall Storm pipeline consistent. This is because unlike most Storm operations and commands, subqueries **do not consume** nodes - by default, what goes into a subquery comes out of a subquery, regardless of what happens inside the subquery itself. There are two common points where subqueries may impact your Storm:
+ 
+   - A set of operations changes your working set, so the node(s) you started with are no longer present (i.e., have been consumed by some operation). In this case you can use a subquery to isolate these operations while keeping your original nodes in the overall pipeline.
+   - Operations within a subquery fail to execute. While a subquery can isolate a set of operations, a node still has to pass **into** a subquery for the subquery to execute. A common troubleshooting solution for "why is the code in this subquery not executing?" is that nothing is going "into" the subquery to cause it to run.
+ 
+As with all debugging, ``$lib.print()`` is your friend (see :ref:`stormlibs-lib-print`). Scatter it generously throughout your Storm during testing. You can of course print strings:
+
+::
+  
+  $lib.print("Hey! This worked!")
+
+...as well as values associated with the node(s) in the current working set, using the various methods associated with the ``$node`` Storm type (see :ref:`storm-adv-methods` for a user-focused introduction to methods, or :ref:`stormtypes-storm-node` in the detailed Storm Libraries / Storm Types documentation):
+
+::
+  
+  $lib.print($node.ndef())
+
+
+Control Flow Operations
+-----------------------
 
 .. _flow-if-else:
 
 If-Else Statement
------------------
++++++++++++++++++
 
-An **if-else statement** matches inbound objects against a specified condition. If that condition is met, a set of Storm operations are performed. If the condition is not met, a different set of Storm operations are performed.
+An **if-else statement** matches inbound objects against a specified condition. If that condition is met, a set of Storm operations are performed. If the condition is not met, a different set of Storm operations are performed. Storm supports the use of ``if`` by itself; ``if-else``; or ``if-elif-else``. 
+
+Note that the "Storm operations" performed can include **no** operations / "do nothing" if no Storm is provided (e.g., if the associated curly braces are left empty).
+
+If
+**
+
+**Syntax:**
+
+::
+  
+  if <condition> { <storm> }
+
+If ``<condition>`` is met, execute the Storm query in the curly braces. If ``<condition>`` is not, met do nothing. (Note that this is equivalent to an ``if`` statement followed by an empty ``else`` statement.)
+
+
+.. NOTE::
+  
+  If ``<condition>`` is an expression to be evaluated, it must be enclosed in parentheses ``( )``. If the expression includes strings, they must be enclosed in single or double quotes.
+  
+  ::
+    
+    if ( $str = 'Oh hai!' ) { <storm> }
+  
+  Or:
+  
+  ::
+    
+    if ( :time > $date ) { <storm> }
+  
+  (Where ``:time`` represents a property on an inbound node.)
+
+
+If-Else
+*******
 
 **Syntax:**
 
@@ -40,7 +148,32 @@ An **if-else statement** matches inbound objects against a specified condition. 
   if <condition> { <storm> }
   else { <storm> }
 
- 
+If ``<condition>`` is met, execute the associated Storm; otherwise, execute the alternate Storm.
+
+Similar to the ``if`` example above with no ``else`` option (or an empty query for ``else``), you can have an empty ``if`` query:
+
+::
+  
+  if <condition> { }
+  else { <storm> }
+
+If ``<condition>`` is met, do nothing; otherwise, execute the alternate Storm query.
+
+If-Elif-Else
+************
+
+**Syntax:**
+
+::
+  
+  if <condition> { <storm> }
+  elif <condition> { <storm> }
+  else { <storm> }
+
+If ``<condition>`` is met, execute the associated Storm; otherwise, if (else if) the second ``<condition>`` is met, execute the associated Storm; otherwise (else) execute the final Storm query.
+
+You can use multiple ``elif`` statements before the final ``else``. ``If-elif-else`` is helpful because it allows you to handle multiple conditions differently while avoiding "nested" ``if-else`` statements (which may be appropriate in some cases, but overly complex and unnecessary in others).
+
 
 **Example:**
 
@@ -65,7 +198,7 @@ The Storm query above:
 .. _flow-switch:
 
 Switch Statement
-----------------
+++++++++++++++++
 
 A **switch statement** matches inbound objects against a set of specified constants. Depending on which constant is matched, a set of Storm operations is performed. The switch statement can include an optional **default case** to perform a set of Storm operations in the case where none of the explicitly defined constants are matched.
 
@@ -127,7 +260,7 @@ The default case above is not strictly necessary - any inbound nodes that fail t
 
 
 For Loop
---------
+++++++++
 
 A **for loop** will iterate over a set of objects, performing the specified Storm operations on each object in the set.
 
@@ -207,9 +340,8 @@ The for loop can be incorporated into your larger "threat hunting" macro to iden
 
 .. _flow-while:
 
-
 While Loop
-----------
+++++++++++
 
 A **while loop** checks inbound nodes against a specified condition and performs the specified Storm operations for as long as the condition is met.
 
