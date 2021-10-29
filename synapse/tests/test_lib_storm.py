@@ -81,6 +81,24 @@ class StormTest(s_t_utils.SynTest):
                     } catch FooBar as err {}
                 ''')
 
+            # We will do lookups with the Raises command to raise the proper synerr
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('''
+                    try {
+                        $lib.raise(NoSuchForm, 'mesg here')
+                    } catch FooBar as err {}
+                ''')
+
+            # We punch through the errname in the exception
+            with self.raises(s_exc.StormRaise) as cm:
+                await core.nodes('''
+                    try {
+                        $lib.raise(NoSuchExceptionNewpers, 'mesg here')
+                    } catch FooBar as err {}
+                ''')
+            self.eq(cm.exception.errname, 'NoSuchExceptionNewpers')
+            self.eq(cm.exception.get('errname'), 'NoSuchExceptionNewpers')
+
             self.len(1, await core.nodes('''
                 [ inet:fqdn=vertex.link ]
                 try {
@@ -114,6 +132,54 @@ class StormTest(s_t_utils.SynTest):
                     [ inet:fqdn=vertex.link ]
                 }
             '''))
+
+            # Nesting works
+            q = '''
+            $lib.print('init')
+            try {
+                $lib.print('nested try catch')
+                try {
+                    $lib.print('nested raise')
+                    $lib.raise($errname, mesg='inner error!')
+                } catch foo as err {
+                    $lib.print('caught foo e={e}', e=$err)
+                    if $innerRaise {
+                        $lib.raise($innererrname, mesg='inner error!')
+                    }
+                }
+                $lib.print('no foo err!')
+            } catch bar as err {
+                $lib.print('caught bar e={e}', e=$err)
+            }
+            $lib.print('fin')'''
+            msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': '', 'innerRaise': False, }})
+            self.stormIsInPrint('caught foo', msgs)
+            self.stormNotInPrint('caught bar', msgs)
+            self.stormIsInPrint('fin', msgs)
+
+            msgs = await core.stormlist(q, {'vars': {'errname': 'bar', 'innererrname': '', 'innerRaise': False, }})
+            self.stormNotInPrint('caught foo', msgs)
+            self.stormIsInPrint('caught bar', msgs)
+            self.stormIsInPrint('fin', msgs)
+
+            msgs = await core.stormlist(q, {'vars': {'errname': 'baz', 'innererrname': '', 'innerRaise': False, }})
+            self.stormNotInPrint('caught foo', msgs)
+            self.stormNotInPrint('caught bar', msgs)
+            self.stormNotInPrint('fin', msgs)
+
+            # We can also raise inside of a catch block
+            msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': 'bar', 'innerRaise': True, }})
+            self.stormIsInPrint('caught foo', msgs)
+            self.stormIsInPrint('caught bar', msgs)
+            self.stormIsInPrint('fin', msgs)
+
+            msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': 'baz', 'innerRaise': True, }})
+            self.stormIsInPrint('caught foo', msgs)
+            self.stormNotInPrint('caught bar', msgs)
+            self.stormNotInPrint('fin', msgs)
+
+            # The items in the catch list must be a a str or list of iterables.
+            # Anything else raises a Storm runtime error
 
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction

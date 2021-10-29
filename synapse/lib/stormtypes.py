@@ -1299,6 +1299,9 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
+        ctor = getattr(s_exc, name, None)
+        if ctor is not None:
+            raise ctor(mesg=mesg, **info)
         raise s_exc.StormRaise(name, mesg, info)
 
     @stormfunc(readonly=True)
