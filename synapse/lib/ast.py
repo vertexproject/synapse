@@ -640,16 +640,22 @@ class CatchBlock(AstNode):
         catchvalu = await self.kids[0].compute(runt, path)
         catchvalu = await s_stormtypes.toprim(catchvalu)
 
+        logger.info(f'{catchvalu=}')
+
         if isinstance(catchvalu, str):
             if catchvalu == '*':
                 return True
             return catchvalu == name
 
-        for catchname in catchvalu:
-            if catchname == name:
-                return True
+        if isinstance(catchvalu, (list, tuple)):
+            for catchname in catchvalu:
+                if catchname == name:
+                    return True
+            return False
 
-        return False
+        etyp = catchvalu.__class__.__name__
+        mesg = f'catch block must be a str or list object. {etyp} not allowed.'
+        raise s_exc.StormRuntimeError(mesg=mesg, type=etyp)
 
 class ForLoop(Oper):
 

@@ -180,6 +180,33 @@ class StormTest(s_t_utils.SynTest):
 
             # The items in the catch list must be a a str or list of iterables.
             # Anything else raises a Storm runtime error
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('''
+                try {
+                    $lib.raise(foo, test)
+                } catch $lib.true as err{
+                    $lib.print('caught')
+                }
+                ''')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('''
+                try {
+                    $lib.raise(foo, test)
+                } catch (1) as err {
+                    $lib.print('caught')
+                }
+                ''')
+
+            # A list of mixed objects works
+            msgs = await core.stormlist('''
+            try {
+                $lib.raise(foo, test)
+            } catch (1, $lib.true, foo) as err {
+                $lib.print('caught err={e}', e=$err)
+            }
+            ''')
+            self.stormIsInPrint('caught err=', msgs)
 
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction
