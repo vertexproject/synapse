@@ -86,6 +86,16 @@ class XmlTest(s_test.SynTest):
                 }
                 return($retn)
             ''', opts={'vars': {'xmltext': xml0}})
+            self.eq(valu, ())
+
+            valu = await core.callStorm('''
+                $retn = $lib.list()
+                $root = $lib.xml.parse($xmltext)
+                for $elem in $root.find(rank, nested=$lib.false) {
+                    $retn.append($elem.text)
+                }
+                return($retn)
+            ''', opts={'vars': {'xmltext': xml0}})
             self.eq(valu, [])
 
             with self.raises(s_exc.BadArg):
