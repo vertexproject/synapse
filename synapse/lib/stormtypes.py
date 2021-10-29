@@ -7091,6 +7091,9 @@ async def tostr(valu, noneok=False):
         return None
 
     try:
+        if isinstance(valu, bytes):
+            return valu.decode('utf8')
+
         return str(valu)
     except Exception as e:
         mesg = f'Failed to make a string from {valu!r}.'
