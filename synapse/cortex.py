@@ -47,6 +47,7 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.hex as s_stormlib_hex # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
