@@ -67,7 +67,7 @@ class StormCellTest(s_test.SynTest):
             ret = await cortex.callStorm(q)
             return ret
 
-        async with self.getRegrCore('2.47.0-autoadds-fix/') as core:  # type: s_cortex.Cortex
+        async with self.getRegrCore('2.47.0-autoadds-fix') as core:  # type: s_cortex.Cortex
 
             user = await core.auth.addUser('user', passwd='user')
 
@@ -84,12 +84,13 @@ class StormCellTest(s_test.SynTest):
 
             q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
             mesg = '\n'.join(['The following Views will be fixed in order:', '68695c660aa6981192d70e954af0c8e3',
-                              '18520682d60c09857a12a262c4e2b1ec', '9568f8706b4ce26652dd189b77892e1f',
-                              'f2edfe4a9da70308dcffd744a9a50bef', '3a3f351ea0704fc310772096c0291405',
-                              'd427e8e7f2cd9b92123a80669216e763'])
+                              '3a3f351ea0704fc310772096c0291405', '18520682d60c09857a12a262c4e2b1ec',
+                              '9568f8706b4ce26652dd189b77892e1f', 'd427e8e7f2cd9b92123a80669216e763',
+                              'f2edfe4a9da70308dcffd744a9a50bef'])
             msgs = await core.stormlist(q)
             self.stormIsInPrint(mesg, msgs)
-            self.stormIsInPrint('r=(1, 0, 0)', msgs)
+            self.stormIsInPrint('fix (1, 0, 0)', msgs)
+            self.stormIsInPrint('fix (2, 0, 0)', msgs)
 
             msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
             self.stormIsInPrint('r=False', msgs)
@@ -127,3 +128,21 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.hotFixesCheck()) ', opts={'user': user.iden})
+
+    async def test_stormfix_cryptocoin(self):
+
+        async with self.getRegrCore('2.68.0-cryptocoin-fix') as core:  # type: s_cortex.Cortex
+
+            self.len(0, await core.nodes('crypto:currency:coin'))
+
+            msgs = await core.stormlist('$r = $lib.cell.hotFixesCheck() $lib.print("r={r}", r=$r)')
+            m = 'Would apply fix (2, 0, 0) for [Populate crypto:currency:coin nodes from existing addresses.]'
+            self.stormIsInPrint(m, msgs)
+            self.stormIsInPrint('r=True', msgs)
+
+            q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
+
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Applied fix (2, 0, 0)', msgs)
+
+            self.len(2, await core.nodes('crypto:currency:coin'))
