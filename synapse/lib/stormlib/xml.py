@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -88,6 +89,8 @@ class LibXml(s_stormtypes.Lib):
     async def parse(self, valu):
         valu = await s_stormtypes.tostr(valu)
         try:
-            return XmlElement(self.runt, xml_et.fromstring(valu))
+            todo = (xml_et.fromstring, (valu,), {})
+            root = await s_coro.spawn(todo)
+            return XmlElement(self.runt, root)
         except xml_et.ParseError as e:
             raise s_exc.BadArg(mesg=f'Invalid XML text: {str(e)}')
