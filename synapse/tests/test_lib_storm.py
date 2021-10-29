@@ -231,7 +231,6 @@ class StormTest(s_t_utils.SynTest):
                 | spin
             ''')
             self.stormNotInPrint('foo.com', msgs)
-            
 
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction
