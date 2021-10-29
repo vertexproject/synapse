@@ -2887,3 +2887,13 @@ class StormTest(s_t_utils.SynTest):
                 | woot $node |
                 $lib.print($path.vars.fqdn)
             '''))
+
+    async def test_storm_version(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                msgs = await core.stormlist('version')
+
+                self.stormIsInPrint('Synapse Version:', msgs)
+                self.stormIsInPrint('Commit Hash:', msgs)

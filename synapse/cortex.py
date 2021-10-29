@@ -48,12 +48,14 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.hex as s_stormlib_hex # NOQA
+import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
+import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth # NOQA
@@ -3541,8 +3543,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         if view is not None:
             return await view.pack()
 
-    async def getViewDefs(self):
-        return [await v.pack() for v in list(self.views.values())]
+    async def getViewDefs(self, deporder=False):
+
+        views = list(self.views.values())
+        if not deporder:
+            return [await v.pack() for v in views]
+
+        def depth(view):
+            x = 0
+            llen = len(view.layers)
+            while view:
+                x += 1
+                view = view.parent
+            return (x, llen)
+        views.sort(key=lambda x: depth(x))
+
+        return [await v.pack() for v in views]
 
     async def addLayer(self, ldef=None, nexs=True):
         '''

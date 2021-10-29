@@ -5321,6 +5321,10 @@ class LibView(Lib):
                   'returns': {'type': 'storm:view', 'desc': 'The storm view object.', }}},
         {'name': 'list', 'desc': 'List the Views in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewList',
+                  'args': (
+                      {'name': 'deporder', 'type': 'bool', 'default': False,
+                        'desc': 'Return the lists in bottom-up dependency order.', },
+                  ),
                   'returns': {'type': 'list', 'desc': 'List of ``storm:view`` objects.', }}},
     )
 
@@ -5373,10 +5377,10 @@ class LibView(Lib):
         return View(self.runt, vdef, path=self.path)
 
     @stormfunc(readonly=True)
-    async def _methViewList(self):
-        todo = s_common.todo('getViewDefs')
-        defs = await self.runt.dyncall('cortex', todo)
-        return [View(self.runt, vdef, path=self.path) for vdef in defs]
+    async def _methViewList(self, deporder=False):
+        deporder = await tobool(deporder)
+        viewdefs = await self.runt.snap.core.getViewDefs(deporder=deporder)
+        return [View(self.runt, vdef, path=self.path) for vdef in viewdefs]
 
 @registry.registerType
 class View(Prim):
@@ -7140,6 +7144,9 @@ async def tostr(valu, noneok=False):
         return None
 
     try:
+        if isinstance(valu, bytes):
+            return valu.decode('utf8')
+
         return str(valu)
     except Exception as e:
         mesg = f'Failed to make a string from {valu!r}.'
