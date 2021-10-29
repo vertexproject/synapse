@@ -3361,6 +3361,11 @@ class Bytes(Prim):
                     $subbyts = $byts.slice(3)
             ''',
          'type': {'type': 'function', '_funcname': 'slice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting byte index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending byte index. If not specified, slice to the end.'},
+                  ),
                   'returns': {'type': 'bytes', 'desc': 'The slice of bytes.', }}},
 
         {'name': 'unpack', 'desc': '''
