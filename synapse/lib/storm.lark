@@ -272,7 +272,7 @@ DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
 _callargs: "(" [_WSCOMM? (kwarg | _valu) (_WSCOMM? "," _WSCOMM? (kwarg | _valu))*] _WSCOMM? ["," _WSCOMM?] ")"
-kwarg: VARTOKN _WS? "=" _WS? _valu
+kwarg: VARTOKN _WSCOMM? "=" _WSCOMM? _valu
 
 filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"

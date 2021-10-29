@@ -736,6 +736,21 @@ class StormTest(s_t_utils.SynTest):
             # test that stormtypes nodes can be yielded
             self.len(1, await core.nodes('for $x in ${ [inet:ipv4=1.2.3.4] } { yield $x }'))
 
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('''
+                return($lib.dict( // do foo thing
+                    foo /* hehe */ = /* haha */ bar, //lol
+                    baz // hehe
+                    = // haha
+                    faz // hehe
+                ))
+            '''))
+
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
+                return($lib.list( // do foo thing
+                    /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
+                ))
+            '''))
+
     async def test_storm_diff_merge(self):
 
         async with self.getTestCore() as core:
