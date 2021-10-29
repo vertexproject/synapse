@@ -435,6 +435,11 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
 
+            fqdn = 'xn--cc.bartmp.l.google.com'
+            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'bartmp.l.google.com'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(fqdn, t.repr(fqdn))
+
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
             # IP addresses are NOT valid FQDNs
