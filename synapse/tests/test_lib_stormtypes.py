@@ -3105,6 +3105,28 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 1003)
             self.eq(counts.get('test:guid'), 1)
 
+    async def test_storm_view_deporder(self):
+
+        async with self.getTestCore() as core:
+            view1 = await core.view.fork()
+            view2 = await core.view.fork()
+            layr1 = await core.addLayer()
+            layr2 = await core.addLayer()
+            view3 = await core.addView({'layers': (layr1['iden'], layr2['iden'])})
+            expect = (
+                core.view.iden,
+                view3['iden'],
+                view1['iden'],
+                view2['iden'],
+            )
+            self.eq(expect, await core.callStorm('''
+                $views = $lib.list()
+                for $view in $lib.view.list(deporder=$lib.true) {
+                    $views.append($view.iden)
+                }
+                return($views)
+            '''))
+
     async def test_storm_lib_trigger(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
