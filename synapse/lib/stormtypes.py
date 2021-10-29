@@ -886,6 +886,14 @@ class LibBase(Lib):
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A new list object.', }}},
+        {'name': 'raise', 'desc': 'Raise an exception in the storm runtime.',
+         'type': {'type': 'function', '_funcname': '_raise',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the error condition to raise.', },
+                      {'name': 'mesg', 'type': 'str', 'desc': 'A friendly description of the specific error.', },
+                      {'name': '**info', 'type': 'any', 'desc': 'Additional metadata to include in the exception.', },
+                  ),
+                  'returns': {'type': 'null', 'desc': 'This function does not return.', }}},
         {'name': 'null', 'desc': '''
             This constant represents a value of None that can be used in Storm.
 
@@ -1109,6 +1117,7 @@ class LibBase(Lib):
             'cast': self._cast,
             'warn': self._warn,
             'print': self._print,
+            'raise': self._raise,
             'range': self._range,
             'pprint': self._pprint,
             'sorted': self._sorted,
@@ -1285,6 +1294,16 @@ class LibBase(Lib):
     async def _print(self, mesg, **kwargs):
         mesg = await self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
+
+    @stormfunc(readonly=True)
+    async def _raise(self, name, mesg, **info):
+        name = await tostr(name)
+        mesg = await tostr(mesg)
+        info = await toprim(info)
+        ctor = getattr(s_exc, name, None)
+        if ctor is not None:
+            raise ctor(mesg=mesg, **info)
+        raise s_exc.StormRaise(name, mesg, info)
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
