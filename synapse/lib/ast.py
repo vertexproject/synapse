@@ -3532,19 +3532,14 @@ class IfStmt(Oper):
         async for node, path in genr:
             count += 1
 
-            if allcondsafe:
-                if count == 1:
-                    subq = await self._runtsafe_calc(runt)
+            for clause in self.clauses:
+                expr, subq = clause.kids
+
+                exprvalu = await expr.compute(runt, path)
+                if await tobool(exprvalu):
+                    break
             else:
-
-                for clause in self.clauses:
-                    expr, subq = clause.kids
-
-                    exprvalu = await expr.compute(runt, path)
-                    if await tobool(exprvalu):
-                        break
-                else:
-                    subq = self.elsequery
+                subq = self.elsequery
 
             if subq:
                 assert isinstance(subq, SubQuery)
