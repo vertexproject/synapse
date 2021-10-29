@@ -785,6 +785,25 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'version',
+        'descr': 'Show version metadata relating to Synapse.',
+        'storm': '''
+            $comm = $lib.version.commit()
+            $synv = $lib.version.synapse()
+
+            if $synv {
+                $synv = $lib.str.join('.', $synv)
+            }
+
+            if $comm {
+                $comm = $comm.slice(0,7)
+            }
+
+            $lib.print('Synapse Version: {s}', s=$synv)
+            $lib.print('Commit Hash: {c}', c=$comm)
+        ''',
+    },
+    {
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
