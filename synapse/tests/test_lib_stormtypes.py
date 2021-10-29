@@ -44,6 +44,33 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_storm_binstuff(self):
+        async with self.getTestCore() as core:
+            self.eq((1, 2, 3), await core.callStorm('''
+                return($lib.hex.decode(010002000300).unpack("<HHH"))
+            '''))
+
+            self.eq(b'\x03\x00', await core.callStorm('''
+                return($lib.hex.decode(010002000300).slice(4,6))
+            '''))
+
+            self.eq(b'\x03\x00', await core.callStorm('''
+                return($lib.hex.decode(010002000300).slice(4))
+            '''))
+
+            self.eq('010002000300', await core.callStorm('''
+                return($lib.hex.encode($lib.hex.decode(010002000300)))
+            '''))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.decode(asdf))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.encode(asdf))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.decode(010002000300).unpack("<ZZ"))')
+
     async def test_storm_debug(self):
 
         async with self.getTestCore() as core:
@@ -3104,6 +3131,28 @@ class StormTypesTest(s_test.SynTest):
             counts = await core.callStorm('return( $lib.view.get().getFormCounts() )')
             self.eq(counts.get('test:int'), 1003)
             self.eq(counts.get('test:guid'), 1)
+
+    async def test_storm_view_deporder(self):
+
+        async with self.getTestCore() as core:
+            view1 = await core.view.fork()
+            view2 = await core.view.fork()
+            layr1 = await core.addLayer()
+            layr2 = await core.addLayer()
+            view3 = await core.addView({'layers': (layr1['iden'], layr2['iden'])})
+            expect = (
+                core.view.iden,
+                view3['iden'],
+                view1['iden'],
+                view2['iden'],
+            )
+            self.eq(expect, await core.callStorm('''
+                $views = $lib.list()
+                for $view in $lib.view.list(deporder=$lib.true) {
+                    $views.append($view.iden)
+                }
+                return($views)
+            '''))
 
     async def test_storm_lib_trigger(self):
 
