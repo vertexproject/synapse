@@ -49,4 +49,8 @@ optic:
 
         - name: barbar
           callback: dobar
-    
+
+    workflows:
+
+      310eb7324b5da268fb31e4cd3d74e673:
+        name: foo
