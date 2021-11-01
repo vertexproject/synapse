@@ -52,11 +52,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(2, await core.callStorm('return($lib.time.hour(20211031020304))'))
             self.eq(3, await core.callStorm('return($lib.time.minute(20211031020304))'))
             self.eq(4, await core.callStorm('return($lib.time.second(20211031020304))'))
-
             self.eq(6, await core.callStorm('return($lib.time.dayofweek(20211031020304))'))
             self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
             self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
-
             self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
 
     async def test_storm_binstuff(self):
