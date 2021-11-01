@@ -130,5 +130,5 @@ class JsonLib(s_stormtypes.Lib):
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
-            raise s_exc.StormRuntimeError(mesg='Unable to compile Json Schema', schema=schema) from e
+            raise s_exc.StormRuntimeError(mesg=f'Unable to compile Json Schema: {str(e)}', schema=schema) from e
         return JsonSchema(self.runt, schema)
