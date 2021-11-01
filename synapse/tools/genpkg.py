@@ -147,8 +147,9 @@ def loadPkgProto(path, opticdir=None, no_docs=False):
 
     for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
         name = wdef.get('name')
-        path = s_common.reqpath(protodir, 'workflows', f'{name}.yaml')
-        wdef.update(s_common.yamlload(path))
+        wyaml = s_common.yamlload(protodir, 'workflows', f'{name}.yaml')
+        if wyaml is not None:
+            wdef.update(wyaml)
 
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')

@@ -33,10 +33,6 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nocontent.yaml')
             await s_genpkg.main((ymlpath,))
 
-        with self.raises(s_exc.NoSuchFile):
-            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nowflow.yaml')
-            await s_genpkg.main((ymlpath,))
-
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
@@ -78,6 +74,12 @@ class GenPkgTest(s_test.SynTest):
 
             wflow = pdef['optic']['workflows']['310eb7324b5da268fb31e4cd3d74e673']
             self.eq(wflow, {'name': 'foo', 'desc': 'a foo workflow'})
+
+            wflow = pdef['optic']['workflows']['41e3368bd094e1c1563a242bfa56bd01']
+            self.eq(wflow, {'name': 'bar', 'desc': 'this is an inline workflow'})
+
+            wflow = pdef['optic']['workflows']['bfb53cbaa789f2960de003d72b6e4544']
+            self.eq(wflow, {'name': 'baz', 'desc': 'this is the real baz desc'})
 
             # nodocs
             nodocspath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
