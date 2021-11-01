@@ -82,10 +82,7 @@ class StormTypesRegistry:
         assert ctor._storm_typename is not None, f'path={path} ctor={ctor}'
         self._TYPREG[path] = ctor
         self.known_types.add(ctor._storm_typename)
-        try:
-            self.undefined_types.remove(ctor._storm_typename)
-        except KeyError:
-            pass
+        self.undefined_types.discard(ctor._storm_typename)
 
     def delStormType(self, path):
         ctor = self._TYPREG.pop(path, None)
