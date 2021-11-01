@@ -18,13 +18,14 @@ def runJsSchema(schema, item):
     return resp
 
 def compileJsSchema(schema):
+    # This is a target function for s_coro.forked
     _ = s_config.getJsValidator(schema)
     return True
 
 @s_stormtypes.registry.registerType
 class JsonSchema(s_stormtypes.StormType):
     '''
-    JsonSchema validation object WORDS GO HERE
+    A JsonSchema validation object for use in validating data structures in Storm.
     '''
     _storm_typename = 'storm:json:schema'
     _storm_locals = (
@@ -96,7 +97,7 @@ class JsonLib(s_stormtypes.Lib):
                   'args': ({'name': 'schema', 'type': 'dict',
                             'desc': 'The JsonSchema to use.'},),
                   'returns': {'type': 'storm:json:schema',
-                              'desc': 'WORDS GO HERE'}}},
+                              'desc': 'A validation object that can be used to validate data structures.'}}},
     )
     _storm_lib_path = ('json',)
 
@@ -125,11 +126,11 @@ class JsonLib(s_stormtypes.Lib):
 
     async def _jsonSchema(self, schema):
         schema = await s_stormtypes.toprim(schema)
-        # We have to ensure that we have a valid schema first
+        # We have to ensure that we have a valid schema for making the object.
         try:
             await s_coro.forked(compileJsSchema, schema)
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            raise s_exc.StormRuntimeError(mesg='Unable to compile JsonSchema', schema=schema) from e
+            raise s_exc.StormRuntimeError(mesg='Unable to compile Json Schema', schema=schema) from e
         return JsonSchema(self.runt, schema)
