@@ -105,6 +105,7 @@ setup(
         'bech32==1.2.0',
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
+        'dateutil>=2.8,<3.0',
     ],
 
     extras_require={
