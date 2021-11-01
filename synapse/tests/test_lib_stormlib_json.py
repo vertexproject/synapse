@@ -41,3 +41,12 @@ class JsonTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 q = '$schemaObj=$lib.json.schema((foo, bar))'
                 await core.callStorm(q)
+
+            # Print a json schema obj
+            q = "$schemaObj = $lib.json.schema($schema) $lib.print('schema={s}', s=$schemaObj)"
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInPrint('storm:json:schema: {', msgs)
+
+            q = "$schemaObj = $lib.json.schema($schema) return ( $schemaObj.schema() )"
+            schema = await core.callStorm(q, opts=opts)
+            self.eq(schema, s_test.test_schema)

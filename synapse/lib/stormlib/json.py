@@ -1,4 +1,6 @@
+import copy
 import json
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -9,6 +11,16 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
+def runJsSchema(schema, item):
+    # This is a target function for s_coro.forked
+    func = s_config.getJsValidator(schema)
+    resp = func(item)
+    return resp
+
+def compileJsSchema(schema):
+    _ = s_config.getJsValidator(schema)
+    return True
+
 @s_stormtypes.registry.registerType
 class JsonSchema(s_stormtypes.StormType):
     '''
@@ -16,6 +28,10 @@ class JsonSchema(s_stormtypes.StormType):
     '''
     _storm_typename = 'storm:json:schema'
     _storm_locals = (
+        {'name': 'schema',
+         'desc': 'The schema belonging to this object.',
+         'type': {'type': 'function',
+                  'returns': {'type': 'dict', 'desc': 'A copy of the schema used for this object.'}}},
         {'name': 'validate',
          'desc': 'Validate a structure against the Json Schema',
          'type': {'type': 'function', '_funcname': '_validate',
@@ -27,23 +43,31 @@ class JsonSchema(s_stormtypes.StormType):
     )
     _ismutable = False
 
-    def __init__(self, runt, func, schema):
+    def __init__(self, runt, schema):
         s_stormtypes.StormType.__init__(self, None)
         self.runt = runt
-        self.func = func
         self.schema = schema
         self.locls.update(self.getObjLocals())
 
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.schema}'
+
     def getObjLocals(self):
         return {
+            'schema': self._schema,
             'validate': self._validate,
         }
+
+    async def _schema(self):
+        return copy.deepcopy(self.schema)
 
     async def _validate(self, item):
         item = await s_stormtypes.toprim(item)
 
         try:
-            result = self.func(item)
+            result = await s_coro.forked(runJsSchema, self.schema, item)
+        except asyncio.CancelledError:
+            raise
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -101,8 +125,11 @@ class JsonLib(s_stormtypes.Lib):
 
     async def _jsonSchema(self, schema):
         schema = await s_stormtypes.toprim(schema)
+        # We have to ensure that we have a valid schema first
         try:
-            func = s_config.getJsValidator(schema)
+            await s_coro.forked(compileJsSchema, schema)
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             raise s_exc.StormRuntimeError(mesg='Unable to compile JsonSchema', schema=schema) from e
-        return JsonSchema(self.runt, func, schema)
+        return JsonSchema(self.runt, schema)
