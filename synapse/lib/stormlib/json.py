@@ -67,8 +67,6 @@ class JsonSchema(s_stormtypes.StormType):
 
         try:
             result = await s_coro.forked(runJsSchema, self.schema, item)
-        except asyncio.CancelledError:
-            raise
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -129,7 +127,7 @@ class JsonLib(s_stormtypes.Lib):
         # We have to ensure that we have a valid schema for making the object.
         try:
             await s_coro.forked(compileJsSchema, schema)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
             raise s_exc.StormRuntimeError(mesg='Unable to compile Json Schema', schema=schema) from e
