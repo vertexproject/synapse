@@ -45,7 +45,7 @@ Connect With Us
 
 .. _guide: https://synapse.docs.vertex.link/en/latest/synapse/quickstart.html
 
-.. _synapse-quickstart: https://github.com/vertexproject/synapse-quickstart
+.. _synapse_quickstart: https://github.com/vertexproject/synapse-quickstart
 
 .. _pypi: https://v.vtx.lk/synapse-pypi
 

@@ -7,6 +7,7 @@ import regex
 import types
 import base64
 import pprint
+import struct
 import asyncio
 import inspect
 import logging
@@ -885,6 +886,14 @@ class LibBase(Lib):
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'A new list object.', }}},
+        {'name': 'raise', 'desc': 'Raise an exception in the storm runtime.',
+         'type': {'type': 'function', '_funcname': '_raise',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the error condition to raise.', },
+                      {'name': 'mesg', 'type': 'str', 'desc': 'A friendly description of the specific error.', },
+                      {'name': '**info', 'type': 'any', 'desc': 'Additional metadata to include in the exception.', },
+                  ),
+                  'returns': {'type': 'null', 'desc': 'This function does not return.', }}},
         {'name': 'null', 'desc': '''
             This constant represents a value of None that can be used in Storm.
 
@@ -1108,6 +1117,7 @@ class LibBase(Lib):
             'cast': self._cast,
             'warn': self._warn,
             'print': self._print,
+            'raise': self._raise,
             'range': self._range,
             'pprint': self._pprint,
             'sorted': self._sorted,
@@ -1284,6 +1294,16 @@ class LibBase(Lib):
     async def _print(self, mesg, **kwargs):
         mesg = await self._get_mesg(mesg, **kwargs)
         await self.runt.printf(mesg)
+
+    @stormfunc(readonly=True)
+    async def _raise(self, name, mesg, **info):
+        name = await tostr(name)
+        mesg = await tostr(mesg)
+        info = await toprim(info)
+        ctor = getattr(s_exc, name, None)
+        if ctor is not None:
+            raise ctor(mesg=mesg, **info)
+        raise s_exc.StormRaise(name, mesg, info)
 
     @stormfunc(readonly=True)
     async def _range(self, stop, start=None, step=None):
@@ -3346,6 +3366,40 @@ class Bytes(Prim):
                     $foo = $mybytez.json()''',
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
+
+        {'name': 'slice', 'desc': '''
+            Slice a subset of bytes from an existing bytes.
+
+            Examples:
+                Slice from index to 1 to 5::
+
+                    $subbyts = $byts.slice(1,5)
+
+                Slice from index 3 to the end of the bytes::
+
+                    $subbyts = $byts.slice(3)
+            ''',
+         'type': {'type': 'function', '_funcname': 'slice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting byte index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending byte index. If not specified, slice to the end.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The slice of bytes.', }}},
+
+        {'name': 'unpack', 'desc': '''
+            Unpack structures from bytes using python struct.unpack syntax.
+
+            Examples:
+                # unpack 3 unsigned 16 bit integers in little endian format
+                ($x, $y, $z) = $byts.unpack("<HHH")
+            ''',
+         'type': {'type': 'function', '_funcname': 'unpack',
+                  'args': (
+                      {'name': 'fmt', 'type': 'str', 'desc': 'A python struck.pack format string.'},
+                      {'name': 'offset', 'type': 'int', 'desc': 'An offset to begin unpacking from.', 'default': 0},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The unpacked primitive values.', }}},
     )
     _storm_typename = 'bytes'
     _ismutable = False
@@ -3362,6 +3416,8 @@ class Bytes(Prim):
             'bzip': self._methBzip,
             'gzip': self._methGzip,
             'json': self._methJsonLoad,
+            'slice': self.slice,
+            'unpack': self.unpack,
         }
 
     def __len__(self):
@@ -3377,6 +3433,22 @@ class Bytes(Prim):
         if isinstance(othr, Bytes):
             return self.valu == othr.valu
         return False
+
+    async def slice(self, start, end=None):
+        start = await toint(start)
+        if end is None:
+            return self.valu[start:]
+
+        end = await toint(end)
+        return self.valu[start:end]
+
+    async def unpack(self, fmt, offset=0):
+        fmt = await tostr(fmt)
+        offset = await toint(offset)
+        try:
+            return struct.unpack_from(fmt, self.valu, offset=offset)
+        except struct.error as e:
+            raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
     async def _methDecode(self, encoding='utf8'):
         try:
@@ -7091,6 +7163,9 @@ async def tostr(valu, noneok=False):
         return None
 
     try:
+        if isinstance(valu, bytes):
+            return valu.decode('utf8')
+
         return str(valu)
     except Exception as e:
         mesg = f'Failed to make a string from {valu!r}.'

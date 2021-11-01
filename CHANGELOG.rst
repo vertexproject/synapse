@@ -5,6 +5,31 @@ Synapse Changelog
 *****************
 
 
+v2.68.0 - 2021-10-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``crypto:currency:transaction``, ``crypto:currency:block``,
+  ``crypto:smart:contract`` and ``econ:acct:balanc`` forms.
+  (`#2423 <https://github.com/vertexproject/synapse/pull/2423>`_)
+- Add ``$lib.hex.decode()`` and ``$lib.hex.encode()`` Stormtypes functions to
+  encode and decode hexidecimal data as bytes. Add ``slice()`` and
+  ``unpack()`` methods to the Storm Bytes object.
+  (`#2441 <https://github.com/vertexproject/synapse/pull/2441>`_)
+- Add ``$lib.yaml`` and ``$lib.xml`` Stormtypes libraries for interacting with
+  YAML and XML text, respectively.
+  (`#2434 <https://github.com/vertexproject/synapse/pull/2434>`_)
+- Add a Storm ``version`` command to show the user the current version of
+  Synapse the Cortex is using.
+  (`#2440 <https://github.com/vertexproject/synapse/pull/2440>`_)
+
+Bugfixes
+--------
+- Fix overzealous ``if`` statement caching in Storm.
+  (`#2442 <https://github.com/vertexproject/synapse/pull/2442>`_)
+
+
 v2.67.0 - 2021-10-27
 ====================
 
