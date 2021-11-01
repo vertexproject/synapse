@@ -2007,7 +2007,7 @@ class Time(IntBase):
 
     def _storLiftNorm(self, cmpr, valu):
 
-        if isinstance(valu, str):
+        if isinstance(valu, str) and cmpr == '=':
 
             text = valu.lower().strip()
             if text.endswith('*'):
