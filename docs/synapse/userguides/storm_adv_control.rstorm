@@ -53,7 +53,7 @@ Recall that:
  
  - Each Storm operation typically **changes your current working set**. (We sometimes say that Storm operations **consume** nodes to refer to the fact that in many cases the nodes that "come out" of a Storm operation are not the same nodes that "went in".)
  
-   - For example, if you perform a filter operation, the resulting set of nodes is typically a subset of the ones you started with. If you use a pivot operation to navigate from one set of nodes to another, you typically leave your "original" nodes behind and "move to" the new nodes. In most cases, your current working set is consistently changing.
+   - For example, if you perform a filter operation, the resulting set of nodes is typically a subset of the ones you started with. If you use a pivot operation to navigate from one set of nodes to another, you typically leave your "original" nodes behind and "move to" the new nodes. In most cases, your current working set is constantly changing.
   
  - A Storm query made up of multiple chained operations acts as a **pipeline** through which **each** node passes individually.
    

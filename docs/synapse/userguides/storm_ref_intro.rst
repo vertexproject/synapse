@@ -44,7 +44,7 @@ Wherever possible, we masked Storm’s underlying programmatic complexity. The i
 
 - **Reference data and query operations in an intuitive form.** We took a "do what I mean" approach for how users interact with and use Storm so that users can focus on the **data** and the relationships among the data, not the query language. Once you get the gist of it, Storm "just works"! This is because Storm and Synapse make use of a number of features "under the hood" such as property normalization, type enforcement / type awareness, and syntax and query optimization, to make Storm easier for you to use. Synapse and Storm do the work in the background so you can focus on analysis.
 
-- **Use a simple yet powerful syntax to run Storm queries.** Storm uses intutitive keyboard symbols (such as an "arrow" ( ``->`` ) for pivot operations) for efficient querying, as well as a natural language-like syntax. This makes using Storm feel more like "asking a question" than "constructing a data query". In fact, one method we use to teach Storm to new users is to practice "translating" questions into queries (you'll be surprised how straightforward it is!).
+- **Use a simple yet powerful syntax to run Storm queries.** Storm uses intuitive keyboard symbols (such as an "arrow" ( ``->`` ) for pivot operations) for efficient querying, as well as a natural language-like syntax. This makes using Storm feel more like "asking a question" than "constructing a data query". In fact, one method we use to teach Storm to new users is to practice "translating" questions into queries (you'll be surprised how straightforward it is!).
 
 Analysts still need to learn the Storm "language" - forms (:ref:`data-form`) and tags (:ref:`data-tag`) are Storm's "words", and Storm operators allows you to construct "sentences". That said, the intent is for Storm to function more like "how do I ask this question about the data?" and not "how do I write a program to get the data I need?"
 
@@ -259,8 +259,8 @@ Take our operation chaining example above:
 
  - Our **initial working set** consists of the single node ``inet:fqdn=vertex.link``, which we selected with a lift operation.
  - When we pivot to the DNS A records for that FQDN, we navigate away from (drop) our initial ``inet:fqdn`` node, and navigate to (add) the DNS A nodes. Our **current working set** now consists of the DNS A records (``inet:dns:a`` nodes) for vertex.link.
- - Similarly, when we pivot to the the IPv4 addresses, we navigate away from (drop) the DNS A nodes and navigate to (add) the IPv4 nodes. Our current working set is made up of the  ``inet:ipv4`` nodes.
- - Finally, when we perform our filter operation, we may discard (drop) any IPv4 nodes reperesenting non-unicast IPs (such as ``inet:ipv4=127.0.0.1``) if present.
+ - Similarly, when we pivot to the IPv4 addresses, we navigate away from (drop) the DNS A nodes and navigate to (add) the IPv4 nodes. Our current working set is made up of the ``inet:ipv4`` nodes.
+ - Finally, when we perform our filter operation, we may discard (drop) any IPv4 nodes representing non-unicast IPs (such as ``inet:ipv4=127.0.0.1``) if present.
  
 We refer to this transformation (in particular, dropping) of some or all nodes by a given Storm operation as **consuming** nodes. Most Storm operations consume nodes (that is, change your working set in some way - what comes out of the operation is not the same set of nodes that goes in).
  
@@ -273,7 +273,7 @@ Storm as a Pipeline
 
 Just as each Storm **operation** in the chain is processed individually from left to right, **each node** in your working set is evaluated **individually** against a given Storm operation. You can think of your Storm query as a **pipeline** of operations, with each node "fired" one at a time through the pipeline. Whether you start with one node or 10,000 nodes, they are evaluated against your Storm query one by one.
 
-A key advantage to processing nodes one by one is that it significantly reduces Synapse's latency and memory use - this is a big part of what makes Synapse so fast and responsive. Synapse can start providing you with results for the initial nodes processed right away, while it continues procesing the remaining nodes. In other words, you don't have to wait for your entire query to complete for **all** of your nodes before getting your answer.
+A key advantage to processing nodes one by one is that it significantly reduces Synapse's latency and memory use - this is a big part of what makes Synapse so fast and responsive. Synapse can start providing you with results for the initial nodes processed right away, while it continues processing the remaining nodes. In other words, you don't have to wait for your entire query to complete for **all** of your nodes before getting your answer.
 
 Again, for standard Storm, this behavior is transparent to you as the user - you run a Storm query, you get a response. However, this pipeline behavior can be important to understand when working with (or troubleshooting) Storm queries that leverage features such as subqueries, variables, or control flow operations.
 
