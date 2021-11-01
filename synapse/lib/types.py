@@ -2035,8 +2035,3 @@ class Time(IntBase):
                 )
 
         return IntBase._storLiftNorm(self, cmpr, valu)
-
-    def _storLiftRange(self, cmpr, valu):
-        minv, minfo = self.norm(valu[0])
-        maxv, maxfo = self.norm(valu[1])
-        return ((cmpr, (minv, maxv), self.stortype),)
