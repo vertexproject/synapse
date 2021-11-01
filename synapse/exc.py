@@ -6,6 +6,7 @@ class SynErr(Exception):
 
     def __init__(self, *args, **info):
         self.errinfo = info
+        self.errname = self.__class__.__name__
         Exception.__init__(self, self._getExcMsg())
 
     def _getExcMsg(self):
@@ -29,6 +30,13 @@ class SynErr(Exception):
 
         '''
         return self.errinfo.get(name, defv)
+
+class StormRaise(SynErr):
+    def __init__(self, name, mesg, info):
+        info['mesg'] = mesg
+        info['errname'] = name
+        SynErr.__init__(self, **info)
+        self.errname = name
 
 class AuthDeny(SynErr): pass
 

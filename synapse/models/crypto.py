@@ -22,15 +22,27 @@ class CryptoModule(s_module.CoreModule):
 
             'types': (
 
+                ('crypto:currency:transaction', ('guid', {}), {
+                    'doc': 'An individual crypto currency transaction recorded on the blockchain.',
+                }),
+                ('crypto:currency:block', ('comp', {'fields': (
+                                                        ('coin', 'crypto:currency:coin'),
+                                                        ('offset', 'int'),
+                                                   ), 'sepr': '/'}), {
+                    'doc': 'An individual crypto currency block record on the blockchain.',
+                }),
+                ('crypto:smart:contract', ('guid', {}), {
+                    'doc': 'A smart contract.',
+                }),
+                # TODO ('crypto:smart:method', ('guid', {}), {}),
                 ('crypto:currency:coin', ('str', {'lower': True}), {
                     'doc': 'An individual crypto currency type.',
                     'ex': 'btc',
                 }),
-                ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str'))}), {
+                ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
                     'doc': 'An individual crypto currency address.',
-                    'ex': '(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)',
+                    'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 }),
-
                 ('crypto:currency:client', ('comp', {'fields': (
                                                         ('inetaddr', 'inet:client'),
                                                         ('coinaddr', 'crypto:currency:address')
@@ -95,18 +107,86 @@ class CryptoModule(s_module.CoreModule):
 
             'forms': (
 
+                ('crypto:currency:transaction', {}, (
+                    ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
+                        'doc': 'The unique transaction hash for the transaction.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'An analyst specified description of the transaction.'}),
+
+                    ('block', ('crypto:currency:block', {}), {
+                        'doc': 'The block which records the transaction.'}),
+                    ('block:coin', ('crypto:currency:coin', {}), {
+                        'doc': 'The coin/blockchain of the block which records this transaction.'}),
+                    ('block:offset', ('int', {}), {
+                        'doc': 'The offset of the block which records this transaction.'}),
+
+                    ('success', ('bool', {}), {
+                        'doc': 'Set to true if the transaction was successfully executed and recorded.'}),
+                    ('status:code', ('int', {}), {
+                        'doc': 'A coin specific status code which may represent an error reason.'}),
+                    ('status:message', ('str', {}), {
+                        'doc': 'A coin specific status message which may contain an error reason.'}),
+
+                    ('to', ('crypto:currency:address', {}), {
+                        'doc': 'The destination address of the transaction.'}),
+                    ('from', ('crypto:currency:address', {}), {
+                        'doc': 'The source address of the transaction.'}),
+
+                    ('fee', ('econ:price', {}), {
+                        'doc': 'The total fee paid to execute the transaction.'}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The total value of the transaction.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time this transaction was initiated.'}),
+
+                    ('eth:gasused', ('int', {}), {
+                        'doc': 'The amount of gas used to execute this transaction.'}),
+                    ('eth:gaslimit', ('int', {}), {
+                        'doc': 'The ETH gas limit specified for this transaction.'}),
+                    ('eth:gasprice', ('econ:price', {}), {
+                        'doc': 'The gas price (in ETH) specified for this transaction.'}),
+
+                    ('contract:input', ('file:bytes', {}), {
+                        'doc': 'Input value to a smart contract call.'}),
+                    ('contract:output', ('file:bytes', {}), {
+                        'doc': 'Output value of a smart contract call.'}),
+                    # TODO break out args/retvals and maybe make humon repr?
+                )),
+
+                ('crypto:currency:block', {}, (
+                    ('coin', ('crypto:currency:coin', {}), {
+                        'doc': 'The coin/blockchain this block resides on.'}),
+                    ('offset', ('int', {}), {
+                        'doc': 'The index of this block.'}),
+                    ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
+                        'doc': 'The unique hash for the block.'}),
+                    ('minedby', ('crypto:currency:address', {}), {
+                        'doc': 'The address which mined the block.'}),
+                    # TODO more details eventually...
+                )),
+
+                ('crypto:smart:contract', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction which created the contract.'}),
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address of the contract.'}),
+                    ('bytecode', ('file:bytes', {}), {
+                        'doc': 'The bytecode which implements the contract.'}),
+                    # TODO methods, ABI conventions, source/disassembly
+                )),
+
                 ('crypto:currency:coin', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The full name of the crypto coin.'}),
                 )),
 
                 ('crypto:currency:address', {}, (
-                    ('coin', ('str', {}), {
+                    ('coin', ('crypto:currency:coin', {}), {
                         'doc': 'The crypto coin to which the address belongs.'}),
-                    ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the address.'}),
                     ('iden', ('str', {}), {
                         'doc': 'The coin specific address identifier.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A free-form description of the address.'}),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Contact information associated with the address.'}),
                 )),
