@@ -2152,7 +2152,7 @@ class LibTime(Lib):
 
     async def _format(self, valu, format):
         timetype = self.runt.snap.core.model.type('time')
-        # Give a times string a shot at being normed prior to formating.
+        # Give a times string a shot at being normed prior to formatting.
         try:
             norm, _ = timetype.norm(valu)
         except s_exc.BadTypeValu as e:

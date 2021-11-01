@@ -1967,35 +1967,38 @@ class Time(IntBase):
 
         return cmpr
 
-    def _ctorCmprEq(self, text):
+    def _ctorCmprLt(self, text):
 
         if isinstance(text, str):
-
             text = text.lower().strip()
-
-            # wild card based range comparison
             if text.endswith('*'):
                 tick, tock = s_time.wildrange(text[:-1])
-                def cmpr(valu):
-                    return valu >= tick and valu < tock
-                return cmpr
-
-            if text.endswith('+'):
-                tick, info = self.norm(text[:-1])
-                def cmpr(valu):
-                    return valu >= tick
-                return cmpr
-
-            if text.endswith('*-'):
-                tick, tock = s_time.wildrange(text[:-2])
                 def cmpr(valu):
                     return valu < tock
                 return cmpr
 
-            if text.endswith('-'):
-                tick, info = self.norm(text[:-1])
+        return IntBase._ctorCmprLe(self, valu)
+
+    def _ctorCmprLe(self, text):
+
+        if isinstance(text, str):
+            text = text.lower().strip()
+            if text.endswith('*'):
+                tick, tock = s_time.wildrange(text[:-1])
                 def cmpr(valu):
-                    return valu < tick
+                    return valu <= tock
+                return cmpr
+
+        return IntBase._ctorCmprLe(self, valu)
+
+    def _ctorCmprEq(self, text):
+
+        if isinstance(text, str):
+            text = text.lower().strip()
+            if text.endswith('*'):
+                tick, tock = s_time.wildrange(text[:-1])
+                def cmpr(valu):
+                    return valu >= tick and valu < tock
                 return cmpr
 
         norm, info = self.norm(text)
@@ -2007,31 +2010,25 @@ class Time(IntBase):
 
     def _storLiftNorm(self, cmpr, valu):
 
-        if isinstance(valu, str) and cmpr == '=':
-
+        if isinstance(valu, str):
             text = valu.lower().strip()
             if text.endswith('*'):
-                tick, tock = s_time.wildrange(text[:-1])
-                return (
-                    ('range=', (tick, tock), self.stortype),
-                )
+                if cmpr == '=':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('range=', (tick, tock), self.stortype),
+                    )
 
-            if text.endswith('+'):
-                tick, info = self.norm(text[:-1])
-                return (
-                    ('>=', tick, self.stortype),
-                )
+                if cmpr == '<':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('<', tock, self.stortype),
+                    )
 
-            if text.endswith('*-'):
-                tick, tock = s_time.wildrange(text[:-2])
-                return (
-                    ('<', tock, self.stortype),
-                )
-
-            if text.endswith('-'):
-                tick, info = self.norm(text[:-1])
-                return (
-                    ('<', tick, self.stortype),
-                )
+                if cmpr == '<=':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('<=', tock, self.stortype),
+                    )
 
         return IntBase._storLiftNorm(self, cmpr, valu)

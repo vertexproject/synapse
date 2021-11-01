@@ -60,7 +60,7 @@ def parse(text, base=None, chop=False):
     Args:
         text (str): Time string to parse
         base (int or None): Milliseconds to offset the time from
-        chop (bool): Whether the chop the digit-only string to 17 chars
+        chop (bool): Whether to chop the digit-only string to 17 chars
 
     Returns:
         int: Epoch milliseconds
