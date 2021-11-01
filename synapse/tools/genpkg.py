@@ -145,6 +145,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False):
         with s_common.genfile(protodir, 'storm', 'commands', name) as fd:
             cmd['storm'] = fd.read().decode()
 
+    for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
+        name = wdef.get('name')
+        wyaml = s_common.yamlload(protodir, 'workflows', f'{name}.yaml')
+        if wyaml is not None:
+            wdef.update(wyaml)
+
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')
 
