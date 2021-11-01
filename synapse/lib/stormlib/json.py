@@ -66,7 +66,10 @@ class JsonSchema(s_stormtypes.StormType):
         item = await s_stormtypes.toprim(item)
 
         try:
-            result = await s_coro.forked(runJsSchema, self.schema, item)
+            fut = s_coro.forked(runJsSchema, self.schema, item)
+            result = await asyncio.wait_for(fut, timeout=60)
+        except asyncio.TimeoutError:
+            return False, {'mesg': 'Timed out waiting for schema validation/'}
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -126,9 +129,12 @@ class JsonLib(s_stormtypes.Lib):
         schema = await s_stormtypes.toprim(schema)
         # We have to ensure that we have a valid schema for making the object.
         try:
-            await s_coro.forked(compileJsSchema, schema)
+            fut = s_coro.forked(compileJsSchema, schema)
+            await asyncio.wait_for(fut, timeout=60)
         except asyncio.CancelledError:  # pragma: no cover
             raise
+        except asyncio.TimeoutError:
+            raise s_exc.StormRuntimeError(mesg=f'Timed out compiling Json Schema', schema=schema) from None
         except Exception as e:
             raise s_exc.StormRuntimeError(mesg=f'Unable to compile Json Schema: {str(e)}', schema=schema) from e
         return JsonSchema(self.runt, schema)
