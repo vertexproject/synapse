@@ -1970,33 +1970,33 @@ class Time(IntBase):
     def _ctorCmprLt(self, text):
 
         if isinstance(text, str):
-            text = text.lower().strip()
-            if text.endswith('*'):
-                tick, tock = s_time.wildrange(text[:-1])
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
                 def cmpr(valu):
                     return valu < tock
                 return cmpr
 
-        return IntBase._ctorCmprLe(self, valu)
+        return IntBase._ctorCmprLe(self, text)
 
     def _ctorCmprLe(self, text):
 
         if isinstance(text, str):
-            text = text.lower().strip()
-            if text.endswith('*'):
-                tick, tock = s_time.wildrange(text[:-1])
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
                 def cmpr(valu):
                     return valu <= tock
                 return cmpr
 
-        return IntBase._ctorCmprLe(self, valu)
+        return IntBase._ctorCmprLe(self, text)
 
     def _ctorCmprEq(self, text):
 
         if isinstance(text, str):
-            text = text.lower().strip()
-            if text.endswith('*'):
-                tick, tock = s_time.wildrange(text[:-1])
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
                 def cmpr(valu):
                     return valu >= tick and valu < tock
                 return cmpr
@@ -2011,7 +2011,7 @@ class Time(IntBase):
     def _storLiftNorm(self, cmpr, valu):
 
         if isinstance(valu, str):
-            text = valu.lower().strip()
+            text = valu.strip()
             if text.endswith('*'):
                 if cmpr == '=':
                     tick, tock = s_time.wildrange(text[:-1])
