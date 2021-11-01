@@ -31,8 +31,8 @@ class JsonSchema(s_stormtypes.StormType):
     _storm_locals = (
         {'name': 'schema',
          'desc': 'The schema belonging to this object.',
-         'type': {'type': 'function',
-                  'returns': {'type': 'dict', 'desc': 'A copy of the schema used for this object.'}}},
+         'type': {'type': 'function', '_funcname': '_schema',
+                  'returns': {'type': 'dict', 'desc': 'A copy of the schema used for this object.', }}},
         {'name': 'validate',
          'desc': 'Validate a structure against the Json Schema',
          'type': {'type': 'function', '_funcname': '_validate',
@@ -40,7 +40,7 @@ class JsonSchema(s_stormtypes.StormType):
                             'desc': 'A JSON structure to validate (dict, list, etc...)', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'An ($ok, $valu) tuple. If $ok is False, $valu is a dictiony with a "mesg" key.'}}},
+                              'desc': 'An ($ok, $valu) tuple. If $ok is False, $valu is a dictionary with a "mesg" key.'}}},
     )
     _ismutable = False
 
