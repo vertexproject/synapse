@@ -48,7 +48,7 @@ def allowed(perm, gateiden=None):
 
 class StormTypesRegistry:
     # The following types are currently undefined.
-    undefined_types = (
+    base_undefined_types = (
         'any',
         'int',
         'null',
@@ -58,6 +58,7 @@ class StormTypesRegistry:
         'storm:lib',  # lib.import
         'generator',
     )
+    undefined_types = set(base_undefined_types)
     known_types = set()
     rtypes = collections.defaultdict(set)  # callable -> return types, populated on demand.
 
@@ -80,10 +81,18 @@ class StormTypesRegistry:
             raise Exception('cannot register a type twice')
         assert ctor._storm_typename is not None, f'path={path} ctor={ctor}'
         self._TYPREG[path] = ctor
+        self.known_types.add(ctor._storm_typename)
+        try:
+            self.undefined_types.remove(ctor._storm_typename)
+        except KeyError:
+            pass
 
     def delStormType(self, path):
-        if not self._TYPREG.pop(path, None):
+        ctor = self._TYPREG.pop(path, None)
+        if ctor is None:
             raise Exception('no such path!')
+        self.known_types.remove(ctor._storm_typename)
+        self.undefined_types.add(ctor._storm_typename)
 
     def registerLib(self, ctor):
         '''Decorator to register a StormLib'''
@@ -201,7 +210,6 @@ class StormTypesRegistry:
         for tdoc in docs:
             basepath = tdoc.get('path')
             assert len(basepath) == 1
-            self.known_types.add(basepath[0])
             locls = tdoc.get('locals')
             for info in locls:
                 path = basepath + (info.get('name'),)
