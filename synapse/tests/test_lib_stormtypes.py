@@ -44,6 +44,21 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_storm_timechop(self):
+        async with self.getTestCore() as core:
+            self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
+            self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
+            self.eq(31, await core.callStorm('return($lib.time.day(20211031020304))'))
+            self.eq(2, await core.callStorm('return($lib.time.hour(20211031020304))'))
+            self.eq(3, await core.callStorm('return($lib.time.minute(20211031020304))'))
+            self.eq(4, await core.callStorm('return($lib.time.second(20211031020304))'))
+
+            self.eq(6, await core.callStorm('return($lib.time.dayofweek(20211031020304))'))
+            self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
+            self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
+
+            self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
+
     async def test_storm_binstuff(self):
         async with self.getTestCore() as core:
             self.eq((1, 2, 3), await core.callStorm('''

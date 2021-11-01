@@ -140,6 +140,33 @@ def repr(tick, pack=False):
         return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
     return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
 
+def day(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).day
+
+def year(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).year
+
+def month(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).month
+
+def hour(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).hour
+
+def minute(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).minute
+
+def second(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).second
+
+def dayofmonth(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).day - 1
+
+def dayofweek(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).weekday()
+
+def dayofyear(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).timetuple().tm_yday - 1
+
 def ival(*times):
 
     times = [t for t in times if t is not None]

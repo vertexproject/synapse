@@ -1972,6 +1972,96 @@ class LibTime(Lib):
                   ),
                   'returns': {'name': 'Yields', 'type': 'int',
                               'desc': 'This yields the current tick count after each time it wakes up.', }}},
+
+        {'name': 'year', 'desc': '''
+        Returns the year part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'year',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The year part of the time expression.', }}},
+
+        {'name': 'month', 'desc': '''
+        Returns the month part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'month',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The month part of the time expression.', }}},
+
+        {'name': 'day', 'desc': '''
+        Returns the day part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'day',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The day part of the time expression.', }}},
+
+        {'name': 'hour', 'desc': '''
+        Returns the hour part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'hour',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The hour part of the time expression.', }}},
+
+        {'name': 'minute', 'desc': '''
+        Returns the minute part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'minute',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The minute part of the time expression.', }}},
+
+        {'name': 'second', 'desc': '''
+        Returns the second part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'second',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The second part of the time expression.', }}},
+
+        {'name': 'dayofweek', 'desc': '''
+        Returns the index (beginning with 0) of the day within the week.
+        ''',
+         'type': {'type': 'function', '_funcname': 'dayofweek',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the day within week.', }}},
+
+        {'name': 'dayofyear', 'desc': '''
+        Returns the index (beginning with 0) of the day within the year.
+        ''',
+         'type': {'type': 'function', '_funcname': 'dayofyear',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the day within year.', }}},
+
+        {'name': 'dayofmonth', 'desc': '''
+        Returns the index (beginning with 0) of the day within the month.
+        ''',
+         'type': {'type': 'function', '_funcname': 'dayofmonth',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the day within month.', }}},
+
+        {'name': 'monthofyear', 'desc': '''
+        Returns the index (beginning with 0) of the month within the year.
+        ''',
+         'type': {'type': 'function', '_funcname': 'monthofyear',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
     )
     _storm_lib_path = ('time',)
 
@@ -1983,10 +2073,82 @@ class LibTime(Lib):
             'format': self._format,
             'sleep': self._sleep,
             'ticker': self._ticker,
+
+            'day': self.day,
+            'hour': self.hour,
+            'year': self.year,
+            'month': self.month,
+            'minute': self.minute,
+            'second': self.second,
+
+            'dayofweek': self.dayofweek,
+            'dayofyear': self.dayofyear,
+            'dayofmonth': self.dayofmonth,
+            'monthofyear': self.monthofyear,
         }
 
     def _now(self):
         return s_common.now()
+
+    async def day(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.day(norm)
+
+    async def hour(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.hour(norm)
+
+    async def year(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.year(norm)
+
+    async def month(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.month(norm)
+
+    async def minute(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.minute(norm)
+
+    async def second(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.second(norm)
+
+    async def dayofweek(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.dayofweek(norm)
+
+    async def dayofyear(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.dayofyear(norm)
+
+    async def dayofmonth(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.dayofmonth(norm)
+
+    async def monthofyear(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.month(norm) - 1
 
     async def _format(self, valu, format):
         timetype = self.runt.snap.core.model.type('time')
