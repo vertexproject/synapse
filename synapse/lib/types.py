@@ -1977,7 +1977,7 @@ class Time(IntBase):
                     return valu < tock
                 return cmpr
 
-        return IntBase._ctorCmprLe(self, text)
+        return IntBase._ctorCmprLt(self, text)
 
     def _ctorCmprLe(self, text):
 
