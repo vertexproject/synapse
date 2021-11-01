@@ -8,51 +8,12 @@ logger = logging.getLogger(__name__)
 
 
 storm_missing_autoadds = '''
-$rootViews = $lib.list()
-$view2children = $lib.dict()
-
-for $view in $lib.view.list() {
-    $iden=$view.iden
-    $parent=$view.parent
-    $layers=$lib.list()
-    if ( $parent = $lib.null ) {
-        $rootViews.append(($lib.len($view.layers), $iden))
-    } else {
-        if ($view2children.$parent = $lib.null) {
-            $_a = $lib.list()
-            $_a.append(($lib.len($view.layers), $iden))
-            $view2children.$parent = $_a
-        } else {
-            $_a = $view2children.$parent
-            $_a.append(($lib.len($view.layers), $iden))
-            $_a.sort()
-        }
-    }
-}
-
-$rootViews.sort()
-
-$absoluteOrder = $lib.list()
-for ($_, $view) in $rootViews {
-    $absoluteOrder.append($view)
-    $children = $view2children.$view
-    if $children {
-        $todo=$lib.list()
-        for ($_, $_child) in $children { $todo.append( $_child) }
-        for $child in $todo {
-            $absoluteOrder.append($child)
-            $_children = $view2children.$child
-            if $_children {
-                for ($_, $_child) in $_children { $todo.append( $_child) }
-            }
-        }
-    }
-}
+$absoluteOrder = $lib.view.list(deporder=$lib.true)
 
 if $lib.debug {
     $lib.print('The following Views will be fixed in order:')
     for $view in $absoluteOrder {
-        $lib.print($view)
+        $lib.print($view.iden)
     }
 }
 
@@ -79,9 +40,20 @@ for $view in $absoluteOrder {
     if $lib.debug { $lib.print('Fixing autoadd data in view {v}', v=$view) }
     for $query in $queries {
         if $lib.debug { $lib.print('Executing { {q} }', q=$query) }
-        view.exec $view $query
+        view.exec $view.iden $query
     }
 }
+'''
+
+storm_missing_coins = '''
+    for $view in $lib.view.list(deporder=$lib.true) {
+        view.exec $view.iden {
+            $coins = $lib.set()
+            crypto:currency:address
+            $coins.add(:coin) | spin |
+            for $coin in $coins {[ crypto:currency:coin=$coin ]}
+        }
+    }
 '''
 
 
@@ -89,6 +61,10 @@ hotfixes = (
     ((1, 0, 0), {
         'desc': 'Create nodes for known missing autoadds.',
         'query': storm_missing_autoadds,
+    }),
+    ((2, 0, 0), {
+        'desc': 'Populate crypto:currency:coin nodes from existing addresses.',
+        'query': storm_missing_coins,
     }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'

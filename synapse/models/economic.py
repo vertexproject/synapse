@@ -37,7 +37,10 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A relationship between a purchase event and a purchased item.'}),
 
                 ('econ:acct:payment', ('guid', {}), {
-                    'doc': 'A payment moving currency from one monetary instrument to another.'}),
+                    'doc': 'A payment or crypto currency transaction.'}),
+
+                ('econ:acct:balance', ('guid', {}), {
+                    'doc': 'A snapshot of the balance of an account at a point in time.'}),
 
                 ('econ:price', ('hugenum', {'norm': False}), {
                     'doc': 'The amount of money expected, required, or given in payment for something',
@@ -147,6 +150,12 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:acct:payment', {}, (
 
+                    ('txnid', ('str', {'strip': True}), {
+                        'doc': 'A payment processor specific transaction id.'}),
+
+                    ('fee', ('econ:price', {}), {
+                        'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
+
                     ('from:pay:card', ('econ:pay:card', {}), {
                         'doc': 'The payment card making the payment.'}),
 
@@ -182,7 +191,27 @@ class EconModule(s_module.CoreModule):
 
                     ('memo', ('str', {}), {
                         'doc': 'A small note specified by the payer common in financial transactions.'}),
+
+                    ('crypto:transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'A crypto currency transaction that initiated the payment.'}),
+
                 )),
+
+                ('econ:acct:balance', {}, (
+                    ('time', ('time', {}), {
+                        'doc': 'The time the balance was recorded.'}),
+                    ('pay:card', ('econ:pay:card', {}), {
+                        'doc': 'The payment card holding the balance.'}),
+                    ('crypto:address', ('crypto:currency:address', {}), {
+                        'doc': 'The crypto currency address holding the balance.'}),
+                    ('amount', ('econ:price', {}), {
+                        'doc': 'The account balance at the time.'}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency of the balance amount.'}),
+                    ('delta', ('econ:price', {}), {
+                        'doc': 'The change since last regular sample.'}),
+                )),
+
 
                 ('econ:fin:exchange', {}, (
 
