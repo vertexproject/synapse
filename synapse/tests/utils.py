@@ -747,6 +747,50 @@ async def _doubleapply(self, indx, item):
     finally:
         s_task.varset('applynest', None)
 
+test_schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": False,
+        "properties": {
+            'key:string': {
+                'description': 'Key String. I have a defval!',
+                'type': 'string',
+                'default': 'Default string!'
+            },
+            'key:integer': {
+                'description': 'Key Integer',
+                'type': 'integer',
+            },
+            'key:number': {
+                'description': 'Key Number',
+                'type': 'number',
+            },
+            'key:object': {
+                'description': 'Key Object',
+                'type': 'object',
+            },
+            'key:array': {
+                'description': 'Key Array',
+                'type': 'array',
+            },
+            'key:bool:defvalfalse': {
+                'description': 'Key Bool, defval false.',
+                'type': 'boolean',
+                'default': False,
+            },
+            'key:bool:defvaltrue': {
+                'description': 'Key Bool, defval true.',
+                'type': 'boolean',
+                'default': True,
+            },
+
+            'key:bool:nodefval': {
+                'description': 'Key Bool, no default.',
+                'type': 'boolean',
+            },
+        },
+        'type': 'object',
+    }
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
