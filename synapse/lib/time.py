@@ -88,7 +88,7 @@ def wildrange(text):
         dttock = dttick + relativedelta(hours=1)
     elif tlen == 12:
         dttock = dttick + relativedelta(minutes=1)
-    else: # tlen = 14
+    else:  # tlen = 14
         dttock = dttick + relativedelta(seconds=1)
 
     tick = int((dttick - EPOCH).total_seconds() * 1000 + base)
