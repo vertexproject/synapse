@@ -3219,7 +3219,7 @@ class Str(Prim):
                 $x.find(v) // returns null
 
             ''',
-         'type': {'type': 'function', '_funcname': 'find',
+         'type': {'type': 'function', '_funcname': '_methStrFind',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The substring to find.'},
                   ),
