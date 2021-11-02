@@ -88,7 +88,7 @@ class StormTypesRegistry:
         ctor = self._TYPREG.pop(path, None)
         if ctor is None:
             raise Exception('no such path!')
-        self.known_types.remove(ctor._storm_typename)
+        self.known_types.discard(ctor._storm_typename)
         self.undefined_types.add(ctor._storm_typename)
 
     def registerLib(self, ctor):
