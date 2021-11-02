@@ -117,6 +117,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:dns:request:time=202*')
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:dns:request:time=202110310202021*')
+
     async def test_lib_storm_trycatch(self):
 
         async with self.getTestCore() as core:
