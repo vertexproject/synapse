@@ -3209,6 +3209,23 @@ class Str(Prim):
                 $lib.print($foo.reverse())''',
          'type': {'type': 'function', '_funcname': '_methStrReverse',
                   'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
+
+        {'name': 'find', 'desc': '''
+            Find the offset of a given string within another.
+
+            Examples:
+                Find values in the string ``asdf``::
+
+                    $x = asdf
+                    $x.find(d) // returns 2
+                    $x.find(v) // returns null
+
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrFind',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The substring to find.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The first offset of subsgring or null.'}}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -3219,6 +3236,7 @@ class Str(Prim):
 
     def getObjLocals(self):
         return {
+            'find': self._methStrFind,
             'split': self._methStrSplit,
             'rsplit': self._methStrRsplit,
             'endswith': self._methStrEndswith,
@@ -3253,6 +3271,13 @@ class Str(Prim):
         if isinstance(othr, (Str, str)):
             return str(self) == str(othr)
         return False
+
+    async def _methStrFind(self, valu):
+        text = await tostr(valu)
+        retn = self.valu.find(text)
+        if retn == -1:
+            retn = None
+        return retn
 
     async def _methEncode(self, encoding='utf8'):
         try:
@@ -3704,6 +3729,48 @@ class List(Prim):
         {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
          'type': {'type': 'function', '_funcname': '_methListReverse',
                   'returns': {'type': 'null', }}},
+        {'name': 'slice', 'desc': '''
+            Get a slice of the list.
+
+            Examples:
+                Slice from index to 1 to 5::
+
+                    $x=(f, o, o, b, a, r)
+                    $y=$x.slice(1,5)  // (o, o, b, a)
+
+                Slice from index 3 to the end of the list::
+
+                    $y=$x.slice(3)  // (b, a, r)
+            ''',
+         'type': {'type': 'function', '_funcname': 'slice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending index. If not specified, slice to the end of the list.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
+
+        {'name': 'extend', 'desc': '''
+            Extend a list using another iterable.
+
+            Examples:
+                Populate a list by extending it with to other lists::
+
+                    $list = $lib.list()
+
+                    $foo = (f, o, o)
+                    $bar = (b, a, r)
+
+                    $list.extend($foo)
+                    $list.extend($bar)
+
+                    // $list is now (f, o, o, b, a, r)
+            ''',
+         'type': {'type': 'function', '_funcname': 'extend',
+                  'args': (
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
+                  ),
+                  'returns': {'type': 'null'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -3722,6 +3789,9 @@ class List(Prim):
             'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
+
+            'slice': self.slice,
+            'extend': self.extend,
         }
 
     async def setitem(self, name, valu):
@@ -3790,6 +3860,19 @@ class List(Prim):
 
     async def _methListSize(self):
         return len(self)
+
+    async def slice(self, start, end=None):
+        start = await toint(start)
+
+        if end is None:
+            return self.valu[start:]
+
+        end = await toint(end)
+        return self.valu[start:end]
+
+    async def extend(self, valu):
+        async for item in toiter(valu):
+            self.valu.append(item)
 
     async def value(self):
         return tuple([await toprim(v) for v in self.valu])
