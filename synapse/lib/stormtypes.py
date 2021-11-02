@@ -3214,9 +3214,11 @@ class Str(Prim):
             Find the offset of a given string within another.
 
             Examples:
-                $x = asdf
-                $x.find(d) // returns 2
-                $x.find(v) // returns null
+                Find values in the string ``asdf``::
+
+                    $x = asdf
+                    $x.find(d) // returns 2
+                    $x.find(v) // returns null
 
             ''',
          'type': {'type': 'function', '_funcname': '_methStrFind',
@@ -3752,15 +3754,17 @@ class List(Prim):
             Extend a list using another iterable.
 
             Examples:
-                $list = $lib.list()
+                Populate a list by extending it with to other lists::
 
-                $foo = (f, o, o)
-                $bar = (b, a, r)
+                    $list = $lib.list()
 
-                $list.extend($foo)
-                $list.extend($bar)
+                    $foo = (f, o, o)
+                    $bar = (b, a, r)
 
-                // $list is now (f, o, o, b, a, r)
+                    $list.extend($foo)
+                    $list.extend($bar)
+
+                    // $list is now (f, o, o, b, a, r)
             ''',
          'type': {'type': 'function', '_funcname': 'extend',
                   'args': (
