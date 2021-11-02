@@ -97,7 +97,7 @@ class ProjectModule(s_module.CoreModule):
                     )),
 
                     # TODO this will require a special layer storage mechanism
-                    #('proj:backlog', {}, (
+                    # ('proj:backlog', {}, (
 
                     ('proj:comment', {}, (
                         ('creator', ('syn:user', {}), {}),

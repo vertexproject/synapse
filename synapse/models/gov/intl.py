@@ -5,7 +5,7 @@ class GovIntlModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'types': (
-                ('iso:oid', ('str', {'regex': '^([0-2])((\.0)|(\.[1-9][0-9]*))*$'}), {
+                ('iso:oid', ('str', {'regex': '^([0-2])((\\.0)|(\\.[1-9][0-9]*))*$'}), {
                     'doc': 'An ISO Object Identifier string.'}),
 
                 ('iso:3166:cc', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {

@@ -346,7 +346,7 @@ class AuthTest(s_test.SynTest):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))
 
-            #restart after user/role removal and test they stayed gone
+            # restart after user/role removal and test they stayed gone
             async with self.getTestCoreAndProxy(dirn=fdir) as (core, prox):
                 self.none(await core.auth.getUserByName('fred'))
                 self.none(await core.auth.getRoleByName('friends'))

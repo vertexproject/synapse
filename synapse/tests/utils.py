@@ -850,12 +850,12 @@ class SynTest(unittest.TestCase):
     def getRegrDir(self, *path):
 
         regr = os.getenv('SYN_REGRESSION_REPO')
-        if regr is None: # pragma: no cover
+        if regr is None:  # pragma: no cover
             raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
 
         regr = s_common.genpath(regr)
 
-        if not os.path.isdir(regr): # pragma: no cover
+        if not os.path.isdir(regr):  # pragma: no cover
             raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
@@ -1467,7 +1467,7 @@ class SynTest(unittest.TestCase):
 
             if auth is not None:
 
-                if port is None: # pragma: no cover
+                if port is None:  # pragma: no cover
                     raise Exception('getHttpSess requires port for auth')
 
                 user, passwd = auth

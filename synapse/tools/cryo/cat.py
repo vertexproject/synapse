@@ -19,7 +19,7 @@ def main(argv, outp=s_output.stdout):
     pars.add_argument('--size', default=10, type=int, help='How many items to display')
     pars.add_argument('--omit-offset', default=False, action='store_true', help='Output raw items with no offsets.')
     # TODO: synapse.tools.cryo.list <cryocell>
-    #pars.add_argument('--list', default=False, action='store_true', help='List tanks in the remote cell and return')
+    # pars.add_argument('--list', default=False, action='store_true', help='List tanks in the remote cell and return')
     group = pars.add_mutually_exclusive_group()
     group.add_argument('--jsonl', action='store_true', help='Input/Output items in jsonl format')
     group.add_argument('--msgpack', action='store_true', help='Input/Output items in msgpack format')

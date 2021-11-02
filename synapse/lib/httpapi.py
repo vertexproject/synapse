@@ -975,7 +975,7 @@ class OnePassIssueV1(Handler):
             return
 
         useriden = body.get('user')
-        duration = body.get('duration', 600000) # 10 mins default
+        duration = body.get('duration', 600000)  # 10 mins default
 
         user = self.cell.auth.user(useriden)
         if user is None:
@@ -1040,7 +1040,7 @@ class FeedV1(Handler):
 
             return self.sendRestRetn(None)
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             return self.sendRestExc(e)
 
 class CoreInfoV1(Handler):

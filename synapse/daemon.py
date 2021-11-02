@@ -233,7 +233,7 @@ class Daemon(s_base.Base):
         self.addr = None    # our main listen address
         self.cells = {}     # all cells are shared.  not all shared are cells.
         self.shared = {}    # objects provided by daemon
-        self.listenservers = [] # the sockets we're listening on
+        self.listenservers = []  # the sockets we're listening on
         self.links = set()
 
         self.sessions = {}
@@ -385,7 +385,7 @@ class Daemon(s_base.Base):
 
             await func(link, mesg)
 
-        except asyncio.CancelledError: # pragma: no cover  # TODO: remove once >= py 3.8 only
+        except asyncio.CancelledError:  # pragma: no cover  # TODO: remove once >= py 3.8 only
             raise
 
         except ConnectionResetError:

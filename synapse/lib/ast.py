@@ -331,7 +331,7 @@ class SubGraph:
 
             for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
-                if pivonode is None: # pragma: no cover
+                if pivonode is None:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
@@ -908,12 +908,12 @@ class SetVarOper(Oper):
             valu = await vkid.compute(runt, path)
             if valu is undef:
                 await runt.popVar(name)
-                #TODO detect which to update here
+                # TODO detect which to update here
                 await path.popVar(name)
 
             else:
                 await runt.setVar(name, valu)
-                #TODO detect which to update here
+                # TODO detect which to update here
                 await path.setVar(name, valu)
 
             yield node, path
@@ -1380,7 +1380,7 @@ class LiftProp(LiftOper):
                             async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
                                 yield node
                             return
-                        except asyncio.CancelledError: # pragma: no cover
+                        except asyncio.CancelledError:  # pragma: no cover
                             raise
                         except:
                             pass
@@ -2017,7 +2017,7 @@ class Value(AstNode):
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
-    async def compute(self, runt, path): # pragma: no cover
+    async def compute(self, runt, path):  # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
     async def getLiftHints(self, runt, path):
@@ -3519,7 +3519,7 @@ class EditTagPropSet(Edit):
 
             try:
                 await node.setTagProp(tag, prop, valu)
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
             except excignore:
                 pass

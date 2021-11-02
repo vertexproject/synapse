@@ -50,7 +50,7 @@ def getItemLocals(item):
             valu = getattr(item, name, None)
             yield name, valu
         except Exception:  # pragma: no cover
-            pass # various legit reasons...
+            pass  # various legit reasons...
 
 def getShareInfo(item):
     '''

@@ -216,18 +216,18 @@ STOR_FLAG_ARRAY = 0x8000
 
 # Edit types (etyp)
 
-EDIT_NODE_ADD = 0     # (<etyp>, (<valu>, <type>), ())
-EDIT_NODE_DEL = 1     # (<etyp>, (<oldv>, <type>), ())
-EDIT_PROP_SET = 2     # (<etyp>, (<prop>, <valu>, <oldv>, <type>), ())
-EDIT_PROP_DEL = 3     # (<etyp>, (<prop>, <oldv>, <type>), ())
-EDIT_TAG_SET = 4      # (<etyp>, (<tag>, <valu>, <oldv>), ())
-EDIT_TAG_DEL = 5      # (<etyp>, (<tag>, <oldv>), ())
-EDIT_TAGPROP_SET = 6  # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
-EDIT_TAGPROP_DEL = 7  # (<etyp>, (<tag>, <prop>, <oldv>, <type>), ())
-EDIT_NODEDATA_SET = 8 # (<etyp>, (<name>, <valu>, <oldv>), ())
-EDIT_NODEDATA_DEL = 9 # (<etyp>, (<name>, <oldv>), ())
-EDIT_EDGE_ADD = 10    # (<etyp>, (<verb>, <destnodeiden>), ())
-EDIT_EDGE_DEL = 11    # (<etyp>, (<verb>, <destnodeiden>), ())
+EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>), ())
+EDIT_NODE_DEL = 1      # (<etyp>, (<oldv>, <type>), ())
+EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>), ())
+EDIT_PROP_DEL = 3      # (<etyp>, (<prop>, <oldv>, <type>), ())
+EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>, <oldv>), ())
+EDIT_TAG_DEL = 5       # (<etyp>, (<tag>, <oldv>), ())
+EDIT_TAGPROP_SET = 6   # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
+EDIT_TAGPROP_DEL = 7   # (<etyp>, (<tag>, <prop>, <oldv>, <type>), ())
+EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>, <oldv>), ())
+EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>), ())
+EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>), ())
+EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
 
 EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
 
@@ -1163,7 +1163,7 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_U128, 16, False),
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
-            StorTypeTime(self), # STOR_TYPE_MINTIME
+            StorTypeTime(self),  # STOR_TYPE_MINTIME
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
@@ -1325,7 +1325,7 @@ class Layer(s_nexus.Pusher):
                 sode['form'] = lval.decode()
                 continue
 
-            logger.warning('Invalid flag %d found for buid %s during migration', flag, buid) # pragma: no cover
+            logger.warning('Invalid flag %d found for buid %s during migration', flag, buid)  # pragma: no cover
 
         count += 1
 
@@ -2024,7 +2024,7 @@ class Layer(s_nexus.Pusher):
         abrv = self.setPropAbrv(form, prop)
         univabrv = None
 
-        if prop[0] == '.': # '.' to detect universal props (as quickly as possible)
+        if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
 
         if oldv is not None:
@@ -2091,7 +2091,7 @@ class Layer(s_nexus.Pusher):
         abrv = self.setPropAbrv(form, prop)
         univabrv = None
 
-        if prop[0] == '.': # '.' to detect universal props (as quickly as possible)
+        if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
 
         valt = sode['props'].pop(prop, None)
@@ -2133,7 +2133,7 @@ class Layer(s_nexus.Pusher):
 
     def _editTagSet(self, buid, form, edit, sode, meta):
 
-        if form is None: # pragma: no cover
+        if form is None:  # pragma: no cover
             logger.warning(f'Invalid tag set edit, form is None: {edit}')
             return ()
 
@@ -2185,7 +2185,7 @@ class Layer(s_nexus.Pusher):
 
     def _editTagPropSet(self, buid, form, edit, sode, meta):
 
-        if form is None: # pragma: no cover
+        if form is None:  # pragma: no cover
             logger.warning(f'Invalid tagprop set edit, form is None: {edit}')
             return ()
 
@@ -2294,7 +2294,7 @@ class Layer(s_nexus.Pusher):
 
     def _editNodeEdgeAdd(self, buid, form, edit, sode, meta):
 
-        if form is None: # pragma: no cover
+        if form is None:  # pragma: no cover
             logger.warning(f'Invalid node edge edit, form is None: {edit}')
             return ()
 
@@ -2723,7 +2723,7 @@ class Layer(s_nexus.Pusher):
                                 if waits is not None:
                                     [e.set() for e in waits]
 
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 return
 
             except Exception:
