@@ -66,7 +66,7 @@ class JsonSchema(s_stormtypes.StormType):
         item = await s_stormtypes.toprim(item)
 
         try:
-            result = await s_coro.forked(runJsSchema, self.schema, item)
+            result = await s_coro.spawn((runJsSchema, (self.schema, item), {}))
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -126,7 +126,7 @@ class JsonLib(s_stormtypes.Lib):
         schema = await s_stormtypes.toprim(schema)
         # We have to ensure that we have a valid schema for making the object.
         try:
-            await s_coro.forked(compileJsSchema, schema)
+            await s_coro.spawn((compileJsSchema, (schema,), {}))
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
