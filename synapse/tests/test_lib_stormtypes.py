@@ -229,6 +229,13 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('$lib.trycast(newp, asdf)')
 
+            self.eq(2, await core.callStorm('$x = asdf return($x.find(d))'))
+            self.eq(None, await core.callStorm('$x = asdf return($x.find(v))'))
+
+            self.eq(('f', 'o', 'o'), await core.callStorm('$x = $lib.list() $x.extend((f, o, o)) return($x)'))
+            self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1, 5))'))
+            self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1))'))
+
             self.true(await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).0)'))
             self.false(await core.callStorm('return($lib.trycast(inet:ipv4, asdf).0)'))
 
