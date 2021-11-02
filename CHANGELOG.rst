@@ -5,6 +5,22 @@ Synapse Changelog
 *****************
 
 
+v2.69.0 - 2021-11-02
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for building Optic Workflows for Storm Packages in the
+  ``synapse.tools.genpkg`` tool.
+  (`#2444 <https://github.com/vertexproject/synapse/pull/2444>`_)
+- The ``synapse.tools.storm`` CLI tool now prints out node properties in
+  precedence order.
+  (`#2449 <https://github.com/vertexproject/synapse/pull/2449>`_)
+- Update the global Stormtypes registry to better track types when they are
+  added or removed.
+  (`#2447 <https://github.com/vertexproject/synapse/pull/2447>`_)
+
+
 v2.68.0 - 2021-10-29
 ====================
 
