@@ -305,13 +305,38 @@ class StormCli(s_cli.Cli):
 
                 if not self.hideprops:
 
-                    for name in sorted(s_node.props(node).keys()):
+                    props = []
+                    extns = []
+                    univs = []
 
+                    for name in s_node.props(node).keys():
+
+                        if name.startswith('.'):
+                            univs.append(name)
+                            continue
+
+                        if name.startswith('_'):
+                            extns.append(name)
+                            continue
+
+                        props.append(name)
+
+                    props.sort()
+                    extns.sort()
+                    univs.sort()
+
+                    for name in props:
                         valu = s_node.reprProp(node, name)
+                        name = ':' + name
+                        self._printNodeProp(name, valu)
 
-                        if name[0] != '.':
-                            name = ':' + name
+                    for name in extns:
+                        valu = s_node.reprProp(node, name)
+                        name = ':' + name
+                        self._printNodeProp(name, valu)
 
+                    for name in univs:
+                        valu = s_node.reprProp(node, name)
                         self._printNodeProp(name, valu)
 
                 if not self.hidetags:
