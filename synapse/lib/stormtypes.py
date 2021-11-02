@@ -2433,7 +2433,7 @@ class LibPipe(Lib):
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
@@ -2997,7 +2997,7 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename = None # type: Any
+    _storm_typename = None  # type: Any
 
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
@@ -3025,7 +3025,7 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
-    async def iter(self): # pragma: no cover
+    async def iter(self):  # pragma: no cover
         for x in ():
             yield x
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
@@ -3034,7 +3034,7 @@ class Prim(StormType):
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
-    async def stormrepr(self): # pragma: no cover
+    async def stormrepr(self):  # pragma: no cover
         return f'{self._storm_typename}: {self.value()}'
 
 @registry.registerType

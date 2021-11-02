@@ -417,5 +417,5 @@ async def main(argv, outp=s_output.stdout):
             await cli.addSignalHandlers()
             await cli.runCmdLoop()
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

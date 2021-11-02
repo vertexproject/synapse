@@ -59,11 +59,11 @@ class ChopTest(s_t_utils.SynTest):
 
     def test_chop_stormstring(self):
         tvs = [
-            ('', ''), # no change
-            ('beep', 'beep'), # no change
+            ('', ''),  # no change
+            ('beep', 'beep'),  # no change
             ('''be'ep''', '''be'ep'''),  # no change
-            ('beep"', 'beep\\"'), # Simple case
-            ('be"ep', 'be\\"ep'), # Simple case
+            ('beep"', 'beep\\"'),  # Simple case
+            ('be"ep', 'be\\"ep'),  # Simple case
             ('"', '\\"'),
             ('""', '\\"\\"'),
             ('\\"', '\\\\\\"'),

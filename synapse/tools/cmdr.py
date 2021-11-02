@@ -60,6 +60,6 @@ async def main(argv):  # pragma: no cover
 
     return 0
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     warnings.filterwarnings("default", category=PendingDeprecationWarning)
     sys.exit(asyncio.run(main(sys.argv[1:])))

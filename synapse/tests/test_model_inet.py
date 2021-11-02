@@ -455,8 +455,8 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('host'), 'api')
-                #self.eq(node.get('issuffix'), 0)
-                #self.eq(node.get('iszone'), 0)
+                # self.eq(node.get('issuffix'), 0)
+                # self.eq(node.get('iszone'), 0)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:
@@ -577,12 +577,6 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
-
-    def test_http_header(self):
-        pass # this is tested below...
-
-    def test_http_header_name(self):
-        pass # this is tested below...
 
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'

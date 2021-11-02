@@ -224,7 +224,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The time that the vitals represent.',
                     }),
                     # TODO is modulo time a type?
-                    #('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
+                    # ('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
                     ('org', ('ou:org', {}), {
                         'doc': 'The resolved org.',
                     }),
@@ -928,7 +928,7 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The contest result website URL.',
                     }),
-                    #TODO duration ('duration'
+                    # TODO duration ('duration'
                 )),
             )
         }
