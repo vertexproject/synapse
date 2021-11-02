@@ -31,55 +31,12 @@ class SchemaCell(s_cell.Cell):
         # code used by Cell implementators.
         self.conf.reqConfValu('apikey')
 
-test_schema = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": False,
-        "properties": {
-            'key:string': {
-                'description': 'Key String. I have a defval!',
-                'type': 'string',
-                'default': 'Default string!'
-            },
-            'key:integer': {
-                'description': 'Key Integer',
-                'type': 'integer',
-            },
-            'key:number': {
-                'description': 'Key Number',
-                'type': 'number',
-            },
-            'key:object': {
-                'description': 'Key Object',
-                'type': 'object',
-            },
-            'key:array': {
-                'description': 'Key Array',
-                'type': 'array',
-            },
-            'key:bool:defvalfalse': {
-                'description': 'Key Bool, defval false.',
-                'type': 'boolean',
-                'default': False,
-            },
-            'key:bool:defvaltrue': {
-                'description': 'Key Bool, defval true.',
-                'type': 'boolean',
-                'default': True,
-            },
-
-            'key:bool:nodefval': {
-                'description': 'Key Bool, no default.',
-                'type': 'boolean',
-            },
-        },
-        'type': 'object',
-    }
 
 class ConfTest(s_test.SynTest):
 
     async def test_config_basics(self):
 
-        conf = s_config.Config(test_schema)
+        conf = s_config.Config(s_test.test_schema)
         # Start out empty
         self.eq(conf.asDict(), {})
 
@@ -224,7 +181,7 @@ class ConfTest(s_test.SynTest):
         del conf['key:array']
 
         # We can do prefix-bassed collection of envar data.
-        conf2 = s_config.Config(test_schema, envar_prefix='beeper')
+        conf2 = s_config.Config(s_test.test_schema, envar_prefix='beeper')
         with self.setTstEnvars(BEEPER_KEY_ARRAY=a1,
                                KEY_INTEGER=i1,
                                ):

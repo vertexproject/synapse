@@ -437,7 +437,7 @@ class Cli(s_base.Base):
             self.printf('Cmd cancelled')
 
         except s_exc.ParserExit as e:
-            pass # avoid duplicate print
+            pass  # avoid duplicate print
 
         except Exception as e:
             exctxt = traceback.format_exc()

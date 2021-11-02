@@ -4,10 +4,10 @@ import synapse.lib.output as s_output
 
 class TestOutPut(s_t_utils.SynTest):
 
-    #def test_output(self):
-        #outp = s_output.OutPut()
-        #outp.printf('foo')
-        #outp.printf('bar')
+    # def test_output(self):
+    #     outp = s_output.OutPut()
+    #     outp.printf('foo')
+    #     outp.printf('bar')
 
     def test_output_bytes(self):
         outp = s_output.OutPutBytes()

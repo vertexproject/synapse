@@ -47,10 +47,10 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.hex as s_stormlib_hex # NOQA
+import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
-import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
-import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
+import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
+import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
@@ -58,8 +58,8 @@ import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.oauth as s_stormlib_oauth # NOQA
-import synapse.lib.stormlib.storm as s_stormlib_storm # NOQA
+import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
+import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
@@ -594,7 +594,7 @@ class CoreApi(s_cell.CellApi):
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
-            if not count % 1000: # pragma: no cover
+            if not count % 1000:  # pragma: no cover
                 await asyncio.sleep(0)
             yield mesg
 
@@ -1088,7 +1088,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
-        self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
+        self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
         self.axready = asyncio.Event()
@@ -2169,9 +2169,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                         if mesg[0] in ('print', 'warn'):
                             logger.warning(f'onload output: {mesg}')
                             await asyncio.sleep(0)
-                except asyncio.CancelledError: # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception: # pragma: no cover
+                except Exception:  # pragma: no cover
                     logger.warning(f'onload failed for package: {name}')
             self.schedCoro(_onload())
 
@@ -2249,7 +2249,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Delete a registered storm service from the cortex.
         '''
         sdef = self.svchive.get(iden)
-        if sdef is None: # pragma: no cover
+        if sdef is None:  # pragma: no cover
             return
 
         try:
@@ -3796,7 +3796,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                         await queue.put(item)
                     await queue.close()
 
-                except asyncio.CancelledError: # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
 
                 except Exception as e:
@@ -4234,7 +4234,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
         # TODO:  due to our migration policy, remove in 3.0.0
-        if viewiden == self.iden: # pragma: no cover
+        if viewiden == self.iden:  # pragma: no cover
             viewiden = self.view.iden
 
         view = self.views.get(viewiden)
@@ -4374,7 +4374,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        if self.isfini: # pragma: no cover
+        if self.isfini:  # pragma: no cover
             raise s_exc.IsFini()
 
         opts = self._initStormOpts(opts)

@@ -44,6 +44,25 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_registry(self):
+
+        class NewpType(s_stormtypes.StormType):
+            _storm_locals = ()
+            _storm_typename = 'storm:type:newp'
+
+        self.notin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.notin('storm:type:newp', s_stormtypes.registry.undefined_types)
+        s_stormtypes.registry.registerType(NewpType)
+        self.isin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.notin('storm:type:newp', s_stormtypes.registry.undefined_types)
+        s_stormtypes.registry.delStormType(NewpType.__name__)
+
+        self.notin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.isin('storm:type:newp', s_stormtypes.registry.undefined_types)
+
+        # Remove the modification from the global
+        s_stormtypes.registry.undefined_types.discard('storm:type:newp')
+
     async def test_storm_binstuff(self):
         async with self.getTestCore() as core:
             self.eq((1, 2, 3), await core.callStorm('''

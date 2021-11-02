@@ -855,7 +855,7 @@ class HttpApiTest(s_tests.SynTest):
                             break
 
                         mesg = json.loads(byts)
-                        self.len(2, mesg) # Is if roughly shaped like a node?
+                        self.len(2, mesg)  # Is if roughly shaped like a node?
                         task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
                         break
 
