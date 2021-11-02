@@ -44,18 +44,24 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
-    async def test_storm_timechop(self):
-        async with self.getTestCore() as core:
-            self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
-            self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
-            self.eq(31, await core.callStorm('return($lib.time.day(20211031020304))'))
-            self.eq(2, await core.callStorm('return($lib.time.hour(20211031020304))'))
-            self.eq(3, await core.callStorm('return($lib.time.minute(20211031020304))'))
-            self.eq(4, await core.callStorm('return($lib.time.second(20211031020304))'))
-            self.eq(6, await core.callStorm('return($lib.time.dayofweek(20211031020304))'))
-            self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
-            self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
-            self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
+    async def test_stormtypes_registry(self):
+
+        class NewpType(s_stormtypes.StormType):
+            _storm_locals = ()
+            _storm_typename = 'storm:type:newp'
+
+        self.notin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.notin('storm:type:newp', s_stormtypes.registry.undefined_types)
+        s_stormtypes.registry.registerType(NewpType)
+        self.isin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.notin('storm:type:newp', s_stormtypes.registry.undefined_types)
+        s_stormtypes.registry.delStormType(NewpType.__name__)
+
+        self.notin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.isin('storm:type:newp', s_stormtypes.registry.undefined_types)
+
+        # Remove the modification from the global
+        s_stormtypes.registry.undefined_types.discard('storm:type:newp')
 
     async def test_storm_binstuff(self):
         async with self.getTestCore() as core:
@@ -1978,6 +1984,18 @@ class StormTypesTest(s_test.SynTest):
                 data1 = await alist(snap.storm('$lib.time.sleep(0) fini { test:str=1234 } '))
                 self.ne(id(data0[0][0]), id(data1[0][0]))
                 self.eq(data0[0][0].ndef, data1[0][0].ndef)
+
+            # Get time parts
+            self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
+            self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
+            self.eq(31, await core.callStorm('return($lib.time.day(20211031020304))'))
+            self.eq(2, await core.callStorm('return($lib.time.hour(20211031020304))'))
+            self.eq(3, await core.callStorm('return($lib.time.minute(20211031020304))'))
+            self.eq(4, await core.callStorm('return($lib.time.second(20211031020304))'))
+            self.eq(6, await core.callStorm('return($lib.time.dayofweek(20211031020304))'))
+            self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
+            self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
+            self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
 
     async def test_storm_lib_time_ticker(self):
 

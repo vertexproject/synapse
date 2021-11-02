@@ -48,7 +48,7 @@ def allowed(perm, gateiden=None):
 
 class StormTypesRegistry:
     # The following types are currently undefined.
-    undefined_types = (
+    base_undefined_types = (
         'any',
         'int',
         'null',
@@ -58,6 +58,7 @@ class StormTypesRegistry:
         'storm:lib',  # lib.import
         'generator',
     )
+    undefined_types = set(base_undefined_types)
     known_types = set()
     rtypes = collections.defaultdict(set)  # callable -> return types, populated on demand.
 
@@ -80,10 +81,15 @@ class StormTypesRegistry:
             raise Exception('cannot register a type twice')
         assert ctor._storm_typename is not None, f'path={path} ctor={ctor}'
         self._TYPREG[path] = ctor
+        self.known_types.add(ctor._storm_typename)
+        self.undefined_types.discard(ctor._storm_typename)
 
     def delStormType(self, path):
-        if not self._TYPREG.pop(path, None):
+        ctor = self._TYPREG.pop(path, None)
+        if ctor is None:
             raise Exception('no such path!')
+        self.known_types.discard(ctor._storm_typename)
+        self.undefined_types.add(ctor._storm_typename)
 
     def registerLib(self, ctor):
         '''Decorator to register a StormLib'''
@@ -201,7 +207,6 @@ class StormTypesRegistry:
         for tdoc in docs:
             basepath = tdoc.get('path')
             assert len(basepath) == 1
-            self.known_types.add(basepath[0])
             locls = tdoc.get('locals')
             for info in locls:
                 path = basepath + (info.get('name'),)
@@ -2590,7 +2595,7 @@ class LibPipe(Lib):
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
@@ -3154,7 +3159,7 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename = None # type: Any
+    _storm_typename = None  # type: Any
 
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
@@ -3182,7 +3187,7 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
-    async def iter(self): # pragma: no cover
+    async def iter(self):  # pragma: no cover
         for x in ():
             yield x
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
@@ -3191,7 +3196,7 @@ class Prim(StormType):
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
-    async def stormrepr(self): # pragma: no cover
+    async def stormrepr(self):  # pragma: no cover
         return f'{self._storm_typename}: {self.value()}'
 
 @registry.registerType
