@@ -2,10 +2,11 @@
 Time related utilities for synapse "epoch millis" time values.
 '''
 
-import regex
 import datetime
 
 from dateutil.relativedelta import relativedelta
+
+import regex
 
 import synapse.exc as s_exc
 

@@ -2028,7 +2028,7 @@ class LibTime(Lib):
                   'returns': {'type': 'int', 'desc': 'The second part of the time expression.', }}},
 
         {'name': 'dayofweek', 'desc': '''
-        Returns the index (beginning with 0) of the day within the week.
+        Returns the index (beginning with monday as 0) of the day within the week.
         ''',
          'type': {'type': 'function', '_funcname': 'dayofweek',
                   'args': (
