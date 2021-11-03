@@ -12,7 +12,6 @@ Features and Enhancements
 -------------------------
 - Add ``:dst:handshake`` and ``src:handshake`` properties to ``inet:flow`` to
   record text representations of the handshake strings of a given connection.
-  (`#2444 <https://github.com/vertexproject/synapse/pull/2444>`_)
   (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
 - Add a ``proj:attachment`` form to the ``project`` model to represent
   attachments to a given ``proj:ticket``.
