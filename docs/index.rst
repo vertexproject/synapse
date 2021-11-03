@@ -28,7 +28,6 @@ Welcome to the Synapse documentation!
    synapse/datamodel
    synapse/stormtypes
 
-   synapse/200_changes
    synapse/changelog
 
 Indices and tables
