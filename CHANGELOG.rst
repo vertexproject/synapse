@@ -5,6 +5,50 @@ Synapse Changelog
 *****************
 
 
+v2.70.0 - 2021-11-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:dst:handshake`` and ``src:handshake`` properties to ``inet:flow`` to
+  record text representations of the handshake strings of a given connection.
+  (`#2444 <https://github.com/vertexproject/synapse/pull/2444>`_)
+  (`#2450 <https://github.com/vertexproject/synapse/pull/2450>`_)
+- Add a ``proj:attachment`` form to the ``project`` model to represent
+  attachments to a given ``proj:ticket``.
+  (`#2450 <https://github.com/vertexproject/synapse/pull/2450>`_)
+- Add a implicit wildcard behavior to the ``time`` type when lifting or
+  filtering nodes. Dates ending in a ``*`` are converted into ranges covering
+  all possibly times in them. For example, ``.created=202101*`` would lift all
+  nodes created on the first month of 2021.
+  (`#2446 <https://github.com/vertexproject/synapse/pull/2446>`_)
+- Add the following ``$lib.time`` functions to chop information from a time
+  value.
+  (`#2446 <https://github.com/vertexproject/synapse/pull/2446>`_)
+
+    - ``$lib.time.year()``
+    - ``$lib.time.month()``
+    - ``$lib.time.day()``
+    - ``$lib.time.hour()``
+    - ``$lib.time.minute()``
+    - ``$lib.time.second()``
+    - ``$lib.time.dayofweek()``
+    - ``$lib.time.dayofmonth()``
+    - ``$lib.time.monthofyear()``
+
+- Add ``List.extend()``, ``List.slice()``, ``Str.find()``, and ``Str.size()``
+  functions to Stormtypes.
+  (`#2450 <https://github.com/vertexproject/synapse/pull/2450>`_)
+  (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
+- Add ``$lib.json.schema()`` and a ``storm:json:schema`` object to Stormtypes.
+  These can be used to validate arbitrary data JSON structures in Storm using
+  JSON Schema.
+  (`#2448 <https://github.com/vertexproject/synapse/pull/2448>`_)
+- Update syntax checking rules and address deprecation warnings for strings
+  in the Synapse codebase.
+  (`#2426 <https://github.com/vertexproject/synapse/pull/2426>`_)
+
+
 v2.69.0 - 2021-11-02
 ====================
 

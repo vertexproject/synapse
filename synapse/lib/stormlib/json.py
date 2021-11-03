@@ -40,7 +40,9 @@ class JsonSchema(s_stormtypes.StormType):
                             'desc': 'A JSON structure to validate (dict, list, etc...)', },
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'An ($ok, $valu) tuple. If $ok is False, $valu is a dictionary with a "mesg" key.'}}},
+                              'desc': 'An ($ok, $valu) tuple. If $ok is True, then $valu should be used as the '
+                                      'validated data structure. If $ok is False, $valu is a dictionary with a "mesg" '
+                                      'key.'}}},
     )
     _ismutable = False
 
