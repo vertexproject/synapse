@@ -3388,6 +3388,9 @@ class Str(Prim):
                       {'name': 'valu', 'type': 'str', 'desc': 'The substring to find.'},
                   ),
                   'returns': {'type': 'int', 'desc': 'The first offset of subsgring or null.'}}},
+        {'name': 'size', 'desc': 'Return the length of the string.',
+         'type': {'type': 'function', '_funcname': '_methStrSize',
+                  'returns': {'type': 'int', 'desc': 'The size of the string.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -3399,6 +3402,7 @@ class Str(Prim):
     def getObjLocals(self):
         return {
             'find': self._methStrFind,
+            'size': self._methStrSize,
             'split': self._methStrSplit,
             'rsplit': self._methStrRsplit,
             'endswith': self._methStrEndswith,
@@ -3440,6 +3444,9 @@ class Str(Prim):
         if retn == -1:
             retn = None
         return retn
+
+    async def _methStrSize(self):
+        return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
         try:
