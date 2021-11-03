@@ -6,78 +6,65 @@
 Introduction
 ############
 
-**Synapse** is a "batteries included" intelligence analysis platform designed to help analysts and algorithms answer complex questions which require the fusion of data across different disciplines.  It was developed as the successor to a proprietary graph-based analysis platform named **Nucleus** which was used within Mandiant_ to produce the APT1_Report_.  While Synapse was initially designed for use in the cyber threat intelligence discipline, the built-in data model has expanded into including a wide variety of subject matter areas such as geopolitical, geospatial, human behavior, and even the physical world.  For an analyst's perspective see the :ref:`bkd-why-synapse` section of the :ref:`userguide`.
+**Synapse** is a versatile central intelligence and analysis system created to support analyst teams in every stage of the intelligence life cycle.
 
-Within a Synapse **Cortex**, knowledge is organized as a hypergraph_. Access to the unified Cortex data model allows subject matter experts to perform and record detailed analysis within their area of expertise and answer inter-disciplinary questions facilitated by other analyst's annotations.  Each assertion made by an analyst or algorithm may be recorded to build toward higher-level assertions, such as cyber threat actor attribution, which require extensive supporting evidence.  The "decomposability" of higher-level assertions allows peer review and decision-maker confirmation.  This helps to prevent analysis predicated on "because so-and-so said so" and helps analysts collaborate and learn from each other's work.
+The_Vertex_Project_ designed and developed Synapse to help analysts and algorithms answer complex questions which require the fusion of large data sets from disparate sources that span multiple disciplines. Synapse is the successor to the proprietary graph-based analysis platform (**Nucleus**) used within Mandiant_ to produce the APT1_Report_.
 
-Features
-========
+Synapse's data store (known as a :ref:`gloss-cortex`) is organized as a hypergraph_. Combined with its structured and extensible :ref:`dm-index` and the powerful and intuitive :ref:`gloss-storm` query language, Synapse gives analysts unparalleled power and flexibility to ask and answer any question, even over large and complex data sets.
 
-*High Performance / Streaming*
+Key Features
+============
 
-A Synapse Cortex uses the high-performance key-value store LMDB_ for indexing and storage.  Additionally, the **Storm** query engine is designed to produce results as a stream rather than a set.  This means a query will begin returning results as soon as they are available rather than waiting for the complete result set.  Streaming results means that even a complex multi-pivot query which will eventually return millions of nodes will begin producing results immediately.  API interfaces facilitate streaming "back-pressure" which allows a query consumer to incrementally read result sets no matter how large they are.
+ - **Lightning Fast Performance.** Synapse uses LMDB for high-performance key-value indexing and storage, combined with asynchronous, streaming processing. This means queries start returning results as soon as they are available - so your "time to first node" is typically milliseconds, regardless of the size of your result set.
+ 
+ - **Horizontally and Vertically Scalable.** A standard Synapse Cortex can store on the scale of one billion nodes. Synapse also supports <stuff / mirroring / other cool things blah blah>.
+ 
+ - **Extensible Data Model.** Synapse includes an extensive (and extensible) data model capable of representing real-world objects, relationships, and events in an intuitive and realistic manner.
+ 
+ - **Strong Typing.** Synapse uses :ref:`gloss-type-norm` and :ref:`gloss-type-enforce` to apply meaningful constraints to data to ensure it well-formed, preventing "bad data" from cluttering the knowledge store. :ref:`gloss-type-aware` simplifies use of the Storm query language and helps analysts discover novel relationships in the data.
+ 
+ - **Powerful and Intuitive Query Language.** Synapse's :ref:`gloss-storm` query language is a powerful, intuitive "data language" used to interact with data in a Synapse Cortex. Storm frees analysts from the limitations of "canned" queries or hard-coded data navigation and allows them to ask - and answer - **any** analytical question.
+ 
+ - **Unified Analysis Platform.** Synapse's unified data store provides analysts with a shared view into the same set of data and analytical annotations, allowing them to better coordinate, collaborate, and peer-review their work.
+ 
+ - **Record Analytical Assessments.** Synapse allows analysts to annotate data with assessments and observations through a flexible and extensible set of tags (:ref:`gloss-tag`). By recording assessments (as well as data) in a structured manner, analysts and algorithms can leverage **both** in their queries and workflows.
+ 
+ - **"Github for Analysis".** Synapse supports the use of layers (:ref:`gloss-layer`) to comprise a :ref:`gloss-view` into Synapse's data store. Analysts can create a :ref:`gloss-fork` of a given view and use it for testing or research without modifying the underlying production data store. Once work in the fork is complete, changes can be merged into the production view or discarded.
+ 
+ - **Fine-Grained Access Controls.** Synapse provides access controls and detailed permissions that can be applied to users or roles. Permissions can be specified broadly or to a level of detail that restricts a user to setting a single property on a single form.
+ 
+ - **Flexible Automation.** Synapse allows you to create custom automation for both analytical and administrative tasks, ensuring consistency and eliminating tedious or time-consuming workflows. Automation is provided using event-based triggers (:ref:`gloss-trigger`), scheduled cron jobs, or stored macros.
+ 
+ - **API Access.** Synapse includes multiple well-documented APIs (HTTP/REST, Python) for interacting with the data store and other Synapse components.
+ 
+What's Next?
+============
 
-*Rich Built-In/Extensible Data Model*
+<table goes here>
 
-The Synapse data model has been battle-hardened over 5 years through the lessons learned during intelligence analysis and production.  See the :ref:`userguide` for extensive details.
+**Get Started!**
+  :ref:`quickstart`
+  https://github.com/vertexproject/synapse-quickstart
+  https://synapse.docs.vertex.link/en/latest/synapse/changelog.html <-- how to link?
+  
+**Users**
+  :ref:`userguide`
+  :ref:`userguide_storm_ref`
+  
+**DevOps**
+  :ref:`devopsguide`
+  https://docsend.com/view/kmbkkq9pjhtjsbmk
 
-*Simple/Powerful Query Language*
+**Developers**
+  :ref:`devguide`
+  :ref:`http-api`
+  https://synapse.docs.vertex.link/en/latest/synapse/apidocs.html <-- how to link?
+  :ref:`dm-index`
+  :ref:`stormtypes_index`
 
-The Storm query language was designed with analysts in mind.  Storm seeks to strike a balance of simplicity and power to provide analysts a lightweight syntax to quickly express the desired data and relationships of interest while also making it possible to perform complex analysis.  Years of analyst use cases and observations have gone into creating an efficient way to not only perform analysis, but record the resulting assertions.  See the :ref:`userguide` for details on the Storm query language and Cortex-based analysis concepts.
 
-*HTTPS API*
 
-An HTTPS API allows stream-based access to the Storm query language through HTTP chunked-encoding results.  Additionally, REST APIs may be used to configure and control additional subsystems and components.
-
-*Granular Access Controls*
-
-Individual users and roles may be configured with permissions to restrict changes to the Cortex based on areas of expertise.
-
-*Automation/Triggers*
-
-Analysts may configure Cortex **Triggers** which execute additional Storm queries when particular changes occur within the Cortex.
-
-*Scheduled Queries*
-
-A Cortex provides a cron-like interface for scheduling background execution of one-time or recurring Storm queries.
-
-*Change Auditing / Provenance*
-
-A Cortex produces a stream of potentially reversible changes called **splices** which can account for every change to the hypergraph_.  Additionally, provenance tracking for splices records the cause for individual changes, even in the event of firing Triggers or other automation that could make it difficult to understand the cause for a splice.
-
-What's New?
-===========
-
-The release of Synapse 2.0.0 represents a large leap forward in performance and scalability.  Please see the :ref:`200_changes` for a full accounting of changes and the reasons behind them.
-
-FAQ
-===
-
-What's the state of interface stability for 2.x.x?
---------------------------------------------------
-
-Within Synapse, backward-incompatible changes are made at major release numbers.  For example, the newly released 2.0.0 version of Synapse does contain some backward incompatible changes.  However, these types of changes are not made lightly and are only undertaken for tangible benefits to performance, scalability, and data modeling.  See :ref:`changelog` for a detailed breakdown of backward incompatible changes and the reasoning behind each.  Where possible, interfaces will be marked as deprecated in the previous minor release to provide situational awareness to developers.  Additionally, any backward incompatible changes to the Synapse data model will only occur at a minor release.  As such, minor releases may require Synapse components, such as a Cortex, to undergo a migration process.
-
-Within the Synapse 2.x.x release line, we are committed to maintaining a stable and backward-compatible release process.  Public-facing interfaces such as Storm, the HTTPS API, and the **Telepath** API will not be changed in any way that will break existing deployments.  The data model will only be updated with additions which do not change existing property names or relationships.
-
-Performance, big-data, scalability, and best use?
--------------------------------------------------
-
-A Synapse Cortex is a knowledge system which must deconflict each new piece of information received to determine if the knowledge is already present.  This makes it ideal for creating a permanent record of relevant observations and analysis results.  However, the deconfliction required for a knowledge system is fundamentally at-odds with the idea of an infinitely scalable stream of instance/temporal data.  A Cortex may easily grow to billions of nodes, but is not designed for use cases involving billions of records per-day.  In a typical big-data/data-lake architecture, a Cortex is optimally used to analyze data resulting from queries to existing platforms and fuse data relevant to an analyst's investigation.
-
-We currently operate several Cortex instances in production use that contain on the order of billions of nodes on a single server.  Additionally, a Cortex may also be configured to fuse data from a remote Cortex into a single view.  This allows for simple sharding based on data ingest sources.  To parallelize read-performance and maximize availability, a Cortex may have one or more mirrors configured.  Additional information on advanced configurations will be available shortly in the :ref:`devopsguide`.
-
-What kind of server(s) should I spec out?
------------------------------------------
-
-The performance profile and system requirements for a Cortex are very similar to a typical large RDBMS such as **PostgreSQL**.  For high performance, use low-latency (flash style) storage and a RAM optimized server build.  A Cortex must deconflict each new node it adds, which means that RAM availability and storage latency directly effect throughput.
-
-Did you consider SPARQL/GraphQL/etc rather than Storm?
-------------------------------------------------------
-
-The short answer on this is *yes*.  After extensive review of the data languages and query languages available on several platforms, none met the ambitious requirements for simultaneously providing a terse analyst-friendly syntax and the expressive power needed for analysis within a hypergraph_.
-
-.. _Mandiant: https://www.fireeye.com/services.html
-.. _APT1_Report: https://www.fireeye.com/content/dam/fireeye-www/services/pdfs/mandiant-apt1-report.pdf
-.. _LMDB: https://symas.com/lmdb/
+.. _The_Vertex_Project: https://vertex.link/
+.. _Mandiant: https://www.mandiant.com/
+.. _APT1_Report: https://www.mandiant.com/media/9941/download
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
