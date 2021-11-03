@@ -18,7 +18,7 @@ Features and Enhancements
   (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
 - Add a implicit wildcard behavior to the ``time`` type when lifting or
   filtering nodes. Dates ending in a ``*`` are converted into ranges covering
-  all possibly times in them. For example, ``.created=202101*`` would lift all
+  all possible times in them. For example, ``.created=202101*`` would lift all
   nodes created on the first month of 2021.
   (`#2446 <https://github.com/vertexproject/synapse/pull/2446>`_)
 - Add the following ``$lib.time`` functions to chop information from a time
