@@ -718,6 +718,13 @@ properties with specified value(s) to a set of nodes with a property having the 
 
 See :ref:`storm-ref-pivot` for additional detail.
 
+.. _gloss-power-up:
+
+Power-Up
+--------
+
+Term used to describe a module added to Synapse to provide specific extended functionality. Some Power-Ups are connectors for free or commercial third-party data sources. Other Power-Ups add capabilities to Synapse, such as: the ability to parse and extract data from multiple file types (File Parser); the ability to create, store, and manage YARA rules, YARA scans, and rule matches (YARA Grid); or the ability to perform fully indexed text searches (Full Text Search).
+
 .. _gloss-primary-prop:
 
 Primary Property
