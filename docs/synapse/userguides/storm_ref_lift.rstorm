@@ -624,6 +624,10 @@ Storm uses a special "by" syntax to lift (or filter) by comparison with one or m
 **Usage Notes:**
 
 - The comparison operator used must be valid for lift operations for the type used in the array. For example, :ref:`type-inet-fqdn` suffix matching (i.e., ``crypto:x509:cert:identities:fqdns*[="*.com"]``), can be used to lift arrays consisting of domains, but the prefix operator (``^=``), which is only valid when **filtering** ``inet:fqdns``, cannot.
+- The standard equals ( ``=`` ) operator can be used to filter nodes based on array properties, but the value specified must **exactly match** the **full** property value in question:
+
+  - For example: ``ou:org:names=("the vertex project","the vertex project llc",vertex)``
+
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional details.
 
 .. _lift-tag:

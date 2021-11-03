@@ -689,6 +689,10 @@ Storm uses a special "by" syntax to filter (or lift) by comparison with one or m
   - ``ou:org | limit 10 | +ou:org:names*[=vertex]`` is invalid syntax.
 
 - The comparison operator used must be valid for filter operations for the type used in the array.
+- The standard equals ( ``=`` ) operator can be used to filter nodes based on array properties, but the value specified must **exactly match** the **full** property value in question:
+
+  - For example: ``ou:org +:names=("the vertex project","the vertex project llc",vertex)``
+
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional details.
 
 .. _filter-tag:
