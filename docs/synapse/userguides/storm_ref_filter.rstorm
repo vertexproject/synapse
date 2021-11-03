@@ -683,8 +683,11 @@ Storm uses a special "by" syntax to filter (or lift) by comparison with one or m
 
 **Usage Notes:**
 
-- Currently, filter operations using secondary properties of type :ref:`type-array` must specify the property using its relative property name. Filtering using the full property syntax will generate an error.
-- Not all comparison operators are supported as part of the array "by" syntax. For example, equals ( ``=`` ) and prefix ( ``^=`` ) operators are supported, but other standard comparison operators (e.g., ``>=`` ) and extended comparison operators (e.g., ``~=`` ) are not.
+- Filter operations using secondary properties of type :ref:`type-array` must specify the property using its relative property name. Filtering using the full property syntax will generate an error.
+
+  - ``ou:org | limit 10 | +:names*[=vertex]`` is valid syntax.
+  - ``ou:org | limit 10 | +ou:org:names*[=vertex]`` is invalid syntax.
+
 - The comparison operator used must be valid for filter operations for the type used in the array.
 - See the :ref:`type-array` section of the :ref:`storm-ref-type-specific` document for additional details.
 

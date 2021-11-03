@@ -34,9 +34,17 @@ This section is **not** a complete reference of all available types. In addition
 array
 -----
 
-An ``array`` is a specialized type that consists of a list of typed values. That is, an array is a type that consists of one or more values that are themselves all of a single, defined type.
+An ``array`` is a specialized type that consists of either a list or a set of typed values. That is, an array is a type that consists of one or more values that are themselves all of a single, defined type.
 
-``Array`` types can be used for properties where that property is likely to have multiple values, but it is undesirable to represent those values in a set of relationship nodes (for example, multiple ``edge:has`` nodes).
+.. TIP::
+  
+  An array that is a **list** can have duplicate entries in the list. An array that is a **set** consists of a unique group of entries.
+
+``Array`` types can be used for properties where that property is likely to have multiple values, but it is undesirable to represent those values in a set of :ref:`form-relationship` nodes. Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm query:
+
+::
+  
+  syn:prop:type=array
 
 Indexing
 ++++++++
@@ -46,12 +54,21 @@ N/A
 Parsing
 +++++++
 
-Because an ``array`` is a list of typed values, ``array`` elements can be input in any format supported by the type of the elements themselves. For example, if an ``array`` consists of a list of ``inet:ipv4`` values, the values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
+Because an ``array`` is a list or set of typed values, ``array`` elements can be input in any format supported by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ipv4`` values, the values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
 
 Insertion
 +++++++++
 
-As a list, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the list contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). The list of array values will be set in the order in which they are specified. Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
+Because it may contain multiple values, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the list contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
+
+**Example:**
+
+Set the ``:names`` property of an organization (``ou:org``) node to a single value:
+
+.. storm-pre:: [ ou:org=(https://vertex.link/,) :alias=vertex :url=https://vertex.link/ ] [ :names=("The Vertex Project",) ]
+::
+  
+  <ou:org> [ :names=("The Vertex Project",) ]
 
 **Example:**
 
@@ -63,10 +80,9 @@ Set the ``:names`` property of an organization (``ou:org``) node to contain mult
 
     <ou:org> [ :names=("The Vertex Project","The Vertex Project, LLC",Vertex) ]
 
-
-Individual elements can be added to or removed from an array using ``+=`` or ``-=``.
-
-The ``?+=`` or ``?-=`` operators can be used for the equivalent "edit try" operations (see :ref:`edit-try` in the :ref:`storm-ref-data-mod` for a detailed discussion of "edit try" syntax).
+.. WARNING::
+  
+  Using the equals ( ``=`` ) operator to set an array property value will set or update (overwrite) the **entire** property value. To add or remove individual elements from an array, use the ``+=`` or ``-=`` operators.
 
 **Example**
 
@@ -79,15 +95,6 @@ Add a name to the array of names associated with an organization:
     <ou:org> [ :names+="The Spanish Inquisition" ]
 
 
-Use the edit try operator to attempt to add a value to the ``:identities:fqdns`` array property of an X509 certificate. (**Note:** a type-inappropriate value (email address) is used below for illustrative purposes.)
-
-
-.. storm-pre:: [crypto:x509:cert=(d41d8cd98f00b204e9800998ecf8427e,) :identities:fqdns=(vertex.link,)] [ :identities:fqdns?+=visi@vertex.link ]
-::
-
-    <crypto:x509:cert> [ :identities:fqdns?+=visi@vertex.link ]
-
-
 Remove a name from the array of names associated with an organization:
 
 
@@ -97,9 +104,24 @@ Remove a name from the array of names associated with an organization:
     <ou:org> [ :names-="The Spanish Inquisition" ]
 
 
+.. TIP::
+  
+  The standard "edit try" operator ( ``?=`` ) (see :ref:`edit-try` in the :ref:`storm-ref-data-mod`) can be used to attempt to set a **full** array property value where you are unsure whether the value will succeed. The specialized ``?+=`` or ``?-=`` operators can be used to attempt to add or remove a single array value in a similar manner.
+
+**Example**
+
+Use the specialized "edit try" operator to attempt to add a single value to the ``:identities:fqdns`` array property of an X509 certificate. (**Note:** a type-inappropriate value (email address) is used below for illustrative purposes.)
+
+
+.. storm-pre:: [crypto:x509:cert=(d41d8cd98f00b204e9800998ecf8427e,) :identities:fqdns=(vertex.link,)] [ :identities:fqdns?+=visi@vertex.link ]
+::
+
+    <crypto:x509:cert> [ :identities:fqdns?+=visi@vertex.link ]
+
+
 **Usage Notes:**
 
-- The standard "edit try" operator ( ``?=`` ) can optionally be used when setting the **full** value of an array property (vs. adding or removing an element from an array). Note that if **any** value in the list of values fails (e.g., does not pass type enforcement), setting the **entire** property will fail. For example, attempting to set ``[ :identities:emails?=(alice@vertex.link, bob) ]`` on an X509 certificate (``crypto:x509:cert``) will fail to set the property altogether because ``bob`` is not a valid email address type.
+- When using the standard "edit try" operator ( ``?=`` ) to attempt to set the **full** value of an array property (vs. adding or removing an element from an array), the **entire** attempt will fail if **any** value in the list of values fails (e.g., does not pass type enforcement). For example, if you try to set ``[ :identities:emails?=(alice@vertex.link, bob) ]`` on an X509 certificate (``crypto:x509:cert``), Synapse will fail to set the property altogether because ``bob`` is not a valid email address type (even though ``alice@vertex.link`` is).
 
 - The "edit try" operator for **removing** individual elements from an array ( ``?-=`` ) is unique to arrays as they are the only type that allows removal of a single element from a property (properties with a single value are either set / modified, or the property is deleted altogether). As with other uses of "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation attempts to remove a value from an array that does not match the array's defined type. For example, attempting to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version ( ``?-=``) is used.
 
@@ -109,26 +131,21 @@ Operations
 Lifting and Filtering
 ~~~~~~~~~~~~~~~~~~~~~
 
-Array properties can be used to lift or filter nodes based on an **exact match** of the property value using the standard equals operator:
-
+Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the full array property value. This makes sense for forms with simple values like ``inet:ipv4=1.2.3.4``, but is often infeasible for arrays because lifting by the **full** array value requires you to know the exact values of each of the array elements as well as their exact order.
 
 .. storm-pre:: ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
 ::
 
     ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
 
-
-However, this method requires you to know in advance the exact values of each of the array elements as well as their exact order. This is often infeasible in practice.
-
-For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match values in the array list without knowing the exact order or (in some cases, such as a prefix match) the exact value.
+For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match one or more elements in the array similarly to how they would match individual property values.
 
 .. NOTE::
   The square brackets used to lift or filter based on values in an array should not be confused with square brackets used to add or modify nodes or properties in :ref:`edit-mode`.
 
 **Examples:**
 
-Lift the ``ou:org`` node(s) whose ``:names`` property contains the value ``vertex``:
-
+Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that exactly matches ``vertex``:
 
 .. storm-pre:: ou:org:names*[=vertex]
 ::
@@ -136,17 +153,21 @@ Lift the ``ou:org`` node(s) whose ``:names`` property contains the value ``verte
     ou:org:names*[=vertex]
 
 
-Lift the x509 certificate nodes that reference the domain ``microsoft.com``:
+Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that matches the string ``vertex``:
 
+.. storm-pre:: ou:org:names*[~=vertex]
+::
+  
+  ou:org:names*[~=vertex]
+
+Lift the x509 certificate nodes that reference the domain ``microsoft.com``:
 
 .. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(microsoft.com,verisign.com)] | spin | crypto:x509:cert:identities:fqdns*[=microsoft.com]
 ::
 
     crypto:x509:cert:identities:fqdns*[=microsoft.com]
 
-
 Downselect a set of ``ou:org`` nodes to include only those with a name that starts with "acme":
-
 
 .. storm-pre:: ou:org +:names*[^=acme]
 ::
