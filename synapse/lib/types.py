@@ -1967,7 +1967,39 @@ class Time(IntBase):
 
         return cmpr
 
+    def _ctorCmprLt(self, text):
+
+        if isinstance(text, str):
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
+                def cmpr(valu):
+                    return valu < tock
+                return cmpr
+
+        return IntBase._ctorCmprLt(self, text)
+
+    def _ctorCmprLe(self, text):
+
+        if isinstance(text, str):
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
+                def cmpr(valu):
+                    return valu <= tock
+                return cmpr
+
+        return IntBase._ctorCmprLe(self, text)
+
     def _ctorCmprEq(self, text):
+
+        if isinstance(text, str):
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
+                def cmpr(valu):
+                    return valu >= tick and valu < tock
+                return cmpr
 
         norm, info = self.norm(text)
 
@@ -1975,3 +2007,28 @@ class Time(IntBase):
             return norm == valu
 
         return cmpr
+
+    def _storLiftNorm(self, cmpr, valu):
+
+        if isinstance(valu, str):
+            text = valu.strip()
+            if text.endswith('*'):
+                if cmpr == '=':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('range=', (tick, tock), self.stortype),
+                    )
+
+                if cmpr == '<':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('<', tock, self.stortype),
+                    )
+
+                if cmpr == '<=':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('<=', tock, self.stortype),
+                    )
+
+        return IntBase._storLiftNorm(self, cmpr, valu)
