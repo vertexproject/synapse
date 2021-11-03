@@ -123,6 +123,7 @@ class ProjectModule(s_module.CoreModule):
                         ('creator', ('syn:user', {}), {}),
                         ('created', ('time', {}), {}),
                         ('ticket', ('proj:ticket', {}), {}),
+                        ('comment', ('proj:comment', {}), {}),
                     )),
 
                     ('proj:ticket', {}, (

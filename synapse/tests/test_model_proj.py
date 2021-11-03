@@ -299,7 +299,7 @@ class ProjModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ proj:attachment=* :file=guid:210afe138d63d2af4d886439cd4a9c7f :name=a.exe :created=now :creator=$lib.user.iden :ticket=* ]
+                [ proj:attachment=* :file=guid:210afe138d63d2af4d886439cd4a9c7f :name=a.exe :created=now :creator=$lib.user.iden :ticket=* :comment=* ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('ticket'))
@@ -310,3 +310,4 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, await core.nodes('proj:attachment -> file:base'))
             self.len(1, await core.nodes('proj:attachment -> file:bytes'))
             self.len(1, await core.nodes('proj:attachment -> proj:ticket'))
+            self.len(1, await core.nodes('proj:attachment -> proj:comment'))
