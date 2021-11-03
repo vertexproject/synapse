@@ -57,10 +57,10 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
             await self.resp.send_bytes(json.dumps(mesg).encode())
             return (True, None)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             return s_common.retnexc(e)
 
     async def rx(self, timeout=None):
@@ -71,14 +71,14 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
                 return (True, json.loads(data))
             if _type == aiohttp.WSMsgType.TEXT:
                 return (True, json.loads(data.encode()))
-            if _type == aiohttp.WSMsgType.CLOSED: # pragma: no cover
+            if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover
                 return (True, None)
-            return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'})) # pragma: no cover
+            return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'}))  # pragma: no cover
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             return s_common.retnexc(e)
 
 
@@ -228,10 +228,10 @@ class LibHttp(s_stormtypes.Lib):
 
             return (True, sock)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             await sock.fini()
             return s_common.retnexc(e)
 

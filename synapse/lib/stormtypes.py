@@ -48,7 +48,7 @@ def allowed(perm, gateiden=None):
 
 class StormTypesRegistry:
     # The following types are currently undefined.
-    undefined_types = (
+    base_undefined_types = (
         'any',
         'int',
         'null',
@@ -58,6 +58,7 @@ class StormTypesRegistry:
         'storm:lib',  # lib.import
         'generator',
     )
+    undefined_types = set(base_undefined_types)
     known_types = set()
     rtypes = collections.defaultdict(set)  # callable -> return types, populated on demand.
 
@@ -80,10 +81,15 @@ class StormTypesRegistry:
             raise Exception('cannot register a type twice')
         assert ctor._storm_typename is not None, f'path={path} ctor={ctor}'
         self._TYPREG[path] = ctor
+        self.known_types.add(ctor._storm_typename)
+        self.undefined_types.discard(ctor._storm_typename)
 
     def delStormType(self, path):
-        if not self._TYPREG.pop(path, None):
+        ctor = self._TYPREG.pop(path, None)
+        if ctor is None:
             raise Exception('no such path!')
+        self.known_types.discard(ctor._storm_typename)
+        self.undefined_types.add(ctor._storm_typename)
 
     def registerLib(self, ctor):
         '''Decorator to register a StormLib'''
@@ -201,7 +207,6 @@ class StormTypesRegistry:
         for tdoc in docs:
             basepath = tdoc.get('path')
             assert len(basepath) == 1
-            self.known_types.add(basepath[0])
             locls = tdoc.get('locals')
             for info in locls:
                 path = basepath + (info.get('name'),)
@@ -1972,6 +1977,96 @@ class LibTime(Lib):
                   ),
                   'returns': {'name': 'Yields', 'type': 'int',
                               'desc': 'This yields the current tick count after each time it wakes up.', }}},
+
+        {'name': 'year', 'desc': '''
+        Returns the year part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'year',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The year part of the time expression.', }}},
+
+        {'name': 'month', 'desc': '''
+        Returns the month part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'month',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The month part of the time expression.', }}},
+
+        {'name': 'day', 'desc': '''
+        Returns the day part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'day',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The day part of the time expression.', }}},
+
+        {'name': 'hour', 'desc': '''
+        Returns the hour part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'hour',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The hour part of the time expression.', }}},
+
+        {'name': 'minute', 'desc': '''
+        Returns the minute part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'minute',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The minute part of the time expression.', }}},
+
+        {'name': 'second', 'desc': '''
+        Returns the second part of a time value.
+        ''',
+         'type': {'type': 'function', '_funcname': 'second',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The second part of the time expression.', }}},
+
+        {'name': 'dayofweek', 'desc': '''
+        Returns the index (beginning with monday as 0) of the day within the week.
+        ''',
+         'type': {'type': 'function', '_funcname': 'dayofweek',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the day within week.', }}},
+
+        {'name': 'dayofyear', 'desc': '''
+        Returns the index (beginning with 0) of the day within the year.
+        ''',
+         'type': {'type': 'function', '_funcname': 'dayofyear',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the day within year.', }}},
+
+        {'name': 'dayofmonth', 'desc': '''
+        Returns the index (beginning with 0) of the day within the month.
+        ''',
+         'type': {'type': 'function', '_funcname': 'dayofmonth',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the day within month.', }}},
+
+        {'name': 'monthofyear', 'desc': '''
+        Returns the index (beginning with 0) of the month within the year.
+        ''',
+         'type': {'type': 'function', '_funcname': 'monthofyear',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
     )
     _storm_lib_path = ('time',)
 
@@ -1983,14 +2078,86 @@ class LibTime(Lib):
             'format': self._format,
             'sleep': self._sleep,
             'ticker': self._ticker,
+
+            'day': self.day,
+            'hour': self.hour,
+            'year': self.year,
+            'month': self.month,
+            'minute': self.minute,
+            'second': self.second,
+
+            'dayofweek': self.dayofweek,
+            'dayofyear': self.dayofyear,
+            'dayofmonth': self.dayofmonth,
+            'monthofyear': self.monthofyear,
         }
 
     def _now(self):
         return s_common.now()
 
+    async def day(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.day(norm)
+
+    async def hour(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.hour(norm)
+
+    async def year(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.year(norm)
+
+    async def month(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.month(norm)
+
+    async def minute(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.minute(norm)
+
+    async def second(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.second(norm)
+
+    async def dayofweek(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.dayofweek(norm)
+
+    async def dayofyear(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.dayofyear(norm)
+
+    async def dayofmonth(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.dayofmonth(norm)
+
+    async def monthofyear(self, tick):
+        tick = await toprim(tick)
+        timetype = self.runt.snap.core.model.type('time')
+        norm, info = timetype.norm(tick)
+        return s_time.month(norm) - 1
+
     async def _format(self, valu, format):
         timetype = self.runt.snap.core.model.type('time')
-        # Give a times string a shot at being normed prior to formating.
+        # Give a times string a shot at being normed prior to formatting.
         try:
             norm, _ = timetype.norm(valu)
         except s_exc.BadTypeValu as e:
@@ -2428,7 +2595,7 @@ class LibPipe(Lib):
                     async for item in runt.execute():
                         await asyncio.sleep(0)
 
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
 
             except Exception as e:
@@ -2992,7 +3159,7 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename = None # type: Any
+    _storm_typename = None  # type: Any
 
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
@@ -3020,7 +3187,7 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
-    async def iter(self): # pragma: no cover
+    async def iter(self):  # pragma: no cover
         for x in ():
             yield x
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
@@ -3029,7 +3196,7 @@ class Prim(StormType):
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
-    async def stormrepr(self): # pragma: no cover
+    async def stormrepr(self):  # pragma: no cover
         return f'{self._storm_typename}: {self.value()}'
 
 @registry.registerType
@@ -3204,6 +3371,26 @@ class Str(Prim):
                 $lib.print($foo.reverse())''',
          'type': {'type': 'function', '_funcname': '_methStrReverse',
                   'returns': {'type': 'str', 'desc': 'The reversed string.', }}},
+
+        {'name': 'find', 'desc': '''
+            Find the offset of a given string within another.
+
+            Examples:
+                Find values in the string ``asdf``::
+
+                    $x = asdf
+                    $x.find(d) // returns 2
+                    $x.find(v) // returns null
+
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrFind',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The substring to find.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The first offset of subsgring or null.'}}},
+        {'name': 'size', 'desc': 'Return the length of the string.',
+         'type': {'type': 'function', '_funcname': '_methStrSize',
+                  'returns': {'type': 'int', 'desc': 'The size of the string.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -3214,6 +3401,8 @@ class Str(Prim):
 
     def getObjLocals(self):
         return {
+            'find': self._methStrFind,
+            'size': self._methStrSize,
             'split': self._methStrSplit,
             'rsplit': self._methStrRsplit,
             'endswith': self._methStrEndswith,
@@ -3248,6 +3437,16 @@ class Str(Prim):
         if isinstance(othr, (Str, str)):
             return str(self) == str(othr)
         return False
+
+    async def _methStrFind(self, valu):
+        text = await tostr(valu)
+        retn = self.valu.find(text)
+        if retn == -1:
+            retn = None
+        return retn
+
+    async def _methStrSize(self):
+        return len(self.valu)
 
     async def _methEncode(self, encoding='utf8'):
         try:
@@ -3699,6 +3898,48 @@ class List(Prim):
         {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
          'type': {'type': 'function', '_funcname': '_methListReverse',
                   'returns': {'type': 'null', }}},
+        {'name': 'slice', 'desc': '''
+            Get a slice of the list.
+
+            Examples:
+                Slice from index to 1 to 5::
+
+                    $x=(f, o, o, b, a, r)
+                    $y=$x.slice(1,5)  // (o, o, b, a)
+
+                Slice from index 3 to the end of the list::
+
+                    $y=$x.slice(3)  // (b, a, r)
+            ''',
+         'type': {'type': 'function', '_funcname': 'slice',
+                  'args': (
+                      {'name': 'start', 'type': 'int', 'desc': 'The starting index.'},
+                      {'name': 'end', 'type': 'int', 'default': None,
+                       'desc': 'The ending index. If not specified, slice to the end of the list.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The slice of the list.'}}},
+
+        {'name': 'extend', 'desc': '''
+            Extend a list using another iterable.
+
+            Examples:
+                Populate a list by extending it with to other lists::
+
+                    $list = $lib.list()
+
+                    $foo = (f, o, o)
+                    $bar = (b, a, r)
+
+                    $list.extend($foo)
+                    $list.extend($bar)
+
+                    // $list is now (f, o, o, b, a, r)
+            ''',
+         'type': {'type': 'function', '_funcname': 'extend',
+                  'args': (
+                      {'name': 'valu', 'type': 'list', 'desc': 'A list or other iterable.'},
+                  ),
+                  'returns': {'type': 'null'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -3717,6 +3958,9 @@ class List(Prim):
             'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
+
+            'slice': self.slice,
+            'extend': self.extend,
         }
 
     async def setitem(self, name, valu):
@@ -3785,6 +4029,19 @@ class List(Prim):
 
     async def _methListSize(self):
         return len(self)
+
+    async def slice(self, start, end=None):
+        start = await toint(start)
+
+        if end is None:
+            return self.valu[start:]
+
+        end = await toint(end)
+        return self.valu[start:end]
+
+    async def extend(self, valu):
+        async for item in toiter(valu):
+            self.valu.append(item)
 
     async def value(self):
         return tuple([await toprim(v) for v in self.valu])

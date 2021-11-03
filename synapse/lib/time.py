@@ -4,6 +4,8 @@ Time related utilities for synapse "epoch millis" time values.
 
 import datetime
 
+from dateutil.relativedelta import relativedelta
+
 import regex
 
 import synapse.exc as s_exc
@@ -12,18 +14,8 @@ EPOCH = datetime.datetime(1970, 1, 1)
 
 tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):(\d{2}))($|(\-\w+|\+\w))')
 
-def parse(text, base=None, chop=False):
-    '''
-    Parse a time string into an epoch millis value.
+def _rawparse(text, base=None, chop=False):
 
-    Args:
-        text (str): Time string to parse
-        base (int or None): Milliseconds to offset the time from
-        chop (bool): Whether the chop the digit-only string to 17 chars
-
-    Returns:
-        int: Epoch milliseconds
-    '''
     text = text.strip().lower().replace(' ', '')
 
     if base is None:
@@ -60,7 +52,48 @@ def parse(text, base=None, chop=False):
         raise s_exc.BadTypeValu(valu=text, name='time',
                                 mesg='Unknown time format')
 
-    return int((dt - EPOCH).total_seconds() * 1000 + base)
+    return dt, base, tlen
+
+def parse(text, base=None, chop=False):
+    '''
+    Parse a time string into an epoch millis value.
+
+    Args:
+        text (str): Time string to parse
+        base (int or None): Milliseconds to offset the time from
+        chop (bool): Whether to chop the digit-only string to 17 chars
+
+    Returns:
+        int: Epoch milliseconds
+    '''
+    dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
+    return int((dtraw - EPOCH).total_seconds() * 1000 + base)
+
+def wildrange(text):
+    '''
+    Parse an interval from a wild card time stamp: 2021/10/31*
+    '''
+    dttick, base, tlen = _rawparse(text)
+    if tlen not in (4, 6, 8, 10, 12, 14):
+        mesg = 'Time wild card position not supported.'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    if tlen == 4:
+        dttock = dttick + relativedelta(years=1)
+    elif tlen == 6:
+        dttock = dttick + relativedelta(months=1)
+    elif tlen == 8:
+        dttock = dttick + relativedelta(days=1)
+    elif tlen == 10:
+        dttock = dttick + relativedelta(hours=1)
+    elif tlen == 12:
+        dttock = dttick + relativedelta(minutes=1)
+    else:  # tlen = 14
+        dttock = dttick + relativedelta(seconds=1)
+
+    tick = int((dttick - EPOCH).total_seconds() * 1000 + base)
+    tock = int((dttock - EPOCH).total_seconds() * 1000 + base)
+    return (tick, tock)
 
 def parsetz(text):
     '''
@@ -107,6 +140,33 @@ def repr(tick, pack=False):
     if pack:
         return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
     return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
+
+def day(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).day
+
+def year(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).year
+
+def month(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).month
+
+def hour(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).hour
+
+def minute(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).minute
+
+def second(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).second
+
+def dayofmonth(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).day - 1
+
+def dayofweek(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).weekday()
+
+def dayofyear(tick):
+    return (EPOCH + datetime.timedelta(milliseconds=tick)).timetuple().tm_yday - 1
 
 def ival(*times):
 

@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.68.0'
+VERSION = '2.69.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -105,6 +105,7 @@ setup(
         'bech32==1.2.0',
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
+        'python-dateutil>=2.8,<3.0',
     ],
 
     extras_require={

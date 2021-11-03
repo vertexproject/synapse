@@ -18,15 +18,20 @@ class StormCliTest(s_test.SynTest):
             opts = pars.parse_args(('woot',))
             self.eq('woot', opts.cortex)
 
+            q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, $lib.dict()), $lib.dict())'
+            await core.callStorm(q)
+
             async with core.getLocalProxy() as proxy:
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
-                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10]')
+                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
                     text = str(outp)
                     self.isin('.....', text)
                     self.isin('inet:ipv4=1.2.3.4', text)
                     self.isin(':type = unicast', text)
+                    self.isin(':_test:score = 7', text)
+                    self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
                     self.isin('#foo = (2012/01/01 00:00:00.000, 2012/01/01 00:00:00.001)', text)

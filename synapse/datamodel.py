@@ -418,17 +418,17 @@ class Model:
     '''
     def __init__(self):
 
-        self.types = {} # name: Type()
-        self.forms = {} # name: Form()
-        self.props = {} # (form,name): Prop() and full: Prop()
+        self.types = {}  # name: Type()
+        self.forms = {}  # name: Form()
+        self.props = {}  # (form,name): Prop() and full: Prop()
         self.ifaces = {}  # name: <ifdef>
-        self.tagprops = {} # name: TagProp()
-        self.formabbr = {} # name: [Form(), ... ]
+        self.tagprops = {}  # name: TagProp()
+        self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
 
         self.univs = {}
 
-        self.propsbytype = collections.defaultdict(list) # name: Prop()
+        self.propsbytype = collections.defaultdict(list)  # name: Prop()
         self.arraysbytype = collections.defaultdict(list)
         # TODO use this for <nodes> -> foo:iface
         self.formsbyiface = collections.defaultdict(list)

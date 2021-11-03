@@ -338,11 +338,13 @@ class InetModelTest(s_t_utils.SynTest):
             'src:proc': 32 * 'c',
             'src:exe': 64 * 'd',
             'src:txbytes': 1,
+            'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 64 * '0',
             'dst:txbytes': 2,
+            'dst:handshake': 'OHai!',
             'src:softnames': ('hehe', 'haha'),
             'dst:softnames': ('foobar', 'bazfaz'),
             'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
@@ -360,6 +362,7 @@ class InetModelTest(s_t_utils.SynTest):
             'src:proc': 32 * 'c',
             'src:exe': 'sha256:' + 64 * 'd',
             'src:txbytes': 1,
+            'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
             'dst:port': 80,
             'dst:proto': 'tcp',
@@ -368,6 +371,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:proc': 32 * 'f',
             'dst:exe': 'sha256:' + 64 * '0',
             'dst:txbytes': 2,
+            'dst:handshake': 'OHai!',
             'src:softnames': ('haha', 'hehe'),
             'dst:softnames': ('bazfaz', 'foobar'),
             'src:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
@@ -455,8 +459,8 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('host'), 'api')
-                #self.eq(node.get('issuffix'), 0)
-                #self.eq(node.get('iszone'), 0)
+                # self.eq(node.get('issuffix'), 0)
+                # self.eq(node.get('iszone'), 0)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:
@@ -577,12 +581,6 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
-
-    def test_http_header(self):
-        pass # this is tested below...
-
-    def test_http_header_name(self):
-        pass # this is tested below...
 
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'

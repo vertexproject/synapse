@@ -46,7 +46,7 @@ class MultiSlabSeqn(s_base.Base):
         if opts is None:
             opts = {}
 
-        self.offsevents: List[Tuple[int, int, asyncio.Event]] = [] # as a heap
+        self.offsevents: List[Tuple[int, int, asyncio.Event]] = []  # as a heap
         self._waitcounter = 0
 
         self.dirn: str = dirn

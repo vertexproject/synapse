@@ -747,6 +747,50 @@ async def _doubleapply(self, indx, item):
     finally:
         s_task.varset('applynest', None)
 
+test_schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": False,
+        "properties": {
+            'key:string': {
+                'description': 'Key String. I have a defval!',
+                'type': 'string',
+                'default': 'Default string!'
+            },
+            'key:integer': {
+                'description': 'Key Integer',
+                'type': 'integer',
+            },
+            'key:number': {
+                'description': 'Key Number',
+                'type': 'number',
+            },
+            'key:object': {
+                'description': 'Key Object',
+                'type': 'object',
+            },
+            'key:array': {
+                'description': 'Key Array',
+                'type': 'array',
+            },
+            'key:bool:defvalfalse': {
+                'description': 'Key Bool, defval false.',
+                'type': 'boolean',
+                'default': False,
+            },
+            'key:bool:defvaltrue': {
+                'description': 'Key Bool, defval true.',
+                'type': 'boolean',
+                'default': True,
+            },
+
+            'key:bool:nodefval': {
+                'description': 'Key Bool, no default.',
+                'type': 'boolean',
+            },
+        },
+        'type': 'object',
+    }
+
 class SynTest(unittest.TestCase):
     '''
     Mark all async test methods as s_glob.synchelp decorated.
@@ -806,12 +850,12 @@ class SynTest(unittest.TestCase):
     def getRegrDir(self, *path):
 
         regr = os.getenv('SYN_REGRESSION_REPO')
-        if regr is None: # pragma: no cover
+        if regr is None:  # pragma: no cover
             raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
 
         regr = s_common.genpath(regr)
 
-        if not os.path.isdir(regr): # pragma: no cover
+        if not os.path.isdir(regr):  # pragma: no cover
             raise Exception('SYN_REGRESSION_REPO is not a dir')
 
         dirn = os.path.join(regr, *path)
@@ -1423,7 +1467,7 @@ class SynTest(unittest.TestCase):
 
             if auth is not None:
 
-                if port is None: # pragma: no cover
+                if port is None:  # pragma: no cover
                     raise Exception('getHttpSess requires port for auth')
 
                 user, passwd = auth
