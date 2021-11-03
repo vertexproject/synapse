@@ -439,7 +439,7 @@ It may help to think of this process as the for loop effectively "splitting" the
 
 .. NOTE::
   
-  Each pipeline still executes **sequentially** - not in parallel. So the first iteration of the for loop (where ``$item=foo``) will execute and the remainder of the Storm pipelien will run to completion; followed by the second iteration of the for loop and the remainder of the Storm pipeline, and so on.  (This is why one instance of ``And we're done!`` prints before the messages associated with the second iteration of the loop where ``$item=bar``, etc.). 
+  Each pipeline still executes **sequentially** - not in parallel. So the first iteration of the for loop (where ``$item=foo``) will execute and the remainder of the Storm pipeline will run to completion; followed by the second iteration of the for loop and the remainder of the Storm pipeline, and so on.  (This is why one instance of ``And we're done!`` prints before the messages associated with the second iteration of the loop where ``$item=bar``, etc.). 
 
 
 For Loop - With Subquery
