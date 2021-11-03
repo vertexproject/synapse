@@ -12,6 +12,8 @@ The_Vertex_Project_ designed and developed Synapse to help analysts and algorith
 
 Synapse's data store (known as a :ref:`gloss-cortex`) is organized as a hypergraph_. Combined with its structured and extensible :ref:`userguide_datamodel` and the powerful and intuitive :ref:`gloss-storm` query language, Synapse gives analysts unparalleled power and flexibility to ask and answer any question, even over large and complex data sets.
 
+.. _intro-features:
+
 Key Features
 ============
 
