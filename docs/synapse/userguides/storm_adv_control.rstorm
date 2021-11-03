@@ -35,7 +35,7 @@ Advanced Storm - Tips
 Storm Operating Concepts - Review
 +++++++++++++++++++++++++++++++++
 
-.. NOTE::
+.. TIP::
 
   It is essential to keep the Storm Operating Concepts in mind when using more advanced Storm queries and constructs. For standard Storm queries, these concepts are intuitive - you don't really need to think about them, and Storm just works. However, these concepts are critical to writing more complex Storm - remembering these fundamentals can save you time and headaches trying to debug a Storm query that is not behaving the way you think it should.
 
