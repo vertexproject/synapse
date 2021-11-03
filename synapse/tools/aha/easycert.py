@@ -100,5 +100,5 @@ async def main(argv, outp=None):  # pragma: no cover
 
     return 0
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

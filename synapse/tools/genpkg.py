@@ -30,11 +30,11 @@ def loadOpticFiles(pkgdef, path):
 
         for name in files:
 
-            if name.startswith('.'): # pragma: no cover
+            if name.startswith('.'):  # pragma: no cover
                 continue
 
             fullname = s_common.genpath(root, name)
-            if not os.path.isfile(fullname): # pragma: no cover
+            if not os.path.isfile(fullname):  # pragma: no cover
                 continue
 
             pkgfname = fullname[len(abspath) + 1:]
@@ -145,6 +145,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False):
         with s_common.genfile(protodir, 'storm', 'commands', name) as fd:
             cmd['storm'] = fd.read().decode()
 
+    for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
+        name = wdef.get('name')
+        wyaml = s_common.yamlload(protodir, 'workflows', f'{name}.yaml')
+        if wyaml is not None:
+            wdef.update(wyaml)
+
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')
 
@@ -200,10 +206,10 @@ async def main(argv, outp=s_output.stdout):
         async with await s_telepath.openurl(opts.push) as core:
             await core.addStormPkg(pkgdef)
 
-        if fini is not None: # pragma: no cover
+        if fini is not None:  # pragma: no cover
             await fini()
 
     return 0
 
-if __name__ == '__main__': # pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

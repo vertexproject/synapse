@@ -9,6 +9,10 @@ Getting Started
 This quick start will help you get a **Cortex** up and running, introduce a few devops basics, and get you access to
 the **Storm** hypergraph query engine.
 
+.. NOTE::
+  If you want to get a basic Synapse instance up and running quickly without the full install process, use
+  synapse-quickstart_!
+
 Installing Synapse
 ==================
 
@@ -186,3 +190,5 @@ See :ref:`storm-ref-intro` for details. Additionally, the HTTPS API is now avail
 See :ref:`http-api` for details.
 
 .. _Index:              ../index.html
+
+.. _synapse-quickstart: https://github.com/vertexproject/synapse-quickstart

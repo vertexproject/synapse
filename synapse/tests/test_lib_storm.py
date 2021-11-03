@@ -21,6 +21,217 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_trycatch(self):
+
+        async with self.getTestCore() as core:
+            self.eq(1, await core.callStorm('''
+                try {
+                    $lib.raise(FooBar, "Foo that bars!", baz=faz)
+                    return((0))
+                } catch FooBar as err {
+                    return((1))
+                }
+            '''))
+
+            self.eq(1, await core.callStorm('''
+                try {
+                    $lib.raise(FooBar, "Foo that bars!", baz=faz)
+                    return((0))
+                } catch (FooBar, BazFaz) as err {
+                    return((1))
+                } catch * as err {
+                    return((2))
+                }
+            '''))
+
+            self.eq('Gronk', await core.callStorm('''
+                try {
+                    $lib.raise(Gronk, "Foo that bars!", baz=faz)
+                    return((0))
+                } catch (FooBar, BazFaz) as err {
+                    return((1))
+                } catch * as err {
+                    return($err.name)
+                }
+            '''))
+
+            msgs = await core.stormlist('''
+                [ inet:fqdn=vertex.link ]
+                try {
+                    [ :lolz = 10 ]
+                } catch * as err {
+                    $lib.print($err.name)
+                }
+            ''')
+            self.stormIsInPrint('NoSuchProp', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('''
+                    [ inet:fqdn=vertex.link ]
+                    try {
+                        [ :lolz = 10 ]
+                    } catch FooBar as err {}
+                ''')
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('''
+                    try {
+                        [ hurr:durr=vertex.link ]
+                    } catch FooBar as err {}
+                ''')
+
+            # We will do lookups with the Raises command to raise the proper synerr
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('''
+                    try {
+                        $lib.raise(NoSuchForm, 'mesg here')
+                    } catch FooBar as err {}
+                ''')
+
+            # We punch through the errname in the exception
+            with self.raises(s_exc.StormRaise) as cm:
+                await core.nodes('''
+                    try {
+                        $lib.raise(NoSuchExceptionNewpers, 'mesg here')
+                    } catch FooBar as err {}
+                ''')
+            self.eq(cm.exception.errname, 'NoSuchExceptionNewpers')
+            self.eq(cm.exception.get('errname'), 'NoSuchExceptionNewpers')
+
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                try {
+                    $lib.print($node.repr())
+                } catch FooBar as err {
+                    $lib.print(FooBar)
+                }
+            '''))
+
+            self.len(1, await core.nodes('''
+                try {
+                    [ inet:fqdn=vertex.link ]
+                } catch FooBar as err {
+                    $lib.print(FooBar)
+                }
+            '''))
+
+            self.len(1, await core.nodes('''
+                try {
+                    $lib.raise(FooBar, foobar)
+                } catch FooBar as err {
+                    [ inet:fqdn=vertex.link ]
+                }
+            '''))
+
+            self.len(2, await core.nodes('''
+                [ inet:fqdn=woot.link ]
+                try {
+                    $lib.raise(FooBar, foobar)
+                } catch FooBar as err {
+                    [ inet:fqdn=vertex.link ]
+                }
+            '''))
+
+            # Nesting works
+            q = '''
+            $lib.print('init')
+            try {
+                $lib.print('nested try catch')
+                try {
+                    $lib.print('nested raise')
+                    $lib.raise($errname, mesg='inner error!')
+                } catch foo as err {
+                    $lib.print('caught foo e={e}', e=$err)
+                    if $innerRaise {
+                        $lib.raise($innererrname, mesg='inner error!')
+                    }
+                }
+                $lib.print('no foo err!')
+            } catch bar as err {
+                $lib.print('caught bar e={e}', e=$err)
+            }
+            $lib.print('fin')'''
+            msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': '', 'innerRaise': False, }})
+            self.stormIsInPrint('caught foo', msgs)
+            self.stormNotInPrint('caught bar', msgs)
+            self.stormIsInPrint('fin', msgs)
+
+            msgs = await core.stormlist(q, {'vars': {'errname': 'bar', 'innererrname': '', 'innerRaise': False, }})
+            self.stormNotInPrint('caught foo', msgs)
+            self.stormIsInPrint('caught bar', msgs)
+            self.stormIsInPrint('fin', msgs)
+
+            msgs = await core.stormlist(q, {'vars': {'errname': 'baz', 'innererrname': '', 'innerRaise': False, }})
+            self.stormNotInPrint('caught foo', msgs)
+            self.stormNotInPrint('caught bar', msgs)
+            self.stormNotInPrint('fin', msgs)
+
+            # We can also raise inside of a catch block
+            msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': 'bar', 'innerRaise': True, }})
+            self.stormIsInPrint('caught foo', msgs)
+            self.stormIsInPrint('caught bar', msgs)
+            self.stormIsInPrint('fin', msgs)
+
+            msgs = await core.stormlist(q, {'vars': {'errname': 'foo', 'innererrname': 'baz', 'innerRaise': True, }})
+            self.stormIsInPrint('caught foo', msgs)
+            self.stormNotInPrint('caught bar', msgs)
+            self.stormNotInPrint('fin', msgs)
+
+            # The items in the catch list must be a a str or list of iterables.
+            # Anything else raises a Storm runtime error
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('''
+                try {
+                    $lib.raise(foo, test)
+                } catch $lib.true as err{
+                    $lib.print('caught')
+                }
+                ''')
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('''
+                try {
+                    $lib.raise(foo, test)
+                } catch (1) as err {
+                    $lib.print('caught')
+                }
+                ''')
+
+            # A list of mixed objects works
+            msgs = await core.stormlist('''
+            try {
+                $lib.raise(foo, test)
+            } catch (1, $lib.true, foo) as err {
+                $lib.print('caught err={e}', e=$err)
+            }
+            ''')
+            self.stormIsInPrint('caught err=', msgs)
+
+    async def test_storm_ifcond_fix(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('''
+                [ inet:fqdn=vertex.link inet:fqdn=foo.com inet:fqdn=bar.com ]
+
+                function stuff(x) {
+                  if ($x.0 = "vertex.link") {
+                      return((1))
+                  }
+                  return((0))
+                }
+
+                $alerts = $lib.list()
+                { $alerts.append($node.repr()) }
+
+                $bool = $stuff($alerts)
+
+                if $bool { $lib.print($alerts) }
+
+                | spin
+            ''')
+            self.stormNotInPrint('foo.com', msgs)
+
     async def test_lib_storm_basics(self):
         # a catch-all bucket for simple tests to avoid cortex construction
         async with self.getTestCore() as core:
@@ -209,20 +420,22 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('for $x in $lib.axon.list() { $lib.print($x) }', opts=opts)
 
             # test wget runtsafe / per-node / per-node with cmdopt
-            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active')
+            nodes = await core.nodes(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:urlfile')
 
-            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget')
+            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:urlfile')
 
-            nodes = await core.nodes(f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget :url')
+            q = f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify :url'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'inet:urlfile')
 
             # check that the file name got set...
-            nodes = await core.nodes(f'wget https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active')
+            q = f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef[0], 'file:bytes')
             sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
@@ -245,7 +458,7 @@ class StormTest(s_t_utils.SynTest):
             items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.len(0, items)
 
-            msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/newp')
+            msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
 
             self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
@@ -264,7 +477,7 @@ class StormTest(s_t_utils.SynTest):
                 await asyncio.sleep(2)
 
             with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
-                msgs = await core.stormlist(f'wget https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active --timeout 1')
                 self.stormIsInWarn('TimeoutError', msgs)
 
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
@@ -636,6 +849,24 @@ class StormTest(s_t_utils.SynTest):
             for (iden, cron) in core.agenda.list():
                 cron.view = None
             await core.nodes('cron.list')
+
+            # test that stormtypes nodes can be yielded
+            self.len(1, await core.nodes('for $x in ${ [inet:ipv4=1.2.3.4] } { yield $x }'))
+
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('''
+                return($lib.dict( // do foo thing
+                    foo /* hehe */ = /* haha */ bar, //lol
+                    baz // hehe
+                    = // haha
+                    faz // hehe
+                ))
+            '''))
+
+            self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
+                return($lib.list( // do foo thing
+                    /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
+                ))
+            '''))
 
     async def test_storm_diff_merge(self):
 
@@ -1546,9 +1777,9 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('inet:ipv4', 0x05050505))
 
             # test runtsafe and non-runtsafe failure to create node
-            msgs = await core.stormlist('scrape "https://t.c…"')
+            msgs = await core.stormlist('scrape "https://t.c\\\\"')
             self.stormIsInWarn('BadTypeValue', msgs)
-            msgs = await core.stormlist('[ media:news=* :title="https://t.c…" ] | scrape :title')
+            msgs = await core.stormlist('[ media:news=* :title="https://t.c\\\\" ] | scrape :title')
             self.stormIsInWarn('BadTypeValue', msgs)
 
             await core.nodes('trigger.add node:add --query {[ +#foo.com ]} --form inet:ipv4')
@@ -2882,3 +3113,13 @@ class StormTest(s_t_utils.SynTest):
                 | woot $node |
                 $lib.print($path.vars.fqdn)
             '''))
+
+    async def test_storm_version(self):
+
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+
+                msgs = await core.stormlist('version')
+
+                self.stormIsInPrint('Synapse Version:', msgs)
+                self.stormIsInPrint('Commit Hash:', msgs)

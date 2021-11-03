@@ -44,6 +44,52 @@ class Newp:
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_registry(self):
+
+        class NewpType(s_stormtypes.StormType):
+            _storm_locals = ()
+            _storm_typename = 'storm:type:newp'
+
+        self.notin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.notin('storm:type:newp', s_stormtypes.registry.undefined_types)
+        s_stormtypes.registry.registerType(NewpType)
+        self.isin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.notin('storm:type:newp', s_stormtypes.registry.undefined_types)
+        s_stormtypes.registry.delStormType(NewpType.__name__)
+
+        self.notin('storm:type:newp', s_stormtypes.registry.known_types)
+        self.isin('storm:type:newp', s_stormtypes.registry.undefined_types)
+
+        # Remove the modification from the global
+        s_stormtypes.registry.undefined_types.discard('storm:type:newp')
+
+    async def test_storm_binstuff(self):
+        async with self.getTestCore() as core:
+            self.eq((1, 2, 3), await core.callStorm('''
+                return($lib.hex.decode(010002000300).unpack("<HHH"))
+            '''))
+
+            self.eq(b'\x03\x00', await core.callStorm('''
+                return($lib.hex.decode(010002000300).slice(4,6))
+            '''))
+
+            self.eq(b'\x03\x00', await core.callStorm('''
+                return($lib.hex.decode(010002000300).slice(4))
+            '''))
+
+            self.eq('010002000300', await core.callStorm('''
+                return($lib.hex.encode($lib.hex.decode(010002000300)))
+            '''))
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.decode(asdf))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.encode(asdf))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.decode(010002000300).unpack("<ZZ"))')
+
     async def test_storm_debug(self):
 
         async with self.getTestCore() as core:
@@ -202,6 +248,14 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('$lib.trycast(newp, asdf)')
 
+            self.eq(4, await core.callStorm('$x = asdf return($x.size())'))
+            self.eq(2, await core.callStorm('$x = asdf return($x.find(d))'))
+            self.eq(None, await core.callStorm('$x = asdf return($x.find(v))'))
+
+            self.eq(('f', 'o', 'o'), await core.callStorm('$x = $lib.list() $x.extend((f, o, o)) return($x)'))
+            self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1, 5))'))
+            self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1))'))
+
             self.true(await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).0)'))
             self.false(await core.callStorm('return($lib.trycast(inet:ipv4, asdf).0)'))
 
@@ -358,6 +412,28 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[0], 'StormRuntimeError')
             self.isin('Invalid clamp length.', err[1].get('mesg'))
 
+            # lib.guid()
+            opts = {'vars': {'x': {'foo': 'bar'}, 'y': ['foo']}}
+            guid00 = await core.callStorm('return($lib.guid($x, $y))', opts=opts)
+            guid01 = await core.callStorm('$x=$lib.dict(foo=bar) $y=$lib.list(foo) return($lib.guid($x, $y))')
+            self.eq(guid00, guid01)
+
+            guid00 = await core.callStorm('return($lib.guid(foo))')
+            guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
+            self.eq(guid00, guid01)
+
+            guid = await core.callStorm('return($lib.guid($lib.undef))')
+            self.eq(s_common.guid(()), guid)
+
+            guid = await core.callStorm('return($lib.guid(($lib.undef,)))')
+            self.eq(s_common.guid(((),)), guid)
+
+            guid = await core.callStorm('return($lib.guid($lib.dict(foo=($lib.undef,))))')
+            self.eq(s_common.guid(({'foo': ()},)), guid)
+
+            mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
+            self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
+
             # lib.range()
             q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
 
@@ -416,6 +492,13 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 async with core.getLocalProxy(user='lowuser') as proxy:
                     await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
+
+            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(nodes[0]))
+            stormnode = s_stormtypes.Node(nodes[0])
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
 
     async def test_storm_lib_ps(self):
 
@@ -1910,6 +1993,18 @@ class StormTypesTest(s_test.SynTest):
                 self.ne(id(data0[0][0]), id(data1[0][0]))
                 self.eq(data0[0][0].ndef, data1[0][0].ndef)
 
+            # Get time parts
+            self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
+            self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
+            self.eq(31, await core.callStorm('return($lib.time.day(20211031020304))'))
+            self.eq(2, await core.callStorm('return($lib.time.hour(20211031020304))'))
+            self.eq(3, await core.callStorm('return($lib.time.minute(20211031020304))'))
+            self.eq(4, await core.callStorm('return($lib.time.second(20211031020304))'))
+            self.eq(6, await core.callStorm('return($lib.time.dayofweek(20211031020304))'))
+            self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
+            self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
+            self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
@@ -3075,6 +3170,28 @@ class StormTypesTest(s_test.SynTest):
             counts = await core.callStorm('return( $lib.view.get().getFormCounts() )')
             self.eq(counts.get('test:int'), 1003)
             self.eq(counts.get('test:guid'), 1)
+
+    async def test_storm_view_deporder(self):
+
+        async with self.getTestCore() as core:
+            view1 = await core.view.fork()
+            view2 = await core.view.fork()
+            layr1 = await core.addLayer()
+            layr2 = await core.addLayer()
+            view3 = await core.addView({'layers': (layr1['iden'], layr2['iden'])})
+            expect = (
+                core.view.iden,
+                view3['iden'],
+                view1['iden'],
+                view2['iden'],
+            )
+            self.eq(expect, await core.callStorm('''
+                $views = $lib.list()
+                for $view in $lib.view.list(deporder=$lib.true) {
+                    $views.append($view.iden)
+                }
+                return($views)
+            '''))
 
     async def test_storm_lib_trigger(self):
 
@@ -4620,7 +4737,7 @@ class StormTypesTest(s_test.SynTest):
         self.eq(True, await s_stormtypes.tobool(s_stormtypes.Bytes(b'asdf')))
 
         self.eq((1, 3), await s_stormtypes.toprim([1, s_exc.SynErr, 3]))
-        self.eq('bar', (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr}))['foo'])
+        self.eq({'foo': 'bar'}, (await s_stormtypes.toprim({'foo': 'bar', 'exc': s_exc.SynErr})))
 
         self.eq(1, await s_stormtypes.toint(s_stormtypes.Bool(True)))
         self.eq('true', await s_stormtypes.tostr(s_stormtypes.Bool(True)))
@@ -4913,3 +5030,41 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return( $lib.export.toaxon(${.created}, (bad, opts,)) )')
+
+    async def test_storm_nodes_edges(self):
+
+        async with self.getTestCore() as core:
+
+            iden = await core.callStorm('[ ou:industry=* ] return($node.iden())')
+
+            opts = {'vars': {'iden': iden}}
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            self.eq(nodes[0].iden(), iden)
+
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(0)) { -> { yield $n2iden } }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
+            self.len(1, nodes)
+            self.eq('ou:industry', nodes[0].ndef[0])
+
+            nodes = await core.nodes('ou:industry for ($verb, $n1iden) in $node.edges(reverse=(1)) { -> { yield $n1iden } }')
+            self.len(1, nodes)
+            self.eq('inet:ipv4', nodes[0].ndef[0])
+
+            iden = await core.callStorm('ou:industry=* return($node.iden())')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.delEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            self.len(0, nodes)
+
+            with self.raises(s_exc.BadCast):
+                await core.nodes('ou:industry $node.addEdge(foo, bar)')
+
+            with self.raises(s_exc.BadCast):
+                await core.nodes('ou:industry $node.delEdge(foo, bar)')

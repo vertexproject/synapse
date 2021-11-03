@@ -5,6 +5,149 @@ Synapse Changelog
 *****************
 
 
+v2.70.0 - 2021-11-03
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:dst:handshake`` and ``src:handshake`` properties to ``inet:flow`` to
+  record text representations of the handshake strings of a given connection.
+  (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
+- Add a ``proj:attachment`` form to the ``project`` model to represent
+  attachments to a given ``proj:ticket``.
+  (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
+- Add a implicit wildcard behavior to the ``time`` type when lifting or
+  filtering nodes. Dates ending in a ``*`` are converted into ranges covering
+  all possible times in them. For example, ``.created=202101*`` would lift all
+  nodes created on the first month of 2021.
+  (`#2446 <https://github.com/vertexproject/synapse/pull/2446>`_)
+- Add the following ``$lib.time`` functions to chop information from a time
+  value.
+  (`#2446 <https://github.com/vertexproject/synapse/pull/2446>`_)
+
+    - ``$lib.time.year()``
+    - ``$lib.time.month()``
+    - ``$lib.time.day()``
+    - ``$lib.time.hour()``
+    - ``$lib.time.minute()``
+    - ``$lib.time.second()``
+    - ``$lib.time.dayofweek()``
+    - ``$lib.time.dayofmonth()``
+    - ``$lib.time.monthofyear()``
+
+- Add ``List.extend()``, ``List.slice()``, ``Str.find()``, and ``Str.size()``
+  functions to Stormtypes.
+  (`#2450 <https://github.com/vertexproject/synapse/pull/2450>`_)
+  (`#2451 <https://github.com/vertexproject/synapse/pull/2451>`_)
+- Add ``$lib.json.schema()`` and a ``storm:json:schema`` object to Stormtypes.
+  These can be used to validate arbitrary data JSON structures in Storm using
+  JSON Schema.
+  (`#2448 <https://github.com/vertexproject/synapse/pull/2448>`_)
+- Update syntax checking rules and address deprecation warnings for strings
+  in the Synapse codebase.
+  (`#2426 <https://github.com/vertexproject/synapse/pull/2426>`_)
+
+
+v2.69.0 - 2021-11-02
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for building Optic Workflows for Storm Packages in the
+  ``synapse.tools.genpkg`` tool.
+  (`#2444 <https://github.com/vertexproject/synapse/pull/2444>`_)
+- The ``synapse.tools.storm`` CLI tool now prints out node properties in
+  precedence order.
+  (`#2449 <https://github.com/vertexproject/synapse/pull/2449>`_)
+- Update the global Stormtypes registry to better track types when they are
+  added or removed.
+  (`#2447 <https://github.com/vertexproject/synapse/pull/2447>`_)
+
+
+v2.68.0 - 2021-10-29
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``crypto:currency:transaction``, ``crypto:currency:block``,
+  ``crypto:smart:contract`` and ``econ:acct:balanc`` forms.
+  (`#2423 <https://github.com/vertexproject/synapse/pull/2423>`_)
+- Add ``$lib.hex.decode()`` and ``$lib.hex.encode()`` Stormtypes functions to
+  encode and decode hexidecimal data as bytes. Add ``slice()`` and
+  ``unpack()`` methods to the Storm Bytes object.
+  (`#2441 <https://github.com/vertexproject/synapse/pull/2441>`_)
+- Add ``$lib.yaml`` and ``$lib.xml`` Stormtypes libraries for interacting with
+  YAML and XML text, respectively.
+  (`#2434 <https://github.com/vertexproject/synapse/pull/2434>`_)
+- Add a Storm ``version`` command to show the user the current version of
+  Synapse the Cortex is using.
+  (`#2440 <https://github.com/vertexproject/synapse/pull/2440>`_)
+
+Bugfixes
+--------
+- Fix overzealous ``if`` statement caching in Storm.
+  (`#2442 <https://github.com/vertexproject/synapse/pull/2442>`_)
+
+
+v2.67.0 - 2021-10-27
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$node.addEdge()`` and ``$node.delEdge()`` APIs in Storm to allow for
+  programatically setting edges. Add a ``reverse`` argument to
+  ``$node.edges()`` that allows traversing edges in reverse.
+  (`#2351 <https://github.com/vertexproject/synapse/pull/2351>`_)
+
+Bugfixes
+--------
+- Fix a pair of regressions related to unicode/IDNA support for scraping and
+  normalizing FQDNs.
+  (`#2436 <https://github.com/vertexproject/synapse/pull/2436>`_)
+
+Improved Documentation
+----------------------
+- Add documentation for the Cortex ``api/v1/storm/call`` HTTP API endpoint.
+  (`#2435 <https://github.com/vertexproject/synapse/pull/2435>`_)
+
+
+v2.66.0 - 2021-10-26
+====================
+
+Features and Enhancements
+-------------------------
+- Improve unicode/IDNA support for scraping and normalizing FQDNs.
+  (`#2408 <https://github.com/vertexproject/synapse/pull/2408>`_)
+- Add ``$lib.inet.http.ouath`` to support OAuth based workflows in Storm,
+  starting with OAuth v1.0 support.
+  (`#2413 <https://github.com/vertexproject/synapse/pull/2413>`_)
+- Replace ``pysha3`` requirement with ``pycryptodome``.
+  (`#2422 <https://github.com/vertexproject/synapse/pull/2422>`_)
+- Add a ``tls:ca:dir`` configuration option to the Cortex and Axon. This can
+  be used to provide a directory of CA certificate files which are used in
+  Storm HTTP API and Axon wget/wput APIs.
+  (`#2429 <https://github.com/vertexproject/synapse/pull/2429>`_)
+
+Bugfixes
+--------
+- Catch and raise bad ctors given in RStorm ``storm-cortex`` directives.
+  (`#2424 <https://github.com/vertexproject/synapse/pull/2424>`_)
+- Fix an issue with the ``cron.at`` command not properly capturing the current
+  view when making the Cron job.
+  (`#2425 <https://github.com/vertexproject/synapse/pull/2425>`_)
+- Disallow the creation of extended properties, universal properties, and tag
+  properties which are not valid properties in the Storm grammar.
+  (`#2428 <https://github.com/vertexproject/synapse/pull/2428>`_)
+- Fix an issue with ``$lib.guid()`` missing a ``toprim()`` call on its input.
+  (`#2421 <https://github.com/vertexproject/synapse/pull/2421>`_)
+
+Improved Documentation
+----------------------
+- Update our Cell devops documentation to note how to replace the TLS keypair
+  used by the built in webserver with third party certificates.
+  (`#2432 <https://github.com/vertexproject/synapse/pull/2432>`_)
+
+
 v2.65.0 - 2021-10-16
 ====================
 

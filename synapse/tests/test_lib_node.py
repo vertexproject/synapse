@@ -173,7 +173,7 @@ class NodeTest(s_t_utils.SynTest):
                 await node.addTag('cool', valu=(1, 3))  # Add again with different valu
                 self.eq(node.getTag('cool'), (1, 3))
                 await node.addTag('cool', valu=(-5, 0))  # Add again with different valu
-                self.eq(node.getTag('cool'), (-5, 3)) # merges...
+                self.eq(node.getTag('cool'), (-5, 3))  # merges...
 
                 self.true(node.hasTag('cool'))
                 self.true(node.hasTag('#cool'))
@@ -436,3 +436,12 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(node.tagprops, {'foo.test': {'limit': 1000}})
             node.tagprops['foo.test'].pop('limit')
             self.eq(node.tagprops, {'foo.test': {}})
+
+    async def test_node_edges(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5]')
+            with self.raises(s_exc.BadArg):
+                await nodes[0].addEdge('foo', 'bar')
+            with self.raises(s_exc.BadArg):
+                await nodes[0].delEdge('foo', 'bar')

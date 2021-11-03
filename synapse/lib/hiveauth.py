@@ -491,8 +491,8 @@ class AuthGate(s_base.Base):
 
         self.node = node
 
-        self.gateroles = {} # iden -> HiveRole
-        self.gateusers = {} # iden -> HiveUser
+        self.gateroles = {}  # iden -> HiveRole
+        self.gateusers = {}  # iden -> HiveUser
 
         for useriden, usernode in await node.open(('users',)):
 
@@ -614,7 +614,7 @@ class HiveRuler(s_base.Base):
 
         self.authgates = {}
 
-    async def _setRulrInfo(self, name, valu, gateiden=None): # pragma: no cover
+    async def _setRulrInfo(self, name, valu, gateiden=None):  # pragma: no cover
         raise s_exc.NoSuchImpl(mesg='Subclass must implement _setRulrInfo')
 
     def getRules(self, gateiden=None):

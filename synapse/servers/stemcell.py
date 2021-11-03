@@ -32,9 +32,9 @@ def getStemCell(dirn):
     mesg = f'No such file: {cellyaml} and SYN_STEM_CELL_CTOR environmt variable is not set.'
     raise s_exc.NoSuchFile(mesg=mesg)
 
-async def main(argv, outp=s_output.stdout):  #pragma: no cover
+async def main(argv, outp=s_output.stdout):  # pragma: no cover
     ctor = getStemCell(argv[0])
     return await ctor.execmain(argv, outp=outp)
 
-if __name__ == '__main__':  #pragma: no cover
+if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

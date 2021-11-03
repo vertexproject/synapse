@@ -785,6 +785,25 @@ stormcmds = (
         ''',
     },
     {
+        'name': 'version',
+        'descr': 'Show version metadata relating to Synapse.',
+        'storm': '''
+            $comm = $lib.version.commit()
+            $synv = $lib.version.synapse()
+
+            if $synv {
+                $synv = $lib.str.join('.', $synv)
+            }
+
+            if $comm {
+                $comm = $comm.slice(0,7)
+            }
+
+            $lib.print('Synapse Version: {s}', s=$synv)
+            $lib.print('Commit Hash: {c}', c=$comm)
+        ''',
+    },
+    {
         'name': 'view.add',
         'descr': 'Add a view to the cortex.',
         'cmdargs': (
@@ -1576,7 +1595,7 @@ class Runtime(s_base.Base):
 
         self.query = query
 
-        self.readonly = opts.get('readonly', False) # EXPERIMENTAL: Make it safe to run untrusted queries
+        self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
@@ -1618,13 +1637,13 @@ class Runtime(s_base.Base):
                 await valu.fini()
 
     async def dyncall(self, iden, todo, gatekeys=()):
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         return await self.snap.core.dyncall(iden, todo, gatekeys=gatekeys)
 
     async def dyniter(self, iden, todo, gatekeys=()):
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         async for item in self.snap.core.dyniter(iden, todo, gatekeys=gatekeys):
@@ -1637,7 +1656,7 @@ class Runtime(s_base.Base):
         gatekeys = ()
         if perm is not None:
             gatekeys = ((self.user.iden, perm, None),)
-        #bypass all perms checks if we are running asroot
+        # bypass all perms checks if we are running asroot
         if self.asroot:
             gatekeys = ()
         return await self.snap.core.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -2308,7 +2327,7 @@ class Cmd:
 
         try:
             self.opts = self.pars.parse_args(self.argv)
-        except s_exc.BadSyntax: # pragma: no cover
+        except s_exc.BadSyntax:  # pragma: no cover
             pass
 
         for line in self.pars.mesgs:
@@ -2316,7 +2335,7 @@ class Cmd:
 
         return not self.pars.exited
 
-    async def execStormCmd(self, runt, genr): # pragma: no cover
+    async def execStormCmd(self, runt, genr):  # pragma: no cover
         ''' Abstract base method '''
         raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
         for item in genr:
@@ -3547,7 +3566,7 @@ class ParallelCmd(Cmd):
 
             await outq.put(None)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
         except Exception as e:
@@ -3574,7 +3593,7 @@ class ParallelCmd(Cmd):
                     async for pumpitem in genr:
                         await inq.put(pumpitem)
                     [await inq.put(None) for i in range(size)]
-                except asyncio.CancelledError: # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
                 except Exception as e:
                     await outq.put(e)
