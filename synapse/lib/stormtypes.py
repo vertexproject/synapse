@@ -4969,17 +4969,11 @@ class Path(Prim):
     def getObjLocals(self):
         return {
             'idens': self._methPathIdens,
-            'trace': self._methPathTrace,
             'listvars': self._methPathListVars,
         }
 
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
-
-    async def _methPathTrace(self):
-        s_common.deprecated('$path.trace()', '2.71.0', '2.74.0')
-        trace = self.valu.trace()
-        return Trace(trace)
 
     async def _methPathListVars(self):
         return list(self.path.vars.items())

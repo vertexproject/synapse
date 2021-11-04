@@ -1659,41 +1659,6 @@ class StormTypesTest(s_test.SynTest):
                 self.len(1, pode[1]['path'])
                 self.eq('bar', pode[1]['path']['foo'])
 
-    async def test_storm_trace(self):
-        async with self.getTestCore() as core:
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-
-            q = '''
-                inet:fqdn=vertex.link
-
-                $trace=$path.trace()
-
-                -> inet:dns:a -> inet:ipv4
-
-                /* Make a trace object from a path which already has nodes */
-                $trace2=$path.trace()
-
-                [ graph:node="*" ] +graph:node [ :data=$trace.idens() ]
-
-                /* Print the contents of the second trace */
-                $lib.print($trace2.idens())
-                '''
-            mesgs = await core.stormlist(q)
-            podes = [m[1] for m in mesgs if m[0] == 'node']
-            self.len(1, podes)
-            pode = podes[0]
-
-            idens = (
-                '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
-                '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
-            )
-
-            self.eq(tuple(sorted(pode[1]['props'].get('data'))), idens)
-
-            for iden in idens:
-                self.stormIsInPrint(iden, mesgs)
-
     async def test_stormuser(self):
         # Do not include persistent vars support in this test see
         # test_persistent_vars for that behavior.
