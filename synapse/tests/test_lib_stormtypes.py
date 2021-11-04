@@ -1407,25 +1407,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('There are 8 items in the set', msgs)
             self.ne(alpha, section)
 
-            # trace
-            q = '''
-                init {
-                    $set = $lib.set()
-                }
-                inet:ipv4
-
-                $trace = $path.trace()
-                $set.add($trace)
-                $set.add($trace)
-                $set.add($trace)
-
-                fini {
-                    $lib.print('There are {count} items in the set', count=$lib.len($set))
-                }
-            '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('There are 2 items in the set', msgs)
-
             # trigger
             q = '''
                 $trig = $lib.trigger.add($tdef)
