@@ -4977,6 +4977,7 @@ class Path(Prim):
         return [n.iden() for n in self.valu.nodes]
 
     async def _methPathTrace(self):
+        s_common.deprecated('$path.trace()', '2.71.0', '2.74.0')
         trace = self.valu.trace()
         return Trace(trace)
 
