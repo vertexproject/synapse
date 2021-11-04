@@ -4945,11 +4945,6 @@ class Path(Prim):
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
-        {'name': 'trace',
-         'desc': 'Make a trace object for the Path. '
-                 'This allows tracking pivots from a arbitrary location in a query.',
-         'type': {'type': 'function', '_funcname': '_methPathTrace',
-                  'returns': {'type': 'storm:node:path:trace', 'desc': 'The trace object.', }}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -4977,34 +4972,6 @@ class Path(Prim):
 
     async def _methPathListVars(self):
         return list(self.path.vars.items())
-
-@registry.registerType
-class Trace(Prim):
-    '''
-    Storm API wrapper for the Path Trace object.
-    '''
-    _storm_locals = (
-        {'name': 'idens', 'desc': 'Get the idens in the current trace object.',
-         'type': {'type': 'function', '_funcname': '_methTraceIdens',
-                  'returns': {'type': 'list', 'desc': 'A List of Node idens.', }}},
-    )
-    _storm_typename = 'storm:node:path:trace'
-    _ismutable = False
-
-    def __init__(self, trace, path=None):
-        Prim.__init__(self, trace, path=path)
-        self.locls.update(self.getObjLocals())
-
-    def __hash__(self):
-        return hash((self._storm_typename, tuple([n.iden() for n in self.valu.nodes])))
-
-    def getObjLocals(self):
-        return {
-            'idens': self._methTraceIdens,
-        }
-
-    async def _methTraceIdens(self):
-        return [n.iden() for n in self.valu.nodes]
 
 @registry.registerType
 class Text(Prim):
