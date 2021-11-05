@@ -1646,6 +1646,7 @@ class StormTypesTest(s_test.SynTest):
                     $path.meta.foo = bar
                     $path.meta.baz = faz
                     $path.meta.baz = $lib.undef
+                    $path.meta.biz = ('neato', 'burrito')
                     {
                         for ($name, $valu) in $path.meta {
                             $lib.print('meta: {name}={valu}', name=$name, valu=$valu)
@@ -1655,9 +1656,45 @@ class StormTypesTest(s_test.SynTest):
                 ''').list()
                 self.stormIsInPrint('foofoofoo', msgs)
                 self.stormIsInPrint('meta: foo=bar', msgs)
+                self.stormIsInPrint("meta: biz=('neato', 'burrito')", msgs)
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
-                self.len(1, pode[1]['path'])
+                self.len(2, pode[1]['path'])
                 self.eq('bar', pode[1]['path']['foo'])
+
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.foobar = $lib.list('neato', 'burrito')
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.eq(pode[1]['path'], {'foobar': ('neato', 'burrito')})
+
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.wat = $lib.dict(foo=bar, biz=baz, thing=$lib.dict(1=2, 2=(a, b, c), five=nine))
+                $path.meta.neato = (awesome, burrito)
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.eq(('awesome', 'burrito'), path['neato'])
+                self.eq('bar', path['wat']['foo'])
+                self.eq('baz', path['wat']['biz'])
+                self.eq('nine', path['wat']['thing']['five'])
+                self.eq('2', path['wat']['thing']['1'])
+                self.eq(('a', 'b', 'c'), path['wat']['thing']['2'])
+
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.$node = $lib.list('foo', 'bar')
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.len(1, path)
+                key = list(path.keys())[0]
+                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.eq(('foo', 'bar'), path[key])
 
     async def test_storm_trace(self):
         async with self.getTestCore() as core:

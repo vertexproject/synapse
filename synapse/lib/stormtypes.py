@@ -4890,13 +4890,13 @@ class PathMeta(Prim):
         Prim.__init__(self, None, path=path)
 
     async def deref(self, name):
-        return self.path.metadata.get(name)
+        return self.path.metadata.get(await toprim(name))
 
     async def setitem(self, name, valu):
         if valu is undef:
             self.path.metadata.pop(name, None)
             return
-        self.path.meta(name, valu)
+        self.path.meta(await toprim(name), await toprim(valu))
 
     async def iter(self):
         # prevent "edit while iter" issues
