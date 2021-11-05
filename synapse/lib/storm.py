@@ -1395,7 +1395,7 @@ class DmonManager(s_base.Base):
 
     async def _stopAllDmons(self):
         futs = [dmon.stop() for dmon in self.dmons.values()]
-        if futs is None:
+        if not futs:
             return
         logger.debug('Stopping Dmons')
         await asyncio.gather(*futs)
@@ -1488,7 +1488,7 @@ class StormDmon(s_base.Base):
         logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'dmoniden': self.iden}})
 
     async def run(self):
-        if self.task is not None:
+        if self.task:  # pragma: no cover
             raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
                                iden=self.iden)
         self.task = self.schedCoro(self.dmonloop())
