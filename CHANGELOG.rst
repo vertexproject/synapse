@@ -5,6 +5,24 @@ Synapse Changelog
 *****************
 
 
+v2.71.1 - 2021-11-08
+====================
+
+Bugfixes
+--------
+- Fix an issue where ``$path.meta`` data was not being properly serialized
+  when heavy Stormtype objects were set on the ``$path.meta`` dictionary.
+  (`#2456 <https://github.com/vertexproject/synapse/pull/2456>`_)
+- Fix an issue with Stormtypes ``Str.encode()`` and ``Bytes.decode()`` methods
+  when handling potentially malformed Unicode string data.
+  (`#2457 <https://github.com/vertexproject/synapse/pull/2457>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm Control Flow documentation with additional examples.
+  (`#2443 <https://github.com/vertexproject/synapse/pull/2443>`_)
+
+
 v2.70.0 - 2021-11-03
 ====================
 
