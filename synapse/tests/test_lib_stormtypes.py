@@ -1656,7 +1656,7 @@ class StormTypesTest(s_test.SynTest):
                 ''').list()
                 self.stormIsInPrint('foofoofoo', msgs)
                 self.stormIsInPrint('meta: foo=bar', msgs)
-                self.stormIsInPrint("meta: biz=('neato', 'burrito')", msgs)
+                self.stormIsInPrint("meta: biz=['neato', 'burrito']", msgs)
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
                 self.len(2, pode[1]['path'])
                 self.eq('bar', pode[1]['path']['foo'])
@@ -1695,6 +1695,20 @@ class StormTypesTest(s_test.SynTest):
                 key = list(path.keys())[0]
                 self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
                 self.eq(('foo', 'bar'), path[key])
+
+                q = '''
+                inet:fqdn=vertex.link
+                $test = $lib.dict(foo=bar)
+                $path.meta.data = $test
+                $test.biz = baz
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.len(1, path)
+                self.len(2, path['data'])
+                self.eq('bar', path['data']['foo'])
+                self.eq('baz', path['data']['biz'])
 
     async def test_storm_trace(self):
         async with self.getTestCore() as core:
