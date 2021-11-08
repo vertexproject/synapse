@@ -3261,6 +3261,8 @@ class Str(Prim):
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Encoding to use. Defaults to utf8.',
                        'default': 'utf8', },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Error handling to use. Defaults to surrogatepass.',
+                       'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The encoded string.', }}},
         {'name': 'replace', 'desc': '''
@@ -3448,11 +3450,11 @@ class Str(Prim):
     async def _methStrSize(self):
         return len(self.valu)
 
-    async def _methEncode(self, encoding='utf8'):
+    async def _methEncode(self, encoding='utf8', errors='surrogatepass'):
         try:
-            return self.valu.encode(encoding)
+            return self.valu.encode(encoding, errors=errors)
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=str(self.valu)[:1024]) from None
 
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
@@ -3517,6 +3519,7 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Error handling to use.', 'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -3649,9 +3652,9 @@ class Bytes(Prim):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
-    async def _methDecode(self, encoding='utf8'):
+    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
         try:
-            return self.valu.decode(encoding)
+            return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
 
@@ -7421,7 +7424,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8')
+            return valu.decode('utf8', 'surrogatepass')
 
         return str(valu)
     except Exception as e:
