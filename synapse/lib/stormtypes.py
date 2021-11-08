@@ -3649,7 +3649,7 @@ class Bytes(Prim):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
-    async def _methDecode(self, encoding='utf8', ):
+    async def _methDecode(self, encoding='utf8'):
         try:
             return self.valu.decode(encoding, 'surrogatepass')
         except UnicodeDecodeError as e:
