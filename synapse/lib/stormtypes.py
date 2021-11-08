@@ -3261,8 +3261,6 @@ class Str(Prim):
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Encoding to use. Defaults to utf8.',
                        'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Error handling to use. Defaults to surrogatepass.',
-                       'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The encoded string.', }}},
         {'name': 'replace', 'desc': '''
@@ -3450,9 +3448,9 @@ class Str(Prim):
     async def _methStrSize(self):
         return len(self.valu)
 
-    async def _methEncode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding, errors=errors)
+            return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
@@ -3519,7 +3517,6 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Error handling to use.', 'default': 'surrogatepass', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -3652,9 +3649,9 @@ class Bytes(Prim):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
-    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methDecode(self, encoding='utf8', ):
         try:
-            return self.valu.decode(encoding, errors)
+            return self.valu.decode(encoding, 'surrogatepass')
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
