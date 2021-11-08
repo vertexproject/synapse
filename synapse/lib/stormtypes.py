@@ -3454,7 +3454,7 @@ class Str(Prim):
         try:
             return self.valu.encode(encoding, errors=errors)
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=str(self.valu)[:1024]) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
@@ -3656,7 +3656,7 @@ class Bytes(Prim):
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
