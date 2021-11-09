@@ -1646,6 +1646,7 @@ class StormTypesTest(s_test.SynTest):
                     $path.meta.foo = bar
                     $path.meta.baz = faz
                     $path.meta.baz = $lib.undef
+                    $path.meta.biz = ('neato', 'burrito')
                     {
                         for ($name, $valu) in $path.meta {
                             $lib.print('meta: {name}={valu}', name=$name, valu=$valu)
@@ -1655,9 +1656,59 @@ class StormTypesTest(s_test.SynTest):
                 ''').list()
                 self.stormIsInPrint('foofoofoo', msgs)
                 self.stormIsInPrint('meta: foo=bar', msgs)
+                self.stormIsInPrint("meta: biz=['neato', 'burrito']", msgs)
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
-                self.len(1, pode[1]['path'])
+                self.len(2, pode[1]['path'])
                 self.eq('bar', pode[1]['path']['foo'])
+
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.foobar = $lib.list('neato', 'burrito')
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.eq(pode[1]['path'], {'foobar': ('neato', 'burrito')})
+
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.wat = $lib.dict(foo=bar, biz=baz, thing=$lib.dict(1=2, 2=(a, b, c), five=nine))
+                $path.meta.neato = (awesome, burrito)
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.eq(('awesome', 'burrito'), path['neato'])
+                self.eq('bar', path['wat']['foo'])
+                self.eq('baz', path['wat']['biz'])
+                self.eq('nine', path['wat']['thing']['five'])
+                self.eq('2', path['wat']['thing']['1'])
+                self.eq(('a', 'b', 'c'), path['wat']['thing']['2'])
+
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.$node = $lib.list('foo', 'bar')
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.len(1, path)
+                key = list(path.keys())[0]
+                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.eq(('foo', 'bar'), path[key])
+
+                q = '''
+                inet:fqdn=vertex.link
+                $test = $lib.dict(foo=bar)
+                $path.meta.data = $test
+                $test.biz = baz
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.len(1, path)
+                self.len(2, path['data'])
+                self.eq('bar', path['data']['foo'])
+                self.eq('baz', path['data']['biz'])
 
     async def test_storm_trace(self):
         async with self.getTestCore() as core:
@@ -2453,6 +2504,13 @@ class StormTypesTest(s_test.SynTest):
                      'sha256:1263d0f4125831df93a82a08ab955d1176306953c9f0c44d366969295c7b57db',
                      },
                     {n.ndef[1] for n in nodes})
+
+            # Mismatch surrogates from real world data
+            surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
+            resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
+                                        opts={'vars': {'s': surrogate_data}})
+            self.eq(resp[0], surrogate_data.encode('utf-8', 'surrogatepass'))
+            self.eq(resp[1], surrogate_data)
 
             # Encoding/decoding errors are caught
             q = '$valu="valu" $valu.encode("utf16").decode()'
