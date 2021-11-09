@@ -18,8 +18,10 @@ That said, the set of advanced Storm concepts and features can be fully leverage
 - :ref:`storm-ref-subquery`
 - :ref:`storm-adv-vars`
 - :ref:`storm-adv-methods`
-- :ref:`storm-adv-libs`
 - :ref:`storm-adv-control`
+- :ref:`stormtypes-libs-header`
+- :ref:`stormtypes-prim-header`
+
 
 Syntax
 ------
