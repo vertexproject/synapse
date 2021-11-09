@@ -2467,6 +2467,7 @@ class PureCmd(Cmd):
 
                 async for node, path in genr:
                     pathvars = path.vars.copy()
+                    path.vars.clear()
                     async def genx():
                         path.initframe(initvars={'cmdopts': cmdopts})
                         yield node, path
