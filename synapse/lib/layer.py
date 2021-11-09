@@ -123,14 +123,16 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterLayerNodeEdits():
             yield item
 
+    async def saveNodeEdits(self, edits, meta):
+        await self._reqUserAllowed(self.writeperm)
+        return await self.layr.saveNodeEdits(edits, meta)
+
     async def storNodeEdits(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
         if meta is None:
-            meta = {'time': s_common.now(),
-                    'user': self.user.iden
-                    }
+            meta = {'time': s_common.now(), 'user': self.user.iden}
 
         return await self.layr.storNodeEdits(nodeedits, meta)
 
@@ -139,9 +141,7 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.writeperm)
 
         if meta is None:
-            meta = {'time': s_common.now(),
-                    'user': self.user.iden
-                    }
+            meta = {'time': s_common.now(), 'user': self.user.iden}
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
@@ -153,6 +153,11 @@ class LayerApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait):
+            yield item
+
+    async def syncNodeEdits2(self, offs, wait=True):
+        await self._reqUserAllowed(self.liftperm)
+        async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
     async def splices(self, offs=None, size=None):
@@ -1123,6 +1128,17 @@ class Layer(s_nexus.Pusher):
         self.mapasync = mapasync
         self.maxreplaylog = maxreplaylog
 
+        # if we are a mirror, we upstream all our edits and
+        # wait for them to make it back down the pipe...
+        self.leader = None
+        self.leadoff = 0
+        self.leadevent = asyncio.Event()
+
+        mirror = layrinfo.get('mirror')
+        if mirror is not None:
+            self.leader = await s_telepath.Client.anit(mirror)
+            self.schedCoro(self.runMirrorLoop())
+
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
         self.nodeDelHook = None
@@ -1203,6 +1219,21 @@ class Layer(s_nexus.Pusher):
                 await self.initUpstreamSync(uplayr)
 
         self.onfini(self._onLayrFini)
+
+    async def runMirrorLoop(self):
+        while not self.isfini:
+            try:
+                proxy = await self.leader.proxy()
+                # TODO: check versions
+                offs = self.nodeedits.index()
+                async for offs, (edits, meta) in proxy.syncNodeEdits2(offs):
+                    await self.push('edits', edits, meta)
+            except asyncio.CancelledError as e:
+                raise
+
+            except Exception as e:
+                logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
+                await self.waitfini(timeout=10)
 
     async def pack(self):
         ret = self.layrinfo.pack()
@@ -1826,7 +1857,12 @@ class Layer(s_nexus.Pusher):
 
     async def storNodeEdits(self, nodeedits, meta):
 
-        results = await self._push('edits', nodeedits, meta)
+        if self.leader:
+            proxy = await self.leader.proxy()
+            saveoff, results = await proxy.saveNodeEdits(nodeedits, meta)
+            await self.nodeedits.waitForOffset(saveoff)
+        else:
+            results = await self._push('edits', nodeedits, meta)
 
         retn = []
         for buid, _, edits in results:
@@ -1834,6 +1870,9 @@ class Layer(s_nexus.Pusher):
             retn.append((buid, sode, edits))
 
         return retn
+
+    async def saveNodeEdits(self, edits, meta):
+        return await self.saveToNexs('edits', edits, meta)
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):

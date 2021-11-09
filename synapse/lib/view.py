@@ -57,6 +57,19 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
+    async def syncNodeEdits2(self, offs, wait=True):
+        # emulate a unified layer-like API for mirror use
+        layr = self.view.layers[0]
+        await self._reqUserAllowed(liftperm)
+        async for item in layr.syncNodeEdits2(offs, wait=wait):
+            yield item
+
+    async def saveNodeEdits(self, edits, meta):
+        if not self.allowedits:
+            mesg = 'saveNodeEdits() not allowed without layer.write on layer.'
+            raise s_exc.AuthDeny(mesg=mesg)
+        return await self.view.saveNodeEdits(edits, meta)
+
     async def getCellIden(self):
         return self.view.iden
 
@@ -735,3 +748,7 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
+
+    async def saveNodeEdits(self, edits, meta):
+        async with await self.snap() as snap:
+            return await snap.saveNodeEdits(edits, meta)

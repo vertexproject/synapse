@@ -673,14 +673,21 @@ class Snap(s_base.Base):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
+        meta = await self.getSnapMeta()
+        saveoff, results, nodes = await self._applyNodeEdits(edits, meta)
+        return nodes
+
+    async def saveNodeEdits(self, edits, meta):
+        saveoff, results, nodes = await self._applyNodeEdits(edits, meta)
+        return saveoff, results
+
+    async def _applyNodeEdits(self, edits, meta):
+
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        meta = await self.getSnapMeta()
-
-        todo = s_common.todo('storNodeEdits', edits, meta)
-        results = await self.core.dyncall(self.wlyr.iden, todo)
+        saveoff, results = await self.layers[0].saveNodeEdits(edits, meta)
 
         wlyr = self.wlyr
         nodes = []

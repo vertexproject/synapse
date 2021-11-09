@@ -270,8 +270,8 @@ class NexsRoot(s_base.Base):
 
             meta['resp'] = iden
 
-            await client.issue(nexsiden, event, args, kwargs, meta)
-            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            saveoffs, retval = await client.issue(nexsiden, event, args, kwargs, meta)
+            return (saveoffs, await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S))
 
     async def eat(self, nexsiden, event, args, kwargs, meta):
         '''
@@ -324,7 +324,7 @@ class NexsRoot(s_base.Base):
 
             self.nexshot.inc('nexs:indx')
 
-        return await self._apply(saveindx, item)
+        return await (saveindx, self._apply(saveindx, item))
 
     async def _apply(self, indx, mesg):
 
@@ -434,7 +434,7 @@ class NexsRoot(s_base.Base):
                     respfutu = self._futures.get(respiden)
 
                     try:
-                        retn = await self.eat(*args)
+                        saveoffs, retn = await self.eat(*args)
 
                     except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                         raise
@@ -531,4 +531,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
         assert self.nexsroot
-        return await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
+        saveoffs, retn = await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
+        return retn
+
+    async def saveToNexs(self, name, *args, **kwargs):
+        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None)
