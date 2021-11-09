@@ -2466,15 +2466,12 @@ class PureCmd(Cmd):
                 subr.asroot = asroot
 
                 async for node, path in genr:
-                    pathvars = path.vars.copy()
-                    path.vars.clear()
                     async def genx():
                         path.initframe(initvars={'cmdopts': cmdopts})
                         yield node, path
 
                     async for xnode, xpath in subr.execute(genr=genx()):
-                        path.finiframe()
-                        xpath.vars.update(pathvars)
+                        xpath.finiframe()
                         yield xnode, xpath
 
 class DivertCmd(Cmd):
