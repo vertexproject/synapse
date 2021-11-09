@@ -220,8 +220,8 @@ def convert_ipynb(_):
                 took = (tock - tick) / 1000
                 print(f'convert_ipynb: Notebook {fn} execution took {took} seconds.')
 
-def setup(app):
-    # app.add_stylesheet('theme_overrides.css')
-    app.connect('builder-inited', run_apidoc)
-    app.connect('builder-inited', run_modeldoc)
-    app.connect('builder-inited', convert_ipynb)
+# def setup(app):
+#     # app.add_stylesheet('theme_overrides.css')
+#     app.connect('builder-inited', run_apidoc)
+#     app.connect('builder-inited', run_modeldoc)
+#     app.connect('builder-inited', convert_ipynb)
