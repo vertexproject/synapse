@@ -34,6 +34,9 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:contract', ('guid', {}), {
                     'doc': 'A smart contract.',
                 }),
+                ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
+                    'doc': 'A token managed by a smart contract.',
+                }),
                 # TODO ('crypto:smart:method', ('guid', {}), {}),
                 ('crypto:currency:coin', ('str', {'lower': True}), {
                     'doc': 'An individual crypto currency type.',
@@ -162,7 +165,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The unique hash for the block.'}),
                     ('minedby', ('crypto:currency:address', {}), {
                         'doc': 'The address which mined the block.'}),
-                    # TODO more details eventually...
+                    ('time', ('time', {}), {
+                        'doc': 'Time timestamp embedded in the block by the miner.'}),
                 )),
 
                 ('crypto:smart:contract', {}, (
@@ -172,7 +176,26 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address of the contract.'}),
                     ('bytecode', ('file:bytes', {}), {
                         'doc': 'The bytecode which implements the contract.'}),
+                    # TODO figure out what this looks like exactly
+                    # ('proxyfor', ('crypto:smart:contract', {}), {
+                        # 'doc': 'The contract that this contract is a proxy for.'}),
+                    ('token:name', ('str', {}), {
+                        'doc': 'The ERC-20 token name.'}),
+                    ('token:symbol', ('str', {}), {
+                        'doc': 'The ERC-20 token symbol.'}),
+                    ('token:totalsupply', ('hugenum', {}), {
+                        'doc': 'The ERC-20 totalSupply value.'}),
                     # TODO methods, ABI conventions, source/disassembly
+                )),
+                ('crypto:smart:token', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {}),
+                    ('tokenid', ('hugenum', {}), {}),
+                    ('owner', ('crypto:currency:address', {}), {}),
+                    ('nft:url', ('inet:url', {}), {}),
+                    ('nft:meta', ('json', {}), {}),
+                    ('nft:meta:name', ('str', {}), {}),
+                    ('nft:meta:description', ('str', {}), {}),
+                    ('nft:meta:image', ('inet:url', {}), {}),
                 )),
 
                 ('crypto:currency:coin', {}, (
