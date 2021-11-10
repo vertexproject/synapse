@@ -5,9 +5,12 @@
 Storm Reference - Introduction
 ==============================
 
-**Storm** is the query language used to interact with data in Synapse. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data from a Synapse Cortex. Most Synapse users will access Synapse via the Storm command-line interface (**Storm CLI**) (see :ref:`syn-tools-storm`):
+**Storm** is the query language used to interact with data in Synapse. Storm allows you to ask about, retrieve, annotate, add, modify, and delete data within a Synapse Cortex. Most Synapse users will access Synapse via the Storm command-line interface (**Storm CLI**) (see :ref:`syn-tools-storm`):
 
-``storm> <query>``
+::
+  
+  storm> <query>
+
 
 .. note::
 
@@ -23,9 +26,10 @@ This section covers several important high-level Storm concepts:
 - `Whitespace and Literals in Storm`_
 - `Storm Operating Concepts`_
 
+  - `Working Set`_
   - `Operation Chaining`_
-  - `Storm as a Pipeline`_
   - `Node Consumption`_
+  - `Storm as a Pipeline`_
   
 - `Advanced Storm Operations`_
 
@@ -38,12 +42,9 @@ In designing Storm, we needed it to be flexible and powerful enough to allow int
 
 Wherever possible, we masked Storm’s underlying programmatic complexity. The intent is for Storm to act more like a "data language", allowing users to:
 
-- **Reference data and query operations in an intuitive form.** By using features such as property normalization, type enforcement / type awareness, and syntax and query optimization, Storm takes a "do what I mean" approach that makes it simple to use and understand. Once you get the gist of it, Storm "just works"!
+- **Reference data and query operations in an intuitive form.** We took a "do what I mean" approach for how users interact with and use Storm so that users can focus on the **data** and the relationships among the data, not the query language. Once you get the gist of it, Storm "just works"! This is because Storm and Synapse make use of a number of features "under the hood" such as property normalization, type enforcement / type awareness, and syntax and query optimization, to make Storm easier for you to use. Synapse and Storm do the work in the background so you can focus on analysis.
 
-- **Use a simple yet powerful syntax to run Storm queries.** To avoid feeling like a programming language (or even a traditional database query language), Storm avoids the use of operator-like functions and parameters. Instead, Storm uses:
-  
-  - Intuitive keyboard symbols (such as an "arrow" ( ``->`` ) for pivot operations) for efficient querying.
-  - A natural language-like syntax so that using Storm feels more like "asking a question" than "constructing a data query".
+- **Use a simple yet powerful syntax to run Storm queries.** Storm uses intuitive keyboard symbols (such as an "arrow" ( ``->`` ) for pivot operations) for efficient querying, as well as a natural language-like syntax. This makes using Storm feel more like "asking a question" than "constructing a data query". In fact, one method we use to teach Storm to new users is to practice "translating" questions into queries (you'll be surprised how straightforward it is!).
 
 Analysts still need to learn the Storm "language" - forms (:ref:`data-form`) and tags (:ref:`data-tag`) are Storm's "words", and Storm operators allows you to construct "sentences". That said, the intent is for Storm to function more like "how do I ask this question about the data?" and not "how do I write a program to get the data I need?"
 
@@ -54,12 +55,12 @@ Finally – and most importantly – **giving analysts direct access to Storm al
 Basic Storm Operations
 ----------------------
 
-Storm allows users to perform all of the common operations used to interact with the data in a Synapse Cortex:
+Storm allows users to perform all of the common operations used to interact with data in Synapse:
 
 - **Lift:** – retrieve data based on specified criteria. (:ref:`storm-ref-lift`)
 - **Filter:** – refine your results by including or excluding a subset of nodes based on specified criteria. (:ref:`storm-ref-filter`)
 - **Pivot:** – take a set of nodes and identify other nodes that share one or more property values with the lifted set. (:ref:`storm-ref-pivot`)
-- **Data modification:** – add, modify, annotate, and delete nodes from a Synapse Cortex. (:ref:`storm-ref-data-mod`)
+- **Data modification:** – add, modify, annotate, and delete nodes from Synapse. (:ref:`storm-ref-data-mod`)
 
 Additional operations include:
 
@@ -91,28 +92,30 @@ All of the above elements – nodes, properties, values, and tags – are the fu
 Whitespace and Literals in Storm
 --------------------------------
 
-Storm allows (and in some cases requires) whitespace within Storm to delimit syntax elements such as commands and command arguments. Quotation marks are used to **preserve** whitespace characters and other special characters in literals used within Storm.
+Storm allows (and in some cases requires) whitespace within Storm to separate syntax elements such as commands and command arguments.
+
+Quotation marks are used to **preserve** whitespace characters and other special characters in literals used within Storm.
 
 .. _storm-whitespace:
 
 Using Whitespace Characters
 +++++++++++++++++++++++++++
 
-Whitespace characters (i.e., spaces) are used within the Storm CLI to delimit command line arguments. Specifically, whitespace characters are used to separate commands, command arguments, command operators, variables and literals.
+Whitespace characters (i.e., spaces) are used within Storm to separate command line arguments. Specifically, whitespace characters are used to separate commands, command arguments, command operators, variables and literals.
 
-When entering a query/command on the Storm CLI, one or more whitespace characters are **required** between the following command line arguments:
+When entering a query/command in Storm, one or more whitespace characters are **required** between the following command line arguments:
 
 - A command (such as ``max``) and command line parameters (in this case, the property ``:asof``):
   
   ``storm> inet:whois:rec:fqdn=vertex.link | max :asof``
   
-- An unquoted literal and any subsequent CLI argument or operator:
+- An unquoted literal and any subsequent argument or operator:
   
   ``storm> inet:email=support@vertex.link | count``
   
   ``storm> inet:email=support@vertex.link -> *``
 
-Whitespace characters can **optionally** be used when performing the following CLI operations:
+Whitespace characters can **optionally** be used when performing the following operations:
 
 - Assigning values using the equals sign assignment operator:
   
@@ -155,7 +158,7 @@ Entering Literals
 
 Storm uses quotation marks (single and double) to preserve whitespace and other special characters that represent literals. If values with these characters are not quoted, Synapse may misinterpret them and throw a syntax error.
 
-Single ( ``' '`` ) or double ( ``" "`` ) quotation marks can be used when entering a literal on the CLI during an assignment or comparison operation. Enclosing a literal in quotation marks is **required** when the literal:
+Single ( ``' '`` ) or double ( ``" "`` ) quotation marks can be used when specifying a literal in Storm during an assignment or comparison operation. Enclosing a literal in quotation marks is **required** when the literal:
 
  - begins with a non-alphanumeric character,
  - contains a space ( ``\s`` ), tab ( ``\t`` ) or newline( ``\n`` ) character, or
@@ -175,7 +178,7 @@ Enclosing a literal in **double** quotation marks will preserve the literal mean
    - Wrong: ``"C:\Program Files\Mozilla Firefox\firefox.exe"``
    - Right: ``"C:\\Program Files\\Mozilla Firefox\\firefox.exe"``
    
- Note that because the above example does not include a single quote / tick mark as part of the literal, you can simply enclose the file path in  single quote:
+ Note that because the above example does not include a single quote / tick mark as part of the literal, you can simply enclose the file path in single quotes:
  
    - Also right: ``'C:\Program Files\Mozilla Firefox\firefox.exe'``
 
@@ -204,50 +207,75 @@ The commands below demonstrate assignment and comparison operations that **requi
 Storm Operating Concepts
 ------------------------
 
-Storm has several notable features in the way it interacts with and operates on data. Understanding these features is important to using Storm in general, and essential to using more advanced Storm operations effectively.
+Storm has several notable features in the way it interacts with and operates on data. We mention these concepts briefly here to familiarize you with them; they're important but also pretty intuitive, so you don't need to worry about them too much for standard Storm queries and operations. These concepts are much more important if you're using more advanced Storm constructs such as variables or control flow, but we want to introduce the concepts here.
+
+.. _storm-op-work-set:
+
+Working Set
++++++++++++
+
+Most objects in Synapse are **nodes**. Most Storm operations start by **lifting** (selecting) a node or set of nodes.
+
+ - The set of nodes that you start with is called your **initial working set**.
+ - The set of nodes at any given point in your Storm query is called your **current working set**.
 
 .. _storm-op-chain:
 
 Operation Chaining
 ++++++++++++++++++
 
-As noted above, users commonly interact with data (nodes) in a Synapse Cortex using operations such as lift, filter, and pivot. Storm allows multiple operations to be chained together to form increasingly complex queries. When Storm operations are concatenated in this manner, they are processed **in order from left to right** with each operation (lift, filter, or pivot) acting on the output of the previous operation.
+Users commonly interact with data (nodes) in Synapse using operations such as lift, filter, and pivot. Storm allows multiple operations to be **chained** together to form increasingly complex queries:
 
-..  NOTE::
-
-  The initial set of nodes in any Storm query (i.e., the set of nodes selected by your first lift operation) is known as your **initial working set**.
+::
   
-Note that most operations (other than those used solely to lift or add data) require an existing data set on which to operate. This data set is typically the output of a previous Storm operation - the previous operation in the chain - whose results are the nodes you want to modify or otherwise work with.
+  storm> inet:fqdn=vertex.link
+  
+  storm> inet:fqdn=vertex.link -> inet:dns:a
+  
+  storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4
+  
+  storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4 +:type=unicast
+
+The above example demonstrates chaining a lift (``inet:fqdn=vetex.link``) with two pivots (``-> inet:dns:a``, ``-> inet:ipv4``) and a filter (``+:type=unicast``).
+
+When Storm operations are concatenated in this manner, they are processed **in order from left to right** with each operation (lift, filter, or pivot) acting on the output of the previous operation. A Storm query is not evaluated as a single whole; Storm evaluates your working set of nodes against each operation in order before moving to the next operation.
 
 .. NOTE::
+  
+  Technically, any query you construct is first evaluated as a whole **to ensure it is a syntactically valid query** - Synapse will complain if your Storm syntax is incorrect. But once Synapse has checked your Storm syntax, nodes are processed by each Storm operation in order.
 
-  The output of any Storm operation (other than your initial lift) is known as your **current working set**. Depending on the operation(s) performed, your current working set may not be the same as your initial working set (see :ref:`storm-node-consume` below). Your working set emerges from one Storm operation and is considered **inbound** to the next operation in the chain.
+You do not have to write (or execute) Storm queries "one operation at a time" - this example is simply meant to illustrate how you can chain individual Storm operations together to form longer queries. If you know that the question you want Storm to answer is "show me the unicast IPv4 addresses that the FQDN vertex.link has resolved to", you can simply run the final query. But you can also "build" queries one operation at a time if you're exploring the data or aren't sure yet where your analysis can take you.
 
-From an analysis standpoint, this means that Storm syntax can parallel an analyst's natural thought process, as you perform one Storm operation and then consider the "next step" you want to take in your analysis: "show me X data...that’s interesting, take a subset of X data and show me the Y data that relates to X...hm, now take the results from Y and show me any relationship to Z data..." and so on. Each "now show me..." thought commonly corresponds to a new Storm operation that can be added to your existing Storm query to navigate through the data.
-
-From a practical standpoint, it means that **order matters** when constructing a Storm query. A lengthy Storm query is not evaluated as a whole. Instead, Synapse parses each component of the query in order, evaluating each component individually and potentially returning a new **working set** after each operation before executing the next operation.
-
-(Technically, any query you construct is first evaluated as a whole **to ensure it is a syntactically valid query** - Synapse will complain if your Storm syntax is incorrect. But once Synapse has checked your Storm syntax, nodes are processed by each Storm operation in order.)
-
-.. _storm-pipeline:
-
-Storm as a Pipeline
-+++++++++++++++++++
-
-Most objects in a Synapse Cortex are nodes (:ref:`data-node`), so most Storm operations act on nodes. Not only are chained Storm operations carried out from left to right, but **nodes pass individually through the chain.** The series of Storm operations (i.e., the overall Storm query) can be thought of as a "pipeline". Regardless of how simple or complex the Storm query is, and regardless of whether your initial working set consists of one node or 100,000 nodes, each node is "fired" through the query pipeline one at a time.
-
-A key advantage of this behavior is that it provides significant latency and memory use reduction to Storm. Because nodes are operated on one at a time, Storm can start returning results immediately even if the initial data set is quite large.
-
-Outside of this latency reduction, Storm’s "pipeline" behavior is generally transparent to a user — from the user’s standpoint, they write a query to operate on data, and data comes back as a result of that query. However, this pipeline behavior can be important to understand when working with (or troubleshooting) Storm queries that leverage features such as subqueries, variables, or control flow operations.
+The ability to build queries operation by operation means that a Storm query can parallel an analyst's natural thought process: you perform one Storm operation and then consider the "next step" you want to take in your analysis. "Show me X data...that’s interesting, now show me Y data that relates to X...hm, now take a subset of Y and show me any relationship to Z data..." and so on. Each "now show me..." commonly corresponds to a new Storm operation that can be added to your existing Storm query to navigate through the data.
 
 .. _storm-node-consume:
 
 Node Consumption
 ++++++++++++++++
 
-Most Storm operations **consume** nodes when the operation occurs. That is, the set of nodes (the working set) that is **inbound** to a particular Storm operation is typically transformed by that operation in some way. In fact, with few exceptions (such as the join operator (see :ref:`storm-ref-pivot`) and the Storm :ref:`storm-count` command), the nodes inbound to an operation are typically **not** retained - they are "consumed" during execution. Storm outputs only those nodes that result from carrying out the specified operation. If you lift a set of nodes and then filter the results, only those nodes captured by the filter are retained - the other nodes are consumed (discarded).
+Storm operations typically **transform** your working set in some way. That is, the nodes that "go into" (are inbound) to a given Storm operation are not necessarily the nodes that "come out" of that operation.
 
-In this way the operations performed in sequence may add or remove nodes from Storm's **working set,** or clear the set entirely. The set is continually changing based on the last-performed operation or last-issued command. Particularly when first learning Storm, users are encouraged to break down lengthy queries into their component parts, and to validate the output (results) after the addition of each operation to the overall query.
+Take our operation chaining example above:
+
+ - Our **initial working set** consists of the single node ``inet:fqdn=vertex.link``, which we selected with a lift operation.
+ - When we pivot to the DNS A records for that FQDN, we navigate away from (drop) our initial ``inet:fqdn`` node, and navigate to (add) the DNS A nodes. Our **current working set** now consists of the DNS A records (``inet:dns:a`` nodes) for vertex.link.
+ - Similarly, when we pivot to the IPv4 addresses, we navigate away from (drop) the DNS A nodes and navigate to (add) the IPv4 nodes. Our current working set is made up of the ``inet:ipv4`` nodes.
+ - Finally, when we perform our filter operation, we may discard (drop) any IPv4 nodes representing non-unicast IPs (such as ``inet:ipv4=127.0.0.1``) if present.
+ 
+We refer to this transformation (in particular, dropping) of some or all nodes by a given Storm operation as **consuming** nodes. Most Storm operations consume nodes (that is, change your working set in some way - what comes out of the operation is not the same set of nodes that goes in).
+ 
+For standard Storm queries this process should be fairly intuitive ("now that you point that out...of course that is what's happening"). However, the idea of node consumption and the transformation of your current working set is important to keep in mind for more advanced Storm.
+
+.. _storm-pipeline:
+
+Storm as a Pipeline
++++++++++++++++++++
+
+Just as each Storm **operation** in the chain is processed individually from left to right, **each node** in your working set is evaluated **individually** against a given Storm operation. You can think of your Storm query as a **pipeline** of operations, with each node "fired" one at a time through the pipeline. Whether you start with one node or 10,000 nodes, they are evaluated against your Storm query one by one.
+
+A key advantage to processing nodes one by one is that it significantly reduces Synapse's latency and memory use - this is a big part of what makes Synapse so fast and responsive. Synapse can start providing you with results for the initial nodes processed right away, while it continues processing the remaining nodes. In other words, you don't have to wait for your entire query to complete for **all** of your nodes before getting your answer.
+
+Again, for standard Storm, this behavior is transparent to you as the user - you run a Storm query, you get a response. However, this pipeline behavior can be important to understand when working with (or troubleshooting) Storm queries that leverage features such as subqueries, variables, or control flow operations.
 
 .. _storm-ops-adv:
 

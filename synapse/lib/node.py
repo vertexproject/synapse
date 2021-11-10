@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -876,8 +877,10 @@ class Path:
         '''
         self.metadata[name] = valu
 
-    def pack(self, path=False):
+    async def pack(self, path=False):
         ret = dict(self.metadata)
+        if ret:
+            ret = await s_stormtypes.toprim(ret)
         if path:
             ret['nodes'] = [node.iden() for node in self.nodes]
         return ret

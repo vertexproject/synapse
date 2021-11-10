@@ -3450,9 +3450,9 @@ class Str(Prim):
 
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding)
+            return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
@@ -3651,9 +3651,9 @@ class Bytes(Prim):
 
     async def _methDecode(self, encoding='utf8'):
         try:
-            return self.valu.decode(encoding)
+            return self.valu.decode(encoding, 'surrogatepass')
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -7383,7 +7383,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8')
+            return valu.decode('utf8', 'surrogatepass')
 
         return str(valu)
     except Exception as e:
