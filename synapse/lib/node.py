@@ -829,8 +829,6 @@ class Path:
         self.node = None
         self.nodes = nodes
 
-        self.traces = []
-
         if len(nodes):
             self.node = nodes[-1]
 
@@ -846,14 +844,6 @@ class Path:
         }
 
         self.metadata = {}
-
-    def trace(self):
-        '''
-        Construct and return a Trace object for this path.
-        '''
-        trace = Trace(self)
-        self.traces.append(trace)
-        return trace
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -901,15 +891,11 @@ class Path:
         nodes.append(node)
 
         path = Path(self.vars.copy(), nodes)
-        path.traces.extend(self.traces)
-
-        [t.addFork(path) for t in self.traces]
 
         return path
 
     def clone(self):
         path = Path(copy.copy(self.vars), copy.copy(self.nodes))
-        path.traces = list(self.traces)
         path.frames = [v.copy() for v in self.frames]
         return path
 
@@ -935,29 +921,6 @@ class Path:
             return
 
         self.vars = self.frames.pop()
-
-class Trace:
-    '''
-    A trace for pivots taken and nodes involved from a given path's subsequent forks.
-    '''
-    def __init__(self, path):
-        self.edges = set()
-        self.nodes = set()
-
-        self.addPath(path)
-
-    def addPath(self, path):
-
-        [self.nodes.add(n) for n in path.nodes]
-
-        for i in range(len(path.nodes[:-1])):
-            n1 = path.nodes[i]
-            n2 = path.nodes[i + 1]
-            self.edges.add((n1, n2))
-
-    def addFork(self, path):
-        self.nodes.add(path.node)
-        self.edges.add((path.nodes[-2], path.nodes[-1]))
 
 def props(pode):
     '''
