@@ -58,7 +58,7 @@ class ViewApi(s_cell.CellApi):
         return await self.view.storNodeEdits(edits, meta)
 
     async def syncNodeEdits2(self, offs, wait=True):
-        # emulate a unified layer-like API for mirror use
+        # present a layer compatible API to remote callers
         layr = self.view.layers[0]
         await self._reqUserAllowed(liftperm)
         async for item in layr.syncNodeEdits2(offs, wait=wait):
