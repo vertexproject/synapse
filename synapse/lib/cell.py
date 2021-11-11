@@ -1841,10 +1841,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getAuthRoles(self):
         return [r.pack() for r in self.auth.roles()]
 
-    async def dyniter(self, iden, todo, gatekeys=()):
-
+    async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+    async def dyniter(self, iden, todo, gatekeys=()):
+
+        await self.reqGateKeys(gatekeys)
 
         item = self.dynitems.get(iden)
         name, args, kwargs = todo
@@ -1852,10 +1855,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         meth = getattr(item, name)
         async for item in meth(*args, **kwargs):
             yield item
-
-    async def reqGateKeys(self, gatekeys):
-        for useriden, perm, gateiden in gatekeys:
-            (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
     async def dyncall(self, iden, todo, gatekeys=()):
 
