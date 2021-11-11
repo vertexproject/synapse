@@ -5664,6 +5664,9 @@ class View(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
         {'name': 'merge', 'desc': 'Merge a forked View back into its parent View.',
          'type': {'type': 'function', '_funcname': '_methViewMerge',
+                  'args': (
+                    {'name': 'force', 'type': 'boolean', 'default': False, 'desc': 'Force the view to merge if possible.'},
+                  ),
                   'returns': {'type': 'null', }}},
         {'name': 'getEdges', 'desc': 'Get node information for Edges in the View.',
          'type': {'type': 'function', '_funcname': '_methGetEdges',
@@ -5834,13 +5837,14 @@ class View(Prim):
 
         return View(self.runt, newv, path=self.path)
 
-    async def _methViewMerge(self):
+    async def _methViewMerge(self, force=False):
         '''
         Merge a forked view back into its parent.
         '''
+        force = await tobool(force)
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
-        todo = s_common.todo('merge', useriden=useriden)
+        todo = s_common.todo('merge', useriden=useriden, force=force)
         await self.runt.dyncall(viewiden, todo)
 
 @registry.registerLib

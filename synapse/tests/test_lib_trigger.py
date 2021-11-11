@@ -49,10 +49,26 @@ class TrigTest(s_t_utils.SynTest):
                 self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
 
             async with self.getTestCore(dirn=dirn) as core:
+
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                 nodes = await core.nodes('inet:ipv4=9.9.9.9')
                 self.nn(nodes[0].tags.get('foo'))
                 self.none(core.view.trigqueue.last())
+
+                # lets fork a view and hamstring it's trigger queue and make sure we can't merge
+                viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+
+                view = core.getView(viewiden)
+                view.trigtask = True  # lolz...
+
+                opts = {'view': viewiden}
+                await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                nodes = await core.nodes('[ inet:ipv4=123.123.123.123 ]', opts=opts)
+
+                with self.raises(s_exc.CantMergeView):
+                    await core.nodes('$lib.view.get().merge()', opts=opts)
+
+                await core.nodes('$lib.view.get().merge(force=$lib.true)', opts=opts)
 
     async def test_trigger_recursion(self):
         async with self.getTestCore() as core:

@@ -529,7 +529,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.core.addView(vdef)
 
-    async def merge(self, useriden=None):
+    async def merge(self, useriden=None, force=False):
         '''
         Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
         triggers will be run.
@@ -541,7 +541,7 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             user = await self.core.auth.reqUser(useriden)
 
-        await self.mergeAllowed(user)
+        await self.mergeAllowed(user, force=force)
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
 
@@ -583,7 +583,7 @@ class View(s_nexus.Pusher):  # type: ignore
         perms = ('node', 'tag', 'add', *tag.split('.'))
         self.parent._confirm(user, perms)
 
-    async def mergeAllowed(self, user=None):
+    async def mergeAllowed(self, user=None, force=False):
         '''
         Check whether a user can merge a view into its parent.
         '''
@@ -591,8 +591,8 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
 
-        if self.trigqueue.last() is not None:
-            raise s_exc.CantMergeView(mesg=f'There are still async triggers being run.')
+        if self.trigqueue.size and not force:
+            raise s_exc.CantMergeView(mesg=f'There are still async triggers being run.', canforce=True)
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
