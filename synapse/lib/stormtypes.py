@@ -2910,59 +2910,59 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
-        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.reqGateKeys(gatekeys)
+        await self.runt.snap.core.coreQueueCull(self.name, offs)
 
     async def _methQueueSize(self):
-        todo = s_common.todo('coreQueueSize', self.name)
         gatekeys = self._getGateKeys('get')
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.reqGateKeys(gatekeys)
+        return await self.runt.snap.core.coreQueueSize(self.name)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
+        wait = await toint(wait)
         offs = await toint(offs)
-        wait = await tobool(wait)
 
         if size is not None:
             size = await toint(size)
 
-        todo = s_common.todo('coreQueueGets', self.name, offs, cull=cull, wait=wait, size=size)
         gatekeys = self._getGateKeys('get')
+        await self.runt.reqGateKeys(gatekeys)
 
-        async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
+        async for item in self.runt.snap.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
-        todo = s_common.todo('coreQueuePuts', self.name, items)
         gatekeys = self._getGateKeys('put')
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.reqGateKeys(gatekeys)
+        return await self.runt.snap.core.coreQueuePuts(self.name, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
         gatekeys = self._getGateKeys('get')
+        await self.runt.reqGateKeys(gatekeys)
 
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await self.runt.snap.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
         gatekeys = self._getGateKeys('get')
+        await self.runt.reqGateKeys(gatekeys)
 
         # emulate the old behavior on no argument
+        core = self.runt.snap.core
         if offs is None:
-            todo = s_common.todo('coreQueueGets', self.name, 0, cull=True, wait=wait)
-            async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
-                await self._methQueueCull(item[0])
+            async for item in core.coreQueueGets(self.name, 0, wait=wait):
+                await self.runt.snap.core.coreQueuePop(self.name, item[0])
                 return item
             return
 
-        todo = s_common.todo('coreQueuePop', self.name, offs)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await core.coreQueuePop(self.name, offs)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))

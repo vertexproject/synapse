@@ -1638,6 +1638,11 @@ class Runtime(s_base.Base):
             if isinstance(valu, s_base.Base):
                 await valu.fini()
 
+    async def reqGateKeys(self, gatekeys):
+        if self.asroot:
+            return
+        await self.snap.core.reqGateKeys(gatekeys)
+
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
         if self.asroot:

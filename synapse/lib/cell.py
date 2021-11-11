@@ -1853,10 +1853,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async for item in meth(*args, **kwargs):
             yield item
 
-    async def dyncall(self, iden, todo, gatekeys=()):
-
+    async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+    async def dyncall(self, iden, todo, gatekeys=()):
+
+        await self.reqGateKeys(gatekeys)
 
         item = self.dynitems.get(iden)
         if item is None:
