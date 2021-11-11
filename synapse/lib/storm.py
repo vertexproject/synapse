@@ -911,7 +911,7 @@ stormcmds = (
             ('--prop', {'help': 'Property to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
             ('--async', {'default': False, 'action': 'store_true',
-                            'help': 'Make the trigger async.'}),
+                            'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
