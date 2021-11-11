@@ -1,3 +1,4 @@
+import shutil
 import asyncio
 import logging
 import itertools
@@ -13,6 +14,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -82,6 +84,11 @@ class View(s_nexus.Pusher):  # type: ignore
         self.info = await node.dict()
 
         self.core = core
+        self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
+
+        slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
+        self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
         trignode = await node.open(('triggers',))
         self.trigdict = await trignode.dict()
@@ -99,6 +106,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 
+        self.onfini(self.viewslab.fini)
+
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
@@ -112,6 +121,40 @@ class View(s_nexus.Pusher):  # type: ignore
 
         # isolate some initialization to easily override.
         await self._initViewLayers()
+
+        self.trigtask = None
+        if self.trigqueue.last():
+            self.trigtask = self.schedCoro(self._trigQueueLoop())
+
+    async def _trigQueueLoop(self):
+
+        while not self.isfini:
+
+            async for offs, triginfo in self.trigqueue.gets(0):
+
+                buid = triginfo.get('buid')
+                trigiden = triginfo.get('trig')
+
+                try:
+                    trig = self.triggers.get(trigiden)
+                    if trig is None:
+                        continue
+
+                    async with await self.snap(trig.user) as snap:
+                        node = await snap.getNodeByBuid(buid)
+                        if node is None:
+                            continue
+
+                        await trig._execute(node)
+
+                except asyncio.CancelledError:
+                    raise
+
+                except Exception as e:
+                    logger.exception(f'trigQueueLoop() on view {self.iden}')
+
+                finally:
+                    await self.delTrigQueue(offs)
 
     async def getStorNodes(self, buid):
         '''
@@ -379,6 +422,16 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.snapctor(self, user)
 
+    @s_nexus.Pusher.onPushAuto('trig:q:add')
+    async def addTrigQueue(self, triginfo):
+        self.trigqueue.add(triginfo)
+        if self.trigtask is None:
+            self.trigtask = self.schedCoro(self._trigQueueLoop())
+
+    @s_nexus.Pusher.onPushAuto('trig:q:del')
+    async def delTrigQueue(self, offs):
+        self.trigqueue.pop(offs)
+
     @s_nexus.Pusher.onPushAuto('view:set')
     async def setViewInfo(self, name, valu):
         '''
@@ -538,6 +591,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if self.parent is None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
 
+        if self.trigqueue.last() is not None:
+            raise s_exc.CantMergeView(mesg=f'There are still async triggers being run.')
+
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
             raise s_exc.ReadOnlyLayer(mesg="May not merge if the parent's write layer is read-only")
@@ -642,6 +698,7 @@ class View(s_nexus.Pusher):  # type: ignore
         root = await self.core.auth.getUserByName('root')
 
         tdef.setdefault('user', root.iden)
+        tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
 
         s_trigger.reqValidTdef(tdef)
@@ -720,6 +777,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.node.pop()
+        shutil.rmtree(self.dirn, ignore_errors=True)
 
     async def addNodeEdits(self, edits, meta):
         '''

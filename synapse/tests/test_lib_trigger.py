@@ -1,3 +1,4 @@
+import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -7,6 +8,27 @@ import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
 
 class TrigTest(s_t_utils.SynTest):
+
+    async def test_trigger_async(self):
+
+        async with self.getTestCore() as core:
+
+            await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] }')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.none(nodes[0].tags.get('foo'))
+
+            for i in range(10):
+                await asyncio.sleep(0.1)
+                nodes = await core.nodes('inet:ipv4=1.2.3.4')
+                if nodes[0].tags.get('foo'):
+                    break
+
+            self.nn(nodes[0].tags.get('foo'))
+
+            await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
+            nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ]')
+            self.nn(nodes[0].tags.get('foo'))
 
     async def test_trigger_recursion(self):
         async with self.getTestCore() as core:

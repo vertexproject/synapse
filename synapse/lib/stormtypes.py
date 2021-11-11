@@ -6095,6 +6095,10 @@ class Trigger(Prim):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
 
+        name = await tostr(name)
+        if name == 'async':
+            valu = await tobool(valu)
+
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
         todo = ('setTriggerInfo', (trigiden, name, valu), {})
         await self.runt.dyncall(viewiden, todo, gatekeys=gatekeys)
