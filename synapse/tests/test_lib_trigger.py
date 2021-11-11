@@ -11,24 +11,48 @@ class TrigTest(s_t_utils.SynTest):
 
     async def test_trigger_async(self):
 
-        async with self.getTestCore() as core:
+        with self.getTestDir() as dirn:
 
-            await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] }')
+            async with self.getTestCore(dirn=dirn) as core:
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
-            self.none(nodes[0].tags.get('foo'))
+                await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
-            for i in range(10):
-                await asyncio.sleep(0.1)
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+                self.none(nodes[0].tags.get('foo'))
+
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                 nodes = await core.nodes('inet:ipv4=1.2.3.4')
-                if nodes[0].tags.get('foo'):
-                    break
+                self.nn(nodes[0].tags.get('foo'))
 
-            self.nn(nodes[0].tags.get('foo'))
+                # test dynamically updating the trigger async to off
+                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
+                nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ]')
+                self.nn(nodes[0].tags.get('foo'))
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
 
-            await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
-            nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ]')
-            self.nn(nodes[0].tags.get('foo'))
+                # reset the trigger to async...
+                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.true)')
+
+                # kill off the async consumer and queue up some requests
+                # to test persistance and proper resuming...
+                core.view.trigtask.cancel()
+                core.view.trigtask = True  # lolz...
+
+                trigiden = await core.callStorm('return($lib.view.get().triggers.0.iden)')
+                self.nn(trigiden)
+
+                await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': trigiden})
+                await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': s_common.guid()})
+
+                nodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
+                self.none(nodes[0].tags.get('foo'))
+                self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                nodes = await core.nodes('inet:ipv4=9.9.9.9')
+                self.nn(nodes[0].tags.get('foo'))
+                self.none(core.view.trigqueue.last())
 
     async def test_trigger_recursion(self):
         async with self.getTestCore() as core:

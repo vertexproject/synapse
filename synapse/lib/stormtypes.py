@@ -2834,10 +2834,12 @@ class Queue(StormType):
                       {'name': 'offs', 'type': 'int', 'default': None,
                         'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
                                 ' popped.', },
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
+                        'desc': 'Wait for an item to be available to pop.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'The offset and item popped from the queue. If there is no item at the '
-                                      'offset or the  queue is empty, it returns null.', }}},
+                                      'offset or the  queue is empty and wait is false, it returns null.', }}},
         {'name': 'put', 'desc': 'Put an item into the queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePut',
                   'args': (
@@ -2918,8 +2920,8 @@ class Queue(StormType):
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
-        wait = await toint(wait)
         offs = await toint(offs)
+        wait = await tobool(wait)
 
         if size is not None:
             size = await toint(size)
@@ -2945,13 +2947,15 @@ class Queue(StormType):
 
         return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
 
-    async def _methQueuePop(self, offs=None):
+    async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
+        wait = await tobool(wait)
+
         gatekeys = self._getGateKeys('get')
 
         # emulate the old behavior on no argument
         if offs is None:
-            todo = s_common.todo('coreQueueGets', self.name, 0, cull=True, wait=False)
+            todo = s_common.todo('coreQueueGets', self.name, 0, cull=True, wait=wait)
             async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
                 await self._methQueueCull(item[0])
                 return item
