@@ -64,11 +64,11 @@ class ViewApi(s_cell.CellApi):
         async for item in layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
+    @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
-        if not self.allowedits:
-            mesg = 'saveNodeEdits() not allowed without node permission on layer.'
-            raise s_exc.AuthDeny(mesg=mesg)
-        return await self.view.saveNodeEdits(edits, meta)
+        meta['link:user'] = self.user.iden
+        async with await self.view.snap(user=self.user) as snap:
+            return await snap.saveNodeEdits(edits, meta)
 
     async def getEditSize(self):
         await self._reqUserAllowed(('view', 'read'))
@@ -752,8 +752,3 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
-
-    async def saveNodeEdits(self, edits, meta):
-        root = self.core.auth.rootuser
-        async with await self.snap(user=root) as snap:
-            return await snap.saveNodeEdits(edits, meta)

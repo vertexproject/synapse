@@ -64,6 +64,7 @@ class CortexTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn00) as core00:
                 async with self.getTestCore(dirn=dirn01) as core01:
+                    self.gt(await core01.getLayer(layr01iden)._getLeadOffs(), 0)
                     self.len(1, await core01.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'view': view01iden}))
                     self.len(1, await core00.nodes('inet:ipv4=1.2.3.4', opts={'view': view00iden}))
 

@@ -141,7 +141,8 @@ or is currently offline.
 
 .. note::
 
-    The telepath URL may use aliased names or TLS client side certs to prevent credential disclosure.
+    To allow write access, the telepath URL must allow admin access to the remote Cortex due to being able to fabricate edit
+    origins. The telepath URL may use aliased names or TLS client side certs to prevent credential disclosure.
 
 Once a mirrored layer is configured, it will need to stream down the entire history of events from the upstream layer.  During
 this process, the layer will be readable but writes will hang due to needing to await the write-back to be fully caught up to

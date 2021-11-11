@@ -123,11 +123,12 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterLayerNodeEdits():
             yield item
 
+    @s_cell.adminapi()
     async def saveNodeEdits(self, edits, meta):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
         '''
-        await self._reqUserAllowed(self.writeperm)
+        meta['link:user'] = self.user.iden
         return await self.layr.saveNodeEdits(edits, meta)
 
     async def storNodeEdits(self, nodeedits, meta=None):
@@ -182,7 +183,7 @@ class LayerApi(s_cell.CellApi):
 
     async def getEditSize(self):
         '''
-        Returns what will be the *next* nodeedit log index.
+        Return the total number of (edits, meta) pairs in the layer changelog.
         '''
         await self._reqUserAllowed(self.liftperm)
         return await self.layr.getEditSize()
