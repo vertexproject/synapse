@@ -2922,9 +2922,7 @@ class Queue(StormType):
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = await toint(wait)
         offs = await toint(offs)
-
-        if size is not None:
-            size = await toint(size)
+        size = await toint(size, noneok=True)
 
         gatekeys = self._getGateKeys('get')
         await self.runt.reqGateKeys(gatekeys)
