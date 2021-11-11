@@ -2956,7 +2956,7 @@ class Queue(StormType):
         core = self.runt.snap.core
         if offs is None:
             async for item in core.coreQueueGets(self.name, 0, wait=wait):
-                return await self.runt.snap.core.coreQueuePop(self.name, item[0])
+                return await core.coreQueuePop(self.name, item[0])
             return
 
         return await core.coreQueuePop(self.name, offs)
