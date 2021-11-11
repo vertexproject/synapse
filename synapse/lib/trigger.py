@@ -340,7 +340,7 @@ class Trigger:
         if locked:
             if not self.lockwarned:
                 self.lockwarned = True
-                logger.warning('Skipping trigger execution because user {user.iden} is locked')
+                logger.warning(f'Skipping trigger execution because user {self.user.iden} is locked')
             return
 
         tag = self.tdef.get('tag')
