@@ -1,3 +1,4 @@
+import os
 import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -69,6 +70,9 @@ class TrigTest(s_t_utils.SynTest):
                     await core.nodes('$lib.view.get().merge()', opts=opts)
 
                 await core.nodes('$lib.view.get().merge(force=$lib.true)', opts=opts)
+                await core.nodes('$lib.view.del($view)', opts={'vars': {'view': viewiden}})
+
+                self.false(os.path.isdir(view.dirn))
 
     async def test_trigger_recursion(self):
         async with self.getTestCore() as core:
