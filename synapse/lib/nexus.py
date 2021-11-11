@@ -324,7 +324,7 @@ class NexsRoot(s_base.Base):
 
             self.nexshot.inc('nexs:indx')
 
-        return await (saveindx, self._apply(saveindx, item))
+        return (saveindx, await self._apply(saveindx, item))
 
     async def _apply(self, indx, mesg):
 

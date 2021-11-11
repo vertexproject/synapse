@@ -674,12 +674,12 @@ class Snap(s_base.Base):
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
         meta = await self.getSnapMeta()
-        saveoff, results, nodes = await self._applyNodeEdits(edits, meta)
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
         return nodes
 
     async def saveNodeEdits(self, edits, meta):
-        saveoff, results, nodes = await self._applyNodeEdits(edits, meta)
-        return saveoff, results
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        return saveoff, changes
 
     async def _applyNodeEdits(self, edits, meta):
 
@@ -687,7 +687,7 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        saveoff, results = await self.layers[0].saveNodeEdits(edits, meta)
+        saveoff, changes, results = await self.layers[0].shitNodeEdits(edits, meta)
 
         wlyr = self.wlyr
         nodes = []
@@ -817,7 +817,7 @@ class Snap(s_base.Base):
                 await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
             await self.fire('node:edits', edits=actualedits)
 
-        return nodes
+        return saveoff, changes, nodes
 
     async def addNode(self, name, valu, props=None):
         '''

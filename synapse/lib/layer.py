@@ -1128,17 +1128,6 @@ class Layer(s_nexus.Pusher):
         self.mapasync = mapasync
         self.maxreplaylog = maxreplaylog
 
-        # if we are a mirror, we upstream all our edits and
-        # wait for them to make it back down the pipe...
-        self.leader = None
-        self.leadoff = 0
-        self.leadevent = asyncio.Event()
-
-        mirror = layrinfo.get('mirror')
-        if mirror is not None:
-            self.leader = await s_telepath.Client.anit(mirror)
-            self.schedCoro(self.runMirrorLoop())
-
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
         self.nodeDelHook = None
@@ -1220,20 +1209,41 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self._onLayrFini)
 
-    async def runMirrorLoop(self):
+        # if we are a mirror, we upstream all our edits and
+        # wait for them to make it back down the pipe...
+        self.leader = None
+        self.leadoffs = -1
+        self.leadevent = asyncio.Event()
+
+        mirror = layrinfo.get('mirror')
+        if mirror is not None:
+            self.leader = await s_telepath.Client.anit(mirror)
+            self.leadoffs = await self._getLeadOffs()
+            self.schedCoro(self._runMirrorLoop())
+
+    async def _runMirrorLoop(self):
         while not self.isfini:
             try:
                 proxy = await self.leader.proxy()
                 # TODO: check versions
-                offs = self.nodeedits.index()
-                async for offs, (edits, meta) in proxy.syncNodeEdits2(offs):
-                    await self.push('edits', edits, meta)
+                async for offs, edits, meta in proxy.syncNodeEdits2(self.leadoffs + 1):
+                    meta['indx'] = offs
+                    await self._push('edits', edits, meta)
+                    self.leadoffs = offs
+                    self.leadevent.set()
+
             except asyncio.CancelledError as e:
                 raise
 
             except Exception as e:
                 logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
-                await self.waitfini(timeout=10)
+                await self.waitfini(timeout=2)
+
+    async def _getLeadOffs(self):
+        last = self.nodeeditlog.last()
+        if last is None:
+            return -1
+        return last[1][1].get('indx', -1)
 
     async def pack(self):
         ret = self.layrinfo.pack()
@@ -1857,12 +1867,7 @@ class Layer(s_nexus.Pusher):
 
     async def storNodeEdits(self, nodeedits, meta):
 
-        if self.leader:
-            proxy = await self.leader.proxy()
-            saveoff, results = await proxy.saveNodeEdits(nodeedits, meta)
-            await self.nodeedits.waitForOffset(saveoff)
-        else:
-            results = await self._push('edits', nodeedits, meta)
+        saveoff, results = await self.saveNodeEdits(nodeedits, meta)
 
         retn = []
         for buid, _, edits in results:
@@ -1871,8 +1876,33 @@ class Layer(s_nexus.Pusher):
 
         return retn
 
+    async def shitNodeEdits(self, edits, meta):
+
+        saveoff, changes = await self.saveNodeEdits(edits, meta)
+
+        retn = []
+        for buid, _, edits in changes:
+            sode = deepcopy(self._getStorNode(buid))
+            retn.append((buid, sode, edits))
+
+        return saveoff, changes, retn
+
     async def saveNodeEdits(self, edits, meta):
-        return await self.saveToNexs('edits', edits, meta)
+
+        if self.leader:
+
+            proxy = await self.leader.proxy()
+            saveoff, changes = await proxy.saveNodeEdits(edits, meta)
+
+            if any(c[2] for c in changes):
+                while self.leadoffs < saveoff:
+                    self.leadevent.clear()
+                    await self.leadevent.wait()
+
+            return saveoff, changes
+
+        else:
+            return await self.saveToNexs('edits', edits, meta)
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):

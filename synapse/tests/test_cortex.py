@@ -27,6 +27,47 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_layer_mirror(self):
+
+        # test a layer mirror from a layer
+        async with self.getTestCore() as core00:
+            self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
+
+            async with self.getTestCore() as core01:
+
+                layr00 = await core00.addLayer()
+                layr00iden = layr00.get('iden')
+                view00 = await core00.addView({'layers': (layr00iden,)})
+
+                layr00url = core00.getLocalUrl(share=f'*/layer/{layr00iden}')
+
+                layr01 = await core01.addLayer({'mirror': layr00url})
+                layr01iden = layr01.get('iden')
+                view01 = await core01.addView({'layers': (layr01iden,)})
+
+                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
+                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+
+        # test a layer mirror from a view
+        async with self.getTestCore() as core00:
+            self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
+
+            async with self.getTestCore() as core01:
+
+                layr00 = await core00.addLayer()
+                layr00iden = layr00.get('iden')
+                view00 = await core00.addView({'layers': (layr00iden,)})
+                view00iden = view00.get('iden')
+
+                layr00url = core00.getLocalUrl(share=f'*/view/{view00iden}')
+
+                layr01 = await core01.addLayer({'mirror': layr00url})
+                layr01iden = layr01.get('iden')
+                view01 = await core01.addView({'layers': (layr01iden,)})
+
+                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
+                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:

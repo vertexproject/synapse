@@ -41,12 +41,12 @@ class ViewApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
         self.view = view
         layriden = view.layers[0].iden
-        self.allowedits = user.allowed(('layer', 'write'), gateiden=layriden)
+        self.allowedits = user.allowed(('node'), gateiden=layriden)
 
     async def storNodeEdits(self, edits, meta):
 
         if not self.allowedits:
-            mesg = 'storNodeEdits() not allowed without layer.write on layer.'
+            mesg = 'storNodeEdits() not allowed without node permission on layer.'
             raise s_exc.AuthDeny(mesg=mesg)
 
         if meta is None:
@@ -58,15 +58,15 @@ class ViewApi(s_cell.CellApi):
         return await self.view.storNodeEdits(edits, meta)
 
     async def syncNodeEdits2(self, offs, wait=True):
+        await self._reqUserAllowed(('view', 'read'))
         # present a layer compatible API to remote callers
         layr = self.view.layers[0]
-        await self._reqUserAllowed(liftperm)
         async for item in layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
     async def saveNodeEdits(self, edits, meta):
         if not self.allowedits:
-            mesg = 'saveNodeEdits() not allowed without layer.write on layer.'
+            mesg = 'saveNodeEdits() not allowed without node permission on layer.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.view.saveNodeEdits(edits, meta)
 
@@ -750,5 +750,6 @@ class View(s_nexus.Pusher):  # type: ignore
         # TODO remove addNodeEdits?
 
     async def saveNodeEdits(self, edits, meta):
-        async with await self.snap() as snap:
+        root = self.core.auth.rootuser
+        async with await self.snap(user=root) as snap:
             return await snap.saveNodeEdits(edits, meta)
