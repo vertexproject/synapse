@@ -592,7 +592,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
 
         if self.trigqueue.size and not force:
-            raise s_exc.CantMergeView(mesg=f'There are still async triggers being run.', canforce=True)
+            raise s_exc.CantMergeView(mesg=f'There are still {self.trigqueue.size} triggers waiting to complete.', canforce=True)
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
