@@ -30,23 +30,42 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_layer_mirror(self):
 
         # test a layer mirror from a layer
-        async with self.getTestCore() as core00:
-            self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.genpath(dirn, 'core00')
+            dirn01 = s_common.genpath(dirn, 'core01')
+            async with self.getTestCore(dirn=dirn00) as core00:
+                self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
 
-            async with self.getTestCore() as core01:
+                async with self.getTestCore(dirn=dirn01) as core01:
 
-                layr00 = await core00.addLayer()
-                layr00iden = layr00.get('iden')
-                view00 = await core00.addView({'layers': (layr00iden,)})
+                    layr00 = await core00.addLayer()
+                    layr00iden = layr00.get('iden')
+                    view00 = await core00.addView({'layers': (layr00iden,)})
+                    view00iden = view00.get('iden')
 
-                layr00url = core00.getLocalUrl(share=f'*/layer/{layr00iden}')
+                    layr00url = core00.getLocalUrl(share=f'*/layer/{layr00iden}')
 
-                layr01 = await core01.addLayer({'mirror': layr00url})
-                layr01iden = layr01.get('iden')
-                view01 = await core01.addView({'layers': (layr01iden,)})
+                    layr01 = await core01.addLayer({'mirror': layr00url})
+                    layr01iden = layr01.get('iden')
+                    view01 = await core01.addView({'layers': (layr01iden,)})
+                    view01iden = view01.get('iden')
 
-                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
-                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+                    self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01iden}))
+                    self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00iden}))
+
+                    info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
+                    self.false(info00.get('mirror'))
+
+                    info01 = await core01.callStorm(f'return($lib.layer.get({layr01iden}).getMirrorStatus())')
+                    self.true(info01.get('mirror'))
+                    self.nn(info01['local']['size'])
+                    self.nn(info01['remote']['size'])
+                    self.eq(info01['local']['size'], info01['remote']['size'])
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+                async with self.getTestCore(dirn=dirn01) as core01:
+                    self.len(1, await core01.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'view': view01iden}))
+                    self.len(1, await core00.nodes('inet:ipv4=1.2.3.4', opts={'view': view00iden}))
 
         # test a layer mirror from a view
         async with self.getTestCore() as core00:
@@ -67,6 +86,15 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
                 self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+
+                info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
+                self.false(info00.get('mirror'))
+
+                info01 = await core01.callStorm(f'return($lib.layer.get({layr01iden}).getMirrorStatus())')
+                self.true(info01.get('mirror'))
+                self.nn(info01['local']['size'])
+                self.nn(info01['remote']['size'])
+                self.eq(info01['local']['size'], info01['remote']['size'])
 
     async def test_cortex_must_upgrade(self):
 

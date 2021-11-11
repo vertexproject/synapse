@@ -70,6 +70,10 @@ class ViewApi(s_cell.CellApi):
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.view.saveNodeEdits(edits, meta)
 
+    async def getEditSize(self):
+        await self._reqUserAllowed(('view', 'read'))
+        return await self.view.layers[0].getEditSize()
+
     async def getCellIden(self):
         return self.view.iden
 

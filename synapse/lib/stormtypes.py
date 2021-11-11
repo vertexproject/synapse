@@ -5300,6 +5300,11 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'getMirrorStatus', 'desc': '''
+            Return a dictionary of the mirror syncronization status for the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getMirrorStatus',
+                  'returns': {'type': 'dict', 'desc': 'An info dictionary describing mirror sync status.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5344,7 +5349,13 @@ class Layer(Prim):
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNodes': self.getStorNodes,
+            'getMirrorStatus': self.getMirrorStatus,
         }
+
+    async def getMirrorStatus(self):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        return await layr.getMirrorStatus()
 
     async def _addPull(self, url, offs=0):
         url = await tostr(url)

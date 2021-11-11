@@ -124,6 +124,9 @@ class LayerApi(s_cell.CellApi):
             yield item
 
     async def saveNodeEdits(self, edits, meta):
+        '''
+        Save node edits to the layer and return a tuple of (nexsoffs, changes).
+        '''
         await self._reqUserAllowed(self.writeperm)
         return await self.layr.saveNodeEdits(edits, meta)
 
@@ -176,6 +179,13 @@ class LayerApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(self.liftperm)
         return await self.layr.getEditIndx()
+
+    async def getEditSize(self):
+        '''
+        Returns what will be the *next* nodeedit log index.
+        '''
+        await self._reqUserAllowed(self.liftperm)
+        return await self.layr.getEditSize()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -1220,6 +1230,17 @@ class Layer(s_nexus.Pusher):
             self.leader = await s_telepath.Client.anit(mirror)
             self.leadoffs = await self._getLeadOffs()
             self.schedCoro(self._runMirrorLoop())
+
+    async def getMirrorStatus(self):
+        retn = {'mirror': self.leader is not None}
+        if self.leader:
+            proxy = await self.leader.proxy()
+            retn['local'] = {'size': await self.getEditSize()}
+            retn['remote'] = {'size': await proxy.getEditSize()}
+        return retn
+
+    async def getEditSize(self):
+        return self.nodeeditlog.size
 
     async def _runMirrorLoop(self):
         while not self.isfini:
