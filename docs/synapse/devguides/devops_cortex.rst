@@ -135,10 +135,9 @@ To specify a remote layer as the upstream, us a Telepath URL which includes the 
 ``tcp://cortex.vertex.link/*/layer/8ea600d1732f2c4ef593120b3226dea3``.  To specify a remote view, use the shared object
 ``*/view/<viewiden>`` such as ``tcp://cortex.vertex.link/*/view/8ea600d1732f2c4ef593120b3226dea3``.
 
-By using the ``--mirror`` option to the ``layer.add`` command, the specified Telepath URL will be connected and checked for
-valid permissions before allowing the layer to be added.  However, if you specify a ``mirror`` option directly within a
-layer definition provided to the ``$lib.layer.add()`` Storm API the telepath URL will not be checked.  This allows configuration
-of a remote layer or view which is not yet provisioned or is currently offline.
+When you specify a ``--mirror`` option to the ``layer.add`` command or within a layer definition provided to the ``$lib.layer.add()``
+Storm API the telepath URL will not be checked.  This allows configuration of a remote layer or view which is not yet provisioned
+or is currently offline.
 
 .. note::
 

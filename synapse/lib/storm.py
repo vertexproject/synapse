@@ -460,7 +460,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
-            ('--mirror', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
+            ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
