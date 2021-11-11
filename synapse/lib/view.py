@@ -147,10 +147,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
                         await trig._execute(node)
 
-                except asyncio.CancelledError:
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
 
-                except Exception as e:
+                except Exception as e:  # pragma: no cover
                     logger.exception(f'trigQueueLoop() on view {self.iden}')
 
                 finally:
