@@ -133,6 +133,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for offs, triginfo in self.trigqueue.gets(0):
 
                 buid = triginfo.get('buid')
+                varz = triginfo.get('vars')
                 trigiden = triginfo.get('trig')
 
                 try:
@@ -145,7 +146,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         if node is None:
                             continue
 
-                        await trig._execute(node)
+                        await trig._execute(node, vars=varz)
 
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
