@@ -5,8 +5,10 @@ import synapse.common as s_common
 
 from synapse.common import aspin
 
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
+import synapse.tools.backup as s_tools_backup
 
 class TrigTest(s_t_utils.SynTest):
 
@@ -39,8 +41,7 @@ class TrigTest(s_t_utils.SynTest):
 
                 # kill off the async consumer and queue up some requests
                 # to test persistance and proper resuming...
-                core.view.trigtask.cancel()
-                core.view.trigtask = True  # lolz...
+                await core.view.finiTrigTask()
 
                 trigiden = await core.callStorm('return($lib.view.get().triggers.0.iden)')
                 self.nn(trigiden)
@@ -63,7 +64,7 @@ class TrigTest(s_t_utils.SynTest):
                 viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
 
                 view = core.getView(viewiden)
-                view.trigtask = True  # lolz...
+                await view.finiTrigTask()
 
                 opts = {'view': viewiden}
                 await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
@@ -76,6 +77,40 @@ class TrigTest(s_t_utils.SynTest):
                 await core.nodes('$lib.view.del($view)', opts={'vars': {'view': viewiden}})
 
                 self.false(os.path.isdir(view.dirn))
+
+    async def test_trigger_async_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+
+                await core00.view.finiTrigTask()
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                url = core00.getLocalUrl()
+                core01conf = {'mirror': url}
+
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                    # ensure sync by forcing node construction
+                    await core01.nodes('[ou:org=*]')
+                    self.nn(await core00.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                    self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
+
+                    await core01.nodes('[inet:ipv4=8.8.8.8]')
+                    self.nn(await core01.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                    self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
+                    self.none(await core01.callStorm('return($lib.queue.gen(foo).pop())'))
+
+                    self.nn(core00.view.trigtask)
+                    self.none(core01.view.trigtask)
 
     async def test_trigger_recursion(self):
         async with self.getTestCore() as core:

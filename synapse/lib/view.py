@@ -123,8 +123,23 @@ class View(s_nexus.Pusher):  # type: ignore
         await self._initViewLayers()
 
         self.trigtask = None
-        if self.trigqueue.last():
-            self.trigtask = self.schedCoro(self._trigQueueLoop())
+        await self.initTrigTask()
+
+    async def initTrigTask(self):
+
+        if self.trigtask is not None:
+            return
+
+        if not await self.core.isCellActive():
+            return
+
+        self.trigtask = self.schedCoro(self._trigQueueLoop())
+
+    async def finiTrigTask(self):
+
+        if self.trigtask is not None:
+            self.trigtask.cancel()
+            self.trigtask = None
 
     async def _trigQueueLoop(self):
 
@@ -426,8 +441,6 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPushAuto('trig:q:add')
     async def addTrigQueue(self, triginfo):
         self.trigqueue.add(triginfo)
-        if self.trigtask is None:
-            self.trigtask = self.schedCoro(self._trigQueueLoop())
 
     @s_nexus.Pusher.onPushAuto('trig:q:del')
     async def delTrigQueue(self, offs):
