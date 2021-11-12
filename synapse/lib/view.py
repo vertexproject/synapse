@@ -167,7 +167,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     raise
 
                 except Exception as e:  # pragma: no cover
-                    logger.exception(f'trigQueueLoop() on view {self.iden}')
+                    logger.exception(f'trigQueueLoop() on trigger: {trigiden} view: {self.iden}')
 
                 finally:
                     await self.delTrigQueue(offs)
