@@ -687,12 +687,12 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        saveoff, changes, results = await self.layers[0].shitNodeEdits(edits, meta)
-
         wlyr = self.wlyr
         nodes = []
         callbacks = []
         actualedits = []  # List[Tuple[buid, form, changes]]
+
+        saveoff, changes, results = await wlyr.shitNodeEdits(edits, meta)
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
