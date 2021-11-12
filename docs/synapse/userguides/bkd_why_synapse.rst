@@ -31,7 +31,7 @@ These features give Synapse the following advantages:
 
 - Synapse allows analysts to better review and validate their findings. Conflicting analysis is highlighted through the structure of the data itself. Analysis can readily be questioned, reviewed, deconflicted, and ultimately improved.
 
-Synapse's predecssor was designed to store a broad range of threat data, including:
+Synapse's predecessor was designed to store a broad range of threat data, including:
 
 - Network infrastructure
 - Malware and malware behavior
