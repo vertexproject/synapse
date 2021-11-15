@@ -33,6 +33,7 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             dirn00 = s_common.genpath(dirn, 'core00')
             dirn01 = s_common.genpath(dirn, 'core01')
+            dirn02 = s_common.genpath(dirn, 'core02')
             async with self.getTestCore(dirn=dirn00) as core00:
                 self.len(1, await core00.nodes('[ inet:email=visi@vertex.link ]'))
 
@@ -62,11 +63,21 @@ class CortexTest(s_t_utils.SynTest):
                     self.nn(info01['remote']['size'])
                     self.eq(info01['local']['size'], info01['remote']['size'])
 
+            s_tools_backup.backup(dirn01, dirn02)
+
             async with self.getTestCore(dirn=dirn00) as core00:
                 async with self.getTestCore(dirn=dirn01) as core01:
                     self.gt(await core01.getLayer(layr01iden)._getLeadOffs(), 0)
                     self.len(1, await core01.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'view': view01iden}))
                     self.len(1, await core00.nodes('inet:ipv4=1.2.3.4', opts={'view': view00iden}))
+
+                    # ludicrous speed!
+                    lurl01 = core01.getLocalUrl()
+                    conf = {'mirror': core01.getLocalUrl()}
+                    async with self.getTestCore(dirn=dirn02, conf=conf) as core02:
+                        self.len(1, await core02.nodes('[ inet:ipv4=55.55.55.55 ]', opts={'view': view01iden}))
+                        self.len(1, await core01.nodes('inet:ipv4=55.55.55.55', opts={'view': view01iden}))
+                        self.len(1, await core00.nodes('inet:ipv4=55.55.55.55', opts={'view': view00iden}))
 
         # test a layer mirror from a view
         async with self.getTestCore() as core00:
