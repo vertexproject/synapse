@@ -176,9 +176,6 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address of the contract.'}),
                     ('bytecode', ('file:bytes', {}), {
                         'doc': 'The bytecode which implements the contract.'}),
-                    # TODO figure out what this looks like exactly
-                    # ('proxyfor', ('crypto:smart:contract', {}), {
-                        # 'doc': 'The contract that this contract is a proxy for.'}),
                     ('token:name', ('str', {}), {
                         'doc': 'The ERC-20 token name.'}),
                     ('token:symbol', ('str', {}), {
@@ -192,7 +189,7 @@ class CryptoModule(s_module.CoreModule):
                     ('tokenid', ('hugenum', {}), {}),
                     ('owner', ('crypto:currency:address', {}), {}),
                     ('nft:url', ('inet:url', {}), {}),
-                    ('nft:meta', ('json', {}), {}),
+                    ('nft:meta', ('data', {}), {}),
                     ('nft:meta:name', ('str', {}), {}),
                     ('nft:meta:description', ('str', {}), {}),
                     ('nft:meta:image', ('inet:url', {}), {}),
