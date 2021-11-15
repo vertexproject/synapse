@@ -1976,7 +1976,8 @@ class Layer(s_nexus.Pusher):
                         return await futu
                     return retn
 
-            indx, changes = await self.core.nexsroot.client.saveLayerNodeEdits(self.iden, edits, meta)
+            proxy = await self.core.nexsroot.client.proxy()
+            indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
             await self.core.nexsroot.waitOffs(indx)
             return indx, changes
 
