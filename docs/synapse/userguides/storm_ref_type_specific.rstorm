@@ -718,7 +718,7 @@ Insertion
 
 - When **adding** an ``ival`` as a single time value, it must be specified without parentheses.
 
-  - When a single time value is used, the ``<min>`` value will be set to the specified time and the ``<max>`` will be set to the time plus 1 ms.
+  - When a single time value is used, the ``<min>`` value will be set to the specified time and the ``<max>`` will be set to the ``<min>`` time plus 1 ms.
 
 - When **modifying** an existing ``ival`` property (including tag timestamps) with either a ``(<min>, <max>)`` pair or a single time value, the existing ``ival`` is **not** simply overwritten (as is the norm for modifying properties - see :ref:`storm-ref-data-mod`). Instead, the ``<min>`` and / or ``<max>`` are **only** updated if the new value(s) are:
 
@@ -727,7 +727,7 @@ Insertion
   
   This means that once set, ``<min>`` and ``<max>`` can only be "pushed out" to a lower minimum and / or a higher maximum. Specifying a time or times that fall **within** the current minimum and maximum will have no effect (i.e., the current values will be retained).
   
-  This means that currently it is not possible to "shrink" an ``ival`` directly; to specify a higher minimum or a lower maximum (or to remove the timestamps altogether), you must delete the ``ival`` property (or remove the timestamped tag) and re-add it with the updated values.
+  This means that it is not possible to "shrink" an ``ival`` directly; to specify a higher minimum or a lower maximum (or to remove the timestamps altogether), you must delete the ``ival`` property (or remove the timestamped tag) and re-add it with the updated values.
 
 Operations
 ++++++++++
@@ -1069,13 +1069,23 @@ Parsing
   
     ``2018/12/16T09:37:52.324Z``
     
-  - Human-readable with time zone (YYYY-MM-DDThh:mm:ss.mmm+/-hh:mm):
-  
-    ``2018-12-16T09:37:52.324-04:00``
-  
   - No formatting (YYYYMMDDhhmmssmmm):
     
     ``20181216093752324``
+    
+  - Human-readable with time zone (YYYY-MM-DDThh:mm:ss.mmm+/-hh:mm):
+  
+    ``2018-12-16T09:37:52.324-04:00``
+
+- **Wildcard** times:
+
+  The wildcard character ( ``*`` ) can be used with any of the first three explicit time formats above to specify that the remainder of the time string should be equivalent to zeros.
+  
+  - ``"2019/11/20 03*"`` (equivalent to ``2019/11/20 03:00:00.000``)
+  - ``2019/11/20T03:15*`` (equivalent to ``2019/11/20 03:15:00.000``)
+  - ``201911*`` (equivalent to ``2019/11/01 00:00:00.000``)
+  
+  When using the wildcard it is not possible to explicitly specify a time zone, so Synapse will assume the time zone is GMT / UTC.
   
 - **Relative** (offset) time values in the format:
   
@@ -1098,7 +1108,7 @@ Parsing
   - the keyword ``now`` is used to represent the current date/time.
   - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future (technically equivalent to 9223372036854775807 millis, i.e., "some really high value that is probably the heat death of the universe". Note that technically the largest valid millis value is 9999999999999 (thirteen 9’s), which represents 2286/11/20 09:46:39.999).
     
-    The question mark is most often used as the maximum value of an interval (:ref:`type-ival`) type to specify that the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over time in order to remain current.)
+    The question mark can be used as the maximum value of an interval (:ref:`type-ival`) type to specify that the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over time in order to remain current.)
     
 **Examples:**
 
@@ -1145,10 +1155,20 @@ Where lower resolution values are entered, Synapse will make logical assumptions
 - A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
 - A value of ``2018/10/27-04:00`` will be interpreted as 12:00 AM on that date with a 4 hour offset from UTC (``2018/10/27 00:00:00.000-04:00``).
 
+Similarly, where wildcard values are entered, Synapse will "zero out" unspecified values:
+
+- A value of ``2016*`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000``).
+- A value of ``2018/10/27*`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
+- A value of ``"2020/03/16 05"`` will be interpreted as March 16, 2020 at 05:00 (``2020/03/16 05:00:00.000``).
+
+.. NOTE::
+  
+  Using a wildcard when entering times is allowed, though not strictly necessary, as Synapse will zero out unspecified values whether or not the wildcard is used.
+
 Insertion
 +++++++++
 
-When adding or modifying ``time`` types, any of the above formats (explicit / relative / special terms) can be specified.
+When adding or modifying ``time`` types, any of the above formats (explicit / wildcard / relative / special terms) can be specified.
 
 When specifying a relative time for a ``time`` value, **the offset will be calculated from the current time** (``now``):
 
@@ -1208,3 +1228,5 @@ See the Storm documents referenced above for additional examples using the inter
 .. _documentation: ../autodocs/datamodel_types.html
 .. _code: https://github.com/vertexproject/synapse
 .. _Microsoft: https://docs.microsoft.com/en-us/previous-versions/aa373931(v=vs.80)
+
+``time`` types can be lifted and filtered using the wildcard ( ``*`` ) to effectively specify an interval.
