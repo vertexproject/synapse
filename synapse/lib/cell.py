@@ -375,11 +375,9 @@ class CellApi(s_base.Base):
         return path
         '''
         try:
-            await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
+            return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
-        except Exception:
-            pass
 
     @adminapi(log=True)
     async def delAuthUser(self, name):
