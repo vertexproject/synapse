@@ -1120,8 +1120,6 @@ class Layer(s_nexus.Pusher):
     async def __anit__(self, core, layrinfo):
 
         self.core = core
-        self.loop = asyncio.get_running_loop()
-
         self.layrinfo = layrinfo
 
         self.addoffs = None  # The nexus log index where I was created
