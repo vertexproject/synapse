@@ -187,7 +187,7 @@ class StormTypesRegistry:
     def getTypeDocs(self):
 
         types = self.iterTypes()
-        types.sort(key=lambda x: x[0])
+        types.sort(key=lambda x: x[1]._storm_typename)
 
         docs = []
         for (sname, styp) in types:
