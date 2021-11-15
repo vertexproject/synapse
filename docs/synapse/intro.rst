@@ -108,18 +108,18 @@ What's Next?
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 
 .. _Synapse_QuickStart: https://github.com/vertexproject/synapse-quickstart
-.. _Synapse_101: https://lu.ma/vertexproject
+.. _Synapse_101: https://v.vtx.lk/luma
 .. _Request: https://vertex.link/contact-us
 
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
-.. _Slack: https://join.slack.com/t/synapsechat/shared_invite/zt-fldtp6xg-fjyFS5Z1nwiNUtmKvuo2Mg
+.. _Slack: https://v.vtx.lk/slack-invite
 
 .. _sizing_guide: https://docsend.com/view/kmbkkq9pjhtjsbmk
 
-.. _Webinars: https://lu.ma/vertexproject
-.. _Library: https://vimeo.com/vertexproject
+.. _Webinars: https://v.vtx.lk/luma
+.. _Library: https://v.vtx.lk/vimeo
 .. _Website: https://vertex.link/
 
-.. _Twitter: https://twitter.com/vtxproject
-.. _LinkedIn: https://www.linkedin.com/company/vertexproject/
+.. _Twitter: https://v.vtx.lk/twitter
+.. _LinkedIn: https://v.vtx.lk/linkedin
 .. _Github: https://github.com/vertexproject/synapse
