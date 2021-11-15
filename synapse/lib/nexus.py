@@ -240,8 +240,7 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
-    async def issue(self, nexsiden: str, event: str, args: Tuple[Any, ...], kwargs: Dict[str, Any],
-                    meta: Optional[Dict] = None) -> Any:
+    async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -267,11 +266,9 @@ class NexsRoot(s_base.Base):
         # make my response iden the same as what's coming from downstream
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
-
             meta['resp'] = iden
-
-            saveoffs, retval = await client.issue(nexsiden, event, args, kwargs, meta)
-            return (saveoffs, await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S))
+            await client.issue(nexsiden, event, args, kwargs, meta)
+            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def eat(self, nexsiden, event, args, kwargs, meta):
         '''
@@ -434,7 +431,7 @@ class NexsRoot(s_base.Base):
                     respfutu = self._futures.get(respiden)
 
                     try:
-                        saveoffs, retn = await self.eat(*args)
+                        retn = await self.eat(*args)
 
                     except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                         raise

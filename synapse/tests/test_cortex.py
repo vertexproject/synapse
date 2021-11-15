@@ -51,6 +51,9 @@ class CortexTest(s_t_utils.SynTest):
                     view01 = await core01.addView({'layers': (layr01iden,)})
                     view01iden = view01.get('iden')
 
+                    self.nn(core01.getLayer(layr01iden).leadtask)
+                    self.none(core00.getLayer(layr00iden).leadtask)
+
                     self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01iden}))
                     self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00iden}))
 

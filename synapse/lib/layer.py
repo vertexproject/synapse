@@ -1117,27 +1117,29 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True, mapasync=True, maxreplaylog=10000):
+    async def __anit__(self, core, layrinfo):
 
-        self.nexsroot = nexsroot
+        self.core = core
+        self.loop = asyncio.get_running_loop()
+
         self.layrinfo = layrinfo
-        self.allow_upstream = allow_upstream
 
         self.addoffs = None  # The nexus log index where I was created
         self.deloffs = None  # The nexus log index where I was deleted
         self.isdeleted = False
 
         self.iden = layrinfo.get('iden')
-        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot)
 
-        self.dirn = dirn
+        self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = layrinfo.get('readonly')
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
-        self.mapasync = mapasync
-        self.maxreplaylog = maxreplaylog
+
+        self.mapasync = core.conf.get('layer:lmdb:map_async')
+        self.maxreplaylog = core.conf.get('layer:lmdb:max_replay_log')
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -1148,6 +1150,7 @@ class Layer(s_nexus.Pusher):
         self.fresh = not os.path.exists(path)
 
         self.dirty = {}
+        self.futures = {}
 
         self.stortypes = [
 
@@ -1210,6 +1213,9 @@ class Layer(s_nexus.Pusher):
 
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
+        # TODO this isn't right...
+        allow_upstream = not core.conf.get('mirror')
+
         uplayr = layrinfo.get('upstream')
         if uplayr is not None and allow_upstream:
             if isinstance(uplayr, (tuple, list)):
@@ -1223,16 +1229,24 @@ class Layer(s_nexus.Pusher):
         # if we are a mirror, we upstream all our edits and
         # wait for them to make it back down the pipe...
         self.leader = None
-        self.leadoffs = -1
-        self.leadevent = asyncio.Event()
+        self.leadtask = None
+        self.ismirror = layrinfo.get('mirror') is not None
 
-        mirror = layrinfo.get('mirror')
-        if mirror is not None:
-            self.leader = await s_telepath.Client.anit(mirror)
-            self.leadoffs = await self._getLeadOffs()
-            self.schedCoro(self._runMirrorLoop())
+    @contextlib.contextmanager
+    def getIdenFutu(self, iden=None):
+
+        if iden is None:
+            iden = s_common.guid()
+
+        futu = self.loop.create_future()
+        self.futures[iden] = futu
+
+        yield iden, futu
+
+        self.futures.pop(iden, None)
 
     async def getMirrorStatus(self):
+        # TODO plumb back to upstream on not self.core.isactive
         retn = {'mirror': self.leader is not None}
         if self.leader:
             proxy = await self.leader.proxy()
@@ -1240,19 +1254,56 @@ class Layer(s_nexus.Pusher):
             retn['remote'] = {'size': await proxy.getEditSize()}
         return retn
 
+    async def initLayerActive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+
+        mirror = self.layrinfo.get('mirror')
+        if mirror is not None:
+            self.leader = await s_telepath.Client.anit(mirror)
+            self.leadtask = self.schedCoro(self._runMirrorLoop())
+
+    async def initLayerPassive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+
+        if self.leader is not None:
+            await self.leader.fini()
+            self.leader = None
+
     async def getEditSize(self):
         return self.nodeeditlog.size
 
     async def _runMirrorLoop(self):
+
         while not self.isfini:
+
             try:
+
                 proxy = await self.leader.proxy()
-                # TODO: check versions
-                async for offs, edits, meta in proxy.syncNodeEdits2(self.leadoffs + 1):
+
+                leadoffs = await self._getLeadOffs()
+
+                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1):
+
+                    iden = meta.get('task')
+                    futu = self.futures.pop(iden, None)
+
                     meta['indx'] = offs
-                    await self._push('edits', edits, meta)
-                    self.leadoffs = offs
-                    self.leadevent.set()
+
+                    try:
+                        item = await self.saveToNexs('edits', edits, meta)
+                        if futu is not None:
+                            futu.set_result(item)
+
+                    except asyncio.CancelledError:
+                        raise
+
+                    except Exception as e:
+                        if futu is not None:
+                            futu.set_exception(e)
 
             except asyncio.CancelledError as e:
                 raise
@@ -1631,6 +1682,7 @@ class Layer(s_nexus.Pusher):
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
+        [futu.cancel() for futu in self.futures.values()]
 
     async def getFormCounts(self):
         return self.formcounts.pack()
@@ -1911,20 +1963,24 @@ class Layer(s_nexus.Pusher):
 
     async def saveNodeEdits(self, edits, meta):
 
-        if self.leader:
+        if self.ismirror:
 
-            proxy = await self.leader.proxy()
-            saveoff, changes = await proxy.saveNodeEdits(edits, meta)
+            if self.core.isactive:
+                proxy = await self.leader.proxy()
 
-            if any(c[2] for c in changes):
-                while self.leadoffs < saveoff:
-                    self.leadevent.clear()
-                    await self.leadevent.wait()
+                with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
+                    meta['task'] = iden
+                    moff, changes = await proxy.saveNodeEdits(edits, meta)
+                    retn = None
+                    if any(c[2] for c in changes):
+                        return await futu
+                    return retn
 
-            return saveoff, changes
+            indx, changes = await self.core.nexsroot.client.saveLayerNodeEdits(self.iden, edits, meta)
+            await self.core.nexsroot.waitOffs(indx)
+            return indx, changes
 
-        else:
-            return await self.saveToNexs('edits', edits, meta)
+        return await self.saveToNexs('edits', edits, meta)
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):
@@ -1949,7 +2005,6 @@ class Layer(s_nexus.Pusher):
 
             sode = self._getStorNode(buid)
 
-            i = 0
             changes = []
             for edit in edits:
 
@@ -1959,9 +2014,7 @@ class Layer(s_nexus.Pusher):
 
                 changes.extend(delt)
 
-                i += 1
-                if i % 100 == 0:
-                    await asyncio.sleep(0)
+                await asyncio.sleep(0)
 
             flatedit = results.get(buid)
             if flatedit is None:
@@ -1971,8 +2024,6 @@ class Layer(s_nexus.Pusher):
 
             if changes:
                 edited = True
-
-            await asyncio.sleep(0)
 
         flatedits = list(results.values())
 
