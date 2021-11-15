@@ -1214,10 +1214,10 @@ class Layer(s_nexus.Pusher):
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
         # TODO this isn't right...
-        allow_upstream = not core.conf.get('mirror')
+        self.allow_upstream = not core.conf.get('mirror')
 
         uplayr = layrinfo.get('upstream')
-        if uplayr is not None and allow_upstream:
+        if uplayr is not None and self.allow_upstream:
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
