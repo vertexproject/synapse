@@ -66,6 +66,18 @@ class CortexTest(s_t_utils.SynTest):
                     self.nn(info01['remote']['size'])
                     self.eq(info01['local']['size'], info01['remote']['size'])
 
+                    # mangle some state for test coverage...
+                    await core01.getLayer(layr01iden).initLayerActive()
+                    self.nn(core01.getLayer(layr01iden).leader)
+                    self.nn(core01.getLayer(layr01iden).leadtask)
+
+                    await core01.getLayer(layr01iden).initLayerPassive()
+                    self.none(core01.getLayer(layr01iden).leader)
+                    self.none(core01.getLayer(layr01iden).leadtask)
+
+                    with self.raises(s_exc.NoSuchLayer):
+                        await core01.saveLayerNodeEdits(s_common.guid(), (), {})
+
             s_tools_backup.backup(dirn01, dirn02)
 
             async with self.getTestCore(dirn=dirn00) as core00:

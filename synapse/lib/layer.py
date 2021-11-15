@@ -1268,6 +1268,7 @@ class Layer(s_nexus.Pusher):
 
         if self.leadtask is not None:
             self.leadtask.cancel()
+            self.leadtask = None
 
         if self.leader is not None:
             await self.leader.fini()
@@ -1298,17 +1299,17 @@ class Layer(s_nexus.Pusher):
                         if futu is not None:
                             futu.set_result(item)
 
-                    except asyncio.CancelledError:
+                    except asyncio.CancelledError:  # pragma: no cover
                         raise
 
                     except Exception as e:
                         if futu is not None:
                             futu.set_exception(e)
 
-            except asyncio.CancelledError as e:
+            except asyncio.CancelledError as e:  # pragma: no cover
                 raise
 
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
                 await self.waitfini(timeout=2)
 
@@ -1683,6 +1684,8 @@ class Layer(s_nexus.Pusher):
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
         [futu.cancel() for futu in self.futures.values()]
+        if self.leader is not None:
+            await self.leader.fini()
 
     async def getFormCounts(self):
         return self.formcounts.pack()
