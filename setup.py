@@ -117,6 +117,7 @@ setup(
             'hide-code>=0.5.2,<0.5.3',
             'nbstripout>=0.3.3,<1.0.0',
             'sphinx-rtd-theme>=0.4.2,<1.0.0',
+            'sphinx-notfound-page==0.8',
         ],
         'dev': [
             'pytest>=6.2.5,<7.0.0',
