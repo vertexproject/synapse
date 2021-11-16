@@ -228,6 +228,15 @@ class AxonTest(s_t_utils.SynTest):
         self.len(2, [item[1] async for item in axon.hashes(0) if item[1][0] == bbufhash])
         self.len(1, [item[1] async for item in axon.hashes(2) if item[1][0] == bbufhash])
 
+        # readlines / jsonlines
+        (lsize, l256) = await axon.put(linesbuf)
+        (jsize, j256) = await axon.put(jsonsbuf)
+
+        lines = [item async for item in axon.readlines(s_common.ehex(l256))]
+        self.eq(('asdf', '', 'qwer'), lines)
+        jsons = [item async for item in axon.jsonlines(s_common.ehex(j256))]
+        self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -248,19 +257,6 @@ class AxonTest(s_t_utils.SynTest):
         async with self.getTestAxon() as axon:
             async with axon.getLocalProxy() as prox:
                 await self.runAxonTestBase(prox)
-
-    async def test_axon_lines(self):
-
-        async with self.getTestAxon() as axon:
-
-            (lsize, l256) = await axon.put(linesbuf)
-            (jsize, j256) = await axon.put(jsonsbuf)
-
-            async with axon.getLocalProxy() as proxy:
-                lines = [item async for item in proxy.readlines(s_common.ehex(l256))]
-                self.eq(('asdf', '', 'qwer'), lines)
-                jsons = [item async for item in proxy.jsonlines(s_common.ehex(j256))]
-                self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
     async def test_axon_http(self):
 
