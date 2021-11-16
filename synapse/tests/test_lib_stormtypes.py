@@ -5036,10 +5036,18 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_axon(self):
 
-        opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf}}
+        opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf, 'asdfbuf': b'asdf'}}
         async with self.getTestCore() as core:
+            asdfitem = await core.callStorm('return($lib.bytes.put($asdfbuf))', opts=opts)
             linesitem = await core.callStorm('return($lib.bytes.put($linesbuf))', opts=opts)
             jsonsitem = await core.callStorm('return($lib.bytes.put($jsonsbuf))', opts=opts)
+
+            opts = {'vars': {'sha256': asdfitem[1]}}
+            self.eq(('asdf',), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
 
             opts = {'vars': {'sha256': linesitem[1]}}
             self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
