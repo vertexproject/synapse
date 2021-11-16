@@ -42,6 +42,16 @@ class Newp:
     def __repr__(self):
         return 'Newp'
 
+linesbuf = b'''
+vertex.link
+woot.com
+'''.strip(b'\n')
+
+jsonsbuf = b'''
+{"fqdn": "vertex.link"}
+{"fqdn": "woot.com"}
+'''.strip(b'\n')
+
 class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_registry(self):
@@ -5023,6 +5033,27 @@ class StormTypesTest(s_test.SynTest):
 
             ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
             self.eq('a-b-c-d', ret)
+
+    async def test_storm_lib_axon(self):
+
+        opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf}}
+        async with self.getTestCore() as core:
+            linesitem = await core.callStorm('return($lib.bytes.put($linesbuf))', opts=opts)
+            jsonsitem = await core.callStorm('return($lib.bytes.put($jsonsbuf))', opts=opts)
+
+            opts = {'vars': {'sha256': linesitem[1]}}
+            self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
+            opts = {'vars': {'sha256': jsonsitem[1]}}
+            self.eq(({'fqdn': 'vertex.link'}, {'fqdn': 'woot.com'}), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.jsonlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
 
     async def test_storm_lib_export(self):
 

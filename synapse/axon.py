@@ -1,3 +1,4 @@
+import json
 import asyncio
 import hashlib
 import logging
@@ -523,6 +524,34 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
+    async def readlines(self, sha256):
+        '''
+        Yield lines from a multi-line text file in the axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+
+        Yields:
+            str: Lines of text
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.readlines(sha256):
+            yield item
+
+    async def jsonlines(self, sha256):
+        '''
+        Yield JSON objects from JSONL (JSON lines) file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+
+        Yields:
+            object: Decoded JSON objects.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.jsonlines(sha256):
+            yield item
+
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -951,6 +980,32 @@ class Axon(s_cell.Cell):
         async for byts in self.get(s_common.uhex(sha256)):
             for _, item in unpk.feed(byts):
                 yield item
+
+    async def readlines(self, sha256):
+        lines = []
+        remain = ''
+        async for byts in self.get(s_common.uhex(sha256)):
+
+            text = remain + byts.decode()
+
+            lines = text.split('\n')
+            if len(lines) == 1:
+                remain = text
+                continue
+
+            remain = lines[-1]
+            for line in lines[:-1]:
+                yield line
+
+        if remain:
+            yield remain
+
+    async def jsonlines(self, sha256):
+        async for line in self.readlines(sha256):
+            line = line.strip()
+            if not line:
+                continue
+            yield json.loads(line)
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):
         '''

@@ -39,6 +39,16 @@ pennretn = (9, pennhash)
 rgryretn = (11, rgryhash)
 bbufretn = (len(bbuf), bbufhash)
 
+linesbuf = b'''asdf
+
+qwer
+'''
+
+jsonsbuf = b'''
+{"foo": "bar"}
+{"baz": "faz"}
+'''
+
 class HttpPushFile(s_httpapi.StreamHandler):
 
     async def prepare(self):
@@ -238,6 +248,19 @@ class AxonTest(s_t_utils.SynTest):
         async with self.getTestAxon() as axon:
             async with axon.getLocalProxy() as prox:
                 await self.runAxonTestBase(prox)
+
+    async def test_axon_lines(self):
+
+        async with self.getTestAxon() as axon:
+
+            (lsize, l256) = await axon.put(linesbuf)
+            (jsize, j256) = await axon.put(jsonsbuf)
+
+            async with axon.getLocalProxy() as proxy:
+                lines = [item async for item in proxy.readlines(s_common.ehex(l256))]
+                self.eq(('asdf', '', 'qwer'), lines)
+                jsons = [item async for item in proxy.jsonlines(s_common.ehex(j256))]
+                self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
     async def test_axon_http(self):
 
