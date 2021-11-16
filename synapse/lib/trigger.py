@@ -40,6 +40,7 @@ TrigSchema = {
         'user': {'type': 'string', 'pattern': s_config.re_iden},
         'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
         'storm': {'type': 'string'},
+        'async': {'type': 'boolean'},
         'enabled': {'type': 'boolean'},
     },
     'additionalProperties': True,
@@ -297,11 +298,14 @@ class Trigger:
         self.errcount = 0
         self.lasterrs = collections.deque((), maxlen=5)
 
+        useriden = self.tdef.get('user')
+        self.user = self.view.core.auth.user(useriden)
+
     async def set(self, name, valu):
         '''
         Set one of the dynamic elements of the trigger definition.
         '''
-        assert name in ('enabled', 'storm', 'doc', 'name')
+        assert name in ('enabled', 'storm', 'doc', 'name', 'async')
 
         if valu == self.tdef.get(name):
             return
@@ -319,18 +323,24 @@ class Trigger:
         '''
         Actually execute the query
         '''
-        opts = {}
-
         if not self.tdef.get('enabled'):
             return
 
-        useriden = self.tdef.get('user')
-        user = self.view.core.auth.user(useriden)
-        locked = user.info.get('locked')
+        if self.tdef.get('async'):
+            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
+            await self.view.addTrigQueue(triginfo)
+            return
+
+        return await self._execute(node, vars=vars, view=view)
+
+    async def _execute(self, node, vars=None, view=None):
+
+        opts = {}
+        locked = self.user.info.get('locked')
         if locked:
             if not self.lockwarned:
                 self.lockwarned = True
-                logger.warning('Skipping trigger execution because user {useriden} is locked')
+                logger.warning(f'Skipping trigger execution because user {self.user.iden} is locked')
             return
 
         tag = self.tdef.get('tag')
@@ -345,8 +355,8 @@ class Trigger:
             view = self.view.iden
 
         opts = {
-            'user': useriden,
             'view': view,
+            'user': self.user.iden,
         }
 
         if vars is not None:
