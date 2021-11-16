@@ -718,6 +718,13 @@ properties with specified value(s) to a set of nodes with a property having the 
 
 See :ref:`storm-ref-pivot` for additional detail.
 
+.. _gloss-power-up:
+
+Power-Up
+--------
+
+Power-Ups provide specific add-on capabilities to Synapse via Storm Packages (:ref:`gloss-package`) and Services (:ref:`gloss-service`). For example, Power-Ups may provide connectivity to external databases or third-party data sources, or enable functionality such as the ability to manage YARA rules, scans, and matches.
+
 .. _gloss-primary-prop:
 
 Primary Property

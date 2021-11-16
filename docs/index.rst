@@ -13,7 +13,6 @@ Welcome to the Synapse documentation!
    :caption: Contents:
 
    synapse/intro
-
    synapse/quickstart
 
    synapse/userguide
@@ -28,7 +27,6 @@ Welcome to the Synapse documentation!
    synapse/datamodel
    synapse/stormtypes
 
-   synapse/200_changes
    synapse/changelog
 
 Indices and tables
