@@ -231,10 +231,16 @@ class AxonTest(s_t_utils.SynTest):
         # readlines / jsonlines
         (lsize, l256) = await axon.put(linesbuf)
         (jsize, j256) = await axon.put(jsonsbuf)
+        (bsize, b256) = await axon.put(b'\n'.join((jsonsbuf, linesbuf)))
 
         lines = [item async for item in axon.readlines(s_common.ehex(l256))]
         self.eq(('asdf', '', 'qwer'), lines)
         jsons = [item async for item in axon.jsonlines(s_common.ehex(j256))]
+        self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
+        jsons = []
+        with self.raises(s_exc.BadJsonText):
+            async for item in axon.jsonlines(s_common.ehex(b256)):
+                jsons.append(item)
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
     async def test_axon_base(self):

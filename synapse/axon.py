@@ -982,10 +982,8 @@ class Axon(s_cell.Cell):
                 yield item
 
     async def readlines(self, sha256):
-        lines = []
         remain = ''
         async for byts in self.get(s_common.uhex(sha256)):
-
             text = remain + byts.decode()
 
             lines = text.split('\n')
@@ -1005,7 +1003,13 @@ class Axon(s_cell.Cell):
             line = line.strip()
             if not line:
                 continue
-            yield json.loads(line)
+
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError as e:
+                logger.exception(f'Bad json line encountered for {sha256}')
+                raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
+                                        sha256=sha256) from None
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):
         '''
