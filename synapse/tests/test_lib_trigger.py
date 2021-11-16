@@ -1,12 +1,116 @@
+import os
+import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 from synapse.common import aspin
 
+import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
+import synapse.tools.backup as s_tools_backup
 
 class TrigTest(s_t_utils.SynTest):
+
+    async def test_trigger_async(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+
+                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+                self.none(nodes[0].tags.get('foo'))
+
+                msgs = await core.stormlist('trigger.list')
+                self.stormIsInPrint('True   True   node:add  inet:ipv4', msgs)
+
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                nodes = await core.nodes('inet:ipv4=1.2.3.4')
+                self.nn(nodes[0].tags.get('foo'))
+
+                # test dynamically updating the trigger async to off
+                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
+                nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ]')
+                self.nn(nodes[0].tags.get('foo'))
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+
+                # reset the trigger to async...
+                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.true)')
+
+                # kill off the async consumer and queue up some requests
+                # to test persistance and proper resuming...
+                await core.view.finiTrigTask()
+
+                trigiden = await core.callStorm('return($lib.view.get().triggers.0.iden)')
+                self.nn(trigiden)
+
+                await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': trigiden})
+                await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': s_common.guid()})
+
+                nodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
+                self.none(nodes[0].tags.get('foo'))
+                self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                nodes = await core.nodes('inet:ipv4=9.9.9.9')
+                self.nn(nodes[0].tags.get('foo'))
+                self.none(core.view.trigqueue.last())
+
+                # lets fork a view and hamstring it's trigger queue and make sure we can't merge
+                viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+
+                view = core.getView(viewiden)
+                await view.finiTrigTask()
+
+                opts = {'view': viewiden}
+                await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                nodes = await core.nodes('[ inet:ipv4=123.123.123.123 ]', opts=opts)
+
+                with self.raises(s_exc.CantMergeView):
+                    await core.nodes('$lib.view.get().merge()', opts=opts)
+
+                await core.nodes('$lib.view.get().merge(force=$lib.true)', opts=opts)
+                await core.nodes('$lib.view.del($view)', opts={'vars': {'view': viewiden}})
+
+                self.false(os.path.isdir(view.dirn))
+
+    async def test_trigger_async_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+                await core00.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+
+                await core00.view.finiTrigTask()
+                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                url = core00.getLocalUrl()
+                core01conf = {'mirror': url}
+
+                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                    # ensure sync by forcing node construction
+                    await core01.nodes('[ou:org=*]')
+                    self.nn(await core00.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                    self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
+
+                    await core01.nodes('[inet:ipv4=8.8.8.8]')
+                    self.nn(await core01.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
+                    self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
+                    self.none(await core01.callStorm('return($lib.queue.gen(foo).pop())'))
+
+                    self.nn(core00.view.trigtask)
+                    self.none(core01.view.trigtask)
 
     async def test_trigger_recursion(self):
         async with self.getTestCore() as core:
