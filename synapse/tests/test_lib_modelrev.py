@@ -100,3 +100,10 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1003, nodes)
             for node in nodes:
                 self.len(1, nodes[0].get('names'))
+
+    async def test_modelrev_0_2_6(self):
+        async with self.getRegrCore('model-0.2.6') as core:
+
+            nodes = await core.nodes('it:account=90b3d80f8bdf9e33b4aeb46c720d3289')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('groups'))

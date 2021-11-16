@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 5)
+maxvers = (0, 2, 6)
 
 class ModelRev:
 
@@ -18,6 +18,7 @@ class ModelRev:
             ((0, 2, 2), self.revModel20210312),
             ((0, 2, 3), self.revModel20210528),
             ((0, 2, 5), self.revModel20210801),
+            ((0, 2, 6), self.revModel20211112),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -63,6 +64,54 @@ class ModelRev:
 
                 if nodeedits:
                     await save()
+
+    async def revModel20211112(self, layers):
+        # uniq and sort several array types
+        todoprops = (
+            'biz:rfp:requirements',
+
+            'crypto:x509:cert:ext:sans',
+            'crypto:x509:cert:ext:crls',
+            'crypto:x509:cert:identities:fqdns',
+            'crypto:x509:cert:identities:emails',
+            'crypto:x509:cert:identities:ipv4s',
+            'crypto:x509:cert:identities:ipv6s',
+            'crypto:x509:cert:identities:urls',
+            'crypto:x509:cert:crl:urls',
+
+            'inet:email:message:headers',
+
+            'inet:http:request:headers',
+            'inet:http:request:response:headers',
+
+            'inet:whois:iprec:contacts',
+            'inet:whois:iprec:links',
+            'inet:whois:ipcontact:roles',
+            'inet:whois:ipcontact:links',
+            'inet:whois:ipcontact:contacts',
+
+            'it:account:groups',
+            'it:group:groups',
+            'it:sec:cwe:parents',
+
+            'it:mitre:attack:group:techniques',
+            'it:mitre:attack:group:software',
+            'it:mitre:attack:technique:tactics',
+            'it:mitre:attack:software:techniques',
+            'it:mitre:attack:mitigation:addresses',
+
+            'it:reveng:function:impcalls',
+            'it:reveng:filefunc:funccalls',
+
+            'risk:vuln:cwes',
+
+            'syn:cmd:input',
+            'syn:cmd:output',
+            'syn:cmd:nodedata',
+
+            'tel:txtmesg:recipients',
+        )
+        await self._uniqSortArray(todoprops, layers)
 
     async def revModel20210801(self, layers):
 
