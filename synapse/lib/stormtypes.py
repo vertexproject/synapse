@@ -1608,6 +1608,35 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
+        {'name': 'readlines', 'desc': '''
+        Yields lines of text from a plain-text file stored in the Axon.
+
+        Example:
+            for $line in $lib.axon.readlines($sha256) {
+                $dostuff($line)
+            }
+        ''',
+         'type': {'type': 'function', '_funcname': 'readlines',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'str',
+                              'desc': 'A line of text from the file.', }}},
+
+        {'name': 'jsonlines', 'desc': '''
+        Yields JSON objects from a JSON-lines file stored in the Axon.
+
+        Example:
+            for $item in $lib.axon.jsonlines($sha256) {
+                $dostuff($item)
+            }
+        ''',
+         'type': {'type': 'function', '_funcname': 'jsonlines',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any',
+                              'desc': 'A JSON object parsed from a line of text.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1619,7 +1648,25 @@ class LibAxon(Lib):
             'del': self.del_,
             'dels': self.dels,
             'list': self.list,
+            'readlines': self.readlines,
+            'jsonlines': self.jsonlines,
         }
+
+    async def readlines(self, sha256):
+        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.snap.core.getAxon()
+
+        sha256 = await tostr(sha256)
+        async for line in self.runt.snap.core.axon.readlines(sha256):
+            yield line
+
+    async def jsonlines(self, sha256):
+        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.snap.core.getAxon()
+
+        sha256 = await tostr(sha256)
+        async for line in self.runt.snap.core.axon.jsonlines(sha256):
+            yield line
 
     async def dels(self, sha256s):
 

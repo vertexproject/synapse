@@ -39,6 +39,16 @@ pennretn = (9, pennhash)
 rgryretn = (11, rgryhash)
 bbufretn = (len(bbuf), bbufhash)
 
+linesbuf = b'''asdf
+
+qwer
+'''
+
+jsonsbuf = b'''
+{"foo": "bar"}
+{"baz": "faz"}
+'''
+
 class HttpPushFile(s_httpapi.StreamHandler):
 
     async def prepare(self):
@@ -217,6 +227,21 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(retn, bbufretn)
         self.len(2, [item[1] async for item in axon.hashes(0) if item[1][0] == bbufhash])
         self.len(1, [item[1] async for item in axon.hashes(2) if item[1][0] == bbufhash])
+
+        # readlines / jsonlines
+        (lsize, l256) = await axon.put(linesbuf)
+        (jsize, j256) = await axon.put(jsonsbuf)
+        (bsize, b256) = await axon.put(b'\n'.join((jsonsbuf, linesbuf)))
+
+        lines = [item async for item in axon.readlines(s_common.ehex(l256))]
+        self.eq(('asdf', '', 'qwer'), lines)
+        jsons = [item async for item in axon.jsonlines(s_common.ehex(j256))]
+        self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
+        jsons = []
+        with self.raises(s_exc.BadJsonText):
+            async for item in axon.jsonlines(s_common.ehex(b256)):
+                jsons.append(item)
+        self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:

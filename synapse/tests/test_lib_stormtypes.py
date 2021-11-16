@@ -17,6 +17,7 @@ import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -41,6 +42,16 @@ class Newp:
 
     def __repr__(self):
         return 'Newp'
+
+linesbuf = b'''
+vertex.link
+woot.com
+'''.strip(b'\n')
+
+jsonsbuf = b'''
+{"fqdn": "vertex.link"}
+{"fqdn": "woot.com"}
+'''.strip(b'\n')
 
 class StormTypesTest(s_test.SynTest):
 
@@ -5023,6 +5034,117 @@ class StormTypesTest(s_test.SynTest):
 
             ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
             self.eq('a-b-c-d', ret)
+
+    async def test_storm_lib_axon(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+            # test out the stormlib axon API
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            opts = {'user': visi.iden, 'vars': {'port': port}}
+            wget = '''
+               $url = $lib.str.format("https://visi:secret@127.0.0.1:{port}/api/v1/healthcheck", port=$port)
+               return($lib.axon.wget($url, ssl=$lib.false))
+           '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(wget, opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('for $x in $lib.axon.list() { $lib.print($x) }', opts=opts)
+
+            # test wget runtsafe / per-node / per-node with cmdopt
+            nodes = await core.nodes(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            q = f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify :url'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            # check that the file name got set...
+            q = f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'file:bytes')
+            sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.eq([(0, sha256, size)], items)
+
+            # test $lib.axon.del()
+            delopts = {'user': visi.iden, 'vars': {'sha256': sha256}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.dels(($sha256,))', opts=delopts)
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.axon.dels(newp)')
+            delopts = {'vars': {'sha256': sha256}}
+            self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
+            self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(0, items)
+
+            msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/newp')
+            self.stormIsInWarn('HTTP code 404', msgs)
+
+            self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', opts={'vars': {'buf': b'foo'}})
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(2, items)
+            self.eq((2, sha256, size), items[1])
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list(2) { $x.append($i) } return($x)')
+            self.eq([(2, sha256, size)], items)
+
+            # test request timeout
+            async def timeout(self):
+                await asyncio.sleep(2)
+
+            with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
+                msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                self.stormIsInWarn('TimeoutError', msgs)
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            resp = await core.callStorm(wget, opts=opts)
+            self.true(resp['ok'])
+
+            opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf, 'asdfbuf': b'asdf'}}
+            asdfitem = await core.callStorm('return($lib.bytes.put($asdfbuf))', opts=opts)
+            linesitem = await core.callStorm('return($lib.bytes.put($linesbuf))', opts=opts)
+            jsonsitem = await core.callStorm('return($lib.bytes.put($jsonsbuf))', opts=opts)
+
+            opts = {'vars': {'sha256': asdfitem[1]}}
+            self.eq(('asdf',), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
+            opts = {'vars': {'sha256': linesitem[1]}}
+            self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
+            opts = {'vars': {'sha256': jsonsitem[1]}}
+            self.eq(({'fqdn': 'vertex.link'}, {'fqdn': 'woot.com'}), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.jsonlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
 
     async def test_storm_lib_export(self):
 
