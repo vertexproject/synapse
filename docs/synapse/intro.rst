@@ -67,7 +67,7 @@ Synapse uses LMDB for high-performance key-value indexing and storage, combined 
  
 **Horizontally and Vertically Scalable**
 
-A standard Synapse Cortex can store on the scale of one billion nodes. Synapse also supports <stuff / mirroring / other cool things blah blah>.
+A single Synapse Cortex can easily scale vertically to hold tens of billions of nodes and supports advanced deployment topologies such as mirroring with support for write-back edits. Additionally, the commercially available Synapse Cluster supports horizontally scalable high-availability deployments with Raft protocol based consensus.
 
  
 What's Next?
