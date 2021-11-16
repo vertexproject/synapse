@@ -171,7 +171,7 @@ class Snap(s_base.Base):
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
-            pode[1]['path'] = path.pack(path=dopath)
+            pode[1]['path'] = await path.pack(path=dopath)
 
             if scrubber is not None:
                 pode = scrubber.scrub(pode)
