@@ -106,6 +106,34 @@ The only difference between "simple" filters and "filters using comparison opera
 ::
     
     <query> +:iszone=1
+    
+- Downselect to exclude any files with a PE compiled time of ``1992-06-19 22:22:17``:
+
+.. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -file:bytes:mime:pe:compiled="1992/06/19 22:22:17"
+::
+  
+  <query> -file:bytes:mime:pe:compiled="1992/06/19 22:22:17"
+  
+
+.. storm-pre:: [file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e :mime:pe:compiled="1992/06/19 22:22:17.000"] -:mime:pe:compiled="1992/06/19 22:22:17"
+::
+  
+  <query> -:mime:pe:compiled="1992/06/19 22:22:17"
+
+
+
+
+- Downselect to include only those files compiled in 2019:
+
+.. storm-pre:: [ file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/01/01 11:14:00.000' ] +file:bytes:mime:pe:compiled=2019*
+::
+  
+  <query> +file:bytes:mime:pe:compiled=2019*
+
+.. storm-pre:: [ file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/01/01 11:14:00.000' ] +:mime:pe:compiled=2019*
+::
+  
+  <query> +:mime:pe:compiled=2019*
 
 
 *Filter by Presence of Universal Property:*
@@ -129,6 +157,7 @@ The only difference between "simple" filters and "filters using comparison opera
 **Usage Notes:**
 
 - The comparator (comparison operator) specifies how *<form>* or *<prop>* is evaluated with respect to *<valu>* or *<pval>*. The most common comparator is equals (``=``), although other comparators are available (see below).
+- When filtering nodes by secondary property value where the value is a time (date / time), you do not need to use full ``YYYY/MM/DD hh:mm:ss.mmm`` syntax. Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``). In particular, wildcard syntax can be used to specify any values that match the wildcard expression. See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 
 Filters Using Standard Comparison Operators
 -------------------------------------------
@@ -202,15 +231,14 @@ Filter operations can be performed using any of the standard mathematical / logi
 
 .. storm-pre:: inet:whois:rec +inet:whois:rec:created <= "2018/01/01 12:00"
 ::
-    
-    <query> +inet:whois:rec:created <= "2018/01/01 12:00"
-
+  
+  <query> +inet:whois:rec:created <= "2018/01/01 12:00"
 
 
 .. storm-pre:: inet:whois:rec +:created <= "2018/01/01 12:00"
 ::
-    
-    <query> +:created <= "2018/01/01 12:00"
+  
+  <query> +:created <= "2018/01/01 12:00"
 
 
 *Filter by Greater Than or Equal To:*
@@ -224,7 +252,6 @@ Filter operations can be performed using any of the standard mathematical / logi
     <query> +ps:person:dob >= 1980/01/01
 
 
-
 .. storm-pre:: ps:person +:dob >= 1980/01/01
 ::
     
@@ -234,6 +261,7 @@ Filter operations can be performed using any of the standard mathematical / logi
 **Usage Notes:**
 
 - Storm supports both equals ( ``=`` ) and not equals ( ``!=`` ) comparators for filtering, although use of not equals is not strictly necessary. Because filters are either inclusive ( ``+`` ) or exclusive ( ``-`` ), equivalent filter logic for “not equals” can be performed with “equals”. That is, “include domains not equal to google.com” (``+inet:fqdn != google.com``) is equivalent to “exclude the domain google.com” (``-inet:fqdn = google.com``).
+- When filtering nodes by secondary property value where the value is a time (date / time), you do not need to use full ``YYYY/MM/DD hh:mm:ss.mmm`` syntax. Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``). In particular, wildcard syntax can be used to specify any values that match the wildcard expression. See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 
 Filters Using Extended Comparison Operators
 -------------------------------------------
@@ -469,6 +497,7 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of ``time`` 
 - When comparing a **time to an interval,** Storm will return nodes whose timestamp falls **within** the specified interval.
 - When comparing a **time to a time,** Storm will return nodes whose timestamp is an **exact match.** Interval ( ``@=`` ) syntax is supported, although the equals comparator ( ``=`` ) can simply be used.
 - Because tags can be given timestamps (min / max interval values), interval filters can also be used with tags.
+- When specifying interval date/time values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum interval values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify some intervals. For example ``+inet:whois:rec:asof=2018*`` (or ``+:asof=2018*``) is equivalent to ``+inet:whois:rec:asof@=('2018/01/01', '2019/01/01')`` (or ``+:asof@=('2018/01/01, '2019/01/01')``).  See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 
 .. _filter-range:
 
@@ -548,6 +577,7 @@ The range extended comparator (``*range=``) supports filtering nodes whose *<for
 
 - When specifying a range (``*range=``), both the minimum and maximum values are **included** in the range (the equivalent of “greater than or equal to *<min>* and less than or equal to *<max>*”). This behavior is slightly different than that for time interval (``@=``), which includes the minimum but not the maximum.
 - The ``*range=`` extended comparator can be used with time types, although the time / interval extended comparator ( ``@=`` ) is preferred.
+- When specifying a range of time values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify some time ranges. For example ``+inet:whois:rec:asof=2018*`` (or ``+:asof=2018*``) is equivalent to ``+inet:whois:rec:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')`` (or ``+:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')``).  See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 
 .. _filter-set:
 

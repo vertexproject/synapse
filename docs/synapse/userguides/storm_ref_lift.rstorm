@@ -141,6 +141,14 @@ The only difference between "simple" lifts and "lifts using comparison operators
 .. storm-cli:: file:bytes:mime:pe:compiled = "1992/06/19 22:22:17"
 
 
+- Lift all the files with a PE compiled time that falls within the year 2019:
+
+.. storm-pre:: [ file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/01/01 11:14:00.000' ]
+.. storm-pre:: [ file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2019/01/01 22:02:16.000' ]
+
+.. storm-cli:: file:bytes:mime:pe:compiled=2019*
+
+
 *Lift all nodes with a specific tag:*
 
 - Lift all nodes with the tag ``#cno.infra.anon.tor``:
@@ -181,6 +189,7 @@ The only difference between "simple" lifts and "lifts using comparison operators
 - When lifting a form whose ``<valu>`` consists of multiple components (e.g., a compound node or digraph node), the components must be passed as a comma-separated list enclosed in parentheses.
 - Lifting nodes by the presence of a secondary property alone (``<prop>``) may be impractical / undesirable (similar to lifting by form alone), but may be feasible in limited cases (i.e., where it is known that only a relatively small number of nodes have a given secondary property).
 - Lifting nodes by the value of a secondary property (``<prop> = <pval>``) is useful for lifting all nodes that share a secondary property with the same value; and may be used to lift individual nodes with unique or relatively unique secondary properties in cases where entering the primary property is impractical (such as for GUID nodes).
+- When lifting nodes by secondary property value where the value is a time (date / time), you do not need to use full ``YYYY/MM/DD hh:mm:ss.mmm`` syntax. Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``). In particular, wildcard syntax can be used to specify any values that match the wildcard expression. See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 - Lifting nodes by tag alone (``#<tag>``) lifts nodes of **all** forms with that tag. To lift specific forms only, use `Lift by Tag (#)`_ or an additional filter (see :ref:`storm-ref-filter`).
 - Tag properties are supported in Synapse, but no tag properties are included by default. See :ref:`tag-properties` for additional detail.
 
@@ -242,7 +251,7 @@ Lift operations can be performed using most of the standard mathematical / logic
 - ``<=`` : less than or equal to
 - ``>=`` : greater than or equal to
 
-Lifting by “not equal to” (``!=``) is not currently supported.
+Lifting by “not equal to” (``!=``) is not supported.
 
 **Syntax:**
 
@@ -279,6 +288,10 @@ Lifting by “not equal to” (``!=``) is not currently supported.
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 .. storm-cli:: ps:person:dob <= 1980/01/01
 
+- Lift files that were compiled in 2012 or earlier:
+
+.. storm-pre:: [ file:bytes=sha256:a142625512e5372a1728595be19dbee23eea50524b4827cb64ed5aaeaaa0270b :mime:pe:compiled='2010/01/07 02:53:12.000']
+.. storm-cli:: file:bytes:mime:pe:compiled<=2012*
 
 *Lift using greater than or equal to comparator:*
 
@@ -288,6 +301,10 @@ Lifting by “not equal to” (``!=``) is not currently supported.
 .. storm-pre:: [inet:whois:rec=(wellsfargo.com, 2019/11/24 03:30:07.000)]
 .. storm-opts:: {"show": ["err", "fini", "init", "warn"]}
 .. storm-cli:: inet:whois:rec:asof >= "2018/12/01 12:00"
+
+**Usage Notes:**
+
+- When lifting nodes by secondary property value where the value is a time (date / time), you do not need to use full ``YYYY/MM/DD hh:mm:ss.mmm`` syntax. Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``). In particular, wildcard syntax can be used to specify any values that match the wildcard expression. See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 
 
 Lifts Using Extended Comparison Operators
@@ -455,6 +472,8 @@ See :ref:`storm-ref-type-specific` for additional detail on the use of :ref:`typ
 
 - When comparing a **time to an interval,** Storm will return nodes whose time falls **within** the specified interval.
 - When comparing a **time to a time,** Storm will return nodes whose timestamp is an **exact match.** (Interval ( ``@=`` ) syntax is supported for this comparison, but the regular equals comparator ( ``=`` ) can also be used.)
+- When specifying interval date/time values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum interval values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify some intervals. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof@=('2018/01/01', '2019/01/01')``.  See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
+
 
 .. _lift-range:
 
@@ -508,6 +527,7 @@ The range extended comparator (``*range=``) supports lifting nodes whose *<form>
 **Usage Notes:**
 
 - When specifying a range, both the minimum and maximum values are included in the range (the equivalent of "greater than or equal to *<min>* and less than or equal to *<max>*").
+- When specifying a range of time values, Synapse allows the use of both lower resolution values (e.g., ``YYYY/MM/DD``) and wildcard values (e.g., ``YYYY/MM*``) for the minimum and/or maximum range values. In addition, plain wildcard time syntax may provide a simpler and more intuitive means to specify some time ranges. For example ``inet:whois:rec:asof=2018*`` is equivalent to ``inet:whois:rec:asof*range=('2018/01/01', '2018/12/31 23:59:59.999')``.  See the type-specific documentation for :ref:`type-time` types for a detailed discussion of these behaviors.
 
 .. _lift-set:
 
