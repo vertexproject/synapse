@@ -185,16 +185,24 @@ class CryptoModule(s_module.CoreModule):
                     # TODO methods, ABI conventions, source/disassembly
                 )),
                 ('crypto:smart:token', {}, (
-                    ('contract', ('crypto:smart:contract', {}), {}),
-                    ('tokenid', ('hugenum', {}), {}),
-                    ('owner', ('crypto:currency:address', {}), {}),
-                    ('nft:url', ('inet:url', {}), {}),
-                    ('nft:meta', ('data', {}), {}),
-                    ('nft:meta:name', ('str', {}), {}),
-                    ('nft:meta:description', ('str', {}), {}),
-                    ('nft:meta:image', ('inet:url', {}), {}),
+                    ('contract', ('crypto:smart:contract', {}), {
+                            'doc': 'The smart contract which defines and manages the token.'}),
+                    ('tokenid', ('hugenum', {}), {
+                            'doc': 'The token ID.'}),
+                    ('owner', ('crypto:currency:address', {}), {
+                            'doc': 'The address which currently owns the token.'}),
+                    ('nft:url', ('inet:url', {}), {
+                            'doc': 'The URL which hosts the NFT metadata.'}),
+                    ('nft:meta', ('data', {}), {
+                            'doc': 'The raw NFT metadata.'}),
+                    ('nft:meta:name', ('str', {}), {
+                            'doc': 'The name field from the NFT metadata.'}),
+                    ('nft:meta:description', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'The description field from the NFT metadata.'}),
+                    ('nft:meta:image', ('inet:url', {}), {
+                            'doc': 'The image URL from the NFT metadata.'}),
                 )),
-
                 ('crypto:currency:coin', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The full name of the crypto coin.'}),
