@@ -202,7 +202,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user)
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
         info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
@@ -258,7 +258,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         show = opts.get('show', set())
 
-        mode = opts.get('mode', 'storm')
+        mode = opts.get('mode')
         editformat = opts.get('editformat', 'nodeedits')
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
