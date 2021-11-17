@@ -100,11 +100,10 @@ Remove a name from the array of names associated with an organization:
 
 **Example:**
 
-Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show the "fail silenetly" behavior or the "edit try" operator. The ``:authors`` property is an array of ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
+Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show the "fail silenetly" behavior for the "edit try" operator. The ``:authors`` property is an array of ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
 .. storm-pre:: [ media:news="*" :org=kaspersky :title='New report on really bad threat' ]
-.. storm-opts:: {"show": ["err", "fini", "init", "warn", "node"]} 
 .. storm-cli:: media:news:org=kaspersky [ :authors?+='john smith' ]
 
 
@@ -147,7 +146,7 @@ Lift the x509 certificate nodes that reference the domain ``microsoft.com``:
 
 Downselect a set of ``ou:org`` nodes to include only those with a name that starts with "acme":
 
-.. storm-pre:: [ ( ou:org="*" :names=('acme consulting',) ) ( ou:org="*" :names=('acme construction',) ) ]
+.. storm-pre:: [ ( ou:org="*" :name='acme consulting' :names=('acme consulting',) ) ( ou:org="*" :name='acme construction' :names=('acme construction',) ) ]
 .. storm-cli:: ou:org +:names*[^=acme]
 
 See :ref:`lift-by-arrays` and :ref:`filter-by-arrays` for additional details.
@@ -254,15 +253,12 @@ The optimal method to create ``file:bytes`` nodes is via the actual file (set of
 
 There are limited means to leverage this method in a one-off manner from the CLI. One option is to use the ``pushfile`` tool (see :ref:`syn-tools-pushfile`) to manually upload a file to a Cortex / storage Axon. Upon ingest, Synapse will create a SHA256-based ``file:bytes`` node from the uploaded bytes and set the appropriate secondary properties (i.e., other hashes, ``:size``).
 
-<<<<<<< HEAD
 .. TIP::
   
   Like other external (to Storm) commands, the pushfile tool is accessible from the Storm CLI (see :ref:`syn-tools-storm`) as ``!pushfile``.
 
 Similarly, Storm’s HTTP library (``$lib.inet.http``) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator. A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header` technical documentation for additional detail.
-=======
-Similarly, Storm’s HTTP library (``$lib.inet.http``) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator. A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header` documentation for additional detail.
->>>>>>> e50fe13163796f0574f72743479bd9d8078eecbf
+
 
 Operations
 ++++++++++
@@ -460,7 +456,7 @@ Examples such as these are **not accounted for** by Synapse’s suffix / zone lo
 Operations
 ++++++++++
 
-Because of Synapse’s reverse string indexing for ``inet:fqdn`` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( ``*`` ) is the extended operator used to perform this operation.
+Because of Synapse’s reverse string indexing for ``inet:fqdn`` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( ``*`` ) is the extended operator used to perform this operation. The asterisk does **not** have to be used along dot boundaries but can match anywhere in any FQDN element.
 
 **Examples**
 
@@ -484,9 +480,9 @@ Downselect a set of DNS A records to those with domains ending with ``.museum``:
 **Usage Notes**
 
 - Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or double quotes (see :ref:`storm-whitespace-literals`).
-- Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to lift by a string at the beginning of a domain. For example, ``inet:fqdn^=yahoo`` is invalid.
+- Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to **lift** FQDNs by prefix. For example, ``inet:fqdn^=yahoo`` is invalid.
 - Domains can be **filtered** by prefix (``^=``). For example, ``inet:fqdn="*.biz" +inet:fqdn^=smtp`` is valid.
-- Domains cannot be filtered based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
+- Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
 - Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
 
 .. _type-inet-ipv4:
@@ -854,7 +850,7 @@ This is because the analytical significance of a tag is likely to fall on these 
 
 Prefix comparison for ``syn:tag`` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within a tag hierarchy:
 
-Lift all tags in the computer network operations tree:
+Lift all tags in the computer network operations (``cno``)tree:
 
 
 .. storm-pre:: [ syn:tag=cno.threat.t27 syn:tag=cno.mal.redtree ]
@@ -1095,7 +1091,7 @@ Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 
 
 .. NOTE::
   
-  Both lower resolution times and wildcard time can be used for values specified within the ``*range=`` operator. Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
+  Both lower resolution times and wildcard times can be used for values specified within the ``*range=`` operator. Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
   
 See the Storm documents referenced above for additional examples using the range (``*range=``) comparator.
 
