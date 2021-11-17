@@ -76,7 +76,7 @@ class BizModule(s_module.CoreModule):
                     ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
                         'doc': 'Any known purchases that resulted from the RFP.',
                     }),
-                    ('requirements', ('array', {'type': 'ou:goal'}), {}),
+                    ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {}),
                 )),
                 ('biz:deal', {}, (
                     ('title', ('str', {}), {

@@ -1296,7 +1296,7 @@ class InetModule(s_module.CoreModule):
                         ('bytes', ('file:bytes', {}), {
                             'doc': 'The file bytes which contain the email message.'
                         }),
-                        ('headers', ('array', {'type': 'inet:email:header'}), {
+                        ('headers', ('array', {'type': 'inet:email:header', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of email headers from the message.'
                         }),
                     )),
@@ -1642,7 +1642,7 @@ class InetModule(s_module.CoreModule):
                         ('query', ('str', {}), {
                             'doc': 'The HTTP query string which optionally follows the path.'}),
 
-                        ('headers', ('array', {'type': 'inet:http:request:header'}), {
+                        ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of HTTP headers from the request.'}),
 
                         ('body', ('file:bytes', {}), {
@@ -1651,7 +1651,7 @@ class InetModule(s_module.CoreModule):
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
-                        ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
+                        ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
                         ('session', ('inet:http:session', {}), {
@@ -2599,7 +2599,7 @@ class InetModule(s_module.CoreModule):
                         ('registrant', ('inet:whois:ipcontact', {}), {
                             'doc': 'The registrant contact from the record.'
                         }),
-                        ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',
                         }),
                         ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
@@ -2611,7 +2611,7 @@ class InetModule(s_module.CoreModule):
                         ('type', ('str', {'lower': True}), {
                             'doc': 'The classification of the registered network (e.g. direct allocation).'
                         }),
-                        ('links', ('array', {'type': 'inet:url'}), {
+                        ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                             'doc': 'URLs provided with the record.',
                         }),
                     )),
@@ -2632,7 +2632,7 @@ class InetModule(s_module.CoreModule):
                         ('role', ('str', {'lower': True}), {
                             'doc': 'The primary role for the contact.'
                         }),
-                        ('roles', ('array', {'type': 'str'}), {
+                        ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional roles assigned to the contact.',
                         }),
                         ('asn', ('inet:asn', {}), {
@@ -2641,13 +2641,13 @@ class InetModule(s_module.CoreModule):
                         ('id', ('inet:whois:regid', {}), {
                             'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
                         }),
-                        ('links', ('array', {'type': 'inet:url'}), {
+                        ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                             'doc': 'URLs provided with the record.',
                         }),
                         ('status', ('str', {'lower': True}), {
                             'doc': 'The state of the registered contact (e.g. validated, obscured).'
                         }),
-                        ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts referenced by this contact.',
                         }),
                     )),

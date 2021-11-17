@@ -104,6 +104,13 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_6(self):
         async with self.getRegrCore('model-0.2.6') as core:
 
-            nodes = await core.nodes('it:account=90b3d80f8bdf9e33b4aeb46c720d3289')
+            acct = '90b3d80f8bdf9e33b4aeb46c720d3289'
+            nodes = await core.nodes(f'it:account={acct}')
+            self.len(1, nodes)
+            self.len(2, nodes[0].get('groups'))
+
+            g00 = 'd0d235109162501db9d4014a4c2cc4d9'
+            g01 = 'bf1999e8c45523bc64803e28b19a34c6'
+            nodes = await core.nodes(f'it:account={acct} [:groups=({g00}, {g01}, {g00})]')
             self.len(1, nodes)
             self.len(2, nodes[0].get('groups'))

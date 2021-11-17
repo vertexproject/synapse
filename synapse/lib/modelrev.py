@@ -92,22 +92,11 @@ class ModelRev:
 
             'it:account:groups',
             'it:group:groups',
-            'it:sec:cwe:parents',
-
-            'it:mitre:attack:group:techniques',
-            'it:mitre:attack:group:software',
-            'it:mitre:attack:technique:tactics',
-            'it:mitre:attack:software:techniques',
-            'it:mitre:attack:mitigation:addresses',
 
             'it:reveng:function:impcalls',
             'it:reveng:filefunc:funccalls',
 
             'risk:vuln:cwes',
-
-            'syn:cmd:input',
-            'syn:cmd:output',
-            'syn:cmd:nodedata',
 
             'tel:txtmesg:recipients',
         )
