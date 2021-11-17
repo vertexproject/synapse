@@ -258,7 +258,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         show = opts.get('show', set())
 
-        mode = opts.get('mode')
+        mode = opts.get('mode', 'storm')
         editformat = opts.get('editformat', 'nodeedits')
         if editformat not in ('nodeedits', 'splices', 'count', 'none'):
             raise s_exc.BadConfValu(mesg='editformat')
