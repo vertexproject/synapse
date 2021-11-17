@@ -112,11 +112,12 @@ setup(
         'docs': [
             'nbconvert==5.6.1',
             'jupyter-client<=6.1.12',
-            'sphinx>=1.8.2,<2.0.0',
             'jupyter>=1.0.0,<2.0.0',
             'hide-code>=0.5.2,<0.5.3',
             'nbstripout>=0.3.3,<1.0.0',
-            'sphinx-rtd-theme>=0.4.2,<1.0.0',
+            'sphinx>=4.2.0,<5.0.0',
+            'sphinx-rtd-theme>=1.0.0,<2.0.0',
+            'sphinx-notfound-page==0.8',
         ],
         'dev': [
             'pytest>=6.2.5,<7.0.0',

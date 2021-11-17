@@ -1,7 +1,0 @@
-# .readthedocs.yml
-
-python:
-  version: 3.7
-  pip_install: true
-  extra_requirements:
-    - docs

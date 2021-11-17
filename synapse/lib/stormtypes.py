@@ -1612,9 +1612,11 @@ class LibAxon(Lib):
         Yields lines of text from a plain-text file stored in the Axon.
 
         Example:
-            for $line in $lib.axon.readlines($sha256) {
-                $dostuff($line)
-            }
+            Get the lines for a given file::
+
+                for $line in $lib.axon.readlines($sha256) {
+                    $dostuff($line)
+                }
         ''',
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
@@ -1627,9 +1629,11 @@ class LibAxon(Lib):
         Yields JSON objects from a JSON-lines file stored in the Axon.
 
         Example:
-            for $item in $lib.axon.jsonlines($sha256) {
-                $dostuff($item)
-            }
+            Get the JSON objects from a given JSONL file::
+
+                for $item in $lib.axon.jsonlines($sha256) {
+                    $dostuff($item)
+                }
         ''',
          'type': {'type': 'function', '_funcname': 'jsonlines',
                   'args': (
