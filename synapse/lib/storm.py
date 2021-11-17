@@ -910,6 +910,8 @@ stormcmds = (
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
+            ('--async', {'default': False, 'action': 'store_true',
+                            'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
@@ -951,11 +953,12 @@ stormcmds = (
 
             if $triggers {
 
-                $lib.print("user       iden                             en?    cond      object                    storm query")
+                $lib.print("user       iden                             en?    async? cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
+                    $async = $lib.model.type(bool).repr($trigger.async).ljust(6)
                     $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
                     $cond = $trigger.cond.ljust(9)
 
@@ -984,8 +987,8 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, enabled=$enabled, cond=$cond,
+                    $lib.print("{user} {iden} {enabled} {async} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, async=$async, cond=$cond,
                               obj=$obj, obj2=$obj2, query=$trigger.storm)
                 }
             } else {
@@ -1654,6 +1657,11 @@ class Runtime(s_base.Base):
         for valu in list(self.vars.values()):
             if isinstance(valu, s_base.Base):
                 await valu.fini()
+
+    async def reqGateKeys(self, gatekeys):
+        if self.asroot:
+            return
+        await self.snap.core.reqGateKeys(gatekeys)
 
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot

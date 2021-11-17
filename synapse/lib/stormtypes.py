@@ -187,7 +187,7 @@ class StormTypesRegistry:
     def getTypeDocs(self):
 
         types = self.iterTypes()
-        types.sort(key=lambda x: x[0])
+        types.sort(key=lambda x: x[1]._storm_typename)
 
         docs = []
         for (sname, styp) in types:
@@ -1608,6 +1608,39 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
+        {'name': 'readlines', 'desc': '''
+        Yields lines of text from a plain-text file stored in the Axon.
+
+        Example:
+            Get the lines for a given file::
+
+                for $line in $lib.axon.readlines($sha256) {
+                    $dostuff($line)
+                }
+        ''',
+         'type': {'type': 'function', '_funcname': 'readlines',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'str',
+                              'desc': 'A line of text from the file.', }}},
+
+        {'name': 'jsonlines', 'desc': '''
+        Yields JSON objects from a JSON-lines file stored in the Axon.
+
+        Example:
+            Get the JSON objects from a given JSONL file::
+
+                for $item in $lib.axon.jsonlines($sha256) {
+                    $dostuff($item)
+                }
+        ''',
+         'type': {'type': 'function', '_funcname': 'jsonlines',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any',
+                              'desc': 'A JSON object parsed from a line of text.', }}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1619,7 +1652,25 @@ class LibAxon(Lib):
             'del': self.del_,
             'dels': self.dels,
             'list': self.list,
+            'readlines': self.readlines,
+            'jsonlines': self.jsonlines,
         }
+
+    async def readlines(self, sha256):
+        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.snap.core.getAxon()
+
+        sha256 = await tostr(sha256)
+        async for line in self.runt.snap.core.axon.readlines(sha256):
+            yield line
+
+    async def jsonlines(self, sha256):
+        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.snap.core.getAxon()
+
+        sha256 = await tostr(sha256)
+        async for line in self.runt.snap.core.axon.jsonlines(sha256):
+            yield line
 
     async def dels(self, sha256s):
 
@@ -2834,10 +2885,12 @@ class Queue(StormType):
                       {'name': 'offs', 'type': 'int', 'default': None,
                         'desc': 'Offset to pop the item from. If not specified, the first item in the queue will be'
                                 ' popped.', },
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
+                        'desc': 'Wait for an item to be available to pop.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'The offset and item popped from the queue. If there is no item at the '
-                                      'offset or the  queue is empty, it returns null.', }}},
+                                      'offset or the  queue is empty and wait is false, it returns null.', }}},
         {'name': 'put', 'desc': 'Put an item into the queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePut',
                   'args': (
@@ -2908,57 +2961,56 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        todo = s_common.todo('coreQueueCull', self.name, offs)
         gatekeys = self._getGateKeys('get')
-        await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.reqGateKeys(gatekeys)
+        await self.runt.snap.core.coreQueueCull(self.name, offs)
 
     async def _methQueueSize(self):
-        todo = s_common.todo('coreQueueSize', self.name)
         gatekeys = self._getGateKeys('get')
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.reqGateKeys(gatekeys)
+        return await self.runt.snap.core.coreQueueSize(self.name)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
         wait = await toint(wait)
         offs = await toint(offs)
+        size = await toint(size, noneok=True)
 
-        if size is not None:
-            size = await toint(size)
-
-        todo = s_common.todo('coreQueueGets', self.name, offs, cull=cull, wait=wait, size=size)
         gatekeys = self._getGateKeys('get')
+        await self.runt.reqGateKeys(gatekeys)
 
-        async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
+        async for item in self.runt.snap.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
-        todo = s_common.todo('coreQueuePuts', self.name, items)
         gatekeys = self._getGateKeys('put')
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.reqGateKeys(gatekeys)
+        return await self.runt.snap.core.coreQueuePuts(self.name, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        todo = s_common.todo('coreQueueGet', self.name, offs, cull=cull, wait=wait)
         gatekeys = self._getGateKeys('get')
+        await self.runt.reqGateKeys(gatekeys)
 
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await self.runt.snap.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
 
-    async def _methQueuePop(self, offs=None):
+    async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
+        wait = await tobool(wait)
+
         gatekeys = self._getGateKeys('get')
+        await self.runt.reqGateKeys(gatekeys)
 
         # emulate the old behavior on no argument
+        core = self.runt.snap.core
         if offs is None:
-            todo = s_common.todo('coreQueueGets', self.name, 0, cull=True, wait=False)
-            async for item in self.runt.dyniter('cortex', todo, gatekeys=gatekeys):
-                await self._methQueueCull(item[0])
-                return item
+            async for item in core.coreQueueGets(self.name, 0, wait=wait):
+                return await core.coreQueuePop(self.name, item[0])
             return
 
-        todo = s_common.todo('coreQueuePop', self.name, offs)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await core.coreQueuePop(self.name, offs)
 
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
@@ -3450,9 +3502,9 @@ class Str(Prim):
 
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding)
+            return self.valu.encode(encoding, 'surrogatepass')
         except UnicodeEncodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
     async def _methStrSplit(self, text, maxsplit=-1):
         maxsplit = await toint(maxsplit)
@@ -3651,9 +3703,9 @@ class Bytes(Prim):
 
     async def _methDecode(self, encoding='utf8'):
         try:
-            return self.valu.decode(encoding)
+            return self.valu.decode(encoding, 'surrogatepass')
         except UnicodeDecodeError as e:
-            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu) from None
+            raise s_exc.StormRuntimeError(mesg=str(e), valu=self.valu[:1024]) from None
 
     async def _methBunzip(self):
         return bz2.decompress(self.valu)
@@ -4945,11 +4997,6 @@ class Path(Prim):
         {'name': 'idens', 'desc': 'The list of Node idens which this Path has been forked from during pivot operations.',
          'type': {'type': 'function', '_funcname': '_methPathIdens',
                   'returns': {'type': 'list', 'desc': 'A list of node idens.', }}},
-        {'name': 'trace',
-         'desc': 'Make a trace object for the Path. '
-                 'This allows tracking pivots from a arbitrary location in a query.',
-         'type': {'type': 'function', '_funcname': '_methPathTrace',
-                  'returns': {'type': 'storm:node:path:trace', 'desc': 'The trace object.', }}},
         {'name': 'listvars', 'desc': 'List variables available in the path of a storm query.',
          'type': {'type': 'function', '_funcname': '_methPathListVars',
                   'returns': {'type': 'list',
@@ -4969,47 +5016,14 @@ class Path(Prim):
     def getObjLocals(self):
         return {
             'idens': self._methPathIdens,
-            'trace': self._methPathTrace,
             'listvars': self._methPathListVars,
         }
 
     async def _methPathIdens(self):
         return [n.iden() for n in self.valu.nodes]
 
-    async def _methPathTrace(self):
-        trace = self.valu.trace()
-        return Trace(trace)
-
     async def _methPathListVars(self):
         return list(self.path.vars.items())
-
-@registry.registerType
-class Trace(Prim):
-    '''
-    Storm API wrapper for the Path Trace object.
-    '''
-    _storm_locals = (
-        {'name': 'idens', 'desc': 'Get the idens in the current trace object.',
-         'type': {'type': 'function', '_funcname': '_methTraceIdens',
-                  'returns': {'type': 'list', 'desc': 'A List of Node idens.', }}},
-    )
-    _storm_typename = 'storm:node:path:trace'
-    _ismutable = False
-
-    def __init__(self, trace, path=None):
-        Prim.__init__(self, trace, path=path)
-        self.locls.update(self.getObjLocals())
-
-    def __hash__(self):
-        return hash((self._storm_typename, tuple([n.iden() for n in self.valu.nodes])))
-
-    def getObjLocals(self):
-        return {
-            'idens': self._methTraceIdens,
-        }
-
-    async def _methTraceIdens(self):
-        return [n.iden() for n in self.valu.nodes]
 
 @registry.registerType
 class Text(Prim):
@@ -5698,6 +5712,9 @@ class View(Prim):
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
         {'name': 'merge', 'desc': 'Merge a forked View back into its parent View.',
          'type': {'type': 'function', '_funcname': '_methViewMerge',
+                  'args': (
+                    {'name': 'force', 'type': 'boolean', 'default': False, 'desc': 'Force the view to merge if possible.'},
+                  ),
                   'returns': {'type': 'null', }}},
         {'name': 'getEdges', 'desc': 'Get node information for Edges in the View.',
          'type': {'type': 'function', '_funcname': '_methGetEdges',
@@ -5868,13 +5885,14 @@ class View(Prim):
 
         return View(self.runt, newv, path=self.path)
 
-    async def _methViewMerge(self):
+    async def _methViewMerge(self, force=False):
         '''
         Merge a forked view back into its parent.
         '''
+        force = await tobool(force)
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
-        todo = s_common.todo('merge', useriden=useriden)
+        todo = s_common.todo('merge', useriden=useriden, force=force)
         await self.runt.dyncall(viewiden, todo)
 
 @registry.registerLib
@@ -6132,6 +6150,10 @@ class Trigger(Prim):
         trigiden = self.valu.get('iden')
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
+
+        name = await tostr(name)
+        if name == 'async':
+            valu = await tobool(valu)
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
         todo = ('setTriggerInfo', (trigiden, name, valu), {})
@@ -7421,7 +7443,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8')
+            return valu.decode('utf8', 'surrogatepass')
 
         return str(valu)
     except Exception as e:

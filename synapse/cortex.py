@@ -1257,10 +1257,14 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
+        for view in self.views.values():
+            await view.initTrigTask()
 
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
+        for view in self.views.values():
+            await view.finiTrigTask()
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):

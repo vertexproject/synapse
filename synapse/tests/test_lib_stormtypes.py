@@ -17,6 +17,7 @@ import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
@@ -41,6 +42,16 @@ class Newp:
 
     def __repr__(self):
         return 'Newp'
+
+linesbuf = b'''
+vertex.link
+woot.com
+'''.strip(b'\n')
+
+jsonsbuf = b'''
+{"fqdn": "vertex.link"}
+{"fqdn": "woot.com"}
+'''.strip(b'\n')
 
 class StormTypesTest(s_test.SynTest):
 
@@ -1407,25 +1418,6 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('There are 8 items in the set', msgs)
             self.ne(alpha, section)
 
-            # trace
-            q = '''
-                init {
-                    $set = $lib.set()
-                }
-                inet:ipv4
-
-                $trace = $path.trace()
-                $set.add($trace)
-                $set.add($trace)
-                $set.add($trace)
-
-                fini {
-                    $lib.print('There are {count} items in the set', count=$lib.len($set))
-                }
-            '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('There are 2 items in the set', msgs)
-
             # trigger
             q = '''
                 $trig = $lib.trigger.add($tdef)
@@ -1646,6 +1638,7 @@ class StormTypesTest(s_test.SynTest):
                     $path.meta.foo = bar
                     $path.meta.baz = faz
                     $path.meta.baz = $lib.undef
+                    $path.meta.biz = ('neato', 'burrito')
                     {
                         for ($name, $valu) in $path.meta {
                             $lib.print('meta: {name}={valu}', name=$name, valu=$valu)
@@ -1655,44 +1648,59 @@ class StormTypesTest(s_test.SynTest):
                 ''').list()
                 self.stormIsInPrint('foofoofoo', msgs)
                 self.stormIsInPrint('meta: foo=bar', msgs)
+                self.stormIsInPrint("meta: biz=['neato', 'burrito']", msgs)
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
-                self.len(1, pode[1]['path'])
+                self.len(2, pode[1]['path'])
                 self.eq('bar', pode[1]['path']['foo'])
 
-    async def test_storm_trace(self):
-        async with self.getTestCore() as core:
-            await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-
-            q = '''
+                q = '''
                 inet:fqdn=vertex.link
-
-                $trace=$path.trace()
-
-                -> inet:dns:a -> inet:ipv4
-
-                /* Make a trace object from a path which already has nodes */
-                $trace2=$path.trace()
-
-                [ graph:node="*" ] +graph:node [ :data=$trace.idens() ]
-
-                /* Print the contents of the second trace */
-                $lib.print($trace2.idens())
+                $path.meta.foobar = $lib.list('neato', 'burrito')
                 '''
-            mesgs = await core.stormlist(q)
-            podes = [m[1] for m in mesgs if m[0] == 'node']
-            self.len(1, podes)
-            pode = podes[0]
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                self.eq(pode[1]['path'], {'foobar': ('neato', 'burrito')})
 
-            idens = (
-                '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
-                '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
-            )
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.wat = $lib.dict(foo=bar, biz=baz, thing=$lib.dict(1=2, 2=(a, b, c), five=nine))
+                $path.meta.neato = (awesome, burrito)
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.eq(('awesome', 'burrito'), path['neato'])
+                self.eq('bar', path['wat']['foo'])
+                self.eq('baz', path['wat']['biz'])
+                self.eq('nine', path['wat']['thing']['five'])
+                self.eq('2', path['wat']['thing']['1'])
+                self.eq(('a', 'b', 'c'), path['wat']['thing']['2'])
 
-            self.eq(tuple(sorted(pode[1]['props'].get('data'))), idens)
+                q = '''
+                inet:fqdn=vertex.link
+                $path.meta.$node = $lib.list('foo', 'bar')
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.len(1, path)
+                key = list(path.keys())[0]
+                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.eq(('foo', 'bar'), path[key])
 
-            for iden in idens:
-                self.stormIsInPrint(iden, mesgs)
+                q = '''
+                inet:fqdn=vertex.link
+                $test = $lib.dict(foo=bar)
+                $path.meta.data = $test
+                $test.biz = baz
+                '''
+                msgs = [mesg async for mesg in proxy.storm(q)]
+                pode = [m[1] for m in msgs if m[0] == 'node'][0]
+                path = pode[1]['path']
+                self.len(1, path)
+                self.len(2, path['data'])
+                self.eq('bar', path['data']['foo'])
+                self.eq('baz', path['data']['biz'])
 
     async def test_stormuser(self):
         # Do not include persistent vars support in this test see
@@ -2453,6 +2461,13 @@ class StormTypesTest(s_test.SynTest):
                      'sha256:1263d0f4125831df93a82a08ab955d1176306953c9f0c44d366969295c7b57db',
                      },
                     {n.ndef[1] for n in nodes})
+
+            # Mismatch surrogates from real world data
+            surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
+            resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
+                                        opts={'vars': {'s': surrogate_data}})
+            self.eq(resp[0], surrogate_data.encode('utf-8', 'surrogatepass'))
+            self.eq(resp[1], surrogate_data)
 
             # Encoding/decoding errors are caught
             q = '$valu="valu" $valu.encode("utf16").decode()'
@@ -5019,6 +5034,117 @@ class StormTypesTest(s_test.SynTest):
 
             ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
             self.eq('a-b-c-d', ret)
+
+    async def test_storm_lib_axon(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+            # test out the stormlib axon API
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            opts = {'user': visi.iden, 'vars': {'port': port}}
+            wget = '''
+               $url = $lib.str.format("https://visi:secret@127.0.0.1:{port}/api/v1/healthcheck", port=$port)
+               return($lib.axon.wget($url, ssl=$lib.false))
+           '''
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(wget, opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('for $x in $lib.axon.list() { $lib.print($x) }', opts=opts)
+
+            # test wget runtsafe / per-node / per-node with cmdopt
+            nodes = await core.nodes(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            nodes = await core.nodes(f'inet:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            q = f'inet:urlfile:url=https://127.0.0.1:{port}/api/v1/active | wget --no-ssl-verify :url'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'inet:urlfile')
+
+            # check that the file name got set...
+            q = f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active | -> file:bytes +:name=active'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'file:bytes')
+            sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.eq([(0, sha256, size)], items)
+
+            # test $lib.axon.del()
+            delopts = {'user': visi.iden, 'vars': {'sha256': sha256}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.del($sha256)', opts=delopts)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.axon.dels(($sha256,))', opts=delopts)
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.axon.dels(newp)')
+            delopts = {'vars': {'sha256': sha256}}
+            self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
+            self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(0, items)
+
+            msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/newp')
+            self.stormIsInWarn('HTTP code 404', msgs)
+
+            self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
+
+            size, sha256 = await core.callStorm('return($lib.bytes.put($buf))', opts={'vars': {'buf': b'foo'}})
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            self.len(2, items)
+            self.eq((2, sha256, size), items[1])
+
+            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list(2) { $x.append($i) } return($x)')
+            self.eq([(2, sha256, size)], items)
+
+            # test request timeout
+            async def timeout(self):
+                await asyncio.sleep(2)
+
+            with mock.patch.object(s_httpapi.ActiveV1, 'get', timeout):
+                msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/active --timeout 1')
+                self.stormIsInWarn('TimeoutError', msgs)
+
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            resp = await core.callStorm(wget, opts=opts)
+            self.true(resp['ok'])
+
+            opts = {'vars': {'linesbuf': linesbuf, 'jsonsbuf': jsonsbuf, 'asdfbuf': b'asdf'}}
+            asdfitem = await core.callStorm('return($lib.bytes.put($asdfbuf))', opts=opts)
+            linesitem = await core.callStorm('return($lib.bytes.put($linesbuf))', opts=opts)
+            jsonsitem = await core.callStorm('return($lib.bytes.put($jsonsbuf))', opts=opts)
+
+            opts = {'vars': {'sha256': asdfitem[1]}}
+            self.eq(('asdf',), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
+            opts = {'vars': {'sha256': linesitem[1]}}
+            self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.readlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
+
+            opts = {'vars': {'sha256': jsonsitem[1]}}
+            self.eq(({'fqdn': 'vertex.link'}, {'fqdn': 'woot.com'}), await core.callStorm('''
+                $items = $lib.list()
+                for $item in $lib.axon.jsonlines($sha256) { $items.append($item) }
+                return($items)
+            ''', opts=opts))
 
     async def test_storm_lib_export(self):
 
