@@ -4402,12 +4402,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         return [m async for m in self.storm(text, opts=opts)]
 
     async def _getStormEval(self, text):
-        astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
+        try:
+            astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
+        except s_exc.FatalErr:
+            logger.exception(f'Fatal error while parsing [{text}]', extra={'synapse': {'text': text}})
+            await self.fini()
+            raise
         astvalu.init(self)
         return astvalu
 
     async def _getStormQuery(self, args):
-        query = copy.deepcopy(await s_parser.querycache.aget(args))
+        try:
+            query = copy.deepcopy(await s_parser.querycache.aget(args))
+        except s_exc.FatalErr:
+            logger.exception(f'Fatal error while parsing [{args}]', extra={'synapse': {'text': args[0]}})
+            await self.fini()
+            raise
         query.init(self)
         await asyncio.sleep(0)
         return query

@@ -256,3 +256,8 @@ class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 
 class TeleRedir(SynErr): pass
+class FatalErr(SynErr):
+    '''
+    Raised when a fatal error has occured which an application cannot recover from.
+    '''
+    pass
