@@ -190,9 +190,6 @@ epub_exclude_files = ['search.html']
 
 # -- Extension configuration -------------------------------------------------
 
-# Notfound configuration
-notfound_default_version = '404_redux'
-
 # Our magic
 def run_apidoc(_):
     from sphinx.ext.apidoc import main
