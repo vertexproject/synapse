@@ -11,7 +11,7 @@ Some of Storm’s :ref:`vars-builtin` support **methods** used to perform variou
 
 A **subset** of the built-in variables / objects that support methods, along with a few commonly used methods and examples, are listed below. For full detail, refer to the :ref:`stormtypes-prim-header` technical reference.
 
-The built-in :ref:`vars-global-lib` variable is used to access Storm libraries. See the :ref:`stormtypes-libs-header` technical reference for additional detail on available libraries, or :ref:`storm-adv-libs` for user examples.
+The built-in :ref:`vars-global-lib` variable is used to access Storm libraries. See the :ref:`stormtypes-libs-header` technical reference for additional detail on available libraries.
 
 .. NOTE::
 
