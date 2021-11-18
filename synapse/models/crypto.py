@@ -34,6 +34,9 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:contract', ('guid', {}), {
                     'doc': 'A smart contract.',
                 }),
+                ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
+                    'doc': 'A token managed by a smart contract.',
+                }),
                 # TODO ('crypto:smart:method', ('guid', {}), {}),
                 ('crypto:currency:coin', ('str', {'lower': True}), {
                     'doc': 'An individual crypto currency type.',
@@ -162,7 +165,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The unique hash for the block.'}),
                     ('minedby', ('crypto:currency:address', {}), {
                         'doc': 'The address which mined the block.'}),
-                    # TODO more details eventually...
+                    ('time', ('time', {}), {
+                        'doc': 'Time timestamp embedded in the block by the miner.'}),
                 )),
 
                 ('crypto:smart:contract', {}, (
@@ -172,9 +176,33 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address of the contract.'}),
                     ('bytecode', ('file:bytes', {}), {
                         'doc': 'The bytecode which implements the contract.'}),
+                    ('token:name', ('str', {}), {
+                        'doc': 'The ERC-20 token name.'}),
+                    ('token:symbol', ('str', {}), {
+                        'doc': 'The ERC-20 token symbol.'}),
+                    ('token:totalsupply', ('hugenum', {}), {
+                        'doc': 'The ERC-20 totalSupply value.'}),
                     # TODO methods, ABI conventions, source/disassembly
                 )),
-
+                ('crypto:smart:token', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                            'doc': 'The smart contract which defines and manages the token.'}),
+                    ('tokenid', ('hugenum', {}), {
+                            'doc': 'The token ID.'}),
+                    ('owner', ('crypto:currency:address', {}), {
+                            'doc': 'The address which currently owns the token.'}),
+                    ('nft:url', ('inet:url', {}), {
+                            'doc': 'The URL which hosts the NFT metadata.'}),
+                    ('nft:meta', ('data', {}), {
+                            'doc': 'The raw NFT metadata.'}),
+                    ('nft:meta:name', ('str', {}), {
+                            'doc': 'The name field from the NFT metadata.'}),
+                    ('nft:meta:description', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'The description field from the NFT metadata.'}),
+                    ('nft:meta:image', ('inet:url', {}), {
+                            'doc': 'The image URL from the NFT metadata.'}),
+                )),
                 ('crypto:currency:coin', {}, (
                     ('name', ('str', {}), {
                         'doc': 'The full name of the crypto coin.'}),
