@@ -7,6 +7,8 @@
 Storm Reference - Type-Specific Storm Behavior
 ==============================================
 
+Hey git you suck
+
 Some data types (:ref:`data-type`) within Synapse have additional optimizations. These include optimizations for:
 
 - indexing (how the type is stored for retrieval);
