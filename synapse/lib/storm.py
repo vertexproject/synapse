@@ -4530,3 +4530,69 @@ class TagPruneCmd(Cmd):
                             break
 
                 yield node, path
+
+class RunAsCmd(Cmd):
+    '''
+    Execute a storm query as a specified user.
+
+    NOTE: This command requires admin privileges.
+
+    Examples:
+
+        // Create a node as another user.
+        runas someuser { [ inet:fqdn=foo.com ] }
+    '''
+
+    name = 'runas'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('user', help='The user name or iden to execute the storm query as.')
+        pars.add_argument('storm', help='The storm query to execute.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if runt.user is not None and not runt.user.isAdmin():
+            mesg = 'The runas command requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        core = runt.snap.core
+
+        node = None
+        async for node, path in genr:
+
+            user = await s_stormtypes.tostr(self.opts.user)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            user = await core.auth.reqUserByNameOrIden(user)
+            query = await runt.getStormQuery(text)
+
+            opts = {'vars': path.vars}
+
+            async with await core.snap(user=user, view=runt.snap.view) as snap:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
+                    subr.debug = runt.debug
+                    subr.readonly = runt.readonly
+
+                    async for item in subr.execute():
+                        await asyncio.sleep(0)
+
+            yield node, path
+
+        if node is None and self.runtsafe:
+            user = await s_stormtypes.tostr(self.opts.user)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            query = await runt.getStormQuery(text)
+            user = await core.auth.reqUserByNameOrIden(user)
+
+            opts = {'user': user}
+
+            async with await core.snap(user=user, view=runt.snap.view) as snap:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
+                    subr.debug = runt.debug
+                    subr.readonly = runt.readonly
+
+                    async for item in subr.execute():
+                        await asyncio.sleep(0)

@@ -3043,3 +3043,42 @@ class StormTest(s_t_utils.SynTest):
 
                 self.stormIsInPrint('Synapse Version:', msgs)
                 self.stormIsInPrint('Commit Hash:', msgs)
+
+    async def test_storm_runas(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            nodes = await core.nodes('[ inet:fqdn=foo.com ]')
+            self.len(1, nodes)
+
+            q = 'runas visi { [ inet:fqdn=bar.com ] }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await visi.addRule((True, ('node', 'add')))
+
+            await core.nodes('runas visi { [ inet:fqdn=bar.com ] }')
+
+            items = await alist(core.syncLayersEvents({}, wait=False))
+            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
+
+            await core.nodes(f'runas {visi.iden} {{ [ inet:fqdn=baz.com ] }}')
+
+            items = await alist(core.syncLayersEvents({}, wait=False))
+            self.len(8, [item for item in items if item[-1]['user'] == visi.iden])
+
+            q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await visi.addRule((True, ('node', 'tag', 'add')))
+
+            nodes = await core.nodes(q)
+            for node in nodes:
+                self.nn(node.tags.get('atag'))
+
+            q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
+            await core.nodes(q)
+            nodes = await core.nodes('inet:fqdn=foo.com')
+            self.nn(nodes[0].tags.get('btag'))
+
+            await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
