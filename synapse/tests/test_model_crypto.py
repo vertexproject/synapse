@@ -267,7 +267,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('signature'), 'ff00ff00')
             self.eq(nodes[0].get('ext:crls'), (('dns', 'http://vertex.link/crls'),))
             self.eq(nodes[0].get('crl:urls'), ('http://vertex.link/crls',))
-            self.eq(nodes[0].get('ext:sans'), (('dns', 'vertex.link'), ('dns', '*.vertex.link')))
+            self.eq(nodes[0].get('ext:sans'), (('dns', '*.vertex.link'), ('dns', 'vertex.link')))
             self.eq(nodes[0].get('identities:urls'), ('http://woot.com/1', 'http://woot.com/2'))
             self.eq(nodes[0].get('identities:fqdns'), ('vertex.link', 'woot.com'))
             self.eq(nodes[0].get('identities:ipv4s'), (0x01020304, 0x05050505))
