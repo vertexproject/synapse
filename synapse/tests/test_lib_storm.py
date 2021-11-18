@@ -3076,6 +3076,9 @@ class StormTest(s_t_utils.SynTest):
             for node in nodes:
                 self.nn(node.tags.get('atag'))
 
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await self.asyncraises(s_exc.AuthDeny, asvisi.callStorm(q))
+
             q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
             await core.nodes(q)
             nodes = await core.nodes('inet:fqdn=foo.com')
