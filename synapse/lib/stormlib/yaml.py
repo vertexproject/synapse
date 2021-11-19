@@ -17,6 +17,7 @@ class LibYaml(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'save',
                   'args': (
                       {'name': 'valu', 'type': 'object', 'desc': 'The object to encode.'},
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters to pass to the YAML encoder.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'A YAML string.'}}},
         {'name': 'load', 'desc': 'Decode a YAML string/bytes into an object.',
@@ -34,9 +35,10 @@ class LibYaml(s_stormtypes.Lib):
             'load': self.load,
         }
 
-    async def save(self, valu):
+    async def save(self, valu, **kwargs):
         valu = await s_stormtypes.toprim(valu)
-        return yaml.safe_dump(valu)
+        kwargs = await s_stormtypes.toprim(kwargs)
+        return yaml.safe_dump(valu, **kwargs)
 
     async def load(self, valu):
         valu = await s_stormtypes.tostr(valu)
