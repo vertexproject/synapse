@@ -125,6 +125,75 @@ class View(s_nexus.Pusher):  # type: ignore
         self.trigtask = None
         await self.initTrigTask()
 
+    async def mergeStormModIface(self, name, todo):
+        '''
+        Allow an interface which specifies a generator use case to yield
+        (priority, value) tuples and merge results from multiple generators
+        yielded in ascending priority order.
+        '''
+        root = self.core.auth.rootuser
+        funcname, funcargs, funckwargs = todo
+
+        genrs = []
+        async with await self.snap(user=root) as snap:
+
+            for moddef in await self.core.getStormModsByIface(name):
+                try:
+                    query = await self.core.getStormQuery(moddef.get('storm'))
+
+                    runt = snap.addStormRuntime(query, user=root)
+
+                    # let it initialize the function
+                    async for item in runt.execute():
+                        await asyncio.sleep(0)
+
+                    func = runt.vars.get(funcname)
+                    if func is None:
+                        continue
+
+                    genrs.append(func(*funcargs, **funckwargs))
+
+                except asyncio.CancelledError:  #pragma: no cover
+                    raise
+                except Exception as e:
+                    logger.exception('mergeStormModIface()')
+
+            if genrs:
+                async for item in s_common.merggenr2(genrs):
+                    yield item
+
+    async def callStormIface(self, name, todo):
+
+        root = self.core.auth.rootuser
+        funcname, funcargs, funckwargs = todo
+
+        async with await self.snap(user=root) as snap:
+
+            for moddef in await self.core.getStormModsByIface(name):
+                try:
+                    query = await self.core.getStormQuery(moddef.get('storm'))
+
+                    # TODO look at caching the function returned as presume a persistant runtime?
+                    async with snap.getStormRuntime(query, user=root) as runt:
+
+                        # let it initialize the function
+                        async for item in runt.execute():
+                            await asyncio.sleep(0)
+
+                        func = runt.vars.get(funcname)
+                        if func is None:
+                            continue
+
+                        valu = await func(*funcargs, **funckwargs)
+                        yield await s_stormtypes.toprim(valu)
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+                except Exception as e:
+                    import traceback; traceback.print_exc()
+                    modname = moddef.get('name')
+                    logger.exception(f'callStormIface {name} mod: {modname}')
+
     async def initTrigTask(self):
 
         if self.trigtask is not None:

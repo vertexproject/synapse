@@ -38,6 +38,46 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_pkgiface(self):
+        pkgdef = {
+            'name': 'foobar',
+            'modules': [
+                {'name': 'foobar',
+                 'interfaces': {'lookup': True},
+                 'storm': '''
+                     function lookup(tokens) {
+                        $looks = $lib.list()
+                        for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
+                        return($looks)
+                     }
+                 '''
+                },
+            ]
+        }
+        async with self.getTestCore() as core:
+            await core.loadStormPkg(pkgdef)
+            mods = await core.getStormModsByIface('lookup')
+            print(repr(mods))
+            self.len(1, mods)
+
+            todo = s_common.todo('lookup', (20, 30))
+            async for retn in core.view.callStormIface('lookup', todo):
+                print(retn)
+
+    async def test_cortex_lookfind(self):
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('1.2.3.4 vertex.link', opts={'mode': 'lookup'})
+            miss = [m for m in msgs if m[0] == 'look:miss']
+            self.len(2, miss)
+            self.eq(('inet:ipv4', 16909060), miss[0][1]['ndef'])
+            self.eq(('inet:fqdn', 'vertex.link'), miss[1][1]['ndef'])
+
+            msgs = await core.stormlist('inet:ipv4=1.2.3.4 inet:fqdn=vertex.link')
+            miss = [m for m in msgs if m[0] == 'look:miss']
+            self.len(2, miss)
+            self.eq(('inet:ipv4', 16909060), miss[0][1]['ndef'])
+            self.eq(('inet:fqdn', 'vertex.link'), miss[1][1]['ndef'])
+
     async def test_cortex_axonapi(self):
 
         # local axon...

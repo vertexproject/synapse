@@ -1113,6 +1113,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self._initStormLibs()
         self._initFeedFuncs()
 
+        self.modsbyiface = {}
+
         self._initCortexHttpApi()
 
         self.model = s_datamodel.Model()
@@ -1178,6 +1180,28 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    async def getStormModsByIface(self, name):
+
+        mods = self.modsbyiface.get(name, s_common.novalu)
+        if mods is not s_common.novalu:
+            return mods
+
+        mods = []
+        for moddef in self.stormmods.values():
+
+            ifaces = moddef.get('interfaces')
+            if ifaces is None:
+                continue
+
+            iface = ifaces.get(name)
+            if not ifaces.get(name):
+                continue
+
+            mods.append(moddef)
+
+        self.modsbyiface[name] = mods
+        return mods
 
     async def getPermDef(self, perm):
         if self.permlook is None:
@@ -2140,6 +2164,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         NOTE: This will *not* persist the package (allowing service dynamism).
         '''
+        self.modsbyiface.clear()
         name = pkgdef.get('name')
 
         mods = pkgdef.get('modules', ())
@@ -2183,6 +2208,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Reverse the process of loadStormPkg()
         '''
+        self.modsbyiface.clear()
         for mdef in pkgdef.get('modules', ()):
             modname = mdef.get('name')
             self.stormmods.pop(modname, None)

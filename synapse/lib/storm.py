@@ -1602,6 +1602,7 @@ class Runtime(s_base.Base):
         self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
+        self.emitq = None
 
         self.inputs = []    # [synapse.lib.node.Node(), ...]
 
@@ -1632,6 +1633,20 @@ class Runtime(s_base.Base):
 
         self._loadRuntVars(query)
         self.onfini(self._onRuntFini)
+
+    async def emitter(self):
+
+        self.emitq = asyncio.Queue(maxsize=1)
+
+        async def spin():
+            async for item in self.execute():
+                await asyncio.sleep(0)
+
+        self.schedCoro(spin)
+        return self.emitq
+
+    async def emit(self, item):
+        await self.emitq.put(item)
 
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime

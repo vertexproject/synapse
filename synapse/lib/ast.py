@@ -226,8 +226,10 @@ class Lookup(Query):
                     else:
                         norm, info = runt.model.form(form).type.norm(valu)
                         node = await runt.snap.getNodeByNdef((form, norm))
-                        if node is not None:
-                            yield node, runt.initPath(node)
+                        if node is None:
+                            await runt.snap.fire('look:find', ndef=(form, norm))
+                            continue
+                        yield node, runt.initPath(node)
 
         realgenr = lookgenr()
         if len(self.kids) > 1:
@@ -3659,6 +3661,19 @@ class Return(Oper):
             valu = await self.kids[0].compute(runt, None)
             raise s_stormctrl.StormReturn(valu)
 
+class Emit(Oper):
+
+    async def run(self, runt, genr):
+
+        count = 0
+        async for node, path in genr:
+            count += 1
+            runt.emit(await self.kids[0].compute(runt, path))
+
+        # no items in pipeline and runtsafe. execute once.
+        if count = 0 and self.isRuntSafe(runt):
+            runt.emit(await self.kids[0].compute(runt, None))
+
 class FuncArgs(AstNode):
     '''
     Represents the function arguments in a function definition
@@ -3699,6 +3714,7 @@ class Function(AstNode):
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()
+        self.hasemit = self.hasAstClass(Emit)
         self.hasretn = self.hasAstClass(Return)
 
     def isRuntSafe(self, runt):
@@ -3782,6 +3798,14 @@ class Function(AstNode):
         assert len(mergargs) == len(argdefs)
 
         opts = {'vars': mergargs}
+
+        if self.hasemit:
+
+            async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+
+                # inform the sub runtime to use function scope rules
+                subr.funcscope = True
+                return await subr.emitter()
 
         if self.hasretn:
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:

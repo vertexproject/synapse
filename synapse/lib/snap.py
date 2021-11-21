@@ -144,6 +144,16 @@ class Snap(s_base.Base):
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
             yield runt
 
+    async def addStormRuntime(self, query, opts=None, user=None):
+        # use this snap *as* a context manager and build a runtime that will live as long
+        # as the snap does...
+        if user is None:
+            user = self.user
+
+        runt = await s_storm.Runtime.anit(query, self, opts=opts, user=user)
+        self.onfini(runt)
+        return runt
+
     async def iterStormPodes(self, text, opts=None, user=None):
         '''
         Yield packed node tuples for the given storm query text.
@@ -457,10 +467,18 @@ class Snap(s_base.Base):
             return
 
         if prop.isform:
+
+            found = 0
             async for (buid, sodes) in self.core._liftByFormValu(prop.name, cmprvals, self.layers):
                 node = await self._joinSodes(buid, sodes)
                 if node is not None:
+                    found += 1
                     yield node
+
+            # we could do more here but we'll start with the simple case
+            if found == 0 and len(cmprvals) == 1 and cmprvals[0][0] == '=':
+                await self.fire('look:miss', ndef=(prop.name, cmprvals[0][1]))
+
             return
 
         if prop.isuniv:
