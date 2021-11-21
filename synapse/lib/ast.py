@@ -3668,11 +3668,12 @@ class Emit(Oper):
         count = 0
         async for node, path in genr:
             count += 1
-            runt.emit(await self.kids[0].compute(runt, path))
+            await runt.emit(await self.kids[0].compute(runt, path))
+            yield node, path
 
         # no items in pipeline and runtsafe. execute once.
-        if count = 0 and self.isRuntSafe(runt):
-            runt.emit(await self.kids[0].compute(runt, None))
+        if count == 0 and self.isRuntSafe(runt):
+            await runt.emit(await self.kids[0].compute(runt, None))
 
 class FuncArgs(AstNode):
     '''
@@ -3800,12 +3801,9 @@ class Function(AstNode):
         opts = {'vars': mergargs}
 
         if self.hasemit:
-
-            async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
-
-                # inform the sub runtime to use function scope rules
-                subr.funcscope = True
-                return await subr.emitter()
+            runt = await runt.getModRuntime(self.kids[2], opts=opts)
+            runt.funcscope = True
+            return await runt.emitter()
 
         if self.hasretn:
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:

@@ -56,7 +56,7 @@ SETTAGOPER: "?"
 // The set of non-edit non-commands in storm
 _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
      | formjoinin | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
-     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return
+     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
 BREAK: "break"
@@ -349,7 +349,7 @@ RELNAME: /\:\.?[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]+)*/
 BASEPROP: /[a-z_][a-z0-9]*(?:(\:\:|\:|\.)[a-z_][a-z0-9]*)*/
 
 // The name of a storm command
-CMDNAME: /\b(?!(init|fini|function|return|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+\b/
+CMDNAME: /\b(?!(init|fini|function|return|emit|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+\b/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 dollarexpr: "$"? _exprcommon

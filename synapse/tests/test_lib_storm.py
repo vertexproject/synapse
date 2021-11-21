@@ -20,6 +20,31 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_emit(self):
+        async with self.getTestCore() as core:
+            self.eq(('foo', 'bar'), await core.callStorm('''
+                function generate() {
+                    emit foo
+                    emit bar
+                }
+                function makelist() {
+                    $retn = $lib.list()
+                    for $item in $generate() { $retn.append($item) }
+                    return($retn)
+                }
+                return($makelist())
+            '''))
+
+            msgs = await core.stormlist('''
+                function generate() {
+                    emit foo
+                    $lib.raise(omg, omg)
+                }
+                for $item in $generate() { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'err' and m[1][0] == 'StormRaise'])
+
     async def test_lib_storm_trycatch(self):
 
         async with self.getTestCore() as core:

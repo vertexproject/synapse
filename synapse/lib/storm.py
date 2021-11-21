@@ -1637,16 +1637,37 @@ class Runtime(s_base.Base):
     async def emitter(self):
 
         self.emitq = asyncio.Queue(maxsize=1)
+        async def fill():
+            try:
+                async for item in self.execute():
+                    await asyncio.sleep(0)
+                await self.emitq.put((False, None))
+                await self.fini()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                await self.emitq.put((False, e))
 
-        async def spin():
-            async for item in self.execute():
-                await asyncio.sleep(0)
+        self.schedCoro(fill())
 
-        self.schedCoro(spin)
-        return self.emitq
+        async def genr():
+
+            while not self.isfini:
+
+                ok, item = await self.emitq.get()
+                if ok:
+                    yield item
+                    continue
+
+                if not ok and item is None:
+                    return
+
+                raise item
+
+        return genr()
 
     async def emit(self, item):
-        await self.emitq.put(item)
+        await self.emitq.put((True, item))
 
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime
