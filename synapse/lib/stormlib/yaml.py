@@ -1,7 +1,5 @@
 import synapse.exc as s_exc
-import synapse.common as s_common
 
-import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
 import yaml
@@ -17,7 +15,7 @@ class LibYaml(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'save',
                   'args': (
                       {'name': 'valu', 'type': 'object', 'desc': 'The object to encode.'},
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Key-value parameters to pass to the YAML encoder.', },
+                      {'name': 'sort_keys', 'type': 'boolean', 'desc': 'Sort object keys.', 'default': True},
                   ),
                   'returns': {'type': 'str', 'desc': 'A YAML string.'}}},
         {'name': 'load', 'desc': 'Decode a YAML string/bytes into an object.',
@@ -35,10 +33,10 @@ class LibYaml(s_stormtypes.Lib):
             'load': self.load,
         }
 
-    async def save(self, valu, **kwargs):
+    async def save(self, valu, sort_keys=True):
         valu = await s_stormtypes.toprim(valu)
-        kwargs = await s_stormtypes.toprim(kwargs)
-        return yaml.safe_dump(valu, **kwargs)
+        sort_keys = await s_stormtypes.tobool(sort_keys)
+        return yaml.safe_dump(valu, sort_keys=sort_keys)
 
     async def load(self, valu):
         valu = await s_stormtypes.tostr(valu)
