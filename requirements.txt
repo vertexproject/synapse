@@ -1,4 +1,4 @@
-pyOpenSSL>=16.2.0,<20.0.0
+pyOpenSSL>=21.0.0,<22.0.0
 msgpack>=1.0.2,<1.1.0
 xxhash>=1.4.4,<2.0.0
 lmdb>=1.2.1,<1.3.0
@@ -26,3 +26,7 @@ bech32==1.2.0
 oauthlib>=3.1.1,<4.0.0
 idna==3.3
 python-dateutil>=2.8,<3.0
+# Cryptography is a pyopenssl dependency which has no maximum version pinned.
+# They have a 3 major version's policy for deprecations, so we should be safe
+# that far out.
+cryptography>=36.0.0,<39.0.0
