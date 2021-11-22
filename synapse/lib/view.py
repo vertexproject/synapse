@@ -330,7 +330,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user)
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
         info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)

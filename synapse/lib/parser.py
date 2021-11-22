@@ -82,6 +82,7 @@ terminalEnglishMap = {
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'WILDCARD': '*',
     'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',

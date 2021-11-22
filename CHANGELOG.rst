@@ -5,6 +5,47 @@ Synapse Changelog
 *****************
 
 
+v2.71.0 - 2021-11-19
+====================
+
+Features and Enhancements
+-------------------------
+- Add support for asynchronous triggers. This mode of trigger operation queues
+  up the trigger event in the View for eventual processing.
+  (`#2464 <https://github.com/vertexproject/synapse/pull/2464>`_)
+- Update the crypto model to add a ``crypto:smart:token`` form to represent a
+  token managed by a smart contract.
+  (`#2462 <https://github.com/vertexproject/synapse/pull/2462>`_)
+- Add ``$lib.axon.readlines()`` and ``$lib.axon.jsonlines()`` to Stormtypes.
+  (`#2468 <https://github.com/vertexproject/synapse/pull/2468>`_)
+- Add the Storm ``mode`` to the structured log output of a Cortex executing a
+  Storm query.
+  (`#2466 <https://github.com/vertexproject/synapse/pull/2466>`_)
+
+Bugfixes
+--------
+- Fix an error when converting Lark exceptions to Synapse ``BadSyntaxError``.
+  (`#2471 <https://github.com/vertexproject/synapse/pull/2471>`_)
+
+Improved Documentation
+----------------------
+- Revise the Synapse documentation layout.
+  (`#2460 <https://github.com/vertexproject/synapse/pull/2460>`_)
+- Update type specific behavior documentation for ``time`` types, including
+  the recently added wildcard time syntax.
+  (`#2467 <https://github.com/vertexproject/synapse/pull/2467>`_)
+- Sort the Storm Type documentation by name.
+  (`#2465 <https://github.com/vertexproject/synapse/pull/2465>`_)
+- Add 404 handler pages to our documentation.
+  (`#2461 <https://github.com/vertexproject/synapse/pull/2461>`_)
+  (`#2470 <https://github.com/vertexproject/synapse/pull/2470>`_)
+
+Deprecations
+------------
+- Remove ``$path.trace()`` objects.
+  (`#2445 <https://github.com/vertexproject/synapse/pull/2445>`_)
+
+
 v2.70.1 - 2021-11-08
 ====================
 
