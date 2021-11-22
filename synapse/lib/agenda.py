@@ -780,8 +780,8 @@ class Agenda(s_base.Base):
                 if not appt.enabled or not self.enabled:
                     continue
 
-                if appt.isrunning:
-                    mesg = f'Appointment {appt.iden} {appt.name}] is still running from previous time when scheduled' \
+                if appt.isrunning:  # pragma: no cover
+                    mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
                            f' to run. Skipping.',
                     logger.warning(mesg,
                                    extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
