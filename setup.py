@@ -78,7 +78,7 @@ setup(
     include_package_data=True,
 
     install_requires=[
-        'pyOpenSSL>=21.0.0,<21.0.0',
+        'pyOpenSSL>=21.0.0,<22.0.0',
         'cryptography>=36.0.0,<39.0.0',
         'msgpack>=1.0.2,<1.1.0',
         'xxhash>=1.4.4,<2.0.0',
