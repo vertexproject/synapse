@@ -1055,7 +1055,7 @@ class CertDir:
         if byts:
             # This API is deprecrated by PyOpenSSL and will need to be rewritten if pyopenssl is
             # updated from v21.x.x. The APIs that use this are not directly exposed via the
-            # easycert tool currently.
+            # easycert tool currently, and are only used in unit tests.
             return crypto.load_pkcs12(byts)
 
     def _saveCertTo(self, cert, *paths):
