@@ -227,7 +227,7 @@ class Lookup(Query):
                         norm, info = runt.model.form(form).type.norm(valu)
                         node = await runt.snap.getNodeByNdef((form, norm))
                         if node is None:
-                            await runt.snap.fire('look:find', ndef=(form, norm))
+                            await runt.snap.fire('look:miss', ndef=(form, norm))
                             continue
                         yield node, runt.initPath(node)
 

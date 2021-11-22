@@ -1183,8 +1183,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormModsByIface(self, name):
 
-        mods = self.modsbyiface.get(name, s_common.novalu)
-        if mods is not s_common.novalu:
+        mods = self.modsbyiface.get(name)
+        if mods is not None:
             return mods
 
         mods = []
