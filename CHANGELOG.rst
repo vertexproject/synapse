@@ -5,6 +5,18 @@ Synapse Changelog
 *****************
 
 
+v2.71.1 - 2021-11-22
+====================
+
+Bugfixes
+--------
+- Update the ``PyOpenSSL`` version to ``21.0.0`` and pin a range of modern
+  versions of the ``cryptography`` which have stronger API compatibility.
+  This resolves an API compatibility issue with the two libraries which
+  affected SSL certificate generation.
+  (`#2476 <https://github.com/vertexproject/synapse/pull/2476>`_)
+
+
 v2.71.0 - 2021-11-19
 ====================
 
