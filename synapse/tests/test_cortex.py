@@ -52,17 +52,54 @@ class CortexTest(s_t_utils.SynTest):
                      }
                  '''
                 },
+                {'name': 'search0',
+                 'interfaces': {'search': True},
+                 'storm': '''
+                     function search(tokens) {
+                        emit ((0), foo)
+                        emit ((10), baz)
+                     }
+                 '''
+                },
+                {'name': 'search1',
+                 'interfaces': {'search': True},
+                 'storm': '''
+                     function search(tokens) {
+                        emit ((1), bar)
+                        emit ((11), faz)
+                     }
+                 '''
+                },
             ]
         }
         async with self.getTestCore() as core:
-            await core.loadStormPkg(pkgdef)
-            mods = await core.getStormModsByIface('lookup')
-            print(repr(mods))
-            self.len(1, mods)
 
-            todo = s_common.todo('lookup', (20, 30))
-            async for retn in core.view.callStormIface('lookup', todo):
-                print(retn)
+            self.none(core.modsbyiface.get('lookup'))
+
+            mods = await core.getStormModsByIface('lookup')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('lookup'))
+
+            await core.loadStormPkg(pkgdef)
+
+            mods = await core.getStormModsByIface('lookup')
+            self.len(1, mods)
+            self.len(1, core.modsbyiface.get('lookup'))
+
+            todo = s_common.todo('lookup', ('vertex.link', 'woot.com'))
+            vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq(((('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'woot.com')),), vals)
+
+            todo = s_common.todo('search', ('hehe', 'haha'))
+            vals = [r async for r in core.view.mergeStormModIface('search', todo)]
+            self.eq(((0, 'foo'), (1, 'bar'), (10, 'baz'), (11, 'faz')), vals)
+
+            await core._dropStormPkg(pkgdef)
+            self.none(core.modsbyiface.get('lookup'))
+
+            mods = await core.getStormModsByIface('lookup')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('lookup'))
 
     async def test_cortex_lookfind(self):
         async with self.getTestCore() as core:

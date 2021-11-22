@@ -141,7 +141,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
 
-                    runt = snap.addStormRuntime(query, user=root)
+                    runt = await snap.addStormRuntime(query, user=root)
 
                     # let it initialize the function
                     async for item in runt.execute():
@@ -151,7 +151,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     if func is None:
                         continue
 
-                    genrs.append(func(*funcargs, **funckwargs))
+                    genrs.append(await func(*funcargs, **funckwargs))
 
                 except asyncio.CancelledError:  #pragma: no cover
                     raise

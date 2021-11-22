@@ -1200,7 +1200,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             mods.append(moddef)
 
-        self.modsbyiface[name] = mods
+        self.modsbyiface[name] = tuple(mods)
         return mods
 
     async def getPermDef(self, perm):
