@@ -1400,7 +1400,7 @@ class DmonManager(s_base.Base):
         futs = [dmon.stop() for dmon in self.dmons.values()]
         if not futs:
             return
-        logger.debug('Stopping Dmons')
+        logger.debug(f'Stopping [{len(futs)}] Dmons')
         await asyncio.gather(*futs)
         logger.debug('Stopped Dmons')
 
