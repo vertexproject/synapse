@@ -3085,3 +3085,22 @@ class StormTest(s_t_utils.SynTest):
             self.nn(nodes[0].tags.get('btag'))
 
             await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
+
+            cmd0 = {
+                'name': 'asroot.not',
+                'storm': 'runas visi { inet:fqdn=foo.com [-#btag ] }',
+                'asroot': True,
+            }
+            cmd1 = {
+                'name': 'asroot.yep',
+                'storm': 'runas visi --asroot { inet:fqdn=foo.com [-#btag ] }',
+                'asroot': True,
+            }
+            await core.setStormCmd(cmd0)
+            await core.setStormCmd(cmd1)
+
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
+
+            nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
+            for node in nodes:
+                self.none(node.tags.get('btag'))

@@ -4549,6 +4549,7 @@ class RunAsCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('user', help='The user name or iden to execute the storm query as.')
         pars.add_argument('storm', help='The storm query to execute.')
+        pars.add_argument('--asroot', default=False, action='store_true', help='Propagate asroot to query subruntime.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -4575,6 +4576,9 @@ class RunAsCmd(Cmd):
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
 
+                    if self.opts.asroot:
+                        subr.asroot = runt.asroot
+
                     async for item in subr.execute():
                         await asyncio.sleep(0)
 
@@ -4593,6 +4597,9 @@ class RunAsCmd(Cmd):
                 async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
+
+                    if self.opts.asroot:
+                        subr.asroot = runt.asroot
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
