@@ -1195,6 +1195,10 @@ class YieldValu(Oper):
                     yield node
             return
 
+        if isinstance(valu, s_stormtypes.Prim) and hasattr(valu, 'node'):
+            yield valu.node
+            return
+
 class LiftTag(LiftOper):
 
     async def lift(self, runt, path):
