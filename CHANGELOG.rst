@@ -5,6 +5,24 @@ Synapse Changelog
 *****************
 
 
+v2.72.0 - 2021-11-23
+====================
+
+Features and Enhancements
+-------------------------
+- Update the cron subsystem logs to include the cron name, as well as adding
+  additional data for structured logging output.
+  (`#2477 <https://github.com/vertexproject/synapse/pull/2477>`_)
+- Add a ``sort_keys`` argument to the ``$lib.yaml.save()`` Stormtype API.
+  (`#2474 <https://github.com/vertexproject/synapse/pull/2474>`_)
+
+Bugfixes
+--------
+- Update the ``asyncio-socks`` version to a version which has a pinned version
+  range for the ``python-socks`` dependency.
+  (`#2478 <https://github.com/vertexproject/synapse/pull/2478>`_)
+
+
 v2.71.1 - 2021-11-22
 ====================
 
