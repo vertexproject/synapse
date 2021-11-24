@@ -3245,6 +3245,10 @@ class Prim(StormType):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} is not iterable.', name=name)
 
+    async def nodes(self):  # pragma: no cover
+        for x in ():
+            yield x
+
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
