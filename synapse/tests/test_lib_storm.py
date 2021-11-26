@@ -20,6 +20,17 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_intersect(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                [(ou:org=* :names=(foo, bar))]
+                [(ou:org=* :names=(foo, baz))]
+                [(ou:org=* :names=(foo, hehe))]
+            ''')
+            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'foo')
+
     async def test_lib_storm_trycatch(self):
 
         async with self.getTestCore() as core:

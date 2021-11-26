@@ -4530,3 +4530,60 @@ class TagPruneCmd(Cmd):
                             break
 
                 yield node, path
+
+class IntersectCmd(Cmd):
+    '''
+    Yield an intersection of the results of running inbound nodes through a pivot.
+
+    NOTE:
+        This command must consume the entire inbound stream to produce the intersection.
+        This type of stream consuming before yielding results can cause the query to appear
+        laggy in comparison with normal incremental stream operations.
+
+    Examples:
+
+        // Show the it:mitre:attack:technique nodes common to several groups
+
+        it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
+    '''
+    name = 'intersect'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', type='str', required=True, help='The pivot query to run each inbound node through.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as counters:
+            async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as pathvars:
+
+                text = await s_stormtypes.tostr(self.opts.query)
+                query = await runt.getStormQuery(text)
+
+                count = 0
+                async for node, path in genr:
+                    count += 1
+                    await asyncio.sleep(0)
+                    async with runt.getSubRuntime(query) as subr:
+                        subg = s_common.agen((node, path))
+                        async for subn, subp in subr.execute(genr=subg):
+                            curv = counters.get(subn.buid)
+                            if curv is None:
+                                await counters.set(subn.buid, 1)
+                            else:
+                                await counters.set(subn.buid, curv + 1)
+                            await pathvars.set(subn.buid, await s_stormtypes.toprim(subp.vars))
+                            await asyncio.sleep(0)
+
+                for buid, hits in counters.items():
+
+                    if hits != count:
+                        await asyncio.sleep(0)
+                        continue
+
+                    node = await runt.snap.getNodeByBuid(buid)
+                    if node is not None:
+                        path = runt.initPath(node)
+                        path.vars.update(pathvars.get(buid))
+                        yield (node, path)
