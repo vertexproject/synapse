@@ -5156,6 +5156,7 @@ class StormTypesTest(s_test.SynTest):
                 ''')
                 return items
             task = core.schedCoro(waitlist())
+            await asyncio.sleep(0.1)
             await core.axon.put(b'visi')
             items = await task
             self.len(6, items)
