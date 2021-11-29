@@ -137,14 +137,12 @@ class CryoTank(s_base.Base):
         Yields:
             ((int, dict)): An index offset, info tuple for metrics.
         '''
-        count = 0
-        async for item in self._metrics.iter(offs):
+        for i, (indx, item) in enumerate(self._metrics.iter(offs)):
 
-            if size is not None and count >= size:
+            if size is not None and i >= size:
                 return
 
-            yield item
-            count += 1
+            yield indx, item
 
     async def slice(self, offs, size=None, iden=None):
         '''
@@ -160,14 +158,12 @@ class CryoTank(s_base.Base):
         if iden is not None:
             self.setOffset(iden, offs)
 
-        count = 0
-        async for item in self._items.iter(offs):
+        for i, (indx, item) in enumerate(self._items.iter(offs)):
 
-            if size is not None and count >= size:
+            if size is not None and i >= size:
                 return
 
-            yield item
-            count += 1
+            yield indx, item
 
     async def rows(self, offs, size=None, iden=None):
         '''

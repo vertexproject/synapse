@@ -696,7 +696,7 @@ class Axon(s_cell.Cell):
         Note:
             If the same hash was deleted and then added back, the same hash will be yielded twice.
         '''
-        async for item in self.axonseqn.iter(offs, wait=wait, timeout=timeout):
+        async for item in self.axonseqn.aiter(offs, wait=wait, timeout=timeout):
             if self.axonslab.has(item[1][0], db=self.sizes):
                 yield item
             await asyncio.sleep(0)

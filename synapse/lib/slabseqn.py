@@ -168,13 +168,30 @@ class SlabSeqn:
 
         return s_common.int64un(byts) + 1
 
-    async def iter(self, offs, wait=False, timeout=None):
+    def iter(self, offs):
+        '''
+        Iterate over items in a sequence from a given offset.
+
+        Args:
+            offs (int): The offset to begin iterating from.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
+        '''
+        startkey = s_common.int64en(offs)
+        for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
+            offs = s_common.int64un(lkey)
+            valu = s_msgpack.un(lval)
+            yield offs, valu
+
+    async def aiter(self, offs, wait=False, timeout=None):
         '''
         Iterate over items in a sequence from a given offset.
 
         Args:
             offs (int): The offset to begin iterating from.
             wait (boolean): Once caught up, yield new results in realtime.
+            timeout (int): Max time to wait for a new item.
 
         Yields:
             (indx, valu): The index and valu of the item.
@@ -217,7 +234,7 @@ class SlabSeqn:
         '''
         while True:
 
-            async for (indx, valu) in self.iter(offs):
+            for (indx, valu) in self.iter(offs):
                 yield (indx, valu)
                 offs = indx + 1
 
