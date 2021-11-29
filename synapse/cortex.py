@@ -3004,6 +3004,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.MergeCmd)
+        self.addStormCmd(s_storm.RunAsCmd)
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.DivertCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
