@@ -49,6 +49,9 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020-07-07T16:29:53-04:00'), 1594153793000)
         self.eq(s_time.parse('2020-07-07T16:29:53-04:30'), 1594155593000)
         self.eq(s_time.parse('2020-07-07T16:29:53+02:00'), 1594132193000)
+        self.eq(s_time.parse('2020-07-07T16:29:53-0430'), 1594155593000)
+        self.eq(s_time.parse('2020-07-07T16:29:53+0200'), 1594132193000)
+        self.eq(s_time.parse('2021-11-03T08:32:14.506-0400'), 1635942734506)
         self.eq(s_time.parse('2020-07-07T16:29:53.234+02:00'), 1594132193234)
         self.eq(s_time.parse('2020-07-07T16:29:53.234567+02:00'), 1594132193234)
         self.eq(s_time.parse('2020-07-07T16:29:53.234567+10:00'), 1594103393234)
@@ -67,10 +70,11 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('20200707162953+00:00'), 1594139393000)
         self.eq(s_time.parse('20200707162953-04:00'), 1594153793000)
 
-        # A malformed timezone can still be parsed incorrectly
+        # A malformed timezone can still be parsed
+        self.eq(s_time.parse('20200707162953+423'), 1594123613000)
+        # But sometimes incorrectly
         self.eq(s_time.parse('202007+04'), s_time.parse('20200704'))
         self.eq(s_time.parse('20200707162953+04'), 1594139393040)
-        self.eq(s_time.parse('20200707162953+423'), 1594139393423)
 
         # invalid
         self.raises(s_exc.BadTypeValu, s_time.parse, '2020-07-07T16:29:53+36:00')

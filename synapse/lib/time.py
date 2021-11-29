@@ -12,7 +12,7 @@ import synapse.exc as s_exc
 
 EPOCH = datetime.datetime(1970, 1, 1)
 
-tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):(\d{2}))($|(\-\w+|\+\w))')
+tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\w+|\+\w))')
 
 def _rawparse(text, base=None, chop=False):
 
