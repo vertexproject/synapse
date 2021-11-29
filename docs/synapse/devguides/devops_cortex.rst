@@ -131,7 +131,7 @@ When configuring a mirrored layer, you may chose to mirror from a remote layer *
 If you chose to mirror from the top layer of a remote view, that view will have the opportunity to fire triggers and enforce
 model constraints on the changes being provided by the mirrored layer.
 
-To specify a remote layer as the upstream, us a Telepath URL which includes the shared object ``*/layer/<layeriden>`` such as
+To specify a remote layer as the upstream, use a Telepath URL which includes the shared object ``*/layer/<layeriden>`` such as
 ``tcp://cortex.vertex.link/*/layer/8ea600d1732f2c4ef593120b3226dea3``.  To specify a remote view, use the shared object
 ``*/view/<viewiden>`` such as ``tcp://cortex.vertex.link/*/view/8ea600d1732f2c4ef593120b3226dea3``.
 

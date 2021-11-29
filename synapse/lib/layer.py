@@ -1259,7 +1259,8 @@ class Layer(s_nexus.Pusher):
 
         mirror = self.layrinfo.get('mirror')
         if mirror is not None:
-            self.leader = await s_telepath.Client.anit(mirror)
+            conf = {'retrysleep': 2}
+            self.leader = await s_telepath.Client.anit(mirror, conf=conf)
             self.leadtask = self.schedCoro(self._runMirrorLoop())
 
     async def initLayerPassive(self):
@@ -1319,6 +1320,8 @@ class Layer(s_nexus.Pusher):
 
     async def pack(self):
         ret = self.layrinfo.pack()
+        if ret.get('mirror'):
+            ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
@@ -1972,10 +1975,9 @@ class Layer(s_nexus.Pusher):
                 with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
                     meta['task'] = iden
                     moff, changes = await proxy.saveNodeEdits(edits, meta)
-                    retn = None
                     if any(c[2] for c in changes):
                         return await futu
-                    return retn
+                    return
 
             proxy = await self.core.nexsroot.client.proxy()
             indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
