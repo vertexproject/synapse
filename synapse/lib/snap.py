@@ -692,7 +692,7 @@ class Snap(s_base.Base):
         callbacks = []
         actualedits = []  # List[Tuple[buid, form, changes]]
 
-        saveoff, changes, results = await wlyr.shitNodeEdits(edits, meta)
+        saveoff, changes, results = await wlyr._realSaveNodeEdits(edits, meta)
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is

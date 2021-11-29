@@ -1954,7 +1954,7 @@ class Layer(s_nexus.Pusher):
 
         return retn
 
-    async def shitNodeEdits(self, edits, meta):
+    async def _realSaveNodeEdits(self, edits, meta):
 
         saveoff, changes = await self.saveNodeEdits(edits, meta)
 
