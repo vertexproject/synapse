@@ -408,7 +408,7 @@ class MultiSlabSeqn(s_base.Base):
                 offs = self._ranges[ri]
 
             async with self._getSeqn(ri) as seqn:
-                async for item in seqn.iter(offs):
+                for item in seqn.iter(offs):
                     yield item
 
             ri += 1

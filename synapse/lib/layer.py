@@ -2832,7 +2832,7 @@ class Layer(s_nexus.Pusher):
         '''
         Iterate the node edit log and yield (offs, edits, meta) tuples.
         '''
-        async for offs, (edits, meta) in self.nodeeditlog.iter(offs):
+        for offs, (edits, meta) in self.nodeeditlog.iter(offs):
             yield (offs, edits, meta)
 
     async def iterNodeEditLogBack(self, offs=0):
@@ -2852,7 +2852,7 @@ class Layer(s_nexus.Pusher):
         if not self.logedits:
             return
 
-        async for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs):
+        for offi, (nodeedits, meta) in self.nodeeditlog.iter(offs):
             yield (offi, nodeedits, meta)
 
         if wait:
