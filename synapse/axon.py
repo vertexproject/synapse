@@ -324,18 +324,20 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.hashset(sha256)
 
-    async def hashes(self, offs):
+    async def hashes(self, offs, wait=False, timeout=None):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
 
         Args:
             offs (int): The index offset.
+            wait (boolean): Wait for new results and yield them in realtime.
+            timeout (int): Max time to wait for new results.
 
         Yields:
             (int, (bytes, int)): An index offset and the file SHA-256 and size.
         '''
         await self._reqUserAllowed(('axon', 'has'))
-        async for item in self.cell.hashes(offs):
+        async for item in self.cell.hashes(offs, wait=wait, timeout=timeout):
             yield item
 
     async def history(self, tick, tock=None):
@@ -679,12 +681,14 @@ class Axon(s_cell.Cell):
         for item in self.axonhist.carve(tick, tock=tock):
             yield item
 
-    async def hashes(self, offs):
+    async def hashes(self, offs, wait=False, timeout=None):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
 
         Args:
             offs (int): The index offset.
+            wait (boolean): Wait for new results and yield them in realtime.
+            timeout (int): Max time to wait for new results.
 
         Yields:
             (int, (bytes, int)): An index offset and the file SHA-256 and size.
@@ -692,7 +696,7 @@ class Axon(s_cell.Cell):
         Note:
             If the same hash was deleted and then added back, the same hash will be yielded twice.
         '''
-        for item in self.axonseqn.iter(offs):
+        async for item in self.axonseqn.iter(offs, wait=wait, timeout=timeout):
             if self.axonslab.has(item[1][0], db=self.sizes):
                 yield item
             await asyncio.sleep(0)

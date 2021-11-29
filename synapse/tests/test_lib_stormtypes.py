@@ -5146,6 +5146,21 @@ class StormTypesTest(s_test.SynTest):
                 return($items)
             ''', opts=opts))
 
+            async def waitlist():
+                items = await core.callStorm('''
+                    $x=$lib.list()
+                    for $i in $lib.axon.list(2, wait=$lib.true, timeout=1) {
+                        $x.append($i)
+                    }
+                    return($x)
+                ''')
+                return items
+            task = core.schedCoro(waitlist())
+            await core.axon.put(b'visi')
+            items = await task
+            self.len(6, items)
+            self.eq(items[5][1], 'e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f')
+
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:
