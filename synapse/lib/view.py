@@ -1,3 +1,4 @@
+import shutil
 import asyncio
 import logging
 import itertools
@@ -13,6 +14,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
+import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -99,6 +101,11 @@ class View(s_nexus.Pusher):  # type: ignore
         self.info = await node.dict()
 
         self.core = core
+        self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
+
+        slabpath = s_common.genpath(self.dirn, 'viewstate.lmdb')
+        self.viewslab = await s_lmdbslab.Slab.anit(slabpath)
+        self.trigqueue = self.viewslab.getSeqn('trigqueue')
 
         trignode = await node.open(('triggers',))
         self.trigdict = await trignode.dict()
@@ -116,6 +123,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         await s_nexus.Pusher.__anit__(self, iden=self.iden, nexsroot=core.nexsroot)
 
+        self.onfini(self.viewslab.fini)
+
         self.layers = []
         self.invalid = None
         self.parent = None  # The view this view was forked from
@@ -129,6 +138,56 @@ class View(s_nexus.Pusher):  # type: ignore
 
         # isolate some initialization to easily override.
         await self._initViewLayers()
+
+        self.trigtask = None
+        await self.initTrigTask()
+
+    async def initTrigTask(self):
+
+        if self.trigtask is not None:
+            return
+
+        if not await self.core.isCellActive():
+            return
+
+        self.trigtask = self.schedCoro(self._trigQueueLoop())
+
+    async def finiTrigTask(self):
+
+        if self.trigtask is not None:
+            self.trigtask.cancel()
+            self.trigtask = None
+
+    async def _trigQueueLoop(self):
+
+        while not self.isfini:
+
+            async for offs, triginfo in self.trigqueue.gets(0):
+
+                buid = triginfo.get('buid')
+                varz = triginfo.get('vars')
+                trigiden = triginfo.get('trig')
+
+                try:
+                    trig = self.triggers.get(trigiden)
+                    if trig is None:
+                        continue
+
+                    async with await self.snap(trig.user) as snap:
+                        node = await snap.getNodeByBuid(buid)
+                        if node is None:
+                            continue
+
+                        await trig._execute(node, vars=varz)
+
+                except asyncio.CancelledError:  # pragma: no cover
+                    raise
+
+                except Exception as e:  # pragma: no cover
+                    logger.exception(f'trigQueueLoop() on trigger: {trigiden} view: {self.iden}')
+
+                finally:
+                    await self.delTrigQueue(offs)
 
     async def getStorNodes(self, buid):
         '''
@@ -219,7 +278,7 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        self.core._logStormQuery(text, user)
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
         info = {'query': text, 'opts': opts}
         await self.core.boss.promote('storm', user=user, info=info)
@@ -396,6 +455,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.snapctor(self, user)
 
+    @s_nexus.Pusher.onPushAuto('trig:q:add')
+    async def addTrigQueue(self, triginfo):
+        self.trigqueue.add(triginfo)
+
+    @s_nexus.Pusher.onPushAuto('trig:q:del')
+    async def delTrigQueue(self, offs):
+        self.trigqueue.pop(offs)
+
     @s_nexus.Pusher.onPushAuto('view:set')
     async def setViewInfo(self, name, valu):
         '''
@@ -493,7 +560,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.core.addView(vdef)
 
-    async def merge(self, useriden=None):
+    async def merge(self, useriden=None, force=False):
         '''
         Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
         triggers will be run.
@@ -505,7 +572,7 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             user = await self.core.auth.reqUser(useriden)
 
-        await self.mergeAllowed(user)
+        await self.mergeAllowed(user, force=force)
 
         await self.core.boss.promote('storm', user=user, info={'merging': self.iden})
 
@@ -547,13 +614,16 @@ class View(s_nexus.Pusher):  # type: ignore
         perms = ('node', 'tag', 'add', *tag.split('.'))
         self.parent._confirm(user, perms)
 
-    async def mergeAllowed(self, user=None):
+    async def mergeAllowed(self, user=None, force=False):
         '''
         Check whether a user can merge a view into its parent.
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
             raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
+
+        if self.trigqueue.size and not force:
+            raise s_exc.CantMergeView(mesg=f'There are still {self.trigqueue.size} triggers waiting to complete.', canforce=True)
 
         parentlayr = self.parent.layers[0]
         if parentlayr.readonly:
@@ -659,6 +729,7 @@ class View(s_nexus.Pusher):  # type: ignore
         root = await self.core.auth.getUserByName('root')
 
         tdef.setdefault('user', root.iden)
+        tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
 
         s_trigger.reqValidTdef(tdef)
@@ -737,6 +808,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.node.pop()
+        shutil.rmtree(self.dirn, ignore_errors=True)
 
     async def addNodeEdits(self, edits, meta):
         '''

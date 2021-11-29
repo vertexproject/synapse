@@ -911,6 +911,8 @@ stormcmds = (
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
             ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
+            ('--async', {'default': False, 'action': 'store_true',
+                            'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
@@ -952,11 +954,12 @@ stormcmds = (
 
             if $triggers {
 
-                $lib.print("user       iden                             en?    cond      object                    storm query")
+                $lib.print("user       iden                             en?    async? cond      object                    storm query")
 
                 for $trigger in $triggers {
                     $user = $trigger.username.ljust(10)
                     $iden = $trigger.iden.ljust(12)
+                    $async = $lib.model.type(bool).repr($trigger.async).ljust(6)
                     $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
                     $cond = $trigger.cond.ljust(9)
 
@@ -985,8 +988,8 @@ stormcmds = (
                         $obj2 = '          '
                     }
 
-                    $lib.print("{user} {iden} {enabled} {cond} {obj} {obj2} {query}",
-                              user=$user, iden=$iden, enabled=$enabled, cond=$cond,
+                    $lib.print("{user} {iden} {enabled} {async} {cond} {obj} {obj2} {query}",
+                              user=$user, iden=$iden, enabled=$enabled, async=$async, cond=$cond,
                               obj=$obj, obj2=$obj2, query=$trigger.storm)
                 }
             } else {
@@ -1636,6 +1639,11 @@ class Runtime(s_base.Base):
         for valu in list(self.vars.values()):
             if isinstance(valu, s_base.Base):
                 await valu.fini()
+
+    async def reqGateKeys(self, gatekeys):
+        if self.asroot:
+            return
+        await self.snap.core.reqGateKeys(gatekeys)
 
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
@@ -4523,3 +4531,76 @@ class TagPruneCmd(Cmd):
                             break
 
                 yield node, path
+
+class RunAsCmd(Cmd):
+    '''
+    Execute a storm query as a specified user.
+
+    NOTE: This command requires admin privileges.
+
+    Examples:
+
+        // Create a node as another user.
+        runas someuser { [ inet:fqdn=foo.com ] }
+    '''
+
+    name = 'runas'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('user', help='The user name or iden to execute the storm query as.')
+        pars.add_argument('storm', help='The storm query to execute.')
+        pars.add_argument('--asroot', default=False, action='store_true', help='Propagate asroot to query subruntime.')
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not runt.user.isAdmin():
+            mesg = 'The runas command requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        core = runt.snap.core
+
+        node = None
+        async for node, path in genr:
+
+            user = await s_stormtypes.tostr(self.opts.user)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            user = await core.auth.reqUserByNameOrIden(user)
+            query = await runt.getStormQuery(text)
+
+            opts = {'vars': path.vars}
+
+            async with await core.snap(user=user, view=runt.snap.view) as snap:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
+                    subr.debug = runt.debug
+                    subr.readonly = runt.readonly
+
+                    if self.opts.asroot:
+                        subr.asroot = runt.asroot
+
+                    async for item in subr.execute():
+                        await asyncio.sleep(0)
+
+            yield node, path
+
+        if node is None and self.runtsafe:
+            user = await s_stormtypes.tostr(self.opts.user)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            query = await runt.getStormQuery(text)
+            user = await core.auth.reqUserByNameOrIden(user)
+
+            opts = {'user': user}
+
+            async with await core.snap(user=user, view=runt.snap.view) as snap:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
+                    subr.debug = runt.debug
+                    subr.readonly = runt.readonly
+
+                    if self.opts.asroot:
+                        subr.asroot = runt.asroot
+
+                    async for item in subr.execute():
+                        await asyncio.sleep(0)

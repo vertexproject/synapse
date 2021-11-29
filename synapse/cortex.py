@@ -1261,6 +1261,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
+        for view in self.views.values():
+            await view.initTrigTask()
 
         for layer in self.layers.values():
             await layer.initLayerActive()
@@ -1268,6 +1270,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
+        for view in self.views.values():
+            await view.finiTrigTask()
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
@@ -3010,6 +3014,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.MergeCmd)
+        self.addStormCmd(s_storm.RunAsCmd)
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.DivertCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
@@ -4455,13 +4460,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user):
+    def _logStormQuery(self, text, user, mode):
         '''
         Log a storm query.
         '''
         if self.stormlog:
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode}})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

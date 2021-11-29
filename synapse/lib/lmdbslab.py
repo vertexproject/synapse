@@ -364,6 +364,7 @@ class MultiQueue(s_base.Base):
         abrv = self.abrv.nameToAbrv(name)
         byts = self.slab.pop(abrv + s_common.int64en(offs), db=self.qdata)
         if byts is not None:
+            self.sizes.set(name, self.sizes.get(name) - 1)
             return (offs, s_msgpack.un(byts))
 
     async def put(self, name, item, reqid=None):

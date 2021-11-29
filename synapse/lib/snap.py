@@ -144,7 +144,7 @@ class Snap(s_base.Base):
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
             yield runt
 
-    async def iterStormPodes(self, text, opts=None, user=None):
+    async def iterStormPodes(self, text, opts, user=None):
         '''
         Yield packed node tuples for the given storm query text.
         '''
@@ -154,7 +154,7 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
-        self.core._logStormQuery(text, user)
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')

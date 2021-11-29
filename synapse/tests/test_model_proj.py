@@ -295,6 +295,12 @@ class ProjModelTest(s_test.SynTest):
 
             self.none(core.auth.getAuthGate(proj))
 
+            self.len(1, await core.nodes('yield $lib.projects.add(proj)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).epics.add(epic)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).sprints.add(spri)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.add(tick)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.get(tick).comments.add(comm)'))
+
     async def test_model_proj_attachment(self):
 
         async with self.getTestCore() as core:
