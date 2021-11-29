@@ -1605,7 +1605,7 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'list',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to start from.', 'default': 0},
-                      {'name': 'wait', 'type': 'boolean', 'default': False, 'action': 'store_true',
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
                         'desc': 'Wait for new results and yield them in realtime.'},
                       {'name': 'timeout', 'type': 'int', 'default': None,
                         'desc': 'The maximum time to wait for a new result before returning.'},
