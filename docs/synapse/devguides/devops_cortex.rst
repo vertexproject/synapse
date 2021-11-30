@@ -127,7 +127,7 @@ and use write-back support to facilitate edits originating from the downstream l
 copy of the layer on the remote system including all edit history and will only allow changes which are first sent to the
 upstream layer.
 
-When configuring a mirrored layer, you may chose to mirror from a remote layer *or* from the top layer of a remote view.
+When configuring a mirrored layer, you may choose to mirror from a remote layer *or* from the top layer of a remote view.
 If you chose to mirror from the top layer of a remote view, that view will have the opportunity to fire triggers and enforce
 model constraints on the changes being provided by the mirrored layer.
 

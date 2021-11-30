@@ -5363,7 +5363,7 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
         {'name': 'getMirrorStatus', 'desc': '''
-            Return a dictionary of the mirror syncronization status for the layer.
+            Return a dictionary of the mirror synchronization status for the layer.
             ''',
          'type': {'type': 'function', '_funcname': 'getMirrorStatus',
                   'returns': {'type': 'dict', 'desc': 'An info dictionary describing mirror sync status.', }}},
