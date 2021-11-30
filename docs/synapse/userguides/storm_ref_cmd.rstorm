@@ -7,13 +7,12 @@
 Storm Reference - Storm Commands
 ================================
 
-Storm commands are built-in or custom commands that can be used with the Synapse :ref:`syn-storm` command itself. As such, Storm commands must be executed following the ``storm`` command:
+Storm commands are built-in or custom commands that can be used natively within the Synapse Storm tool / Storm CLI (see :ref:`syn-tools-storm`), or in conjunction with the ``storm`` command from the Synapse ``cmdr`` CLI tool (see :ref:`syn-tools-cmdr`).
 
-**storm** *<command>*
+.. NOTE::
+  
+  The Storm tool / Storm CLI provides a native Storm interpreter and is the preferred tool for interacting with a Synapse Cortex from the CLI.
 
-or
-
-**storm** *<query>* **|** *<command>* [ **|** *<query>* ]
 
 The pipe symbol ( ``|`` ) is used to send (pipe) the output from a Storm query to any of the Storm commands, and to send the output from a Storm command back to a Storm query.
 

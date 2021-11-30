@@ -20,6 +20,20 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_intersect(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                [(ou:org=* :names=(foo, bar))]
+                [(ou:org=* :names=(foo, baz))]
+                [(ou:org=* :names=(foo, hehe))]
+            ''')
+            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'foo')
+
+            msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
+            self.stormIsInErr('intersect arguments must be runtsafe', msgs)
+
     async def test_lib_storm_trycatch(self):
 
         async with self.getTestCore() as core:
@@ -3043,3 +3057,64 @@ class StormTest(s_t_utils.SynTest):
 
                 self.stormIsInPrint('Synapse Version:', msgs)
                 self.stormIsInPrint('Commit Hash:', msgs)
+
+    async def test_storm_runas(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            nodes = await core.nodes('[ inet:fqdn=foo.com ]')
+            self.len(1, nodes)
+
+            q = 'runas visi { [ inet:fqdn=bar.com ] }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await visi.addRule((True, ('node', 'add')))
+
+            await core.nodes('runas visi { [ inet:fqdn=bar.com ] }')
+
+            items = await alist(core.syncLayersEvents({}, wait=False))
+            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
+
+            await core.nodes(f'runas {visi.iden} {{ [ inet:fqdn=baz.com ] }}')
+
+            items = await alist(core.syncLayersEvents({}, wait=False))
+            self.len(8, [item for item in items if item[-1]['user'] == visi.iden])
+
+            q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await visi.addRule((True, ('node', 'tag', 'add')))
+
+            nodes = await core.nodes(q)
+            for node in nodes:
+                self.nn(node.tags.get('atag'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await self.asyncraises(s_exc.AuthDeny, asvisi.callStorm(q))
+
+            q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
+            await core.nodes(q)
+            nodes = await core.nodes('inet:fqdn=foo.com')
+            self.nn(nodes[0].tags.get('btag'))
+
+            await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
+
+            cmd0 = {
+                'name': 'asroot.not',
+                'storm': 'runas visi { inet:fqdn=foo.com [-#btag ] }',
+                'asroot': True,
+            }
+            cmd1 = {
+                'name': 'asroot.yep',
+                'storm': 'runas visi --asroot { inet:fqdn=foo.com [-#btag ] }',
+                'asroot': True,
+            }
+            await core.setStormCmd(cmd0)
+            await core.setStormCmd(cmd1)
+
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
+
+            nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
+            for node in nodes:
+                self.none(node.tags.get('btag'))

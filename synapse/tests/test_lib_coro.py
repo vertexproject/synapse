@@ -28,6 +28,16 @@ def chkpool():
 
 class CoroTest(s_t_utils.SynTest):
 
+    async def test_coro_event(self):
+
+        evnt = s_coro.Event()
+
+        evnt.set()
+        self.true(await evnt.timewait())
+
+        evnt.clear()
+        self.false(await evnt.timewait(timeout=0.001))
+
     async def test_coro_iscoro(self):
 
         async def agen():
