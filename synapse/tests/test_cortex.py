@@ -5000,6 +5000,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
+                # twiddle the dmon manager
+                self.true(core.stormdmons.enabled)
+                await core.stormdmons.stop()
+                await core.stormdmons.start()
                 self.len(1, await core.nodes('[test:int=1]'))
                 await core.nodes('$q=$lib.queue.add(dmon)')
                 vdef2 = await core.view.fork()
