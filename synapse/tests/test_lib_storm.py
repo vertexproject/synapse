@@ -31,6 +31,9 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
+            msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
+            self.stormIsInErr('intersect argumetns must be runtsafe', msgs)
+
     async def test_lib_storm_trycatch(self):
 
         async with self.getTestCore() as core:

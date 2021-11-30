@@ -4555,11 +4555,20 @@ class IntersectCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'intersect arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as counters:
             async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as pathvars:
 
                 text = await s_stormtypes.tostr(self.opts.query)
                 query = await runt.getStormQuery(text)
+
+                # Note: The intersection works by counting the # of nodes inbound to the command.
+                # For each node which is emitted from the pivot, we increment a counter, mapping
+                # the buid -> count. We then iterate over the counter, and only yield nodes which
+                # have a buid -> count equal to the # of inbound nodes we consumed.
 
                 count = 0
                 async for node, path in genr:
