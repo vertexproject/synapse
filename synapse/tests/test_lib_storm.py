@@ -3022,12 +3022,14 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'gronk', 'storm': 'init { $fqdn=foo } $lib.print($fqdn)'},
                 ),
             })
-            self.len(1, await core.nodes('''
-                [ inet:fqdn=vertex.link ]
-                $fqdn=$node.repr()
-                | woot lol |
-                $lib.print($path.vars.fqdn)
-            '''))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes('''
+                    [ inet:fqdn=vertex.link ]
+                    $fqdn=$node.repr()
+                    | woot lol |
+                    $lib.print($path.vars.fqdn)
+                ''')
 
             msgs = await core.stormlist('''
                 [ inet:fqdn=vertex.link ]

@@ -2475,10 +2475,8 @@ class PureCmd(Cmd):
         }
 
         if self.runtsafe:
-            data = {'pathvars': {}}
             async def genx():
                 async for xnode, xpath in genr:
-                    data['pathvars'] = xpath.vars.copy()
                     xpath.initframe(initvars={'cmdopts': cmdopts})
                     yield xnode, xpath
 
@@ -2486,7 +2484,6 @@ class PureCmd(Cmd):
                 subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
-                    path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
