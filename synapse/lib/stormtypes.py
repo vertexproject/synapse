@@ -1605,6 +1605,10 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'list',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to start from.', 'default': 0},
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
+                        'desc': 'Wait for new results and yield them in realtime.'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                        'desc': 'The maximum time to wait for a new result before returning.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
@@ -1612,9 +1616,11 @@ class LibAxon(Lib):
         Yields lines of text from a plain-text file stored in the Axon.
 
         Example:
-            for $line in $lib.axon.readlines($sha256) {
-                $dostuff($line)
-            }
+            Get the lines for a given file::
+
+                for $line in $lib.axon.readlines($sha256) {
+                    $dostuff($line)
+                }
         ''',
          'type': {'type': 'function', '_funcname': 'readlines',
                   'args': (
@@ -1627,9 +1633,11 @@ class LibAxon(Lib):
         Yields JSON objects from a JSON-lines file stored in the Axon.
 
         Example:
-            for $item in $lib.axon.jsonlines($sha256) {
-                $dostuff($item)
-            }
+            Get the JSON objects from a given JSONL file::
+
+                for $item in $lib.axon.jsonlines($sha256) {
+                    $dostuff($item)
+                }
         ''',
          'type': {'type': 'function', '_funcname': 'jsonlines',
                   'args': (
@@ -1769,15 +1777,17 @@ class LibAxon(Lib):
 
         return urlfile
 
-    async def list(self, offs=0):
+    async def list(self, offs=0, wait=False, timeout=None):
         offs = await toint(offs)
+        wait = await tobool(wait)
+        timeout = await toint(timeout, noneok=True)
 
         self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
-        async for item in axon.hashes(offs):
+        async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
 @registry.registerLib
@@ -3240,6 +3250,10 @@ class Prim(StormType):
             yield x
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} is not iterable.', name=name)
+
+    async def nodes(self):  # pragma: no cover
+        for x in ():
+            yield x
 
     async def bool(self):
         return bool(await s_coro.ornot(self.value))

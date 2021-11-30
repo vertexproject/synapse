@@ -1184,15 +1184,15 @@ class YieldValu(Oper):
             yield valu
             return
 
-        if isinstance(valu, s_stormtypes.Query):
-            async for node in valu.nodes():
-                yield node
-            return
-
         if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
             for item in valu.valu:
                 async for node in self.yieldFromValu(runt, item):
                     yield node
+            return
+
+        if isinstance(valu, s_stormtypes.Prim):
+            async for node in valu.nodes():
+                yield node
             return
 
 class LiftTag(LiftOper):

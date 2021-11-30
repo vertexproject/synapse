@@ -287,8 +287,9 @@ In our experience, the more analysts use Storm, the more they want even greater 
 - Subqueries (:ref:`storm-ref-subquery`)
 - Variables (:ref:`storm-adv-vars`)
 - Methods (:ref:`storm-adv-methods`)
-- Libraries (:ref:`storm-adv-libs`)
 - Control Flow (:ref:`storm-adv-control`)
+- :ref:`stormtypes-libs-header`
+- :ref:`stormtypes-prim-header`
 
 **Analysts do not need to use or understand these more advanced concepts in order to use Storm or Synapse.** Basic Storm functions are sufficient for a wide range of analytical needs and workflows. However, these additional features are available to both "power users" and developers as needed:
 
