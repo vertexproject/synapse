@@ -1642,7 +1642,7 @@ class InetModule(s_module.CoreModule):
                         ('query', ('str', {}), {
                             'doc': 'The HTTP query string which optionally follows the path.'}),
 
-                        ('headers', ('array', {'type': 'inet:http:request:header', 'uniq': True, 'sorted': True}), {
+                        ('headers', ('array', {'type': 'inet:http:request:header'}), {
                             'doc': 'An array of HTTP headers from the request.'}),
 
                         ('body', ('file:bytes', {}), {
@@ -1651,7 +1651,7 @@ class InetModule(s_module.CoreModule):
                         ('response:time', ('time', {}), {}),
                         ('response:code', ('int', {}), {}),
                         ('response:reason', ('str', {}), {}),
-                        ('response:headers', ('array', {'type': 'inet:http:response:header', 'uniq': True, 'sorted': True}), {
+                        ('response:headers', ('array', {'type': 'inet:http:response:header'}), {
                             'doc': 'An array of HTTP headers from the response.'}),
                         ('response:body', ('file:bytes', {}), {}),
                         ('session', ('inet:http:session', {}), {

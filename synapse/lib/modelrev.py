@@ -79,9 +79,6 @@ class ModelRev:
             'crypto:x509:cert:identities:urls',
             'crypto:x509:cert:crl:urls',
 
-            'inet:http:request:headers',
-            'inet:http:request:response:headers',
-
             'inet:whois:iprec:contacts',
             'inet:whois:iprec:links',
             'inet:whois:ipcontact:roles',
