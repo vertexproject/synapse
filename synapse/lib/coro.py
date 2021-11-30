@@ -66,6 +66,21 @@ def executor(func, *args, **kwargs):
 
     return asyncio.get_running_loop().run_in_executor(None, real)
 
+class Event(asyncio.Event):
+
+    async def timewait(self, timeout=None):
+
+        if timeout is None:
+            await self.wait()
+            return True
+
+        try:
+            await asyncio.wait_for(self.wait(), timeout)
+        except asyncio.TimeoutError:
+            return False
+
+        return True
+
 async def event_wait(event: asyncio.Event, timeout=None):
     '''
     Wait on an an asyncio event with an optional timeout

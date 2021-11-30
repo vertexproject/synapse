@@ -499,7 +499,8 @@ class Agenda(s_base.Base):
             try:
                 await self.core.getStormQuery(appt.query)
             except Exception as e:
-                logger.warning('Invalid appointment %r found in storage: %r.  Disabling.', iden, e)
+                logger.exception(f'Invalid appointment {iden} {appt.name} found in storage. Disabling. {e}',
+                                 extra={'synapse': {'iden': iden, 'name': appt.name, 'text': appt.query}})
                 appt.enabled = False
 
         self._schedtask = self.schedCoro(self._scheduleLoop())
@@ -779,10 +780,11 @@ class Agenda(s_base.Base):
                 if not appt.enabled or not self.enabled:
                     continue
 
-                if appt.isrunning:
-                    logger.warning(
-                        'Appointment %s is still running from previous time when scheduled to run.  Skipping.',
-                        appt.iden)
+                if appt.isrunning:  # pragma: no cover
+                    mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
+                           f' to run. Skipping.',
+                    logger.warning(mesg,
+                                   extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
                 else:
                     await self._execute(appt)
 
@@ -792,19 +794,24 @@ class Agenda(s_base.Base):
         '''
         user = self.core.auth.user(appt.creator)
         if user is None:
-            logger.warning('Unknown user %s in stored appointment', appt.creator)
+            logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
+                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator}})
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
-            logger.warning('Cron failed because creator %s is locked', user.name)
+            logger.warning(f'Cron {appt.iden} {appt.name} failed because creator {user.name} is locked',
+                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
+                                              'username': user.name}})
             await self._markfailed(appt, 'locked user')
             return
 
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
-            logger.warning('Unknown view %s in stored appointment', appt.view)
+            logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
+                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
+                                              'username': user.name, 'view': appt.view}})
             await self._markfailed(appt, 'unknown view')
             return
 
@@ -833,7 +840,9 @@ class Agenda(s_base.Base):
         await self._storeAppt(appt, nexs=True)
 
         with s_provenance.claim('cron', iden=appt.iden):
-            logger.info('Agenda executing for iden=%s, user=%s, view=%s, query={%s}', appt.iden, user.name, appt.view, appt.query)
+            logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
+                        extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
+                                           'username': user.name, 'view': appt.view}})
             starttime = time.time()
             success = False
             try:
@@ -845,7 +854,9 @@ class Agenda(s_base.Base):
                 raise
             except Exception as e:
                 result = f'raised exception {e}'
-                logger.exception('Agenda job %s raised exception', appt.iden)
+                logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
+                                 extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
+                                 )
             else:
                 success = True
                 result = f'finished successfully with {count} nodes'
@@ -854,8 +865,11 @@ class Agenda(s_base.Base):
                 if not success:
                     appt.errcount += 1
                     appt.lasterrs.append(result)
-                logger.info('Agenda completed query for iden=%s with result "%s" took %0.3fs',
-                            appt.iden, result, finishtime - starttime)
+                took = finishtime - starttime
+                mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
+                       f'took {took:.3f}s'
+                logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
+                                                     'result': result, 'username': user.name, 'took': took}})
                 appt.lastfinishtime = finishtime
                 appt.isrunning = False
                 appt.lastresult = result
