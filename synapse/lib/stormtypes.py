@@ -1605,6 +1605,10 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'list',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to start from.', 'default': 0},
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
+                        'desc': 'Wait for new results and yield them in realtime.'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                        'desc': 'The maximum time to wait for a new result before returning.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
@@ -1773,15 +1777,17 @@ class LibAxon(Lib):
 
         return urlfile
 
-    async def list(self, offs=0):
+    async def list(self, offs=0, wait=False, timeout=None):
         offs = await toint(offs)
+        wait = await tobool(wait)
+        timeout = await toint(timeout, noneok=True)
 
         self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
-        async for item in axon.hashes(offs):
+        async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
 @registry.registerLib
