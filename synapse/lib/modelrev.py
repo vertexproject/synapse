@@ -79,8 +79,6 @@ class ModelRev:
             'crypto:x509:cert:identities:urls',
             'crypto:x509:cert:crl:urls',
 
-            'inet:email:message:headers',
-
             'inet:http:request:headers',
             'inet:http:request:response:headers',
 
