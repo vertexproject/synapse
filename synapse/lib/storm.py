@@ -1397,7 +1397,12 @@ class DmonManager(s_base.Base):
         await asyncio.gather(*[dmon.fini() for dmon in self.dmons.values()])
 
     async def _stopAllDmons(self):
-        await asyncio.gather(*[dmon.stop() for dmon in self.dmons.values()])
+        futs = [dmon.stop() for dmon in self.dmons.values()]
+        if not futs:
+            return
+        logger.debug(f'Stopping [{len(futs)}] Dmons')
+        await asyncio.gather(*futs)
+        logger.debug('Stopped Dmons')
 
     async def addDmon(self, iden, ddef):
         dmon = await StormDmon.anit(self.core, iden, ddef)
@@ -1436,9 +1441,15 @@ class DmonManager(s_base.Base):
         '''
         if self.enabled:
             return
-        for dmon in list(self.dmons.values()):
+        dmons = list(self.dmons.values())
+        if not dmons:
+            self.enabled = True
+            return
+        logger.debug('Starting Dmons')
+        for dmon in dmons:
             await dmon.run()
         self.enabled = True
+        logger.debug('Started Dmons')
 
     async def stop(self):
         '''
@@ -1473,12 +1484,16 @@ class StormDmon(s_base.Base):
         self.onfini(self.stop)
 
     async def stop(self):
+        logger.debug(f'Stopping Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
         if self.task is not None:
             self.task.cancel()
         self.task = None
+        logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
     async def run(self):
-        assert self.task is None
+        if self.task:  # pragma: no cover
+            raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
+                               iden=self.iden)
         self.task = self.schedCoro(self.dmonloop())
 
     async def bump(self):
@@ -1500,6 +1515,8 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
+        logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+
         s_scope.set('storm:dmon', self.iden)
 
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon')}
@@ -1508,18 +1525,19 @@ class StormDmon(s_base.Base):
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - {mesg}')
+            logger.info(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
 
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - {mesg}')
+            logger.warning(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
 
         while not self.isfini:
 
             if self.user.info.get('locked'):
                 self.status = 'fatal error: user locked'
-                logger.warning('Dmon user is locked. Stopping Dmon.')
+                logger.warning(f'Dmon user is locked. Stopping Dmon {self.iden}.',
+                               extra={'synapse': {'iden': self.iden}})
                 return
 
             text = self.ddef.get('storm')
@@ -1529,7 +1547,8 @@ class StormDmon(s_base.Base):
             view = self.core.getView(viewiden)
             if view is None:
                 self.status = 'fatal error: invalid view'
-                logger.warning('Dmon View is invalid. Stopping Dmon.')
+                logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
+                               extra={'synapse': {'iden': self.iden}})
                 return
 
             try:
@@ -1546,7 +1565,7 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'Dmon query exited: {self.iden}')
+                    logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
 
                     self.status = 'sleeping'
 
@@ -1559,7 +1578,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 self._runLogAdd(('err', s_common.excinfo(e)))
-                logger.exception(f'Dmon error ({self.iden})')
+                logger.exception(f'Dmon error ({self.iden})', extra={'synapse': {'iden': self.iden}})
                 self.status = f'error: {e}'
                 self.err_evnt.set()
 
