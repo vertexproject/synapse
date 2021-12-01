@@ -901,8 +901,7 @@ class Path:
 
     def initframe(self, initvars=None):
 
-        # full copy for now...
-        framevars = self.vars.copy()
+        framevars = {}
         if initvars is not None:
             framevars.update(initvars)
 
