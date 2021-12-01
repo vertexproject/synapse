@@ -479,9 +479,9 @@ class ScrapeTest(s_t_utils.SynTest):
         txt = f'hehe {email[0]} {fqdn[0]} haha'
         self.eq({email[0], 'bar.io', fqdn[0], }, {n[1] for n in s_scrape.scrape(txt)})
 
-        # ensure .onion included as tld
-        txt = f'hehe woot.onion haha'
-        self.eq({'woot.onion', }, {n[1] for n in s_scrape.scrape(txt)})
+        # ensure extra-iana tlds included as tld
+        txt = f'hehe woot.onion woot.bit haha'
+        self.eq({'woot.onion', 'woot.bit', }, {n[1] for n in s_scrape.scrape(txt)})
 
     def test_refang(self):
         defanged = '10[.]0[.]0[.]1'
