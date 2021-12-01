@@ -1097,20 +1097,6 @@ class CortexTest(s_t_utils.SynTest):
             ''',
         }
 
-        cdef1 = {
-            'name': 'testcmd1',
-            'cmdargs': (
-                ('name', {}),
-            ),
-            'storm': '''
-                $varname = $cmdopts.name
-                $realname = $path.vars.$varname
-                if $realname {
-                    [ inet:user=$realname ] | testcmd0 lulz
-                }
-            ''',
-        }
-
         with self.getTestDir() as dirn:
 
             async with await s_cortex.Cortex.anit(dirn) as core:
@@ -1118,7 +1104,6 @@ class CortexTest(s_t_utils.SynTest):
                 async with core.getLocalProxy() as prox:
 
                     await prox.setStormCmd(cdef0)
-                    await prox.setStormCmd(cdef1)
 
                     nodes = await core.nodes('[ inet:asn=10 ] | testcmd0 zoinks')
                     self.true(nodes[0].tags.get('zoinks'))
@@ -1140,12 +1125,6 @@ class CortexTest(s_t_utils.SynTest):
                     with self.raises(s_exc.NoSuchVar):
                         q = '[ inet:asn=11 ] | testcmd0 zoinks --domore | if ($foo) {[ +#hasfoo ]}'
                         nodes = await core.nodes(q)
-
-                    # test nested storm commands
-                    nodes = await core.nodes('[ inet:email=visi@vertex.link ] $username = :user | testcmd1 username')
-                    self.len(2, nodes)
-                    self.eq(nodes[0].ndef, ('inet:user', 'visi'))
-                    self.nn(nodes[0].tags.get('lulz'))
 
             # make sure it's still loaded...
             async with await s_cortex.Cortex.anit(dirn) as core:

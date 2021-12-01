@@ -2476,10 +2476,8 @@ class PureCmd(Cmd):
         }
 
         if self.runtsafe:
-            data = {'pathvars': {}}
             async def genx():
                 async for xnode, xpath in genr:
-                    data['pathvars'] = xpath.vars.copy()
                     xpath.initframe(initvars={'cmdopts': cmdopts})
                     yield xnode, xpath
 
@@ -2487,21 +2485,18 @@ class PureCmd(Cmd):
                 subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
-                    path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
                 subr.asroot = asroot
 
                 async for node, path in genr:
-                    pathvars = path.vars.copy()
                     async def genx():
                         path.initframe(initvars={'cmdopts': cmdopts})
                         yield node, path
 
                     async for xnode, xpath in subr.execute(genr=genx()):
-                        path.finiframe()
-                        xpath.vars.update(pathvars)
+                        xpath.finiframe()
                         yield xnode, xpath
 
 class DivertCmd(Cmd):
@@ -4570,10 +4565,10 @@ class RunAsCmd(Cmd):
         pars.add_argument('user', help='The user name or iden to execute the storm query as.')
         pars.add_argument('storm', help='The storm query to execute.')
         pars.add_argument('--asroot', default=False, action='store_true', help='Propagate asroot to query subruntime.')
+
         return pars
 
     async def execStormCmd(self, runt, genr):
-
         if not runt.user.isAdmin():
             mesg = 'The runas command requires admin privileges.'
             raise s_exc.AuthDeny(mesg=mesg)
@@ -4623,3 +4618,70 @@ class RunAsCmd(Cmd):
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
+
+class IntersectCmd(Cmd):
+    '''
+    Yield an intersection of the results of running inbound nodes through a pivot.
+
+    NOTE:
+        This command must consume the entire inbound stream to produce the intersection.
+        This type of stream consuming before yielding results can cause the query to appear
+        laggy in comparison with normal incremental stream operations.
+
+    Examples:
+
+        // Show the it:mitre:attack:technique nodes common to several groups
+
+        it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
+    '''
+    name = 'intersect'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', type='str', required=True, help='The pivot query to run each inbound node through.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'intersect arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as counters:
+            async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as pathvars:
+
+                text = await s_stormtypes.tostr(self.opts.query)
+                query = await runt.getStormQuery(text)
+
+                # Note: The intersection works by counting the # of nodes inbound to the command.
+                # For each node which is emitted from the pivot, we increment a counter, mapping
+                # the buid -> count. We then iterate over the counter, and only yield nodes which
+                # have a buid -> count equal to the # of inbound nodes we consumed.
+
+                count = 0
+                async for node, path in genr:
+                    count += 1
+                    await asyncio.sleep(0)
+                    async with runt.getSubRuntime(query) as subr:
+                        subg = s_common.agen((node, path))
+                        async for subn, subp in subr.execute(genr=subg):
+                            curv = counters.get(subn.buid)
+                            if curv is None:
+                                await counters.set(subn.buid, 1)
+                            else:
+                                await counters.set(subn.buid, curv + 1)
+                            await pathvars.set(subn.buid, await s_stormtypes.toprim(subp.vars))
+                            await asyncio.sleep(0)
+
+                for buid, hits in counters.items():
+
+                    if hits != count:
+                        await asyncio.sleep(0)
+                        continue
+
+                    node = await runt.snap.getNodeByBuid(buid)
+                    if node is not None:
+                        path = runt.initPath(node)
+                        path.vars.update(pathvars.get(buid))
+                        yield (node, path)

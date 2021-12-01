@@ -255,5 +255,24 @@ def _runtodo(todo):
     return todo[0](*todo[1], **todo[2])
 
 async def forked(func, *args, **kwargs):
+    '''
+    Execute a target function in the forked process pool.
+
+    Args:
+        func: The target function.
+        *args: Function positional arguments.
+        **kwargs: Function keyword arguments.
+
+    Returns:
+        The target function return.
+
+    Raises:
+        The function may raise from the target function, or raise a s_exc.FatalErr in the event of a broken forked
+        process pool. The fatalerr represents a unrecoverable application state.
+    '''
     todo = (func, args, kwargs)
-    return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
+    try:
+        return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
+    except concurrent.futures.process.BrokenProcessPool as e:
+        logger.exception(f'Fatal error executing forked task: {func} {args} {kwargs}')
+        raise s_exc.FatalErr(mesg=f'Fatal error encountered: {e}') from None

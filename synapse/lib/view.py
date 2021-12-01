@@ -394,7 +394,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     took = tock - tick
                     await chan.put(('fini', {'tock': tock, 'took': took, 'count': count}))
 
-        await synt.worker(runStorm())
+        await synt.worker(runStorm(), name='runstorm')
 
         editformat = opts.get('editformat', 'nodeedits')
 
