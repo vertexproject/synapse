@@ -13,14 +13,16 @@ Features and Enhancements
 - Add a Storm ``runas`` command. This allows admin users to execute Storm
   commands as other users.
   (`#2473 <https://github.com/vertexproject/synapse/pull/2473>`_)
-- Add a Storm ``intersect`` command. WORDS
+- Add a Storm ``intersect`` command. This command produces the intersection
+  of nodes emitted by running a Storm query over all inbound nodes to the
+  ``intersect`` command.
   (`#2480 <https://github.com/vertexproject/synapse/pull/2480>`_)
-- NODE YIELDERS FROM PRIMS
-  (`#2479 <https://github.com/vertexproject/synapse/pull/2479>`_)
-
 - Add ``wait`` and ``timeout`` parameters to the ``Axon.hashes()`` and
   ``$lib.axon.list()`` APIS.
   (`#2481 <https://github.com/vertexproject/synapse/pull/2481>`_)
+- Allow Storm Prim objects to be capable of directly yield nodes when used
+  in ``yield`` statements.
+  (`#2479 <https://github.com/vertexproject/synapse/pull/2479>`_)
 - Update the StormDmon subsystem to add debug log information about state
   changes, as well as additional data for structured logging output.
   (`#2455 <https://github.com/vertexproject/synapse/pull/2455>`_)
@@ -32,7 +34,8 @@ Bugfixes
   appear unresponsive for executing Storm queries; now this causes the Cortex
   to shut down gracefully.
   (`#2472 <https://github.com/vertexproject/synapse/pull/2472>`_)
-- Fix a path scoping issue WORDS
+- Fix a Storm path variable scoping issue where variables where improperly
+  scoped when nodes were passed into pure Storm commands.
   (`#2459 <https://github.com/vertexproject/synapse/pull/2459>`_)
 
 
