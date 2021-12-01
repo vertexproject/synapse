@@ -3118,8 +3118,7 @@ Improved Documentation
 v2.0.0 - 2020-06-08
 ===================
 
-Initial 2.0.0 release. See :ref:`200_changes` for notable new features and changes, as well as backwards incompatible
-changes.
+Initial 2.0.0 release.
 
 
 v0.1.X Changelog
