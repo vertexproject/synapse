@@ -16,7 +16,7 @@ def chopSemVer(vers):
 
 def getStormStr(fn):
     if not os.path.isfile(fn):
-        raise ValueError('Storm file {} not found'.format(fn))
+        raise s_exc.NoSuchFile(mesg='Storm file {} not found'.format(fn), path=fn)
 
     with open(fn, 'rb') as f:
         return f.read().decode()
@@ -44,23 +44,25 @@ def loadOpticFiles(pkgdef, path):
                     'file': base64.b64encode(fd.read()).decode(),
                 }
 
-def tryLoadPkgProto(fp, opticdir=None):
+def tryLoadPkgProto(fp, opticdir=None, readonly=False):
     '''
     Try to get a Storm Package prototype from disk with or without inline documentation.
 
     Args:
         fp (str): Path to the package .yaml file on disk.
         opticdir (str): Path to optional Optic module code to add to the Storm Package.
+        readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
+                         exception.
 
     Returns:
         dict: A Storm package definition.
     '''
     try:
-        return loadPkgProto(fp, opticdir=opticdir)
+        return loadPkgProto(fp, opticdir=opticdir, readonly=readonly)
     except s_exc.NoSuchFile:
-        return loadPkgProto(fp, opticdir=opticdir, no_docs=True)
+        return loadPkgProto(fp, opticdir=opticdir, no_docs=True, readonly=readonly)
 
-def loadPkgProto(path, opticdir=None, no_docs=False):
+def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     '''
     Get a Storm Package definition from disk.
 
@@ -68,6 +70,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False):
         fp (str): Path to the package .yaml file on disk.
         opticdir (str): Path to optional Optic module code to add to the Storm Package.
         no_docs (bool): If true, omit inline documentation content if it is not present on disk.
+        readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
+                         exception.
 
     Returns:
         dict: A Storm package definition.
@@ -120,8 +124,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False):
 
     for mod in pkgdef.get('modules', ()):
         name = mod.get('name')
-        with s_common.genfile(protodir, 'storm', 'modules', name) as fd:
-            mod['storm'] = fd.read().decode()
+        mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
+        if readonly:
+            mod['storm'] = getStormStr(mod_path)
+        else:
+            with s_common.genfile(mod_path) as fd:
+                mod['storm'] = fd.read().decode()
 
     for extmod in pkgdef.get('external_modules', ()):
         fpth = extmod.get('file_path')
@@ -142,8 +150,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False):
 
     for cmd in pkgdef.get('commands', ()):
         name = cmd.get('name')
-        with s_common.genfile(protodir, 'storm', 'commands', name) as fd:
-            cmd['storm'] = fd.read().decode()
+        cmd_path = s_common.genpath(protodir, 'storm', 'commands', name)
+        if readonly:
+            cmd['storm'] = getStormStr(cmd_path)
+        else:
+            with s_common.genfile(cmd_path) as fd:
+                cmd['storm'] = fd.read().decode()
 
     for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
         name = wdef.get('name')
