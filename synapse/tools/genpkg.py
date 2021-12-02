@@ -124,11 +124,10 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         name = mod.get('name')
         mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
         if readonly:
-            storm = getStormStr(mod_path)
+            mod['storm'] = getStormStr(mod_path)
         else:
             with s_common.genfile(mod_path) as fd:
-                storm = fd.read().decode()
-        mod['storm'] = storm
+                mod['storm'] = fd.read().decode()
 
     for extmod in pkgdef.get('external_modules', ()):
         fpth = extmod.get('file_path')
@@ -151,11 +150,10 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         name = cmd.get('name')
         cmd_path = s_common.genpath(protodir, 'storm', 'commands', name)
         if readonly:
-            storm = getStormStr(mod_path)
+            cmd['storm'] = getStormStr(cmd_path)
         else:
             with s_common.genfile(cmd_path) as fd:
-                storm = fd.read().decode()
-        cmd['storm'] = storm
+                cmd['storm'] = fd.read().decode()
 
     for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
         name = wdef.get('name')

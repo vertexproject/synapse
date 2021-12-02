@@ -1,4 +1,5 @@
 import os
+import stat
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -10,6 +11,13 @@ import synapse.tools.genpkg as s_genpkg
 dirname = os.path.dirname(__file__)
 
 class GenPkgTest(s_test.SynTest):
+
+    @staticmethod
+    def setDirFileModes(dirn, mode):
+        for root, dirs, files in os.walk(dirn):
+            for fn in files:
+                fp = os.path.join(root, fn)
+                os.chmod(fp, mode=mode)
 
     async def test_tools_genpkg(self):
 
@@ -125,9 +133,38 @@ class GenPkgTest(s_test.SynTest):
         self.eq(pkg.get('docs'), [{'title': 'newp', 'path': 'docs/newp.md', 'content': ''}])
 
     def test_tools_readonly(self):
+        readonly_mode = stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH
+        self.thisHostMustNot(platform='windows')
         srcpath = s_common.genpath(dirname, 'files', 'stormpkg')
+
         with self.getTestDir(copyfrom=srcpath) as dirn:
-            pass
+            ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
+            self.setDirFileModes(dirn=dirn, mode=readonly_mode)
+
+            with self.raises(PermissionError):
+                s_genpkg.tryLoadPkgProto(ymlpath)
+            pkg = s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
+
+            self.eq(pkg.get('name'), 'testpkg')
+            self.eq(pkg.get('modules')[0].get('storm'), 'inet:ipv4\n')
+            self.eq(pkg.get('commands')[0].get('storm'), 'inet:ipv6\n')
+
+        # Missing files are still a problem
+        with self.getTestDir(copyfrom=srcpath) as dirn:
+            ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
+            os.unlink(os.path.join(dirn, 'storm', 'modules', 'testmod'))
+            self.setDirFileModes(dirn=dirn, mode=readonly_mode)
+            with self.raises(s_exc.NoSuchFile) as cm:
+                s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
+            self.isin('storm/modules/testmod', cm.exception.get('path'))
+
+        with self.getTestDir(copyfrom=srcpath) as dirn:
+            ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
+            os.remove(os.path.join(dirn, 'storm', 'commands', 'testpkgcmd'))
+            self.setDirFileModes(dirn=dirn, mode=readonly_mode)
+            with self.raises(s_exc.NoSuchFile) as cm:
+                s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
+            self.isin('storm/commands/testpkgcmd', cm.exception.get('path'))
 
     def test_files(self):
         assets = s_files.getAssets()
