@@ -70,6 +70,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         fp (str): Path to the package .yaml file on disk.
         opticdir (str): Path to optional Optic module code to add to the Storm Package.
         no_docs (bool): If true, omit inline documentation content if it is not present on disk.
+        readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
+                         exception.
 
     Returns:
         dict: A Storm package definition.
