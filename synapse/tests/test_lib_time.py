@@ -39,7 +39,7 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('2020 jun 10 12:14:34'), s_time.parse('2020-10-12 14:34'))
 
     def test_time_parse_tz(self):
-
+        print('')
         # explicit iso8601
         self.eq(s_time.parse('2020-07-07T16:29:53Z'), 1594139393000)
         self.eq(s_time.parse('2020-07-07T16:29:53.234Z'), 1594139393234)

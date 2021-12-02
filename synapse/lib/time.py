@@ -14,6 +14,10 @@ EPOCH = datetime.datetime(1970, 1, 1)
 
 tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\w+|\+\w))')
 
+tz_hm_re = regex.compile(r'\d((?P<modifier>\+|\-)(?P<hours>\d{1,2}):?(?P<minutes>\d{2}))($|(\-\w+|\+\w))')
+
+# tz_hm_re = regex.compile(r'\d((?P<modifier>\+|\-)(?P<hours>2[0-3]|[0-1][0-9]|[0-9]):?(?P<minutes>\d{2}))($|(\-\w+|\+\w))')
+
 def _rawparse(text, base=None, chop=False):
 
     text = text.strip().lower().replace(' ', '')
@@ -66,6 +70,7 @@ def parse(text, base=None, chop=False):
     Returns:
         int: Epoch milliseconds
     '''
+    print(f'PARSE {text=}')
     dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
     return int((dtraw - EPOCH).total_seconds() * 1000 + base)
 
@@ -105,22 +110,26 @@ def parsetz(text):
     Returns:
         tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
     '''
-    tz_hm = tz_hm_re.search(text)
+    print(f'PARSETZ {text=}')
+    tz_hm = tz_hm_re.search(text)  # type: import regex.Match
 
-    if tz_hm is not None:
+    if tz_hm is None:
+        print('no match!?')
+        return text, 0
 
-        tzstr, rel, hrs, mins, _, _ = tz_hm.groups()
+    print(text)
+    print(tz_hm.groupdict())
+    print(tz_hm.groups())
+    tzstr, rel, hrs, mins, _, _ = tz_hm.groups()
 
-        rel = 1 if rel == '-' else -1
+    rel = 1 if rel == '-' else -1
 
-        base = rel * (onehour * int(hrs) + onemin * int(mins))
+    base = rel * (onehour * int(hrs) + onemin * int(mins))
 
-        if abs(base) >= oneday:
-            raise s_exc.BadTypeValu(valu=text, name='time', mesg=f'Timezone offset must be between +/- 24 hours')
+    if abs(base) >= oneday:
+        raise s_exc.BadTypeValu(valu=text, name='time', mesg=f'Timezone offset must be between +/- 24 hours')
 
-        return text.replace(tzstr, '', 1), base
-
-    return text, 0
+    return text.replace(tzstr, '', 1), base
 
 def repr(tick, pack=False):
     '''
