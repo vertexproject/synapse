@@ -1211,17 +1211,6 @@ class Layer(s_nexus.Pusher):
 
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
-        # TODO this isn't right...
-        self.allow_upstream = not core.conf.get('mirror')
-
-        uplayr = layrinfo.get('upstream')
-        if uplayr is not None and self.allow_upstream:
-            if isinstance(uplayr, (tuple, list)):
-                for layr in uplayr:
-                    await self.initUpstreamSync(layr)
-            else:
-                await self.initUpstreamSync(uplayr)
-
         self.onfini(self._onLayrFini)
 
         # if we are a mirror, we upstream all our edits and
@@ -1229,6 +1218,7 @@ class Layer(s_nexus.Pusher):
         self.leader = None
         self.leadtask = None
         self.ismirror = layrinfo.get('mirror') is not None
+        self.activetasks = []
 
     @contextlib.contextmanager
     def getIdenFutu(self, iden=None):
@@ -1263,6 +1253,13 @@ class Layer(s_nexus.Pusher):
             self.leader = await s_telepath.Client.anit(mirror, conf=conf)
             self.leadtask = self.schedCoro(self._runMirrorLoop())
 
+        uplayr = self.layrinfo.get('upstream')
+        if isinstance(uplayr, (tuple, list)):
+            for layr in uplayr:
+                await self.initUpstreamSync(layr)
+        else:
+            await self.initUpstreamSync(uplayr)
+
     async def initLayerPassive(self):
 
         if self.leadtask is not None:
@@ -1272,6 +1269,9 @@ class Layer(s_nexus.Pusher):
         if self.leader is not None:
             await self.leader.fini()
             self.leader = None
+
+        [t.cancel() for t in self.activetasks]
+        self.activetasks.clear()
 
     async def getEditSize(self):
         return self.nodeeditlog.size
@@ -2789,7 +2789,7 @@ class Layer(s_nexus.Pusher):
             yield nodeedit
 
     async def initUpstreamSync(self, url):
-        self.schedCoro(self._initUpstreamSync(url))
+        self.activetasks.append(self.schedCoro(self._initUpstreamSync(url)))
 
     async def _initUpstreamSync(self, url):
         '''

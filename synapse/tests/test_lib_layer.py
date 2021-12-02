@@ -185,10 +185,10 @@ class LayerTest(s_t_utils.SynTest):
                         await core02.sync()
 
                         layr = core01.getLayer(ldef.get('iden'))
-                        self.true(layr.allow_upstream)
+                        self.true(len(layr.activetasks))
 
                         layr = core02.getLayer(ldef.get('iden'))
-                        self.false(layr.allow_upstream)
+                        self.false(len(layr.activetasks))
 
                         self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
 
