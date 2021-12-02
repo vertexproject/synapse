@@ -133,8 +133,8 @@ class GenPkgTest(s_test.SynTest):
         self.eq(pkg.get('docs'), [{'title': 'newp', 'path': 'docs/newp.md', 'content': ''}])
 
     def test_tools_readonly(self):
-        readonly_mode = stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH
         self.thisHostMustNot(platform='windows')
+        readonly_mode = stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH
         srcpath = s_common.genpath(dirname, 'files', 'stormpkg')
 
         with self.getTestDir(copyfrom=srcpath) as dirn:
