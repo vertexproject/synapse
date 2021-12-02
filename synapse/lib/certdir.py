@@ -249,7 +249,7 @@ class CertDir:
             raise s_exc.NoSuchFile(mesg='missing User cert', name=name)
 
         capath = self._getCaPath(ucert)
-        cacert = self._loadCertPath(capth)
+        cacert = self._loadCertPath(capath)
         if not cacert:
             raise s_exc.NoSuchFile(mesg='missing CA cert', path=capath)
 

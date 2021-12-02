@@ -124,6 +124,11 @@ class GenPkgTest(s_test.SynTest):
         # Ensure it ran the fallback to do_docs=False
         self.eq(pkg.get('docs'), [{'title': 'newp', 'path': 'docs/newp.md', 'content': ''}])
 
+    def test_tools_readonly(self):
+        srcpath = s_common.genpath(dirname, 'files', 'stormpkg')
+        with self.getTestDir(copyfrom=srcpath) as dirn:
+            pass
+
     def test_files(self):
         assets = s_files.getAssets()
         self.isin('test.dat', assets)
