@@ -1949,7 +1949,7 @@ class Layer(s_nexus.Pusher):
 
         retn = []
         for buid, _, edits in results:
-            sode = deepcopy(self._getStorNode(buid))
+            sode = await self.getStorNode(buid)
             retn.append((buid, sode, edits))
 
         return retn
@@ -1960,7 +1960,7 @@ class Layer(s_nexus.Pusher):
 
         retn = []
         for buid, _, edits in changes:
-            sode = deepcopy(self._getStorNode(buid))
+            sode = await self.getStorNode(buid)
             retn.append((buid, sode, edits))
 
         return saveoff, changes, retn
