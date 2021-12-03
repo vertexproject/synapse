@@ -4451,13 +4451,18 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-        async with self.runt.getSubRuntime(query, opts=opts) as runt:
-            async for item in runt.execute():
-                yield item
+
+        try:
+            async with self.runt.getSubRuntime(query, opts=opts) as runt:
+                async for item in runt.execute():
+                    yield item
+        finally:
+            pass
 
     async def nodes(self):
-        async for node, path in self._getRuntGenr():
-            yield node
+        async with s_common.aclosing(self._getRuntGenr()) as genr:
+            async for node, path in genr:
+                yield node
 
     async def iter(self):
         async for node, path in self._getRuntGenr():

@@ -150,14 +150,13 @@ class Query(AstNode):
 
     async def run(self, runt, genr):
 
-        for oper in self.kids:
-            genr = oper.run(runt, genr)
+        async with contextlib.AsyncExitStack() as stack:
+            for oper in self.kids:
+                genr = await stack.enter_async_context(s_common.aclosing(oper.run(runt, genr)))
 
-        async for node, path in genr:
-
-            runt.tick()
-
-            yield node, path
+            async for node, path in genr:
+                runt.tick()
+                yield node, path
 
     async def iterNodePaths(self, runt, genr=None):
 
@@ -1113,14 +1112,16 @@ class YieldValu(Oper):
 
         async for node, path in genr:
             valu = await self.kids[0].compute(runt, path)
-            async for subn in self.yieldFromValu(runt, valu):
-                yield subn, runt.initPath(subn)
+            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+                async for subn in agen:
+                    yield subn, runt.initPath(subn)
             yield node, path
 
         if node is None and self.kids[0].isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-            async for subn in self.yieldFromValu(runt, valu):
-                yield subn, runt.initPath(subn)
+            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+                async for subn in agen:
+                    yield subn, runt.initPath(subn)
 
     async def yieldFromValu(self, runt, valu):
 
@@ -1191,9 +1192,13 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Prim):
-            async for node in valu.nodes():
-                yield node
-            return
+            genr = valu.nodes()
+            try:
+                async for node in genr:
+                    yield node
+                return
+            finally:
+                await genr.aclose()
 
 class LiftTag(LiftOper):
 
@@ -3799,12 +3804,13 @@ class Function(AstNode):
                     return e.item
 
         async def genr():
-            async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
-
-                # inform the sub runtime to use function scope rules
-                subr.funcscope = True
-
-                async for node, path in subr.execute():
-                    yield node, path
+            try:
+                async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+                    # inform the sub runtime to use function scope rules
+                    subr.funcscope = True
+                    async for node, path in subr.execute():
+                        yield node, path
+            finally:
+                pass
 
         return genr()
