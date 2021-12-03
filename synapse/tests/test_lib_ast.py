@@ -153,6 +153,8 @@ async def matchContexts(testself):
         for cont, refs in contexts.items():
             testself.eq(0, refs)
 
+        return nodes
+
     with mock.patch('synapse.lib.base.Base.__aenter__', enter):
         with mock.patch('synapse.lib.base.Base.__aexit__', exit):
             with mock.patch('synapse.cortex.Cortex.nodes', nodes):
