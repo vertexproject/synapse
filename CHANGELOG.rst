@@ -18,9 +18,13 @@ Features and Enhancements
   ``intersect`` command.
   (`#2480 <https://github.com/vertexproject/synapse/pull/2480>`_)
 - Add ``wait`` and ``timeout`` parameters to the ``Axon.hashes()`` and
-  ``$lib.axon.list()`` APIS.
+  ``$lib.axon.list()`` APIs.
   (`#2481 <https://github.com/vertexproject/synapse/pull/2481>`_)
-- Allow Storm Prim objects to be capable of directly yield nodes when used
+- Add a ``readonly`` flag to ``synapse.tools.genpkg.loadPkgProto()`` and
+  ``synapse.tools.genpkg.tryLoadPkgProto()`` APIs. If set to ``True`` this
+  will open files in read only mode.
+  (`#2485 <https://github.com/vertexproject/synapse/pull/2485>`_)
+- Allow Storm Prim objects to be capable of directly yielding nodes when used
   in ``yield`` statements.
   (`#2479 <https://github.com/vertexproject/synapse/pull/2479>`_)
 - Update the StormDmon subsystem to add debug log information about state
@@ -34,7 +38,7 @@ Bugfixes
   appear unresponsive for executing Storm queries; now this causes the Cortex
   to shut down gracefully.
   (`#2472 <https://github.com/vertexproject/synapse/pull/2472>`_)
-- Fix a Storm path variable scoping issue where variables where improperly
+- Fix a Storm path variable scoping issue where variables were improperly
   scoped when nodes were passed into pure Storm commands.
   (`#2459 <https://github.com/vertexproject/synapse/pull/2459>`_)
 
