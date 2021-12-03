@@ -14,10 +14,26 @@ class GenPkgTest(s_test.SynTest):
 
     @staticmethod
     def setDirFileModes(dirn, mode):
+        '''
+        Set all files in a directory to a new mode.
+        '''
         for root, dirs, files in os.walk(dirn):
             for fn in files:
                 fp = os.path.join(root, fn)
                 os.chmod(fp, mode=mode)
+
+    def skipIfWriteableFiles(self, dirn):
+        '''
+        If any files in dirn are not readonly, skip the test.
+        '''
+        for root, dirs, files in os.walk(dirn):
+            for fn in files:
+                fp = os.path.join(root, fn)
+                try:
+                    with open(fp, 'w+b') as fd:  # pragma: no cover
+                        self.skipTest('Writable files found in directory, test likely run as root.')
+                except PermissionError:
+                    continue
 
     async def test_tools_genpkg(self):
 
@@ -132,7 +148,7 @@ class GenPkgTest(s_test.SynTest):
         # Ensure it ran the fallback to do_docs=False
         self.eq(pkg.get('docs'), [{'title': 'newp', 'path': 'docs/newp.md', 'content': ''}])
 
-    def test_tools_readonly(self):
+    def test_tools_loadpkgproto_readonly(self):
         self.thisHostMustNot(platform='windows')
         readonly_mode = stat.S_IREAD | stat.S_IRGRP | stat.S_IROTH
         srcpath = s_common.genpath(dirname, 'files', 'stormpkg')
@@ -140,7 +156,7 @@ class GenPkgTest(s_test.SynTest):
         with self.getTestDir(copyfrom=srcpath) as dirn:
             ymlpath = s_common.genpath(dirn, 'testpkg.yaml')
             self.setDirFileModes(dirn=dirn, mode=readonly_mode)
-
+            self.skipIfWriteableFiles(dirn)
             with self.raises(PermissionError):
                 s_genpkg.tryLoadPkgProto(ymlpath)
             pkg = s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
