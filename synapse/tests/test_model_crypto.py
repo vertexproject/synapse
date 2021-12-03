@@ -60,6 +60,107 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
             self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
 
+            opts = {'vars': {
+                'input': hashlib.sha256(b'asdf').hexdigest(),
+                'output': hashlib.sha256(b'qwer').hexdigest(),
+            }}
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:transaction=*
+                        :hash=0x01020304
+                        :desc="Woot Woot"
+                        :block=(BTC, 998877)
+                        :success=1
+                        :status:code=10
+                        :status:message=success
+                        :to = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :from = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :fee = 0.0001
+                        :value = 30
+                        :time = 20211031
+                        :eth:gasused = 10
+                        :eth:gaslimit = 20
+                        :eth:gasprice = 0.001
+                        :contract:input = $input
+                        :contract:output = $output
+                ]
+            ''', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('hash'), '0x01020304')
+            self.eq(node.get('desc'), 'Woot Woot')
+            self.eq(node.get('block'), ('btc', 998877))
+            self.eq(node.get('block:coin'), 'btc')
+            self.eq(node.get('block:offset'), 998877)
+            self.eq(node.get('success'), True)
+            self.eq(node.get('status:code'), 10)
+            self.eq(node.get('status:message'), 'success')
+            self.eq(node.get('to'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.eq(node.get('from'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.eq(node.get('fee'), '0.0001')
+            self.eq(node.get('value'), '30')
+            self.eq(node.get('time'), 1635638400000)
+            self.eq(node.get('eth:gasused'), 10)
+            self.eq(node.get('eth:gaslimit'), 20)
+            self.eq(node.get('eth:gasprice'), '0.001')
+            self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
+            self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
+
+            nodes = await core.nodes('''
+                [
+                    crypto:currency:block=(btc, 12345)
+                        :hash=0x01020304
+                        :minedby = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :time=20211130
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('coin'), 'btc')
+            self.eq(node.get('offset'), 12345)
+            self.eq(node.get('hash'), '0x01020304')
+            self.eq(node.get('time'), 1638230400000)
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:contract=*
+                        :transaction=*
+                        :bytecode=$input
+                        :address = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :token:name=Foo
+                        :token:symbol=Bar
+                        :token:totalsupply=300
+                ]''', opts=opts)
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('transaction'))
+            self.eq(node.get('bytecode'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
+            self.eq(node.get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.eq(node.get('token:name'), 'Foo')
+            self.eq(node.get('token:symbol'), 'Bar')
+            self.eq(node.get('token:totalsupply'), '300')
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:token=(2bdea834252a220b61aadf592cc0de66, 30)
+                        :owner=eth/aaaa
+                        :nft:url = https://coin.vertex.link/nfts/30
+                        :nft:meta = $lib.dict(name=WootWoot)
+                        :nft:meta:name = WootWoot
+                        :nft:meta:description = LoLoL
+                        :nft:meta:image = https://vertex.link/favicon.ico
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(('2bdea834252a220b61aadf592cc0de66', '30'), node.ndef[1])
+            self.eq('2bdea834252a220b61aadf592cc0de66', node.get('contract'))
+            self.eq('30', node.get('tokenid'))
+            self.eq(('eth', 'aaaa'), node.get('owner'))
+            self.eq('https://coin.vertex.link/nfts/30', node.get('nft:url'))
+            self.eq({'name': 'WootWoot'}, node.get('nft:meta'))
+            self.eq('WootWoot', node.get('nft:meta:name'))
+            self.eq('LoLoL', node.get('nft:meta:description'))
+            self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
+
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             lm = core.model.type('hash:lm')

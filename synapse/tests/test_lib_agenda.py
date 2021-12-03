@@ -695,7 +695,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             # But we should still fail on this:
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('cron.add --view $newview --minute +2 { $lib.queue.get(testq).put(lolnope) $lib.time.sleep(10)}', opts=asfail)
+                await core.callStorm('cron.add --view $newview --minute +2 { $lib.queue.get(testq).put(lolnope)}', opts=asfail)
 
             # and again, just to be sure
             msgs = await core.stormlist('cron.list')
@@ -716,6 +716,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
 
+            core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
             self.eq((0, 44), retn)
 
@@ -723,12 +724,13 @@ class AgendaTest(s_t_utils.SynTest):
             await core.callStorm('$lib.queue.get(testq).cull(0)')
 
             opts = {'vars': {'newview': newview}}
-            await prox.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.get(testq).put($node) $lib.time.sleep(10) }', opts=opts)
+            await prox.callStorm('cron.add --minute +1 --view $newview { [test:guid=$lib.guid()] | $lib.queue.get(testq).put($node) }', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(newview, jobs[0]['view'])
 
+            core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())')
             await core.callStorm('$lib.queue.get(testq).cull(1)')
 
@@ -768,7 +770,9 @@ class AgendaTest(s_t_utils.SynTest):
             self.len(1, jobs)
             self.eq(jobs, samejobs)
 
+            core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            await core.callStorm('$lib.queue.get(testq).cull(2)')
 
             node = await core.nodes('test:guid', opts={'view': defview.iden})
             self.len(1, node)
@@ -780,3 +784,32 @@ class AgendaTest(s_t_utils.SynTest):
             appt.view = "ThisViewStillDoesntExist"
             await core.agenda._execute(appt)
             self.eq(appt.lastresult, 'Failed due to unknown view')
+
+            await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
+
+            opts = {'vars': {'newview': newview}}
+            await prox.callStorm('cron.at --now --view $newview { [test:str=gotcha] | $lib.queue.get(testq).put($node) }', opts=opts)
+            retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            self.eq((3, 'gotcha'), retn)
+            await core.callStorm('$lib.queue.get(testq).cull(3)')
+            atjob = await core.callStorm('return($lib.cron.list())')
+            self.len(1, atjob)
+            self.eq(atjob[0]['view'], newview)
+
+            nodes = await core.nodes('test:str', opts={'view': defview.iden})
+            self.len(0, nodes)
+            nodes = await core.nodes('test:str', opts={'view': newview})
+            self.len(1, nodes)
+
+            croniden = atjob[0]['iden']
+            await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
+
+            await prox.callStorm('cron.at --now { [test:int=97] | $lib.queue.get(testq).put($node) }')
+            retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
+            await core.callStorm('$lib.queue.get(testq).cull(4)')
+            self.eq((4, 97), retn)
+
+            nodes = await core.nodes('test:int=97', opts={'view': defview.iden})
+            self.len(1, nodes)
+            nodes = await core.nodes('test:int=97', opts={'view': newview})
+            self.len(0, nodes)

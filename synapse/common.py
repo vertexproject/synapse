@@ -1,5 +1,6 @@
 import io
 import os
+import ssl
 import sys
 import json
 import stat
@@ -44,8 +45,11 @@ majmin = (major, minor)
 version = (major, minor, micro)
 
 guidre = regex.compile('^[0-9a-f]{32}$')
+buidre = regex.compile('^[0-9a-f]{64}$')
 
 novalu = NoValu()
+
+logger = logging.getLogger(__name__)
 
 def now():
     '''
@@ -131,6 +135,9 @@ def uhex(text):
 
 def isguid(text):
     return guidre.match(text) is not None
+
+def isbuidhex(text):
+    return buidre.match(text) is not None
 
 def intify(x):
     '''
@@ -222,7 +229,7 @@ def reqpath(*paths):
     '''
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(name=path)
+        raise s_exc.NoSuchFile(mesg=f'No such path {path}', path=path)
     return path
 
 def reqfile(*paths, **opts):
@@ -239,7 +246,7 @@ def reqfile(*paths, **opts):
     '''
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(path=path)
+        raise s_exc.NoSuchFile(mesg=f'No such file {path}', path=path)
     opts.setdefault('mode', 'rb')
     return io.open(path, **opts)
 
@@ -443,7 +450,12 @@ def jssave(js, *paths):
         fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
 def yamlload(*paths):
-    with genfile(*paths) as fd:
+
+    path = genpath(*paths)
+    if not os.path.isfile(path):
+        return None
+
+    with io.open(path, 'rb') as fd:
         byts = fd.read()
         if not byts:
             return None
@@ -453,7 +465,7 @@ def yamlsave(obj, *paths):
     path = genpath(*paths)
     with genfile(path) as fd:
         s = yaml.safe_dump(obj, allow_unicode=False, default_flow_style=False,
-                           default_style='', explicit_start=True, explicit_end=True)
+                           default_style='', explicit_start=True, explicit_end=True, sort_keys=True)
         fd.truncate(0)
         fd.write(s.encode('utf8'))
 
@@ -825,8 +837,8 @@ def config(conf, confdefs):
 
     return conf
 
-def deprecated(name):
-    mesg = f'"{name}" is deprecated in 2.x and will be removed in 3.0.0'
+def deprecated(name, curv='2.x', eolv='3.0.0'):
+    mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
 
 def reqjsonsafe(item):
@@ -995,3 +1007,23 @@ async def merggenr2(genrs, cmprkey=None, reverse=False):
         yield valu
         async for valu in genrs[abs(order)]:
             yield valu
+
+def getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH):
+    '''
+    Create as SSL Context and load certificates from a given directory.
+
+    Args:
+        cadir (str): Path to load certificates from.
+        purpose: SSLContext purposes flags.
+
+    Returns:
+        ssl.SSLContext: A SSL Context object.
+    '''
+    sslctx = ssl.create_default_context(purpose=purpose)
+    for name in os.listdir(cadir):
+        certpath = os.path.join(cadir, name)
+        try:
+            sslctx.load_verify_locations(cafile=certpath)
+        except Exception:  # pragma: no cover
+            logger.exception(f'Error loading {certpath}')
+    return sslctx

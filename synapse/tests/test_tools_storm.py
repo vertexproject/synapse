@@ -3,6 +3,7 @@ import synapse.tests.utils as s_test
 
 import synapse.common as s_common
 import synapse.lib.output as s_output
+import synapse.lib.msgpack as s_msgpack
 import synapse.tools.storm as s_t_storm
 
 class StormCliTest(s_test.SynTest):
@@ -17,15 +18,20 @@ class StormCliTest(s_test.SynTest):
             opts = pars.parse_args(('woot',))
             self.eq('woot', opts.cortex)
 
+            q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, $lib.dict()), $lib.dict())'
+            await core.callStorm(q)
+
             async with core.getLocalProxy() as proxy:
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
-                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10]')
+                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
                     text = str(outp)
                     self.isin('.....', text)
                     self.isin('inet:ipv4=1.2.3.4', text)
                     self.isin(':type = unicast', text)
+                    self.isin(':_test:score = 7', text)
+                    self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
                     self.isin('#foo = (2012/01/01 00:00:00.000, 2012/01/01 00:00:00.001)', text)
@@ -118,3 +124,48 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main((lurl, f'!pullfile c11adfcc316f8b00772cdbce2505b9ea539d74f42861801eceb1017a44344ed3 {path}'), outp=outp)
                 text = str(outp)
                 self.isin('Axon does not contain the requested file.', text)
+
+                await scli.runCmdLine('[test:str=foo +#foo +#bar +#baz]')
+                await scli.runCmdLine('[test:str=bar +#foo +#bar +#baz]')
+
+                path = os.path.join(dirn, 'export1.nodes')
+                await s_t_storm.main((lurl, f'!export {path} {{ test:str }}'), outp=outp)
+                text = str(outp)
+                self.isin(f'saved 2 nodes to: {path}', text)
+
+                with open(path, 'rb') as fd:
+                    byts = fd.read()
+                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
+                    for pode in podes:
+                        self.sorteq(('bar', 'baz', 'foo'), pode[1]['tags'])
+
+                path = os.path.join(dirn, 'export2.nodes')
+                q = f'!export {path} {{ test:str }} --include-tags foo bar'
+                await s_t_storm.main((lurl, q), outp=outp)
+                text = str(outp)
+                self.isin(f'saved 2 nodes to: {path}', text)
+
+                with open(path, 'rb') as fd:
+                    byts = fd.read()
+                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
+                    for pode in podes:
+                        self.sorteq(('bar', 'foo'), pode[1]['tags'])
+
+                path = os.path.join(dirn, 'export3.nodes')
+                q = f'!export {path} {{ test:str }} --no-tags'
+                await s_t_storm.main((lurl, q), outp=outp)
+                text = str(outp)
+                self.isin(f'saved 2 nodes to: {path}', text)
+
+                with open(path, 'rb') as fd:
+                    byts = fd.read()
+                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
+                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
+                    for pode in podes:
+                        self.eq({}, pode[1]['tags'])
+
+                await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
+                text = str(outp)
+                self.isin(f'NoSuchProp', text)

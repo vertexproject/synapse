@@ -1,3 +1,4 @@
+import json
 import asyncio
 import hashlib
 import logging
@@ -17,6 +18,7 @@ import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
@@ -322,18 +324,20 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.hashset(sha256)
 
-    async def hashes(self, offs):
+    async def hashes(self, offs, wait=False, timeout=None):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
 
         Args:
             offs (int): The index offset.
+            wait (boolean): Wait for new results and yield them in realtime.
+            timeout (int): Max time to wait for new results.
 
         Yields:
             (int, (bytes, int)): An index offset and the file SHA-256 and size.
         '''
         await self._reqUserAllowed(('axon', 'has'))
-        async for item in self.cell.hashes(offs):
+        async for item in self.cell.hashes(offs, wait=wait, timeout=timeout):
             yield item
 
     async def history(self, tick, tock=None):
@@ -494,6 +498,10 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
 
+    async def wput(self, sha256, url, params=None, headers=None, ssl=True, timeout=None):
+        await self._reqUserAllowed(('axon', 'wput'))
+        return await self.cell.wput(sha256, url, params=params, headers=headers, ssl=ssl, timeout=timeout)
+
     async def metrics(self):
         '''
         Get the runtime metrics of the Axon.
@@ -518,6 +526,34 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
+    async def readlines(self, sha256):
+        '''
+        Yield lines from a multi-line text file in the axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+
+        Yields:
+            str: Lines of text
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.readlines(sha256):
+            yield item
+
+    async def jsonlines(self, sha256):
+        '''
+        Yield JSON objects from JSONL (JSON lines) file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+
+        Yields:
+            object: Decoded JSON objects.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.jsonlines(sha256):
+            yield item
+
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -537,6 +573,10 @@ class Axon(s_cell.Cell):
         },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use in the wget API.',
+            'type': 'string',
+        },
+        'tls:ca:dir': {
+            'description': 'An optional directory of CAs which are added to the TLS CA chain for wget and wput APIs.',
             'type': 'string',
         },
     }
@@ -641,12 +681,14 @@ class Axon(s_cell.Cell):
         for item in self.axonhist.carve(tick, tock=tock):
             yield item
 
-    async def hashes(self, offs):
+    async def hashes(self, offs, wait=False, timeout=None):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
 
         Args:
             offs (int): The index offset.
+            wait (boolean): Wait for new results and yield them in realtime.
+            timeout (int): Max time to wait for new results.
 
         Yields:
             (int, (bytes, int)): An index offset and the file SHA-256 and size.
@@ -654,7 +696,7 @@ class Axon(s_cell.Cell):
         Note:
             If the same hash was deleted and then added back, the same hash will be yielded twice.
         '''
-        for item in self.axonseqn.iter(offs):
+        async for item in self.axonseqn.aiter(offs, wait=wait, timeout=timeout):
             if self.axonslab.has(item[1][0], db=self.sizes):
                 yield item
             await asyncio.sleep(0)
@@ -943,6 +985,87 @@ class Axon(s_cell.Cell):
             for _, item in unpk.feed(byts):
                 yield item
 
+    async def readlines(self, sha256):
+        remain = ''
+        async for byts in self.get(s_common.uhex(sha256)):
+            text = remain + byts.decode()
+
+            lines = text.split('\n')
+            if len(lines) == 1:
+                remain = text
+                continue
+
+            remain = lines[-1]
+            for line in lines[:-1]:
+                yield line
+
+        if remain:
+            yield remain
+
+    async def jsonlines(self, sha256):
+        async for line in self.readlines(sha256):
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError as e:
+                logger.exception(f'Bad json line encountered for {sha256}')
+                raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
+                                        sha256=sha256) from None
+
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):
+        '''
+        Stream a blob from the axon as the body of an HTTP request.
+        '''
+        proxyurl = self.conf.get('http:proxy')
+        cadir = self.conf.get('tls:ca:dir')
+
+        connector = None
+        if proxyurl is not None:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        if ssl is False:
+            pass
+        elif cadir:
+            ssl = s_common.getSslCtx(cadir)
+        else:
+            # default aiohttp behavior
+            ssl = None
+
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+
+            try:
+
+                async with sess.request(method, url, headers=headers, params=params,
+                                        data=self.get(sha256), ssl=ssl) as resp:
+
+                    info = {
+                        'ok': True,
+                        'url': str(resp.url),
+                        'code': resp.status,
+                        'headers': dict(resp.headers),
+                    }
+                    return info
+
+            except asyncio.CancelledError:  # pramga: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
+                exc = s_common.excinfo(e)
+                mesg = exc.get('errmsg')
+                if not mesg:
+                    mesg = exc.get('err')
+
+                return {
+                    'ok': False,
+                    'mesg': mesg,
+                }
+
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
         '''
         Stream a file download directly into the Axon.
@@ -981,14 +1104,24 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A information dictionary containing the results of the request.
         '''
-        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=url))
+        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
+
+        proxyurl = self.conf.get('http:proxy')
+        cadir = self.conf.get('tls:ca:dir')
 
         connector = None
-        proxyurl = self.conf.get('http:proxy')
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        if ssl is False:
+            pass
+        elif cadir:
+            ssl = s_common.getSslCtx(cadir)
+        else:
+            # default aiohttp behavior
+            ssl = None
 
         async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
 
@@ -1022,6 +1155,7 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
+                logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
                 exc = s_common.excinfo(e)
                 mesg = exc.get('errmsg')
                 if not mesg:

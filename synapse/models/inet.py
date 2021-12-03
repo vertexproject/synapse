@@ -4,7 +4,9 @@ import logging
 import ipaddress
 import email.utils
 
+import idna
 import regex
+import unicodedata
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -18,6 +20,8 @@ import synapse.lookup.iana as s_l_iana
 logger = logging.getLogger(__name__)
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
+
+udots = regex.compile(r'[\u3002\uff0e\uff61]')
 
 cidrmasks = [((0xffffffff - (2 ** (32 - i) - 1)), (2 ** (32 - i))) for i in range(33)]
 ipv4max = 2 ** 32 - 1
@@ -266,11 +270,24 @@ class Fqdn(s_types.Type):
 
     def _normPyStr(self, valu):
 
+        valu = unicodedata.normalize('NFKC', valu)
+
+        valu = regex.sub(udots, '.', valu)
         valu = valu.replace('[.]', '.')
         valu = valu.replace('(.)', '.')
 
         # strip leading/trailing .
         valu = valu.strip().strip('.')
+
+        try:
+            valu = idna.encode(valu, uts46=True).decode('utf8')
+        except idna.IDNAError:
+            try:
+                valu = valu.encode('idna').decode('utf8').lower()
+            except UnicodeError:
+                mesg = 'Failed to encode/decode the value with idna/utf8.'
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg=mesg) from None
 
         if not fqdnre.match(valu):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
@@ -284,13 +301,6 @@ class Fqdn(s_types.Type):
         except OSError:
             pass
 
-        try:
-            valu = valu.encode('idna').decode('utf8').lower()
-        except UnicodeError:
-            mesg = 'Failed to encode/decode the value with idna/utf8.'
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg=mesg) from None
-
         parts = valu.split('.', 1)
         subs = {'host': parts[0]}
 
@@ -303,11 +313,12 @@ class Fqdn(s_types.Type):
 
     def repr(self, valu):
         try:
-            return valu.encode('utf8').decode('idna')
-        except UnicodeError:
-            return valu
-
-import synapse.lib.layer as s_layer
+            return idna.decode(valu.encode('utf8'), uts46=True)
+        except idna.IDNAError:
+            try:
+                return valu.encode('utf8').decode('idna')
+            except UnicodeError:
+                return valu
 
 class IPv4(s_types.Type):
     '''
@@ -1513,6 +1524,10 @@ class InetModule(s_module.CoreModule):
                         ('dst:txbytes', ('int', {}), {
                             'doc': 'The number of bytes sent by the destination host / process / file.'
                         }),
+                        ('dst:handshake', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A text representation of the initial handshake sent by the server.'
+                        }),
                         ('src', ('inet:client', {}), {
                             'doc': 'The source address / port for a connection.'
                         }),
@@ -1539,6 +1554,10 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('src:txbytes', ('int', {}), {
                             'doc': 'The number of bytes sent by the source host / process / file.'
+                        }),
+                        ('src:handshake', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A text representation of the initial handshake sent by the client.'
                         }),
                         ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the destination host.',
@@ -2559,6 +2578,10 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('text', ('str', {'lower': True}), {
                             'doc': 'The full text of the record.',
+                            'disp': {'hint': 'text'},
+                        }),
+                        ('desc', ('str', {'lower': True}), {
+                            'doc': 'Notes concerning the record.',
                             'disp': {'hint': 'text'},
                         }),
                         ('asn', ('inet:asn', {}), {

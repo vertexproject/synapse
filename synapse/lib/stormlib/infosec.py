@@ -1,8 +1,6 @@
 import math
 
 import synapse.exc as s_exc
-import synapse.common as s_common
-import synapse.lib.node as s_node
 import synapse.lib.stormtypes as s_stormtypes
 
 
@@ -12,8 +10,8 @@ import synapse.lib.stormtypes as s_stormtypes
 CVSS31 = {
   'AV': {'N': 0.85, 'A': 0.62, 'L': 0.55, 'P': 0.2},
   'AC': {'H': 0.44, 'L': 0.77},
-  'PR': {'U': {'N': 0.85, 'L': 0.62, 'H': 0.27}, # These values are used if Scope is Unchanged
-         'C': {'N': 0.85, 'L': 0.68, 'H': 0.5}}, # These values are used if Scope is Changed
+  'PR': {'U': {'N': 0.85, 'L': 0.62, 'H': 0.27},  # These values are used if Scope is Unchanged
+         'C': {'N': 0.85, 'L': 0.68, 'H': 0.5}},  # These values are used if Scope is Changed
   'UI': {'N': 0.85, 'R': 0.62},
   'S': {'U': 6.42, 'C': 7.52},
   'C': {'N': 0, 'L': 0.22, 'H': 0.56},
@@ -73,6 +71,16 @@ class CvssLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
         }},
+        {'name': 'calculateFromProps', 'desc': 'Calculate the CVSS score values from a props dict.',
+         'type': {'type': 'function', '_funcname': 'calculateFromProps',
+                  'args': (
+                      {'name': 'props', 'type': 'dict',
+                       'desc': 'A props dictionary.'},
+                      {'name': 'vers', 'type': 'str', 'default': '3.1',
+                       'desc': 'The version of CVSS calculations to execute.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
+        }},
         {'name': 'vectToProps', 'desc': 'Parse a CVSS vector and return a dictionary of risk:vuln props.',
          'type': {'type': 'function', '_funcname': 'vectToProps',
                   'args': (
@@ -97,6 +105,7 @@ class CvssLib(s_stormtypes.Lib):
             'calculate': self.calculate,
             'vectToProps': self.vectToProps,
             'saveVectToNode': self.saveVectToNode,
+            'calculateFromProps': self.calculateFromProps,
         }
 
     async def vectToProps(self, text):
@@ -128,24 +137,51 @@ class CvssLib(s_stormtypes.Lib):
 
     async def calculate(self, node, save=True, vers='3.1'):
 
-        vers = await s_stormtypes.tostr(vers)
-        wait = await s_stormtypes.tobool(save)
-
-        if vers != '3.1':
-            raise s_exc.BadArg(mesg='Currently only vers=3.1 is supported.')
+        save = await s_stormtypes.tobool(save)
 
         if node.ndef[0] != 'risk:vuln':
             mesg = '$lib.infosec.cvss.calculate() requires a risk:vuln node.'
             raise s_exc.BadArg(mesg=mesg)
 
-        AV = node.get('cvss:av')
-        AC = node.get('cvss:ac')
-        PR = node.get('cvss:pr')
-        UI = node.get('cvss:ui')
-        S = node.get('cvss:s')
-        C = node.get('cvss:c')
-        _I = node.get('cvss:i')
-        A = node.get('cvss:a')
+        rval = await self.calculateFromProps(node.props, vers=vers)
+
+        if save and rval.get('ok'):
+
+            score = rval.get('score')
+            if score is not None:
+                await node.set('cvss:score', score)
+
+            scores = rval.get('scores', {})
+
+            basescore = scores.get('base')
+            if basescore is not None:
+                await node.set('cvss:score:base', basescore)
+
+            temporalscore = scores.get('temporal')
+            if temporalscore is not None:
+                await node.set('cvss:score:temporal', temporalscore)
+
+            environmentalscore = scores.get('environmental')
+            if environmentalscore is not None:
+                await node.set('cvss:score:environmental', environmentalscore)
+
+        return rval
+
+    async def calculateFromProps(self, props, vers='3.1'):
+
+        vers = await s_stormtypes.tostr(vers)
+
+        if vers != '3.1':
+            raise s_exc.BadArg(mesg='Currently only vers=3.1 is supported.')
+
+        AV = props.get('cvss:av')
+        AC = props.get('cvss:ac')
+        PR = props.get('cvss:pr')
+        UI = props.get('cvss:ui')
+        S = props.get('cvss:s')
+        C = props.get('cvss:c')
+        _I = props.get('cvss:i')
+        A = props.get('cvss:a')
 
         score = None
         impact = None
@@ -175,39 +211,42 @@ class CvssLib(s_stormtypes.Lib):
 
             score = basescore
 
-            E = node.get('cvss:e')
-            RL = node.get('cvss:rl')
-            RC = node.get('cvss:rc')
+            if basescore:
 
-            if all((basescore, E, RL, RC)):
+                E = props.get('cvss:e')
+                RL = props.get('cvss:rl')
+                RC = props.get('cvss:rc')
 
-                expfactor = CVSS31['E'][E] * CVSS31['RL'][RL] * CVSS31['RC'][RC]
+                if all((E, RL, RC)):
+                    expfactor = CVSS31['E'][E] * CVSS31['RL'][RL] * CVSS31['RC'][RC]
+                    temporalscore = roundup(basescore * expfactor)
+                    score = temporalscore
+                else:
+                    expfactor = CVSS31['E']['X'] * CVSS31['RL']['X'] * CVSS31['RC']['X']
 
-                temporalscore = roundup(basescore * expfactor)
-                score = temporalscore
+                MAV = props.get('cvss:mav')
+                MAC = props.get('cvss:mac')
+                MPR = props.get('cvss:mpr')
+                MUI = props.get('cvss:mui')
 
-                MAV = node.get('cvss:mav')
-                MAC = node.get('cvss:mac')
-                MPR = node.get('cvss:mpr')
-                MUI = node.get('cvss:mui')
-
-                MS = node.get('cvss:ms')
-                MC = node.get('cvss:mc')
-                MI = node.get('cvss:mi')
-                MA = node.get('cvss:ma')
-                CR = node.get('cvss:cr')
-                IR = node.get('cvss:ir')
-                AR = node.get('cvss:ar')
+                MS = props.get('cvss:ms')
+                MC = props.get('cvss:mc')
+                MI = props.get('cvss:mi')
+                MA = props.get('cvss:ma')
+                CR = props.get('cvss:cr')
+                IR = props.get('cvss:ir')
+                AR = props.get('cvss:ar')
 
                 if all((MAV, MAC, MPR, MUI, MS, MC, MI, MA, CR, IR, AR)):
 
                     if MAV == 'X': MAV = AV
                     if MAC == 'X': MAC = AC
                     if MPR == 'X': MPR = PR
+                    if MUI == 'X': MUI = UI
                     if MS == 'X': MS = S
                     if MC == 'X': MC = C
-                    if MI == 'X': MC = I
-                    if MA == 'X': MC = A
+                    if MI == 'X': MI = _I
+                    if MA == 'X': MA = A
 
                     modiscbase = min(1.0 - (
                         (1.0 - (CVSS31['C'][MC] * CVSS31['CR'][CR])) *
@@ -235,19 +274,6 @@ class CvssLib(s_stormtypes.Lib):
                         environmentalscore = roundup(roundup(min(1.08 * (modimpact + modexploit), 10.0)) * expfactor)
 
                     score = environmentalscore
-
-        if save:
-            if score is not None:
-                await node.set('cvss:score', score)
-
-            if basescore is not None:
-                await node.set('cvss:score:base', basescore)
-
-            if temporalscore is not None:
-                await node.set('cvss:score:temporal', temporalscore)
-
-            if environmentalscore is not None:
-                await node.set('cvss:score:environmental', environmentalscore)
 
         rval = {
             'ok': True,

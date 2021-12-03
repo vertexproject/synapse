@@ -34,6 +34,9 @@ class ProjectEpic(s_stormtypes.Prim):
     async def value(self):
         return self.node.ndef[1]
 
+    async def nodes(self):
+        yield self.node
+
     async def _setEpicName(self, valu):
         self.proj.confirm(('project', 'epic', 'set', 'name'))
         name = await tostr(valu, noneok=True)
@@ -121,6 +124,141 @@ class ProjectEpics(s_stormtypes.Prim):
             yield ProjectEpic(self.proj, node)
 
 @s_stormtypes.registry.registerType
+class ProjectTicketComment(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for a ProjectTicketComment
+    '''
+    _storm_locals = (
+        {'name': 'text', 'desc': 'The comment text.',
+         'type': 'str'},
+        {'name': 'del', 'desc': 'Delete the comment.',
+         'type': {'type': 'function', '_funcname': '_delTicketComment',
+                  'returns': {'type': 'boolean', 'desc': 'True if the ProjectTicketComment was deleted'}}},
+    )
+
+    _storm_typename = 'storm:project:ticket:comment'
+
+    def __init__(self, ticket, node):
+        s_stormtypes.Prim.__init__(self, None)
+        self.node = node
+        self.proj = ticket.proj
+        self.ticket = ticket
+        self.locls.update(self.getObjLocals())
+        self.stors.update({
+            'text': self._setCommentText,
+        })
+
+    def getObjLocals(self):
+        return {
+            'text': self.node.get('text'),
+            'del': self._delTicketComment,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def value(self):
+        if self.node is None:
+            raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
+        return self.node.ndef[1]
+
+    async def nodes(self):
+        yield self.node
+
+    async def _setCommentText(self, valu):
+
+        if self.node is None:
+            raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
+
+        useriden = self.proj.runt.user.iden
+        if useriden != self.node.get('creator'):
+            raise s_exc.AuthDeny(mesg='Comment was created by a different user')
+
+        strvalu = await tostr(valu)
+        await self.node.set('text', strvalu)
+        await self.node.set('updated', s_common.now())
+
+    async def _delTicketComment(self):
+
+        if self.node is None:
+            raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
+
+        if self.node.get('creator') != self.proj.runt.user.iden:
+            self.proj.confirm(('project', 'comment', 'del'))
+
+        await self.node.delete()
+        self.node = None
+        return True
+
+@s_stormtypes.registry.registerType
+class ProjectTicketComments(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for ProjectTicketComments objects, which are collections of comments
+    associated with a ticket.
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Get a ticket comment by guid.',
+         'type': {'type': 'function', '_funcname': '_getTicketComment',
+                  'args': (
+                      {'name': 'guid', 'type': 'str', 'desc': 'The guid of the ProjectTicketComment to get.'},
+                  ),
+                  'returns': {'type': 'storm:project:ticket:comment',
+                              'desc': 'The `storm:project:ticket:comment` object', }}},
+        {'name': 'add', 'desc': 'Add a comment to the ticket.',
+         'type': {'type': 'function', '_funcname': '_addTicketComment',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text for the new ProjectTicketComment.'},
+                  ),
+                  'returns': {'type': 'storm:project:ticket:comment',
+                              'desc': 'The newly created `storm:project:ticketcomment` object', }}},
+    )
+
+    _storm_typename = 'storm:project:ticket:comments'
+
+    def __init__(self, ticket):
+        s_stormtypes.Prim.__init__(self, None)
+        self.proj = ticket.proj
+        self.ticket = ticket
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'add': self._addTicketComment,
+            'get': self._getTicketComment,
+        }
+
+    async def _addTicketComment(self, text):
+        self.proj.confirm(('project', 'comment', 'add'))
+        tick = s_common.now()
+        props = {
+            'text': await tostr(text),
+            'ticket': self.ticket.node.ndef[1],
+            'created': tick,
+            'updated': tick,
+            'creator': self.proj.runt.user.iden,
+        }
+        node = await self.proj.runt.snap.addNode('proj:comment', '*', props=props)
+        return ProjectTicketComment(self.ticket, node)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _getTicketComment(self, guid):
+
+        async def filt(node):
+            return node.get('ticket') == self.ticket.node.ndef[1]
+
+        guid = await tostr(guid)
+
+        node = await self.proj.runt.getOneNode('proj:comment', guid, filt=filt, cmpr='=')
+        if node is not None:
+            return ProjectTicketComment(self.ticket, node)
+
+        return None
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def iter(self):
+        opts = {'vars': {'ticket': self.ticket.node.ndef[1]}}
+        async for node, path in self.proj.runt.storm('proj:comment:ticket=$ticket', opts=opts):
+            yield ProjectTicketComment(self.ticket, node)
+
+@s_stormtypes.registry.registerType
 class ProjectTicket(s_stormtypes.Prim):
     '''
     Implements the Storm API for a ProjectTicket
@@ -132,6 +270,8 @@ class ProjectTicket(s_stormtypes.Prim):
          'type': 'str'},
         {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
          'type': 'int'},
+        {'name': 'comments', 'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
+         'type': 'storm:project:ticket:comments'},
     )
 
     _storm_typename = 'storm:project:ticket'
@@ -141,6 +281,9 @@ class ProjectTicket(s_stormtypes.Prim):
         self.proj = proj
         self.node = node
         self.locls.update(self.getObjLocals())
+        self.ctors.update({
+            'comments': self._ctorTicketComments,
+        })
         self.stors.update({
             'name': self._setName,
             'desc': self._setDesc,
@@ -161,6 +304,9 @@ class ProjectTicket(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
         return self.node.ndef[1]
+
+    async def nodes(self):
+        yield self.node
 
     async def _setName(self, valu):
 
@@ -263,6 +409,9 @@ class ProjectTicket(s_stormtypes.Prim):
         await self.node.set('sprint', sprint.node.ndef[1])
         await self.node.set('updated', s_common.now())
 
+    def _ctorTicketComments(self, path=None):
+        return ProjectTicketComments(self)
+
 @s_stormtypes.registry.registerType
 class ProjectTickets(s_stormtypes.Prim):
     '''
@@ -277,14 +426,14 @@ class ProjectTickets(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name (or iden) of the ProjectTicket to get.'},
                   ),
-                  'returns': {'type': 'storm:project:sprint', 'desc': 'The `storm:project:ticket` object', }}},
+                  'returns': {'type': 'storm:project:ticket', 'desc': 'The `storm:project:ticket` object', }}},
         {'name': 'add', 'desc': 'Add a ticket.',
          'type': {'type': 'function', '_funcname': '_addProjTicket',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name for the new ProjectTicket.'},
                       {'name': 'desc', 'type': 'str', 'desc': 'A description of the new ticket', 'default': ''},
                   ),
-                  'returns': {'type': 'storm:project:sprint', 'desc': 'The newly created `storm:project:ticket` object', }}},
+                  'returns': {'type': 'storm:project:ticket', 'desc': 'The newly created `storm:project:ticket` object', }}},
         {'name': 'del', 'desc': 'Delete a sprint by name.',
          'type': {'type': 'function', '_funcname': '_delProjTicket',
                   'args': (
@@ -332,7 +481,10 @@ class ProjectTickets(s_stormtypes.Prim):
         if tick.node.get('creator') != self.proj.runt.user.iden:
             self.proj.confirm(('project', 'ticket', 'del'))
 
-        # TODO cacade delete comments?
+        # cascade delete comments
+        async for node in self.proj.runt.snap.nodesByPropValu('proj:comment:ticket', '=', tick.node.ndef[1]):
+            await node.delete()
+
         await tick.node.delete()
         return True
 
@@ -428,6 +580,9 @@ class ProjectSprint(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
         return self.node.ndef[1]
+
+    async def nodes(self):
+        yield self.node
 
 @s_stormtypes.registry.registerType
 class ProjectSprints(s_stormtypes.Prim):
@@ -576,6 +731,9 @@ class Project(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     def value(self):
         return self.node.ndef[1]
+
+    async def nodes(self):
+        yield self.node
 
     async def _getProjEpic(self, name):
 

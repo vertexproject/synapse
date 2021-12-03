@@ -840,6 +840,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('str', {'strip': True}), {
                         'doc': 'The primary name for the ATT&CK software.',
                     }),
+                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'Associated names for the ATT&CK software.',
+                    }),
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
@@ -1019,6 +1022,9 @@ class ItModule(s_module.CoreModule):
                     ('arch', ('it:dev:str', {}), {
                         'doc': 'Software architecture.',
                     }),
+                    ('released', ('time', {}), {
+                        'doc': 'Timestamp for when this version of the software was released.',
+                    }),
                     ('semver', ('it:semver', {}), {
                         'doc': 'System normalized semantic version number.',
                     }),
@@ -1058,6 +1064,8 @@ class ItModule(s_module.CoreModule):
 
                     ('file', ('file:bytes', {}), {'ro': True,
                         'doc': 'The file distributed by the software.'}),
+                    ('path', ('file:path', {}), {
+                        'doc': 'The default installation path of the file.'}),
                 )),
 
                 ('it:hostsoft', {}, (

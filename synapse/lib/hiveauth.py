@@ -174,6 +174,17 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchUser(mesg=mesg)
         return user
 
+    async def reqUserByNameOrIden(self, name):
+        user = await self.getUserByName(name)
+        if user is not None:
+            return user
+
+        user = self.user(name)
+        if user is None:
+            mesg = f'No user with name or iden {name}.'
+            raise s_exc.NoSuchUser(mesg=mesg)
+        return user
+
     async def reqRoleByName(self, name):
         role = await self.getRoleByName(name)
         if role is None:
@@ -491,8 +502,8 @@ class AuthGate(s_base.Base):
 
         self.node = node
 
-        self.gateroles = {} # iden -> HiveRole
-        self.gateusers = {} # iden -> HiveUser
+        self.gateroles = {}  # iden -> HiveRole
+        self.gateusers = {}  # iden -> HiveUser
 
         for useriden, usernode in await node.open(('users',)):
 
@@ -614,7 +625,7 @@ class HiveRuler(s_base.Base):
 
         self.authgates = {}
 
-    async def _setRulrInfo(self, name, valu, gateiden=None): # pragma: no cover
+    async def _setRulrInfo(self, name, valu, gateiden=None):  # pragma: no cover
         raise s_exc.NoSuchImpl(mesg='Subclass must implement _setRulrInfo')
 
     def getRules(self, gateiden=None):

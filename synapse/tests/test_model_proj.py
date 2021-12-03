@@ -32,25 +32,42 @@ class ProjModelTest(s_test.SynTest):
             tick = await core.callStorm('return($lib.projects.get($proj).tickets.add(baz))', opts=opts)
             self.nn(tick)
 
+            opts = {'user': visi.iden, 'vars': {'proj': proj, 'tick': tick}}
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.add(hello))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
+            await visi.addRule((True, ('project', 'comment', 'add')), gateiden=proj)
+            comm = await core.callStorm(scmd, opts=opts)
+            self.nn(comm)
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.projects.get($proj).sprints.add(giterdone, period=(202103,212104)))', opts=opts)
             await visi.addRule((True, ('project', 'sprint', 'add')), gateiden=proj)
             sprint = await core.callStorm('return($lib.projects.get($proj).sprints.add(giterdone))', opts=opts)
             self.nn(sprint)
 
-            opts = {'user': visi.iden, 'vars': {'proj': proj, 'epic': epic, 'tick': tick, 'sprint': sprint}}
+            opts = {
+                'user': visi.iden,
+                'vars': {'proj': proj, 'epic': epic, 'tick': tick, 'comm': comm, 'sprint': sprint},
+            }
 
             self.none(await core.callStorm('return($lib.projects.get(hehe))', opts=opts))
             self.none(await core.callStorm('return($lib.projects.get($proj).epics.get(haha))', opts=opts))
             self.none(await core.callStorm('return($lib.projects.get($proj).tickets.get(haha))', opts=opts))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.get($lib.guid()))'
+            self.none(await core.callStorm(scmd, opts=opts))
 
             self.eq(proj, await core.callStorm('return($lib.projects.get($proj))', opts=opts))
             self.eq(epic, await core.callStorm('return($lib.projects.get($proj).epics.get($epic))', opts=opts))
             self.eq(tick, await core.callStorm('return($lib.projects.get($proj).tickets.get($tick))', opts=opts))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.get($comm))'
+            self.eq(comm, await core.callStorm(scmd, opts=opts))
 
             self.eq('foo', await core.callStorm('return($lib.projects.get($proj).name)', opts=opts))
             self.eq('bar', await core.callStorm('return($lib.projects.get($proj).epics.get($epic).name)', opts=opts))
             self.eq('baz', await core.callStorm('return($lib.projects.get($proj).tickets.get($tick).name)', opts=opts))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.get($comm).text)'
+            self.eq('hello', await core.callStorm(scmd, opts=opts))
 
             # test coverage for new storm primitive setitem default impl...
             with self.raises(s_exc.NoSuchName):
@@ -77,6 +94,9 @@ class ProjModelTest(s_test.SynTest):
 
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).name = zoinks', opts=opts)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).desc = scoobie', opts=opts)
+
+            scmd = '$lib.projects.get($proj).tickets.get($tick).comments.get($comm).text = hithere'
+            await core.callStorm(scmd, opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
@@ -113,6 +133,8 @@ class ProjModelTest(s_test.SynTest):
                 'for $tick in $lib.projects.get($proj).tickets { return($tick.name) }', opts=opts))
             self.eq('giterdone', await core.callStorm(
                 'for $sprint in $lib.projects.get($proj).sprints { return($sprint.name) }', opts=opts))
+            self.eq('hithere', await core.callStorm(
+                'for $comm in $lib.projects.get($proj).tickets.get($tick).comments { return($comm.text) }', opts=opts))
 
             aslow = dict(opts)
             aslow['user'] = lowuser.iden
@@ -162,6 +184,11 @@ class ProjModelTest(s_test.SynTest):
             await visi.addRule((True, ('project', 'ticket', 'set', 'priority')), gateiden=proj)
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).priority = highest', opts=opts)
 
+            scmd = '$lib.projects.get($proj).tickets.get($tick).comments.get($comm).text = low'
+            with self.raises(s_exc.AuthDeny):
+                # only the creator can update a comment
+                await core.callStorm(scmd, opts=aslow)
+
             # test that we can lift by name prefix...
             self.nn(await core.callStorm('return($lib.projects.get($proj).epics.get(ba))', opts=opts))
             self.nn(await core.callStorm('return($lib.projects.get($proj).tickets.get(zoi))', opts=opts))
@@ -192,6 +219,14 @@ class ProjModelTest(s_test.SynTest):
             self.eq('highest', nodes[0].repr('priority'))
             self.eq(proj, nodes[0].get('project'))
 
+            nodes = await core.nodes('proj:comment')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('created'))
+            self.nn(nodes[0].get('updated'))
+            self.eq(tick, nodes[0].get('ticket'))
+            self.eq('hithere', nodes[0].get('text'))
+            self.eq(visi.iden, nodes[0].get('creator'))
+
             self.eq('foo', await core.callStorm('return($lib.projects.get($proj).name)', opts=opts))
             self.eq('bar', await core.callStorm('return($lib.projects.get($proj).epics.get($epic).name)', opts=opts))
             self.eq('zoinks', await core.callStorm('return($lib.projects.get($proj).tickets.get($tick).name)', opts=opts))
@@ -211,11 +246,46 @@ class ProjModelTest(s_test.SynTest):
             self.false(await core.callStorm('return($lib.projects.get($proj).sprints.del(newp))', opts=opts))
             self.len(0, await core.nodes('proj:ticket:sprint'))
 
+            scmd = '$lib.projects.get($proj).tickets.get($tick).comments.get($comm).del()'
+            await core.callStorm(scmd, opts=opts)  # creator can delete
+            self.len(0, await core.nodes('proj:comment'))
+
+            await lowuser.addRule((True, ('project', 'comment', 'add')))
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.add(newlow))'
+            comm = await core.callStorm(scmd, opts=aslow)
+
+            opts['vars']['comm'] = comm
+            scmd = '$lib.projects.get($proj).tickets.get($tick).comments.get($comm).del()'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(scmd, opts=opts)
+            await visi.addRule((True, ('project', 'comment', 'del')))
+            await core.callStorm(scmd, opts=opts)
+            self.len(0, await core.nodes('proj:comment'))
+
+            scmd = '$comm=$lib.projects.get($proj).tickets.get($tick).comments.add(newp) $comm.del() $comm.text=nah'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(scmd, opts=opts)
+
+            scmd = '$comm=$lib.projects.get($proj).tickets.get($tick).comments.add(newp) $comm.del() $comm.del()'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(scmd, opts=opts)
+
+            scmd = '$comm=$lib.projects.get($proj).tickets.get($tick).comments.add(newp) $comm.del() return($comm)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(scmd, opts=opts)
+
+            self.len(0, await core.nodes('proj:comment'))
+
+            scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.add(newnew))'
+            comm = await core.callStorm(scmd, opts=aslow)
+            opts['vars']['comm'] = comm
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.del($tick)', opts=aslow)
             # visi ( as creator ) can delete the ticket
             self.true(await core.callStorm('return($lib.projects.get($proj).tickets.del($tick))', opts=opts))
             self.false(await core.callStorm('return($lib.projects.get($proj).tickets.del(newp))', opts=opts))
+            self.len(0, await core.nodes('proj:comment'))  # cascading deletes
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.del($proj)', opts=opts)
@@ -224,3 +294,26 @@ class ProjModelTest(s_test.SynTest):
             self.false(await core.callStorm('return($lib.projects.del(newp))', opts=opts))
 
             self.none(core.auth.getAuthGate(proj))
+
+            self.len(1, await core.nodes('yield $lib.projects.add(proj)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).epics.add(epic)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).sprints.add(spri)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.add(tick)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.get(tick).comments.add(comm)'))
+
+    async def test_model_proj_attachment(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ proj:attachment=* :file=guid:210afe138d63d2af4d886439cd4a9c7f :name=a.exe :created=now :creator=$lib.user.iden :ticket=* :comment=* ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('ticket'))
+            self.nn(nodes[0].get('created'))
+            self.eq('a.exe', nodes[0].get('name'))
+            self.eq('guid:210afe138d63d2af4d886439cd4a9c7f', nodes[0].get('file'))
+            self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
+            self.len(1, await core.nodes('proj:attachment -> file:base'))
+            self.len(1, await core.nodes('proj:attachment -> file:bytes'))
+            self.len(1, await core.nodes('proj:attachment -> proj:ticket'))
+            self.len(1, await core.nodes('proj:attachment -> proj:comment'))

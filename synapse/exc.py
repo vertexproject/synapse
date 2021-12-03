@@ -6,6 +6,7 @@ class SynErr(Exception):
 
     def __init__(self, *args, **info):
         self.errinfo = info
+        self.errname = self.__class__.__name__
         Exception.__init__(self, self._getExcMsg())
 
     def _getExcMsg(self):
@@ -29,6 +30,13 @@ class SynErr(Exception):
 
         '''
         return self.errinfo.get(name, defv)
+
+class StormRaise(SynErr):
+    def __init__(self, name, mesg, info):
+        info['mesg'] = mesg
+        info['errname'] = name
+        SynErr.__init__(self, **info)
+        self.errname = name
 
 class AuthDeny(SynErr): pass
 
@@ -224,6 +232,7 @@ class DmonSpawn(SynErr):
 class SchemaViolation(SynErr): pass
 
 class SlabAlreadyOpen(SynErr): pass
+class SlabInUse(SynErr): pass
 class SpawnExit(SynErr): pass
 class FeatureNotSupported(SynErr): pass
 
@@ -247,3 +256,8 @@ class StormRuntimeError(SynErr): pass
 class StormVarListError(StormRuntimeError): pass
 
 class TeleRedir(SynErr): pass
+class FatalErr(SynErr):
+    '''
+    Raised when a fatal error has occured which an application cannot recover from.
+    '''
+    pass

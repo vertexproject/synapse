@@ -1,7 +1,78 @@
+import copy
+import json
+import asyncio
+import logging
+
 import synapse.exc as s_exc
+
+import synapse.lib.coro as s_coro
+import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
-import json
+logger = logging.getLogger(__name__)
+
+def runJsSchema(schema, item):
+    # This is a target function for s_coro.forked
+    func = s_config.getJsValidator(schema)
+    resp = func(item)
+    return resp
+
+def compileJsSchema(schema):
+    # This is a target function for s_coro.forked
+    _ = s_config.getJsValidator(schema)
+    return True
+
+@s_stormtypes.registry.registerType
+class JsonSchema(s_stormtypes.StormType):
+    '''
+    A JsonSchema validation object for use in validating data structures in Storm.
+    '''
+    _storm_typename = 'storm:json:schema'
+    _storm_locals = (
+        {'name': 'schema',
+         'desc': 'The schema belonging to this object.',
+         'type': {'type': 'function', '_funcname': '_schema',
+                  'returns': {'type': 'dict', 'desc': 'A copy of the schema used for this object.', }}},
+        {'name': 'validate',
+         'desc': 'Validate a structure against the Json Schema',
+         'type': {'type': 'function', '_funcname': '_validate',
+                  'args': ({'name': 'item', 'type': 'prim',
+                            'desc': 'A JSON structure to validate (dict, list, etc...)', },
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'An ($ok, $valu) tuple. If $ok is True, then $valu should be used as the '
+                                      'validated data structure. If $ok is False, $valu is a dictionary with a "mesg" '
+                                      'key.'}}},
+    )
+    _ismutable = False
+
+    def __init__(self, runt, schema):
+        s_stormtypes.StormType.__init__(self, None)
+        self.runt = runt
+        self.schema = schema
+        self.locls.update(self.getObjLocals())
+
+    async def stormrepr(self):
+        return f'{self._storm_typename}: {self.schema}'
+
+    def getObjLocals(self):
+        return {
+            'schema': self._schema,
+            'validate': self._validate,
+        }
+
+    async def _schema(self):
+        return copy.deepcopy(self.schema)
+
+    async def _validate(self, item):
+        item = await s_stormtypes.toprim(item)
+
+        try:
+            result = await s_coro.spawn((runJsSchema, (self.schema, item), {}))
+        except s_exc.SchemaViolation as e:
+            return False, {'mesg': e.get('mesg')}
+        else:
+            return True, result
 
 @s_stormtypes.registry.registerLib
 class JsonLib(s_stormtypes.Lib):
@@ -21,6 +92,12 @@ class JsonLib(s_stormtypes.Lib):
                       {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
+        {'name': 'schema', 'desc': 'Get a JS schema validation object.',
+         'type': {'type': 'function', '_funcname': '_jsonSchema',
+                  'args': ({'name': 'schema', 'type': 'dict',
+                            'desc': 'The JsonSchema to use.'},),
+                  'returns': {'type': 'storm:json:schema',
+                              'desc': 'A validation object that can be used to validate data structures.'}}},
     )
     _storm_lib_path = ('json',)
 
@@ -28,6 +105,7 @@ class JsonLib(s_stormtypes.Lib):
         return {
             'save': self._jsonSave,
             'load': self._jsonLoad,
+            'schema': self._jsonSchema,
         }
 
     async def _jsonSave(self, item):
@@ -45,3 +123,14 @@ class JsonLib(s_stormtypes.Lib):
         except Exception as e:
             mesg = f'Text is not valid JSON: {text}'
             raise s_exc.BadJsonText(mesg=mesg)
+
+    async def _jsonSchema(self, schema):
+        schema = await s_stormtypes.toprim(schema)
+        # We have to ensure that we have a valid schema for making the object.
+        try:
+            await s_coro.spawn((compileJsSchema, (schema,), {}))
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except Exception as e:
+            raise s_exc.StormRuntimeError(mesg=f'Unable to compile Json Schema: {str(e)}', schema=schema) from e
+        return JsonSchema(self.runt, schema)

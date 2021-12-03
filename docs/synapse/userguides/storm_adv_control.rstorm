@@ -1,0 +1,474 @@
+.. highlight:: none
+
+.. storm-cortex:: default
+
+.. _storm-adv-control:
+
+Storm Reference - Advanced - Control Flow
+=========================================
+
+Storm includes a number of common programming control flow structures to facilitate more advanced or complex Storm queries. These include:
+
+- `If-Else Statement`_
+- `Switch Statement`_
+- `For Loop`_
+- `While Loop`_
+
+The examples below are for illustrative purposes. This guide is **not** meant as a Storm programming tutorial, but to introduce Storm users who may not be familiar with programming concepts to possible use cases for these structures. We've included some :ref:`storm-adv-tips` and an :ref:`storm-adv-example` to provide some pointers and an illustration of how Storm's "pipeline" behavior and control flow structures may interact.
+
+See also the follwing User Guide and reference sections for additional information:
+
+- :ref:`storm-adv-vars`
+- :ref:`storm-adv-methods`
+- :ref:`stormtypes-libs-header`
+- :ref:`stormtypes-prim-header`
+
+
+.. _storm-adv-tips:
+
+Advanced Storm - Tips
+---------------------
+
+.. _storm-adv-concepts:
+
+Storm Operating Concepts - Review
++++++++++++++++++++++++++++++++++
+
+.. TIP::
+
+  It is essential to keep the Storm Operating Concepts in mind when using more advanced Storm queries and constructs. For standard Storm queries, these concepts are intuitive - you don't really need to think about them, and Storm just works. However, these concepts are critical to writing more complex Storm - remembering these fundamentals can save you time and headaches trying to debug a Storm query that is not behaving the way you think it should.
+
+
+Users are **strongly encouraged** to review the :ref:`storm-op-concepts` as well as the additional data below.
+
+**WORKING SET**
+
+ - We use the term **working set** to refer to the set of nodes you're operating on in Storm.
+ 
+   - The nodes you "start with" (often by performing an initial lift operation) are your **initial working set**.
+   - The nodes at any given point in a Storm query are your **current working set**.
+
+**OPERATION CHAINING**
+
+ - Storm operations (lifts, filters, pivots, subqueries, commands, control flow elements...) can be **chained** together to form longer, more complex queries. However, each operation is executed **individually** and **in sequence**.
+ 
+**NODE CONSUMPTION**
+ 
+ - Each Storm operation typically **changes your current working set**. (We sometimes say that Storm operations **consume** nodes to refer to the fact that in many cases the nodes that "come out" of a Storm operation are not the same nodes that "went in".)
+ 
+   - For example, if you perform a filter operation, the resulting set of nodes is typically a subset of the ones you started with. If you use a pivot operation to navigate from one set of nodes to another, you typically leave your "original" nodes behind and "move to" the new nodes. In most cases, your current working set is constantly changing.
+
+**STORM AS A PIPELINE**
+
+ - A Storm query made up of multiple chained operations acts as a **pipeline** through which **each** node passes individually.
+   
+   - This means that a Storm query is executed once for **each** node that passes through the pipeline - **not** "just once" for the entire set of nodes.
+   - The fact that each inbound node is processed **independently** by each Storm operation impacts your current working set.
+   
+   A simple example of this impact is the "duplication" of results (nodes) following some pivot operations - this is expected behavior. If you pivot from a set of FQDNs (``inet:fqdn``) to their DNS A records (``inet:dns:a``) and then to the associated IPv4 addresses (``inet:ipv4``), your results may include multiple instances of the same IPv4 node if more than one FQDN resolved to the same IPv4 address. In short, you get one "copy" of the IPv4 for **each** FQDN that resolved to (had a DNS A record for) that address. (The Storm :ref:`storm-uniq` command is used to de-duplicate the nodes in the current working set).
+   
+The way Storm behaves - these operating concepts - impacts advanced constructs such as control flow, and are important to understand when writing and debugging more advanced Storm.
+
+
+.. _storm-adv-debug:
+
+Storm Debugging Tips
+++++++++++++++++++++
+
+A few helpful tips when writing and debugging advanced Storm:
+
+**Be aware of your pipeline.**
+
+That is, understand what is in your current working set at any point in your query. A significant part of Storm troubleshooting comes down to figuring out that the current working set is not what you think it is.
+
+**Operations may execute multiple times.**
+
+Because each node passes through each operation in a Storm query individually, operations execute more than once (typically once for each node in the pipeline as it passes through that operation). This includes control flow operations, such as for loops! If you don't account for this behavior with control flow operations in particular, it can result in behavior such as:
+
+ - An exponentially increasing working set (if each node passing through an operation generates multiple results, and the results are not deduplicated / uniq'ed appropriately).
+ - A variable that is set by an operation being consistently changed (re-set) for each node passing through the operation (commonly resulting in "last node wins").
+ - A variable that **fails** to be set for a node that does **not** pass through the operation where the variable is assigned (resulting in a ``NoSuchVar`` error).
+ 
+**Use subqueries...but understand how they work.**
+ 
+Unlike most Storm operations and commands, subqueries **do not consume** nodes - by default, what goes into a subquery comes out of a subquery, regardless of what happens inside the subquery itself. This means you can use subqueries (see :ref:`storm-ref-subquery`) with advanced Storm to isolate certain operations and keep the "primary" nodes passing through the Storm pipeline consistent.
+
+That said, a node still has to pass **into** a subquery for the Storm inside a subquery to run. If your subquery **fails** to execute, it may be because nothing is going in to it.
+
+**Start small and add to your Storm incrementally.**
+
+It's generally easier to verify that smaller Storm queries execute correctly and then build on that code than to try and write a complex query all at once and try to figure out where things aren't working.
+
+**As with all debugging, print statements are your friend.**
+
+Scatter ``$lib.print()`` statements (see :ref:`stormlibs-lib-print`) generously throughout your Storm during testing. You can of course print message strings:
+
+::
+  
+  $lib.print("Hey! This worked!")
+
+You can print the value of a variable, to check its value at a given point in your query:
+
+::
+  
+  inet:ipv4=1.2.3.4
+  $asn=:asn
+  $lib.print($asn)
+
+You can also print values associated with the node(s) in the current working set, using the various methods associated with the ``$node`` Storm type. (See :ref:`storm-adv-methods` for a user-focused introduction to methods, or :ref:`stormprims-storm-node-f527` in the detailed Storm Libraries / Storm Types documentation for a more technical discussion.)
+
+::
+  
+  $lib.print($node.ndef())
+
+
+See the :ref:`storm-adv-example` below for an illustration of some of these effects.
+
+
+Control Flow Operations
+-----------------------
+
+.. _flow-if-else:
+
+If-Else Statement
++++++++++++++++++
+
+An **if-else statement** matches inbound objects against a specified condition. If that condition is met, a set of Storm operations are performed. If the condition is not met, a different set of Storm operations are performed. Storm supports the use of ``if`` by itself; ``if-else``; or ``if-elif-else``. 
+
+Note that the "Storm operations" performed can include **no** operations / "do nothing" if no Storm is provided (e.g., if the associated curly braces are left empty).
+
+If
+**
+
+**Syntax:**
+
+::
+  
+  if <condition> { <storm> }
+
+If ``<condition>`` is met, execute the Storm query in the curly braces. If ``<condition>`` is not met, do nothing. (Note that this is equivalent to an ``if`` statement followed by an empty ``else`` statement.)
+
+
+.. NOTE::
+  
+  If ``<condition>`` is an expression to be evaluated, it must be enclosed in parentheses ``( )``. If the expression includes strings, they must be enclosed in single or double quotes.
+  
+  ::
+    
+    if ( $str = 'Oh hai!' ) { <storm> }
+  
+  Or:
+  
+  ::
+    
+    if ( :time > $date ) { <storm> }
+  
+  (Where ``:time`` represents a property on an inbound node.)
+
+
+If-Else
+*******
+
+**Syntax:**
+
+::
+  
+  if <condition> { <storm> }
+  else { <storm> }
+
+If ``<condition>`` is met, execute the associated Storm; otherwise, execute the alternate Storm.
+
+Similar to the ``if`` example above with no ``else`` option (or an empty query for ``else``), you can have an empty ``if`` query:
+
+::
+  
+  if <condition> { }
+  else { <storm> }
+
+If ``<condition>`` is met, do nothing; otherwise, execute the alternate Storm query.
+
+If-Elif-Else
+************
+
+**Syntax:**
+
+::
+  
+  if <condition> { <storm> }
+  elif <condition> { <storm> }
+  else { <storm> }
+
+If ``<condition>`` is met, execute the associated Storm; otherwise, if (else if) the second ``<condition>`` is met, execute the associated Storm; otherwise (else) execute the final Storm query.
+
+You can use multiple ``elif`` statements before the final ``else``. ``If-elif-else`` is helpful because it allows you to handle multiple conditions differently while avoiding "nested" ``if-else`` statements.
+
+
+**Example:**
+
+You have a subscription to a third-party malware service that allows you to download malware binaries via the service's API. However, the service has a query limit, so you don't want to make any unnecessary API requests that might exhaust your limit.
+
+You can use a simple if-else statement to check whether you already have a copy of the binary in your storage Axon before attempting to download it.
+
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=malware.download, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg) [file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855]
+.. storm-multiline:: ENRICH="file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n  $sha256 = :sha256\n  \n  if $lib.bytes.has($sha256) { }\n  \n  else { | malware.download }\n"
+.. storm-cli:: MULTILINE=ENRICH   
+
+The Storm query above:
+
+- takes an inbound ``file:bytes`` node;
+- sets the variable ``$sha256`` to the file's SHA256 hash;
+- checks for the file in the Axon (:ref:`stormlibs-lib-bytes-has`);
+- if ``$lib.bytes.has($sha256)`` returns ``true`` (i.e., we have the file), do nothing (``{  }``);
+- otherwise call the ``malware.download`` service to attempt to download the file.
+
+**Note:** ``malware.download`` is used as an example Storm service name only, it does not exist in the base Synapse code.
+
+.. _flow-switch:
+
+Switch Statement
+++++++++++++++++
+
+A **switch statement** matches inbound objects against a set of specified constants. Depending on which constant is matched, a set of Storm operations is performed. The switch statement can include an optional **default case** to perform a set of Storm operations in the case where none of the explicitly defined constants are matched.
+
+**Syntax:**
+
+:: 
+  
+  <inbound nodes>
+  
+  switch <constant> {
+    
+    <case1>: { <storm> }
+    <case2>: { <storm> }
+    <case3>: { <storm> }
+    *: { <storm for optional default case> }
+  }
+
+
+**Example:**
+
+You want to write a macro (see :ref:`auto-macros`) to automatically enrich a set of indicators (i.e., query third-party data sources for additional data). Instead of writing separate macros for each type of indicator, you want a single macro that can take any type of indicator and send it to the appropriate Storm services.
+
+A switch statement can send your indicators to the correct services based on the kind of node (e.g., the node's form).
+
+:: 
+
+  <inbound nodes>
+  
+  switch $node.form() {
+  
+      "hash:md5": { | malware.service }
+      
+      "hash:sha1": { | malware.service }
+      
+      "hash:sha256": { | malware.service }
+      
+      "inet:fqdn": { | pdns.service | whois.service }
+      
+      "inet:ipv4": { | pdns.service }
+      
+      "inet:email": { | whois.service }
+      
+      *: { $lib.print("{form} is not supported.", form=$node.form()) }
+  }
+
+The Storm query above:
+
+- takes a set of inbound nodes;
+- checks the switch conditions based on the form of the node (see :ref:`meth-node-form`);
+- matches the form name against the list of forms;
+- handles each form differently (e.g., hashes are submitted to a malware service, domains are submitted to passive DNS and whois services, etc.)
+- if the inbound form does not match any of the specified cases, print (:ref:`stormlibs-lib-print`) the specified statement (e.g., ``"file:bytes is not supported."``).
+
+The default case above is not strictly necessary - any inbound nodes that fail to match a condition will simply pass through the switch statement with no action taken. It is used above to illustrate the use of a default case for any non-matching nodes.
+
+**Note:** the Storm service names used above are examples only. Services with those names do not exist in the base Synapse code.  
+
+.. _flow-for:
+
+
+For Loop
+++++++++
+
+A **for loop** will iterate over a set of objects, performing the specified Storm operations on each object in the set.
+
+**Syntax:**
+
+:: 
+
+  for $<var> in $<vars> {
+  
+      <storm>
+  }
+
+**Note:** The user documentation for the Synapse csvtool (:ref:`syn-tools-csvtool`) includes additional examples of using a for loop to iterate over the rows of a CSV-formatted file (i.e., ``for $row in $rows { <storm> }``).
+
+**Example:**
+
+You are writing a "threat hunting" macro (see :ref:`auto-macros`) that:
+
+- lifts FQDN nodes associated with various threat clusters (e.g., tagged ``threat.<cluster_name>``);
+- pivots to DNS request nodes (``inet:dns:request``) that:
+
+  - query the FQDN (``:query:name:fqdn``), and
+  - have an associated file (``:exe``) (that is, the DNS query was made by a file)
+
+- pivots to the file node(s) (``file:bytes``)
+- tags the file(s) for review to see if they should be added to the threat cluster.
+
+This may help to identify previously unknown binaries that query for known malicious FQDNs.
+
+The macro can be run periodically to search for new threat indicators, based on nodes that may have been recently added to Synapse.
+
+Because your macro may flag a large number of files associated with a broad range of threat clusters, you want your ``#review`` tag to include the name of the potentially associated threat cluster to help with the review process.
+
+You can use a for loop to iterate over the threat cluster tags on the inbound nodes and parse those tags to create equivalent "review" tags for each threat cluster.
+
+.. storm-pre:: [inet:fqdn=realbad.com +#threat.viciouswombat]
+.. storm-multiline:: ENRICH="inet:fqdn=realbad.com\n\n  for $tag in $node.tags(threat.*) {\n  \n     $threat = $tag.split(\".\").index(1)\n     $reviewtag = $lib.str.format(\"review.{threat}\", threat=$threat)\n     $lib.print($reviewtag) \n }\n"
+.. storm-cli:: MULTILINE=ENRICH
+
+For each inbound node, the for loop:
+
+- takes each tag on the inbound node (see :ref:`meth-node-tags`) that matches the specified pattern (``threat.*``);
+- splits the tag along the dot (``.``) separator (:ref:`stormprims-Str-split`), creating a list of elements;
+- takes the element located at index 1 (i.e., the second element in the tag, since we count from zero) (:ref:`stormprims-list-index`) and assigns it to the variable ``$threat``;
+- formats a string representing the new "review" tag, using the value of the ``$threat`` variable (:ref:`stormlibs-lib-str-format`);
+- prints the name of the review tag (as a debugging feature / sanity check).
+
+In other words, if an inbound node has the tag ``#threat.viciouswombat``, the for loop will:
+
+- split the tag into elements ``threat`` and ``viciouswombat``;
+- take the element at index 1 (``viciouswombat``);
+- set ``$threat = viciouswombat``
+- set ``$reviewtag = review.viciouswombat``.
+
+
+
+The for loop can be incorporated into your larger "threat hunting" macro to identify files that query for known malicious FQDNs:
+
+.. storm-pre:: [inet:fqdn=www.applenetting.com +#threat.viciouswombat +#threat.spuriousunicorn] | spin | [inet:dns:request="*" :exe=sha256:918de40e8ba7e9c1ba555aa22c8acbfdf77f9c050d5ddcd7bd0e3221195c876f :query:name:fqdn=www.applenetting.com]
+.. storm-multiline:: ENRICH="inet:fqdn#threat\n  \n  for $tag in $node.tags(threat.*) {\n  \n      $threat = $tag.split(\".\").index(1)\n      $reviewtag = $lib.str.format(\"review.{threat}\", threat=$threat)\n  }\n  \n  -> inet:dns:request +:exe -> file:bytes [ +#$reviewtag ]\n"
+.. storm-cli:: MULTILINE=ENRICH
+
+.. NOTE::
+  
+  A for loop will iterate over "all the things" as defined by the for loop syntax. In the example above, a single inbound node may have multiple tags that match the pattern defined by the for loop. This means that the for loop operations will execute once **per matching tag per node** and yield the inbound node to the pipeline for each iteration. In other words, for **each** inbound node:
+  
+    - the first matching tag enters the for loop;
+    - the loop operations are performed on that tag (i.e., the tag is split and an associated ``#review`` tag constructed);
+    - the variable ``$reviewtag``, which contains the newly-constructed tag, exits the for loop;
+    - the FQDN **node** that was inbound to the for loop is subject to the post-loop pivot and filter operations;
+    - if the operations are successful, the appropriate ``$reviewtag`` is applied to the node.
+    - If there are additional tags to process from the inbound node as part of the for loop, **repeat these steps for each tag.**
+  
+  This means that if a single inbound FQDN node has the tags ``#threat.viciouswombat`` and ``#threat.spuriousunicorn``, a ``file:bytes`` node that queries the FQDN will receive both ``#review.viciouswombat`` and ``#review.spuriousunicorn``.
+  
+  This is by design, and is the way Storm variables - specifically non-runtime safe variables (:ref:`gloss-non-runtsafe`) - and the Storm execution pipeline (see :ref:`storm-op-concepts`) are intended to work. (Of course, if your analysis has attributed a single FQDN to two different threat groups, you'd want to know about it.)
+
+
+.. _flow-while:
+
+While Loop
+++++++++++
+
+A **while loop** checks inbound nodes against a specified condition and performs the specified Storm operations for as long as the condition is met.
+
+**Syntax:**
+
+:: 
+
+  while <condition> {
+  
+      <storm>
+  }
+
+While loops are more frequently used for developer tasks, such as consuming from Queues; and are less common for day-to-day user use cases.
+
+
+.. _storm-adv-example:
+
+Advanced Storm - Example
+------------------------
+
+The example below is meant to provide a more concrete illustration of some of Storm's pipeline behavior when combined with certain control flow operations - specifically, with for loops. Control flow operations such as if-else or switch statements allow you to perform complex Storm operations, but still typically represent a single "path" through the pipeline for any given node - even though the **specific** path for a given node may vary depending on the if-else or switch conditions.
+
+With for loops, however, we may execute the same Storm multiple times, which may have unexpected results if you don't keep Storm's pipeline concept in mind.
+
+For Loop - No Subquery
+++++++++++++++++++++++
+
+Consider the following query:
+
+.. storm-pre:: [ inet:fqdn=vertex.link ]
+.. storm-multiline:: ENRICH="inet:fqdn=vertex.link\n  $list = ('foo', 'bar', 'baz')\n  \n  for $item in $list {\n  \n    $lib.print($item)\n  }\n  \n  $lib.print(\"And we're done!\")\n\n"
+
+::
+  
+  inet:fqdn=vertex.link
+  $list = ('foo','bar','baz')
+  
+  for $item in $list {
+  
+      $lib.print($item)
+  }
+  
+  $lib.print('And we're done!')
+
+The query:
+ 
+ - lifts a single FQDN node;
+ - defines a list containing three elements, ``foo``, ``bar``, and ``baz``;
+ - uses a ``for`` loop to iterate over the list, printing each element;
+ - prints ``And we're done!``
+
+When executed, the query generates the following output:
+
+.. storm-cli:: MULTILINE=ENRICH
+
+What's going on here? Why does ``And we're done!`` print three times? Why do we apparently have three copies of our FQDN node? The reason has to do with Storm's pipeline behavior, and how our FQDN node travels through the pipeline when the pipeline loops.
+
+Our query starts with a single ``inet:fqdn`` node in our initial working set. Setting the ``$list`` variable does not change our working set of nodes.
+
+When we reach the for loop, the loop needs to execute multiple times (three times in this case, once for each item in ``$list``). Anything currently in our pipeline (any nodes that are inbound to the for loop, as well as any variables that are currently set) is passed into **each** iteration of the for loop.
+
+In this case, because the for loop is part of our **main** Storm pipeline (it is not isolated in any way, such as by being placed inside a subquery), **each iteration** of the loop outputs our original FQDN node...which then continues its passage through the remainder of the Storm pipeline, causing the ``$lib.print('And we're done!')`` statement to print (remember, each node travels through the pipeline one by one). Storm then executes the second iteration of the for loop, and the FQDN that exits from this second iteration continues through the pipeline, and so on.
+
+It may help to think of this process as the for loop effectively "splitting" the main Storm pipeline into multiple pipelines that then each continue to execute in full, one after the other.
+
+.. NOTE::
+  
+  Each pipeline still executes **sequentially** - not in parallel. So the first iteration of the for loop (where ``$item=foo``) will execute and the remainder of the Storm pipeline will run to completion; followed by the second iteration of the for loop and the remainder of the Storm pipeline, and so on.  (This is why one instance of ``And we're done!`` prints before the messages associated with the second iteration of the loop where ``$item=bar``, etc.). 
+
+
+For Loop - With Subquery
+++++++++++++++++++++++++
+
+In this variation on our original query, we isolate the for loop within a subquery (:ref:`storm-ref-subquery`):
+
+.. storm-multiline:: ENRICH="inet:fqdn=vertex.link\n  $list = ('foo', 'bar', 'baz')\n  \n  { \n      for $item in $list {\n          $lib.print($item)\n      }\n  }\n  \n  $lib.print(\"And we're done!\")\n\n"
+
+::
+  
+  inet:fqdn=vertex.link
+  $list = ('foo','bar','baz')
+  
+  {
+      for $item in $list {
+      
+          $lib.print($item)
+      }
+  }
+      
+  $lib.print('And we're done!')
+
+The query performs the same actions as described above, but thanks to the subquery, the behavior of this query is different, as we can see from the query's output:
+
+.. storm-cli:: MULTILINE=ENRICH
+
+In this case, the query behaves more "as expected" - the strings within the for loop print once for each item / iteration of the loop, ``And we're done!`` prints once, and a single FQDN node exits our pipeline when our query completes. So what's different?
+
+One of the key features of a subquery is that by default (i.e., unless the ``yield`` option is used), **the nodes that go into a subquery also come out of a subquery,** regardless of what occurs inside the subquery itself. In other words, **subqueries do not "consume" nodes**. 
+
+We still have our single FQDN inbound to the subquery. Inside the subquery, our for loop still executes, effectively "splitting" the Storm pipeline into three pipelines that execute in sequence. But once we complete the for loop and exit the subquery, those pipelines are "discarded". The single FQDN that went into the subquery exits the subquery. We are back to our single node in the main pipeline. That single node causes our print statement to print ``And we're done!`` only once, and we are left with our single node at the end of the query.
+

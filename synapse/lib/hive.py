@@ -101,7 +101,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
             conf = {}
 
         self.conf = conf
-        self.nodes = {} # full=Node()
+        self.nodes = {}  # full=Node()
 
         self.conf.setdefault('auth:en', False)
         self.conf.setdefault('auth:path', 'hive/auth')
@@ -556,7 +556,7 @@ class TeleHive(Hive):
 
         self.lock = asyncio.Lock()
 
-        self.syncevents = {} # iden: asyncio.Event()
+        self.syncevents = {}  # iden: asyncio.Event()
 
         # fire a task to sync the sections of the tree we open
         self.schedCoro(self._runHiveLoop())

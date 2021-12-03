@@ -14,6 +14,8 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 Queries = [
+    'try { inet:ipv4=asdf } catch TypeError as err { }',
+    'try { inet:ipv4=asdf } catch FooBar as err { } catch * as err { }',
     'test:array*[=1.2.3.4]',
     'macro.set hehe ${ inet:ipv4 }',
     '$q=${#foo.bar}',
@@ -596,6 +598,8 @@ Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: TypeError, Const: err, Query: []]]]',
+    'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: FooBar, Const: err, Query: []], CatchBlock: [Const: *, Const: err, Query: []]]]',
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
     'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
     'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',

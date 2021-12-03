@@ -246,15 +246,16 @@ class CertDir:
         '''
         ucert = self.getUserCert(name)
         if not ucert:
-            raise s_exc.NoSuchFile('missing User cert')
+            raise s_exc.NoSuchFile(mesg='missing User cert', name=name)
 
-        cacert = self._loadCertPath(self._getCaPath(ucert))
+        capath = self._getCaPath(ucert)
+        cacert = self._loadCertPath(capath)
         if not cacert:
-            raise s_exc.NoSuchFile('missing CA cert')
+            raise s_exc.NoSuchFile(mesg='missing CA cert', path=capath)
 
         ukey = self.getUserKey(name)
         if not ukey:
-            raise s_exc.NoSuchFile('missing User private key')
+            raise s_exc.NoSuchFile(mesg='missing User private key', name=name)
 
         ccert = crypto.PKCS12()
         ccert.set_friendlyname(name.encode('utf-8'))
@@ -679,7 +680,7 @@ class CertDir:
             None
         '''
         if not os.path.isfile(path):
-            raise s_exc.NoSuchFile('File does not exist')
+            raise s_exc.NoSuchFile(mesg='File does not exist', path=path)
 
         fname = os.path.split(path)[1]
         parts = fname.rsplit('.', 1)
@@ -1053,6 +1054,9 @@ class CertDir:
     def _loadP12Path(self, path):
         byts = self._getPathBytes(path)
         if byts:
+            # This API is deprecrated by PyOpenSSL and will need to be rewritten if pyopenssl is
+            # updated from v21.x.x. The APIs that use this are not directly exposed via the
+            # easycert tool currently, and are only used in unit tests.
             return crypto.load_pkcs12(byts)
 
     def _saveCertTo(self, cert, *paths):

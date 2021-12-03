@@ -43,15 +43,20 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('duration')
 
+        self.eq('2D 00:00:00.000', t.repr(172800000))
         self.eq('00:05:00.333', t.repr(300333))
         self.eq('11D 11:47:12.344', t.repr(992832344))
 
         self.eq(300333, t.norm('00:05:00.333')[0])
         self.eq(992832344, t.norm('11D 11:47:12.344')[0])
 
+        self.eq(172800000, t.norm('2D')[0])
         self.eq(60000, t.norm('1:00')[0])
         self.eq(60200, t.norm('1:00.2')[0])
         self.eq(9999, t.norm('9.9999')[0])
+
+        with self.raises(s_exc.BadTypeValu):
+            t.norm('    ')
 
         with self.raises(s_exc.BadTypeValu):
             t.norm('1:2:3:4')
@@ -1010,6 +1015,102 @@ class TypesTest(s_t_utils.SynTest):
             await self.agenlen(2, core.eval('test:str:tick*range=(2018/12/02, "+24 hours")'))
             await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+86401 seconds")'))
             await self.agenlen(3, core.eval('test:str:tick*range=(2018/12/02, "+25 hours")'))
+
+            self.len(0, await core.nodes('test:guid | delnode --force'))
+            await core.nodes('[ test:guid=* :tick=20211031020202 ]')
+
+            # test * suffix syntax
+            self.len(1, await core.nodes('test:guid:tick=2021*'))
+            self.len(1, await core.nodes('test:guid:tick=202110*'))
+            self.len(1, await core.nodes('test:guid:tick=20211031*'))
+            self.len(1, await core.nodes('test:guid:tick=2021103102*'))
+            self.len(1, await core.nodes('test:guid:tick=202110310202*'))
+            self.len(1, await core.nodes('test:guid:tick=20211031020202*'))
+
+            self.len(0, await core.nodes('test:guid:tick=2022*'))
+            self.len(0, await core.nodes('test:guid:tick=202210*'))
+            self.len(0, await core.nodes('test:guid:tick=20221031*'))
+            self.len(0, await core.nodes('test:guid:tick=2022103102*'))
+            self.len(0, await core.nodes('test:guid:tick=202210310202*'))
+            self.len(0, await core.nodes('test:guid:tick=20221031020202*'))
+
+            self.len(1, await core.nodes('test:guid +:tick=2021*'))
+            self.len(1, await core.nodes('test:guid +:tick=202110*'))
+            self.len(1, await core.nodes('test:guid +:tick=20211031*'))
+            self.len(1, await core.nodes('test:guid +:tick=2021103102*'))
+            self.len(1, await core.nodes('test:guid +:tick=202110310202*'))
+            self.len(1, await core.nodes('test:guid +:tick=20211031020202*'))
+
+            self.len(0, await core.nodes('test:guid -:tick=2021*'))
+            self.len(0, await core.nodes('test:guid -:tick=202110*'))
+            self.len(0, await core.nodes('test:guid -:tick=20211031*'))
+            self.len(0, await core.nodes('test:guid -:tick=2021103102*'))
+            self.len(0, await core.nodes('test:guid -:tick=202110310202*'))
+            self.len(0, await core.nodes('test:guid -:tick=20211031020202*'))
+
+            # test <= time * suffix syntax
+            self.len(1, await core.nodes('test:guid:tick<=2021*'))
+            self.len(1, await core.nodes('test:guid:tick<=202110*'))
+            self.len(1, await core.nodes('test:guid:tick<=20211031*'))
+            self.len(1, await core.nodes('test:guid:tick<=2021103102*'))
+            self.len(1, await core.nodes('test:guid:tick<=202110310202*'))
+            self.len(1, await core.nodes('test:guid:tick<=20211031020202*'))
+
+            self.len(0, await core.nodes('test:guid:tick<=2020*'))
+            self.len(0, await core.nodes('test:guid:tick<=202010*'))
+            self.len(0, await core.nodes('test:guid:tick<=20201031*'))
+            self.len(0, await core.nodes('test:guid:tick<=2020103102*'))
+            self.len(0, await core.nodes('test:guid:tick<=202010310202*'))
+            self.len(0, await core.nodes('test:guid:tick<=20201031020202*'))
+
+            self.len(1, await core.nodes('test:guid +:tick<=2021*'))
+            self.len(1, await core.nodes('test:guid +:tick<=202110*'))
+            self.len(1, await core.nodes('test:guid +:tick<=20211031*'))
+            self.len(1, await core.nodes('test:guid +:tick<=2021103102*'))
+            self.len(1, await core.nodes('test:guid +:tick<=202110310202*'))
+            self.len(1, await core.nodes('test:guid +:tick<=20211031020202*'))
+
+            self.len(0, await core.nodes('test:guid -:tick<=2021*'))
+            self.len(0, await core.nodes('test:guid -:tick<=202110*'))
+            self.len(0, await core.nodes('test:guid -:tick<=20211031*'))
+            self.len(0, await core.nodes('test:guid -:tick<=2021103102*'))
+            self.len(0, await core.nodes('test:guid -:tick<=202110310202*'))
+            self.len(0, await core.nodes('test:guid -:tick<=20211031020202*'))
+
+            # test <= time * suffix syntax
+            self.len(1, await core.nodes('test:guid:tick<2021*'))
+            self.len(1, await core.nodes('test:guid:tick<202110*'))
+            self.len(1, await core.nodes('test:guid:tick<20211031*'))
+            self.len(1, await core.nodes('test:guid:tick<2021103102*'))
+            self.len(1, await core.nodes('test:guid:tick<202110310202*'))
+            self.len(1, await core.nodes('test:guid:tick<20211031020202*'))
+
+            self.len(0, await core.nodes('test:guid:tick<2020*'))
+            self.len(0, await core.nodes('test:guid:tick<202010*'))
+            self.len(0, await core.nodes('test:guid:tick<20201031*'))
+            self.len(0, await core.nodes('test:guid:tick<2020103102*'))
+            self.len(0, await core.nodes('test:guid:tick<202010310202*'))
+            self.len(0, await core.nodes('test:guid:tick<20201031020202*'))
+
+            self.len(1, await core.nodes('test:guid +:tick<2021*'))
+            self.len(1, await core.nodes('test:guid +:tick<202110*'))
+            self.len(1, await core.nodes('test:guid +:tick<20211031*'))
+            self.len(1, await core.nodes('test:guid +:tick<2021103102*'))
+            self.len(1, await core.nodes('test:guid +:tick<202110310202*'))
+            self.len(1, await core.nodes('test:guid +:tick<20211031020202*'))
+
+            self.len(0, await core.nodes('test:guid -:tick<2021*'))
+            self.len(0, await core.nodes('test:guid -:tick<202110*'))
+            self.len(0, await core.nodes('test:guid -:tick<20211031*'))
+            self.len(0, await core.nodes('test:guid -:tick<2021103102*'))
+            self.len(0, await core.nodes('test:guid -:tick<202110310202*'))
+            self.len(0, await core.nodes('test:guid -:tick<20211031020202*'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:guid:tick=202*')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:guid:tick=202110310202021*')
 
         async with self.getTestCore() as core:
 

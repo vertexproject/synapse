@@ -149,11 +149,16 @@ async def getAhaProxy(urlinfo):
 
             return await openinfo(info)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
         except Exception as e:
-            logger.exception(f'aha resolver ({ahaurl})')
+            if isinstance(ahaurl, str):
+                surl = s_urlhelp.sanitizeUrl(ahaurl)
+            else:
+                surl = tuple([s_urlhelp.sanitizeUrl(u) for u in ahaurl])
+            logger.exception(f'Unable to get aha client ({surl})')
+
             laste = e
 
     if laste is not None:
@@ -446,7 +451,7 @@ class Pipeline(s_base.Base):
                 yield mesg[1].get('retn')
                 continue
 
-            logger.warning(f'Pipeline got unhandled message: {mesg!r}.') # pragma: no cover
+            logger.warning(f'Pipeline got unhandled message: {mesg!r}.')  # pragma: no cover
 
 class Proxy(s_base.Base):
     '''
@@ -997,7 +1002,7 @@ class Client(s_base.Base):
                 # in case the callback fini()s the proxy
                 if self._t_proxy is None:
                     break
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
             except Exception as e:
                 logger.exception(f'onlink: {onlink}')
@@ -1242,7 +1247,7 @@ def chopurl(url, **opts):
 
         info = s_urlhelp.chopurl(url)
 
-        #flatten query params into info
+        # flatten query params into info
         query = info.pop('query', None)
         if query is not None:
             info.update(query)

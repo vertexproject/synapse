@@ -14,13 +14,24 @@ commands:
       - run:
           name: Upload Coverage Results
           command: |
-            # Activate the venv so that codecov bash uploader finds coverage
+            # Download and verify the codecov binary
+            curl https://keybase.io/codecovsecurity/pgp_keys.asc | gpg --import # One-time step
+            curl -Os https://uploader.codecov.io/latest/linux/codecov
+            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM
+            curl -Os https://uploader.codecov.io/latest/linux/codecov.SHA256SUM.sig
+            gpg --verify codecov.SHA256SUM.sig codecov.SHA256SUM
+            shasum -a 256 -c codecov.SHA256SUM
+            chmod +x codecov
+            # Activate our venv and generate a xml report
             . venv/bin/activate
-            # Use the codecov call from the codecov orb..
-            curl -s https://codecov.io/bash | bash -s -- \
+            python -m coverage xml
+            # Execute the binary...
+            ./codecov \
               -t "${CODECOV_TOKEN}" \
               -n "${CODECOV_PREFIX}${PYVERS}node${CIRCLE_NODE_INDEX}" \
               -F "${CODECOV_FLAG}" \
+              -f ./coverage.xml \
+              -v \
               -Z || echo 'Codecov upload failed'
 
   do_venv_setup:
@@ -47,7 +58,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml ${COVERAGE_ARGS}
 
   do_replay_test_execution:
     description: "Execute unit tests via pytest"
@@ -67,11 +78,12 @@ commands:
       - run:
           name: install deps
           command: |
+            sudo apt-get update
             sudo apt-get -y install pandoc
 
       - restore_cache:
           keys:
-            - v2-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-docvenv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: setup venv
@@ -109,14 +121,9 @@ commands:
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
-      - run:
-          name: install deps
-          command: |
-            sudo apt-get -y install cron
-
       - restore_cache:
           keys:
-            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - do_venv_setup
 
@@ -152,14 +159,9 @@ commands:
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
-      - run:
-          name: install deps
-          command: |
-            sudo apt-get -y install cron
-
       - restore_cache:
           keys:
-            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - do_venv_setup
 
@@ -223,7 +225,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v1-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
+            - v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
 
       - run:
           name: install python dependencies
@@ -527,10 +529,11 @@ jobs:
   python37:
     parallelism: 8
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -543,10 +546,11 @@ jobs:
   python38:
     parallelism: 8
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYVERS: 3.8
           RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse --no-cov-on-fail
@@ -559,7 +563,7 @@ jobs:
   python37_replay:
     parallelism: 6
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
         environment:
           PYVERS: 3.7
           RUN_SYNTAX: 1
@@ -576,7 +580,7 @@ jobs:
   python38_replay:
     parallelism: 6
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYVERS: 3.8
           RUN_SYNTAX: 1
@@ -593,9 +597,9 @@ jobs:
   doctests:
     parallelism: 1
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
-          PYVERS: 3.7
+          PYVERS: 3.8
 
     working_directory: ~/repo
 
@@ -604,7 +608,7 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
@@ -616,7 +620,7 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: circleci/python:3.8
+      - image: cimg/python:3.8
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py38
@@ -630,7 +634,7 @@ jobs:
 
   deploy_pypi_37:
     docker:
-      - image: circleci/python:3.7
+      - image: cimg/python:3.7
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
           PYTHON_TAG: py37

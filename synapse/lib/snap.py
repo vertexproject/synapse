@@ -144,7 +144,7 @@ class Snap(s_base.Base):
         async with await s_storm.Runtime.anit(query, self, opts=opts, user=user) as runt:
             yield runt
 
-    async def iterStormPodes(self, text, opts=None, user=None):
+    async def iterStormPodes(self, text, opts, user=None):
         '''
         Yield packed node tuples for the given storm query text.
         '''
@@ -154,7 +154,7 @@ class Snap(s_base.Base):
         dorepr = False
         dopath = False
 
-        self.core._logStormQuery(text, user)
+        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')
@@ -171,7 +171,7 @@ class Snap(s_base.Base):
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
-            pode[1]['path'] = path.pack(path=dopath)
+            pode[1]['path'] = await path.pack(path=dopath)
 
             if scrubber is not None:
                 pode = scrubber.scrub(pode)
@@ -726,7 +726,7 @@ class Snap(s_base.Base):
                     (name, valu, oldv, stype) = parms
 
                     prop = node.form.props.get(name)
-                    if prop is None: # pragma: no cover
+                    if prop is None:  # pragma: no cover
                         logger.warning(f'applyNodeEdits got EDIT_PROP_SET for bad prop {name} on form {node.form}')
                         continue
 
@@ -742,7 +742,7 @@ class Snap(s_base.Base):
                     (name, oldv, stype) = parms
 
                     prop = node.form.props.get(name)
-                    if prop is None: # pragma: no cover
+                    if prop is None:  # pragma: no cover
                         logger.warning(f'applyNodeEdits got EDIT_PROP_DEL for bad prop {name} on form {node.form}')
                         continue
 
@@ -790,6 +790,16 @@ class Snap(s_base.Base):
                         if not node.tagprops[tag]:
                             node.tagprops.pop(tag, None)
                     node.bylayer['tags'].pop((tag, prop), None)
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_SET:
+                    name, data, oldv = parms
+                    node.nodedata[name] = data
+                    continue
+
+                if etyp == s_layer.EDIT_NODEDATA_DEL:
+                    name, oldv = parms
+                    node.nodedata.pop(name, None)
                     continue
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
@@ -1133,7 +1143,7 @@ class Snap(s_base.Base):
                 except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                     raise
 
-                except: # pragma: no cover
+                except:  # pragma: no cover
                     await self.warn(f'Failed to make n2 edge node for {n2iden}')
                     continue
 
@@ -1145,7 +1155,7 @@ class Snap(s_base.Base):
                 await self.warn(f'Invalid n2 iden {n2iden}')
                 continue
 
-            if not (isinstance(verb, str)): # pragma: no cover
+            if not (isinstance(verb, str)):  # pragma: no cover
                 await self.warn(f'Invalid edge verb {verb}')
                 continue
 
@@ -1176,6 +1186,7 @@ class Snap(s_base.Base):
 
                 async for edge in layr.iterNodeEdgesN1(buid, verb=verb):
                     if edge in edgeset:
+                        await asyncio.sleep(0)
                         continue
 
                     await edgeset.add(edge)
@@ -1189,10 +1200,23 @@ class Snap(s_base.Base):
 
                 async for edge in layr.iterNodeEdgesN2(buid, verb=verb):
                     if edge in edgeset:
+                        await asyncio.sleep(0)
                         continue
 
                     await edgeset.add(edge)
                     yield edge
+
+    async def hasNodeData(self, buid, name):
+        '''
+        Return True if the buid has nodedata set on it under the given name
+        False otherwise
+        '''
+        for layr in reversed(self.layers):
+            todo = s_common.todo('hasNodeData', buid, name)
+            has = await self.core.dyncall(layr.iden, todo)
+            if has:
+                return True
+        return False
 
     async def getNodeData(self, buid, name, defv=None):
         '''

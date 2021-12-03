@@ -52,8 +52,39 @@ this would involve running the following shell commands::
     cp -R /backups/cortex00_20200519 /data/cortex00
     python -m synapse.servers.cortex /path/to/cortex
 
-TLS/SSL Deployments
--------------------
+Cell HTTPS Server
+-----------------
+
+Each Synapse cell will generate and use self-signed certificates by default for its webserver. These allow a user to
+quickly get started with testing HTTP interfaces on Cells, but is not recommended for a production deployment.
+Each cell loads the certificate and key material from ``./sslcert.pem`` and ``./sslkey.pem``. In our Docker containers,
+these would be ``/vertex/storage/sslcert.pem`` and ``/vertex/storage/sslkey.pem``.
+
+These files can be replaced on disk with your own certificate and private key. The certifcate should be a full
+certificate chain. The following Docker-Compose example shows how to map in your own TLS key material that the Cortex
+webserver will use:
+
+::
+
+    version: '3'
+    services:
+      cortex:
+        image: vertexproject/synapse-cortex:v2.x.x
+        ports:
+          # Expose 4443 to point to the Cortex HTTP server
+          - "4443:4443"
+        volumes:
+          # Map in local Cortex dir
+          - ./cortex:/vertex/storage
+          # Map in ssl certs from ../certs
+          - ../certs/fullchain.pem:/vertex/storage/sslcert.pem
+          - ../certs/privkey.pem:/vertex/storage/sslkey.pem
+        environment:
+          - SYN_LOG_LEVEL=DEBUG
+          - SYN_CORTEX_AUTH_PASSWD=root
+
+Telepath TLS/SSL Deployments
+----------------------------
 
 For production deployments, it is recommended that all services use the built-in ``telepath`` SSL/TLS
 protocol. You may deploy a service using TLS encryption by specifying a ``--telepath`` listen URL option, such
@@ -111,8 +142,26 @@ You may then submit your CSR file (in this case ``~/.syn/certs/hosts/cortex.vert
 Once your CA returns a signed certificate in PEM format, place it in the expected location (``~/.syn/certs/hosts/cortex.vertex.link.crt`` in this example)
 and it will be loaded when you start your service.
 
+Client-Side Certificates for Authentication
+*******************************************
+
+To use client-side certificates for authentication, the CA certificate to use for validating client certificates
+must be specified in the ``--telepath`` listen url. For example, to use the "vertex" CA certificate previously generated,
+the listen url would be: ``ssl://0.0.0.0/?hostname=cortex.vertex.link&ca=vertex``.
+
+To generate a client certificate for the user ``user@cortex.vertex.link``, ``easycert`` can be used as follows::
+
+    python -m synapse.tools.easycert user@cortex.vertex.link --signas vertex
+    cert saved: /home/cisphyx/.syn/certs/users/user@cortex.vertex.link.crt
+    key saved: /home/cisphyx/.syn/certs/users/user@cortex.vertex.link.key
+
+The user will need to add both of the generated files to their users certificate directory, located by default at ``~/.syn/certs/users``.
+Once in place, the user will be able to connect to the Cortex using certificate authentication instead of a password::
+
+    python -m synapse.tools.cmdr ssl://user@cortex.vertex.link/
+
 Tips for Better Performance
-***************************
+---------------------------
 
 The Cortex process acts as the database for all configuration and graph data.  Inasmuch, it interacts with the
 operating system in similar ways as other database systems like PostgreSQL or MySQL, and recommendations for good
@@ -157,8 +206,3 @@ writing to the /proc/sys filesystem.
 
     This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM, and
     relatively slow storage.
-
-Client-Side Certificates for Authentication
-*******************************************
-
-TODO

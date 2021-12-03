@@ -9,8 +9,6 @@ import synapse.tests.utils as s_test
 
 # flake8: noqa: E501
 
-from pprint import pprint
-
 class StormlibModelTest(s_test.SynTest):
 
     def bundeq(self, bund0, bund1):
@@ -174,7 +172,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(result, {'result': True})
 
             bad_bundle = copy.deepcopy(bund)
-            objects = bad_bundle.get('objects') # type: list
+            objects = bad_bundle.get('objects')  # type: list
             extdef = objects[0]
             extdef.pop('type')
             resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bad_bundle}})

@@ -119,6 +119,35 @@ Cortex ``cell.yaml`` file could have the following configuration::
 For interacting with byte storage inside of Storm, see :ref:`stormlibs-lib-bytes` for APIs related to interacting with
 the Axon.
 
+Using Synapse Power-Ups
+-----------------------
+
+The Vertex Project provides a number of Power-Ups that extend the functionality of Synapse. For
+more information on configuring your Cortex to use Power-Ups, see `the blog post on Synapse Power-Ups`_.
+
+Managing Nexus log size
+-----------------------
+
+The Cortex supports Telepath APIs for rotating (see ``synapse.lib.cell.CellApi.rotateNexsLog``)
+and culling (see ``synapse.lib.cell.CellApi.cullNexsLog``) the Nexus log.
+These operations are also distributed to downstream consumers of the Nexus log (e.g. mirrors),
+and therefore it is recommended to use the trim API (see ``synapse.lib.cell.CellApi.trimNexsLog``).
+The trim API can also be invoked from Storm (see :ref:`stormlibs-lib-cell-trimNexsLog`).
+
+The trim API executes the following steps:
+
+- If a list of consumers are provided, check that they are all online.
+- Rotate the Nexus log at the current offset, which is also distributed downstream.
+- If consumers are provided, wait until they catch-up to the current offset.
+- Cull the Nexus log, which deletes entries up to and including the current offset.
+
+If the cull API is called directly, only rotated logs where the last index is less than
+the provided offset will be removed from disk.
+
+.. warning::
+    Culling the Nexus log directly, or not providing a complete list of consumers to trim,
+    can result in mirror desync if they are not caught up to the culled offset.
+
 .. _200_migration:
 
 0.1.x to 2.x.x Migration
@@ -131,3 +160,4 @@ For information about migrating older Cortexes to v2.8.0, please refer to the ``
 `here <https://synapse.docs.vertex.link/en/v2.8.0/synapse/devguides/devops_cortex.html#x-to-2-x-x-migration>`_.
 
 .. _Python logging: https://docs.python.org/3.8/library/logging.html#logging-levels
+.. _the blog post on Synapse Power-Ups: https://vertex.link/blogs/synapse-power-ups/

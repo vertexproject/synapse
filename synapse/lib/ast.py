@@ -331,7 +331,7 @@ class SubGraph:
 
             for _, ndef in node.getNodeRefs():
                 pivonode = await node.snap.getNodeByNdef(ndef)
-                if pivonode is None: # pragma: no cover
+                if pivonode is None:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
@@ -574,6 +574,86 @@ class FiniBlock(AstNode):
 
         async for innr in subq.run(runt, s_common.agen()):
             yield innr
+
+class TryCatch(AstNode):
+
+    async def run(self, runt, genr):
+
+        count = 0
+        async for item in genr:
+            count += 1
+            try:
+                agen = s_common.agen(item)
+                async for subi in self.kids[0].run(runt, agen):
+                    yield subi
+
+            except s_exc.SynErr as e:
+                block = await self.getCatchBlock(e.errname, runt, path=item[1])
+                if block is None:
+                    raise
+
+                await item[1].setVar(block.errvar(), await self.getErrValu(e))
+
+                agen = s_common.agen(item)
+                async for subi in block.run(runt, agen):
+                    yield subi
+
+        if count == 0 and self.isRuntSafe(runt):
+            try:
+                async for item in self.kids[0].run(runt, genr):
+                    yield item
+
+            except s_exc.SynErr as e:
+                block = await self.getCatchBlock(e.errname, runt)
+                if block is None:
+                    raise
+
+                await runt.setVar(block.errvar(), await self.getErrValu(e))
+                async for item in block.run(runt, s_common.agen()):
+                    yield item
+
+    async def getErrValu(self, e):
+        mesg = e.errinfo.pop('mesg', 'No message given.')
+        info = await s_stormtypes.toprim(e.errinfo)
+        return {'name': e.errname, 'mesg': mesg, 'info': info}
+
+    async def getCatchBlock(self, name, runt, path=None):
+        for catchblock in self.kids[1:]:
+            if await catchblock.catches(name, runt, path=path):
+                return catchblock
+
+class CatchBlock(AstNode):
+
+    async def run(self, runt, genr):
+        async for item in self.kids[2].run(runt, genr):
+            yield item
+
+    def getRuntVars(self, runt):
+        yield (self.errvar(), True)
+        yield from self.kids[2].getRuntVars(runt)
+
+    def errvar(self):
+        return self.kids[1].value()
+
+    async def catches(self, name, runt, path=None):
+
+        catchvalu = await self.kids[0].compute(runt, path)
+        catchvalu = await s_stormtypes.toprim(catchvalu)
+
+        if isinstance(catchvalu, str):
+            if catchvalu == '*':
+                return True
+            return catchvalu == name
+
+        if isinstance(catchvalu, (list, tuple)):
+            for catchname in catchvalu:
+                if catchname == name:
+                    return True
+            return False
+
+        etyp = catchvalu.__class__.__name__
+        mesg = f'catch block must be a str or list object. {etyp} not allowed.'
+        raise s_exc.StormRuntimeError(mesg=mesg, type=etyp)
 
 class ForLoop(Oper):
 
@@ -828,12 +908,12 @@ class SetVarOper(Oper):
             valu = await vkid.compute(runt, path)
             if valu is undef:
                 await runt.popVar(name)
-                #TODO detect which to update here
+                # TODO detect which to update here
                 await path.popVar(name)
 
             else:
                 await runt.setVar(name, valu)
-                #TODO detect which to update here
+                # TODO detect which to update here
                 await path.setVar(name, valu)
 
             yield node, path
@@ -1073,15 +1153,21 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, types.AsyncGeneratorType):
-            async for item in valu:
-                async for node in self.yieldFromValu(runt, item):
-                    yield node
+            try:
+                async for item in valu:
+                    async for node in self.yieldFromValu(runt, item):
+                        yield node
+            finally:
+                await valu.aclose()
             return
 
         if isinstance(valu, types.GeneratorType):
-            for item in valu:
-                async for node in self.yieldFromValu(runt, item):
-                    yield node
+            try:
+                for item in valu:
+                    async for node in self.yieldFromValu(runt, item):
+                        yield node
+            finally:
+                valu.close()
             return
 
         if isinstance(valu, (list, tuple, set)):
@@ -1090,21 +1176,23 @@ class YieldValu(Oper):
                     yield node
             return
 
-        if isinstance(valu, s_node.Node):
-            node = await runt.snap.getNodeByBuid(valu.buid)
-            if node is not None:
-                yield node
+        if isinstance(valu, s_stormtypes.Node):
+            yield valu.valu
             return
 
-        if isinstance(valu, s_stormtypes.Query):
-            async for node in valu.nodes():
-                yield node
+        if isinstance(valu, s_node.Node):
+            yield valu
             return
 
         if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
             for item in valu.valu:
                 async for node in self.yieldFromValu(runt, item):
                     yield node
+            return
+
+        if isinstance(valu, s_stormtypes.Prim):
+            async for node in valu.nodes():
+                yield node
             return
 
 class LiftTag(LiftOper):
@@ -1292,7 +1380,7 @@ class LiftProp(LiftOper):
                             async for node in runt.snap.nodesByPropValu(fullname, cmpr, valu):
                                 yield node
                             return
-                        except asyncio.CancelledError: # pragma: no cover
+                        except asyncio.CancelledError:  # pragma: no cover
                             raise
                         except:
                             pass
@@ -1929,7 +2017,7 @@ class Value(AstNode):
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
-    async def compute(self, runt, path): # pragma: no cover
+    async def compute(self, runt, path):  # pragma: no cover
         raise s_exc.NoSuchImpl(name=f'{self.__class__.__name__}.compute()')
 
     async def getLiftHints(self, runt, path):
@@ -2612,7 +2700,7 @@ class VarValue(Value):
 
     def validate(self, runt):
         if runt.runtvars.get(self.name) is None:
-            raise s_exc.NoSuchVar(name=self.name)
+            raise s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name)
 
     def prepare(self):
         assert isinstance(self.kids[0], Const)
@@ -2632,7 +2720,7 @@ class VarValue(Value):
         if valu is not s_common.novalu:
             return valu
 
-        raise s_exc.NoSuchVar(name=self.name)
+        raise s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name)
 
 class VarDeref(Value):
 
@@ -3431,7 +3519,7 @@ class EditTagPropSet(Edit):
 
             try:
                 await node.setTagProp(tag, prop, valu)
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 raise
             except excignore:
                 pass
@@ -3524,19 +3612,14 @@ class IfStmt(Oper):
         async for node, path in genr:
             count += 1
 
-            if allcondsafe:
-                if count == 1:
-                    subq = await self._runtsafe_calc(runt)
+            for clause in self.clauses:
+                expr, subq = clause.kids
+
+                exprvalu = await expr.compute(runt, path)
+                if await tobool(exprvalu):
+                    break
             else:
-
-                for clause in self.clauses:
-                    expr, subq = clause.kids
-
-                    exprvalu = await expr.compute(runt, path)
-                    if await tobool(exprvalu):
-                        break
-                else:
-                    subq = self.elsequery
+                subq = self.elsequery
 
             if subq:
                 assert isinstance(subq, SubQuery)

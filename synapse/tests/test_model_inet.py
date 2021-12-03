@@ -338,11 +338,13 @@ class InetModelTest(s_t_utils.SynTest):
             'src:proc': 32 * 'c',
             'src:exe': 64 * 'd',
             'src:txbytes': 1,
+            'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 64 * '0',
             'dst:txbytes': 2,
+            'dst:handshake': 'OHai!',
             'src:softnames': ('hehe', 'haha'),
             'dst:softnames': ('foobar', 'bazfaz'),
             'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
@@ -360,6 +362,7 @@ class InetModelTest(s_t_utils.SynTest):
             'src:proc': 32 * 'c',
             'src:exe': 'sha256:' + 64 * 'd',
             'src:txbytes': 1,
+            'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
             'dst:port': 80,
             'dst:proto': 'tcp',
@@ -368,6 +371,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:proc': 32 * 'f',
             'dst:exe': 'sha256:' + 64 * '0',
             'dst:txbytes': 2,
+            'dst:handshake': 'OHai!',
             'src:softnames': ('haha', 'hehe'),
             'dst:softnames': ('bazfaz', 'foobar'),
             'src:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
@@ -401,11 +405,44 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(fqdn), expected)
             self.eq(t.repr(ex_fqdn), fqdn)  # Calling repr on IDNA encoded domain should result in the unicode
 
+            # Use IDNA2008 if possible
+            fqdn = "faß.de"
+            ex_fqdn = 'xn--fa-hia.de'
+            expected = (ex_fqdn, {'subs': {'domain': 'de', 'host': 'xn--fa-hia'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)
+
+            # Emojis are valid IDNA2003
+            fqdn = '👁👄👁.fm'
+            ex_fqdn = 'xn--mp8hai.fm'
+            expected = (ex_fqdn, {'subs': {'domain': 'fm', 'host': 'xn--mp8hai'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(t.repr(ex_fqdn), fqdn)
+
+            # Variant forms get normalized
+            varfqdn = '👁️👄👁️.fm'
+            self.eq(t.norm(varfqdn), expected)
+            self.ne(varfqdn, fqdn)
+
+            # Unicode full stops are okay but get normalized
+            fqdn = 'foo(．)bar[。]baz｡lol'
+            ex_fqdn = 'foo.bar.baz.lol'
+            expected = (ex_fqdn, {'subs': {'domain': 'bar.baz.lol', 'host': 'foo'}})
+            self.eq(t.norm(fqdn), expected)
+
+            # Ellipsis shouldn't make it through
+            self.raises(s_exc.BadTypeValu, t.norm, 'vertex…link')
+
             # Demonstrate Invalid IDNA
             fqdn = 'xn--lskfjaslkdfjaslfj.link'
             expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'link'}})
             self.eq(t.norm(fqdn), expected)
             self.eq(fqdn, t.repr(fqdn))  # UnicodeError raised and caught and fallback to norm
+
+            fqdn = 'xn--cc.bartmp.l.google.com'
+            expected = (fqdn, {'subs': {'host': fqdn.split('.')[0], 'domain': 'bartmp.l.google.com'}})
+            self.eq(t.norm(fqdn), expected)
+            self.eq(fqdn, t.repr(fqdn))
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com')
 
@@ -422,8 +459,8 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, expected_ndef)
                 self.eq(node.get('domain'), 'vertex.link')
                 self.eq(node.get('host'), 'api')
-                #self.eq(node.get('issuffix'), 0)
-                #self.eq(node.get('iszone'), 0)
+                # self.eq(node.get('issuffix'), 0)
+                # self.eq(node.get('iszone'), 0)
                 self.eq(node.get('zone'), 'vertex.link')
 
             async with await core.snap() as snap:
@@ -544,12 +581,6 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode('inet:http:cookie', 'HeHe=HaHa')
                 self.eq(node.ndef[1], 'HeHe=HaHa')
-
-    def test_http_header(self):
-        pass # this is tested below...
-
-    def test_http_header_name(self):
-        pass # this is tested below...
 
     async def test_http_request_header(self):
         formname = 'inet:http:request:header'
@@ -1911,6 +1942,7 @@ class InetModelTest(s_t_utils.SynTest):
             'created': 2554858000000,
             'updated': 2554858000000,
             'text': 'this is  a bunch of \nrecord text 123123',
+            'desc': 'these are some notes\n about record 123123',
             'asn': 12345,
             'id': 'NET-10-0-0-0-1',
             'name': 'vtx',

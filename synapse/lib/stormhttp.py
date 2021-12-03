@@ -57,10 +57,10 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
             await self.resp.send_bytes(json.dumps(mesg).encode())
             return (True, None)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             return s_common.retnexc(e)
 
     async def rx(self, timeout=None):
@@ -71,14 +71,14 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
                 return (True, json.loads(data))
             if _type == aiohttp.WSMsgType.TEXT:
                 return (True, json.loads(data.encode()))
-            if _type == aiohttp.WSMsgType.CLOSED: # pragma: no cover
+            if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover
                 return (True, None)
-            return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'})) # pragma: no cover
+            return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'}))  # pragma: no cover
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             return s_common.retnexc(e)
 
 
@@ -228,10 +228,10 @@ class LibHttp(s_stormtypes.Lib):
 
             return (True, sock)
 
-        except asyncio.CancelledError: # pragma: no cover
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception as e: # pragma: no cover
+        except Exception as e:  # pragma: no cover
             await sock.fini()
             return s_common.retnexc(e)
 
@@ -244,20 +244,27 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
+        ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
         allow_redirects = await s_stormtypes.tobool(allow_redirects)
 
         kwargs = {'allow_redirects': allow_redirects}
-        if not ssl_verify:
-            kwargs['ssl'] = False
         if params:
             kwargs['params'] = params
 
-        todo = s_common.todo('getConfOpt', 'http:proxy')
-        proxyurl = await self.runt.dyncall('cortex', todo)
+        proxyurl = self.runt.snap.core.conf.get('http:proxy')
+        cadir = self.runt.snap.core.conf.get('tls:ca:dir')
 
         connector = None
         if proxyurl is not None:
             connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        if ssl_verify is False:
+            kwargs['ssl'] = False
+        elif cadir:
+            kwargs['ssl'] = s_common.getSslCtx(cadir)
+        else:
+            # default aiohttp behavior
+            kwargs['ssl'] = None
 
         timeout = aiohttp.ClientTimeout(total=timeout)
 

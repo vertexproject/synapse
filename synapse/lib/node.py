@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.lib.chop as s_chop
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,10 @@ class Node:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
             raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'addEdge() got an invalid node iden: {n2iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
         nodeedits = (
             (self.buid, self.form.name, (
                 (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
@@ -78,6 +83,11 @@ class Node:
         await self.snap.applyNodeEdits(nodeedits)
 
     async def delEdge(self, verb, n2iden):
+
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'delEdge() got an invalid node iden: {n2iden}'
+            raise s_exc.BadArg(mesg=mesg)
+
         nodeedits = (
             (self.buid, self.form.name, (
                 (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
@@ -635,7 +645,7 @@ class Node:
 
             prop = self.snap.core.model.getTagProp(tagprop)
 
-            if prop is None: # pragma: no cover
+            if prop is None:  # pragma: no cover
                 logger.warn(f'Cant delete tag prop ({tagprop}) without model prop!')
                 continue
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, tagprop, None, prop.type.stortype), ()))
@@ -687,7 +697,11 @@ class Node:
 
         await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
 
-        self.tagprops[tag][name] = norm
+        props = self.tagprops.get(tag)
+        if props is None:
+            props = self.tagprops[tag] = {}
+
+        props[name] = norm
 
     async def delTagProp(self, tag, name):
         prop = self.snap.core.model.getTagProp(name)
@@ -777,6 +791,9 @@ class Node:
         await self.snap.applyNodeEdit((self.buid, formname, edits))
         self.snap.livenodes.pop(self.buid, None)
 
+    async def hasData(self, name):
+        return await self.snap.hasNodeData(self.buid, name)
+
     async def getData(self, name):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
@@ -812,8 +829,6 @@ class Path:
         self.node = None
         self.nodes = nodes
 
-        self.traces = []
-
         if len(nodes):
             self.node = nodes[-1]
 
@@ -829,14 +844,6 @@ class Path:
         }
 
         self.metadata = {}
-
-    def trace(self):
-        '''
-        Construct and return a Trace object for this path.
-        '''
-        trace = Trace(self)
-        self.traces.append(trace)
-        return trace
 
     def getVar(self, name, defv=s_common.novalu):
 
@@ -870,8 +877,10 @@ class Path:
         '''
         self.metadata[name] = valu
 
-    def pack(self, path=False):
+    async def pack(self, path=False):
         ret = dict(self.metadata)
+        if ret:
+            ret = await s_stormtypes.toprim(ret)
         if path:
             ret['nodes'] = [node.iden() for node in self.nodes]
         return ret
@@ -882,22 +891,17 @@ class Path:
         nodes.append(node)
 
         path = Path(self.vars.copy(), nodes)
-        path.traces.extend(self.traces)
-
-        [t.addFork(path) for t in self.traces]
 
         return path
 
     def clone(self):
         path = Path(copy.copy(self.vars), copy.copy(self.nodes))
-        path.traces = list(self.traces)
         path.frames = [v.copy() for v in self.frames]
         return path
 
     def initframe(self, initvars=None):
 
-        # full copy for now...
-        framevars = self.vars.copy()
+        framevars = {}
         if initvars is not None:
             framevars.update(initvars)
 
@@ -917,29 +921,6 @@ class Path:
             return
 
         self.vars = self.frames.pop()
-
-class Trace:
-    '''
-    A trace for pivots taken and nodes involved from a given path's subsequent forks.
-    '''
-    def __init__(self, path):
-        self.edges = set()
-        self.nodes = set()
-
-        self.addPath(path)
-
-    def addPath(self, path):
-
-        [self.nodes.add(n) for n in path.nodes]
-
-        for i in range(len(path.nodes[:-1])):
-            n1 = path.nodes[i]
-            n2 = path.nodes[i + 1]
-            self.edges.add((n1, n2))
-
-    def addFork(self, path):
-        self.nodes.add(path.node)
-        self.edges.add((path.nodes[-2], path.nodes[-1]))
 
 def props(pode):
     '''
