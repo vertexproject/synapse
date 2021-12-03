@@ -1192,13 +1192,10 @@ class YieldValu(Oper):
             return
 
         if isinstance(valu, s_stormtypes.Prim):
-            genr = valu.nodes()
-            try:
+            async with s_common.aclosing(valu.nodes()) as genr:
                 async for node in genr:
                     yield node
                 return
-            finally:
-                await genr.aclose()
 
 class LiftTag(LiftOper):
 
