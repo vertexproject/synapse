@@ -338,11 +338,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[2].ndef[1], 'c')
 
             q = '''
-                            $set = $lib.set(c, b, a)
-                            for $x in $lib.sorted($set, reverse=$lib.true) {
-                                [ test:str=$x ]
-                            }
-                        '''
+                $set = $lib.set(c, b, a)
+                for $x in $lib.sorted($set, reverse=$lib.true) {
+                    [ test:str=$x ]
+                }
+            '''
             nodes = await core.nodes(q)
             self.len(3, nodes)
             self.eq(nodes[0].ndef[1], 'c')
