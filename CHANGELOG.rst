@@ -5,8 +5,8 @@ Synapse Changelog
 *****************
 
 
-Unreleased
-==========
+v2.73.0 - 2021-12-02
+====================
 
 Features and Enhancements
 -------------------------
