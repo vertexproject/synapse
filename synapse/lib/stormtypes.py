@@ -1092,9 +1092,14 @@ class LibBase(Lib):
 
          'type': 'boolean', },
         {'name': 'scrape', 'desc': '''
-        Attempt to scrape
+        Attempt to scrape node form, value tuples from a blob of text.
 
-        WORDS''',
+        Examples:
+            Scrape some text and attempt to make nodes out of it::
+
+                for ($form, $valu) in $lib.scrape($text) {
+                    [ ( *$form ?= $valu ) ]
+                }''',
          'type': {'type': 'function', '_funcname': '_scrape',
                   'args': (
                       {'name': 'text', 'type': 'str',
@@ -1107,7 +1112,7 @@ class LibBase(Lib):
                        'desc': 'If true, only yield the first item scraped.', },
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                              'desc': 'A list of (form, ndef) tuples scraped from the text.', }}},
+                              'desc': 'A list of (form, value) tuples scraped from the text.', }}},
     )
 
     def __init__(self, runt, name=()):
