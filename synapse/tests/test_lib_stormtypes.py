@@ -259,6 +259,258 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchType):
                 await core.nodes('$lib.trycast(newp, asdf)')
 
+            self.eq(4, await core.callStorm('$x = asdf return($x.size())'))
+            self.eq(2, await core.callStorm('$x = asdf return($x.find(d))'))
+            self.eq(None, await core.callStorm('$x = asdf return($x.find(v))'))
+
+            self.eq(('f', 'o', 'o'), await core.callStorm('$x = $lib.list() $x.extend((f, o, o)) return($x)'))
+            self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1, 5))'))
+            self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1))'))
+
+            self.true(await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).0)'))
+            self.false(await core.callStorm('return($lib.trycast(inet:ipv4, asdf).0)'))
+
+            self.eq(None, await core.callStorm('return($lib.trycast(inet:ipv4, asdf).1)'))
+            self.eq(0x01020304, await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).1)'))
+
+            self.true(await core.callStorm('$x=(foo,bar) return($x.has(foo))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has(newp))'))
+            self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
+
+            await core.addStormPkg(pdef)
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, 0x30) ]')
+            self.len(1, nodes)
+            self.eq(20, nodes[0].ndef[1])
+
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, (10, 30)) ]')
+            self.len(1, nodes)
+            self.eq(10, nodes[0].ndef[1])
+
+            nodes = await core.nodes('[ inet:asn=$lib.max(20, 0x30) ]')
+            self.len(1, nodes)
+            self.eq(0x30, nodes[0].ndef[1])
+
+            nodes = await core.nodes('[ inet:asn=$lib.max(20, (10, 30)) ]')
+            self.len(1, nodes)
+            self.eq(30, nodes[0].ndef[1])
+
+            nodes = await core.nodes('[ inet:asn=$lib.len(asdf) ]')
+            self.len(1, nodes)
+            self.eq(4, nodes[0].ndef[1])
+
+            nodes = await core.nodes('[ test:str=$lib.guid() test:str=$lib.guid() ]')
+            self.len(2, nodes)
+            self.true(s_common.isguid(nodes[0].ndef[1]))
+            self.true(s_common.isguid(nodes[1].ndef[1]))
+            self.ne(nodes[0].ndef[1], nodes[1].ndef[1])
+
+            nodes = await core.nodes('[ test:str=$lib.guid(hehe,haha) test:str=$lib.guid(hehe,haha) ]')
+            self.len(2, nodes)
+            self.true(s_common.isguid(nodes[0].ndef[1]))
+            self.true(s_common.isguid(nodes[1].ndef[1]))
+            self.eq(nodes[0].ndef[1], nodes[1].ndef[1])
+
+            async with core.getLocalProxy() as prox:
+                mesgs = [m async for m in prox.storm('$lib.print("hi there")') if m[0] == 'print']
+                self.len(1, mesgs)
+                self.stormIsInPrint('hi there', mesgs)
+
+                mesgs = [m async for m in prox.storm('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] $lib.print(:zone)')]
+                mesgs = [m for m in mesgs if m[0] == 'print']
+                self.len(2, mesgs)
+                self.eq('vertex.link', mesgs[0][1]['mesg'])
+                self.eq('woot.com', mesgs[1][1]['mesg'])
+
+                mesgs = [m async for m in prox.storm("$lib.print('woot at: {s} {num}', s=hello, num=$(42+43))")]
+                self.stormIsInPrint('woot at: hello 85', mesgs)
+
+            # lib.sorted()
+            q = '''
+                $set = $lib.set(c, b, a)
+                for $x in $lib.sorted($set) {
+                    [ test:str=$x ]
+                }
+            '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef[1], 'a')
+            self.eq(nodes[1].ndef[1], 'b')
+            self.eq(nodes[2].ndef[1], 'c')
+
+            q = '''
+                            $set = $lib.set(c, b, a)
+                            for $x in $lib.sorted($set, reverse=$lib.true) {
+                                [ test:str=$x ]
+                            }
+                        '''
+            nodes = await core.nodes(q)
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef[1], 'c')
+            self.eq(nodes[1].ndef[1], 'b')
+            self.eq(nodes[2].ndef[1], 'a')
+
+            # $lib.import
+            q = '$test = $lib.import(test) $lib.print($test)'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Imported Module test', msgs)
+            q = '$test = $lib.import(newp)'
+            msgs = await core.stormlist(q)
+            erfo = [m for m in msgs if m[0] == 'err'][0]
+            self.eq(erfo[1][0], 'NoSuchName')
+            self.eq(erfo[1][1].get('name'), 'newp')
+
+            # lib.len()
+            opts = {
+                'vars': {
+                    'true': True,
+                    'list': [1, 2, 3],
+                    'dict': {'k1': 'v1', 'k2': 'v2'},
+                    'str': '1138',
+                    'bytes': b'o'
+                }
+            }
+
+            self.eq(4, await core.callStorm('return($lib.len($str))', opts=opts))
+            self.eq(3, await core.callStorm('return($lib.len($list))', opts=opts))
+            self.eq(2, await core.callStorm('return($lib.len($dict))', opts=opts))
+            self.eq(1, await core.callStorm('return($lib.len($bytes))', opts=opts))
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('$lib.print($lib.len($true))', opts=opts)
+            self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
+
+            mesgs = await core.stormlist('$lib.print($lib.list(1,(2),3))')
+            self.stormIsInPrint("['1', 2, '3']", mesgs)
+
+            mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
+            self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
+            self.stormIsInPrint("'1'", mesgs)
+            self.stormIsInPrint("'2'", mesgs)
+            self.stormIsInPrint("'3'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib)')
+            self.stormIsInPrint("Library $lib", mesgs)
+
+            mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
+            self.stormIsInPrint("storm:queue: testq", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
+            self.stormIsInPrint("('1', '2', '3')", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict(foo=1, bar=2))')
+            self.stormIsInPrint("'foo': '1'", mesgs)
+            self.stormIsInPrint("'bar': '2'", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.dict)')
+            self.stormIsInPrint("bound method LibBase._dict", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib)')
+            self.stormIsInPrint("LibBase object", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint(newp, clamp=2)')
+            errs = [m[1] for m in mesgs if m[0] == 'err']
+            self.len(1, errs)
+            err = errs[0]
+            self.eq(err[0], 'StormRuntimeError')
+            self.isin('Invalid clamp length.', err[1].get('mesg'))
+
+            # lib.guid()
+            opts = {'vars': {'x': {'foo': 'bar'}, 'y': ['foo']}}
+            guid00 = await core.callStorm('return($lib.guid($x, $y))', opts=opts)
+            guid01 = await core.callStorm('$x=$lib.dict(foo=bar) $y=$lib.list(foo) return($lib.guid($x, $y))')
+            self.eq(guid00, guid01)
+
+            guid00 = await core.callStorm('return($lib.guid(foo))')
+            guid01 = await core.callStorm('[test:str=foo] return($lib.guid($node))')
+            self.eq(guid00, guid01)
+
+            guid = await core.callStorm('return($lib.guid($lib.undef))')
+            self.eq(s_common.guid(()), guid)
+
+            guid = await core.callStorm('return($lib.guid(($lib.undef,)))')
+            self.eq(s_common.guid(((),)), guid)
+
+            guid = await core.callStorm('return($lib.guid($lib.dict(foo=($lib.undef,))))')
+            self.eq(s_common.guid(({'foo': ()},)), guid)
+
+            mesgs = await core.stormlist('function foo() { test:str } $lib.guid($foo())')
+            self.stormIsInErr('can not serialize \'async_generator\'', mesgs)
+
+            # lib.range()
+            q = 'for $v in $lib.range($stop, start=$start, step=$step) { $lib.fire(range, v=$v) }'
+
+            async def getseqn(genr, name, key):
+                seqn = []
+                async for mtyp, info in genr:
+                    if mtyp != 'storm:fire':
+                        continue
+                    self.eq(info.get('type'), name)
+                    seqn.append(info.get('data', {}).get(key))
+                return seqn
+
+            opts = {'vars': {'stop': 3, 'start': None, 'step': None}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [0, 1, 2])
+
+            opts = {'vars': {'stop': 3, 'start': 1, 'step': None}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [1, 2])
+
+            opts = {'vars': {'stop': 5, 'start': 0, 'step': 2}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [0, 2, 4])
+
+            opts = {'vars': {'stop': 0, 'start': 4, 'step': None}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [])
+
+            opts = {'vars': {'stop': 0, 'start': 4, 'step': -1}}
+            items = await getseqn(core.storm(q, opts), 'range', 'v')
+            self.eq(items, [4, 3, 2, 1])
+
+            tags = await core.callStorm('return($lib.tags.prefix((foo, bar, "."), visi))')
+            self.eq(tags, ('visi.foo', 'visi.bar'))
+
+            self.none(await core.callStorm('[inet:user=visi] return($node.data.cacheget(foo))'))
+
+            await core.callStorm('inet:user=visi $node.data.cacheset(foo, bar)')
+            envl = await core.callStorm('inet:user=visi return($node.data.get(foo))')
+            self.nn(envl.get('asof'))
+            self.eq('bar', envl.get('data'))
+
+            self.none(await core.callStorm('inet:user=visi return($node.data.cacheget(foo))'))
+            self.eq('bar', await core.callStorm('inet:user=visi return($node.data.cacheget(foo, asof="-30days"))'))
+
+            lowuser = await core.auth.addUser('lowuser')
+
+            aslow = {'user': lowuser.iden}
+            await lowuser.addRule((False, ('auth', 'self', 'set')))
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).setPasswd(hehehaha)', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).setEmail(v@vtx.lk)', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('$lib.auth.users.byname(lowuser).name = derpuser', opts=aslow)
+            with self.raises(s_exc.AuthDeny):
+                async with core.getLocalProxy(user='lowuser') as proxy:
+                    await proxy.setUserPasswd(lowuser.iden, 'hehehaha')
+
+            self.none(await s_stormtypes.tobuidhex(None, noneok=True))
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(nodes[0]))
+            stormnode = s_stormtypes.Node(nodes[0])
+            self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
+
             # $lib.scrape()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
             query = '''for ($form, $ndef) in $lib.scrape($text, $ptype, $refang, $first)
