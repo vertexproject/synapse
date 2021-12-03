@@ -118,7 +118,7 @@ From which we can issue Storm commands to interact with and validate the nodes t
            :sha256 = ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c
            :size = 16
            #my.cool.tag
-complete. 4 nodes in 16 ms (250/sec).
+  complete. 4 nodes in 16 ms (250/sec).
 
 
 **Loading the Data:**
