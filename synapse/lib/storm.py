@@ -752,6 +752,8 @@ stormcmds = (
         'descr': 'Load a storm package from an HTTP URL.',
         'cmdargs': (
             ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--raw', {'default': False, 'action': 'store_true',
+                'help': 'Response JSON is a package definition without an envelope.'}),
             ('--ssl-noverify', {'default': False, 'action': 'store_true',
                 'help': 'Specify to disable SSL verification of the server.'}),
         ),
@@ -768,12 +770,16 @@ stormcmds = (
                 }
 
                 $reply = $resp.json()
-                if ($reply.status != "ok") {
-                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
-                    $lib.exit()
-                }
+                if $cmdopts.raw {
+                    $pkg = $reply
+                } else {
+                    if ($reply.status != "ok") {
+                        $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                        $lib.exit()
+                    }
 
-                $pkg = $reply.result
+                    $pkg = $reply.result
+                }
 
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
