@@ -287,6 +287,9 @@ class IndxBy:
         for item in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
             yield item
 
+    def hasIndxBuid(self, indx, buid):
+        return self.layr.layrslab.hasdup(self.abrv + indx, buid, db=self.db)
+
 class IndxByForm(IndxBy):
 
     def __init__(self, layr, form):
@@ -412,6 +415,12 @@ class StorType:
 
         async for item in self.indxBy(indxby, cmpr, valu):
             yield item
+
+    async def verifyBuidProp(self, buid, form, prop, valu):
+        indxby = IndxByProp(self.layr, form, prop)
+        for indx in self.indx(valu):
+            if not indxby.hasIndxBuid(indx, buid):
+                yield ('NoPropIndex', {'prop': 'prop', 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu):
         try:
@@ -1204,6 +1213,182 @@ class Layer(s_nexus.Pusher):
 
         self.onfini(self._onLayrFini)
 
+    async def verifyBuidTag(self, buid, formname, tagname, tagvalu):
+        abrv = self.tagabrv.bytsToAbrv(tagname.encode())
+        abrv += self.getPropAbrv(formname, None)
+        if not self.layrslab.hasdup(abrv, buid, db=self.bytag):
+            yield ('NoTagIndex', {'buid': buid, 'form': formname, 'tag': tagname, 'valu': tagvalu})
+
+    def _testDelTagIndx(self, buid, form, tag):
+        formabrv = self.setPropAbrv(form, None)
+        tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+        self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
+
+    def _testDelPropIndx(self, buid, form, prop):
+        sode = self._getStorNode(buid)
+        storvalu, stortype = sode['props'][prop]
+
+        abrv = self.setPropAbrv(form, prop)
+        for indx in self.stortypes[stortype].indx(storvalu):
+            self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+    def _testDelTagStor(self, buid, form, tag):
+        sode = self._getStorNode(buid)
+        sode['tags'].pop(tag, None)
+        self.setSodeDirty(buid, sode, form)
+
+    def _testDelPropStor(self, buid, form, prop):
+        sode = self._getStorNode(buid)
+        sode['props'].pop(prop, None)
+        self.setSodeDirty(buid, sode, form)
+
+    def _testAddPropIndx(self, buid, form, prop, valu):
+        sode = self._getStorNode(buid)
+        storvalu, stortype = sode['props'][prop]
+
+        abrv = self.setPropAbrv(form, prop)
+        for indx in self.stortypes[stortype].indx(valu):
+            self.layrslab.put(abrv + indx, buid, db=self.byprop)
+
+    async def verify(self, buids=True, tags=True, props=True):
+        if buids:
+            async for error in self.verifyAllBuids():
+                yield error
+
+        if tags:
+            async for error in self.verifyAllTags():
+                yield error
+
+        if props:
+            async for error in self.verifyAllProps():
+                yield error
+
+    async def verifyAllBuids(self):
+        async for buid, sode in self.getStorNodes():
+            async for error in self.verifyByBuid(buid, sode=sode):
+                yield error
+
+    async def verifyAllTags(self):
+        for name in self.tagabrv.names():
+            async for error in self.verifyByTag(name):
+                yield error
+
+    async def verifyAllProps(self):
+        for form, prop in self.getFormProps():
+            async for error in self.verifyByProp(form, prop):
+                yield error
+
+    async def verifyByTag(self, tag):
+        tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+        for lkey, buid in self.layrslab.scanByPref(tagabrv, db=self.bytag):
+
+            await asyncio.sleep(0)
+
+            sode = self._getStorNode(buid)
+            if sode is None:
+                yield ('NoBuidForTagIndex', {'buid': buid, 'tag': tag})
+                continue
+
+            tags = sode.get('tags')
+            if tags is None:
+                yield ('NoTagForTagIndex', {'buid': buid, 'tag': tag})
+                continue
+
+            if tags.get(tag) is None:
+                yield ('NoTagForTagIndex', {'buid': buid, 'tag': tag})
+                continue
+
+    async def verifyByProp(self, form, prop):
+
+        abrv = self.getPropAbrv(form, prop)
+
+        sode = None
+        oldbuid = None
+        oldvalu = None
+        oldkeys = []
+
+        def verifyIndxKeys(propvalu, stortype, indxkeys):
+
+            # NOTE: This *will* mutate indxkeys list
+            for indx in self.stortypes[stortype].indx(propvalu):
+                indxkey = abrv + indx
+                if indxkey not in indxkeys:
+                    yield ('NoPropKeyForIndx', {'buid': buid, 'form': form, 'prop': prop, 'indx': indx})
+                    continue
+
+                indxkeys.remove(indxkey)
+
+            for indxkey in indxkeys:
+                indx = indxkey[len(abrv):]
+                yield ('SpurPropKeyForIndx', {'buid': buid, 'form': form, 'prop': prop, 'indx': indx})
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+
+            await asyncio.sleep(0)
+
+            if buid != oldbuid:
+
+                if oldvalu is not None:
+                    for error in verifyIndxKeys(*oldvalu, oldkeys):
+                        yield error
+
+                oldbuid = buid
+
+                sode = self._getStorNode(buid)
+                oldvalu = None
+                oldkeys.clear()
+
+                if sode is None:
+                    indx = lkey[len(abrv):]
+                    yield ('NoBuidForPropIndex', {'buid': buid, 'form': form, 'prop': prop, 'indx': indx})
+                    continue
+
+                if prop is not None:
+                    props = sode.get('props')
+                    if props is None:
+                        indx = lkey[len(abrv):]
+                        yield ('NoPropForPropIndex', {'buid': buid, 'form': form, 'prop': prop, 'indx': indx})
+                        continue
+
+                    oldvalu = props.get(prop)
+                    if oldvalu is None:
+                        indx = lkey[len(abrv):]
+                        yield ('NoValuForPropIndex', {'buid': buid, 'form': form, 'prop': prop, 'indx': indx})
+                        continue
+                else:
+                    oldvalu = sode.get('valu')
+                    if oldvalu is None:
+                        yield ('NoValuForPropIndex', {'buid': buid, 'form': form, 'prop': prop, 'indx': indx})
+                        continue
+
+            # store the index keys to verify at the end
+            oldkeys.append(lkey)
+
+        # mop up the last one...
+        if oldvalu is not None:
+            for error in verifyIndxKeys(*oldvalu, oldkeys):
+                yield error
+
+    async def verifyByBuid(self, buid, sode=None):
+
+        if sode is None:
+            sode = self._getStorNode(buid)
+
+        await asyncio.sleep(0)
+
+        form = sode.get('form')
+        stortags = sode.get('tags')
+        if stortags:
+            for tagname, storvalu in stortags.items():
+                async for error in self.verifyBuidTag(buid, form, tagname, storvalu):
+                    yield error
+
+        storprops = sode.get('props')
+        if storprops:
+            for propname, (storvalu, stortype) in storprops.items():
+                async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
+                    yield error
+
     async def pack(self):
         ret = self.layrinfo.pack()
         ret['totalsize'] = await self.getLayerSize()
@@ -1578,6 +1763,10 @@ class Layer(s_nexus.Pusher):
 
     def setPropAbrv(self, form, prop):
         return self.propabrv.setBytsToAbrv(s_msgpack.en((form, prop)))
+
+    def getFormProps(self):
+        for byts in self.propabrv.keys():
+            yield s_msgpack.un(byts)
 
     @s_cache.memoizemethod()
     def getTagPropAbrv(self, *args):

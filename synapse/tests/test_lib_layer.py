@@ -41,6 +41,52 @@ class LayerTest(s_t_utils.SynTest):
         for layr in core.layers.values():
             self.eq(layr.layrvers, 6)
 
+    async def test_layer_verify(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verifyByBuid(buid)]
+            self.len(0, errors)
+
+            core.getLayer()._testDelTagIndx(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testDelPropIndx(buid, 'inet:ipv4', 'asn')
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoTagIndex')
+            self.eq(errors[1][0], 'NoPropIndex')
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verifyByBuid(buid)]
+            self.len(0, errors)
+
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            errors = [e async for e in core.getLayer().verifyAllTags()]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            core.getLayer()._testDelPropStor(buid, 'inet:ipv4', 'asn')
+            errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', 'asn')]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
+            buid = nodes[0].buid
+
+            core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'SpurPropKeyForIndx')
+
     async def test_layer_abrv(self):
 
         async with self.getTestCore() as core:
