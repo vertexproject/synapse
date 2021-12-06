@@ -30,6 +30,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -1108,8 +1109,8 @@ class LibBase(Lib):
                        'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
                       {'name': 'refang', 'type': 'boolean', 'default': True,
                        'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
-                      {'name': 'first', 'type': 'boolean', 'default': False,
-                       'desc': 'If true, only yield the first item scraped.', },
+                      {'name': 'unique', 'type': 'boolean', 'default': True,
+                       'desc': 'Only yield unique items from the text.', },
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A list of (form, value) tuples scraped from the text.', }}},
@@ -1391,14 +1392,19 @@ class LibBase(Lib):
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
     @stormfunc(readonly=True)
-    async def _scrape(self, text, ptype=None, refang=True, first=False):
+    async def _scrape(self, text, ptype=None, refang=True, unique=True):
         text = await tostr(text)
         ptype = await tostr(ptype, noneok=True)
         refang = await tobool(refang)
-        first = await tobool(first)
+        unique = await tobool(unique)
 
-        for ptyp, ndef in s_scrape.scrape(text, ptype, refang, first):
-            yield (ptyp, ndef)
+        async with s_spooled.Set.anit() as items:  # type: s_spooled.Set
+            for ptyp, ndef in s_scrape.scrape(text, ptype=ptype, refang=refang, first=False):
+                if unique:
+                    if (ptype, ndef) in items:
+                        continue
+                    await items.add((ptype, ndef))
+                yield (ptyp, ndef)
 
 @registry.registerLib
 class LibPs(Lib):
