@@ -1398,7 +1398,7 @@ class LibBase(Lib):
         refang = await tobool(refang)
         unique = await tobool(unique)
 
-        async with s_spooled.Set.anit() as items:  # type: s_spooled.Set
+        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
             for ptyp, ndef in s_scrape.scrape(text, ptype=ptype, refang=refang, first=False):
                 if unique:
                     if (ptype, ndef) in items:
