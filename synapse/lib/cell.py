@@ -1926,10 +1926,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
         if not os.path.isfile(keypath):
-            raise s_exc.NoSuchFile(name=keypath)
+            raise s_exc.NoSuchFile(mesg=f'Missing TLS keypath {keypath}', path=keypath)
 
         if not os.path.isfile(certpath):
-            raise s_exc.NoSuchFile(name=certpath)
+            raise s_exc.NoSuchFile(mesg=f'Missing TLS certpath {certpath}', path=certpath)
 
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx

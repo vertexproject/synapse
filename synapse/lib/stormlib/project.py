@@ -270,7 +270,7 @@ class ProjectTicket(s_stormtypes.Prim):
          'type': 'str'},
         {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
          'type': 'int'},
-        {'name': 'comments', 'desc': 'A `storm:project:ticket:comments object that contains comments associated with the given ticket.',
+        {'name': 'comments', 'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
          'type': 'storm:project:ticket:comments'},
     )
 
