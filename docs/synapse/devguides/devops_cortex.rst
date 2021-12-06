@@ -128,7 +128,7 @@ copy of the layer on the remote system including all edit history and will only 
 upstream layer.
 
 When configuring a mirrored layer, you may choose to mirror from a remote layer *or* from the top layer of a remote view.
-If you chose to mirror from the top layer of a remote view, that view will have the opportunity to fire triggers and enforce
+If you choose to mirror from the top layer of a remote view, that view will have the opportunity to fire triggers and enforce
 model constraints on the changes being provided by the mirrored layer.
 
 To specify a remote layer as the upstream, use a Telepath URL which includes the shared object ``*/layer/<layeriden>`` such as
