@@ -13,6 +13,10 @@ import synapse.lib.crypto.coin as s_coin
 logger = logging.getLogger(__name__)
 
 tldlist = list(s_data.get('iana.tlds'))
+tldlist.extend([
+    'bit',
+    'onion',
+])
 
 tldlist.sort(key=lambda x: len(x))
 tldlist.reverse()
