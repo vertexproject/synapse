@@ -5,6 +5,44 @@ Synapse Changelog
 *****************
 
 
+v2.73.0 - 2021-12-02
+====================
+
+Features and Enhancements
+-------------------------
+- Add a Storm ``runas`` command. This allows admin users to execute Storm
+  commands as other users.
+  (`#2473 <https://github.com/vertexproject/synapse/pull/2473>`_)
+- Add a Storm ``intersect`` command. This command produces the intersection
+  of nodes emitted by running a Storm query over all inbound nodes to the
+  ``intersect`` command.
+  (`#2480 <https://github.com/vertexproject/synapse/pull/2480>`_)
+- Add ``wait`` and ``timeout`` parameters to the ``Axon.hashes()`` and
+  ``$lib.axon.list()`` APIs.
+  (`#2481 <https://github.com/vertexproject/synapse/pull/2481>`_)
+- Add a ``readonly`` flag to ``synapse.tools.genpkg.loadPkgProto()`` and
+  ``synapse.tools.genpkg.tryLoadPkgProto()`` APIs. If set to ``True`` this
+  will open files in read only mode.
+  (`#2485 <https://github.com/vertexproject/synapse/pull/2485>`_)
+- Allow Storm Prim objects to be capable of directly yielding nodes when used
+  in ``yield`` statements.
+  (`#2479 <https://github.com/vertexproject/synapse/pull/2479>`_)
+- Update the StormDmon subsystem to add debug log information about state
+  changes, as well as additional data for structured logging output.
+  (`#2455 <https://github.com/vertexproject/synapse/pull/2455>`_)
+
+Bugfixes
+--------
+- Catch a fatal application error that can occur in the Cortex if the forked
+  process pool becomes unusable. Previously this would cause the Cortex to
+  appear unresponsive for executing Storm queries; now this causes the Cortex
+  to shut down gracefully.
+  (`#2472 <https://github.com/vertexproject/synapse/pull/2472>`_)
+- Fix a Storm path variable scoping issue where variables were improperly
+  scoped when nodes were passed into pure Storm commands.
+  (`#2459 <https://github.com/vertexproject/synapse/pull/2459>`_)
+
+
 v2.72.0 - 2021-11-23
 ====================
 
@@ -3087,8 +3125,7 @@ Improved Documentation
 v2.0.0 - 2020-06-08
 ===================
 
-Initial 2.0.0 release. See :ref:`200_changes` for notable new features and changes, as well as backwards incompatible
-changes.
+Initial 2.0.0 release.
 
 
 v0.1.X Changelog

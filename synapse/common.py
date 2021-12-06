@@ -229,7 +229,7 @@ def reqpath(*paths):
     '''
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(name=path)
+        raise s_exc.NoSuchFile(mesg=f'No such path {path}', path=path)
     return path
 
 def reqfile(*paths, **opts):
@@ -246,7 +246,7 @@ def reqfile(*paths, **opts):
     '''
     path = genpath(*paths)
     if not os.path.isfile(path):
-        raise s_exc.NoSuchFile(path=path)
+        raise s_exc.NoSuchFile(mesg=f'No such file {path}', path=path)
     opts.setdefault('mode', 'rb')
     return io.open(path, **opts)
 
