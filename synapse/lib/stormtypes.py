@@ -28,7 +28,9 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
+import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -1090,6 +1092,28 @@ class LibBase(Lib):
                     $lib.debug = $lib.true''',
 
          'type': 'boolean', },
+        {'name': 'scrape', 'desc': '''
+        Attempt to scrape node form, value tuples from a blob of text.
+
+        Examples:
+            Scrape some text and attempt to make nodes out of it::
+
+                for ($form, $valu) in $lib.scrape($text) {
+                    [ ( *$form ?= $valu ) ]
+                }''',
+         'type': {'type': 'function', '_funcname': '_scrape',
+                  'args': (
+                      {'name': 'text', 'type': 'str',
+                       'desc': 'The text to scrape', },
+                      {'name': 'ptype', 'type': 'str', 'default': None,
+                       'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
+                      {'name': 'refang', 'type': 'boolean', 'default': True,
+                       'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
+                      {'name': 'unique', 'type': 'boolean', 'default': True,
+                       'desc': 'Only yield unique items from the text.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'A list of (form, value) tuples scraped from the text.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1125,6 +1149,7 @@ class LibBase(Lib):
             'raise': self._raise,
             'range': self._range,
             'pprint': self._pprint,
+            'scrape': self._scrape,
             'sorted': self._sorted,
             'import': self._libBaseImport,
             'trycast': self.trycast,
@@ -1365,6 +1390,21 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+    @stormfunc(readonly=True)
+    async def _scrape(self, text, ptype=None, refang=True, unique=True):
+        text = await tostr(text)
+        ptype = await tostr(ptype, noneok=True)
+        refang = await tobool(refang)
+        unique = await tobool(unique)
+
+        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
+            for ptyp, ndef in s_scrape.scrape(text, ptype=ptype, refang=refang, first=False):
+                if unique:
+                    if (ptype, ndef) in items:
+                        continue
+                    await items.add((ptype, ndef))
+                yield (ptyp, ndef)
 
 @registry.registerLib
 class LibPs(Lib):
