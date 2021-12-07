@@ -1254,11 +1254,12 @@ class Layer(s_nexus.Pusher):
             self.leadtask = self.schedCoro(self._runMirrorLoop())
 
         uplayr = self.layrinfo.get('upstream')
-        if isinstance(uplayr, (tuple, list)):
-            for layr in uplayr:
-                await self.initUpstreamSync(layr)
-        else:
-            await self.initUpstreamSync(uplayr)
+        if uplayr is not None:
+            if isinstance(uplayr, (tuple, list)):
+                for layr in uplayr:
+                    await self.initUpstreamSync(layr)
+            else:
+                await self.initUpstreamSync(uplayr)
 
     async def initLayerPassive(self):
 
