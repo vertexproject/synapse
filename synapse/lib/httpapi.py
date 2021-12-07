@@ -359,6 +359,8 @@ class StormNodesV1(StormHandler):
         # dont allow a user to be specified
         opts = body.get('opts')
         query = body.get('query')
+        stream = body.get('stream')
+        jsonlines = stream == 'jsonlines'
 
         await self.cell.boss.promote('storm', user=user, info={'query': query})
 
@@ -369,6 +371,8 @@ class StormNodesV1(StormHandler):
         view = self.cell._viewFromOpts(opts)
         async for pode in view.iterStormPodes(query, opts=opts):
             self.write(json.dumps(pode))
+            if jsonlines:
+                self.write("\n")
             await self.flush()
 
 class StormV1(StormHandler):
@@ -387,6 +391,8 @@ class StormV1(StormHandler):
 
         opts = body.get('opts')
         query = body.get('query')
+        stream = body.get('stream')
+        jsonlines = stream == 'jsonlines'
 
         # Maintain backwards compatibility with 0.1.x output
         opts = await self._reqValidOpts(opts)
@@ -397,6 +403,8 @@ class StormV1(StormHandler):
 
         async for mesg in self.getCore().storm(query, opts=opts):
             self.write(json.dumps(mesg))
+            if jsonlines:
+                self.write("\n")
             await self.flush()
 
 class StormCallV1(StormHandler):
