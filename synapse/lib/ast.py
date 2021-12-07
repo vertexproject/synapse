@@ -3801,13 +3801,12 @@ class Function(AstNode):
                     return e.item
 
         async def genr():
-            try:
-                async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
-                    # inform the sub runtime to use function scope rules
-                    subr.funcscope = True
-                    async for node, path in subr.execute():
-                        yield node, path
-            finally:
-                pass
+            async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
+
+                # inform the sub runtime to use function scope rules
+                subr.funcscope = True
+
+                async for node, path in subr.execute():
+                    yield node, path
 
         return genr()

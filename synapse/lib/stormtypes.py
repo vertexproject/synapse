@@ -4452,12 +4452,9 @@ class Query(Prim):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
 
-        try:
-            async with self.runt.getSubRuntime(query, opts=opts) as runt:
-                async for item in runt.execute():
-                    yield item
-        finally:
-            pass
+        async with self.runt.getSubRuntime(query, opts=opts) as runt:
+            async for item in runt.execute():
+                yield item
 
     async def nodes(self):
         async with s_common.aclosing(self._getRuntGenr()) as genr:
