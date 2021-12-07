@@ -370,16 +370,7 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
-        '''
-        Note:  this swallows exceptions and return values.  It is expected that the nexus _followerLoop would be the
-        return path
-        '''
-        try:
-            await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-        except Exception:
-            pass
+        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
 
     @adminapi(log=True)
     async def delAuthUser(self, name):
