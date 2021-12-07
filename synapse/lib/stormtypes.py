@@ -4451,7 +4451,6 @@ class Query(Prim):
     async def _getRuntGenr(self):
         opts = {'vars': self.varz}
         query = await self.runt.getStormQuery(self.text)
-
         async with self.runt.getSubRuntime(query, opts=opts) as runt:
             async for item in runt.execute():
                 yield item
