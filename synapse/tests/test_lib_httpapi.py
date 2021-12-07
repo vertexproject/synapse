@@ -838,10 +838,15 @@ class HttpApiTest(s_tests.SynTest):
 
                         bufr += byts
                         for jstr in bufr.split(b'\n'):
+                            if not jstr:
+                                bufr = b''
+                                break
+
                             try:
                                 node = json.loads(byts)
                             except json.JSONDecodeError:
                                 bufr = jstr
+                                break
 
                     self.eq(0x01020304, node[0][1])
 
@@ -855,10 +860,15 @@ class HttpApiTest(s_tests.SynTest):
 
                         bufr += byts
                         for jstr in bufr.split(b'\n'):
+                            if not jstr:
+                                bufr = b''
+                                break
+
                             try:
                                 mesg = json.loads(byts)
                             except json.JSONDecodeError:
                                 bufr = jstr
+                                break
 
                             if mesg[0] == 'node':
                                 node = mesg[1]
