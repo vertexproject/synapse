@@ -240,8 +240,7 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
-    async def issue(self, nexsiden: str, event: str, args: Tuple[Any, ...], kwargs: Dict[str, Any],
-                    meta: Optional[Dict] = None) -> Any:
+    async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -267,9 +266,7 @@ class NexsRoot(s_base.Base):
         # make my response iden the same as what's coming from downstream
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
-
             meta['resp'] = iden
-
             await client.issue(nexsiden, event, args, kwargs, meta)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
@@ -324,7 +321,7 @@ class NexsRoot(s_base.Base):
 
             self.nexshot.inc('nexs:indx')
 
-        return await self._apply(saveindx, item)
+        return (saveindx, await self._apply(saveindx, item))
 
     async def _apply(self, indx, mesg):
 
@@ -531,4 +528,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
         assert self.nexsroot
-        return await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
+        saveoffs, retn = await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
+        return retn
+
+    async def saveToNexs(self, name, *args, **kwargs):
+        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None)
