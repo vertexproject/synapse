@@ -754,7 +754,7 @@ stormcmds = (
         'cmdargs': (
             ('url', {'help': 'The HTTP URL to load the package from.'}),
             ('--raw', {'default': False, 'action': 'store_true',
-                'help': 'Response JSON is a package definition without an envelope.'}),
+                'help': 'Response JSON is a raw package definition without an envelope.'}),
             ('--ssl-noverify', {'default': False, 'action': 'store_true',
                 'help': 'Specify to disable SSL verification of the server.'}),
         ),
