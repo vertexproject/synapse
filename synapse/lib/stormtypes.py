@@ -4496,8 +4496,9 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async for node, path in self._getRuntGenr():
-            yield node
+        async with s_common.aclosing(self._getRuntGenr()) as genr:
+            async for node, path in genr:
+                yield node
 
     async def iter(self):
         async for node, path in self._getRuntGenr():
