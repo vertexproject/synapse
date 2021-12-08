@@ -3045,14 +3045,20 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'gronk', 'storm': 'init { $fqdn=foo } $lib.print($fqdn)'},
                 ),
             })
-
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('''
-                    [ inet:fqdn=vertex.link ]
-                    $fqdn=$node.repr()
-                    | woot lol |
-                    $lib.print($path.vars.fqdn)
-                ''')
+            # Success for the next two tests is that these don't explode with errors..
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot lol |
+                $lib.print($path.vars.fqdn)
+            '''))
+            # Non-runtsafe scope
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot $node |
+                $lib.print($path.vars.fqdn)
+            '''))
 
             msgs = await core.stormlist('''
                 [ inet:fqdn=vertex.link ]
