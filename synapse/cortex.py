@@ -170,6 +170,10 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getCoreInfoV2()
 
+    @s_cell.adminapi()
+    async def saveLayerNodeEdits(self, layriden, edits, meta):
+        return await self.cell.saveLayerNodeEdits(layriden, edits, meta)
+
     def _reqValidStormOpts(self, opts):
 
         if opts is None:
@@ -1260,11 +1264,17 @@ class Cortex(s_cell.Cell):  # type: ignore
         for view in self.views.values():
             await view.initTrigTask()
 
+        for layer in self.layers.values():
+            await layer.initLayerActive()
+
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
         for view in self.views.values():
             await view.finiTrigTask()
+
+        for layer in self.layers.values():
+            await layer.initLayerPassive()
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -3617,6 +3627,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
+        if self.isactive:
+            await layr.initLayerActive()
+        else:
+            await layr.initLayerPassive()
+
         return await layr.pack()
 
     async def _initLayr(self, layrinfo, nexsoffs=None):
@@ -3657,17 +3672,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Actually construct the Layer instance for the given HiveDict.
         '''
-        iden = layrinfo.get('iden')
-        path = s_common.gendir(self.dirn, 'layers', iden)
-
-        mapasync = self.conf['layer:lmdb:map_async']
-        maxreplaylog = self.conf['layer:lmdb:max_replay_log']
-
-        # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
-        # TODO allow_upstream needs to be separated out
-        mirror = self.conf.get('mirror')
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror,
-                                        mapasync=mapasync, maxreplaylog=maxreplaylog)
+        return await s_layer.Layer.anit(self, layrinfo)
 
     async def _initCoreLayers(self):
         node = await self.hive.open(('cortex', 'layers'))
@@ -3834,6 +3839,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():
                 await self.setNexsIndx(maxindx)
+
+    async def saveLayerNodeEdits(self, layriden, edits, meta):
+        layr = self.getLayer(layriden)
+        if layr is None:
+            mesg = f'No layer found with iden: {layriden}'
+            raise s_exc.NoSuchLayer(mesg=mesg)
+        return await layr.saveNodeEdits(edits, meta)
 
     async def cloneLayer(self, iden, ldef=None):
         '''

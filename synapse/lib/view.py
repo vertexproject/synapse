@@ -43,12 +43,12 @@ class ViewApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
         self.view = view
         layriden = view.layers[0].iden
-        self.allowedits = user.allowed(('layer', 'write'), gateiden=layriden)
+        self.allowedits = user.allowed(('node'), gateiden=layriden)
 
     async def storNodeEdits(self, edits, meta):
 
         if not self.allowedits:
-            mesg = 'storNodeEdits() not allowed without layer.write on layer.'
+            mesg = 'storNodeEdits() not allowed without node permission on layer.'
             raise s_exc.AuthDeny(mesg=mesg)
 
         if meta is None:
@@ -58,6 +58,23 @@ class ViewApi(s_cell.CellApi):
         meta['user'] = self.user.iden
 
         return await self.view.storNodeEdits(edits, meta)
+
+    async def syncNodeEdits2(self, offs, wait=True):
+        await self._reqUserAllowed(('view', 'read'))
+        # present a layer compatible API to remote callers
+        layr = self.view.layers[0]
+        async for item in layr.syncNodeEdits2(offs, wait=wait):
+            yield item
+
+    @s_cell.adminapi()
+    async def saveNodeEdits(self, edits, meta):
+        meta['link:user'] = self.user.iden
+        async with await self.view.snap(user=self.user) as snap:
+            return await snap.saveNodeEdits(edits, meta)
+
+    async def getEditSize(self):
+        await self._reqUserAllowed(('view', 'read'))
+        return await self.view.layers[0].getEditSize()
 
     async def getCellIden(self):
         return self.view.iden

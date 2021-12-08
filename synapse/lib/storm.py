@@ -460,6 +460,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
+            ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
@@ -752,6 +753,8 @@ stormcmds = (
         'descr': 'Load a storm package from an HTTP URL.',
         'cmdargs': (
             ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--raw', {'default': False, 'action': 'store_true',
+                'help': 'Response JSON is a raw package definition without an envelope.'}),
             ('--ssl-noverify', {'default': False, 'action': 'store_true',
                 'help': 'Specify to disable SSL verification of the server.'}),
         ),
@@ -768,12 +771,16 @@ stormcmds = (
                 }
 
                 $reply = $resp.json()
-                if ($reply.status != "ok") {
-                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
-                    $lib.exit()
-                }
+                if $cmdopts.raw {
+                    $pkg = $reply
+                } else {
+                    if ($reply.status != "ok") {
+                        $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                        $lib.exit()
+                    }
 
-                $pkg = $reply.result
+                    $pkg = $reply.result
+                }
 
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
@@ -2475,8 +2482,10 @@ class PureCmd(Cmd):
         }
 
         if self.runtsafe:
+            data = {'pathvars': {}}
             async def genx():
                 async for xnode, xpath in genr:
+                    data['pathvars'] = xpath.vars.copy()
                     xpath.initframe(initvars={'cmdopts': cmdopts})
                     yield xnode, xpath
 
@@ -2484,18 +2493,21 @@ class PureCmd(Cmd):
                 subr.asroot = asroot
                 async for node, path in subr.execute(genr=genx()):
                     path.finiframe()
+                    path.vars.update(data['pathvars'])
                     yield node, path
         else:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
                 subr.asroot = asroot
 
                 async for node, path in genr:
+                    pathvars = path.vars.copy()
                     async def genx():
                         path.initframe(initvars={'cmdopts': cmdopts})
                         yield node, path
 
                     async for xnode, xpath in subr.execute(genr=genx()):
                         xpath.finiframe()
+                        xpath.vars.update(pathvars)
                         yield xnode, xpath
 
 class DivertCmd(Cmd):
