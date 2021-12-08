@@ -8,8 +8,8 @@ off information available at `Synapse Devops Guides`_. This will continue to be 
 .. toctree::
     :titlesonly:
 
-    orchestration/hashistack
-    orchestration/kubernetes
+    hashistack
+    kubernetes
 
 
 .. _Synapse Devops Guides: https://synapse.docs.vertex.link/en/latest/synapse/devops.html
