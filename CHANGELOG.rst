@@ -34,6 +34,11 @@ Bugfixes
   execution.
   (`#2492 <https://github.com/vertexproject/synapse/pull/2492>`_)
 
+Improved Documentation
+----------------------
+- Update the description of the Storm ``scrape`` command.
+  (`#2494 <https://github.com/vertexproject/synapse/pull/2494>`_)
+
 
 v2.73.0 - 2021-12-02
 ====================
