@@ -6,11 +6,6 @@ Advanced Power-ups
 Advanced Power-ups are enhancements to a Cortex which require the deployment of additional containers in order to run
 their services.
 
-.. note::
-   Advanced Power-ups were previously categorized between ``Connectors`` and ``Integrations``. Many of those services
-   which were previously classified as ``Connectors`` have been, or are in the process of, being ported over to being
-   delivered as Rapid Power-Ups.
-
 
 Documentation for specific Advanced Power-Ups can be found here:
 
