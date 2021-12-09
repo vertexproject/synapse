@@ -111,7 +111,7 @@ spec:
             name: ex-data
             subPath: core
         ports:
-          - containerPort: 27443
+          - containerPort: 27492
         imagePullPolicy: Always
         startupProbe:
           failureThreshold: 6
