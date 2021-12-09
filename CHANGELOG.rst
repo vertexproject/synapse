@@ -12,6 +12,7 @@ Features and Enhancements
 - Add ``.onion`` and ``.bit`` to the TLD list used for scraping text. Update
   the TLD list from the latest IANA TLD list.
   (`#2483 <https://github.com/vertexproject/synapse/pull/2483>`_)
+  (`#2497 <https://github.com/vertexproject/synapse/pull/2497>`_)
 - Add support for writeback mirroring of layers.
   (`#2463 <https://github.com/vertexproject/synapse/pull/2463>`_)
   (`#2489 <https://github.com/vertexproject/synapse/pull/2489>`_)
