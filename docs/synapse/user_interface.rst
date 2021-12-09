@@ -1,3 +1,5 @@
+.. _synapse-ui:
+
 Synapse User Interface
 ======================
 

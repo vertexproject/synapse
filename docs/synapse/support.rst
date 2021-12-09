@@ -1,4 +1,4 @@
-.. _synapse_support:
+.. _synapse-support:
 
 Synapse Support
 ===============

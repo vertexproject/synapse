@@ -1,3 +1,5 @@
+.. _orch-hashistack:
+
 Hashistack
 ==========
 
