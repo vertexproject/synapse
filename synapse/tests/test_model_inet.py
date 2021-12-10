@@ -2014,7 +2014,7 @@ class InetModelTest(s_t_utils.SynTest):
             'created': 2554858000000,
             'updated': 2554858000000,
             'role': 'registrant',
-            'roles': ('abuse', 'technical', 'administrative'),
+            'roles': ('abuse', 'administrative', 'technical'),
             'asn': 123456,
             'id': 'SPM-3',
             'links': ('http://myrdap.com/SPM3',),

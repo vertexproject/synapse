@@ -228,7 +228,7 @@ class TelcoModule(s_module.CoreModule):
                     ('to', ('tel:phone', {}), {
                         'doc': 'The phone number assigned to the primary recipient.'
                     }),
-                    ('recipients', ('array', {'type': 'tel:phone'}), {
+                    ('recipients', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of phone numbers for additional recipients of the message.',
                     }),
                     ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': 1, 'lower': 1}), {

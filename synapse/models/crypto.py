@@ -325,35 +325,35 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The hexadecimal representation of the digital signature.',
                     }),
 
-                    ('ext:sans', ('array', {'type': 'crypto:x509:san'}), {
+                    ('ext:sans', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {
                         'doc': 'The Subject Alternate Names (SANs) listed in the certficate.',
                     }),
 
-                    ('ext:crls', ('array', {'type': 'crypto:x509:san'}), {
+                    ('ext:crls', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {
                         'doc': 'A list of Subject Alternate Names (SANs) for Distribution Points.',
                     }),
 
-                    ('identities:fqdns', ('array', {'type': 'inet:fqdn'}), {
+                    ('identities:fqdns', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of FQDNs identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:emails', ('array', {'type': 'inet:email'}), {
+                    ('identities:emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of e-mail addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:ipv4s', ('array', {'type': 'inet:ipv4'}), {
+                    ('identities:ipv4s', ('array', {'type': 'inet:ipv4', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of IPv4 addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:ipv6s', ('array', {'type': 'inet:ipv6'}), {
+                    ('identities:ipv6s', ('array', {'type': 'inet:ipv6', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of IPv6 addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:urls', ('array', {'type': 'inet:url'}), {
+                    ('identities:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of URLs identified by the cert CN and SANs.',
                     }),
 
-                    ('crl:urls', ('array', {'type': 'inet:url'}), {
+                    ('crl:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'The extracted URL values from the CRLs extension.',
                     }),
 
