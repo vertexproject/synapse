@@ -65,6 +65,15 @@ class JsonStor(s_base.Base):
         self.slab.pop(buid, db=self.itemdb)
         self.dirty.pop(buid, None)
 
+    async def copyPathObj(self, oldp, newp):
+        item = await self.getPathObj(oldp)
+        await self.setPathObj(newp, item)
+
+    async def copyPathObjs(self, paths):
+        for oldp, newp in paths:
+            await self.copyPathObj(oldp, newp)
+            await asyncio.sleep(0)
+
     async def setPathObj(self, path, item):
         '''
         Set (and/or reinitialize) the object at the given path.
@@ -275,6 +284,24 @@ class JsonStor(s_base.Base):
 
 class JsonStorApi(s_cell.CellApi):
 
+    async def copyPathObj(self, oldp, newp):
+        oldp = self.cell.jsonstor._pathToTupl(oldp)
+        newp = self.cell.jsonstor._pathToTupl(newp)
+        await self._reqUserAllowed(('json', 'get', *oldp))
+        await self._reqUserAllowed(('json', 'set', *newp))
+        return await self.cell.copyPathObj(oldp, newp)
+
+    async def copyPathObjs(self, paths):
+        pathnorms = []
+        for oldp, newp in paths:
+            oldp = self.cell.jsonstor._pathToTupl(oldp)
+            newp = self.cell.jsonstor._pathToTupl(newp)
+            await self._reqUserAllowed(('json', 'get', *oldp))
+            await self._reqUserAllowed(('json', 'set', *newp))
+            pathnorms.append((oldp, newp))
+
+        return await self.cell.copyPathObjs(pathnorms)
+
     async def getPathList(self, path):
         path = self.cell.jsonstor._pathToTupl(path)
         await self._reqUserAllowed(('json', 'list', *path))
@@ -366,6 +393,12 @@ class JsonStorCell(s_cell.Cell):
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item
+
+    async def copyPathObj(self, oldp, newp):
+        return await self.jsonstor.copyPathObj(oldp, newp)
+
+    async def copyPathObjs(self, paths):
+        return await self.jsonstor.copyPathObjs(paths)
 
     async def getPathObj(self, path):
         return await self.jsonstor.getPathObj(path)
