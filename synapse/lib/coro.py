@@ -66,6 +66,21 @@ def executor(func, *args, **kwargs):
 
     return asyncio.get_running_loop().run_in_executor(None, real)
 
+class Event(asyncio.Event):
+
+    async def timewait(self, timeout=None):
+
+        if timeout is None:
+            await self.wait()
+            return True
+
+        try:
+            await asyncio.wait_for(self.wait(), timeout)
+        except asyncio.TimeoutError:
+            return False
+
+        return True
+
 async def event_wait(event: asyncio.Event, timeout=None):
     '''
     Wait on an an asyncio event with an optional timeout
@@ -226,7 +241,7 @@ if multiprocessing.current_process().name == 'MainProcess':
         max_workers = int(os.getenv('SYN_FORKED_WORKERS', 1))
         forkpool = concurrent.futures.ProcessPoolExecutor(mp_context=mpctx, max_workers=max_workers)
         atexit.register(forkpool.shutdown)
-    except OSError as e: # pragma: no cover
+    except OSError as e:  # pragma: no cover
         logger.warning(f'Failed to init forkserver pool, fallback enabled: {e}', exc_info=True)
 
 def set_pool_logging(logger_, logconf):
@@ -240,5 +255,24 @@ def _runtodo(todo):
     return todo[0](*todo[1], **todo[2])
 
 async def forked(func, *args, **kwargs):
+    '''
+    Execute a target function in the forked process pool.
+
+    Args:
+        func: The target function.
+        *args: Function positional arguments.
+        **kwargs: Function keyword arguments.
+
+    Returns:
+        The target function return.
+
+    Raises:
+        The function may raise from the target function, or raise a s_exc.FatalErr in the event of a broken forked
+        process pool. The fatalerr represents a unrecoverable application state.
+    '''
     todo = (func, args, kwargs)
-    return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
+    try:
+        return await asyncio.get_running_loop().run_in_executor(forkpool, _runtodo, todo)
+    except concurrent.futures.process.BrokenProcessPool as e:
+        logger.exception(f'Fatal error executing forked task: {func} {args} {kwargs}')
+        raise s_exc.FatalErr(mesg=f'Fatal error encountered: {e}') from None

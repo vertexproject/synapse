@@ -7,13 +7,12 @@
 Storm Reference - Storm Commands
 ================================
 
-Storm commands are built-in or custom commands that can be used with the Synapse :ref:`syn-storm` command itself. As such, Storm commands must be executed following the ``storm`` command:
+Storm commands are built-in or custom commands that can be used natively within the Synapse Storm tool / Storm CLI (see :ref:`syn-tools-storm`), or in conjunction with the ``storm`` command from the Synapse ``cmdr`` CLI tool (see :ref:`syn-tools-cmdr`).
 
-**storm** *<command>*
+.. NOTE::
+  
+  The Storm tool / Storm CLI provides a native Storm interpreter and is the preferred tool for interacting with a Synapse Cortex from the CLI.
 
-or
-
-**storm** *<query>* **|** *<command>* [ **|** *<query>* ]
 
 The pipe symbol ( ``|`` ) is used to send (pipe) the output from a Storm query to any of the Storm commands, and to send the output from a Storm command back to a Storm query.
 
@@ -1095,11 +1094,11 @@ The ``reindex`` command reindexes a given node property. This is an administrati
 scrape
 ------
 
-The ``scrape`` command parses one or more secondary properties or variables of the inbound node(s), attempts to identify ("scrape") common forms from the content, and returns nodes for the identified forms (creating the nodes if they do not already exist). This is useful (for example) to extract forms such as email addresses, domains, URLs, hashes, etc. from unstructured text.
+The ``scrape`` command parses one or more secondary properties of the inbound node(s) and attempts to identify ("scrape") common forms from the content, creating the nodes if they do not already exist. This is useful (for example) for extracting forms such as email addresses, domains, URLs, hashes, etc. from unstructured text.
 
-``scrape`` can optionally link the source nodes(s) to the scraped forms via ``refs`` light edges.
+The ``--refs`` switch can be used to optionally link the source nodes(s) to the scraped forms via ``refs`` light edges.
 
-By default, the scrape command will yield the nodes that it received as input (i.e., the command will not consume nodes by default) to allow command chaining.  However if executed with the option ``--yield`` the ``scrape`` command will yield the **scraped nodes** rather than the input nodes.
+By default, the ``scrape`` command will return the nodes that it received as input. The ``--yield`` option can be used to return the scraped nodes rather than the input nodes.
 
 
 .. storm-cli:: scrape --help
@@ -1107,25 +1106,32 @@ By default, the scrape command will yield the nodes that it received as input (i
 
 **Examples:**
 
-- Scrape common forms and create nodes from the body of domain WHOIS record(s) for domain woot.com:
-
+- Scrape the text of WHOIS records for the domain ``woot.com`` and create nodes for common forms found in the text:
 
 .. storm-cli:: inet:whois:rec:fqdn=woot.com | scrape :text
 
 
-- Scrape common forms from the content of a set of Internet posts from a given account, link the created nodes to the original posts, and uniq the results:
+- Scrape the text of the posts from the ``scumbots`` Twitter account, link the created nodes to the original posts, and return the scraped nodes:
 
-
-.. storm-pre:: [inet:web:post=((twitter.com,finley1589),20160918105200) :acct=(twitter.com,finley1589) :time=20160918105200 :url=http://twitter.com/finley1589/statuses/777460180225261568 :text="THOSE THAT LOVE THE USA PRAY! https://t.co/q5EPZrxGKk "]
-.. storm-cli:: inet:web:post:acct=(twitter.com,finley1589) | scrape :text --refs --yield | uniq
+.. storm-pre:: [inet:web:post=((twitter.com,scumbots),20211120125018) :acct=(twitter.com,scumbots) :time=20211120125018 :url=https://twitter.com/ScumBots/status/1446122437150531600 :text='#ZHacker13ReverseTCPShell SHA256: c92a7f657301e496610ae9ff85e01fe8e60f1179cae6e062bfcfd191a4c0e30d C2: 23[.]88[.]123[.]250:4444' ]
+.. storm-cli:: inet:web:post:acct=(twitter.com,scumbots) | scrape :text --refs --yield | uniq
 
 
 **Usage Notes:**
 
-- If no properties or variables are specified, ``scrape`` will attempt to scrape all properties by default.
-- If any scraped secondary properties are already recognizable / common properties, those properties will also be scraped (and optionally linked, if ``--refs`` is also specified). That is, scraping the ``:md5`` secondary property of a node will return a ``hash:md5`` node with that property's value.
-- ``scrape`` will only scrape node properties; it will not scrape the content of any files that may be referenced by those properties. For example, attempting to scrape the ``:file`` property of a ``media:news`` node will scrape and extract the **value** of the property (typically a SHA256 hash) if present; it will not extract indicators from the referenced file itself.
-- With respect to cyber threat data in particular, ``scrape`` cannot identify and extract "defanged" values such as "hxxp://" for URLs or "woot[.]com" for domains.
+- If no properties to scrape are specified, ``scrape`` will attempt to scrape **all** properties of the inbound nodes by default.
+- ``scrape`` will only scrape node **properties**; it will not scrape files (this includes files that may be referenced by properties, such as ``media:news:file``). In other words, ``scrape`` cannot be used to parse indicators from a file such as a PDF.
+- ``scrape`` extracts the following forms / indicators (note that this list may change as the command is updated):
+
+  - FQDNs
+  - IPv4s
+  - Servers (IPv4 / port combinations)
+  - Hashes (MD5, SHA1, SHA256)
+  - URLs
+  - Email addresses
+  - Cryptocurrency addresses
+  
+- ``scrape`` is able to recognize and account for common "defanging" techniques (such as ``evildomain[.]com``, ``myemail[@]somedomain.net``, or ``hxxp://badwebsite.org/``), and will scrape "defanged" indicators by default. Use the ``--skiprefang`` switch to ignore defanged indicators.
 
 .. _storm-service:
 

@@ -125,7 +125,7 @@ class NexsRoot(s_base.Base):
 
         async def fini():
 
-            for futu in self._futures.values(): # pragma: no cover
+            for futu in self._futures.values():  # pragma: no cover
                 futu.cancel()
 
             await self.nexsslab.fini()
@@ -223,7 +223,7 @@ class NexsRoot(s_base.Base):
             The log can only have recorded 1 entry ahead of what is applied.  All log actions are idempotent, so
             replaying the last action that (might have) already happened is harmless.
         '''
-        if not self.donexslog: # pragma: no cover
+        if not self.donexslog:  # pragma: no cover
             return
 
         indxitem = await self.nexslog.last()
@@ -240,8 +240,7 @@ class NexsRoot(s_base.Base):
         except Exception:
             logger.exception('Exception while replaying log')
 
-    async def issue(self, nexsiden: str, event: str, args: Tuple[Any, ...], kwargs: Dict[str, Any],
-                    meta: Optional[Dict] = None) -> Any:
+    async def issue(self, nexsiden, event, args, kwargs, meta=None):
         '''
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
@@ -267,9 +266,7 @@ class NexsRoot(s_base.Base):
         # make my response iden the same as what's coming from downstream
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
-
             meta['resp'] = iden
-
             await client.issue(nexsiden, event, args, kwargs, meta)
             return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
@@ -319,12 +316,12 @@ class NexsRoot(s_base.Base):
 
         else:
             saveindx = self.nexshot.get('nexs:indx')
-            if indx is not None and indx > saveindx: # pragma: no cover
+            if indx is not None and indx > saveindx:  # pragma: no cover
                 saveindx = self.nexshot.set('nexs:indx', indx)
 
             self.nexshot.inc('nexs:indx')
 
-        return await self._apply(saveindx, item)
+        return (saveindx, await self._apply(saveindx, item))
 
     async def _apply(self, indx, mesg):
 
@@ -352,7 +349,7 @@ class NexsRoot(s_base.Base):
         maxoffs = offs
 
         async for item in self.nexslog.iter(offs):
-            if self.isfini: # pragma: no cover
+            if self.isfini:  # pragma: no cover
                 raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
@@ -420,7 +417,7 @@ class NexsRoot(s_base.Base):
                 genr = proxy.getNexusChanges(offs)
                 async for item in genr:
 
-                    if proxy.isfini: # pragma: no cover
+                    if proxy.isfini:  # pragma: no cover
                         break
 
                     offs, args = item
@@ -443,7 +440,7 @@ class NexsRoot(s_base.Base):
                         if respfutu is not None:
                             assert not respfutu.done()
                             respfutu.set_exception(e)
-                        else: # pragma: no cover
+                        else:  # pragma: no cover
                             logger.exception(e)
 
                     else:
@@ -453,7 +450,7 @@ class NexsRoot(s_base.Base):
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
 
-            except Exception: # pragma: no cover
+            except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
@@ -531,4 +528,8 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             This method is considered 'protected', in that it should not be called from something other than self.
         '''
         assert self.nexsroot
-        return await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
+        saveoffs, retn = await self.nexsroot.issue(self.nexsiden, event, args, kwargs, None)
+        return retn
+
+    async def saveToNexs(self, name, *args, **kwargs):
+        return await self.nexsroot.issue(self.nexsiden, name, args, kwargs, None)

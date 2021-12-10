@@ -123,14 +123,20 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterLayerNodeEdits():
             yield item
 
+    @s_cell.adminapi()
+    async def saveNodeEdits(self, edits, meta):
+        '''
+        Save node edits to the layer and return a tuple of (nexsoffs, changes).
+        '''
+        meta['link:user'] = self.user.iden
+        return await self.layr.saveNodeEdits(edits, meta)
+
     async def storNodeEdits(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
         if meta is None:
-            meta = {'time': s_common.now(),
-                    'user': self.user.iden
-                    }
+            meta = {'time': s_common.now(), 'user': self.user.iden}
 
         return await self.layr.storNodeEdits(nodeedits, meta)
 
@@ -139,9 +145,7 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.writeperm)
 
         if meta is None:
-            meta = {'time': s_common.now(),
-                    'user': self.user.iden
-                    }
+            meta = {'time': s_common.now(), 'user': self.user.iden}
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
@@ -153,6 +157,11 @@ class LayerApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait):
+            yield item
+
+    async def syncNodeEdits2(self, offs, wait=True):
+        await self._reqUserAllowed(self.liftperm)
+        async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
     async def splices(self, offs=None, size=None):
@@ -171,6 +180,13 @@ class LayerApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(self.liftperm)
         return await self.layr.getEditIndx()
+
+    async def getEditSize(self):
+        '''
+        Return the total number of (edits, meta) pairs in the layer changelog.
+        '''
+        await self._reqUserAllowed(self.liftperm)
+        return await self.layr.getEditSize()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -216,18 +232,18 @@ STOR_FLAG_ARRAY = 0x8000
 
 # Edit types (etyp)
 
-EDIT_NODE_ADD = 0     # (<etyp>, (<valu>, <type>), ())
-EDIT_NODE_DEL = 1     # (<etyp>, (<oldv>, <type>), ())
-EDIT_PROP_SET = 2     # (<etyp>, (<prop>, <valu>, <oldv>, <type>), ())
-EDIT_PROP_DEL = 3     # (<etyp>, (<prop>, <oldv>, <type>), ())
-EDIT_TAG_SET = 4      # (<etyp>, (<tag>, <valu>, <oldv>), ())
-EDIT_TAG_DEL = 5      # (<etyp>, (<tag>, <oldv>), ())
-EDIT_TAGPROP_SET = 6  # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
-EDIT_TAGPROP_DEL = 7  # (<etyp>, (<tag>, <prop>, <oldv>, <type>), ())
-EDIT_NODEDATA_SET = 8 # (<etyp>, (<name>, <valu>, <oldv>), ())
-EDIT_NODEDATA_DEL = 9 # (<etyp>, (<name>, <oldv>), ())
-EDIT_EDGE_ADD = 10    # (<etyp>, (<verb>, <destnodeiden>), ())
-EDIT_EDGE_DEL = 11    # (<etyp>, (<verb>, <destnodeiden>), ())
+EDIT_NODE_ADD = 0      # (<etyp>, (<valu>, <type>), ())
+EDIT_NODE_DEL = 1      # (<etyp>, (<oldv>, <type>), ())
+EDIT_PROP_SET = 2      # (<etyp>, (<prop>, <valu>, <oldv>, <type>), ())
+EDIT_PROP_DEL = 3      # (<etyp>, (<prop>, <oldv>, <type>), ())
+EDIT_TAG_SET = 4       # (<etyp>, (<tag>, <valu>, <oldv>), ())
+EDIT_TAG_DEL = 5       # (<etyp>, (<tag>, <oldv>), ())
+EDIT_TAGPROP_SET = 6   # (<etyp>, (<tag>, <prop>, <valu>, <oldv>, <type>), ())
+EDIT_TAGPROP_DEL = 7   # (<etyp>, (<tag>, <prop>, <oldv>, <type>), ())
+EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>, <oldv>), ())
+EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>), ())
+EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>), ())
+EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
 
 EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
 
@@ -1101,27 +1117,27 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True, mapasync=True, maxreplaylog=10000):
+    async def __anit__(self, core, layrinfo):
 
-        self.nexsroot = nexsroot
+        self.core = core
         self.layrinfo = layrinfo
-        self.allow_upstream = allow_upstream
 
         self.addoffs = None  # The nexus log index where I was created
         self.deloffs = None  # The nexus log index where I was deleted
         self.isdeleted = False
 
         self.iden = layrinfo.get('iden')
-        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot)
 
-        self.dirn = dirn
+        self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = layrinfo.get('readonly')
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
-        self.mapasync = mapasync
-        self.maxreplaylog = maxreplaylog
+
+        self.mapasync = core.conf.get('layer:lmdb:map_async')
+        self.maxreplaylog = core.conf.get('layer:lmdb:max_replay_log')
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -1132,6 +1148,7 @@ class Layer(s_nexus.Pusher):
         self.fresh = not os.path.exists(path)
 
         self.dirty = {}
+        self.futures = {}
 
         self.stortypes = [
 
@@ -1163,7 +1180,7 @@ class Layer(s_nexus.Pusher):
             StorTypeInt(self, STOR_TYPE_U128, 16, False),
             StorTypeInt(self, STOR_TYPE_I128, 16, True),
 
-            StorTypeTime(self), # STOR_TYPE_MINTIME
+            StorTypeTime(self),  # STOR_TYPE_MINTIME
 
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
@@ -1194,18 +1211,118 @@ class Layer(s_nexus.Pusher):
 
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
-        uplayr = layrinfo.get('upstream')
-        if uplayr is not None and allow_upstream:
+        self.onfini(self._onLayrFini)
+
+        # if we are a mirror, we upstream all our edits and
+        # wait for them to make it back down the pipe...
+        self.leader = None
+        self.leadtask = None
+        self.ismirror = layrinfo.get('mirror') is not None
+        self.activetasks = []
+
+    @contextlib.contextmanager
+    def getIdenFutu(self, iden=None):
+
+        if iden is None:
+            iden = s_common.guid()
+
+        futu = self.loop.create_future()
+        self.futures[iden] = futu
+
+        yield iden, futu
+
+        self.futures.pop(iden, None)
+
+    async def getMirrorStatus(self):
+        # TODO plumb back to upstream on not self.core.isactive
+        retn = {'mirror': self.leader is not None}
+        if self.leader:
+            proxy = await self.leader.proxy()
+            retn['local'] = {'size': await self.getEditSize()}
+            retn['remote'] = {'size': await proxy.getEditSize()}
+        return retn
+
+    async def initLayerActive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+
+        mirror = self.layrinfo.get('mirror')
+        if mirror is not None:
+            conf = {'retrysleep': 2}
+            self.leader = await s_telepath.Client.anit(mirror, conf=conf)
+            self.leadtask = self.schedCoro(self._runMirrorLoop())
+
+        uplayr = self.layrinfo.get('upstream')
+        if uplayr is not None:
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
             else:
                 await self.initUpstreamSync(uplayr)
 
-        self.onfini(self._onLayrFini)
+    async def initLayerPassive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+            self.leadtask = None
+
+        if self.leader is not None:
+            await self.leader.fini()
+            self.leader = None
+
+        [t.cancel() for t in self.activetasks]
+        self.activetasks.clear()
+
+    async def getEditSize(self):
+        return self.nodeeditlog.size
+
+    async def _runMirrorLoop(self):
+
+        while not self.isfini:
+
+            try:
+
+                proxy = await self.leader.proxy()
+
+                leadoffs = await self._getLeadOffs()
+
+                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1):
+
+                    iden = meta.get('task')
+                    futu = self.futures.pop(iden, None)
+
+                    meta['indx'] = offs
+
+                    try:
+                        item = await self.saveToNexs('edits', edits, meta)
+                        if futu is not None:
+                            futu.set_result(item)
+
+                    except asyncio.CancelledError:  # pragma: no cover
+                        raise
+
+                    except Exception as e:
+                        if futu is not None:
+                            futu.set_exception(e)
+
+            except asyncio.CancelledError as e:  # pragma: no cover
+                raise
+
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
+                await self.waitfini(timeout=2)
+
+    async def _getLeadOffs(self):
+        last = self.nodeeditlog.last()
+        if last is None:
+            return -1
+        return last[1][1].get('indx', -1)
 
     async def pack(self):
         ret = self.layrinfo.pack()
+        if ret.get('mirror'):
+            ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
@@ -1325,7 +1442,7 @@ class Layer(s_nexus.Pusher):
                 sode['form'] = lval.decode()
                 continue
 
-            logger.warning('Invalid flag %d found for buid %s during migration', flag, buid) # pragma: no cover
+            logger.warning('Invalid flag %d found for buid %s during migration', flag, buid)  # pragma: no cover
 
         count += 1
 
@@ -1568,6 +1685,9 @@ class Layer(s_nexus.Pusher):
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
+        [futu.cancel() for futu in self.futures.values()]
+        if self.leader is not None:
+            await self.leader.fini()
 
     async def getFormCounts(self):
         return self.formcounts.pack()
@@ -1826,14 +1946,46 @@ class Layer(s_nexus.Pusher):
 
     async def storNodeEdits(self, nodeedits, meta):
 
-        results = await self._push('edits', nodeedits, meta)
+        saveoff, results = await self.saveNodeEdits(nodeedits, meta)
 
         retn = []
         for buid, _, edits in results:
-            sode = deepcopy(self._getStorNode(buid))
+            sode = await self.getStorNode(buid)
             retn.append((buid, sode, edits))
 
         return retn
+
+    async def _realSaveNodeEdits(self, edits, meta):
+
+        saveoff, changes = await self.saveNodeEdits(edits, meta)
+
+        retn = []
+        for buid, _, edits in changes:
+            sode = await self.getStorNode(buid)
+            retn.append((buid, sode, edits))
+
+        return saveoff, changes, retn
+
+    async def saveNodeEdits(self, edits, meta):
+
+        if self.ismirror:
+
+            if self.core.isactive:
+                proxy = await self.leader.proxy()
+
+                with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
+                    meta['task'] = iden
+                    moff, changes = await proxy.saveNodeEdits(edits, meta)
+                    if any(c[2] for c in changes):
+                        return await futu
+                    return
+
+            proxy = await self.core.nexsroot.client.proxy()
+            indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
+            await self.core.nexsroot.waitOffs(indx)
+            return indx, changes
+
+        return await self.saveToNexs('edits', edits, meta)
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):
@@ -1858,7 +2010,6 @@ class Layer(s_nexus.Pusher):
 
             sode = self._getStorNode(buid)
 
-            i = 0
             changes = []
             for edit in edits:
 
@@ -1868,9 +2019,7 @@ class Layer(s_nexus.Pusher):
 
                 changes.extend(delt)
 
-                i += 1
-                if i % 100 == 0:
-                    await asyncio.sleep(0)
+                await asyncio.sleep(0)
 
             flatedit = results.get(buid)
             if flatedit is None:
@@ -1880,8 +2029,6 @@ class Layer(s_nexus.Pusher):
 
             if changes:
                 edited = True
-
-            await asyncio.sleep(0)
 
         flatedits = list(results.values())
 
@@ -2024,7 +2171,7 @@ class Layer(s_nexus.Pusher):
         abrv = self.setPropAbrv(form, prop)
         univabrv = None
 
-        if prop[0] == '.': # '.' to detect universal props (as quickly as possible)
+        if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
 
         if oldv is not None:
@@ -2091,7 +2238,7 @@ class Layer(s_nexus.Pusher):
         abrv = self.setPropAbrv(form, prop)
         univabrv = None
 
-        if prop[0] == '.': # '.' to detect universal props (as quickly as possible)
+        if prop[0] == '.':  # '.' to detect universal props (as quickly as possible)
             univabrv = self.setPropAbrv(None, prop)
 
         valt = sode['props'].pop(prop, None)
@@ -2133,7 +2280,7 @@ class Layer(s_nexus.Pusher):
 
     def _editTagSet(self, buid, form, edit, sode, meta):
 
-        if form is None: # pragma: no cover
+        if form is None:  # pragma: no cover
             logger.warning(f'Invalid tag set edit, form is None: {edit}')
             return ()
 
@@ -2185,7 +2332,7 @@ class Layer(s_nexus.Pusher):
 
     def _editTagPropSet(self, buid, form, edit, sode, meta):
 
-        if form is None: # pragma: no cover
+        if form is None:  # pragma: no cover
             logger.warning(f'Invalid tagprop set edit, form is None: {edit}')
             return ()
 
@@ -2294,7 +2441,7 @@ class Layer(s_nexus.Pusher):
 
     def _editNodeEdgeAdd(self, buid, form, edit, sode, meta):
 
-        if form is None: # pragma: no cover
+        if form is None:  # pragma: no cover
             logger.warning(f'Invalid node edge edit, form is None: {edit}')
             return ()
 
@@ -2643,7 +2790,7 @@ class Layer(s_nexus.Pusher):
             yield nodeedit
 
     async def initUpstreamSync(self, url):
-        self.schedCoro(self._initUpstreamSync(url))
+        self.activetasks.append(self.schedCoro(self._initUpstreamSync(url)))
 
     async def _initUpstreamSync(self, url):
         '''
@@ -2723,7 +2870,7 @@ class Layer(s_nexus.Pusher):
                                 if waits is not None:
                                     [e.set() for e in waits]
 
-            except asyncio.CancelledError: # pragma: no cover
+            except asyncio.CancelledError:  # pragma: no cover
                 return
 
             except Exception:

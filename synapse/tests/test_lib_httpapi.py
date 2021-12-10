@@ -827,6 +827,54 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(0x01020304, node[0][1])
 
+                body['stream'] = 'jsonlines'
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
+                    bufr = b''
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        bufr += byts
+                        for jstr in bufr.split(b'\n'):
+                            if not jstr:
+                                bufr = b''
+                                break
+
+                            try:
+                                node = json.loads(byts)
+                            except json.JSONDecodeError:
+                                bufr = jstr
+                                break
+
+                    self.eq(0x01020304, node[0][1])
+
+                async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
+
+                    bufr = b''
+                    async for byts, x in resp.content.iter_chunks():
+
+                        if not byts:
+                            break
+
+                        bufr += byts
+                        for jstr in bufr.split(b'\n'):
+                            if not jstr:
+                                bufr = b''
+                                break
+
+                            try:
+                                mesg = json.loads(byts)
+                            except json.JSONDecodeError:
+                                bufr = jstr
+                                break
+
+                            if mesg[0] == 'node':
+                                node = mesg[1]
+
+                    self.eq(0x01020304, node[0][1])
+
                 # Task cancellation during long running storm queries works as intended
                 body = {'query': '.created | sleep 10'}
                 task = None
@@ -855,7 +903,7 @@ class HttpApiTest(s_tests.SynTest):
                             break
 
                         mesg = json.loads(byts)
-                        self.len(2, mesg) # Is if roughly shaped like a node?
+                        self.len(2, mesg)  # Is if roughly shaped like a node?
                         task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
                         break
 

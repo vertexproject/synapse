@@ -13,6 +13,10 @@ import synapse.lib.crypto.coin as s_coin
 logger = logging.getLogger(__name__)
 
 tldlist = list(s_data.get('iana.tlds'))
+tldlist.extend([
+    'bit',
+    'onion',
+])
 
 tldlist.sort(key=lambda x: len(x))
 tldlist.reverse()
@@ -140,8 +144,9 @@ def scrape(text, ptype=None, refang=True, first=False):
 
     Args:
         text (str): Text to scrape.
-        ptype (str): Optional ptype to scrape. If present, only scrape rules which match the provided type.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
         refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
 
     Returns:
         (str, object): Yield tuples of node ndef values.

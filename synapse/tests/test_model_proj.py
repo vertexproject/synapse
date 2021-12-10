@@ -294,3 +294,26 @@ class ProjModelTest(s_test.SynTest):
             self.false(await core.callStorm('return($lib.projects.del(newp))', opts=opts))
 
             self.none(core.auth.getAuthGate(proj))
+
+            self.len(1, await core.nodes('yield $lib.projects.add(proj)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).epics.add(epic)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).sprints.add(spri)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.add(tick)'))
+            self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.get(tick).comments.add(comm)'))
+
+    async def test_model_proj_attachment(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ proj:attachment=* :file=guid:210afe138d63d2af4d886439cd4a9c7f :name=a.exe :created=now :creator=$lib.user.iden :ticket=* :comment=* ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('ticket'))
+            self.nn(nodes[0].get('created'))
+            self.eq('a.exe', nodes[0].get('name'))
+            self.eq('guid:210afe138d63d2af4d886439cd4a9c7f', nodes[0].get('file'))
+            self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
+            self.len(1, await core.nodes('proj:attachment -> file:base'))
+            self.len(1, await core.nodes('proj:attachment -> file:bytes'))
+            self.len(1, await core.nodes('proj:attachment -> proj:ticket'))
+            self.len(1, await core.nodes('proj:attachment -> proj:comment'))

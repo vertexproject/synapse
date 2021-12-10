@@ -47,16 +47,19 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.lib.stormlib.auth as s_stormlib_auth # NOQA
-import synapse.lib.stormlib.cell as s_stormlib_cell # NOQA
+import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
+import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
+import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
+import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
+import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
-import synapse.lib.stormlib.oauth as s_stormlib_oauth # NOQA
-import synapse.lib.stormlib.storm as s_stormlib_storm # NOQA
+import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
+import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
@@ -166,6 +169,10 @@ class CoreApi(s_cell.CellApi):
         Return static generic information about the cortex including model definition
         '''
         return await self.cell.getCoreInfoV2()
+
+    @s_cell.adminapi()
+    async def saveLayerNodeEdits(self, layriden, edits, meta):
+        return await self.cell.saveLayerNodeEdits(layriden, edits, meta)
 
     def _reqValidStormOpts(self, opts):
 
@@ -591,7 +598,7 @@ class CoreApi(s_cell.CellApi):
         count = 0
         async for mesg in self.cell.view.layers[0].splicesBack(offs=offs, size=size):
             count += 1
-            if not count % 1000: # pragma: no cover
+            if not count % 1000:  # pragma: no cover
                 await asyncio.sleep(0)
             yield mesg
 
@@ -1085,7 +1092,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
         self.libroot = (None, {}, {})
-        self.bldgbuids = {} # buid -> (Node, Event)  Nodes under construction
+        self.bldgbuids = {}  # buid -> (Node, Event)  Nodes under construction
 
         self.axon = None  # type: s_axon.AxonApi
         self.axready = asyncio.Event()
@@ -1254,10 +1261,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.conf.get('cron:enable'):
             await self.agenda.start()
         await self.stormdmons.start()
+        for view in self.views.values():
+            await view.initTrigTask()
+
+        for layer in self.layers.values():
+            await layer.initLayerActive()
 
     async def initServicePassive(self):
         await self.agenda.stop()
         await self.stormdmons.stop()
+        for view in self.views.values():
+            await view.finiTrigTask()
+
+        for layer in self.layers.values():
+            await layer.initLayerPassive()
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -2166,9 +2183,9 @@ class Cortex(s_cell.Cell):  # type: ignore
                         if mesg[0] in ('print', 'warn'):
                             logger.warning(f'onload output: {mesg}')
                             await asyncio.sleep(0)
-                except asyncio.CancelledError: # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception: # pragma: no cover
+                except Exception:  # pragma: no cover
                     logger.warning(f'onload failed for package: {name}')
             self.schedCoro(_onload())
 
@@ -2246,7 +2263,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Delete a registered storm service from the cortex.
         '''
         sdef = self.svchive.get(iden)
-        if sdef is None: # pragma: no cover
+        if sdef is None:  # pragma: no cover
             return
 
         try:
@@ -2997,6 +3014,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.GraphCmd)
         self.addStormCmd(s_storm.LimitCmd)
         self.addStormCmd(s_storm.MergeCmd)
+        self.addStormCmd(s_storm.RunAsCmd)
         self.addStormCmd(s_storm.SleepCmd)
         self.addStormCmd(s_storm.DivertCmd)
         self.addStormCmd(s_storm.ScrapeCmd)
@@ -3008,6 +3026,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.ParallelCmd)
         self.addStormCmd(s_storm.TagPruneCmd)
         self.addStormCmd(s_storm.ViewExecCmd)
+        self.addStormCmd(s_storm.IntersectCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
@@ -3540,8 +3559,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         if view is not None:
             return await view.pack()
 
-    async def getViewDefs(self):
-        return [await v.pack() for v in list(self.views.values())]
+    async def getViewDefs(self, deporder=False):
+
+        views = list(self.views.values())
+        if not deporder:
+            return [await v.pack() for v in views]
+
+        def depth(view):
+            x = 0
+            llen = len(view.layers)
+            while view:
+                x += 1
+                view = view.parent
+            return (x, llen)
+        views.sort(key=lambda x: depth(x))
+
+        return [await v.pack() for v in views]
 
     async def addLayer(self, ldef=None, nexs=True):
         '''
@@ -3594,6 +3627,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr.setModelVers(s_modelrev.maxvers)
 
+        if self.isactive:
+            await layr.initLayerActive()
+        else:
+            await layr.initLayerPassive()
+
         return await layr.pack()
 
     async def _initLayr(self, layrinfo, nexsoffs=None):
@@ -3634,17 +3672,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Actually construct the Layer instance for the given HiveDict.
         '''
-        iden = layrinfo.get('iden')
-        path = s_common.gendir(self.dirn, 'layers', iden)
-
-        mapasync = self.conf['layer:lmdb:map_async']
-        maxreplaylog = self.conf['layer:lmdb:max_replay_log']
-
-        # In case that we're a mirror follower and we have a downstream layer, disable upstream sync
-        # TODO allow_upstream needs to be separated out
-        mirror = self.conf.get('mirror')
-        return await s_layer.Layer.anit(layrinfo, path, nexsroot=self.nexsroot, allow_upstream=not mirror,
-                                        mapasync=mapasync, maxreplaylog=maxreplaylog)
+        return await s_layer.Layer.anit(self, layrinfo)
 
     async def _initCoreLayers(self):
         node = await self.hive.open(('cortex', 'layers'))
@@ -3779,7 +3807,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                         await queue.put(item)
                     await queue.close()
 
-                except asyncio.CancelledError: # pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
 
                 except Exception as e:
@@ -3811,6 +3839,13 @@ class Cortex(s_cell.Cell):  # type: ignore
             maxindx = max(layroffs)
             if maxindx > await self.getNexsIndx():
                 await self.setNexsIndx(maxindx)
+
+    async def saveLayerNodeEdits(self, layriden, edits, meta):
+        layr = self.getLayer(layriden)
+        if layr is None:
+            mesg = f'No layer found with iden: {layriden}'
+            raise s_exc.NoSuchLayer(mesg=mesg)
+        return await layr.saveNodeEdits(edits, meta)
 
     async def cloneLayer(self, iden, ldef=None):
         '''
@@ -4217,7 +4252,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
         # TODO:  due to our migration policy, remove in 3.0.0
-        if viewiden == self.iden: # pragma: no cover
+        if viewiden == self.iden:  # pragma: no cover
             viewiden = self.view.iden
 
         view = self.views.get(viewiden)
@@ -4357,7 +4392,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         A simple non-streaming way to return a list of nodes.
         '''
-        if self.isfini: # pragma: no cover
+        if self.isfini:  # pragma: no cover
             raise s_exc.IsFini()
 
         opts = self._initStormOpts(opts)
@@ -4381,12 +4416,22 @@ class Cortex(s_cell.Cell):  # type: ignore
         return [m async for m in self.storm(text, opts=opts)]
 
     async def _getStormEval(self, text):
-        astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
+        try:
+            astvalu = copy.deepcopy(await s_parser.evalcache.aget(text))
+        except s_exc.FatalErr:
+            logger.exception(f'Fatal error while parsing [{text}]', extra={'synapse': {'text': text}})
+            await self.fini()
+            raise
         astvalu.init(self)
         return astvalu
 
     async def _getStormQuery(self, args):
-        query = copy.deepcopy(await s_parser.querycache.aget(args))
+        try:
+            query = copy.deepcopy(await s_parser.querycache.aget(args))
+        except s_exc.FatalErr:
+            logger.exception(f'Fatal error while parsing [{args}]', extra={'synapse': {'text': args[0]}})
+            await self.fini()
+            raise
         query.init(self)
         await asyncio.sleep(0)
         return query
@@ -4426,13 +4471,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user):
+    def _logStormQuery(self, text, user, mode):
         '''
         Log a storm query.
         '''
         if self.stormlog:
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden, 'mode': mode}})
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

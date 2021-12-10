@@ -20,6 +20,7 @@ statusenums = (
     (50, 'in review'),
     (60, 'completed'),
     (70, 'done'),
+    (80, 'blocked'),
 )
 
 class ProjectModule(s_module.CoreModule):
@@ -54,6 +55,7 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:sprint', ('guid', {}), {}),
                     ('proj:comment', ('guid', {}), {}),
                     ('proj:project', ('guid', {}), {}),
+                    ('proj:attachment', ('guid', {}), {}),
                 ),
 
                 'forms': (
@@ -97,7 +99,7 @@ class ProjectModule(s_module.CoreModule):
                     )),
 
                     # TODO this will require a special layer storage mechanism
-                    #('proj:backlog', {}, (
+                    # ('proj:backlog', {}, (
 
                     ('proj:comment', {}, (
                         ('creator', ('syn:user', {}), {}),
@@ -114,6 +116,15 @@ class ProjectModule(s_module.CoreModule):
                         ('creator', ('syn:user', {}), {}),
                         ('created', ('time', {}), {}),
                         ('updated', ('time', {'max': True}), {}),
+                    )),
+
+                    ('proj:attachment', {}, (
+                        ('name', ('file:base', {}), {}),
+                        ('file', ('file:bytes', {}), {}),
+                        ('creator', ('syn:user', {}), {}),
+                        ('created', ('time', {}), {}),
+                        ('ticket', ('proj:ticket', {}), {}),
+                        ('comment', ('proj:comment', {}), {}),
                     )),
 
                     ('proj:ticket', {}, (

@@ -1524,6 +1524,10 @@ class InetModule(s_module.CoreModule):
                         ('dst:txbytes', ('int', {}), {
                             'doc': 'The number of bytes sent by the destination host / process / file.'
                         }),
+                        ('dst:handshake', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A text representation of the initial handshake sent by the server.'
+                        }),
                         ('src', ('inet:client', {}), {
                             'doc': 'The source address / port for a connection.'
                         }),
@@ -1550,6 +1554,10 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('src:txbytes', ('int', {}), {
                             'doc': 'The number of bytes sent by the source host / process / file.'
+                        }),
+                        ('src:handshake', ('str', {}), {
+                            'disp': {'hint': 'text'},
+                            'doc': 'A text representation of the initial handshake sent by the client.'
                         }),
                         ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of NIST CPEs identified on the destination host.',

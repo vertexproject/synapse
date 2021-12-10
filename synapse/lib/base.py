@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 OMIT_FINI_WARNS = os.environ.get('SYNDEV_OMIT_FINI_WARNS', False)
 
-def _fini_atexit(): # pragma: no cover
+def _fini_atexit():  # pragma: no cover
 
     for item in gc.get_objects():
 
@@ -777,7 +777,7 @@ async def schedGenr(genr, maxsize=100):
             await task
             return
 
-async def main(coro): # pragma: no cover
+async def main(coro):  # pragma: no cover
     base = await coro
     if isinstance(base, Base):
         async with base:

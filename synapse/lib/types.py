@@ -42,7 +42,7 @@ class Type:
         self.modl = modl
         self.name = name
         self.info = info
-        self.form = None # this will reference a Form() if the type is a form
+        self.form = None  # this will reference a Form() if the type is a form
         self.subof = None  # This references the name that a type was extended from.
 
         self.info.setdefault('bases', ())
@@ -52,7 +52,7 @@ class Type:
 
         self._type_norms = {}   # python type to norm function map str: _norm_str
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
-        self._cmpr_ctor_lift = {} # if set, create a cmpr which is passed along with indx ops
+        self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
@@ -1598,7 +1598,7 @@ class Str(Type):
 
         return norm, info
 
-taxonre = regex.compile('\w+')
+taxonre = regex.compile('\\w+')
 class Taxon(Str):
 
     def postTypeInit(self):
@@ -1678,7 +1678,7 @@ class Tag(Str):
         toks = text.strip('#').split('.')
         return self._normPyList(toks)
 
-tagpartre = regex.compile('\w+')
+tagpartre = regex.compile('\\w+')
 class TagPart(Str):
 
     def postTypeInit(self):
@@ -1967,7 +1967,39 @@ class Time(IntBase):
 
         return cmpr
 
+    def _ctorCmprLt(self, text):
+
+        if isinstance(text, str):
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
+                def cmpr(valu):
+                    return valu < tock
+                return cmpr
+
+        return IntBase._ctorCmprLt(self, text)
+
+    def _ctorCmprLe(self, text):
+
+        if isinstance(text, str):
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
+                def cmpr(valu):
+                    return valu <= tock
+                return cmpr
+
+        return IntBase._ctorCmprLe(self, text)
+
     def _ctorCmprEq(self, text):
+
+        if isinstance(text, str):
+            strip = text.strip()
+            if strip.endswith('*'):
+                tick, tock = s_time.wildrange(strip[:-1])
+                def cmpr(valu):
+                    return valu >= tick and valu < tock
+                return cmpr
 
         norm, info = self.norm(text)
 
@@ -1975,3 +2007,28 @@ class Time(IntBase):
             return norm == valu
 
         return cmpr
+
+    def _storLiftNorm(self, cmpr, valu):
+
+        if isinstance(valu, str):
+            text = valu.strip()
+            if text.endswith('*'):
+                if cmpr == '=':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('range=', (tick, tock), self.stortype),
+                    )
+
+                if cmpr == '<':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('<', tock, self.stortype),
+                    )
+
+                if cmpr == '<=':
+                    tick, tock = s_time.wildrange(text[:-1])
+                    return (
+                        ('<=', tock, self.stortype),
+                    )
+
+        return IntBase._storLiftNorm(self, cmpr, valu)

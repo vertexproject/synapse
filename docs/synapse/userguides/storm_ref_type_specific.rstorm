@@ -34,9 +34,18 @@ This section is **not** a complete reference of all available types. In addition
 array
 -----
 
-An ``array`` is a specialized type that consists of a list of typed values. That is, an array is a type that consists of one or more values that are themselves all of a single, defined type.
+An ``array`` is a specialized type that consists of either a list or a set of typed values. That is, an array is a type that consists of one or more values that are themselves all of a single, defined type.
 
-``Array`` types can be used for properties where that property is likely to have multiple values, but it is undesirable to represent those values in a set of relationship nodes (for example, multiple ``edge:has`` nodes).
+.. TIP::
+  
+  An array that is a **list** can have duplicate entries in the list.
+  An array that is a **set** consists of a unique group of entries.
+
+``Array`` types can be used for properties where that property is likely to have multiple values, but it is undesirable to represent those values using multiple :ref:`form-relationship` nodes. Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm query:
+
+::
+  
+  syn:prop:type=array
 
 Indexing
 ++++++++
@@ -46,62 +55,63 @@ N/A
 Parsing
 +++++++
 
-Because an ``array`` is a list of typed values, ``array`` elements can be input in any format supported by the type of the elements themselves. For example, if an ``array`` consists of a list of ``inet:ipv4`` values, the values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
+Because an ``array`` is a list or set of typed values, ``array`` elements can be input in any format supported by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ipv4`` values, the values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
 
 Insertion
 +++++++++
 
-As a list, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the list contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). The list of array values will be set in the order in which they are specified. Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
+Because it may contain multiple values, an ``array`` property must be set using comma-separated values enclosed in parentheses (this is true even if the array contains only a single element; you must still use parentheses, and the single element must still be followed by a trailing comma). Single or double quotes are required in accordance with the standard rules for using :ref:`storm-whitespace-literals`.
+
+**Example:**
+
+Set the ``:names`` property of an organization (``ou:org``) node to a single value:
+
+.. storm-pre:: [ ou:org=(https://vertex.link/,) :name=vertex :url=https://vertex.link/ ]
+.. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project',) ]
 
 **Example:**
 
 Set the ``:names`` property of an organization (``ou:org``) node to contain multiple variations of the organization name:
 
+.. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project', 'The Vertex Project, LLC', Vertex) ]
 
-.. storm-pre:: [ou:org=(https://vertex.link/,) :alias=vertex :url=https://vertex.link/] [ :names=("The Vertex Project","The Vertex Project, LLC",Vertex) ]
-::
+.. WARNING::
+  
+  Using the equals ( ``=`` ) operator to set an array property value will set or update (overwrite) the **entire** property value. To add or remove individual elements from an array, use the ``+=`` or ``-=`` operators.
 
-    <ou:org> [ :names=("The Vertex Project","The Vertex Project, LLC",Vertex) ]
-
-
-Individual elements can be added to or removed from an array using ``+=`` or ``-=``.
-
-The ``?+=`` or ``?-=`` operators can be used for the equivalent "edit try" operations (see :ref:`edit-try` in the :ref:`storm-ref-data-mod` for a detailed discussion of "edit try" syntax).
-
-**Example**
+**Example:**
 
 Add a name to the array of names associated with an organization:
 
 
-.. storm-pre:: ou:org [ :names+="The Spanish Inquisition" ]
-::
-
-    <ou:org> [ :names+="The Spanish Inquisition" ]
-
-
-Use the edit try operator to attempt to add a value to the ``:identities:fqdns`` array property of an X509 certificate. (**Note:** a type-inappropriate value (email address) is used below for illustrative purposes.)
-
-
-.. storm-pre:: [crypto:x509:cert=(d41d8cd98f00b204e9800998ecf8427e,) :identities:fqdns=(vertex.link,)] [ :identities:fqdns?+=visi@vertex.link ]
-::
-
-    <crypto:x509:cert> [ :identities:fqdns?+=visi@vertex.link ]
+.. storm-pre:: [ ou:org=* :name='Monty Python' :names=('Monty Python',) ] 
+.. storm-cli:: ou:org:name='Monty Python' [ :names+='The Spanish Inquisition' ]
 
 
 Remove a name from the array of names associated with an organization:
 
 
-.. storm-pre:: ou:org [ :names-="The Spanish Inquisition" ]
-::
+.. storm-cli:: ou:org:name='Monty Python' [ :names-='The Spanish Inquisition' ]
 
-    <ou:org> [ :names-="The Spanish Inquisition" ]
+
+.. TIP::
+  
+  The standard "edit try" operator ( ``?=`` ) (see :ref:`edit-try` in the :ref:`storm-ref-data-mod`) can be used to attempt to set a **full** array property value where you are unsure whether the value will succeed. The specialized ``?+=`` or ``?-=`` operators can be used to attempt to add or remove a **single** array value in a similar manner.
+
+**Example:**
+
+Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show the "fail silenetly" behavior for the "edit try" operator. The ``:authors`` property is an array of ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
+
+
+.. storm-pre:: [ media:news="*" :org=kaspersky :title='New report on really bad threat' ]
+.. storm-cli:: media:news:org=kaspersky [ :authors?+='john smith' ]
 
 
 **Usage Notes:**
 
-- The standard "edit try" operator ( ``?=`` ) can optionally be used when setting the **full** value of an array property (vs. adding or removing an element from an array). Note that if **any** value in the list of values fails (e.g., does not pass type enforcement), setting the **entire** property will fail. For example, attempting to set ``[ :identities:emails?=(alice@vertex.link, bob) ]`` on an X509 certificate (``crypto:x509:cert``) will fail to set the property altogether because ``bob`` is not a valid email address type.
+- When using the standard "edit try" operator ( ``?=`` ) to attempt to set the **full** value of an array property (vs. adding or removing an element from an array), the **entire** attempt will fail if **any** value in the list of values fails. For example, if you try to set ``[ :identities:emails?=(alice@vertex.link, bob) ]`` on an X509 certificate (``crypto:x509:cert``), Synapse will fail to set the property altogether because ``bob`` is not a valid email address type (even though ``alice@vertex.link`` is).
 
-- The "edit try" operator for **removing** individual elements from an array ( ``?-=`` ) is unique to arrays as they are the only type that allows removal of a single element from a property (properties with a single value are either set / modified, or the property is deleted altogether). As with other uses of "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation attempts to remove a value from an array that does not match the array's defined type. For example, attempting to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version ( ``?-=``) is used.
+- The "edit try" operator for **removing** individual elements from an array ( ``?-=`` ) is unique to arrays as they are the only type that allows removal of a single element from a property. (Properties with a single value are either set, modified (updated), or the property is deleted altogether.) As with other uses of "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation attempts to remove a value from an array that does not match the array's defined type. For example, attempting to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version ( ``?-=``) is used.
 
 Operations
 ++++++++++
@@ -109,76 +119,55 @@ Operations
 Lifting and Filtering
 ~~~~~~~~~~~~~~~~~~~~~
 
-Array properties can be used to lift or filter nodes based on an **exact match** of the property value using the standard equals operator:
+Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the full array property value. This makes sense for forms with simple values like ``inet:ipv4=1.2.3.4``, but is often infeasible for arrays because lifting by the **full** array value requires you to know the **exact** values of each of the array elements as well as their **exact** order:
 
+.. storm-cli:: ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
 
-.. storm-pre:: ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
-::
-
-    ou:org:names=("The Vertex Project", "The Vertex Project, LLC", Vertex)
-
-
-However, this method requires you to know in advance the exact values of each of the array elements as well as their exact order. This is often infeasible in practice.
-
-For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match values in the array list without knowing the exact order or (in some cases, such as a prefix match) the exact value.
+For this reason, Storm offers a special "by" syntax for lifting and filtering with ``array`` types. The syntax consists of an asterisk ( ``*`` ) preceding a set of square brackets ( ``[ ]`` ), where the square brackets contain a comparison operator and a value that can match one or more elements in the array. This allows users to match one or more elements in the array similarly to how they would match individual property values.
 
 .. NOTE::
   The square brackets used to lift or filter based on values in an array should not be confused with square brackets used to add or modify nodes or properties in :ref:`edit-mode`.
 
 **Examples:**
 
-Lift the ``ou:org`` node(s) whose ``:names`` property contains the value ``vertex``:
+Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that exactly matches ``vertex``:
+
+.. storm-cli:: ou:org:names*[=vertex]
 
 
-.. storm-pre:: ou:org:names*[=vertex]
-::
+Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that includes the string ``vertex``:
 
-    ou:org:names*[=vertex]
-
+.. storm-cli:: ou:org:names*[~=vertex]
 
 Lift the x509 certificate nodes that reference the domain ``microsoft.com``:
 
-
-.. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(microsoft.com,verisign.com)] | spin | crypto:x509:cert:identities:fqdns*[=microsoft.com]
-::
-
-    crypto:x509:cert:identities:fqdns*[=microsoft.com]
-
+.. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(microsoft.com,verisign.com)] 
+.. storm-cli:: crypto:x509:cert:identities:fqdns*[=microsoft.com]
 
 Downselect a set of ``ou:org`` nodes to include only those with a name that starts with "acme":
 
-
-.. storm-pre:: ou:org +:names*[^=acme]
-::
-
-    <ou:org> +:names*[^=acme]
-
+.. storm-pre:: [ ( ou:org="*" :name='acme consulting' :names=('acme consulting',) ) ( ou:org="*" :name='acme construction' :names=('acme construction',) ) ]
+.. storm-cli:: ou:org +:names*[^=acme]
 
 See :ref:`lift-by-arrays` and :ref:`filter-by-arrays` for additional details.
 
 Pivoting
 ~~~~~~~~
 
-Synapse and Storm are type-aware and will facilitate pivoting between properties of the same type, including typed properties and arrays consisting of those same types. Type awareness for arrays includes both standard form and property pivots as well as wildcard pivots.
+Synapse and Storm are type-aware and will facilitate pivoting between properties of the same type. This includes pivoting between individual typed properties and array properties consisting of those same types. Type awareness for arrays includes both standard form and property pivots as well as wildcard pivots.
 
 **Examples:**
 
 Pivot from a set of x509 certificate nodes to the set of domains referenced by the certificates (such as in the ``:identities:fqdns`` array property):
 
 
-.. storm-pre:: crypto:x509:cert -> inet:fqdn
-::
-
-    <crypto:x509:cert> -> inet:fqdn
+.. storm-cli:: crypto:x509:cert -> inet:fqdn
 
 
 Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org`` nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
 
 
-.. storm-pre:: ou:name <- *
-::
-
-    <ou:name> <- *
+.. storm-cli:: ou:name^=acme <- *
 
 
 .. _type-file:
@@ -198,17 +187,29 @@ N/A
 Parsing
 +++++++
 
-``file:bytes`` must be input using their complete primary property. It is generally impractical to manually type a SHA256 hash or 128-bit ``guid`` value at the CLI. For this reason ``file:bytes`` forms are most often specified at the command line by referencing the node via a more human-friendly secondary property or by pivoting to the node. Alternately, the ``file:bytes`` value can be copied and pasted at the CLI.
+``file:bytes`` must be input using their complete primary property. It is impractical to manually type a SHA256 hash or 128-bit ``guid`` value. For this reason ``file:bytes`` forms are most often specified by referencing the node via a more human-friendly secondary property or by pivoting to the node. Alternately, the ``file:bytes`` value can be copied and pasted for use in a query.
 
 The primary property of a ``file:bytes`` node indicates how the node was created (i.e., via the SHA256 hash or via a guid):
 
-- A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended to the hash:
+- A node created using the SHA256 hash will have a primary property value consisting of ``sha256:`` prepended to the SHA256 hash:
 
   ``file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855``
 
-- A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the ``guid``:
+- A node created using a ``guid`` will have a primary property value consisting of ``guid:`` prepended to the ``guid`` value:
   
   ``file:bytes=guid:22d4ed1b75c9eb5ff8070e0df1e8ed6b``
+
+.. NOTE::
+  
+  When specifying a SHA256-based ``file:bytes`` node, entering the ``sha256:`` prefix is optional. The following are equivalent representations of the same file:
+  
+  ::
+    
+    file:bytes=sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    
+    file:bytes=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  
+
 
 Insertion
 +++++++++
@@ -218,25 +219,9 @@ A ``file:bytes`` node can be created in one of three ways:
 SHA256 Hash
 ~~~~~~~~~~~
 
-A SHA256 hash can be specified as the node’s primary property:
+A SHA256 hash can be specified as the node’s primary property. The ``sha256:`` prefix can optionally be specified, but is not required (it will be added automatically on node creation). Storm will recognize the primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary properties must be set manually.
 
-
-.. storm-pre:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
-::
-
-    [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
-
-
-The ``sha256:`` prefix can optionally be specified, but is not required (it will be added automatically on node creation):
-
-
-.. storm-pre:: [ file:bytes = sha256:44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
-::
-
-    [ file:bytes = sha256:44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
-
-
-Storm will recognize the primary property value as a SHA256 hash and also set the ``:sha256`` secondary property. Any other secondary properties (if available) need to be set manually.
+.. storm-cli:: [ file:bytes = 44daad9dbd84c92fa9ec52649b028b4c0f7d285407685778d09bad4b397747d0 ]
 
 Because the SHA256 is considered unique (for now) for our purposes, the node is fully deconflictable. If additional secondary properties such as ``:size`` or other hashes are obtained later, or if the actual file is obtained, the node can be updated with the additional properties based on deconfliction with the SHA256 hash.
 
@@ -245,23 +230,14 @@ GUID Value
 
 The asterisk can be used to generate a ``file:bytes`` node with an arbitrary guid value:
 
-
-.. storm-pre:: [ file:bytes = "*" ]
-::
-
-    [ file:bytes = "*" ]
-
+.. storm-cli:: [ file:bytes = * ]
 
 Alternately, a potentially deconflictable ``guid`` can be generated by specifying a list of one or more values to the ``guid`` generator (for example, an MD5 and / or SHA1 hash). This will generate a predictable ``guid``:
 
 
-.. storm-pre:: [ file:bytes = (63fcc49b2ac6cbd686f4d9704446c673,) :md5=63fcc49b2ac6cbd686f4d9704446c673 ]
-::
+.. storm-cli:: [ file:bytes = (63fcc49b2ac6cbd686f4d9704446c673,) :md5=63fcc49b2ac6cbd686f4d9704446c673 ]
 
-    [ file:bytes = (63fcc49b2ac6cbd686f4d9704446c673,) :md5=63fcc49b2ac6cbd686f4d9704446c673 ]
-
-
-Synapse does not recognize any strings passed to the ``guid`` generator as specific types or properties, so any secondary properties need to be explicitly set (i.e., the ``:md5`` property in the example above).
+Synapse does not recognize any strings passed to the ``guid`` generator as specific types or properties and will not use values used to generate the ``guid`` to set any secondary property values; those properties must be explicitly set (e.g., the ``:md5`` property in the example above).
 
 See the section on type-specific behavior for :ref:`type-guid` types for additional discussion of arbitrary (non-deconflictable) vs. deconflictable ``guids``.
 
@@ -273,16 +249,30 @@ See the section on type-specific behavior for :ref:`type-guid` types for additio
 Actual Bytes
 ~~~~~~~~~~~~
 
-The optimal method to create ``file:bytes`` nodes is via the actual file (set of bytes) itself. This is typically done programmatically via an automated ingest / feed function that can calculate (or set, based on values provided by a data source) all of the relevant hashes (potentially along with other secondary properties, such as ``:size`` or ``:mime:pe:compiled``) and use the SHA256 as the primary property value.
+The optimal method to create ``file:bytes`` nodes is via the actual file (set of bytes) itself. This is typically done programmatically via an automated ingest of files (such as via a Synapse :ref:`gloss-power-up`) that can calculate (or set, based on values provided by a data source) all of the relevant hashes (potentially along with other secondary properties, such as ``:size`` or ``:mime:pe:compiled``) and use the SHA256 as the primary property value.
 
 There are limited means to leverage this method in a one-off manner from the CLI. One option is to use the ``pushfile`` tool (see :ref:`syn-tools-pushfile`) to manually upload a file to a Cortex / storage Axon. Upon ingest, Synapse will create a SHA256-based ``file:bytes`` node from the uploaded bytes and set the appropriate secondary properties (i.e., other hashes, ``:size``).
 
-Similarly, Storm’s HTTP library (``$lib.inet.http``) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator. A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header` technical documentation or :ref:`storm-adv-libs` in the user documentation for additional detail.
+.. TIP::
+  
+  Like other external (to Storm) commands, the pushfile tool is accessible from the Storm CLI (see :ref:`syn-tools-storm`) as ``!pushfile``.
+
+Similarly, Storm’s HTTP library (``$lib.inet.http``) could be leveraged to retrieve a web-based file and use the returned bytes as input (potentially using Storm variables - see :ref:`storm-adv-vars`) to the ``guid`` generator. A detailed discussion of this method is beyond the scope of this section; see the :ref:`stormtypes-libs-header` technical documentation for additional detail.
+
 
 Operations
 ++++++++++
 
-N/A
+For some lift and filter operations, you may optionally specify ``file:bytes`` nodes using a "sufficiently unique" partial match of the node's primary property. For example, the prefix operator ( ``^=`` ) may be used to specify a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
+
+.. storm-pre:: [ file:bytes=sha256:021b4ce5c4d9eb45ed016fe7d87abe745ea961b712a08ea4c6b1b81d791f1eca :md5=8934aeed5d213fe29e858eee616a6ec7 :sha1=a7e576f41f7f100c1d03f478b05c7812c1db48ad :size=182820 :name=adobeupdater.exe ]
+.. storm-cli:: file:bytes^=sha256:021b4ce5
+
+**Usage Notes:**
+
+- When using the prefix operator, the ``sha256:`` or ``guid:`` prefix string must be included.
+- The length of the value that is "sufficiently unique" to select a single ``file:bytes`` will vary depending on the data in your instance of Synapse. If your selection criteria matches more than one ``file:bytes`` node, Synapse will return all matches.
+- Alternatively, the regular expression operator ( ``~=`` ) may be used to specify a partial string match anywhere in the ``file:bytes`` node's primary property value (though this is an inefficient way to specify a ``file:bytes`` node).
 
 .. _type-guid:
 
@@ -320,11 +310,7 @@ Arbitrary Values
 When creating a new ``guid`` node, the asterisk ( ``*`` ) can be specified as the primary property value of the new node. This will instruct Synapse to generate a unique, arbitrary ``guid`` for the node. For example:
 
 
-.. storm-pre:: [ ou:org="*" :alias=vertex :name="The Vertex Project LLC" :url=https://vertex.link/ ]
-::
-
-    [ ou:org="*" :alias=vertex :name="The Vertex Project LLC" :url=https://vertex.link/ ]
-
+.. storm-cli:: [ ou:org=* :alias=yoyodyne :name="Yoyodyne Propulsion Systems" :url=https://www.yoyodyne.com/ ]
 
 That syntax will create a new org node with a unique ``guid`` for its primary property and the specified secondary properties. Note that because the ``guid`` is arbitrary, re-running the same query will create a second org node with a new unique ``guid`` (potentially resulting in two nodes representing the same organization within the same Cortex).
 
@@ -333,7 +319,7 @@ Arbitrarily generated ``guids`` provide a small performance boost (because Synap
 Deconflictable Values
 ~~~~~~~~~~~~~~~~~~~~~
 
-Alternately, a ``guid`` value can be generated in a predictable manner based on a defined set of inputs. The specified data is fed to the ``guid`` generator (also known as the "guid grinder") within a set of parentheses as "seed" data that is used to generate a predictable ``guid``. This allows guid forms to be deconflictable such that:
+Alternately, a ``guid`` value can be generated in a predictable manner based on a defined set of inputs. The specified data is fed to the ``guid`` generator within a set of parentheses as "seed" data that is used to generate a predictable ``guid``. This allows guid forms to be deconflictable such that:
 
 - Duplicate nodes are not created (i.e., if the same set of data is fed to the ``guid`` generator in the same way a second time, the generator will calculate the same ``guid`` and recognize that the node already exists).
 - If additional data related to a ``guid`` form is obtained at a later date, the data can be added to the form (i.e., by populating additional secondary properties).
@@ -346,11 +332,7 @@ When generating a predictable ``guid``, you should select a property (or propert
 For example, when creating an organization (``ou:org``) node, you may decide that most organizations have a public web site, and the URL of the company’s home page is generally available when creating the org node. The URL can be used to generate the ``guid``:
 
 
-.. storm-pre:: [ ou:org=(https://vertex.link/,) :alias=vertex :url=https://vertex.link/ ]
-::
-
-    [ ou:org=(https://vertex.link/,) :alias=vertex :url=https://vertex.link/ ]
-
+.. storm-cli:: [ ou:org=(https://www.yoyodyne.com/,) :alias=yoyodyne :name='Yoyodyne Propulsion Systems' :url=https://www.yoyodyne.com/ ]
 
 The ``guid`` for the org node will be generated based on the URL string specified. Re-running the same command will not generate a duplicate node, but will lift the (newly-created) node with the same generated ``guid``.
 
@@ -368,21 +350,25 @@ Because ``guid`` values are unwieldy to use on the command line (outside of copy
 
 Lift an org node by its alias:
 
-
-.. storm-pre:: ou:org:alias=vertex
-::
-
-    ou:org:alias=vertex
-
+.. storm-pre:: [ ou:org=* :alias=choam :name='combine honnete ober advancer mercantiles' ]
+.. storm-cli:: ou:org:alias=choam
 
 Lift a DNS request node by the name used in the DNS query:
 
 
-.. storm-pre:: inet:dns:request:query:name=woot.com
-::
+.. storm-pre:: [ inet:dns:request=* :time="2020/04/30 09:30:33.000" :query:name=pop.seznam.cz :query:name:fqdn=pop.seznam.cz ]
+.. storm-cli:: inet:dns:request:query:name=pop.seznam.cz
 
-    inet:dns:request:query:name=woot.com
+It is also possible to lift and filter ``guid`` nodes using a "sufficiently unique" prefix match of the ``guid`` value.
 
+**Example:**
+
+Lift a ``ps:contact`` node by a partial prefix match:
+
+.. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
+.. storm-cli:: ps:contact^=13c9663e
+
+The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse. If your selection criteria matches more than one node, Synapse will return all matches.
 
 .. _type-inet-fqdn:
 
@@ -470,66 +456,34 @@ Examples such as these are **not accounted for** by Synapse’s suffix / zone lo
 Operations
 ++++++++++
 
-Because of Synapse’s reverse string indexing for ``inet:fqdn`` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( ``*`` ) is the extended operator used to perform this operation.
+Because of Synapse’s reverse string indexing for ``inet:fqdn`` types, domains can be lifted or filtered based on matching any partial domain suffix string. The asterisk ( ``*`` ) is the extended operator used to perform this operation. The asterisk does **not** have to be used along dot boundaries but can match anywhere in any FQDN element.
 
 **Examples**
 
-Lift all domains that end with (i.e., are subdomains of) ``.files.wordpress.com``:
+Lift all domains that end with ``yahooapis.com``:
 
+.. storm-pre:: [ inet:fqdn=ayuisyahooapis.com inet:fqdn=micyuisyahooapis.com inet:fqdn=usyahooapis.com ]
+.. storm-cli:: inet:fqdn='*yahooapis.com'
 
-.. storm-pre:: inet:fqdn="*.files.wordpress.com"
-::
-
-    inet:fqdn="*.files.wordpress.com"
-
-
-- The above syntax would match the following values:
-
-  - ``foo.files.wordpress.com``
-  - ``bar.files.wordpress.com``
-  - ...etc.
-
-- The above syntax would **not** match the following values:
-
-  - ``files.wordpress.com``
 
 Lift all domains ending with ``s.wordpress.com``:
 
+.. storm-pre:: [ inet:fqdn=cats.wordpress.com inet:fqdn=dogs.wordpress.com inet:fqdn=s.wordpress.com inet:fqdn=www.sss.wordpress.com ]
+.. storm-cli:: inet:fqdn="*s.wordpress.com"
 
-.. storm-pre:: inet:fqdn="*s.wordpress.com"
-::
-
-    inet:fqdn="*s.wordpress.com"
-
-
-- The above syntax would match the following values:
-
-  - ``cats.wordpress.com``
-  - ``dogs.wordpress.com``
-  - ``s.wordpress.com``
-  - ``www.tigers.wordpress.com``
-  - ...etc.
-
-- The above syntax would **not** match the following values:
-
-  - ``fish.wordpress.com``
 
 Downselect a set of DNS A records to those with domains ending with ``.museum``:
 
-
 .. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.museum,5.6.7.8) inet:dns:a=(woot.link,7.7.7.7) ] +:fqdn="*.museum"
-::
-
-    <inet:dns:a> +:fqdn="*.museum"
-
+.. storm-cli:: inet:dns:a +:fqdn="*.museum"
 
 **Usage Notes**
 
 - Because the asterisk is a non-alphanumeric character, the string to be matched must be enclosed in single or double quotes (see :ref:`storm-whitespace-literals`).
-- Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to lift by a string at the beginning of a domain. For example, ``inet:fqdn="yahoo*"`` and ``inet:fqdn^=yahoo`` are both invalid.
+- Because domains are reverse-indexed instead of prefix indexed, for **lift** operations, partial string matching can only occur based on the end (suffix) of a domain. It is not possible to **lift** FQDNs by prefix. For example, ``inet:fqdn^=yahoo`` is invalid.
 - Domains can be **filtered** by prefix (``^=``). For example, ``inet:fqdn="*.biz" +inet:fqdn^=smtp`` is valid.
-- Domains cannot be filtered based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
-- Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``), though lifting in particular may impose a performance overhead (see :ref:`lift-regex` and :ref:`filter-regex`).
+- Domains cannot be **filtered** based on suffix matching (note that a "lift by suffix" is effectively a combined "lift and filter" operation).
+- Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
 
 .. _type-inet-ipv4:
 
@@ -561,6 +515,8 @@ The ability to specify IPv4 values using either range or CIDR format allows you 
 
 **Examples**
 
+**Note:** results (output) not shown below due to length.
+
 Create ten ``inet:ipv4`` nodes:
 
 
@@ -589,19 +545,14 @@ Similar to node insertion, lifting or filtering IPV4 addresses by range or by CI
 Lift all ``inet:ipv4`` nodes within the specified range that exist within the Cortex:
 
 
-.. storm-pre:: inet:ipv4 = 169.254.18.24-169.254.18.64
-::
-
-    inet:ipv4 = 169.254.18.24-169.254.18.64
-
+.. storm-pre:: [ inet:ipv4=169.254.18.30 inet:ipv4=169.254.18.36 inet:ipv4=169.254.18.53 ]
+.. storm-cli:: inet:ipv4 = 169.254.18.24-169.254.18.64
 
 Filter a set of DNS A records to only include those whose IPv4 value is within the 172.16.* RFC1918 range:
 
 
-.. storm-pre:: inet:dns:a +:ipv4 = 172.16.0.0/12
-::
-
-    <inet:dns:a> +:ipv4 = 172.16.0.0/12
+.. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
+.. storm-cli:: inet:dns:a:fqdn=woot.com +:ipv4=172.16.0.0/12
 
 
 .. _type-ival:
@@ -629,11 +580,11 @@ Single or double quotes are required in accordance with the standard rules for u
 - ``+#sometag=(2018/09/15, "+24 hours")``
 - ``.seen=2019/03/24``
 
-As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in parentheses: ``(<min>, <max>)``. The parser expects two **explicit** values.
+As ``ival`` types are a pair of values (i.e., an explicit minimum and maximum), the values must be placed in parentheses and separated by a comma: ``(<min>, <max>)``. The parser expects two **explicit** values.
 
 An ``ival`` can also be specified as a single time value, in which case the value must be specified **without** parentheses: ``<time>``. See **Insertion** below for ``ival`` behavior when adding vs. modifying using a single time value vs. a ``(<min>, <max>)`` pair.
 
-When entering an ``ival`` type, each time value can be input using most of the acceptable formats for :ref:`type-time` types, including explicit times, relative times, and the special values ``now`` and ``?``.
+When entering an ``ival`` type, each time value can be input using most of the acceptable formats for :ref:`type-time` types, including explicit times (including lower resolution times and wildcard times), relative times, and the special values ``now`` and ``?``.
 
 ``ival`` types also support relative times using ``+-`` format to represent both a positive and negative offset from a given point (i.e., ``"+-1 hour"``).
 
@@ -654,8 +605,8 @@ When specifying minimum and maximum times for an ``ival`` type (or when specifyi
 
 - Minimums and maximums that use explicit times and / or special terms (``now``, ``?``) should be specified in ``<min>, <max>`` order.
 
-  - Specifying a ``<max>, <min>`` order will **not** result in an error message, but because it results in an exclusionary time window, it will return 0 nodes (i.e., no time / interval can be both greater than a max value and less than a min value).
-  - Similarly, combinations of relative times that result in an effective ``<max>, <min>`` after relative offsets are calculated are allowed (will not generate an error), but will result in an exclusionary time window that returns 0 nodes.
+  - Specifying a ``<max>, <min>`` order will **not** result in an error message, but because it results in an exclusionary time window, it will not return any nodes (i.e., no time / interval can be both greater than a max value and less than a min value).
+  - Similarly, combinations of relative times that result in an effective ``<max>, <min>`` after relative offsets are calculated are allowed (will not generate an error), but will result in an exclusionary time window that does not return any nodes.
 
 - Values that result in a nonsensical ``<min>, <max>`` are not allowed and will generate an error. For example:
 
@@ -672,7 +623,7 @@ Insertion
 
 - When **adding** an ``ival`` as a single time value, it must be specified without parentheses.
 
-  - When a single time value is used, the ``<min>`` value will be set to the specified time and the ``<max>`` will be set to the time plus 1 ms.
+  - When a single time value is used, the ``<min>`` value will be set to the specified time and the ``<max>`` will be set to the ``<min>`` time plus 1 ms.
 
 - When **modifying** an existing ``ival`` property (including tag timestamps) with either a ``(<min>, <max>)`` pair or a single time value, the existing ``ival`` is **not** simply overwritten (as is the norm for modifying properties - see :ref:`storm-ref-data-mod`). Instead, the ``<min>`` and / or ``<max>`` are **only** updated if the new value(s) are:
 
@@ -681,7 +632,7 @@ Insertion
   
   This means that once set, ``<min>`` and ``<max>`` can only be "pushed out" to a lower minimum and / or a higher maximum. Specifying a time or times that fall **within** the current minimum and maximum will have no effect (i.e., the current values will be retained).
   
-  This means that currently it is not possible to "shrink" an ``ival`` directly; to specify a higher minimum or a lower maximum (or to remove the timestamps altogether), you must delete the ``ival`` property (or remove the timestamped tag) and re-add it with the updated values.
+  This means that it is not possible to "shrink" an ``ival`` directly; to specify a higher minimum or a lower maximum (or to remove the timestamps altogether), you must delete the ``ival`` property (or remove the timestamped tag) and re-add it with the updated values.
 
 Operations
 ++++++++++
@@ -690,14 +641,11 @@ Operations
 
 **Example:**
 
-- Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
+Lift the DNS A nodes whose observation window is **exactly** from 2018/12/13 01:05 to 2018/12/16 12:57:
 
 
-.. storm-pre:: inet:dns:a.seen=("2018/12/13 01:05", "2018/12/16 12:57")
-::
-
-    inet:dns:a.seen=("2018/12/13 01:05", "2018/12/16 12:57")
-
+.. storm-pre:: [ inet:dns:a=(yoyodyne.com,16.16.16.16) .seen=("2018/12/13 01:05", "2018/12/16 12:57") ]
+.. storm-cli:: inet:dns:a.seen=("2018/12/13 01:05", "2018/12/16 12:57")
 
 ``ival`` types cannot be used with comparison operators such as "less than" or "greater than or equal to".
 
@@ -705,13 +653,11 @@ Operations
 
 **Example:**
 
-- Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
+Lift all the DNS A nodes whose observation window overlaps with the interval of March 1, 2019 through April 1, 2019:
 
 
-.. storm-pre:: inet:dns:a.seen@=(2019/03/01, 2019/04/01)
-::
-
-    inet:dns:a.seen@=(2019/03/01, 2019/04/01)
+.. storm-pre:: [ ( inet:dns:a=(hurr.com,4.4.4.4) .seen=('2019/01/05 09:38', '2019/03/12 18:17') ) ( inet:dns:a=(derp.net,8.8.8.8) .seen=('2019/03/08 07:26','2019/03/22 10:14') ) ( inet:dns:a=(blergh.org,2.2.2.2) .seen=('2019/03/28 22:22','2019/04/27 00:03') ) ]
+.. storm-cli:: inet:dns:a.seen@=(2019/03/01, 2019/04/01)
 
 
 ``ival`` types cannot be used with the ``*range=`` custom comparator. ``*range=`` can only be used to specify a range of individual values (such as ``time`` or ``int``).
@@ -767,61 +713,35 @@ This is because the analytical significance of a location string is likely to fa
 
 Prefix comparison for ``loc`` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within the dotted hierarchy:
 
-- Lift all organizations with locations in Brazil:
+**Examples:**
+
+Lift all organizations with locations in Turkey:
 
 
-.. storm-pre:: ou:org:loc^=br
-::
-
-    ou:org:loc^=br
+.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
+.. storm-cli:: ou:org:loc^=tr
 
 
-Lift all IP addresses geolocated in the the province of Ontario:
+Lift all IP addresses geolocated in the the province of Ontario, Canada:
 
 
-.. storm-pre:: inet:ipv4:loc^=ca.on
-::
+.. storm-pre:: [ ( inet:ipv4=149.248.52.240 :loc=ca.on ) ( inet:ipv4=49.51.12.195 :loc=ca.on.barrie ) ( inet:ipv4=199.201.123.200 :loc=ca.on.keswick ) ]
+.. storm-cli:: inet:ipv4:loc^=ca.on
 
-    inet:ipv4:loc^=ca.on
-
+.. NOTE::
+  
+  Specifying a more granular prefix value will **not** match values that are less granular. That is ``:loc^=ca.on`` will fail to match ``:loc=ca``.
 
 Lift all places in the city of Seattle:
 
-
-.. storm-pre:: geo:place:loc^=us.wa.seattle
-::
-
-    geo:place:loc^=us.wa.seattle
+.. storm-pre:: [ ( geo:place=* :name='space needle' :loc=us.wa.seattle :latlong=(47.6205099,-122.3514714) ) ( geo:place=* :name='seattle-tacoma international airport' :loc=us.wa.seattle :latlong=(47.4502535,-122.3110105) ) ]
+.. storm-cli:: geo:place:loc=us.wa.seattle
 
 
-Note that specifying a more granular prefix value will **not** match values that are less granular. That is ``:loc^=ca.on`` will fail to match ``:loc=ca``.
+**Usage Notes**
 
-Similarly, use of the equals comparator (``=``) with ``loc`` types will match the **exact value only.** So ``:loc = us`` will match **only** ``:loc = us`` but not ``:loc = us.ca`` or ``:loc = us.il.chicago``.
-
-Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match that does **not** fall on a dot boundary will return **zero nodes.** For example, the filter syntax ``+:loc^=us.v`` will return zero nodes even if nodes with ``:loc = us.vt`` or ``:loc = us.va`` exist. (However, it would return nodes with ``:loc = us.v`` or ``:loc = us.v.foo`` if such nodes exist.)
-
-**Examples**
-
-Lift all organizations geolocated in Switzerland:
-
-
-.. storm-pre:: ou:org:loc^=ch
-::
-
-    ou:org:loc^=ch
-
-
-In the above example, the Storm syntax would match the following location values:
-
-- ``:loc = ch``
-- ``:loc = ch.zurich``
-- ``:loc = ch.saint moritz``
-- ...etc.
-
-The Storm syntax would **not** match the following location values:
-
-- ``:loc = china``
-- ``:loc = chicago``
+- Use of the equals comparator (``=``) with ``loc`` types will match the **exact value only.** So ``:loc = us`` will match **only** ``:loc = us`` but not ``:loc = us.ca`` or ``:loc = us.il.chicago``.
+- Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match that does **not** fall on a dot boundary will not return any nodes. For example, the filter syntax ``+:loc^=us.v`` will fail to return any nodes even if nodes with ``:loc = us.vt`` or ``:loc = us.va`` exist. (However, it would return nodes with ``:loc = us.v`` or ``:loc = us.v.foo`` if such nodes exist.)
 
 .. _type-str:
 
@@ -857,20 +777,15 @@ Prefix matching is case-sensitive based on the specific type being matched. If t
 Lift all organizations whose name starts with the word "Acme ":
 
 
-.. storm-pre:: ou:org:name^="acme "
-::
+.. storm-cli:: ou:org:name^='acme '
 
-    ou:org:name^="acme "
+Filter a set of Internet accounts to those with usernames starting with 'matrix':
+
+.. storm-pre:: [ inet:web:acct=(twitter.com,matrixmaster) inet:web:acct=(twitter.com,matrixneo) ]
+.. storm-cli:: inet:web:acct:site=twitter.com +:user^=matrix
 
 
-Filter a set of Internet accounts to those with usernames starting with "thereal":
-
-
-.. storm-pre:: inet:web:acct +:user^=thereal
-::
-
-    <inet:web:acct> +:user^=thereal
-
+Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator ( ``~=``) (see :ref:`lift-regex` and :ref:`filter-regex`).
 
 .. _type-syn-tag:
 
@@ -903,14 +818,14 @@ As ``syn:tag`` values cannot contain whitespace (spaces) or escaped characters, 
 
 The following are all allowed ``syn:tag`` values:
 
-- ``syn:tag = foo.bar.baz``
-- ``syn:tag = hurr.123.derp``
-- ``syn:tag = my.1a2b3c.tag``
+- ``syn:tag = rep.vt.exploit``
+- ``syn:tag = aka.kaspersky.mal.shamoon.2``
+- ``syn:tag = cno.tgt.cn_mil_pla``
 
 The following ``syn:tag`` values are not allowed and will generate ``BadTypeValu`` errors:
 
-- ``syn:tag = this.is.my.@#$*(.tag``
-- ``syn:tag = "some.threat group.tag"``
+- ``syn:tag = this.is.my.@#$*(.tag`` (contains disallowed characters)
+- ``syn:tag = "some.threat group.tag"`` (contains whitespace)
 
 Insertion
 +++++++++
@@ -918,13 +833,11 @@ Insertion
 A ``syn:tag`` node does not have to be created before the equivalent tag can be applied to another node. That is, applying a tag to a node will result in the automatic creation of the corresponding ``syn:tag`` node or nodes (assuming the appropriate user permissions). For example:
 
 
-.. storm-pre:: [inet:fqdn=woot.com] [+#some.new.tag]
-::
+.. storm-cli:: [inet:fqdn=woot.com +#some.new.tag ]
 
-    inet:fqdn=woot.com [+#some.new.tag]
+The above Storm syntax will both apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and automatically create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some`` and ``syn:tag = some.new``). This behavior (based on creating the FQDN ``woot.com`` and applying the tag ``#some.new.tag`` in the previous example) is shown below by lifting tags that begin with 'some':
 
-
-The above Storm syntax will both apply the tag ``#some.new.tag`` to the node ``inet:fqdn = woot.com`` and automatically create the node ``syn:tag = some.new.tag`` if it does not already exist (as well as ``syn:tag = some`` and ``syn:tag = some.new``).
+.. storm-cli:: syn:tag^=some
 
 Operations
 +++++++++++
@@ -937,62 +850,31 @@ This is because the analytical significance of a tag is likely to fall on these 
 
 Prefix comparison for ``syn:tag`` types is useful because it easily allows lifting or filtering at any appropriate level of resolution within a tag hierarchy:
 
-Lift all tags in the computer network operations tree:
+Lift all tags in the computer network operations (``cno``)tree:
 
 
-.. storm-pre:: syn:tag^=cno
-::
-
-    syn:tag^=cno
+.. storm-pre:: [ syn:tag=cno.threat.t27 syn:tag=cno.mal.redtree ]
+.. storm-cli:: syn:tag^=cno
 
 
 Lift all tags representing aliases (e.g., names of malware, threat groups, etc.) reported by Symantec:
 
-
-.. storm-pre:: syn:tag^=aka.symantec
-::
-
-    syn:tag^=aka.symantec
+.. storm-pre:: [ syn:tag=aka.symantec.mal.bifrose syn:tag=aka.symantec.thr.cadelle ]
+.. storm-cli:: syn:tag^=aka.symantec
 
 
 Lift all tags representing anonymous VPN infrastructure:
 
-
-.. storm-pre:: syn:tag^=cno.infra.anon.vpn
-::
-
-    syn:tag^=cno.infra.anon.vpn
+.. storm-pre:: [ syn:tag=cno.infra.anon.vpn.airvpn syn:tag=cno.infra.anon.vpn.nordvpn ]
+.. storm-cli:: syn:tag^=cno.infra.anon.vpn
 
 
 Note that specifying a more granular prefix value will **not** match values that are less granular. That is, ``syn:tag^=cno.infra`` will fail to match ``syn:tag = cno``.
 
 Similarly, use of the equals comparator (``=``) with ``syn:tag`` types will match the **exact value only.** So ``syn:tag = aka`` will match **only** that tag but not ``syn:tag = aka.symantec`` or ``syn:tag = aka.trend.thr.pawnstorm``.
 
-Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match that does **not** fall on a dot boundary will return **zero nodes.** For example, the syntax ``syn:tag^=aka.t`` will return zero nodes even if nodes ``syn:tag = aka.talos`` or ``syn:tag = aka.trend`` exist. (However, it would return nodes ``syn:tag = aka.t`` or ``syn:tag = aka.t.foo`` if such nodes exist.)
+Because the prefix match operates on the dot boundary, attempting to lift or filter by a prefix string match that does **not** fall on a dot boundary will not return any nodes. For example, the syntax ``syn:tag^=aka.t`` will fail to return any nodes even if nodes ``syn:tag = aka.talos`` or ``syn:tag = aka.trend`` exist. (However, it would return nodes ``syn:tag = aka.t`` or ``syn:tag = aka.t.foo`` if such nodes exist.)
 
-**Examples**
-
-Lift the ``syn:tag`` nodes whose *<valu>* begins with ``foo.bar``:
-
-
-.. storm-pre:: syn:tag^=foo.bar
-::
-
-    syn:tag^=foo.bar
-
-
-The above syntax would match (for example):
-
-- ``syn:tag = foo.bar``
-- ``syn:tag = foo.bar.baz``
-- ``syn:tag = foo.bar.aaa.bbb``
-- ...etc.
-
-The above syntax would **not** match (for example):
-
-- ``syn:tag = foo.barbaz``
-- ``syn:tag = foo.barrrabarra``
-- ...etc.
 
 .. _type-time:
 
@@ -1019,18 +901,30 @@ Parsing
   
     ``"2018/12/16 09:37:52.324"``
   
-  - Human-readable “Zulu” (YYYY/MM/DDThh:mm:ss.mmmZ):
+  - Human-readable "Zulu" (YYYY/MM/DDThh:mm:ss.mmmZ):
   
     ``2018/12/16T09:37:52.324Z``
     
-  - Human-readable with time zone (YYYY-MM-DDThh:mm:ss.mmm+/-hh:mm):
+  - Human-readable with time zone (YYYY-MM-DD hh:mm:ss.mmm+/-hh:mm). No spaces are allowed between the time value and the time zone offset:
   
-    ``2018-12-16T09:37:52.324-04:00``
-  
+    ``2018-12-16 09:37:52.324-04:00``
+    
+    .. NOTE::
+      
+      Synapse does not support the **storage** of an explicit time zone with a time value (i.e., +0800). Synapse stores time values in UTC for consistency. If a time zone is specified using an acceptable time zone offset format on input, Synapse will automatically convert the value to UTC for storage. If no time zone is specified, Synapse will assume the value is in UTC.
+
   - No formatting (YYYYMMDDhhmmssmmm):
     
     ``20181216093752324``
   
+  - Epoch millis:
+    
+    ``(1544953072324)``
+    
+    .. NOTE::
+      
+      Synapse expects time values to be entered as parseable time **strings** (such as 2018/12/16 09:37:52.324, which Synapse internally converts to a millis integer for storage). To enter a time in raw epoch millis format, you must enclose it in parentheses so that Synapse interprets the value as a raw integer. (Otherwise, Synapse will attempt to interpret the value as a "no formatting" string, and throw an error.)
+
 - **Relative** (offset) time values in the format:
   
   **+** | **-** | **+-** *<count>* *<unit>*
@@ -1052,65 +946,70 @@ Parsing
   - the keyword ``now`` is used to represent the current date/time.
   - a question mark ( ``?`` ) is used to effectively represent an unspecified / indefinite time in the future (technically equivalent to 9223372036854775807 millis, i.e., "some really high value that is probably the heat death of the universe". Note that technically the largest valid millis value is 9999999999999 (thirteen 9’s), which represents 2286/11/20 09:46:39.999).
     
-    The question mark is most often used as the maximum value of an interval (:ref:`type-ival`) type to specify that the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over time in order to remain current.)
-    
+    The question mark can be used as the maximum value of an interval (:ref:`type-ival`) type to specify that the data or assessment associated with the ``ival`` should be considered valid indefinitely. (Contrast that with a maximum interval value set to the equivalent of ``now`` that would need to be continually updated over time in order to remain current.)
+
+Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``"2018/12/16 09:37:52.324"`` needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times starting with ``+`` or ``-`` and the special time value ``?`` need to be placed in single or double quotes.
+
+Lower Resolution Time Values and Wildcard Time Values
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``time`` values (including tag timestamps) must be entered at a minimum resolution of year (``YYYY``) and can be entered up to a maximum resolution of milliseconds (``YYYY/MM/DD hh:mm:ss.mmm``).
+
+Where lower resolution values are entered, Synapse will make logical assumptions about the intended date / time value and zero-fill the remainder of the equivalent epoch mills date / time. For example:
+
+- A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000``).
+- A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
+- A value of ``"2020/03/16 05"`` will be interpreted as 05:00 AM on that date (``2020/03/16 05:00:00.000``).
+- A value of ``"2018/10/27 14:00-04:00"`` will be interpreted as 14:00 (2:00 PM) on that date with a 4 hour offset from UTC (``2018/10/27 14:00:00.000-04:00``, stored in UTC as ``2018/10/27 18:00:00.000``).
+
+Synapse also supports the use of the wildcard ( ``*`` ) character to specify a partial time value match:
+
+- A value of ``2016*`` will be interpreted as "any date / time within the year 2016".
+- A value of ``2018/10/27*`` will be interpreted as "any time on October 27, 2018".
+- A value of ``"2020/03/16 05*"`` will be interpreted as "any time within the hour of 05:00 on March 16, 2020".
+
+.. NOTE::
+  
+  When using wildcard syntax, the wildcard must be used on a sensible time value boundary, such as ``YYYYMM*``. You cannot us a wildcard to "split" values (i.e., ``YYMMD*`` is invaild syntax).
+
 **Examples:**
 
-- Set the time of a DNS request to the current time:
+Set the time of a DNS request to the current time:
+
+.. storm-cli:: [ inet:dns:request="*" :query:name=woot.com :time=now ]
 
 
-.. storm-pre:: [ inet:dns:request="*" :query:name=woot.com :time=now ]
-::
+Set the observed time window (technically an ``ival`` type) for when an IP address was a known sinkhole (via the ``#cno.infra.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
 
-    [ inet:dns:request="*" :query:name=woot.com :time=now ]
-
-
-
-- Set the observed time window (technically an ``ival`` type) for when an IP address was a known sinkhole (via the ``#cno.infra.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
-
-
-.. storm-pre:: [ inet:ipv4=1.2.3.4 +#cno.infra.sink.hole=(2017/06/13, "?") ]
-::
-
-    [ inet:ipv4=1.2.3.4 +#cno.infra.sink.hole=(2017/06/13, "?") ]
+.. storm-cli:: [ inet:ipv4=1.2.3.4 +#cno.infra.sink.hole=(2017/06/13, "?") ]
 
 
 - Set the observed time window using a time zone offset:
 
+.. storm-cli:: [ inet:ipv4=5.6.7.8 +#cno.infra.sink.hole=(2017/06/13 09:46+04:00, "?") ]
 
-.. storm-pre:: [ inet:ipv4=1.2.3.4 +#cno.infra.sink.hole=(2017/06/13 09:46+04:00, "?") ]
-::
-
-    [ inet:ipv4=1.2.3.4 +#cno.infra.sink.hole=(2017/06/13 09:46+04:00, "?") ]
-
-
-Despite storing ``time`` types as epoch millis, Storm does not accept millis format as direct input. For example, it is not possible to input a time value in the format ``1544953072324`` (Storm will attempt to interpret that as the string ``YYYYMMDDhhmmssmmmm`` and return an error).
-
-Standard rules regarding using :ref:`storm-whitespace-literals` apply. For example, ``"2018/12/16 09:37:52.324"`` needs to be entered in single or double quotes, but ``2018/12/16`` does not. Similarly, relative times and the special time value ``?`` need to be placed in single or double quotes.
-
-.. NOTE::
-  Synapse does not support the storage of an explicit named time zone with a time value (i.e., PST, America/New_York). Synapse is intended to store time values in UTC for consistency, so users will need to convert date / time values to UTC before entering them and convert values to UTC during any automated ingest. Alternatively, the time zone can be provided in +/-hh:mm format, which will then be used to convert the time to UTC for storage.
-
-``time`` values (including tag timestamps) must be entered at a minimum resolution of year (``YYYY``) and can be entered up to a maximum resolution of milliseconds (``YYYY/MM/DD hh:mm:ss.mmm``).
-
-Where lower resolution values are entered, Synapse will make logical assumptions about the date / time. For example:
-
-- A value of ``2016`` will be interpreted as 12:00 AM on January 1, 2016 (``2016/01/01 00:00:00.000``).
-- A value of ``2018/10/27`` will be interpreted as 12:00 AM on that date (``2018/10/27 00:00:00.000``).
-- A value of ``2018/10/27-04:00`` will be interpreted as 12:00 AM on that date with a 4 hour offset from UTC (``2018/10/27 00:00:00.000-04:00``).
 
 Insertion
 +++++++++
 
 When adding or modifying ``time`` types, any of the above formats (explicit / relative / special terms) can be specified.
 
+In addition, when adding or modifying ``time`` types, a lower resolution time and a wildcard time behave identically. In other words, the following are equivalent Storm queries (both will set the ``:time`` value of the newly created DNS request node to ``2021/01/23 00:00:00.000``):
+
+.. storm-pre:: [ inet:dns:request="*" :time=2021/01/23 ]
+.. storm-pre:: [ inet:dns:request="*" :time=2021/01/23* ]
+
+::
+  
+  [ inet:dns:request="*" :time=2021/01/23 ]
+  
+  [ inet:dns:request="*" :time=2021/01/23* ]
+
+
 When specifying a relative time for a ``time`` value, **the offset will be calculated from the current time** (``now``):
 
 
-.. storm-pre:: [ inet:dns:request="*" :query:name=woot.com :time="-5 minutes" ]
-::
-
-    [ inet:dns:request="*" :query:name=woot.com :time="-5 minutes" ]
+.. storm-cli:: [ inet:dns:request="*" :query:name=woot.com :time="-5 minutes" ]
 
 
 Plus / minus ( ``+-`` ) relative times cannot be specified for ``time`` types, as the type requires a single value.  See the section on :ref:`type-ival` (interval) types for details on using ``+-`` times with ``ival`` types.
@@ -1118,18 +1017,67 @@ Plus / minus ( ``+-`` ) relative times cannot be specified for ``time`` types, a
 Operations
 ++++++++++
 
-``time`` types can be lifted and filtered with the standard logical and mathematical comparators (see :ref:`storm-ref-lift` and :ref:`storm-ref-filter`).
+``time`` types can be lifted and filtered using:
+
+ - Standard logical and mathematical comparison operators (comparators).
+ - The extended range ( ``*range=`` ) custom comparator.
+ - The extended interval ( ``@=`` ) custom comparator.
+
+
+Standard Operators
+~~~~~~~~~~~~~~~~~~
+
+``time`` types can be lifted and filtered with the standard logical and mathematical comparators (see :ref:`storm-ref-lift` and :ref:`storm-ref-filter`). This includes the use of lower resolution time values and wildcard time values.
 
 **Example:**
 
-Downselect a set of DNS request nodes to those that occurred on or after June 1, 2019:
+Downselect a set of DNS request nodes to those that occurred prior to June 1, 2019:
 
 
-.. storm-pre:: inet:dns:request +:time>=2019/06/01
-::
+.. storm-pre:: [ ( inet:dns:request=* :query:name=hurr.com :time='2018/06/28 17:43' ) ( inet:dns:request=* :query:name=derp.net :time='2015/12/14 19:22' ) ]
+.. storm-cli:: inet:dns:request +:time<2019/06/01
 
-    <inet:dns:request> +:time>=2019/06/01
+.. NOTE::
+  
+  It is important to understand the differences in behavior when lifting and filtering ``time`` types using lower resolution time values (which Synpase zero-fills) or wildcard time values (which Synpase wildcard-matches). These behaviors vary based on the specific operator used.
 
+- When lifting or filtering using the equivalent ( ``=`` ) operator, behavior is **different:**
+  
+  - ``:time=2021/05/13`` means equal to **the exact date/time value** ``2021/05/13 00:00:00.000``.
+  - ``:time=2021/05/13*`` means equal to **any** time on that date (``2021/05/13 00:00:00.000`` through ``2021/05/13 23:59:59.999``).
+
+- When lifting or filtering using the greater than ( ``>``) / greater than or equal to ( ``>=``) operators, behavior is **equivalent:**
+  
+  - ``:time>2021/05/13`` and ``:time>2021/05/13*`` **both** mean any date / time greater than ``2021/05/13 00:00:00.000``.
+  - ``:time>=2021/05/13`` and ``:time>=2021/05/13*`` **both** mean any date / time greater than or equal to ``2021/05/13 00:00:00.000``.
+  
+  Both are equivalent because in this case Synapse interprets the wildcard syntax as "greater than or equal to the **lowest** possible wildcard match", which in this case is ``2021/05/13 00:00:00.000``.
+
+- When lifting or filtering using the less than ( ``<`` ) / less than or equal to ( ``<=`` ) operators, behavior is **different:**
+  
+  - ``:time<2021/05/13`` / ``:time<=2021/05/13`` mean any date / time less than (or less than or equal to) ``2021/05/13 00:00:00.000``.
+  - ``:time<2021/05/13*`` / ``:time<=2021/05/13*`` both mean any date / time less than (or less than or equal to) ``2021/05/13 23:59:59.999``.
+  
+  The behavior differs because in this case Synapse interprets the wildcard syntax as "less than or equal to the **highest** possible wildcard match", which in this case is ``2021/05/13 23:59:59.999``.
+
+.. TIP::
+  
+  The wildcard syntax is useful because it can provide a simplified, more intuitive means to specify certain time ranges / time intervals without needing to use the range ( ``*range=`` ) or interval ( ``@=`` ) operators. For example, the following three Storm queries are equivalent and will return all files compiled at any time within the year 2019:
+  
+  ::
+    
+    file:bytes:mime:pe:compiled=2019*
+    
+    file:bytes:mime:pe:compiled*range=('2019/01/01 00:00:00.000', '2019/12/31 23:59:59.999')
+    
+    file:bytes:mime:pe:compiled@=('2019/01/01', '2020/01/01')
+  
+  (A **range** maximum value represents "less than or equal to" that value, while an **interval** maximum value represents "less than" that value.)
+  
+
+
+Range Custom Operator
+~~~~~~~~~~~~~~~~~~~~~
 
 ``time`` types can lifted and filtered using the ``*range=`` custom comparator (see :ref:`lift-range` and :ref:`filter-range`).
 
@@ -1138,27 +1086,38 @@ Downselect a set of DNS request nodes to those that occurred on or after June 1,
 Lift a set of ``file:bytes`` nodes whose PE compiled time is between January 1, 2019 and today:
 
 
-.. storm-pre:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
-::
+.. storm-pre:: [ ( file:bytes=sha256:9f9d96e99cef99cbfe8d02899919a7f7220f2273bb36a084642f492dd3e473da :mime:pe:compiled='2019/10/07 12:42:45' ) ( file:bytes=sha256:bd422f912affcf6d0830c13834251634c8b55b5a161c1084deae1f9b5d6830ce :mime:pe:compiled='2021/04/13 00:23:14' ) ]
+.. storm-cli:: file:bytes:mime:pe:compiled*range=(2019/01/01, now)
 
-    file:bytes:mime:pe:compiled*range=(2019/01/01, now)
+.. NOTE::
+  
+  Both lower resolution times and wildcard times can be used for values specified within the ``*range=`` operator. Because the range operator is a shorthand syntax for "greater than or equal to `<range_min>` and less than or equal to `<range_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
+  
+See the Storm documents referenced above for additional examples using the range (``*range=``) comparator.
 
 
-``time`` types can be lifted and filtered using the interval ( ``@=`` ) custom comparator (see :ref:`lift-interval` and :ref:`filter-interval`). The comparator is specifically designed to compare ``time`` types and ``ival`` types, which can be useful (for example) for filtering to a set of nodes whose ``time`` properties fall within a specified window.
+Interval Custom Operator
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``time`` types can be lifted and filtered using the interval ( ``@=`` ) custom comparator (see :ref:`lift-interval` and :ref:`filter-interval`). The comparator is specifically designed to compare ``time`` types and ``ival`` types, which can be useful (for example) for filtering to a set of nodes whose ``time`` properties fall within a specified interval.
 
 **Example:**
 
 Lift a set of DNS A records whose window of observation includes March 16, 2019 at 13:00 UTC:
 
 
-.. storm-pre:: inet:dns:a.seen@="2019/03/16 13:00"
-::
+.. storm-pre:: [ ( inet:dns:a=(aaaa.org,1.2.3.4) .seen=('2018/12/29 12:36:27','2019/06/03 18:14:33') ) ( inet:dns:a=(bbbb.edu,5.6.7.8) .seen=('2019/03/16 12:59:59','2019/03/16 13:01:01') ) ]
+.. storm-cli:: inet:dns:a.seen@='2019/03/16 13:00'
 
-    inet:dns:a.seen@="2019/03/16 13:00"
-
+.. NOTE::
+  
+  Both lower resolution times and wildcard time can be used for valuess specified within the ``@=`` operator. Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater than / less than operators.
 
 See the Storm documents referenced above for additional examples using the interval (``@=``) comparator.
 
 .. _documentation: ../autodocs/datamodel_types.html
 .. _code: https://github.com/vertexproject/synapse
 .. _Microsoft: https://docs.microsoft.com/en-us/previous-versions/aa373931(v=vs.80)
+
+
+

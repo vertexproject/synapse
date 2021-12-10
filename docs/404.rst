@@ -1,0 +1,9 @@
+:orphan:
+
+.. _synapse-404:
+
+404
+===
+
+We're sorry! The page you are looking for could not be found! Use the search bar or the index on the left to find what
+you are looking for.

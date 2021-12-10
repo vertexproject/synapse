@@ -589,7 +589,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def validateBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
-        return await s_coro.forked(validateStix, bundle)
+        return await s_coro.spawn((validateStix, (bundle,), {}))
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
@@ -838,8 +838,8 @@ class StixBundle(s_stormtypes.Prim):
         }
 
     # TODO config modification helpers
-    #async def addPropMap(self, formname, stixtype, propname, stormtext):
-    #async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
+    # async def addPropMap(self, formname, stixtype, propname, stormtext):
+    # async def addRelsMap(self, formname, stixtype, relname, targtype,  stormtext):
 
     async def add(self, node, stixtype=None):
 

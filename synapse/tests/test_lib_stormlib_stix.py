@@ -172,7 +172,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(result, {'result': True})
 
             bad_bundle = copy.deepcopy(bund)
-            objects = bad_bundle.get('objects') # type: list
+            objects = bad_bundle.get('objects')  # type: list
             extdef = objects[0]
             extdef.pop('type')
             resp = await core.callStorm('return($lib.stix.validate($bundle))', {'vars': {'bundle': bad_bundle}})
