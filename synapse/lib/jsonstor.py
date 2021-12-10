@@ -275,7 +275,9 @@ class JsonStor(s_base.Base):
         step = item
         names = self._pathToTupl(prop)
         for name in names[:-1]:
-            step = step[name]
+            step = step.get(name, s_common.novalu)
+            if step is s_common.novalu:
+                return defv
 
         retn = step.pop(names[-1], defv)
         self.dirty[buid] = item
