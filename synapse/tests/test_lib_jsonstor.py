@@ -10,6 +10,14 @@ import synapse.servers.jsonstor
 
 class JsonStorTest(s_test.SynTest):
 
+    async def test_lib_jsonstor_has(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+                    await prox.setPathObj('foo/bar', 'asdf')
+                    self.true(await prox.hasPathObj('foo/bar'))
+
     async def test_lib_jsonstor_copy(self):
 
         with self.getTestDir() as dirn:

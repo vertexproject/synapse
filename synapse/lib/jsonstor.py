@@ -284,6 +284,11 @@ class JsonStor(s_base.Base):
 
 class JsonStorApi(s_cell.CellApi):
 
+    async def hasPathObj(self, path):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'get', *path))
+        return await self.cell.hasPathObj(path)
+
     async def copyPathObj(self, oldp, newp):
         oldp = self.cell.jsonstor._pathToTupl(oldp)
         newp = self.cell.jsonstor._pathToTupl(newp)
@@ -393,6 +398,9 @@ class JsonStorCell(s_cell.Cell):
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item
+
+    async def hasPathObj(self, path):
+        return await self.jsonstor.hasPathObj(path)
 
     async def copyPathObj(self, oldp, newp):
         return await self.jsonstor.copyPathObj(oldp, newp)
