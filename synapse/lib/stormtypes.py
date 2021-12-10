@@ -4496,8 +4496,9 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async for node, path in self._getRuntGenr():
-            yield node
+        async with s_common.aclosing(self._getRuntGenr()) as genr:
+            async for node, path in genr:
+                yield node
 
     async def iter(self):
         async for node, path in self._getRuntGenr():
@@ -5407,6 +5408,21 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getMirrorStatus',
                   'returns': {'type': 'dict', 'desc': 'An info dictionary describing mirror sync status.', }}},
+
+        {'name': 'verify', 'desc': '''
+            Verify consistency between the node storage and indexes in the given layer.
+
+            Example:
+                for $mesg in $lib.layer.get().verify() {
+                    $lib.print($mesg)
+                }
+
+            Notes:
+                The message format yielded by this API is considered BETA and may be subject to change!
+            ''',
+         'type': {'type': 'function', '_funcname': 'verify',
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields messages describing any index inconsistencies.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5443,6 +5459,7 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'verify': self.verify,
             'addPush': self._addPush,
             'delPush': self._delPush,
             'addPull': self._addPull,
@@ -5642,6 +5659,12 @@ class Layer(Prim):
         creator = self.valu.get('creator')
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
+
+    async def verify(self):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        async for mesg in layr.verify():
+            yield mesg
 
 @registry.registerLib
 class LibView(Lib):

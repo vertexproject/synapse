@@ -20,6 +20,7 @@ statusenums = (
     (50, 'in review'),
     (60, 'completed'),
     (70, 'done'),
+    (80, 'blocked'),
 )
 
 class ProjectModule(s_module.CoreModule):
