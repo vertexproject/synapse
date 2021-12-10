@@ -35,7 +35,7 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
             buid = nodes[0].buid
 
-            errors = [e async for e in core.getLayer().verifyByBuid(buid)]
+            errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
             core.getLayer()._testDelTagIndx(buid, 'inet:ipv4', 'foo')
@@ -46,12 +46,24 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoTagIndex')
             self.eq(errors[1][0], 'NoPropIndex')
 
+            errors = await core.callStorm('''
+                $retn = $lib.list()
+                for $mesg in $lib.layer.get().verify() {
+                    $retn.append($mesg)
+                }
+                return($retn)
+            ''')
+
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoTagIndex')
+            self.eq(errors[1][0], 'NoPropIndex')
+
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
             buid = nodes[0].buid
 
-            errors = [e async for e in core.getLayer().verifyByBuid(buid)]
+            errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
             core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
@@ -64,6 +76,9 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
 
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
@@ -73,6 +88,21 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in core.getLayer().verify()]
             self.len(1, errors)
             self.eq(errors[0][0], 'SpurPropKeyForIndx')
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            await core.nodes('.created | delnode --force')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            core.getLayer()._testAddTagIndx(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'NoPropForPropIndex')
 
     async def test_layer_abrv(self):
 
