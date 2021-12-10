@@ -19,6 +19,9 @@ class JsonStorTest(s_test.SynTest):
                     self.eq('faz', await prox.popPathObjProp('foo/bar', 'baz'))
                     self.none(await prox.getPathObjProp('foo/bar', 'baz'))
 
+                    self.none(await prox.popPathObjProp('foo/bar', 'baz'))
+                    self.none(await prox.popPathObjProp('newp/newp', 'baz'))
+
     async def test_lib_jsonstor_has(self):
 
         with self.getTestDir() as dirn:
