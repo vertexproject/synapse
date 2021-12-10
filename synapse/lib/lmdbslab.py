@@ -196,6 +196,14 @@ class SlabAbrv:
 
         return abrv
 
+    def names(self):
+        for byts in self.slab.scanKeys(db=self.name2abrv):
+            yield byts.decode()
+
+    def keys(self):
+        for byts in self.slab.scanKeys(db=self.name2abrv):
+            yield byts
+
     def nameToAbrv(self, name):
         return self.bytsToAbrv(name.encode())
 
