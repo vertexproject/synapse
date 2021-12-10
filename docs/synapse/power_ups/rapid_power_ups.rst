@@ -26,13 +26,13 @@ The following Rapid Power-Ups are available:
 - `Synapse-GreyNoise <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-greynoise/index.html>`_
 - `Synapse-HybridAnalysis <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-hybridanalysis/index.html>`_
 - `Synapse-Jira <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-jira/index.html>`_
-- `Synapse-MISP (Public) <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html>`_
-- `Synapse-MITRE ATT&CK (Public) <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html>`_
+- `Synapse-MISP (Free) <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html>`_
+- `Synapse-MITRE ATT&CK (Free) <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html>`_
 - `Synapse-MITRE-CVE <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-cve/index.html>`_
 - `Synapse-PassiveTotal <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-passivetotal/index.html>`_
 - `Synapse-Shodan <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-shodan/index.html>`_
 - `Synapse-SpyCloud <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spycloud/index.html>`_
-- `Synapse-Tor (Public) <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html>`_
+- `Synapse-Tor (Free) <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html>`_
 - `Synapse-Twitter <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-twitter/index.html>`_
 - `Synapse-URLScan <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-urlscan/index.html>`_
 - `Synapse-Utils <https://commercial.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-utils/index.html>`_
