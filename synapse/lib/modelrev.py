@@ -91,6 +91,8 @@ class ModelRev:
             'it:reveng:function:impcalls',
             'it:reveng:filefunc:funccalls',
 
+            'it:sec:cve:references',
+
             'risk:vuln:cwes',
 
             'tel:txtmesg:recipients',

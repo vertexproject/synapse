@@ -114,3 +114,14 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes(f'it:account={acct} [:groups=({g00}, {g01}, {g00})]')
             self.len(1, nodes)
             self.len(2, nodes[0].get('groups'))
+
+            url0 = "https://charlie.com/woot"
+            url1 = "https://bravo.com/woot"
+            url2 = "https://delta.com/woot"
+            url3 = "https://alpha.com/woot"
+
+            # created via: f'[it:sec:cve=CVE-2013-9999 :desc="some words" :references=({url0}, {url1}, {url2}, {url3})]'
+            nodes = await core.nodes(f'it:sec:cve=CVE-2013-9999')
+            self.eq(nodes[0].ndef[1], 'cve-2013-9999')
+            self.eq(nodes[0].get('desc'), 'some words')
+            self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
