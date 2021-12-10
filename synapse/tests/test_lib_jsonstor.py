@@ -10,6 +10,15 @@ import synapse.servers.jsonstor
 
 class JsonStorTest(s_test.SynTest):
 
+    async def test_lib_jsonstor_popprop(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+                    await prox.setPathObj('foo/bar', {'foo': 'bar', 'baz': 'faz'})
+                    self.eq('faz', await prox.popPathObjProp('foo/bar', 'baz'))
+                    self.none(await prox.getPathObjProp('foo/bar', 'baz'))
+
     async def test_lib_jsonstor_has(self):
 
         with self.getTestDir() as dirn:

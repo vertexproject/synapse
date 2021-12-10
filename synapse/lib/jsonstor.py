@@ -284,6 +284,11 @@ class JsonStor(s_base.Base):
 
 class JsonStorApi(s_cell.CellApi):
 
+    async def popPathObjProp(self, path, prop):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'set', *path))
+        return await self.cell.popPathObjProp(path, prop)
+
     async def hasPathObj(self, path):
         path = self.cell.jsonstor._pathToTupl(path)
         await self._reqUserAllowed(('json', 'get', *path))
@@ -399,12 +404,18 @@ class JsonStorCell(s_cell.Cell):
         async for item in self.jsonstor.getPathList(path):
             yield item
 
+    @s_nexus.Pusher.onPushAuto('json:pop:prop')
+    async def popPathObjProp(self, path, prop):
+        return await self.jsonstor.popPathObjProp(path, prop)
+
     async def hasPathObj(self, path):
         return await self.jsonstor.hasPathObj(path)
 
+    @s_nexus.Pusher.onPushAuto('json:copy')
     async def copyPathObj(self, oldp, newp):
         return await self.jsonstor.copyPathObj(oldp, newp)
 
+    @s_nexus.Pusher.onPushAuto('json:copys')
     async def copyPathObjs(self, paths):
         return await self.jsonstor.copyPathObjs(paths)
 
