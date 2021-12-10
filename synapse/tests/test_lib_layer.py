@@ -22,19 +22,6 @@ async def iterPropForm(self, form=None, prop=None):
     for buid, valu in bad_valu:
         yield buid, valu
 
-class WrapLayer(s_layer.Layer):
-    _layrvers = None
-    _layrversvals = []
-
-    @property
-    def layrvers(self):
-        return self._layrvers
-
-    @layrvers.setter
-    def layrvers(self, valu):
-        self._layrvers = valu
-        self._layrversvals.append(valu)
-
 class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
@@ -244,10 +231,10 @@ class LayerTest(s_t_utils.SynTest):
                         await core02.sync()
 
                         layr = core01.getLayer(ldef.get('iden'))
-                        self.true(layr.allow_upstream)
+                        self.true(len(layr.activetasks))
 
                         layr = core02.getLayer(ldef.get('iden'))
-                        self.false(layr.allow_upstream)
+                        self.false(len(layr.activetasks))
 
                         self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
 
@@ -1284,35 +1271,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.checkLayrvers(core)
 
-    async def test_layer_fresh_layrvers(self):
-
-        with self.getTestDir() as dirn:
-            layr = await WrapLayer.anit({}, dirn)
-            self.len(1, layr._layrversvals)
-
     async def test_layer_logedits_default(self):
-
-        with self.getTestDir() as dirn:
-
-            layrinfo = {
-                'iden': s_common.guid(),
-                'creator': s_common.guid(),
-                'lockmemory': False,
-            }
-            s_layer.reqValidLdef(layrinfo)
-            layr = await s_layer.Layer.anit(layrinfo, dirn)
-            self.true(layr.logedits)
+        async with self.getTestCore() as core:
+            self.true(core.getLayer().logedits)
 
     async def test_layer_no_logedits(self):
 
-        with self.getTestDir() as dirn:
-
-            layrinfo = {
-                'logedits': False
-            }
-            layr = await s_layer.Layer.anit(layrinfo, dirn)
+        async with self.getTestCore() as core:
+            info = await core.addLayer({'logedits': False})
+            layr = core.getLayer(info.get('iden'))
             self.false(layr.logedits)
-
             self.eq(-1, await layr.getEditOffs())
 
     async def test_layer_iter_props(self):

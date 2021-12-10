@@ -4,6 +4,42 @@
 Synapse Changelog
 *****************
 
+v2.74.0 - 2021-12-08
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``.onion`` and ``.bit`` to the TLD list used for scraping text. Update
+  the TLD list from the latest IANA TLD list.
+  (`#2483 <https://github.com/vertexproject/synapse/pull/2483>`_)
+  (`#2497 <https://github.com/vertexproject/synapse/pull/2497>`_)
+- Add support for writeback mirroring of layers.
+  (`#2463 <https://github.com/vertexproject/synapse/pull/2463>`_)
+  (`#2489 <https://github.com/vertexproject/synapse/pull/2489>`_)
+- Add ``$lib.scrape()`` Stormtypes API. This can be used to do programmatic
+  scraping of text using the same regular expressions used by the Storm
+  ``scrape`` command and the ``synapse.lib.scrape`` APIs.
+  (`#2486 <https://github.com/vertexproject/synapse/pull/2486>`_)
+- Add a ``jsonlines`` output mode to Cortex streaming HTTP endpoints.
+  (`#2493 <https://github.com/vertexproject/synapse/pull/2493>`_)
+- Add a ``--raw`` argument to the Storm ``pkg.load`` command. This loads the
+  raw JSON response as a Storm package.
+  (`#2491 <https://github.com/vertexproject/synapse/pull/2491>`_)
+- Add a ``blocked`` enum to the ``proj:ticket:status`` property to represent a
+  blocked ticket.
+  (`#2490 <https://github.com/vertexproject/synapse/pull/2490>`_)
+
+Bugfixes
+--------
+- Fix a behavior with ``$path`` losing variables in pure Storm command
+  execution.
+  (`#2492 <https://github.com/vertexproject/synapse/pull/2492>`_)
+
+Improved Documentation
+----------------------
+- Update the description of the Storm ``scrape`` command.
+  (`#2494 <https://github.com/vertexproject/synapse/pull/2494>`_)
+
 
 v2.73.0 - 2021-12-02
 ====================

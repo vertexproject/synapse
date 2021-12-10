@@ -1141,8 +1141,14 @@ class StormTest(s_t_utils.SynTest):
 
                 self.sendRestRetn(pkg)
 
+        class PkgHandlerRaw(s_httpapi.Handler):
+            async def get(self, name):
+                self.set_header('Content-Type', 'application/json')
+                return self.write(pkg)
+
         async with self.getTestCore() as core:
             core.addHttpApi('/api/v1/pkgtest/(.*)', PkgHandler, {'cell': core})
+            core.addHttpApi('/api/v1/pkgtestraw/(.*)', PkgHandlerRaw, {'cell': core})
             port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
 
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/newp/newp')
@@ -1154,6 +1160,9 @@ class StormTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.cortex',
                                       "{'mesg': 'teststring'}") as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
+                self.stormIsInPrint('testload @0.3.0', msgs)
+
+                msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
                 self.true(await stream.wait(6))
 
@@ -3036,14 +3045,20 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'gronk', 'storm': 'init { $fqdn=foo } $lib.print($fqdn)'},
                 ),
             })
-
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes('''
-                    [ inet:fqdn=vertex.link ]
-                    $fqdn=$node.repr()
-                    | woot lol |
-                    $lib.print($path.vars.fqdn)
-                ''')
+            # Success for the next two tests is that these don't explode with errors..
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot lol |
+                $lib.print($path.vars.fqdn)
+            '''))
+            # Non-runtsafe scope
+            self.len(1, await core.nodes('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | woot $node |
+                $lib.print($path.vars.fqdn)
+            '''))
 
             msgs = await core.stormlist('''
                 [ inet:fqdn=vertex.link ]
