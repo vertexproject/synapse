@@ -29,4 +29,6 @@ Ecosystem. A few important UI features include:
     - Choose your collaborates. Users and Roles can all be managed by the UI, allowing you to designate additional
       admins, create analysis teams, and control access to system functionality.
 
+For additional information on the UI, visit the `User Interface Documentation`_!
 
+.. _User Interface Documentation: https://optic.docs.vertex.link/en/latest/index.html
