@@ -18,8 +18,8 @@ certificates have been put into the Cell directory for Optic, and the ``IngressR
 users are using TLS end to end to connect to Optic.
 
 Passwords used for doing inter-service communications are stored in Kubernetes Secrets and are interpolated from
-environment variables form Telepath URLs when needed. To keep these examples from being too large, passwords are shared
-between services.
+environment variables to form Telepath URLs when needed. To keep these examples from being too large, passwords are
+shared between services.
 
 The following examples make the following assumptions:
 
