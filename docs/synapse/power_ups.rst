@@ -9,7 +9,7 @@ Power-Ups provide specific add-on capabilities to Synapse via Storm Packages and
 provide connectivity to external databases, third-party data sources, or enable functionality such as the ability to
 manage YARA rules, scans, and matches.
 
-For a introduction to Power-Ups from our analysts and seeing them in use, see the following video introducing them:
+For an introduction to Power-Ups from our analysts and seeing them in use, see the following video introducing them:
 
 .. raw:: html
 

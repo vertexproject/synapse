@@ -10,7 +10,7 @@ Ecosystem. A few important UI features include:
     - Directly supports collaborative analysis. Users can view changes made by their teammates immediately. This enables
       them to rapidly work together as peers.
 
-    - Simplified Storm query bar and point-and-click navigation for exploring data. User can visualize their data in
+    - Simplified Storm query bar and point-and-click navigation for exploring data. Users can visualize their data in
       multiple ways:
 
         - Tabular

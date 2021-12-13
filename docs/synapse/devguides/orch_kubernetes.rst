@@ -4,15 +4,15 @@ Kubernetes
 ==========
 
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
-scaling and managemetn of containerized applications. We provide a examples that you can use to quickly get started
-using Kubernetes to orchestrate your Synapse deployment.  These examples include an Aha cell, a Axon, a Cortex,
+scaling and management of containerized applications. We provide examples that you can use to quickly get started
+using Kubernetes to orchestrate your Synapse deployment.  These examples include an Aha cell, an Axon, a Cortex,
 the Maxmind connector, and the Optic UI.
 
 Since all Telepath services connect via Aha, this allows for easy lookup of services via Aha. This allows for users to
-ignore most application awareness of port numbers. For example, the Maxmind connector can easily be be added to the
+ignore most application awareness of port numbers. For example, the Maxmind connector can easily be added to the
 Cortex via ``service.add maxmind aha://root:demo@maxmind.aha.demo.net``.
 
-The Optic deployment uses a ``initContainers`` container to copy the TLS certificates into the service directory for
+The Optic deployment uses an ``initContainers`` container to copy the TLS certificates into the service directory for
 Optic. The Traefik ``IngressRouteTCP`` directs all TLS traffic to the service to the Optic service. Since the TLS
 certificates have been put into the Cell directory for Optic, and the ``IngressRouteTCP`` acts a TLS passthrough,
 users are using TLS end to end to connect to Optic.

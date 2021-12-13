@@ -36,7 +36,7 @@ mainly in that it shows how to use a ``cell.yaml`` file to do some boot time con
   ``./local/cell.yaml`` and over to ``/vertex/storage/cell.yaml``. This location would be the mapped in persistent
   storage location for the service.
 - Last, after copying the file, the shell script launches the service process.
-- In addition, this example also shows a place where a authentication username for Docker Hub (our container image
+- In addition, this example also shows a place where an authentication username for Docker Hub (our container image
   repository) would be placed into the job file, so that the Docker daemon can retrieve the image.
 
 .. literalinclude:: shodan.hcl
@@ -60,7 +60,7 @@ the following example::
 
 From this, the Telepath Proxy looks up the ``synapse-core01`` service in the Consul catalog, and retrieves the first
 entry from that service which matches the tag ``telepath``. It then uses the IP and Port from the catalog entry in order
-to connect to the Cortex. Another example would be using this to connect the Shodan service to the cortex::
+to connect to the cortex. Another example would be using this to connect the Shodan service to the cortex::
 
     # Our Shodan Consul URL
     # tcp+consul://root:secret@synapse-shodan/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath

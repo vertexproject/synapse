@@ -25,7 +25,7 @@ job "synapse-core01" {
         # for later use.
         port_map {
           telepath = 27492
-          https = 4433
+          https = 4443
         }
         force_pull = true
       }

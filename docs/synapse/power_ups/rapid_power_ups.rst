@@ -3,10 +3,10 @@
 Rapid Power-Ups
 ###############
 
-Rapid Power-ups are designed to delivered to a Cortex as Storm packages. This allows users to rapidly expand the power
-of their deployments without needing to deploy additional containers to their environments. For a introduction to
-Rapid Power-ups and some information about publicly available Power-Ups, see the following
-`blog <https://vertex.link/blogs/synapse-power-ups/>`_ post.
+Rapid Power-ups are delivered to a Cortex as Storm packages directly, without requiring any additional containers to
+be deployed. This allows users to rapidly expand the power of their Synapse deployments without needing to engage with
+additional operations teams in their environments. For an introduction to Rapid Power-ups and some information about
+publicly available Power-Ups, see the following `blog <https://vertex.link/blogs/synapse-power-ups/>`_ post.
 
 
 Available Rapid Power-Ups
@@ -53,7 +53,7 @@ Vertex maintains a package repository which allows for loading public and privat
 If you are a :ref:`synapse-ui` user, you can navigate to the Power-Ups tab to register your Cortex and configure packages
 directly from the UI.
 
-Alternatively, one can use the `storm`_ tool can also be used.
+Alternatively, one can use the `storm`_ tool to get started with Rapid Power-Ups in their Cortex.
 
 First load the ``vertex`` package.
 
