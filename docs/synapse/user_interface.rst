@@ -26,7 +26,7 @@ Ecosystem. A few important UI features include:
 
     - Directly manage your Rapid Power-Ups and get inline documentation for all the Power-Ups installed in the system.
 
-    - Choose your collaborates. Users and Roles can all be managed by the UI, allowing you to designate additional
+    - Choose your collaborators. Users and Roles can all be managed by the UI, allowing you to designate additional
       admins, create analysis teams, and control access to system functionality.
 
 For additional information on the UI, visit the `User Interface Documentation`_!
