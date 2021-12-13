@@ -27,6 +27,11 @@ Welcome to the Synapse documentation!
    synapse/datamodel
    synapse/stormtypes
 
+   synapse/power_ups
+   synapse/user_interface
+
+   synapse/support
+
    synapse/changelog
 
 Indices and tables
