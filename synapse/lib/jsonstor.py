@@ -65,6 +65,15 @@ class JsonStor(s_base.Base):
         self.slab.pop(buid, db=self.itemdb)
         self.dirty.pop(buid, None)
 
+    async def copyPathObj(self, oldp, newp):
+        item = await self.getPathObj(oldp)
+        await self.setPathObj(newp, item)
+
+    async def copyPathObjs(self, paths):
+        for oldp, newp in paths:
+            await self.copyPathObj(oldp, newp)
+            await asyncio.sleep(0)
+
     async def setPathObj(self, path, item):
         '''
         Set (and/or reinitialize) the object at the given path.
@@ -102,6 +111,10 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
         return self.slab.get(pkey, db=self.pathdb)
 
+    async def hasPathObj(self, path):
+        pkey = self._pathToPkey(path)
+        return self.slab.has(pkey, db=self.pathdb)
+
     async def delPathObj(self, path):
         '''
         Remove a path and decref the object it references.
@@ -137,7 +150,9 @@ class JsonStor(s_base.Base):
             return None
 
         for name in self._pathToTupl(prop):
-            item = item[name]
+            item = item.get(name, s_common.novalu)
+            if item is s_common.novalu:
+                return None
 
         return item
 
@@ -247,7 +262,57 @@ class JsonStor(s_base.Base):
         self.dirty[buid] = item
         return True
 
+    async def popPathObjProp(self, path, prop, defv=None):
+
+        buid = self._pathToBuid(path)
+        if buid is None:
+            return defv
+
+        item = self._getBuidItem(buid)
+        if item is None:
+            return defv
+
+        step = item
+        names = self._pathToTupl(prop)
+        for name in names[:-1]:
+            step = step.get(name, s_common.novalu)
+            if step is s_common.novalu:
+                return defv
+
+        retn = step.pop(names[-1], defv)
+        self.dirty[buid] = item
+
+        return retn
+
 class JsonStorApi(s_cell.CellApi):
+
+    async def popPathObjProp(self, path, prop):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'set', *path))
+        return await self.cell.popPathObjProp(path, prop)
+
+    async def hasPathObj(self, path):
+        path = self.cell.jsonstor._pathToTupl(path)
+        await self._reqUserAllowed(('json', 'get', *path))
+        return await self.cell.hasPathObj(path)
+
+    async def copyPathObj(self, oldp, newp):
+        oldp = self.cell.jsonstor._pathToTupl(oldp)
+        newp = self.cell.jsonstor._pathToTupl(newp)
+        await self._reqUserAllowed(('json', 'get', *oldp))
+        await self._reqUserAllowed(('json', 'set', *newp))
+        return await self.cell.copyPathObj(oldp, newp)
+
+    async def copyPathObjs(self, paths):
+        pathnorms = []
+        for oldp, newp in paths:
+            oldp = self.cell.jsonstor._pathToTupl(oldp)
+            newp = self.cell.jsonstor._pathToTupl(newp)
+            await self._reqUserAllowed(('json', 'get', *oldp))
+            await self._reqUserAllowed(('json', 'set', *newp))
+            pathnorms.append((oldp, newp))
+
+        return await self.cell.copyPathObjs(pathnorms)
 
     async def getPathList(self, path):
         path = self.cell.jsonstor._pathToTupl(path)
@@ -340,6 +405,21 @@ class JsonStorCell(s_cell.Cell):
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item
+
+    @s_nexus.Pusher.onPushAuto('json:pop:prop')
+    async def popPathObjProp(self, path, prop):
+        return await self.jsonstor.popPathObjProp(path, prop)
+
+    async def hasPathObj(self, path):
+        return await self.jsonstor.hasPathObj(path)
+
+    @s_nexus.Pusher.onPushAuto('json:copy')
+    async def copyPathObj(self, oldp, newp):
+        return await self.jsonstor.copyPathObj(oldp, newp)
+
+    @s_nexus.Pusher.onPushAuto('json:copys')
+    async def copyPathObjs(self, paths):
+        return await self.jsonstor.copyPathObjs(paths)
 
     async def getPathObj(self, path):
         return await self.jsonstor.getPathObj(path)

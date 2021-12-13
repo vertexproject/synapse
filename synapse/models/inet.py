@@ -2599,7 +2599,7 @@ class InetModule(s_module.CoreModule):
                         ('registrant', ('inet:whois:ipcontact', {}), {
                             'doc': 'The registrant contact from the record.'
                         }),
-                        ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',
                         }),
                         ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
@@ -2611,7 +2611,7 @@ class InetModule(s_module.CoreModule):
                         ('type', ('str', {'lower': True}), {
                             'doc': 'The classification of the registered network (e.g. direct allocation).'
                         }),
-                        ('links', ('array', {'type': 'inet:url'}), {
+                        ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                             'doc': 'URLs provided with the record.',
                         }),
                     )),
@@ -2632,7 +2632,7 @@ class InetModule(s_module.CoreModule):
                         ('role', ('str', {'lower': True}), {
                             'doc': 'The primary role for the contact.'
                         }),
-                        ('roles', ('array', {'type': 'str'}), {
+                        ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional roles assigned to the contact.',
                         }),
                         ('asn', ('inet:asn', {}), {
@@ -2641,13 +2641,13 @@ class InetModule(s_module.CoreModule):
                         ('id', ('inet:whois:regid', {}), {
                             'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
                         }),
-                        ('links', ('array', {'type': 'inet:url'}), {
+                        ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                             'doc': 'URLs provided with the record.',
                         }),
                         ('status', ('str', {'lower': True}), {
                             'doc': 'The state of the registered contact (e.g. validated, obscured).'
                         }),
-                        ('contacts', ('array', {'type': 'inet:whois:ipcontact'}), {
+                        ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts referenced by this contact.',
                         }),
                     )),
