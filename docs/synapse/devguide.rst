@@ -8,7 +8,7 @@ This Dev Guide is written by and for Synapse developers.
 .. note::
 
     Synapse as a library is under constant development. It is posssible that content here may become out of date. If
-    you encounter issues with documentation in the Developers guides, please reach out to us on our Synapse Slack
+    you encounter issues with documentation in the Developers guides, please reach out to us on our Synapse `Slack`_
     chat or file an issue in our projects Github page.
 
 The Dev Guide is a living document and will continue to be updated and expanded as appropriate. The current sections are:
@@ -19,3 +19,5 @@ The Dev Guide is a living document and will continue to be updated and expanded 
     devguides/architecture
     devguides/cortex_quickstart
     devguides/stormservices
+
+.. _Slack: https://v.vtx.lk/join-slack

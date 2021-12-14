@@ -112,7 +112,7 @@ What's Next?
 .. _Request: https://vertex.link/contact-us
 
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
-.. _Slack: https://v.vtx.lk/slack-invite
+.. _Slack: https://v.vtx.lk/join-slack
 
 .. _sizing_guide: https://docsend.com/view/kmbkkq9pjhtjsbmk
 

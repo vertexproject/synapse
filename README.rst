@@ -39,7 +39,7 @@ Connect With Us
 .. _rtd: https://v.vtx.lk/synapse-docs
 
 .. |slack| image:: http://slackinvite.vertex.link/badge.svg
-.. _slack: https://v.vtx.lk/slack-invite
+.. _slack: https://v.vtx.lk/join-slack
 
 .. _dockerhub: https://v.vtx.lk/synapse-dockerhub
 
