@@ -25,7 +25,7 @@ Installation & Documentation
 Connect With Us
 ---------------
 
-* Join the Synapse user community on |slack|_
+* Join the Synapse user community on Slack_
 * Follow us on Twitter_.
 * Follow us on LinkedIn_.
 
@@ -38,7 +38,6 @@ Connect With Us
 .. |rtd| image:: https://readthedocs.com/projects/vertex-synapse/badge/?version=latest
 .. _rtd: https://v.vtx.lk/synapse-docs
 
-.. |slack| image:: http://slackinvite.vertex.link/badge.svg
 .. _slack: https://v.vtx.lk/join-slack
 
 .. _dockerhub: https://v.vtx.lk/synapse-dockerhub
