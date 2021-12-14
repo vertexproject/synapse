@@ -331,7 +331,12 @@ class HttpResp(s_stormtypes.Prim):
         }
 
     async def _httpRespJson(self):
-        return json.loads(self.valu.get('body'))
+        try:
+            return json.loads(self.valu.get('body'))
+        except json.JSONDecodeError as e:
+            mesg = f'Unable to decode HTTP response as json: {e.args[0]}'
+            logger.exception(mesg)
+            raise s_exc.BadJsonText(mesg=mesg) from None
 
     async def _httpRespMsgpack(self):
         byts = self.valu.get('body')
