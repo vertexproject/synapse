@@ -610,7 +610,7 @@ class ItModule(s_module.CoreModule):
                     ('windows:sid', ('it:os:windows:sid', {}), {
                         'doc': 'The Microsoft Windows Security Identifier of the account.',
                     }),
-                    ('groups', ('array', {'type': 'it:group'}), {
+                    ('groups', ('array', {'type': 'it:group', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of groups that the account is a member of.',
                     }),
                 )),
@@ -627,7 +627,7 @@ class ItModule(s_module.CoreModule):
                     ('domain', ('it:domain', {}), {
                         'doc': 'The authentication domain where the group is registered.',
                     }),
-                    ('groups', ('array', {'type': 'it:group'}), {
+                    ('groups', ('array', {'type': 'it:group', 'uniq': True, 'sorted': True}), {
                         'doc': 'Groups that are a member of this group.',
                     }),
                     ('posix:gid', ('int', {}), {
@@ -693,7 +693,7 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL linking this CVE to a full description.',
                     }),
-                    ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
+                    ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of URLs that document the CVE ID.',
                     }),
                 )),
@@ -1647,7 +1647,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The name of the function.'}),
                     ('description', ('str', {}), {
                         'doc': 'Notes concerning the function.'}),
-                    ('impcalls', ('array', {'type': 'it:reveng:impfunc'}), {
+                    ('impcalls', ('array', {'type': 'it:reveng:impfunc', 'uniq': True, 'sorted': True}), {
                         'doc': 'Calls to imported library functions within the scope of the function.',
                     }),
                     ('strings', ('array', {'type': 'it:dev:str', 'uniq': True}), {
@@ -1668,7 +1668,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The function rank score used to evaluate if it exhibits interesting behavior.'}),
                     ('complexity', ('int', {}), {
                         'doc': 'The complexity of the function.'}),
-                    ('funccalls', ('array', {'type': 'it:reveng:filefunc'}), {
+                    ('funccalls', ('array', {'type': 'it:reveng:filefunc', 'uniq': True, 'sorted': True}), {
                         'doc': 'Other function calls within the scope of the function.',
                     }),
                 )),

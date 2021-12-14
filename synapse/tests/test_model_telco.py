@@ -237,7 +237,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], guid)
                 self.eq(node.get('from'), '17035551212')
                 self.eq(node.get('to'), '1234567890')
-                self.eq(node.get('recipients'), ('5678901234', '5554443333'))
+                self.eq(node.get('recipients'), ('5554443333', '5678901234'))
                 self.eq(node.get('svctype'), 'sms')
                 self.eq(node.get('time'), 978307200000)
                 self.eq(node.get('text'), 'I wrote some stuff')

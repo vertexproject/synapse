@@ -110,6 +110,7 @@ terminalEnglishMap = {
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_TRYSET': '?=',
+    '_STOP': 'stop',
     '_WS': 'whitespace',
     '_WSCOMM': 'whitespace or comment'
 }

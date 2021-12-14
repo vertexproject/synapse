@@ -123,14 +123,20 @@ class LayerApi(s_cell.CellApi):
         async for item in self.layr.iterLayerNodeEdits():
             yield item
 
+    @s_cell.adminapi()
+    async def saveNodeEdits(self, edits, meta):
+        '''
+        Save node edits to the layer and return a tuple of (nexsoffs, changes).
+        '''
+        meta['link:user'] = self.user.iden
+        return await self.layr.saveNodeEdits(edits, meta)
+
     async def storNodeEdits(self, nodeedits, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
         if meta is None:
-            meta = {'time': s_common.now(),
-                    'user': self.user.iden
-                    }
+            meta = {'time': s_common.now(), 'user': self.user.iden}
 
         return await self.layr.storNodeEdits(nodeedits, meta)
 
@@ -139,9 +145,7 @@ class LayerApi(s_cell.CellApi):
         await self._reqUserAllowed(self.writeperm)
 
         if meta is None:
-            meta = {'time': s_common.now(),
-                    'user': self.user.iden
-                    }
+            meta = {'time': s_common.now(), 'user': self.user.iden}
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
@@ -153,6 +157,11 @@ class LayerApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits(offs, wait=wait):
+            yield item
+
+    async def syncNodeEdits2(self, offs, wait=True):
+        await self._reqUserAllowed(self.liftperm)
+        async for item in self.layr.syncNodeEdits2(offs, wait=wait):
             yield item
 
     async def splices(self, offs=None, size=None):
@@ -171,6 +180,13 @@ class LayerApi(s_cell.CellApi):
         '''
         await self._reqUserAllowed(self.liftperm)
         return await self.layr.getEditIndx()
+
+    async def getEditSize(self):
+        '''
+        Return the total number of (edits, meta) pairs in the layer changelog.
+        '''
+        await self._reqUserAllowed(self.liftperm)
+        return await self.layr.getEditSize()
 
     async def getIden(self):
         await self._reqUserAllowed(self.liftperm)
@@ -286,6 +302,9 @@ class IndxBy:
     def scanByRange(self, minindx, maxindx):
         for item in self.layr.layrslab.scanByRange(self.abrv + minindx, self.abrv + maxindx, db=self.db):
             yield item
+
+    def hasIndxBuid(self, indx, buid):
+        return self.layr.layrslab.hasdup(self.abrv + indx, buid, db=self.db)
 
 class IndxByForm(IndxBy):
 
@@ -412,6 +431,12 @@ class StorType:
 
         async for item in self.indxBy(indxby, cmpr, valu):
             yield item
+
+    async def verifyBuidProp(self, buid, form, prop, valu):
+        indxby = IndxByProp(self.layr, form, prop)
+        for indx in self.indx(valu):
+            if not indxby.hasIndxBuid(indx, buid):
+                yield ('NoPropIndex', {'prop': 'prop', 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu):
         try:
@@ -1101,27 +1126,27 @@ class Layer(s_nexus.Pusher):
     def __repr__(self):
         return f'Layer ({self.__class__.__name__}): {self.iden}'
 
-    async def __anit__(self, layrinfo, dirn, nexsroot=None, allow_upstream=True, mapasync=True, maxreplaylog=10000):
+    async def __anit__(self, core, layrinfo):
 
-        self.nexsroot = nexsroot
+        self.core = core
         self.layrinfo = layrinfo
-        self.allow_upstream = allow_upstream
 
         self.addoffs = None  # The nexus log index where I was created
         self.deloffs = None  # The nexus log index where I was deleted
         self.isdeleted = False
 
         self.iden = layrinfo.get('iden')
-        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=nexsroot)
+        await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot)
 
-        self.dirn = dirn
+        self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = layrinfo.get('readonly')
 
         self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
-        self.mapasync = mapasync
-        self.maxreplaylog = maxreplaylog
+
+        self.mapasync = core.conf.get('layer:lmdb:map_async')
+        self.maxreplaylog = core.conf.get('layer:lmdb:max_replay_log')
 
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
@@ -1132,6 +1157,7 @@ class Layer(s_nexus.Pusher):
         self.fresh = not os.path.exists(path)
 
         self.dirty = {}
+        self.futures = {}
 
         self.stortypes = [
 
@@ -1194,18 +1220,293 @@ class Layer(s_nexus.Pusher):
 
         self.buidcache = s_cache.LruDict(BUID_CACHE_SIZE)
 
-        uplayr = layrinfo.get('upstream')
-        if uplayr is not None and allow_upstream:
+        self.onfini(self._onLayrFini)
+
+        # if we are a mirror, we upstream all our edits and
+        # wait for them to make it back down the pipe...
+        self.leader = None
+        self.leadtask = None
+        self.ismirror = layrinfo.get('mirror') is not None
+        self.activetasks = []
+
+    @contextlib.contextmanager
+    def getIdenFutu(self, iden=None):
+
+        if iden is None:
+            iden = s_common.guid()
+
+        futu = self.loop.create_future()
+        self.futures[iden] = futu
+
+        yield iden, futu
+
+        self.futures.pop(iden, None)
+
+    async def getMirrorStatus(self):
+        # TODO plumb back to upstream on not self.core.isactive
+        retn = {'mirror': self.leader is not None}
+        if self.leader:
+            proxy = await self.leader.proxy()
+            retn['local'] = {'size': await self.getEditSize()}
+            retn['remote'] = {'size': await proxy.getEditSize()}
+        return retn
+
+    async def initLayerActive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+
+        mirror = self.layrinfo.get('mirror')
+        if mirror is not None:
+            conf = {'retrysleep': 2}
+            self.leader = await s_telepath.Client.anit(mirror, conf=conf)
+            self.leadtask = self.schedCoro(self._runMirrorLoop())
+
+        uplayr = self.layrinfo.get('upstream')
+        if uplayr is not None:
             if isinstance(uplayr, (tuple, list)):
                 for layr in uplayr:
                     await self.initUpstreamSync(layr)
             else:
                 await self.initUpstreamSync(uplayr)
 
-        self.onfini(self._onLayrFini)
+    async def initLayerPassive(self):
+
+        if self.leadtask is not None:
+            self.leadtask.cancel()
+            self.leadtask = None
+
+        if self.leader is not None:
+            await self.leader.fini()
+            self.leader = None
+
+        [t.cancel() for t in self.activetasks]
+        self.activetasks.clear()
+
+    async def getEditSize(self):
+        return self.nodeeditlog.size
+
+    async def _runMirrorLoop(self):
+
+        while not self.isfini:
+
+            try:
+
+                proxy = await self.leader.proxy()
+
+                leadoffs = await self._getLeadOffs()
+
+                async for offs, edits, meta in proxy.syncNodeEdits2(leadoffs + 1):
+
+                    iden = meta.get('task')
+                    futu = self.futures.pop(iden, None)
+
+                    meta['indx'] = offs
+
+                    try:
+                        item = await self.saveToNexs('edits', edits, meta)
+                        if futu is not None:
+                            futu.set_result(item)
+
+                    except asyncio.CancelledError:  # pragma: no cover
+                        raise
+
+                    except Exception as e:
+                        if futu is not None:
+                            futu.set_exception(e)
+
+            except asyncio.CancelledError as e:  # pragma: no cover
+                raise
+
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'error in runMirrorLoop() (layer: {self.iden}): ')
+                await self.waitfini(timeout=2)
+
+    async def _getLeadOffs(self):
+        last = self.nodeeditlog.last()
+        if last is None:
+            return -1
+        return last[1][1].get('indx', -1)
+
+    async def verifyBuidTag(self, buid, formname, tagname, tagvalu):
+        abrv = self.tagabrv.bytsToAbrv(tagname.encode())
+        abrv += self.getPropAbrv(formname, None)
+        if not self.layrslab.hasdup(abrv, buid, db=self.bytag):
+            yield ('NoTagIndex', {'buid': buid, 'form': formname, 'tag': tagname, 'valu': tagvalu})
+
+    def _testDelTagIndx(self, buid, form, tag):
+        formabrv = self.setPropAbrv(form, None)
+        tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+        self.layrslab.delete(tagabrv + formabrv, buid, db=self.bytag)
+
+    def _testDelPropIndx(self, buid, form, prop):
+        sode = self._getStorNode(buid)
+        storvalu, stortype = sode['props'][prop]
+
+        abrv = self.setPropAbrv(form, prop)
+        for indx in self.stortypes[stortype].indx(storvalu):
+            self.layrslab.delete(abrv + indx, buid, db=self.byprop)
+
+    def _testDelTagStor(self, buid, form, tag):
+        sode = self._getStorNode(buid)
+        sode['tags'].pop(tag, None)
+        self.setSodeDirty(buid, sode, form)
+
+    def _testDelPropStor(self, buid, form, prop):
+        sode = self._getStorNode(buid)
+        sode['props'].pop(prop, None)
+        self.setSodeDirty(buid, sode, form)
+
+    def _testAddPropIndx(self, buid, form, prop, valu):
+        modlprop = self.core.model.prop(f'{form}:{prop}')
+        abrv = self.setPropAbrv(form, prop)
+        for indx in self.stortypes[modlprop.type.stortype].indx(valu):
+            self.layrslab.put(abrv + indx, buid, db=self.byprop)
+
+    def _testAddTagIndx(self, buid, form, tag):
+        formabrv = self.setPropAbrv(form, None)
+        tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+        self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
+
+    async def verify(self, buids=True, tags=True, props=True):
+        if buids:
+            async for error in self.verifyAllBuids():
+                yield error
+
+        if tags:
+            async for error in self.verifyAllTags():
+                yield error
+
+        if props:
+            async for error in self.verifyAllProps():
+                yield error
+
+    async def verifyAllBuids(self):
+        async for buid, sode in self.getStorNodes():
+            async for error in self.verifyByBuid(buid, sode):
+                yield error
+
+    async def verifyAllTags(self):
+        for name in self.tagabrv.names():
+            async for error in self.verifyByTag(name):
+                yield error
+
+    async def verifyAllProps(self):
+        for form, prop in self.getFormProps():
+            async for error in self.verifyByProp(form, prop):
+                yield error
+
+    async def verifyByTag(self, tag):
+        tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+        for lkey, buid in self.layrslab.scanByPref(tagabrv, db=self.bytag):
+
+            await asyncio.sleep(0)
+
+            sode = self._getStorNode(buid)
+            if sode is None: # pragma: no cover
+                yield ('NoNodeForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                continue
+
+            tags = sode.get('tags')
+            if tags is None:
+                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                continue
+
+            if tags.get(tag) is None:
+                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                continue
+
+    async def verifyByProp(self, form, prop):
+
+        abrv = self.getPropAbrv(form, prop)
+
+        sode = None
+        oldbuid = None
+        oldvalu = None
+        oldkeys = []
+
+        def verifyIndxKeys(propvalu, stortype, indxkeys):
+
+            # NOTE: This *will* mutate indxkeys list
+            for indx in self.stortypes[stortype].indx(propvalu):
+                indxkey = abrv + indx
+                if indxkey not in indxkeys:
+                    yield ('NoPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                    continue
+
+                indxkeys.remove(indxkey)
+
+            for indxkey in indxkeys:
+                indx = indxkey[len(abrv):]
+                yield ('SpurPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+
+            await asyncio.sleep(0)
+
+            if buid != oldbuid:
+
+                if oldvalu is not None:
+                    for error in verifyIndxKeys(*oldvalu, oldkeys):
+                        yield error
+
+                oldbuid = buid
+
+                sode = self._getStorNode(buid)
+                if sode is None: # pragma: no cover
+                    yield ('NoNodeForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                    continue
+
+                oldvalu = None
+                oldkeys.clear()
+
+                if prop is not None:
+                    props = sode.get('props')
+                    if props is None:
+                        indx = lkey[len(abrv):]
+                        yield ('NoPropForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                        continue
+
+                    oldvalu = props.get(prop)
+                    if oldvalu is None:
+                        indx = lkey[len(abrv):]
+                        yield ('NoValuForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                        continue
+                else:
+                    oldvalu = sode.get('valu')
+                    if oldvalu is None:
+                        yield ('NoValuForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                        continue
+
+            # store the index keys to verify at the end
+            oldkeys.append(lkey)
+
+        # mop up the last one...
+        if oldvalu is not None:
+            for error in verifyIndxKeys(*oldvalu, oldkeys):
+                yield error
+
+    async def verifyByBuid(self, buid, sode):
+
+        await asyncio.sleep(0)
+
+        form = sode.get('form')
+        stortags = sode.get('tags')
+        if stortags:
+            for tagname, storvalu in stortags.items():
+                async for error in self.verifyBuidTag(buid, form, tagname, storvalu):
+                    yield error
+
+        storprops = sode.get('props')
+        if storprops:
+            for propname, (storvalu, stortype) in storprops.items():
+                async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
+                    yield error
 
     async def pack(self):
         ret = self.layrinfo.pack()
+        if ret.get('mirror'):
+            ret['mirror'] = s_urlhelp.sanitizeUrl(ret['mirror'])
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
@@ -1568,6 +1869,9 @@ class Layer(s_nexus.Pusher):
 
     async def _onLayrFini(self):
         [(await wind.fini()) for wind in self.windows]
+        [futu.cancel() for futu in self.futures.values()]
+        if self.leader is not None:
+            await self.leader.fini()
 
     async def getFormCounts(self):
         return self.formcounts.pack()
@@ -1578,6 +1882,10 @@ class Layer(s_nexus.Pusher):
 
     def setPropAbrv(self, form, prop):
         return self.propabrv.setBytsToAbrv(s_msgpack.en((form, prop)))
+
+    def getFormProps(self):
+        for byts in self.propabrv.keys():
+            yield s_msgpack.un(byts)
 
     @s_cache.memoizemethod()
     def getTagPropAbrv(self, *args):
@@ -1826,14 +2134,46 @@ class Layer(s_nexus.Pusher):
 
     async def storNodeEdits(self, nodeedits, meta):
 
-        results = await self._push('edits', nodeedits, meta)
+        saveoff, results = await self.saveNodeEdits(nodeedits, meta)
 
         retn = []
         for buid, _, edits in results:
-            sode = deepcopy(self._getStorNode(buid))
+            sode = await self.getStorNode(buid)
             retn.append((buid, sode, edits))
 
         return retn
+
+    async def _realSaveNodeEdits(self, edits, meta):
+
+        saveoff, changes = await self.saveNodeEdits(edits, meta)
+
+        retn = []
+        for buid, _, edits in changes:
+            sode = await self.getStorNode(buid)
+            retn.append((buid, sode, edits))
+
+        return saveoff, changes, retn
+
+    async def saveNodeEdits(self, edits, meta):
+
+        if self.ismirror:
+
+            if self.core.isactive:
+                proxy = await self.leader.proxy()
+
+                with self.getIdenFutu(iden=meta.get('task')) as (iden, futu):
+                    meta['task'] = iden
+                    moff, changes = await proxy.saveNodeEdits(edits, meta)
+                    if any(c[2] for c in changes):
+                        return await futu
+                    return
+
+            proxy = await self.core.nexsroot.client.proxy()
+            indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
+            await self.core.nexsroot.waitOffs(indx)
+            return indx, changes
+
+        return await self.saveToNexs('edits', edits, meta)
 
     @s_nexus.Pusher.onPush('edits', passitem=True)
     async def _storNodeEdits(self, nodeedits, meta, nexsitem):
@@ -1858,7 +2198,6 @@ class Layer(s_nexus.Pusher):
 
             sode = self._getStorNode(buid)
 
-            i = 0
             changes = []
             for edit in edits:
 
@@ -1868,9 +2207,7 @@ class Layer(s_nexus.Pusher):
 
                 changes.extend(delt)
 
-                i += 1
-                if i % 100 == 0:
-                    await asyncio.sleep(0)
+                await asyncio.sleep(0)
 
             flatedit = results.get(buid)
             if flatedit is None:
@@ -1880,8 +2217,6 @@ class Layer(s_nexus.Pusher):
 
             if changes:
                 edited = True
-
-            await asyncio.sleep(0)
 
         flatedits = list(results.values())
 
@@ -2643,7 +2978,7 @@ class Layer(s_nexus.Pusher):
             yield nodeedit
 
     async def initUpstreamSync(self, url):
-        self.schedCoro(self._initUpstreamSync(url))
+        self.activetasks.append(self.schedCoro(self._initUpstreamSync(url)))
 
     async def _initUpstreamSync(self, url):
         '''

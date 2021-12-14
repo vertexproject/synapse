@@ -28,7 +28,9 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
+import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -1090,6 +1092,28 @@ class LibBase(Lib):
                     $lib.debug = $lib.true''',
 
          'type': 'boolean', },
+        {'name': 'scrape', 'desc': '''
+        Attempt to scrape node form, value tuples from a blob of text.
+
+        Examples:
+            Scrape some text and attempt to make nodes out of it::
+
+                for ($form, $valu) in $lib.scrape($text) {
+                    [ ( *$form ?= $valu ) ]
+                }''',
+         'type': {'type': 'function', '_funcname': '_scrape',
+                  'args': (
+                      {'name': 'text', 'type': 'str',
+                       'desc': 'The text to scrape', },
+                      {'name': 'ptype', 'type': 'str', 'default': None,
+                       'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
+                      {'name': 'refang', 'type': 'boolean', 'default': True,
+                       'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
+                      {'name': 'unique', 'type': 'boolean', 'default': True,
+                       'desc': 'Only yield unique items from the text.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'A list of (form, value) tuples scraped from the text.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1125,6 +1149,7 @@ class LibBase(Lib):
             'raise': self._raise,
             'range': self._range,
             'pprint': self._pprint,
+            'scrape': self._scrape,
             'sorted': self._sorted,
             'import': self._libBaseImport,
             'trycast': self.trycast,
@@ -1366,6 +1391,21 @@ class LibBase(Lib):
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
+    @stormfunc(readonly=True)
+    async def _scrape(self, text, ptype=None, refang=True, unique=True):
+        text = await tostr(text)
+        ptype = await tostr(ptype, noneok=True)
+        refang = await tobool(refang)
+        unique = await tobool(unique)
+
+        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
+            for ptyp, ndef in s_scrape.scrape(text, ptype=ptype, refang=refang, first=False):
+                if unique:
+                    if (ptype, ndef) in items:
+                        continue
+                    await items.add((ptype, ndef))
+                yield (ptyp, ndef)
+
 @registry.registerLib
 class LibPs(Lib):
     '''
@@ -1605,6 +1645,10 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'list',
                   'args': (
                       {'name': 'offs', 'type': 'int', 'desc': 'The offset to start from.', 'default': 0},
+                      {'name': 'wait', 'type': 'boolean', 'default': False,
+                        'desc': 'Wait for new results and yield them in realtime.'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                        'desc': 'The maximum time to wait for a new result before returning.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
@@ -1773,15 +1817,17 @@ class LibAxon(Lib):
 
         return urlfile
 
-    async def list(self, offs=0):
+    async def list(self, offs=0, wait=False, timeout=None):
         offs = await toint(offs)
+        wait = await tobool(wait)
+        timeout = await toint(timeout, noneok=True)
 
         self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
 
-        async for item in axon.hashes(offs):
+        async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
 
 @registry.registerLib
@@ -3245,6 +3291,10 @@ class Prim(StormType):
         name = f'{self.__class__.__module__}.{self.__class__.__name__}'
         raise s_exc.StormRuntimeError(mesg=f'Object {name} is not iterable.', name=name)
 
+    async def nodes(self):  # pragma: no cover
+        for x in ():
+            yield x
+
     async def bool(self):
         return bool(await s_coro.ornot(self.value))
 
@@ -4446,8 +4496,9 @@ class Query(Prim):
                 yield item
 
     async def nodes(self):
-        async for node, path in self._getRuntGenr():
-            yield node
+        async with s_common.aclosing(self._getRuntGenr()) as genr:
+            async for node, path in genr:
+                yield node
 
     async def iter(self):
         async for node, path in self._getRuntGenr():
@@ -5352,6 +5403,26 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNodes',
                   'returns': {'name': 'Yields', 'type': 'list', 'desc': 'Tuple of buid, sode values.', }}},
+        {'name': 'getMirrorStatus', 'desc': '''
+            Return a dictionary of the mirror synchronization status for the layer.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getMirrorStatus',
+                  'returns': {'type': 'dict', 'desc': 'An info dictionary describing mirror sync status.', }}},
+
+        {'name': 'verify', 'desc': '''
+            Verify consistency between the node storage and indexes in the given layer.
+
+            Example:
+                for $mesg in $lib.layer.get().verify() {
+                    $lib.print($mesg)
+                }
+
+            Notes:
+                The message format yielded by this API is considered BETA and may be subject to change!
+            ''',
+         'type': {'type': 'function', '_funcname': 'verify',
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields messages describing any index inconsistencies.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5388,6 +5459,7 @@ class Layer(Prim):
             'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
+            'verify': self.verify,
             'addPush': self._addPush,
             'delPush': self._delPush,
             'addPull': self._addPull,
@@ -5396,7 +5468,13 @@ class Layer(Prim):
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNodes': self.getStorNodes,
+            'getMirrorStatus': self.getMirrorStatus,
         }
+
+    async def getMirrorStatus(self):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        return await layr.getMirrorStatus()
 
     async def _addPull(self, url, offs=0):
         url = await tostr(url)
@@ -5581,6 +5659,12 @@ class Layer(Prim):
         creator = self.valu.get('creator')
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
+
+    async def verify(self):
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+        async for mesg in layr.verify():
+            yield mesg
 
 @registry.registerLib
 class LibView(Lib):

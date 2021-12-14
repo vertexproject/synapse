@@ -34,6 +34,9 @@ class ProjectEpic(s_stormtypes.Prim):
     async def value(self):
         return self.node.ndef[1]
 
+    async def nodes(self):
+        yield self.node
+
     async def _setEpicName(self, valu):
         self.proj.confirm(('project', 'epic', 'set', 'name'))
         name = await tostr(valu, noneok=True)
@@ -157,6 +160,9 @@ class ProjectTicketComment(s_stormtypes.Prim):
             raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
         return self.node.ndef[1]
 
+    async def nodes(self):
+        yield self.node
+
     async def _setCommentText(self, valu):
 
         if self.node is None:
@@ -264,7 +270,7 @@ class ProjectTicket(s_stormtypes.Prim):
          'type': 'str'},
         {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
          'type': 'int'},
-        {'name': 'comments', 'desc': 'A `storm:project:ticket:comments object that contains comments associated with the given ticket.',
+        {'name': 'comments', 'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
          'type': 'storm:project:ticket:comments'},
     )
 
@@ -298,6 +304,9 @@ class ProjectTicket(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
         return self.node.ndef[1]
+
+    async def nodes(self):
+        yield self.node
 
     async def _setName(self, valu):
 
@@ -572,6 +581,9 @@ class ProjectSprint(s_stormtypes.Prim):
     async def value(self):
         return self.node.ndef[1]
 
+    async def nodes(self):
+        yield self.node
+
 @s_stormtypes.registry.registerType
 class ProjectSprints(s_stormtypes.Prim):
     '''
@@ -719,6 +731,9 @@ class Project(s_stormtypes.Prim):
     @s_stormtypes.stormfunc(readonly=True)
     def value(self):
         return self.node.ndef[1]
+
+    async def nodes(self):
+        yield self.node
 
     async def _getProjEpic(self, name):
 

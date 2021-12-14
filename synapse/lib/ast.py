@@ -150,14 +150,13 @@ class Query(AstNode):
 
     async def run(self, runt, genr):
 
-        for oper in self.kids:
-            genr = oper.run(runt, genr)
+        async with contextlib.AsyncExitStack() as stack:
+            for oper in self.kids:
+                genr = await stack.enter_async_context(s_common.aclosing(oper.run(runt, genr)))
 
-        async for node, path in genr:
-
-            runt.tick()
-
-            yield node, path
+            async for node, path in genr:
+                runt.tick()
+                yield node, path
 
     async def iterNodePaths(self, runt, genr=None):
 
@@ -1115,14 +1114,16 @@ class YieldValu(Oper):
 
         async for node, path in genr:
             valu = await self.kids[0].compute(runt, path)
-            async for subn in self.yieldFromValu(runt, valu):
-                yield subn, runt.initPath(subn)
+            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+                async for subn in agen:
+                    yield subn, runt.initPath(subn)
             yield node, path
 
         if node is None and self.kids[0].isRuntSafe(runt):
             valu = await self.kids[0].compute(runt, None)
-            async for subn in self.yieldFromValu(runt, valu):
-                yield subn, runt.initPath(subn)
+            async with s_common.aclosing(self.yieldFromValu(runt, valu)) as agen:
+                async for subn in agen:
+                    yield subn, runt.initPath(subn)
 
     async def yieldFromValu(self, runt, valu):
 
@@ -1186,16 +1187,17 @@ class YieldValu(Oper):
             yield valu
             return
 
-        if isinstance(valu, s_stormtypes.Query):
-            async for node in valu.nodes():
-                yield node
-            return
-
         if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
             for item in valu.valu:
                 async for node in self.yieldFromValu(runt, item):
                     yield node
             return
+
+        if isinstance(valu, s_stormtypes.Prim):
+            async with s_common.aclosing(valu.nodes()) as genr:
+                async for node in genr:
+                    yield node
+                return
 
 class LiftTag(LiftOper):
 
@@ -3657,8 +3659,9 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
-        if self.kids and self.isRuntSafe(runt):
-            valu = await self.kids[0].compute(runt, None)
+        if self.isRuntSafe(runt):
+            if self.kids:
+                valu = await self.kids[0].compute(runt, None)
             raise s_stormctrl.StormReturn(valu)
 
 class Emit(Oper):
@@ -3674,6 +3677,13 @@ class Emit(Oper):
         # no items in pipeline and runtsafe. execute once.
         if count == 0 and self.isRuntSafe(runt):
             await runt.emit(await self.kids[0].compute(runt, None))
+
+class Stop(Oper):
+
+    async def run(self, runt, genr):
+        async for node, path in genr:
+            raise s_stormctrl.StormStop()
+        raise s_stormctrl.StormStop()
 
 class FuncArgs(AstNode):
     '''
@@ -3822,11 +3832,12 @@ class Function(AstNode):
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
-
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
-
-                async for node, path in subr.execute():
-                    yield node, path
+                try:
+                    async for node, path in subr.execute():
+                        yield node, path
+                except s_stormctrl.StormStop:
+                    return
 
         return genr()

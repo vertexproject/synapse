@@ -174,6 +174,17 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchUser(mesg=mesg)
         return user
 
+    async def reqUserByNameOrIden(self, name):
+        user = await self.getUserByName(name)
+        if user is not None:
+            return user
+
+        user = self.user(name)
+        if user is None:
+            mesg = f'No user with name or iden {name}.'
+            raise s_exc.NoSuchUser(mesg=mesg)
+        return user
+
     async def reqRoleByName(self, name):
         role = await self.getRoleByName(name)
         if role is None:

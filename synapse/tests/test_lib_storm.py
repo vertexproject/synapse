@@ -45,6 +45,33 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('foo', msgs)
             self.len(1, [m for m in msgs if m[0] == 'err' and m[1][0] == 'StormRaise'])
 
+            msgs = await core.stormlist('''
+                function generate(items) {
+                    for $item in $items {
+                        if ($item = "woot") { stop }
+                        emit $item
+                    }
+                }
+                for $item in $generate((foo, woot, bar)) { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('woot', msgs)
+            self.stormNotInPrint('bar', msgs)
+
+    async def test_lib_storm_intersect(self):
+        async with self.getTestCore() as core:
+            await core.nodes('''
+                [(ou:org=* :names=(foo, bar))]
+                [(ou:org=* :names=(foo, baz))]
+                [(ou:org=* :names=(foo, hehe))]
+            ''')
+            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'foo')
+
+            msgs = await core.stormlist('ou:org $foo=$node.value() | intersect $foo')
+            self.stormIsInErr('intersect arguments must be runtsafe', msgs)
+
     async def test_lib_storm_trycatch(self):
 
         async with self.getTestCore() as core:
@@ -1152,8 +1179,14 @@ class StormTest(s_t_utils.SynTest):
 
                 self.sendRestRetn(pkg)
 
+        class PkgHandlerRaw(s_httpapi.Handler):
+            async def get(self, name):
+                self.set_header('Content-Type', 'application/json')
+                return self.write(pkg)
+
         async with self.getTestCore() as core:
             core.addHttpApi('/api/v1/pkgtest/(.*)', PkgHandler, {'cell': core})
+            core.addHttpApi('/api/v1/pkgtestraw/(.*)', PkgHandlerRaw, {'cell': core})
             port = (await core.addHttpsPort(0, host='127.0.0.1'))[1]
 
             msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/newp/newp')
@@ -1165,6 +1198,9 @@ class StormTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.cortex',
                                       "{'mesg': 'teststring'}") as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
+                self.stormIsInPrint('testload @0.3.0', msgs)
+
+                msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
                 self.true(await stream.wait(6))
 
@@ -3043,21 +3079,41 @@ class StormTest(s_t_utils.SynTest):
                 'version': '0.0.1',
                 'commands': (
                     {'name': 'woot', 'cmdargs': (('hehe', {}),), 'storm': 'spin | [ inet:ipv4=1.2.3.4 ]'},
+                    {'name': 'stomp', 'storm': '$fqdn=lol'},
+                    {'name': 'gronk', 'storm': 'init { $fqdn=foo } $lib.print($fqdn)'},
                 ),
             })
+            # Success for the next two tests is that these don't explode with errors..
             self.len(1, await core.nodes('''
                 [ inet:fqdn=vertex.link ]
                 $fqdn=$node.repr()
                 | woot lol |
                 $lib.print($path.vars.fqdn)
             '''))
-
+            # Non-runtsafe scope
             self.len(1, await core.nodes('''
                 [ inet:fqdn=vertex.link ]
                 $fqdn=$node.repr()
                 | woot $node |
                 $lib.print($path.vars.fqdn)
             '''))
+
+            msgs = await core.stormlist('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | stomp |
+                $lib.print($fqdn)
+            ''')
+            self.stormIsInPrint('vertex.link', msgs)
+            self.stormNotInPrint('lol', msgs)
+
+            msgs = await core.stormlist('''
+                [ inet:fqdn=vertex.link ]
+                $fqdn=$node.repr()
+                | gronk
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('vertex.link', msgs)
 
     async def test_storm_version(self):
 
@@ -3068,3 +3124,64 @@ class StormTest(s_t_utils.SynTest):
 
                 self.stormIsInPrint('Synapse Version:', msgs)
                 self.stormIsInPrint('Commit Hash:', msgs)
+
+    async def test_storm_runas(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            nodes = await core.nodes('[ inet:fqdn=foo.com ]')
+            self.len(1, nodes)
+
+            q = 'runas visi { [ inet:fqdn=bar.com ] }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await visi.addRule((True, ('node', 'add')))
+
+            await core.nodes('runas visi { [ inet:fqdn=bar.com ] }')
+
+            items = await alist(core.syncLayersEvents({}, wait=False))
+            self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
+
+            await core.nodes(f'runas {visi.iden} {{ [ inet:fqdn=baz.com ] }}')
+
+            items = await alist(core.syncLayersEvents({}, wait=False))
+            self.len(8, [item for item in items if item[-1]['user'] == visi.iden])
+
+            q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
+            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
+
+            await visi.addRule((True, ('node', 'tag', 'add')))
+
+            nodes = await core.nodes(q)
+            for node in nodes:
+                self.nn(node.tags.get('atag'))
+
+            async with core.getLocalProxy(user='visi') as asvisi:
+                await self.asyncraises(s_exc.AuthDeny, asvisi.callStorm(q))
+
+            q = '$tag=btag runas visi { inet:fqdn=foo.com [ +#$tag ] }'
+            await core.nodes(q)
+            nodes = await core.nodes('inet:fqdn=foo.com')
+            self.nn(nodes[0].tags.get('btag'))
+
+            await self.asyncraises(s_exc.NoSuchUser, core.nodes('runas newp { inet:fqdn=foo.com }'))
+
+            cmd0 = {
+                'name': 'asroot.not',
+                'storm': 'runas visi { inet:fqdn=foo.com [-#btag ] }',
+                'asroot': True,
+            }
+            cmd1 = {
+                'name': 'asroot.yep',
+                'storm': 'runas visi --asroot { inet:fqdn=foo.com [-#btag ] }',
+                'asroot': True,
+            }
+            await core.setStormCmd(cmd0)
+            await core.setStormCmd(cmd1)
+
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('asroot.not'))
+
+            nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
+            for node in nodes:
+                self.none(node.tags.get('btag'))
