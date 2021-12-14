@@ -10,7 +10,7 @@ Slack
 -----
 
 Best effort chat based support is available through the `Synapse Slack`_. You can find Vertex Project analysts,
-developers, and other users who can help with questions you may have.
+engineers, and other users who can help with questions you may have.
 
 
 Service Desk
