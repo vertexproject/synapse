@@ -2,6 +2,7 @@ import os
 import json
 import shutil
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.certdir as s_certdir
@@ -25,6 +26,10 @@ class TstWebSock(s_httpapi.WebSocket):
         byts = json.dumps(item)
         await self.write_message(byts, binary=binary)
 
+class HttpNotJson(s_httpapi.Handler):
+    async def get(self):
+        self.write(b"{'not':'json!'}")
+
 class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_get(self):
@@ -35,6 +40,7 @@ class StormHttpTest(s_test.SynTest):
             await root.setPasswd('root')
 
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+            core.addHttpApi('/api/v0/notjson', HttpNotJson, {'cell': core})
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url}}
 
@@ -69,6 +75,15 @@ class StormHttpTest(s_test.SynTest):
             '''
             resp = await core.callStorm(q, opts=opts)
             self.eq(resp, 'application/json; charset=UTF-8')
+
+            badurl = f'https://root:root@127.0.0.1:{port}/api/v0/notjson'
+            badopts = {'vars': {'url': badurl}}
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            with self.raises(s_exc.BadJsonText) as cm:
+                resp = await core.callStorm(q, opts=badopts)
 
             # params as a urlencoded string
             q = '''
