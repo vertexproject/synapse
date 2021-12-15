@@ -581,7 +581,7 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:macho:loadcmd', {}, (
                     ('file', ('file:bytes', {}), {
                         'doc': 'The Mach-O file containing the load command.'}),
-                    ('type', ('int',  {'enums': s_l_macho.getLoadCmdTypes()}), {
+                    ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
                         'doc': 'The type of the load command'}),
                     ('size', ('int', {}), {
                         'doc': 'The size of the load command structure in bytes.'}),
