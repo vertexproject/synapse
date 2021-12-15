@@ -16,7 +16,16 @@ class LibIpv6(s_stormtypes.Lib):
     _storm_locals = (
         {'name': 'expand',
          'desc': '''
-         Convert a IPv6 address to its expanded form.''',
+         Convert a IPv6 address to its expanded form.'
+
+         Notes:
+            The expanded form is also sometimes called the "long form" address.
+
+         Examples:
+            Expand a ipv6 address to its long form::
+
+                $expandedvalu = $lib.inet.ipv6.expand('2001:4860:4860::8888')
+         ''',
          'type': {'type': 'function', '_funcname': '_expand',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'IPv6 Address to expand', },
@@ -37,5 +46,5 @@ class LibIpv6(s_stormtypes.Lib):
             ipv6 = ipaddress.IPv6Address(valu)
             return ipv6.exploded
         except ipaddress.AddressValueError as e:
-            mesg = f'Error expanding ipv6: {e.args[0]}'
-            raise s_exc.StormRuntimeError(mesg, valu=valu)
+            mesg = f'Error expanding ipv6: {e} for valu={valu}'
+            raise s_exc.StormRuntimeError(mesg=mesg, valu=valu)
