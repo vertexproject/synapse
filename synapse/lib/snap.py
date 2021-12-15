@@ -673,19 +673,26 @@ class Snap(s_base.Base):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
+        meta = await self.getSnapMeta()
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        return nodes
+
+    async def saveNodeEdits(self, edits, meta):
+        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        return saveoff, changes
+
+    async def _applyNodeEdits(self, edits, meta):
+
         if self.readonly:
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
-
-        meta = await self.getSnapMeta()
-
-        todo = s_common.todo('storNodeEdits', edits, meta)
-        results = await self.core.dyncall(self.wlyr.iden, todo)
 
         wlyr = self.wlyr
         nodes = []
         callbacks = []
         actualedits = []  # List[Tuple[buid, form, changes]]
+
+        saveoff, changes, results = await wlyr._realSaveNodeEdits(edits, meta)
 
         # make a pass through the returned edits, apply the changes to our Nodes()
         # and collect up all the callbacks to fire at once at the end.  It is
@@ -810,7 +817,7 @@ class Snap(s_base.Base):
                 await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
             await self.fire('node:edits', edits=actualedits)
 
-        return nodes
+        return saveoff, changes, nodes
 
     async def addNode(self, name, valu, props=None):
         '''

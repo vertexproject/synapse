@@ -130,7 +130,7 @@ class RiskModule(s_module.CoreModule):
                     ('cvss:score:environmental', ('float', {}), {
                         'doc': 'The CVSS Environmental Score value.',
                     }),
-                    ('cwes', ('array', {'type': 'it:sec:cwe'}), {
+                    ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MITRE CWE values that apply to the vulnerability.',
                     }),
                 )),

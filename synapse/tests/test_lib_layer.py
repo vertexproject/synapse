@@ -22,24 +22,87 @@ async def iterPropForm(self, form=None, prop=None):
     for buid, valu in bad_valu:
         yield buid, valu
 
-class WrapLayer(s_layer.Layer):
-    _layrvers = None
-    _layrversvals = []
-
-    @property
-    def layrvers(self):
-        return self._layrvers
-
-    @layrvers.setter
-    def layrvers(self, valu):
-        self._layrvers = valu
-        self._layrversvals.append(valu)
-
 class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
             self.eq(layr.layrvers, 6)
+
+    async def test_layer_verify(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            core.getLayer()._testDelTagIndx(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testDelPropIndx(buid, 'inet:ipv4', 'asn')
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoTagIndex')
+            self.eq(errors[1][0], 'NoPropIndex')
+
+            errors = await core.callStorm('''
+                $retn = $lib.list()
+                for $mesg in $lib.layer.get().verify() {
+                    $retn.append($mesg)
+                }
+                return($retn)
+            ''')
+
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoTagIndex')
+            self.eq(errors[1][0], 'NoPropIndex')
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            errors = [e async for e in core.getLayer().verifyAllTags()]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            core.getLayer()._testDelPropStor(buid, 'inet:ipv4', 'asn')
+            errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', 'asn')]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
+            buid = nodes[0].buid
+
+            core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'SpurPropKeyForIndx')
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            await core.nodes('.created | delnode --force')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+            core.getLayer()._testAddTagIndx(buid, 'inet:ipv4', 'foo')
+            core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.eq(errors[1][0], 'NoPropForPropIndex')
 
     async def test_layer_abrv(self):
 
@@ -198,10 +261,10 @@ class LayerTest(s_t_utils.SynTest):
                         await core02.sync()
 
                         layr = core01.getLayer(ldef.get('iden'))
-                        self.true(layr.allow_upstream)
+                        self.true(len(layr.activetasks))
 
                         layr = core02.getLayer(ldef.get('iden'))
-                        self.false(layr.allow_upstream)
+                        self.false(len(layr.activetasks))
 
                         self.len(1, await core02.nodes('inet:ipv4=1.2.3.4'))
 
@@ -1238,35 +1301,16 @@ class LayerTest(s_t_utils.SynTest):
 
             self.checkLayrvers(core)
 
-    async def test_layer_fresh_layrvers(self):
-
-        with self.getTestDir() as dirn:
-            layr = await WrapLayer.anit({}, dirn)
-            self.len(1, layr._layrversvals)
-
     async def test_layer_logedits_default(self):
-
-        with self.getTestDir() as dirn:
-
-            layrinfo = {
-                'iden': s_common.guid(),
-                'creator': s_common.guid(),
-                'lockmemory': False,
-            }
-            s_layer.reqValidLdef(layrinfo)
-            layr = await s_layer.Layer.anit(layrinfo, dirn)
-            self.true(layr.logedits)
+        async with self.getTestCore() as core:
+            self.true(core.getLayer().logedits)
 
     async def test_layer_no_logedits(self):
 
-        with self.getTestDir() as dirn:
-
-            layrinfo = {
-                'logedits': False
-            }
-            layr = await s_layer.Layer.anit(layrinfo, dirn)
+        async with self.getTestCore() as core:
+            info = await core.addLayer({'logedits': False})
+            layr = core.getLayer(info.get('iden'))
             self.false(layr.logedits)
-
             self.eq(-1, await layr.getEditOffs())
 
     async def test_layer_iter_props(self):

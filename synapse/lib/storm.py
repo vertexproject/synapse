@@ -460,6 +460,7 @@ stormcmds = (
                               'action': 'store_true'}),
             ('--readonly', {'help': 'Should the layer be readonly.',
                             'action': 'store_true'}),
+            ('--mirror', {'help': 'A telepath URL of an upstream layer/view to mirror.', 'type': 'str'}),
             ('--growsize', {'help': 'Amount to grow the map size when necessary.', 'type': 'int'}),
             ('--upstream', {'help': 'One or more telepath urls to receive updates from.'}),
             ('--name', {'help': 'The name of the layer.'}),
@@ -752,6 +753,8 @@ stormcmds = (
         'descr': 'Load a storm package from an HTTP URL.',
         'cmdargs': (
             ('url', {'help': 'The HTTP URL to load the package from.'}),
+            ('--raw', {'default': False, 'action': 'store_true',
+                'help': 'Response JSON is a raw package definition without an envelope.'}),
             ('--ssl-noverify', {'default': False, 'action': 'store_true',
                 'help': 'Specify to disable SSL verification of the server.'}),
         ),
@@ -768,12 +771,16 @@ stormcmds = (
                 }
 
                 $reply = $resp.json()
-                if ($reply.status != "ok") {
-                    $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
-                    $lib.exit()
-                }
+                if $cmdopts.raw {
+                    $pkg = $reply
+                } else {
+                    if ($reply.status != "ok") {
+                        $lib.warn("pkg.load got JSON error: {code} for URL: {url}", code=$reply.code, url=$cmdopts.url)
+                        $lib.exit()
+                    }
 
-                $pkg = $reply.result
+                    $pkg = $reply.result
+                }
 
                 $pkg.url = $cmdopts.url
                 $pkg.loaded = $lib.time.now()
@@ -1397,7 +1404,12 @@ class DmonManager(s_base.Base):
         await asyncio.gather(*[dmon.fini() for dmon in self.dmons.values()])
 
     async def _stopAllDmons(self):
-        await asyncio.gather(*[dmon.stop() for dmon in self.dmons.values()])
+        futs = [dmon.stop() for dmon in self.dmons.values()]
+        if not futs:
+            return
+        logger.debug(f'Stopping [{len(futs)}] Dmons')
+        await asyncio.gather(*futs)
+        logger.debug('Stopped Dmons')
 
     async def addDmon(self, iden, ddef):
         dmon = await StormDmon.anit(self.core, iden, ddef)
@@ -1436,9 +1448,15 @@ class DmonManager(s_base.Base):
         '''
         if self.enabled:
             return
-        for dmon in list(self.dmons.values()):
+        dmons = list(self.dmons.values())
+        if not dmons:
+            self.enabled = True
+            return
+        logger.debug('Starting Dmons')
+        for dmon in dmons:
             await dmon.run()
         self.enabled = True
+        logger.debug('Started Dmons')
 
     async def stop(self):
         '''
@@ -1473,12 +1491,16 @@ class StormDmon(s_base.Base):
         self.onfini(self.stop)
 
     async def stop(self):
+        logger.debug(f'Stopping Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
         if self.task is not None:
             self.task.cancel()
         self.task = None
+        logger.debug(f'Stopped Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
 
     async def run(self):
-        assert self.task is None
+        if self.task:  # pragma: no cover
+            raise s_exc.SynErr(mesg=f'Dmon - {self.iden} - has a current task and cannot start a new one.',
+                               iden=self.iden)
         self.task = self.schedCoro(self.dmonloop())
 
     async def bump(self):
@@ -1500,6 +1522,8 @@ class StormDmon(s_base.Base):
 
     async def dmonloop(self):
 
+        logger.debug(f'Starting Dmon {self.iden}', extra={'synapse': {'iden': self.iden}})
+
         s_scope.set('storm:dmon', self.iden)
 
         info = {'iden': self.iden, 'name': self.ddef.get('name', 'storm dmon')}
@@ -1508,18 +1532,19 @@ class StormDmon(s_base.Base):
         def dmonPrint(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.info(f'Dmon - {self.iden} - {mesg}')
+            logger.info(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
 
         def dmonWarn(evnt):
             self._runLogAdd(evnt)
             mesg = evnt[1].get('mesg', '')
-            logger.warning(f'Dmon - {self.iden} - {mesg}')
+            logger.warning(f'Dmon - {self.iden} - {mesg}', extra={'synapse': {'iden': self.iden}})
 
         while not self.isfini:
 
             if self.user.info.get('locked'):
                 self.status = 'fatal error: user locked'
-                logger.warning('Dmon user is locked. Stopping Dmon.')
+                logger.warning(f'Dmon user is locked. Stopping Dmon {self.iden}.',
+                               extra={'synapse': {'iden': self.iden}})
                 return
 
             text = self.ddef.get('storm')
@@ -1529,7 +1554,8 @@ class StormDmon(s_base.Base):
             view = self.core.getView(viewiden)
             if view is None:
                 self.status = 'fatal error: invalid view'
-                logger.warning('Dmon View is invalid. Stopping Dmon.')
+                logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
+                               extra={'synapse': {'iden': self.iden}})
                 return
 
             try:
@@ -1546,7 +1572,7 @@ class StormDmon(s_base.Base):
                         self.count += 1
                         await asyncio.sleep(0)
 
-                    logger.warning(f'Dmon query exited: {self.iden}')
+                    logger.warning(f'Dmon query exited: {self.iden}', extra={'synapse': {'iden': self.iden}})
 
                     self.status = 'sleeping'
 
@@ -1559,7 +1585,7 @@ class StormDmon(s_base.Base):
 
             except Exception as e:
                 self._runLogAdd(('err', s_common.excinfo(e)))
-                logger.exception(f'Dmon error ({self.iden})')
+                logger.exception(f'Dmon error ({self.iden})', extra={'synapse': {'iden': self.iden}})
                 self.status = f'error: {e}'
                 self.err_evnt.set()
 
@@ -2480,7 +2506,7 @@ class PureCmd(Cmd):
                         yield node, path
 
                     async for xnode, xpath in subr.execute(genr=genx()):
-                        path.finiframe()
+                        xpath.finiframe()
                         xpath.vars.update(pathvars)
                         yield xnode, xpath
 
@@ -4530,3 +4556,143 @@ class TagPruneCmd(Cmd):
                             break
 
                 yield node, path
+
+class RunAsCmd(Cmd):
+    '''
+    Execute a storm query as a specified user.
+
+    NOTE: This command requires admin privileges.
+
+    Examples:
+
+        // Create a node as another user.
+        runas someuser { [ inet:fqdn=foo.com ] }
+    '''
+
+    name = 'runas'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('user', help='The user name or iden to execute the storm query as.')
+        pars.add_argument('storm', help='The storm query to execute.')
+        pars.add_argument('--asroot', default=False, action='store_true', help='Propagate asroot to query subruntime.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+        if not runt.user.isAdmin():
+            mesg = 'The runas command requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        core = runt.snap.core
+
+        node = None
+        async for node, path in genr:
+
+            user = await s_stormtypes.tostr(self.opts.user)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            user = await core.auth.reqUserByNameOrIden(user)
+            query = await runt.getStormQuery(text)
+
+            opts = {'vars': path.vars}
+
+            async with await core.snap(user=user, view=runt.snap.view) as snap:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
+                    subr.debug = runt.debug
+                    subr.readonly = runt.readonly
+
+                    if self.opts.asroot:
+                        subr.asroot = runt.asroot
+
+                    async for item in subr.execute():
+                        await asyncio.sleep(0)
+
+            yield node, path
+
+        if node is None and self.runtsafe:
+            user = await s_stormtypes.tostr(self.opts.user)
+            text = await s_stormtypes.tostr(self.opts.storm)
+
+            query = await runt.getStormQuery(text)
+            user = await core.auth.reqUserByNameOrIden(user)
+
+            opts = {'user': user}
+
+            async with await core.snap(user=user, view=runt.snap.view) as snap:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
+                    subr.debug = runt.debug
+                    subr.readonly = runt.readonly
+
+                    if self.opts.asroot:
+                        subr.asroot = runt.asroot
+
+                    async for item in subr.execute():
+                        await asyncio.sleep(0)
+
+class IntersectCmd(Cmd):
+    '''
+    Yield an intersection of the results of running inbound nodes through a pivot.
+
+    NOTE:
+        This command must consume the entire inbound stream to produce the intersection.
+        This type of stream consuming before yielding results can cause the query to appear
+        laggy in comparison with normal incremental stream operations.
+
+    Examples:
+
+        // Show the it:mitre:attack:technique nodes common to several groups
+
+        it:mitre:attack:group*in=(G0006, G0007) | intersect { -> it:mitre:attack:technique }
+    '''
+    name = 'intersect'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('query', type='str', required=True, help='The pivot query to run each inbound node through.')
+
+        return pars
+
+    async def execStormCmd(self, runt, genr):
+
+        if not self.runtsafe:
+            mesg = 'intersect arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as counters:
+            async with await s_spooled.Dict.anit(dirn=self.runt.snap.core.dirn) as pathvars:
+
+                text = await s_stormtypes.tostr(self.opts.query)
+                query = await runt.getStormQuery(text)
+
+                # Note: The intersection works by counting the # of nodes inbound to the command.
+                # For each node which is emitted from the pivot, we increment a counter, mapping
+                # the buid -> count. We then iterate over the counter, and only yield nodes which
+                # have a buid -> count equal to the # of inbound nodes we consumed.
+
+                count = 0
+                async for node, path in genr:
+                    count += 1
+                    await asyncio.sleep(0)
+                    async with runt.getSubRuntime(query) as subr:
+                        subg = s_common.agen((node, path))
+                        async for subn, subp in subr.execute(genr=subg):
+                            curv = counters.get(subn.buid)
+                            if curv is None:
+                                await counters.set(subn.buid, 1)
+                            else:
+                                await counters.set(subn.buid, curv + 1)
+                            await pathvars.set(subn.buid, await s_stormtypes.toprim(subp.vars))
+                            await asyncio.sleep(0)
+
+                for buid, hits in counters.items():
+
+                    if hits != count:
+                        await asyncio.sleep(0)
+                        continue
+
+                    node = await runt.snap.getNodeByBuid(buid)
+                    if node is not None:
+                        path = runt.initPath(node)
+                        path.vars.update(pathvars.get(buid))
+                        yield (node, path)

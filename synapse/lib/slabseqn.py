@@ -20,6 +20,7 @@ class SlabSeqn:
         self.db = self.slab.initdb(name)
 
         self.indx = self.nextindx()
+        self.addevents = []
         self.offsevents = []  # type: ignore # List[Tuple[int, int, asyncio.Event]] as a heap
         self._waitcounter = 0
 
@@ -28,6 +29,10 @@ class SlabSeqn:
         self.size = self.stat()['entries']
 
     def _wake_waiters(self):
+
+        for evnt in self.addevents:
+            evnt.set()
+
         while self.offsevents and self.offsevents[0][0] < self.indx:
             _, _, evnt = heapq.heappop(self.offsevents)
             evnt.set()
@@ -175,9 +180,45 @@ class SlabSeqn:
         '''
         startkey = s_common.int64en(offs)
         for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
-            indx = s_common.int64un(lkey)
+            offs = s_common.int64un(lkey)
             valu = s_msgpack.un(lval)
-            yield indx, valu
+            yield offs, valu
+
+    async def aiter(self, offs, wait=False, timeout=None):
+        '''
+        Iterate over items in a sequence from a given offset.
+
+        Args:
+            offs (int): The offset to begin iterating from.
+            wait (boolean): Once caught up, yield new results in realtime.
+            timeout (int): Max time to wait for a new item.
+
+        Yields:
+            (indx, valu): The index and valu of the item.
+        '''
+        startkey = s_common.int64en(offs)
+        for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
+            offs = s_common.int64un(lkey)
+            valu = s_msgpack.un(lval)
+            yield offs, valu
+
+        # no awaiting between here and evnt.timewait()
+        if wait:
+            evnt = s_coro.Event()
+            try:
+                self.addevents.append(evnt)
+                while True:
+                    evnt.clear()
+                    if not await evnt.timewait(timeout=timeout):
+                        return
+
+                    startkey = s_common.int64en(offs + 1)
+                    for lkey, lval in self.slab.scanByRange(startkey, db=self.db):
+                        offs = s_common.int64un(lkey)
+                        valu = s_msgpack.un(lval)
+                        yield offs, valu
+            finally:
+                self.addevents.remove(evnt)
 
     async def gets(self, offs, wait=True):
         '''

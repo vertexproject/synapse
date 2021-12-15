@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.72.0'
+VERSION = '2.74.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -86,7 +86,7 @@ setup(
         'tornado>=6.1.0,<7.0.0',
         'regex>=2021.7.1',
         'PyYAML>=5.4,<6.0',
-        'aiohttp>=3.6.3,<4.0',
+        'aiohttp>=3.8.1,<4.0',
         'aiohttp-socks>=0.6.1,<0.7.0',
         'aioimaplib>=0.9.0,<0.10.0',
         'aiosmtplib>=1.1.6,<2.0',

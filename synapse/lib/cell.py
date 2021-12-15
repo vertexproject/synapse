@@ -370,16 +370,7 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def issue(self, nexsiden: str, event: str, args, kwargs, meta=None):
-        '''
-        Note:  this swallows exceptions and return values.  It is expected that the nexus _followerLoop would be the
-        return path
-        '''
-        try:
-            await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-        except Exception:
-            pass
+        return await self.cell.nexsroot.issue(nexsiden, event, args, kwargs, meta)
 
     @adminapi(log=True)
     async def delAuthUser(self, name):
@@ -1926,10 +1917,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
 
         if not os.path.isfile(keypath):
-            raise s_exc.NoSuchFile(name=keypath)
+            raise s_exc.NoSuchFile(mesg=f'Missing TLS keypath {keypath}', path=keypath)
 
         if not os.path.isfile(certpath):
-            raise s_exc.NoSuchFile(name=certpath)
+            raise s_exc.NoSuchFile(mesg=f'Missing TLS certpath {certpath}', path=certpath)
 
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
