@@ -166,6 +166,7 @@ class CortexTest(s_t_utils.SynTest):
                      }
                  '''
                 },
+                {'name': 'coverage', 'storm': ''},
             ]
         }
 

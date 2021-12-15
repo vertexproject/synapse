@@ -1025,6 +1025,11 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'string',
             ],
         },
+        'storm:interface:search': {
+            'default': True,
+            'description': 'Enable storm search interfaces for lookup mode.',
+            'type': 'boolean',
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -1118,6 +1123,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self._initFeedFuncs()
 
         self.modsbyiface = {}
+        self.stormiface_search = self.conf.get('storm:interface:search')
 
         self._initCortexHttpApi()
 

@@ -35,6 +35,19 @@ class StormTest(s_t_utils.SynTest):
                 return($makelist())
             '''))
 
+            self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
+                function generate() {
+                    [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+                    emit $node.repr()
+                }
+                function makelist() {
+                    $retn = $lib.list()
+                    for $item in $generate() { $retn.append($item) }
+                    return($retn)
+                }
+                return($makelist())
+            '''))
+
             msgs = await core.stormlist('''
                 function generate() {
                     emit foo

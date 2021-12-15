@@ -210,24 +210,42 @@ class Lookup(Query):
             mesg = 'Autoadd may not be executed in readonly Storm runtime.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        view = runt.snap.view
+
+        async def getnode(form, valu):
+            try:
+                if self.autoadd:
+                    return await runt.snap.addNode(form, valu)
+                else:
+                    norm, info = runt.model.form(form).type.norm(valu)
+                    node = await runt.snap.getNodeByNdef((form, norm))
+                    if node is None:
+                        await runt.snap.fire('look:miss', ndef=(form, norm))
+                    return node
+            except s_exc.BadTypeValu:
+                return None
+
         async def lookgenr():
 
             async for item in genr:
                 yield item
 
-            for kid in self.kids[0]:
-                tokn = await kid.compute(runt, None)
+            tokns = [await kid.compute(runt, None) for kid in self.kids[0]]
+            if not tokns:
+                return
+
+            # scrape logic first...
+            for tokn in tokns:
                 for form, valu in s_scrape.scrape(tokn, first=True):
-                    if self.autoadd:
-                        node = await runt.snap.addNode(form, valu)
+                    node = await getnode(form, valu)
+                    if node is not None:
                         yield node, runt.initPath(node)
 
-                    else:
-                        norm, info = runt.model.form(form).type.norm(valu)
-                        node = await runt.snap.getNodeByNdef((form, norm))
-                        if node is None:
-                            await runt.snap.fire('look:miss', ndef=(form, norm))
-                            continue
+            if view.core.stormiface_search:
+                todo = s_common.todo('search', tokns)
+                async for (prio, buid) in view.mergeStormIface('search', todo):
+                    node = await runt.snap.getNodeByBuid(buid)
+                    if node is not None:
                         yield node, runt.initPath(node)
 
         realgenr = lookgenr()
