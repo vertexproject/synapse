@@ -90,6 +90,85 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(vsnode.get('file'), fnode.ndef[1])
                 self.eq(vsnode.get('keyval'), vskvnode.ndef[1])
 
+    async def test_model_filebytes_macho(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                file = 'a' * 64
+                fnode = await snap.addNode('file:bytes', file)
+
+                # loadcmds
+                opts = {'vars': {'file': fnode.get('sha256')}}
+                uuidcmd = await core.nodes('''[
+                    file:mime:macho:loadcmd=*
+                        :file=$file
+                        :type=27
+                        :size=123456
+                ]''', opts=opts)
+                self.len(1, uuidcmd)
+                uuidcmd = uuidcmd[0]
+                self.eq(27, uuidcmd.get('type'))
+                self.eq(123456, uuidcmd.get('size'))
+                self.eq('sha256:' + file, uuidcmd.get('file'))
+
+                # uuid
+                opts = {'vars': {'cmd': uuidcmd.ndef[1]}}
+                uuid = await core.nodes(f'''[
+                    file:mime:macho:uuid=*
+                        :loadcmd=$cmd
+                        :uuid="BCAA4A0B-BF70-3A5D-BCF9-72F39780EB67"
+                ]''', opts=opts)
+                self.len(1, uuid)
+                uuid = uuid[0]
+                self.eq(uuidcmd.ndef[1], uuid.get('loadcmd'))
+                self.eq('BCAA4A0B-BF70-3A5D-BCF9-72F39780EB67', uuid.get('uuid'))
+
+                # version
+                ver = await core.nodes(f'''[
+                    file:mime:macho:version=*
+                        :loadcmd=$cmd
+                        :version="7605.1.33.1.4"
+                ]''', opts=opts)
+                self.len(1, ver)
+                ver = ver[0]
+                self.eq(uuidcmd.ndef[1], ver.get('loadcmd'))
+                self.eq('7605.1.33.1.4', ver.get('version'))
+
+                # segment
+                seghash = 'e' * 64
+                opts = {'vars': {'file': file, 'sha256': seghash}}
+                seg = await core.nodes(f'''[
+                    file:mime:macho:segment=*
+                        :loadcmd=*
+                        :loadcmd:file=$file
+                        :name="__TEXT"
+                        :memsize=4092
+                        :disksize=8192
+                        :sha256=$sha256
+                ]''', opts=opts)
+                self.len(1, seg)
+                seg = seg[0]
+                self.eq('sha256:' + file, seg.get('loadcmd:file'))
+                self.eq('__TEXT', seg.get('name'))
+                self.eq(4092, seg.get('memsize'))
+                self.eq(8192, seg.get('disksize'))
+                self.eq(seghash, seg.get('sha256'))
+
+                # section
+                opts = {'vars': {'seg': seg.ndef[1]}}
+                sect = await core.nodes(f'''[
+                    file:mime:macho:section=*
+                        :segment=$seg
+                        :name="__text"
+                        :size=12
+                        :type=0
+                ]''', opts=opts)
+                self.len(1, sect)
+                sect = sect[0]
+                self.eq(seg.ndef[1], sect.get('segment'))
+                self.eq("__text", sect.get('name'))
+                self.eq(12, sect.get('size'))
+                self.eq(0, sect.get('type'))
+
     async def test_model_filebytes_string(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:

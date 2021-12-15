@@ -6,6 +6,7 @@ import synapse.common as s_common
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lookup.pe as s_l_pe
+import synapse.lookup.macho as s_l_macho
 
 class FileBase(s_types.Str):
 
@@ -346,6 +347,26 @@ class FileModule(s_module.CoreModule):
                     'doc': 'The PE language id.',
                 }),
 
+                ('file:mime:macho:loadcmd', ('guid', {}), {
+                    'doc': 'A load command pulled from the Mach-O headers.',
+                }),
+
+                ('file:mime:macho:version', ('guid', {}), {
+                    'doc': 'A specific load command used to denote the version of the source used to build the Mach-O binary.',
+                }),
+
+                ('file:mime:macho:uuid', ('guid', {}), {
+                    'doc': 'A specific load command denoting a UUID used to uniquely identify the Mach-O binary.',
+                }),
+
+                ('file:mime:macho:segment', ('guid', {}), {
+                    'doc': 'A named region of bytes inside a Mach-O binary.',
+                }),
+
+                ('file:mime:macho:section', ('guid', {}), {
+                    'doc': 'A section inside a Mach-O binary denoting a named region of bytes inside a segment.',
+                }),
+
             ),
 
             'forms': (
@@ -556,6 +577,54 @@ class FileModule(s_module.CoreModule):
                     ('base:ext', ('str', {}), {'ro': True,
                         'doc': 'The file extension.'}),
                 )),
+
+                ('file:mime:macho:loadcmd', {}, (
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The Mach-O file containing the load command.'}),
+                    ('type', ('int',  {'enums': s_l_macho.getLoadCmdTypes()}), {
+                        'doc': 'The type of the load command'}),
+                    ('size', ('int', {}), {
+                        'doc': 'The size of the load command structure in bytes.'}),
+                )),
+                ('file:mime:macho:version', {}, (
+                    ('loadcmd', ('file:mime:macho:loadcmd', {}), {
+                        'doc': 'The associated load command node.'}),
+                    ('version', ('str', {}), {
+                        'doc': 'The version of the Mach-O file encoded in an LC_VERSION load command'})
+                )),
+                ('file:mime:macho:uuid', {}, (
+                    ('loadcmd', ('file:mime:macho:loadcmd', {}), {
+                        'doc': 'The actual load command '}),
+                    ('uuid', ('str', {}), {
+                        'doc': 'The UUID of the Mach-O application (as defined in an LC_UUID load command)'}),
+                )),
+                ('file:mime:macho:segment', {}, (
+                    ('loadcmd', ('file:mime:macho:loadcmd', {}), {
+                        'doc': 'The actual load command node.'}),
+                    ('loadcmd:file', ('file:bytes', {}), {
+                        'doc': 'The Mach-O file the segment is located in'}),
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the Mach-O segment.'}),
+                    ('memsize', ('int', {}), {
+                        'doc': 'The size of the segment in bytes, when resident in memory, according to the load command structure.'}),
+                    ('disksize', ('int', {}), {
+                        'doc': 'The size of the segment in bytes, when on disk, according to the load command structure.'}),
+                    ('sha256', ('hash:sha256', {}), {
+                        'doc': 'The sha256 hash of the bytes of the segment.'}),
+                )),
+                ('file:mime:macho:section', {}, (
+                    ('segment', ('file:mime:macho:segment', {}), {
+                        'doc': 'The Mach-O segment that contains this section.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'Name of the section.'}),
+                    ('size', ('int', {}), {
+                        'doc': 'Size of the section in bytes.'}),
+                    ('type', ('int', {'enums': s_l_macho.getSectionTypes()}), {
+                        'doc': 'The type of the section.'}),
+                    ('sha256', ('hash:sha256', {}), {
+                        'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
+                )),
+
             ),
 
         }
