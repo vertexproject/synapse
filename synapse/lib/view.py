@@ -142,7 +142,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.trigtask = None
         await self.initTrigTask()
 
-    async def mergeStormModIface(self, name, todo):
+    async def mergeStormIface(self, name, todo):
         '''
         Allow an interface which specifies a generator use case to yield
         (priority, value) tuples and merge results from multiple generators
@@ -154,7 +154,7 @@ class View(s_nexus.Pusher):  # type: ignore
         genrs = []
         async with await self.snap(user=root) as snap:
 
-            for moddef in await self.core.getStormModsByIface(name):
+            for moddef in await self.core.getStormIfaces(name):
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
 
@@ -186,7 +186,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.snap(user=root) as snap:
 
-            for moddef in await self.core.getStormModsByIface(name):
+            for moddef in await self.core.getStormIfaces(name):
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
 
@@ -207,7 +207,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
                 except Exception as e:
-                    import traceback; traceback.print_exc()
                     modname = moddef.get('name')
                     logger.exception(f'callStormIface {name} mod: {modname}')
 

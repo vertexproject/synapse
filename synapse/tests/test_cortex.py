@@ -139,7 +139,7 @@ class CortexTest(s_t_utils.SynTest):
             'name': 'foobar',
             'modules': [
                 {'name': 'foobar',
-                 'interfaces': {'lookup': True},
+                 'interfaces': ['lookup'],
                  'storm': '''
                      function lookup(tokens) {
                         $looks = $lib.list()
@@ -149,7 +149,7 @@ class CortexTest(s_t_utils.SynTest):
                  '''
                 },
                 {'name': 'search0',
-                 'interfaces': {'search': True},
+                 'interfaces': ['search'],
                  'storm': '''
                      function search(tokens) {
                         emit ((0), foo)
@@ -158,7 +158,7 @@ class CortexTest(s_t_utils.SynTest):
                  '''
                 },
                 {'name': 'search1',
-                 'interfaces': {'search': True},
+                 'interfaces': ['search'],
                  'storm': '''
                      function search(tokens) {
                         emit ((1), bar)
@@ -168,17 +168,19 @@ class CortexTest(s_t_utils.SynTest):
                 },
             ]
         }
-        async with self.getTestCore() as core:
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
 
             self.none(core.modsbyiface.get('lookup'))
 
-            mods = await core.getStormModsByIface('lookup')
+            mods = await core.getStormIfaces('lookup')
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
 
             await core.loadStormPkg(pkgdef)
 
-            mods = await core.getStormModsByIface('lookup')
+            mods = await core.getStormIfaces('lookup')
             self.len(1, mods)
             self.len(1, core.modsbyiface.get('lookup'))
 
@@ -187,13 +189,13 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(((('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'woot.com')),), vals)
 
             todo = s_common.todo('search', ('hehe', 'haha'))
-            vals = [r async for r in core.view.mergeStormModIface('search', todo)]
+            vals = [r async for r in core.view.mergeStormIface('search', todo)]
             self.eq(((0, 'foo'), (1, 'bar'), (10, 'baz'), (11, 'faz')), vals)
 
             await core._dropStormPkg(pkgdef)
             self.none(core.modsbyiface.get('lookup'))
 
-            mods = await core.getStormModsByIface('lookup')
+            mods = await core.getStormIfaces('lookup')
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
 

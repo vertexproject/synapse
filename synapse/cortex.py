@@ -1185,7 +1185,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         await self.auth.addAuthGate('cortex', 'cortex')
 
-    async def getStormModsByIface(self, name):
+    async def getStormIfaces(self, name):
 
         mods = self.modsbyiface.get(name)
         if mods is not None:
@@ -1198,8 +1198,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if ifaces is None:
                 continue
 
-            iface = ifaces.get(name)
-            if not ifaces.get(name):
+            if name not in ifaces:
                 continue
 
             mods.append(moddef)
