@@ -3699,6 +3699,7 @@ class Emit(Oper):
 class Stop(Oper):
 
     async def run(self, runt, genr):
+        for _ in (): yield _
         async for node, path in genr:
             raise s_stormctrl.StormStop()
         raise s_stormctrl.StormStop()

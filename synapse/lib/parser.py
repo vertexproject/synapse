@@ -232,6 +232,10 @@ class AstConverter(lark.Transformer):
         return s_ast.Emit(kids)
 
     @lark.v_args(meta=True)
+    def stop(self, kids, meta):
+        return s_ast.Stop()
+
+    @lark.v_args(meta=True)
     def funccall(self, kids, meta):
         kids = self._convert_children(kids)
         argkids = []

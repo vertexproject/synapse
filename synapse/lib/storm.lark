@@ -56,10 +56,10 @@ SETTAGOPER: "?"
 // The set of non-edit non-commands in storm
 _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
      | formjoinin | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
-     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | STOP
+     | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
-STOP: "stop"
+stop: "stop"
 BREAK: "break"
 CONTINUE: "continue"
 

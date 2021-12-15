@@ -71,6 +71,20 @@ class StormTest(s_t_utils.SynTest):
             self.stormNotInPrint('woot', msgs)
             self.stormNotInPrint('bar', msgs)
 
+            msgs = await core.stormlist('''
+                function generate(items) {
+                    for $item in $items {
+                        [ it:dev:str=$item ]
+                        if ($node.repr() = "woot") { stop }
+                        emit $item
+                    }
+                }
+                for $item in $generate((foo, woot, bar)) { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('woot', msgs)
+            self.stormNotInPrint('bar', msgs)
+
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
             await core.nodes('''

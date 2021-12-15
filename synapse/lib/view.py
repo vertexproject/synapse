@@ -170,10 +170,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     genrs.append(await func(*funcargs, **funckwargs))
 
-                except asyncio.CancelledError:  #pragma: no cover
+                except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception as e:
-                    logger.exception('mergeStormModIface()')
+                except Exception as e: # pragma: no cover
+                    logger.exception('mergeStormIface()')
 
             if genrs:
                 async for item in s_common.merggenr2(genrs):

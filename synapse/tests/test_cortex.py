@@ -197,8 +197,11 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.callStormIface('lookup', todo)]
             self.eq(((('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'woot.com')),), vals)
 
-            todo = s_common.todo('newp', ('vertex.link', 'woot.com'))
+            todo = s_common.todo('newp')
             vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq([], vals)
+
+            vals = [r async for r in core.view.mergeStormIface('lookup', todo)]
             self.eq([], vals)
 
             todo = s_common.todo('search', ('hehe', 'haha'))
