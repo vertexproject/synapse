@@ -5388,7 +5388,7 @@ class Layer(Prim):
             Get the formcounts for the Layer.
 
             Example:
-                Get the formcounts for the current :ayer::
+                Get the formcounts for the current Layer::
 
                     $counts = $lib.layer.get().getFormCounts()''',
          'type': {'type': 'function', '_funcname': '_methGetFormcount',
@@ -5413,9 +5413,11 @@ class Layer(Prim):
             Verify consistency between the node storage and indexes in the given layer.
 
             Example:
-                for $mesg in $lib.layer.get().verify() {
-                    $lib.print($mesg)
-                }
+                Get all messages about consistency issues in the default layer::
+
+                    for $mesg in $lib.layer.get().verify() {
+                        $lib.print($mesg)
+                    }
 
             Notes:
                 The message format yielded by this API is considered BETA and may be subject to change!

@@ -10,6 +10,43 @@ import synapse.servers.jsonstor
 
 class JsonStorTest(s_test.SynTest):
 
+    async def test_lib_jsonstor_popprop(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+                    await prox.setPathObj('foo/bar', {'foo': 'bar', 'baz': 'faz'})
+                    self.eq('faz', await prox.popPathObjProp('foo/bar', 'baz'))
+                    self.none(await prox.getPathObjProp('foo/bar', 'baz'))
+
+                    self.none(await prox.popPathObjProp('foo/bar', 'baz'))
+                    self.none(await prox.popPathObjProp('newp/newp', 'baz'))
+
+                    # coverage for the loop'd get
+                    await prox.setPathObj('hehe', {'foo': {'bar': 'baz'}})
+                    self.eq('baz', await prox.popPathObjProp('hehe', 'foo/bar'))
+                    self.none(await prox.popPathObjProp('hehe', 'foo/newp'))
+
+    async def test_lib_jsonstor_has(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+                    await prox.setPathObj('foo/bar', 'asdf')
+                    self.true(await prox.hasPathObj('foo/bar'))
+
+    async def test_lib_jsonstor_copy(self):
+
+        with self.getTestDir() as dirn:
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                async with jsonstor.getLocalProxy() as prox:
+                    await prox.setPathObj('foo/bar', 'asdf')
+                    await prox.copyPathObj('foo/bar', 'foo/baz')
+                    self.eq('asdf', await prox.getPathObj('foo/baz'))
+
+                    await prox.copyPathObjs((('foo/bar', 'foo/faz'),))
+                    self.eq('asdf', await prox.getPathObj('foo/faz'))
+
     async def test_lib_jsonstor_basics(self):
         with self.getTestDir() as dirn:
             async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
