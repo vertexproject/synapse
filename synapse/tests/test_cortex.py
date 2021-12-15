@@ -146,6 +146,8 @@ class CortexTest(s_t_utils.SynTest):
                         for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
                         return($looks)
                      }
+                    /* coverage mop up */
+                    [ ou:org=* ]
                  '''
                 },
                 {'name': 'search0',
@@ -164,9 +166,15 @@ class CortexTest(s_t_utils.SynTest):
                         emit ((1), bar)
                         emit ((11), faz)
                      }
+                    /* coverage mop up */
+                    [ ou:org=* ]
                  '''
                 },
                 {'name': 'coverage', 'storm': ''},
+                {'name': 'boom', 'interfaces': ['boom'], 'storm': '''
+                    function boom() { $lib.raise(omg, omg) return() }
+                    function boomgenr() { emit ((0), woot) $lib.raise(omg, omg) }
+                '''},
             ]
         }
 
@@ -189,9 +197,21 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.callStormIface('lookup', todo)]
             self.eq(((('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'woot.com')),), vals)
 
+            todo = s_common.todo('newp', ('vertex.link', 'woot.com'))
+            vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq([], vals)
+
             todo = s_common.todo('search', ('hehe', 'haha'))
             vals = [r async for r in core.view.mergeStormIface('search', todo)]
             self.eq(((0, 'foo'), (1, 'bar'), (10, 'baz'), (11, 'faz')), vals)
+
+            with self.raises(s_exc.StormRaise):
+                todo = s_common.todo('boomgenr')
+                [r async for r in core.view.mergeStormIface('boom', todo)]
+
+            todo = s_common.todo('boom')
+            vals = [r async for r in core.view.callStormIface('boom', todo)]
+            self.eq((), vals)
 
             await core._dropStormPkg(pkgdef)
             self.none(core.modsbyiface.get('lookup'))
