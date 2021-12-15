@@ -74,6 +74,7 @@ terminalEnglishMap = {
     'SETOPER': '= or ?=',
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
+    'STOP': 'stop',
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
     'TRY': 'try',
