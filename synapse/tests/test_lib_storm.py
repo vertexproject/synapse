@@ -85,6 +85,20 @@ class StormTest(s_t_utils.SynTest):
             self.stormNotInPrint('woot', msgs)
             self.stormNotInPrint('bar', msgs)
 
+            nodes = await core.nodes('''
+                function generate(items) {
+                    for $item in $items {
+                        if ($item = "woot") { stop }
+                        [ it:dev:str=$item ]
+                    }
+                }
+                yield $generate((foo, woot, bar))
+            ''')
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].ndef[1])
+
+            # include a quick test for using stop in a node yielder
+
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
             await core.nodes('''
