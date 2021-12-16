@@ -75,6 +75,8 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             argv.append('--doc-conf-reflink')
             argv.append('`Configuring a Cell Service <https://synapse.docs.vertex.link/en/latest/synapse/devguides/devops_cell.html>`_')
+            argv.append('--doc-conf-title')
+            argv.append('Cool Component')
 
             # truncate the current file
             with s_common.genfile(path, 'conf_stormvarservicecell.rst') as fd:
@@ -86,7 +88,8 @@ class TestAutoDoc(s_t_utils.SynTest):
                 buf = fd.read()
             s = buf.decode()
 
-            self.isin('StormvarServiceCell Configuration Options', s)
+            self.notin('StormvarServiceCell Configuration Options', s)
+            self.isin('Cool Component Configuration Options', s)
             self.isin('See `Configuring a Cell Service <https://synapse', s)
 
     async def test_tools_autodoc_stormsvc(self):
