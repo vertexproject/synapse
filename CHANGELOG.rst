@@ -62,12 +62,6 @@ Features and Enhancements
 - Update the minimum version of the ``aiohttp`` library to ``v3.8.1``.
   (`#2495 <https://github.com/vertexproject/synapse/pull/2495>`_)
 
-Bugfixes
---------
-- Fix a behavior with ``$path`` losing variables in pure Storm command
-  execution.
-  (`#2492 <https://github.com/vertexproject/synapse/pull/2492>`_)
-
 Improved Documentation
 ----------------------
 - Add content previously hosted at ``commercial.docs.vertex.link`` to the
