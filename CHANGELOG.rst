@@ -78,7 +78,9 @@ Improved Documentation
   (`#2498 <https://github.com/vertexproject/synapse/pull/2498>`_)
   (`#2499 <https://github.com/vertexproject/synapse/pull/2499>`_)
   (`#2501 <https://github.com/vertexproject/synapse/pull/2501>`_)
-
+- Document the ``jsonlines`` option for the ``api/v1/storm`` and
+  ``api/v1/storm/nodes`` HTTP APIs.
+  (`#2505 <https://github.com/vertexproject/synapse/pull/2505>`_)
 
 
 v2.74.0 - 2021-12-08
