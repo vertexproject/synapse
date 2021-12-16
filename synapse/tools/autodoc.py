@@ -515,7 +515,7 @@ async def docModel(outp,
 
     return rst, rst2
 
-async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
+async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`', doc_title=None):
     cls = s_dyndeps.tryDynLocal(ctor)
 
     if not hasattr(cls, 'confdefs'):
@@ -525,8 +525,9 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`'):
 
     clsname = cls.__name__
     conf = cls.initCellConf()  # type: s_config.Config
-
-    rst.addHead(f'{clsname} Configuration Options', lvl=0, link=f'.. _autodoc-{clsname.lower()}-conf:')
+    if doc_title is None:
+        doc_title = clsname
+    rst.addHead(f'{doc_title} Configuration Options', lvl=0, link=f'.. _autodoc-{clsname.lower()}-conf:')
     rst.addLines(f'The following are boot-time configuration options for the cell.')
 
     rst.addLines(f'See {reflink} for details on how to set these options.')
@@ -758,7 +759,9 @@ async def main(argv, outp=None):
 
     if opts.doc_conf:
         confdocs, cname = await docConfdefs(opts.doc_conf,
-                                            reflink=opts.doc_conf_reflink)
+                                            reflink=opts.doc_conf_reflink,
+                                            doc_title=opts.doc_conf_title,
+                                            )
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
@@ -803,7 +806,8 @@ def makeargparser():
                           help='Generate RST docs for the Confdefs for a given Cell ctor')
     pars.add_argument('--doc-conf-reflink', default=':ref:`devops-cell-config`',
                       help='Reference link for how to set the cell configuration options.')
-
+    pars.add_argument('--doc-conf-title', default=None, type=str,
+                      help='Use a custom string for the document title.')
     doc_type.add_argument('--doc-storm', default=None,
                           help='Generate RST docs for a stormssvc implemented by a given Cell')
 
