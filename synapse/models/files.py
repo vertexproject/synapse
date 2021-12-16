@@ -595,7 +595,7 @@ class FileModule(s_module.CoreModule):
                 ('file:mime:macho:uuid', {}, (
                     ('loadcmd', ('file:mime:macho:loadcmd', {}), {
                         'doc': 'The actual load command '}),
-                    ('uuid', ('str', {}), {
+                    ('uuid', ('str', {'lower': True}), {
                         'doc': 'The UUID of the Mach-O application (as defined in an LC_UUID load command)'}),
                 )),
                 ('file:mime:macho:segment', {}, (
@@ -611,6 +611,8 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The size of the segment in bytes, when on disk, according to the load command structure.'}),
                     ('sha256', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the bytes of the segment.'}),
+                    ('offset', ('int', {}), {
+                        'doc': 'The file offset to the begining of the section'}),
                 )),
                 ('file:mime:macho:section', {}, (
                     ('segment', ('file:mime:macho:segment', {}), {
@@ -623,6 +625,8 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The type of the section.'}),
                     ('sha256', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
+                    ('offset', ('int', {}), {
+                        'doc': 'The file offset to the begining of the section'}),
                 )),
 
             ),

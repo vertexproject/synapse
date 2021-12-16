@@ -120,7 +120,7 @@ class FileTest(s_t_utils.SynTest):
                 self.len(1, uuid)
                 uuid = uuid[0]
                 self.eq(uuidcmd.ndef[1], uuid.get('loadcmd'))
-                self.eq('BCAA4A0B-BF70-3A5D-BCF9-72F39780EB67', uuid.get('uuid'))
+                self.eq('bcaa4a0b-bf70-3a5d-bcf9-72f39780eb67', uuid.get('uuid'))
 
                 # version
                 ver = await core.nodes(f'''[
@@ -144,6 +144,7 @@ class FileTest(s_t_utils.SynTest):
                         :memsize=4092
                         :disksize=8192
                         :sha256=$sha256
+                        :offset=1234
                 ]''', opts=opts)
                 self.len(1, seg)
                 seg = seg[0]
@@ -152,6 +153,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq(4092, seg.get('memsize'))
                 self.eq(8192, seg.get('disksize'))
                 self.eq(seghash, seg.get('sha256'))
+                self.eq(1234, seg.get('offset'))
 
                 # section
                 opts = {'vars': {'seg': seg.ndef[1]}}
@@ -161,6 +163,7 @@ class FileTest(s_t_utils.SynTest):
                         :name="__text"
                         :size=12
                         :type=0
+                        :offset=5678
                 ]''', opts=opts)
                 self.len(1, sect)
                 sect = sect[0]
@@ -168,6 +171,7 @@ class FileTest(s_t_utils.SynTest):
                 self.eq("__text", sect.get('name'))
                 self.eq(12, sect.get('size'))
                 self.eq(0, sect.get('type'))
+                self.eq(5678, sect.get('offset'))
 
     async def test_model_filebytes_string(self):
         async with self.getTestCore() as core:
