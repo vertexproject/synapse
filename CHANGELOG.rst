@@ -78,6 +78,9 @@ Improved Documentation
   (`#2498 <https://github.com/vertexproject/synapse/pull/2498>`_)
   (`#2499 <https://github.com/vertexproject/synapse/pull/2499>`_)
   (`#2501 <https://github.com/vertexproject/synapse/pull/2501>`_)
+- Add ``Synapse-Malshare`` and ``Synapse-TeamCymru`` Rapid Power-Ups to the
+  list of available Rapid Power-Ups.
+  (`#2506 <https://github.com/vertexproject/synapse/pull/2506>`_)
 - Document the ``jsonlines`` option for the ``api/v1/storm`` and
   ``api/v1/storm/nodes`` HTTP APIs.
   (`#2505 <https://github.com/vertexproject/synapse/pull/2505>`_)
