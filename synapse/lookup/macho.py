@@ -34,7 +34,7 @@ loadcmd_types = (
     (32, 'delay load of dynamic library'),
     (33, 'encrypted segment information'),
     (34, 'compressed dynamic library information'),
-    (35, 'compressed dynamic library information only'),
+    (35, 'load upward dylib'),
     (36, 'minimum osx version'),
     (37, 'minimum ios version'),
     (38, 'compressed table of function start addresses'),
