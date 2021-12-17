@@ -203,8 +203,8 @@ def contextScrape(text, ptype=None, refang=True, first=False):
                         continue
                     new_span = cbfo.get('span')
                     if new_span:
-                        info['raw_valu_end_cb'] = new_span[0]
-                        info['raw_valu_start_cb'] = new_span[1]
+                        info['raw_valu_start_cb'] = new_span[0]
+                        info['raw_valu_end_cb'] = new_span[1]
                 else:
                     valu = raw_valu
 
