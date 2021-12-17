@@ -65,9 +65,15 @@ def fqdn_prefix_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
     prefix = mnfo.get('prefix')
+    cbfo = {}
     if prefix is not None:
-        valu = valu.rstrip(inverse_prefixs.get(prefix))
-    return valu
+        new_valu = valu.rstrip(inverse_prefixs.get(prefix))
+        if new_valu != valu:
+            valu = new_valu
+            old_span = match.span('valu')
+            new_span = (old_span[0], old_span[0] + len(valu))
+            cbfo['span'] = new_span
+    return valu, cbfo
 
 def fqdn_check(match: regex.Match):
     mnfo = match.groupdict()
@@ -83,8 +89,8 @@ def fqdn_check(match: regex.Match):
         try:
             nval.encode('idna').decode('utf8').lower()
         except UnicodeError:
-            return None
-    return valu
+            return None, {}
+    return valu, {}
 
 re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
@@ -152,6 +158,23 @@ def scrape(text, ptype=None, refang=True, first=False):
         (str, object): Yield tuples of node ndef values.
     '''
 
+    for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
+        yield info.get('ndef')
+
+def contextScrape(text, ptype=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and return context information.
+
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Returns:
+        (dict): yield dictionaries of scrape information.
+    '''
+
     if refang:
         text = refang_text(text)
 
@@ -163,15 +186,31 @@ def scrape(text, ptype=None, refang=True, first=False):
             cb = opts.get('callback')
 
             for valu in regx.finditer(text):  # type: regex.Match
+                print(valu.groupdict())
+                raw_span = valu.span('valu')
+                raw_valu = valu.group('valu')
+
+                info = {
+                    'raw_valu': raw_valu,
+                    'ruletype': ruletype,
+                    'raw_valu_end': raw_span[1],
+                    'raw_valu_start': raw_span[0],
+                }
 
                 if cb:
-                    valu = cb(valu)
+                    valu, cbfo = cb(valu)
                     if valu is None:
                         continue
+                    new_span = cbfo.get('span')
+                    if new_span:
+                        info['raw_valu_end_cb'] = new_span[0]
+                        info['raw_valu_start_cb'] = new_span[1]
                 else:
-                    mnfo = valu.groupdict()
-                    valu = mnfo.get('valu')
+                    valu = raw_valu
 
-                yield (ruletype, valu)
+                info['ndef'] = (ruletype, valu)
+
+                yield info
+
                 if first:
                     return
