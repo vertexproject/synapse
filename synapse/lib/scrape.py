@@ -198,6 +198,7 @@ def contextScrape(text, ptype=None, refang=True, first=False):
                 }
 
                 if cb:
+                    # CB is expected to return a tufo of <new valu, info>
                     valu, cbfo = cb(valu)
                     if valu is None:
                         continue
