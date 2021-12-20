@@ -159,7 +159,7 @@ def scrape(text, ptype=None, refang=True, first=False):
     '''
 
     for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
-        yield info.get('ndef')
+        yield info.get('ruletype'), info.get('valu')
 
 def contextScrape(text, ptype=None, refang=True, first=False):
     '''
@@ -186,7 +186,6 @@ def contextScrape(text, ptype=None, refang=True, first=False):
             cb = opts.get('callback')
 
             for valu in regx.finditer(text):  # type: regex.Match
-                print(valu.groupdict())
                 raw_span = valu.span('valu')
                 raw_valu = valu.group('valu')
 
@@ -209,7 +208,7 @@ def contextScrape(text, ptype=None, refang=True, first=False):
                 else:
                     valu = raw_valu
 
-                info['ndef'] = (ruletype, valu)
+                info['valu'] = valu
 
                 yield info
 
