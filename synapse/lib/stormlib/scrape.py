@@ -14,6 +14,35 @@ class LibScrape(s_stormtypes.Lib):
     A Storm Library for providing ipv6 helpers.
     '''
     _storm_locals = (
+        {'name': 'ptypes', 'desc': 'Get a list of available ptype arguments.',
+         'type': {'type': 'function', '_funcname': '_methPtypes',
+                  'returns': {'type': 'list', 'desc': 'A list of '}}},
+        {'name': 'context', 'desc': '''
+            Attempt to scrape information from a blob of text, getting the context information about the values found.
+
+            Examples:
+            Scrape some text and attempt to make nodes out of it::
+
+                for $info in $lib.scrape.context($text) {
+                    $form=$info.ptype
+                    $valu=$info.valu
+                    [ ( *$form ?= $valu ) ]
+                }
+            ''',
+         'type': {'type': 'function', '_funcname': '_methContext',
+                  'args': (
+                      {'name': 'text', 'type': 'str',
+                       'desc': 'The text to scrape', },
+                      {'name': 'ptype', 'type': 'str', 'default': None,
+                       'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
+                      {'name': 'refang', 'type': 'boolean', 'default': True,
+                       'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
+                      {'name': 'unique', 'type': 'boolean', 'default': False,
+                       'desc': 'Only yield unique items from the text.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'dict',
+                              'desc': 'A dictionary of scraped values, rule types, and offsets scraped from the text.',
+                              }}},
         {'name': 'ndefs', 'desc': '''
             Attempt to scrape node form, value tuples from a blob of text.
 
@@ -56,7 +85,7 @@ class LibScrape(s_stormtypes.Lib):
         return s_scrape.getPtypes()
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methContext(self, text, ptype=None, refang=True, unique=True):
+    async def _methContext(self, text, ptype=None, refang=True, unique=False):
         text = await s_stormtypes.tostr(text)
         ptype = await s_stormtypes.tostr(ptype, noneok=True)
         refang = await s_stormtypes.tobool(refang)

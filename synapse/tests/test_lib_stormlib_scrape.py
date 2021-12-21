@@ -1,27 +1,3 @@
-import re
-import bz2
-import gzip
-import json
-import base64
-import asyncio
-import hashlib
-import binascii
-import datetime
-import contextlib
-
-from datetime import timezone as tz
-from unittest import mock
-
-import synapse.exc as s_exc
-import synapse.common as s_common
-
-import synapse.lib.storm as s_storm
-import synapse.lib.hashset as s_hashset
-import synapse.lib.httpapi as s_httpapi
-import synapse.lib.modelrev as s_modelrev
-import synapse.lib.provenance as s_provenance
-import synapse.lib.stormtypes as s_stormtypes
-
 import synapse.tests.utils as s_test
 
 
