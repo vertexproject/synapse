@@ -264,6 +264,9 @@ addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape(self):
+        ndefs = list(s_scrape.scrape('log4j vuln CVE-2021-44228 is pervasive'))
+        self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+
         nodes = set(s_scrape.scrape(data0))
 
         self.len(26, nodes)
