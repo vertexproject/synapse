@@ -76,6 +76,7 @@ class LibScrape(s_stormtypes.Lib):
         }
 
     async def __call__(self, text, ptype=None, refang=True, unique=True):
+        # Remove this in 3.0.0
         await self.runt.warnonce('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().')
         async for item in self._methNdefs(text, ptype=ptype, refang=refang, unique=unique):
             yield item
