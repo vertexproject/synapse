@@ -264,6 +264,11 @@ addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape_basic(self):
+        ptypes = s_scrape.getPtypes()
+        self.isin('inet:ipv4', ptypes)
+        self.isin('crypto:currency:address', ptypes)
+        self.notin('inet:web:message', ptypes)
+
         nodes = set(s_scrape.scrape(data0))
 
         self.len(26, nodes)
@@ -383,7 +388,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('crypto:currency:address', ('xrp', 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
         nodes.remove(('crypto:currency:address', ('xrp', 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
         nodes.remove(('crypto:currency:address',
-                      ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')),)
+                      ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')), )
         nodes.remove(('crypto:currency:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
         nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
         nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
@@ -539,10 +544,20 @@ class ScrapeTest(s_t_utils.SynTest):
         self.eq({'example.com'}, {n[1] for n in s_scrape.scrape(defanged, refang=False)})
 
     def test_scrape_context(self):
-        from pprint import pprint
-        # results = list(s_scrape.contextScrape(data0))
-        # for result in results:
-        # for result in s_scrape._contextScrape(data0):
-        # for result in s_scrape._contextScrape(data1):
-        for result in s_scrape.contextScrape(data2):
-            pprint(result)
+        results = list(s_scrape.contextScrape(data2))
+        r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]
+        self.eq(r, {'ptype': 'inet:url',
+                    'raw_valu': 'https://www.foobar.com/things.html>',
+                    'raw_valu_end': 63,
+                    'raw_valu_end_cb': 62,
+                    'raw_valu_start': 28,
+                    'raw_valu_start_cb': 28,
+                    'valu': 'https://www.foobar.com/things.html'})
+
+        r = [r for r in results if r.get('valu') == 'www.thingspace.com'][0]
+        self.eq(r, {'ptype': 'inet:fqdn',
+                    'raw_valu': 'www.thingspace.com',
+                    'raw_valu_end': 137,
+                    'raw_valu_start': 119,
+                    'valu': 'www.thingspace.com'}
+                )

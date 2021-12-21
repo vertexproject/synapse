@@ -130,6 +130,14 @@ for (name, rule, opts) in scrape_types:
     blob = (regex.compile(rule, regex.IGNORECASE), opts)
     _regexes[name].append(blob)
 
+def getPtypes():
+    '''
+    Get a list of ptypes recognized by the scrape APIs.
+
+    Returns:
+        list: A list of ptype values.
+    '''
+    return sorted(_regexes.keys())
 
 def refang_text(txt):
     '''
@@ -159,7 +167,7 @@ def scrape(text, ptype=None, refang=True, first=False):
     '''
 
     for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
-        yield info.get('ruletype'), info.get('valu')
+        yield info.get('ptype'), info.get('valu')
 
 def contextScrape(text, ptype=None, refang=True, first=False):
     '''
@@ -190,10 +198,10 @@ def contextScrape(text, ptype=None, refang=True, first=False):
                 raw_valu = valu.group('valu')
 
                 info = {
+                    'ptype': ruletype,
                     'raw_valu': raw_valu,
-                    'ruletype': ruletype,
-                    'raw_valu_end': raw_span[1],
                     'raw_valu_start': raw_span[0],
+                    'raw_valu_end': raw_span[1],
                 }
 
                 if cb:
