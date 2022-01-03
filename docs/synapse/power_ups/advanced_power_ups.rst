@@ -9,7 +9,6 @@ their services.
 
 Documentation for specific Advanced Power-Ups can be found here:
 
-- `Synapse Augury <https://synapse.docs.vertex.link/projects/augury/en/latest/>`_
 - `Synapse Backup <https://synapse.docs.vertex.link/projects/backup/en/latest/>`_
 - `Synapse Domainiq <https://synapse.docs.vertex.link/projects/domainiq/en/latest/>`_
 - `Synapse Fileparser <https://synapse.docs.vertex.link/projects/fileparser/en/latest/>`_
@@ -35,6 +34,7 @@ The following Advanced Power-ups have been made available as Rapid Power-ups. Ne
 Rapid Power-Ups, and existing deployments should plan to migrate away from the container based versions of the following
 Power-Ups:
 
+- `Synapse Augury <https://synapse.docs.vertex.link/projects/augury/en/latest/>`_
 - `Synapse Shodan <https://synapse.docs.vertex.link/projects/shodan/en/latest/>`_
 - `Synapse Tor <https://synapse.docs.vertex.link/projects/tor/en/latest/>`_
 - `Synapse Twitter <https://synapse.docs.vertex.link/projects/twitter/en/latest/>`_
