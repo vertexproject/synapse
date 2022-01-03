@@ -46,27 +46,38 @@ class StormHttpTest(s_test.SynTest):
 
             # Header and params as dict
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=$lib.dict(key=valu, foo=bar, baz=$lib.false)
+            $hdr = $lib.dict(true=$lib.true)
+            $hdr."User-Agent"="Storm HTTP Stuff"
+            $k = (0)
+            $hdr.$k="Why"
+            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',), 'baz': ('False',)})
+            self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
+            self.eq(data.get('headers').get('0'), 'Why')
+            self.eq(data.get('headers').get('True'), 'True')
+
+            # headers / params as list of key/value pairs
+            q = '''
+            $params=((foo, bar), (key, valu), (baz, $lib.false))
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
+                    ((0), "Why"),
+                    ("true", $lib.true),
             )
             $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
             data = resp.get('result')
-            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',), 'baz': ('False',)})
             self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
-
-            # params as list of key/value pairs
-            q = '''
-            $params=((foo, bar), (key, valu))
-            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( $resp.json() )
-            '''
-            resp = await core.callStorm(q, opts=opts)
-            data = resp.get('result')
-            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('0'), 'Why')
+            self.eq(data.get('headers').get('True'), 'True')
 
             # headers
             q = '''

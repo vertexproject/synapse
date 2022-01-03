@@ -249,7 +249,16 @@ class LibHttp(s_stormtypes.Lib):
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:
+            if isinstance(params, (list, tuple)):
+                params = [(str(k), str(v)) for (k, v) in params]
+            elif isinstance(params, dict):
+                params = {str(k): str(v) for k, v in params.items()}
             kwargs['params'] = params
+
+        if isinstance(headers, (list, tuple)):
+            headers = [(str(k), str(v)) for (k, v) in headers]
+        elif isinstance(headers, dict):
+            headers = {str(k): str(v) for k, v in headers.items()}
 
         proxyurl = self.runt.snap.core.conf.get('http:proxy')
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
