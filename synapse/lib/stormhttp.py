@@ -212,6 +212,11 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
+        if isinstance(headers, (list, tuple)):
+            headers = [(str(k), str(v)) for (k, v) in headers]
+        elif isinstance(headers, dict):
+            headers = {str(k): str(v) for k, v in headers.items()}
+
         proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
         connector = None
         if proxyurl is not None:

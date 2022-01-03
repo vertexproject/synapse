@@ -16,7 +16,7 @@ class TstWebSock(s_httpapi.WebSocket):
         pass
 
     async def open(self):
-        await self.sendJsonMesg({'hi': 'woot'})
+        await self.sendJsonMesg({'hi': 'woot', 'headers': dict(self.request.headers)})
 
     async def on_message(self, byts):
         mesg = json.loads(byts)
@@ -412,16 +412,33 @@ class StormHttpTest(s_test.SynTest):
             core.addHttpApi('/test/ws', TstWebSock, {})
             addr, port = await core.addHttpsPort(0)
 
-            self.eq('woot', await core.callStorm('''
+            mesg = await core.callStorm('''
+                $hdr=$lib.dict(key=$lib.false)
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
                 if (not $ok) { $lib.exit($mesg) }
-                return($mesg.hi)
-            ''', opts={'vars': {'port': port}}))
+                return($mesg)
+            ''', opts={'vars': {'port': port}})
+            self.eq(mesg.get('hi'), 'woot')
+            self.eq(mesg.get('headers').get('Key'), 'False')
+
+            mesg = await core.callStorm('''
+                $hdr=( (key, $lib.false), )
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+                return($mesg)
+            ''', opts={'vars': {'port': port}})
+            self.eq(mesg.get('hi'), 'woot')
+            self.eq(mesg.get('headers').get('Key'), 'False')
 
             self.eq((True, ('echo', 'lololol')), await core.callStorm('''
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
