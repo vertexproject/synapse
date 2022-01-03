@@ -4271,9 +4271,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
 
-    def _viewFromOpts(self, opts):
+    def _viewFromOpts(self, opts, user=None):
 
-        user = self._userFromOpts(opts)
+        if user is None:
+            user = self._userFromOpts(opts)
 
         viewiden = opts.get('view')
         if viewiden is None:

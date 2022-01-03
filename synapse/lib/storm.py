@@ -1668,14 +1668,12 @@ class Runtime(s_base.Base):
                 async for item in self.execute():
                     await asyncio.sleep(0)
                 await self.emitq.put((False, None))
-                await self.fini()
 
             except asyncio.CancelledError: # pragma: no cover
                 raise
 
             except s_stormctrl.StormStop:
                 await self.emitq.put((False, None))
-                await self.fini()
 
             except Exception as e:
                 await self.emitq.put((False, e))
@@ -1684,16 +1682,17 @@ class Runtime(s_base.Base):
 
         async def genr():
 
-            while not self.isfini:
-                ok, item = await self.emitq.get()
-                if ok:
-                    yield item
-                    continue
+            async with self:
+                while not self.isfini:
+                    ok, item = await self.emitq.get()
+                    if ok:
+                        yield item
+                        continue
 
-                if not ok and item is None:
-                    return
+                    if not ok and item is None:
+                        return
 
-                raise item
+                    raise item
 
         return genr()
 
@@ -1908,11 +1907,8 @@ class Runtime(s_base.Base):
                 self.tick()
                 yield item
 
-    @contextlib.asynccontextmanager
-    async def getSubRuntime(self, query, opts=None):
-        '''
-        Yield a runtime with shared scope that will populate changes upward.
-        '''
+    async def _snapFromOpts(self, opts):
+
         snap = self.snap
 
         if opts is not None:
@@ -1927,13 +1923,30 @@ class Runtime(s_base.Base):
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
-        async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
-            if self.debug:
-                runt.debug = True
-            runt.asroot = self.asroot
-            runt.readonly = self.readonly
+        return snap
 
+    @contextlib.asynccontextmanager
+    async def getSubRuntime(self, query, opts=None):
+        '''
+        Yield a runtime with shared scope that will populate changes upward.
+        '''
+        async with await self.initSubRuntime(query, opts=opts) as runt:
             yield runt
+
+    async def initSubRuntime(self, query, opts=None):
+        '''
+        Construct and return sub-runtime with a shared scope.
+        ( caller must fini )
+        '''
+        snap = await self._snapFromOpts(opts)
+
+        runt = await Runtime.anit(query, snap, user=self.user, opts=opts, root=self)
+        if self.debug:
+            runt.debug = True
+        runt.asroot = self.asroot
+        runt.readonly = self.readonly
+
+        return runt
 
     @contextlib.asynccontextmanager
     async def getCmdRuntime(self, query, opts=None):

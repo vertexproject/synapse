@@ -3830,7 +3830,7 @@ class Function(AstNode):
         opts = {'vars': mergargs}
 
         if self.hasemit:
-            runt = await runt.getModRuntime(self.kids[2], opts=opts)
+            runt = await runt.initSubRuntime(self.kids[2], opts=opts)
             runt.funcscope = True
             return await runt.emitter()
 
