@@ -242,6 +242,17 @@ class FileModule(s_module.CoreModule):
                     'doc': 'Properties common to image file formats.',
                     'interfaces': ('file:mime:meta',),
                 }),
+                ('file:mime:macho:loadcmd', {
+                    'props': (
+                        ('file', ('file:bytes', {}), {
+                            'doc': 'The Mach-O file containing the load command.'}),
+                        ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
+                            'doc': 'The type of the load command'}),
+                        ('size', ('int', {}), {
+                            'doc': 'The size of the load command structure in bytes.'}),
+                    ),
+                    'doc': 'Properties common to all Mach-O load commands',
+                })
             ),
 
             'types': (
@@ -348,19 +359,23 @@ class FileModule(s_module.CoreModule):
                 }),
 
                 ('file:mime:macho:loadcmd', ('guid', {}), {
-                    'doc': 'A load command pulled from the Mach-O headers.',
+                    'doc': 'A generic load command pulled from the Mach-O headers.',
+                    'interfaces': ('file:mime:macho:loadcmd',),
                 }),
 
                 ('file:mime:macho:version', ('guid', {}), {
                     'doc': 'A specific load command used to denote the version of the source used to build the Mach-O binary.',
+                    'interfaces': ('file:mime:macho:loadcmd',),
                 }),
 
                 ('file:mime:macho:uuid', ('guid', {}), {
                     'doc': 'A specific load command denoting a UUID used to uniquely identify the Mach-O binary.',
+                    'interfaces': ('file:mime:macho:loadcmd',),
                 }),
 
                 ('file:mime:macho:segment', ('guid', {}), {
                     'doc': 'A named region of bytes inside a Mach-O binary.',
+                    'interfaces': ('file:mime:macho:loadcmd',),
                 }),
 
                 ('file:mime:macho:section', ('guid', {}), {
@@ -578,31 +593,16 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The file extension.'}),
                 )),
 
-                ('file:mime:macho:loadcmd', {}, (
-                    ('file', ('file:bytes', {}), {
-                        'doc': 'The Mach-O file containing the load command.'}),
-                    ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
-                        'doc': 'The type of the load command'}),
-                    ('size', ('int', {}), {
-                        'doc': 'The size of the load command structure in bytes.'}),
-                )),
+                ('file:mime:macho:loadcmd', {}, ()),
                 ('file:mime:macho:version', {}, (
-                    ('loadcmd', ('file:mime:macho:loadcmd', {}), {
-                        'doc': 'The associated load command node.'}),
                     ('version', ('str', {}), {
-                        'doc': 'The version of the Mach-O file encoded in an LC_VERSION load command'})
+                        'doc': 'The version of the Mach-O file encoded in an LC_VERSION load command'}),
                 )),
                 ('file:mime:macho:uuid', {}, (
-                    ('loadcmd', ('file:mime:macho:loadcmd', {}), {
-                        'doc': 'The actual load command '}),
                     ('uuid', ('str', {'lower': True}), {
                         'doc': 'The UUID of the Mach-O application (as defined in an LC_UUID load command)'}),
                 )),
                 ('file:mime:macho:segment', {}, (
-                    ('loadcmd', ('file:mime:macho:loadcmd', {}), {
-                        'doc': 'The actual load command node.'}),
-                    ('loadcmd:file', ('file:bytes', {}), {
-                        'doc': 'The Mach-O file the segment is located in'}),
                     ('name', ('str', {}), {
                         'doc': 'The name of the Mach-O segment.'}),
                     ('memsize', ('int', {}), {

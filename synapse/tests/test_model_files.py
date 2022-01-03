@@ -98,48 +98,56 @@ class FileTest(s_t_utils.SynTest):
 
                 # loadcmds
                 opts = {'vars': {'file': fnode.get('sha256')}}
-                uuidcmd = await core.nodes('''[
+                gencmd = await core.nodes('''[
                     file:mime:macho:loadcmd=*
                         :file=$file
                         :type=27
                         :size=123456
                 ]''', opts=opts)
-                self.len(1, uuidcmd)
-                uuidcmd = uuidcmd[0]
-                self.eq(27, uuidcmd.get('type'))
-                self.eq(123456, uuidcmd.get('size'))
-                self.eq('sha256:' + file, uuidcmd.get('file'))
+                self.len(1, gencmd)
+                gencmd = gencmd[0]
+                self.eq(27, gencmd.get('type'))
+                self.eq(123456, gencmd.get('size'))
+                self.eq('sha256:' + file, gencmd.get('file'))
 
                 # uuid
-                opts = {'vars': {'cmd': uuidcmd.ndef[1]}}
+                opts = {'vars': {'file': fnode.get('sha256')}}
                 uuid = await core.nodes(f'''[
                     file:mime:macho:uuid=*
-                        :loadcmd=$cmd
+                        :file=$file
+                        :type=27
+                        :size=32
                         :uuid="BCAA4A0B-BF70-3A5D-BCF9-72F39780EB67"
                 ]''', opts=opts)
                 self.len(1, uuid)
                 uuid = uuid[0]
-                self.eq(uuidcmd.ndef[1], uuid.get('loadcmd'))
                 self.eq('bcaa4a0b-bf70-3a5d-bcf9-72f39780eb67', uuid.get('uuid'))
+                self.eq('sha256:' + file, uuid.get('file'))
 
                 # version
                 ver = await core.nodes(f'''[
                     file:mime:macho:version=*
-                        :loadcmd=$cmd
+                        :file=$file
+                        :type=42
+                        :size=32
                         :version="7605.1.33.1.4"
                 ]''', opts=opts)
                 self.len(1, ver)
                 ver = ver[0]
-                self.eq(uuidcmd.ndef[1], ver.get('loadcmd'))
                 self.eq('7605.1.33.1.4', ver.get('version'))
+                self.eq('sha256:' + file, ver.get('file'))
+                self.eq(42, ver.get('type'))
+                self.eq(32, ver.get('size'))
+                self.eq('sha256:' + file, ver.get('file'))
 
                 # segment
                 seghash = 'e' * 64
                 opts = {'vars': {'file': file, 'sha256': seghash}}
                 seg = await core.nodes(f'''[
                     file:mime:macho:segment=*
-                        :loadcmd=*
-                        :loadcmd:file=$file
+                        :file=$file
+                        :type=1
+                        :size=48
                         :name="__TEXT"
                         :memsize=4092
                         :disksize=8192
@@ -148,7 +156,9 @@ class FileTest(s_t_utils.SynTest):
                 ]''', opts=opts)
                 self.len(1, seg)
                 seg = seg[0]
-                self.eq('sha256:' + file, seg.get('loadcmd:file'))
+                self.eq('sha256:' + file, seg.get('file'))
+                self.eq(1, seg.get('type'))
+                self.eq(48, seg.get('size'))
                 self.eq('__TEXT', seg.get('name'))
                 self.eq(4092, seg.get('memsize'))
                 self.eq(8192, seg.get('disksize'))
