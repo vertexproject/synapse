@@ -104,6 +104,23 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoTagForTagIndex')
             self.eq(errors[1][0], 'NoPropForPropIndex')
 
+        # Smash in a bad stortype into a sode.
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            layr = core.getLayer()
+            sode = await layr.getStorNode(buid)
+            asn = sode['props']['asn']
+            sode['props']['asn'] = (asn[0], 8675309)
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(3, errors)
+            self.eq(errors[0][0], 'NoStorTypeForProp')
+            self.eq(errors[1][0], 'NoStorTypeForProp')
+            self.eq(errors[2][0], 'SpurPropKeyForIndx')
+
     async def test_layer_abrv(self):
 
         async with self.getTestCore() as core:

@@ -1428,13 +1428,18 @@ class Layer(s_nexus.Pusher):
         def verifyIndxKeys(propvalu, stortype, indxkeys):
 
             # NOTE: This *will* mutate indxkeys list
-            for indx in self.stortypes[stortype].indx(propvalu):
-                indxkey = abrv + indx
-                if indxkey not in indxkeys:
-                    yield ('NoPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
-                    continue
+            try:
+                for indx in self.stortypes[stortype].indx(propvalu):
+                    indxkey = abrv + indx
+                    if indxkey not in indxkeys:
+                        yield ('NoPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                        continue
 
-                indxkeys.remove(indxkey)
+                    indxkeys.remove(indxkey)
+
+            except IndexError:
+                yield ('NoStorTypeForProp', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop,
+                                             'stortype': stortype})
 
             for indxkey in indxkeys:
                 indx = indxkey[len(abrv):]
@@ -1500,8 +1505,12 @@ class Layer(s_nexus.Pusher):
         storprops = sode.get('props')
         if storprops:
             for propname, (storvalu, stortype) in storprops.items():
-                async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
-                    yield error
+                try:
+                    async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
+                        yield error
+                except IndexError as e:
+                    yield ('NoStorTypeForProp', {'buid': s_common.ehex(buid), 'form': form, 'prop': propname,
+                                                 'stortype': stortype})
 
     async def pack(self):
         ret = self.layrinfo.pack()

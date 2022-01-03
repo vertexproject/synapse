@@ -4,6 +4,82 @@
 Synapse Changelog
 *****************
 
+v2.75.0 - 2021-12-16
+====================
+
+This release contains an automatic data migration that may cause additional
+startup time on the first boot. This is done to unique array properties which
+previously were not uniqued. Deployments with startup or liveliness probes
+should have those disabled while this upgrade is performed to prevent
+accidental termination of the Cortex process. Please ensure you have a tested
+backup available before applying this update.
+
+Features and Enhancements
+-------------------------
+
+- Update the following array properties to be unique sets, and add a data
+  model migration to update the data at rest:
+  (`#2469 <https://github.com/vertexproject/synapse/pull/2469>`_)
+
+    - ``biz:rfp:requirements``
+    - ``crypto:x509:cert:ext:sans``
+    - ``crypto:x509:cert:ext:crls``
+    - ``crypto:x509:cert:identities:fqdns``
+    - ``crypto:x509:cert:identities:emails``
+    - ``crypto:x509:cert:identities:ipv4s``
+    - ``crypto:x509:cert:identities:ipv6s``
+    - ``crypto:x509:cert:identities:urls``
+    - ``crypto:x509:cert:crl:urls``
+    - ``inet:whois:iprec:contacts``
+    - ``inet:whois:iprec:links``
+    - ``inet:whois:ipcontact:roles``
+    - ``inet:whois:ipcontact:links``
+    - ``inet:whois:ipcontact:contacts``
+    - ``it:account:groups``
+    - ``it:group:groups``
+    - ``it:reveng:function:impcalls``
+    - ``it:reveng:filefunc:funccalls``
+    - ``it:sec:cve:references``
+    - ``risk:vuln:cwes``
+    - ``tel:txtmesg:recipients``
+
+- Add Layer index verification routines, to compare the Layer indices against
+  the stored data for Nodes. This is exposed via the ``.verify()`` API on the
+  Stormtypes ``storm:layer`` object.
+  (`#2488 <https://github.com/vertexproject/synapse/pull/2488>`_)
+- The ``.json()`` API on ``storm:http:resp`` now raises a
+  ``s_exc.BadJsonText`` exception, which can be caught with the Storm
+  ``try ... catch`` syntax.
+  (`#2500 <https://github.com/vertexproject/synapse/pull/2500>`_)
+- Add ``$lib.inet.ipv6.expand()`` to expand an IPv6 address to its long form.
+  (`#2502 <https://github.com/vertexproject/synapse/pull/2502>`_)
+- Add ``hasPathObj()``, ``copyPathObj()`` and ``copyPathObjs()`` APIs to the
+  ``JsonStor``.
+  (`#2438 <https://github.com/vertexproject/synapse/pull/2438>`_)
+- Allow setting a custom title when making documentation for Cell
+  ``confdefs`` with the ``synapse.tools.autodoc`` tool.
+  (`#2504 <https://github.com/vertexproject/synapse/pull/2504>`_)
+- Update the minimum version of the ``aiohttp`` library to ``v3.8.1``.
+  (`#2495 <https://github.com/vertexproject/synapse/pull/2495>`_)
+
+Improved Documentation
+----------------------
+- Add content previously hosted at ``commercial.docs.vertex.link`` to the
+  mainline Synapse documentation. This includes some devops information
+  related to orchestration, information about Advanced and Rapid Power-Ups,
+  information about the Synapse User Interface, as well as some support
+  information.
+  (`#2498 <https://github.com/vertexproject/synapse/pull/2498>`_)
+  (`#2499 <https://github.com/vertexproject/synapse/pull/2499>`_)
+  (`#2501 <https://github.com/vertexproject/synapse/pull/2501>`_)
+- Add ``Synapse-Malshare`` and ``Synapse-TeamCymru`` Rapid Power-Ups to the
+  list of available Rapid Power-Ups.
+  (`#2506 <https://github.com/vertexproject/synapse/pull/2506>`_)
+- Document the ``jsonlines`` option for the ``api/v1/storm`` and
+  ``api/v1/storm/nodes`` HTTP APIs.
+  (`#2505 <https://github.com/vertexproject/synapse/pull/2505>`_)
+
+
 v2.74.0 - 2021-12-08
 ====================
 

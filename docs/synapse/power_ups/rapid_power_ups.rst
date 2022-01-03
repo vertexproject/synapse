@@ -26,12 +26,14 @@ The following Rapid Power-Ups are available:
 - `Synapse-GreyNoise <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-greynoise/index.html>`_
 - `Synapse-HybridAnalysis <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-hybridanalysis/index.html>`_
 - `Synapse-Jira <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-jira/index.html>`_
+- `Synapse-Malshare <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-malshare/index.html>`_
 - `Synapse-MISP (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html>`_
 - `Synapse-MITRE ATT&CK (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html>`_
 - `Synapse-MITRE-CVE <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-cve/index.html>`_
 - `Synapse-PassiveTotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-passivetotal/index.html>`_
 - `Synapse-Shodan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-shodan/index.html>`_
 - `Synapse-SpyCloud <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spycloud/index.html>`_
+- `Synapse-TeamCymru <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-teamcymru/index.html>`_
 - `Synapse-Tor (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html>`_
 - `Synapse-Twitter <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-twitter/index.html>`_
 - `Synapse-URLScan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-urlscan/index.html>`_
