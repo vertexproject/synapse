@@ -210,23 +210,43 @@ class Lookup(Query):
             mesg = 'Autoadd may not be executed in readonly Storm runtime.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        view = runt.snap.view
+
+        async def getnode(form, valu):
+            try:
+                if self.autoadd:
+                    return await runt.snap.addNode(form, valu)
+                else:
+                    norm, info = runt.model.form(form).type.norm(valu)
+                    node = await runt.snap.getNodeByNdef((form, norm))
+                    if node is None:
+                        await runt.snap.fire('look:miss', ndef=(form, norm))
+                    return node
+            except s_exc.BadTypeValu:
+                return None
+
         async def lookgenr():
 
             async for item in genr:
                 yield item
 
-            for kid in self.kids[0]:
-                tokn = await kid.compute(runt, None)
+            tokns = [await kid.compute(runt, None) for kid in self.kids[0]]
+            if not tokns:
+                return
+
+            # scrape logic first...
+            for tokn in tokns:
                 for form, valu in s_scrape.scrape(tokn, first=True):
-                    if self.autoadd:
-                        node = await runt.snap.addNode(form, valu)
+                    node = await getnode(form, valu)
+                    if node is not None:
                         yield node, runt.initPath(node)
 
-                    else:
-                        norm, info = runt.model.form(form).type.norm(valu)
-                        node = await runt.snap.getNodeByNdef((form, norm))
-                        if node is not None:
-                            yield node, runt.initPath(node)
+            if view.core.stormiface_search:
+                todo = s_common.todo('search', tokns)
+                async for (prio, buid) in view.mergeStormIface('search', todo):
+                    node = await runt.snap.getNodeByBuid(buid)
+                    if node is not None:
+                        yield node, runt.initPath(node)
 
         realgenr = lookgenr()
         if len(self.kids) > 1:
@@ -3657,9 +3677,32 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
-        if self.kids and self.isRuntSafe(runt):
-            valu = await self.kids[0].compute(runt, None)
+        if self.isRuntSafe(runt):
+            if self.kids:
+                valu = await self.kids[0].compute(runt, None)
             raise s_stormctrl.StormReturn(valu)
+
+class Emit(Oper):
+
+    async def run(self, runt, genr):
+
+        count = 0
+        async for node, path in genr:
+            count += 1
+            await runt.emit(await self.kids[0].compute(runt, path))
+            yield node, path
+
+        # no items in pipeline and runtsafe. execute once.
+        if count == 0 and self.isRuntSafe(runt):
+            await runt.emit(await self.kids[0].compute(runt, None))
+
+class Stop(Oper):
+
+    async def run(self, runt, genr):
+        for _ in (): yield _
+        async for node, path in genr:
+            raise s_stormctrl.StormStop()
+        raise s_stormctrl.StormStop()
 
 class FuncArgs(AstNode):
     '''
@@ -3701,6 +3744,7 @@ class Function(AstNode):
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()
+        self.hasemit = self.hasAstClass(Emit)
         self.hasretn = self.hasAstClass(Return)
 
     def isRuntSafe(self, runt):
@@ -3785,6 +3829,11 @@ class Function(AstNode):
 
         opts = {'vars': mergargs}
 
+        if self.hasemit:
+            runt = await runt.initSubRuntime(self.kids[2], opts=opts)
+            runt.funcscope = True
+            return await runt.emitter()
+
         if self.hasretn:
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
@@ -3802,11 +3851,12 @@ class Function(AstNode):
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
-
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
-
-                async for node, path in subr.execute():
-                    yield node, path
+                try:
+                    async for node, path in subr.execute():
+                        yield node, path
+                except s_stormctrl.StormStop:
+                    return
 
         return genr()
