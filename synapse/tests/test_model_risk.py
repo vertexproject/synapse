@@ -113,6 +113,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 :software={soft}
                 :spec={spec}
                 :item={item}
+                :host={host}
             ]''')
             self.eq(node.ndef, ('risk:hasvuln', hasv))
             self.eq(node.get('vuln'), vuln)
@@ -122,6 +123,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('software'), soft)
             self.eq(node.get('spec'), spec)
             self.eq(node.get('item'), item)
+            self.eq(node.get('host'), host)
 
             nodes = await core.nodes('''
                 [ risk:alert=*
