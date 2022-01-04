@@ -4,6 +4,40 @@
 Synapse Changelog
 *****************
 
+
+v2.76.0 - 2022-01-04
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``emit`` and ``stop`` keywords to Storm. The ``emit`` keyword is used
+  in functions to make them behave as generators, which can yield arbitrary
+  values. The ``stop`` keyword can be used to prematurely end a function which
+  is ``emit``'ing values.
+  (`#2475 <https://github.com/vertexproject/synapse/pull/2475>`_)
+- Add Storm Module Interfaces. This allows Storm Package authors to define
+  common module interfaces, so that multiple modules can implement the API
+  convention to provide a consistent set of data across multiple Storm
+  modules. A ``search`` convention is added to the Cortex, which will be used
+  in ``lookup`` mode when the ``storm:interface:search`` configuration option
+  is set.
+  (`#2475 <https://github.com/vertexproject/synapse/pull/2475>`_)
+- Storm queries in ``lookup`` mode now fire ``look:miss`` events into the
+  Storm message stream when the lookup value contains a valid node value,
+  but the node is not present in the current View.
+  (`#2475 <https://github.com/vertexproject/synapse/pull/2475>`_)
+- Add ``synapse.lib.scrape`` support for identifying ``it:sec:cve`` values.
+  (`#2509 <https://github.com/vertexproject/synapse/pull/2509>`_)
+
+Bugfixes
+--------
+- Fix an ``IndexError`` that can occur during ``Layer.verify()`` routines.
+  (`#2507 <https://github.com/vertexproject/synapse/pull/2507>`_)
+- Ensure that parameter and header arguments passed to Storm
+  ``$lib.inet.http`` functions are cast into strings values.
+  (`#2510 <https://github.com/vertexproject/synapse/pull/2510>`_)
+
+
 v2.75.0 - 2021-12-16
 ====================
 
