@@ -16,7 +16,7 @@ class TstWebSock(s_httpapi.WebSocket):
         pass
 
     async def open(self):
-        await self.sendJsonMesg({'hi': 'woot'})
+        await self.sendJsonMesg({'hi': 'woot', 'headers': dict(self.request.headers)})
 
     async def on_message(self, byts):
         mesg = json.loads(byts)
@@ -46,27 +46,38 @@ class StormHttpTest(s_test.SynTest):
 
             # Header and params as dict
             q = '''
-            $params=$lib.dict(key=valu, foo=bar)
+            $params=$lib.dict(key=valu, foo=bar, baz=$lib.false)
+            $hdr = $lib.dict(true=$lib.true)
+            $hdr."User-Agent"="Storm HTTP Stuff"
+            $k = (0)
+            $hdr.$k="Why"
+            $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',), 'baz': ('False',)})
+            self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
+            self.eq(data.get('headers').get('0'), 'Why')
+            self.eq(data.get('headers').get('True'), 'True')
+
+            # headers / params as list of key/value pairs
+            q = '''
+            $params=((foo, bar), (key, valu), (baz, $lib.false))
             $hdr = (
                     ("User-Agent", "Storm HTTP Stuff"),
+                    ((0), "Why"),
+                    ("true", $lib.true),
             )
             $resp = $lib.inet.http.get($url, headers=$hdr, params=$params, ssl_verify=$lib.false)
             return ( $resp.json() )
             '''
             resp = await core.callStorm(q, opts=opts)
             data = resp.get('result')
-            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',), 'baz': ('False',)})
             self.eq(data.get('headers').get('User-Agent'), 'Storm HTTP Stuff')
-
-            # params as list of key/value pairs
-            q = '''
-            $params=((foo, bar), (key, valu))
-            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
-            return ( $resp.json() )
-            '''
-            resp = await core.callStorm(q, opts=opts)
-            data = resp.get('result')
-            self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
+            self.eq(data.get('headers').get('0'), 'Why')
+            self.eq(data.get('headers').get('True'), 'True')
 
             # headers
             q = '''
@@ -401,16 +412,33 @@ class StormHttpTest(s_test.SynTest):
             core.addHttpApi('/test/ws', TstWebSock, {})
             addr, port = await core.addHttpsPort(0)
 
-            self.eq('woot', await core.callStorm('''
+            mesg = await core.callStorm('''
+                $hdr=$lib.dict(key=$lib.false)
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
                 if (not $ok) { $lib.exit($mesg) }
-                return($mesg.hi)
-            ''', opts={'vars': {'port': port}}))
+                return($mesg)
+            ''', opts={'vars': {'port': port}})
+            self.eq(mesg.get('hi'), 'woot')
+            self.eq(mesg.get('headers').get('Key'), 'False')
+
+            mesg = await core.callStorm('''
+                $hdr=( (key, $lib.false), )
+                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
+                if (not $ok) { $lib.exit($sock) }
+
+                ($ok, $mesg) = $sock.rx()
+                if (not $ok) { $lib.exit($mesg) }
+                return($mesg)
+            ''', opts={'vars': {'port': port}})
+            self.eq(mesg.get('hi'), 'woot')
+            self.eq(mesg.get('headers').get('Key'), 'False')
 
             self.eq((True, ('echo', 'lololol')), await core.callStorm('''
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
