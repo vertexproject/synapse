@@ -26,6 +26,9 @@ Features and Enhancements
   Storm message stream when the lookup value contains a valid node value,
   but the node is not present in the current View.
   (`#2475 <https://github.com/vertexproject/synapse/pull/2475>`_)
+- Add a ``:host`` secondary property to ``risk:hasvuln`` form to record
+  ``it:host`` instances which have a vulnerability.
+  (`#2512 <https://github.com/vertexproject/synapse/pull/2512>`_)
 - Add ``synapse.lib.scrape`` support for identifying ``it:sec:cve`` values.
   (`#2509 <https://github.com/vertexproject/synapse/pull/2509>`_)
 
