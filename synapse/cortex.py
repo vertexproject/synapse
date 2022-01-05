@@ -66,6 +66,7 @@ import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
+import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
@@ -1142,6 +1143,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initCoreViews()
         self.onfini(self._finiStor)
         await self._initCoreQueues()
+        await self._initCoreNotifs()
 
         self.addHealthFunc(self._cortexHealth)
 
@@ -1659,6 +1661,81 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
+
+    async def _initCoreNotifs(self):
+        path = os.path.join(self.dirn, 'slabs', 'notifications.lmdb')
+
+        self.notifslab = await s_lmdbslab.Slab.anit(path)
+        self.onfini(self.notifslab.fini)
+
+        self.notif_abrv_user = self.notifslab.getNameAbrv('users')
+        self.notif_abrv_type = self.notifslab.getNameAbrv('types')
+
+        self.notifseqn = self.notifslab.getSeqn('notifs')
+        self.notif_indx_usertime = self.notifslab.initdb('indx:user:time', dupsort=True)
+        self.notif_indx_usertype = self.notifslab.initdb('indx:user:type', dupsort=True)
+
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+
+        user = self.auth.user(useriden)
+        if user is None:
+            raise s_exc.NoSuchUser(mesg=f'No user found with iden: {useriden}')
+
+        mesg = (useriden, s_common.now(), mesgtype, mesgdata)
+
+        return await self._push('notif:add', mesg)
+
+    async def delUserNotif(self, indx):
+        return await self._push('notif:del', indx)
+
+    async def getUserNotif(self, indx):
+        return self.notifseqn.get(indx)
+
+    @s_nexus.Pusher.onPush('notif:add', passitem=True)
+    async def _addUserNotif(self, mesg, nexsitem):
+
+        indx = self.notifseqn.add(mesg, indx=nexsitem[0])
+        indxbyts = s_common.int64en(indx)
+
+        useriden, mesgtime, mesgtype, mesgdata = mesg
+
+        userbyts = s_common.uhex(useriden)
+        timebyts = s_common.int64en(mesgtime)
+        typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
+
+        self.notifslab.put(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime, dupdata=True)
+        self.notifslab.put(userbyts + typeabrv, indxbyts, db=self.notif_indx_usertype, dupdata=True)
+
+        return indx
+
+    @s_nexus.Pusher.onPush('notif:del')
+    async def _delUserNotif(self, indx):
+
+        envl = self.notifseqn.pop(indx)
+        if envl is None:
+            return
+
+        mesg = envl[1]
+        useriden, mesgtime, mesgtype, mesgdata = mesg
+
+        indxbyts = s_common.int64en(indx)
+        userbyts = s_common.uhex(useriden)
+        timebyts = s_common.int64en(mesgtime)
+        typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
+
+        self.notifslab.delete(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime)
+        self.notifslab.delete(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype)
+
+    async def iterUserNotifs(self, useriden):
+        # iterate user notifications backward
+        userbyts = s_common.uhex(useriden)
+        for _, indxbyts in self.notifslab.scanByPrefBack(userbyts, db=self.notif_indx_usertype):
+            indx = s_common.int64un(indxbyts)
+            mesg = self.notifseqn.getraw(indxbyts)
+            yield (indx, mesg)
+
+    # async def iterUserNotifsByTime(self, useriden, ival):
+    # async def iterUserNotifsByType(self, useriden, mesgtype):
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
