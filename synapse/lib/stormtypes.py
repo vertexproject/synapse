@@ -1719,6 +1719,13 @@ class LibAxon(Lib):
             'postfiles': self.postfiles,
         }
 
+    def strify(self, item):
+        if isinstance(item, (list, tuple)):
+            return [(str(k), str(v)) for (k, v) in item]
+        elif isinstance(item, dict):
+            return {str(k): str(v) for k, v in item.items()}
+        return item
+
     async def readlines(self, sha256):
         self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
@@ -1776,6 +1783,9 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
 
+        params = self.strify(params)
+        headers = self.strify(headers)
+
         await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
@@ -1794,6 +1804,9 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+
+        params = self.strify(params)
+        headers = self.strify(headers)
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
@@ -1861,6 +1874,9 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+
+        params = self.strify(params)
+        headers = self.strify(headers)
 
         axon = self.runt.snap.core.axon
         for field in fields:
