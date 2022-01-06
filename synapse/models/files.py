@@ -599,7 +599,7 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The version of the Mach-O file encoded in an LC_VERSION load command.'}),
                 )),
                 ('file:mime:macho:uuid', {}, (
-                    ('uuid', ('str', {'lower': True}), {
+                    ('uuid', ('guid', {}), {
                         'doc': 'The UUID of the Mach-O application (as defined in an LC_UUID load command).'}),
                 )),
                 ('file:mime:macho:segment', {}, (

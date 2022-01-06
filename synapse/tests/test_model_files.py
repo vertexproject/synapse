@@ -117,11 +117,11 @@ class FileTest(s_t_utils.SynTest):
                         :file=$file
                         :type=27
                         :size=32
-                        :uuid="BCAA4A0B-BF70-3A5D-BCF9-72F39780EB67"
+                        :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
                 ]''', opts=opts)
                 self.len(1, uuid)
                 uuid = uuid[0]
-                self.eq('bcaa4a0b-bf70-3a5d-bcf9-72f39780eb67', uuid.get('uuid'))
+                self.eq('bcaa4a0bbf703a5dbcf972f39780eb67', uuid.get('uuid'))
                 self.eq('sha256:' + file, uuid.get('file'))
 
                 # version
