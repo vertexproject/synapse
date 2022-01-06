@@ -151,6 +151,9 @@ class RiskModule(s_module.CoreModule):
                     ('software', ('it:prod:softver', {}), {
                         'doc': 'The vulnerable software.',
                     }),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The vulnerable hardware.',
+                    }),
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The vulnerable material specification.',
                     }),

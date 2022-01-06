@@ -323,7 +323,16 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
-
+                ('it:prod:hardware', ('guid', {}), {
+                    'doc': 'A specification for a piece of IT hardware.',
+                }),
+                ('it:prod:component', ('guid', {}), {
+                    'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
+                }),
+                ('it:prod:hardwaretype', ('taxonomy', {}), {
+                    'doc': 'An IT hardware type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
 
@@ -520,11 +529,16 @@ class ItModule(s_module.CoreModule):
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
                     }),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The hardware specification for this host.',
+                    }),
                     ('manu', ('str', {}), {
-                        'doc': 'The manufacturer of the host.',
+                        'deprecated': True,
+                        'doc': 'Please use :hardware::make.',
                     }),
                     ('model', ('str', {}), {
-                        'doc': 'The product model of the host.',
+                        'deprecated': True,
+                        'doc': 'Please use :hardware::model.',
                     }),
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
@@ -904,7 +918,35 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
-
+                ('it:prod:hardware', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The display name for this hardware specification.'}),
+                    ('type', ('it:prod:hardwaretype', {}), {
+                        'doc': 'The type of hardware.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the hardware.'}),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
+                    ('make', ('ou:name', {}), {
+                        'doc': 'The name of the organization which manufactures this hardware.'}),
+                    ('model', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The model name or number for this hardware specification.'}),
+                    ('version', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'Version string associated with this hardware specification.'}),
+                    ('released', ('time', {}), {
+                        'doc': 'The initial release date for this hardware.'})
+                    ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
+                )),
+                ('it:prod:component', {}, (
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The hardware specification of this component.'}),
+                    ('serial', ('str', {}), {
+                        'doc': 'The serial number of this componenent.'}),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The it:host which has this component installed.'}),
+                )),
                 ('it:prod:soft', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Name of the software.',
