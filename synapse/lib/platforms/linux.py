@@ -7,7 +7,10 @@ import ctypes as c
 import synapse.exc as s_exc
 
 logger = logging.getLogger(__name__)
+
 import synapse.lib.platforms.common as s_pcommon
+
+meminfo_total_fallback_log = False
 
 def initHostInfo():
     return {
@@ -47,9 +50,40 @@ def getTotalMemory():
     '''
     Get the total amount of memory in the system
     '''
-    # Unlike /proc/meminfo, this gives a correct value when running inside a memory-limited container
-    with open(f'/sys/fs/cgroup/memory/memory.limit_in_bytes') as f:
-        return int(f.read())
+    # cgroup based checks should be reliable when running inside of memory
+    # limited containers. This cgroupv1 based check is generally safe on
+    # older systems using cgroupv1 still.
+    fp = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+    if os.path.isfile(fp):
+        with open(fp) as f:
+            return int(f.read())
+    # A container on a host using cgroupv2 with a max memory enabled will
+    # have a memory.max file available.
+    fp = '/sys/fs/cgroup/memory.max'
+    if os.path.isfile(fp):
+        with open(fp) as f:
+            valu = f.read()
+            if valu != 'max':
+                return int(valu)
+    # /proc/memoinfo is a fallback we can try to use in the event that
+    # we find ourselves in a situation where there is not a memory cap.
+    # if this happens inside of a container which does not have a maximum
+    # memory cap, we could mis-represent the available memory.
+    fp = '/proc/meminfo'
+    if os.path.isfile(fp):
+        global meminfo_total_fallback_log
+        if meminfo_total_fallback_log is False:
+            # Only warn about this fallback one per process.
+            logger.debug('Unable to use cgroup information to determine total memory, using /proc/meminfo')
+            meminfo_total_fallback_log = True
+        with open(fp) as f:
+            lines = f.readlines()
+            total = [line for line in lines if line.startswith('MemTotal:')][0]
+            parts = total.split(' ')
+            return int(parts[-2])
+
+    logger.warning('Unable to find max memory limit')  # pragma: no cover
+    return 0  # pragma: no cover
 
 def getAvailableMemory():
     '''
