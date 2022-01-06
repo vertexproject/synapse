@@ -1044,15 +1044,15 @@ class Axon(s_cell.Cell):
 
             try:
                 data = aiohttp.FormData()
+                data._is_multipart = True
+
                 for field in fields:
+
                     sha256 = field.get('sha256')
                     if sha256:
-                        byts = []
-                        async for chunk in self.get(sha256):
-                            byts.append(chunk)
-                        valu = b''.join(byts)
+                        valu = self.get(sha256)
                     else:
-                        valu = fields.get('value')
+                        valu = field.get('value')
 
                     data.add_field(field.get('name'),
                                    valu,
@@ -1084,7 +1084,11 @@ class Axon(s_cell.Cell):
 
                 return {
                     'ok': False,
+                    'url': str(resp.url),
+                    'body': b'',
+                    'code': -1,
                     'mesg': mesg,
+                    'headers': dict(),
                 }
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):

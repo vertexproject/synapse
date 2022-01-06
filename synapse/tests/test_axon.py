@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import logging
 import unittest.mock as mock
+import tornado.httputil as t_httputil
 
 import aiohttp.client_exceptions as a_exc
 
@@ -53,12 +54,26 @@ class HttpPushFile(s_httpapi.StreamHandler):
 
     async def prepare(self):
         self.gotsize = 0
+        self.byts = b''
 
     async def data_received(self, byts):
         self.gotsize += len(byts)
+        self.byts += byts
 
     async def put(self):
         assert self.gotsize == 8
+        self.sendRestRetn(self.gotsize)
+
+    async def post(self):
+        args = {}
+        files = {}
+        t_httputil.parse_body_arguments(self.request.headers["Content-Type"],
+                                        self.byts, args, files)
+        item = files.get('file')[0]
+
+        assert item['body'] == b'asdfasdf'
+        assert item['filename'] == 'file'
+        assert args.get('zip_password') == [b'test']
         self.sendRestRetn(self.gotsize)
 
 class AxonTest(s_t_utils.SynTest):
@@ -556,6 +571,19 @@ class AxonTest(s_t_utils.SynTest):
             resp = await core.callStorm(q, opts=opts)
             self.eq(False, resp['ok'])
             self.isin('Axon does not contain the requested file.', resp.get('mesg'))
+
+            q = f'''
+            $fields = $lib.list(
+                $lib.dict(name=file, sha256=$sha256, filename=file),
+                $lib.dict(name=zip_password, value=test)
+            )
+            $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile", fields=$fields, ssl_verify=(0))
+            return($resp)
+            '''
+            opts = {'vars': {'sha256': s_common.ehex(sha256)}}
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(True, resp['ok'])
+            self.eq(200, resp['code'])
 
     async def test_axon_tlscapath(self):
 

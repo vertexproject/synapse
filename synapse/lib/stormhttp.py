@@ -114,6 +114,10 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None, },
                       {'name': 'body', 'type': 'bytes', 'desc': 'The data to post, as binary object.',
                        'default': None, },
+                      {'name': 'fields', 'type': 'list',
+                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
+                               'and additional parameters for fields to post, as multipart/form-data.',
+                       'default': None, },
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
@@ -151,6 +155,10 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'json', 'type': 'prim', 'desc': 'The data to include in the body, as JSON object.',
                        'default': None, },
                       {'name': 'body', 'type': 'bytes', 'desc': 'The data to include in the body, as binary object.',
+                       'default': None, },
+                      {'name': 'fields', 'type': 'list',
+                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
+                               'and additional parameters for fields to post, as multipart/form-data.',
                        'default': None, },
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
@@ -198,11 +206,11 @@ class LibHttp(s_stormtypes.Lib):
         return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
                                        timeout=timeout, allow_redirects=allow_redirects, )
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=300,
-                        allow_redirects=True):
+    async def _httpPost(self, url, headers=None, json=None, body=None, fields=None,
+                        ssl_verify=True, params=None, timeout=300, allow_redirects=True):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
-                                       ssl_verify=ssl_verify, params=params, timeout=timeout,
-                                       allow_redirects=allow_redirects, )
+                                       fields=fields, ssl_verify=ssl_verify, params=params,
+                                       timeout=timeout, allow_redirects=allow_redirects, )
 
     async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
 
@@ -240,12 +248,14 @@ class LibHttp(s_stormtypes.Lib):
             await sock.fini()
             return s_common.retnexc(e)
 
-    async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
-                           params=None, timeout=300, allow_redirects=True, ):
+    async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
+                           fields=None, ssl_verify=True, params=None, timeout=300,
+                           allow_redirects=True, ):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
         body = await s_stormtypes.toprim(body)
+        fields = await s_stormtypes.toprim(fields)
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
@@ -264,6 +274,18 @@ class LibHttp(s_stormtypes.Lib):
             headers = [(str(k), str(v)) for (k, v) in headers]
         elif isinstance(headers, dict):
             headers = {str(k): str(v) for k, v in headers.items()}
+
+        if fields:
+            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+            axon = self.runt.snap.core.axon
+            for field in fields:
+                if field.get('sha256'):
+                    field['sha256'] = s_common.uhex(field['sha256'])
+
+            info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth, ssl=ssl_verify, timeout=timeout)
+            if info.get('mesg'):
+                info['err'] = info['mesg']
+            return HttpResp(info)
 
         proxyurl = self.runt.snap.core.conf.get('http:proxy')
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')

@@ -1564,24 +1564,6 @@ class LibAxon(Lib):
                        'default': None, }
                   ),
                   'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
-        {'name': 'postfiles', 'desc': """
-            Send files from the axon as fields in a multipart/form-data HTTP request.
-            """,
-         'type': {'type': 'function', '_funcname': 'postfiles',
-                  'args': (
-                      {'name': 'fields', 'type': 'list', 'desc': 'A list of info dictionaries containing the name, value or sha256, and additional parameters for the fields to submit.', },
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to upload the file to.', },
-                      {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
-                       'default': None, },
-                      {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
-                       'default': None, },
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'POST', },
-                      {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
-                      {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
-                       'default': None, }
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
         {'name': 'wput', 'desc': """
             A method to upload a blob from the axon to an HTTP(S) endpoint.
             """,
@@ -1716,7 +1698,6 @@ class LibAxon(Lib):
             'list': self.list,
             'readlines': self.readlines,
             'jsonlines': self.jsonlines,
-            'postfiles': self.postfiles,
         }
 
     def strify(self, item):
@@ -1861,29 +1842,6 @@ class LibAxon(Lib):
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
-
-    async def postfiles(self, fields, url, headers=None, params=None, method='POST', ssl=True, timeout=None):
-
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
-
-        url = await tostr(url)
-        fields = await toprim(fields)
-        method = await tostr(method)
-
-        ssl = await tobool(ssl)
-        params = await toprim(params)
-        headers = await toprim(headers)
-        timeout = await toprim(timeout)
-
-        params = self.strify(params)
-        headers = self.strify(headers)
-
-        axon = self.runt.snap.core.axon
-        for field in fields:
-            if field.get('sha256'):
-                field['sha256'] = s_common.uhex(field['sha256'])
-
-        return await axon.postfiles(fields, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout)
 
 @registry.registerLib
 class LibBytes(Lib):
