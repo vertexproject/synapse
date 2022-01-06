@@ -20,6 +20,85 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_emit(self):
+        async with self.getTestCore() as core:
+            self.eq(('foo', 'bar'), await core.callStorm('''
+                function generate() {
+                    emit foo
+                    emit bar
+                }
+                function makelist() {
+                    $retn = $lib.list()
+                    for $item in $generate() { $retn.append($item) }
+                    return($retn)
+                }
+                return($makelist())
+            '''))
+
+            self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
+                function generate() {
+                    [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+                    emit $node.repr()
+                }
+                function makelist() {
+                    $retn = $lib.list()
+                    for $item in $generate() { $retn.append($item) }
+                    return($retn)
+                }
+                return($makelist())
+            '''))
+
+            msgs = await core.stormlist('''
+                function generate() {
+                    emit foo
+                    $lib.raise(omg, omg)
+                }
+                for $item in $generate() { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'err' and m[1][0] == 'StormRaise'])
+
+            msgs = await core.stormlist('''
+                function generate(items) {
+                    for $item in $items {
+                        if ($item = "woot") { stop }
+                        emit $item
+                    }
+                }
+                for $item in $generate((foo, woot, bar)) { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('woot', msgs)
+            self.stormNotInPrint('bar', msgs)
+
+            msgs = await core.stormlist('''
+                function generate(items) {
+                    for $item in $items {
+                        [ it:dev:str=$item ]
+                        if ($node.repr() = "woot") { stop }
+                        emit $item
+                    }
+                }
+                for $item in $generate((foo, woot, bar)) { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('woot', msgs)
+            self.stormNotInPrint('bar', msgs)
+
+            nodes = await core.nodes('''
+                function generate(items) {
+                    for $item in $items {
+                        if ($item = "woot") { stop }
+                        [ it:dev:str=$item ]
+                    }
+                }
+                yield $generate((foo, woot, bar))
+            ''')
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].ndef[1])
+
+            # include a quick test for using stop in a node yielder
+
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
             await core.nodes('''

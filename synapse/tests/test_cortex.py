@@ -134,6 +134,103 @@ class CortexTest(s_t_utils.SynTest):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
 
+    async def test_cortex_stormiface(self):
+        pkgdef = {
+            'name': 'foobar',
+            'modules': [
+                {'name': 'foobar',
+                 'interfaces': ['lookup'],
+                 'storm': '''
+                     function lookup(tokens) {
+                        $looks = $lib.list()
+                        for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
+                        return($looks)
+                     }
+                    /* coverage mop up */
+                    [ ou:org=* ]
+                 '''
+                },
+                {'name': 'search0',
+                 'interfaces': ['search'],
+                 'storm': '''
+                     function search(tokens) {
+                        emit ((0), foo)
+                        emit ((10), baz)
+                     }
+                 '''
+                },
+                {'name': 'search1',
+                 'interfaces': ['search'],
+                 'storm': '''
+                     function search(tokens) {
+                        emit ((1), bar)
+                        emit ((11), faz)
+                     }
+                    /* coverage mop up */
+                    [ ou:org=* ]
+                 '''
+                },
+                {'name': 'coverage', 'storm': ''},
+                {'name': 'boom', 'interfaces': ['boom'], 'storm': '''
+                    function boom() { $lib.raise(omg, omg) return() }
+                    function boomgenr() { emit ((0), woot) $lib.raise(omg, omg) }
+                '''},
+            ]
+        }
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
+
+            self.none(core.modsbyiface.get('lookup'))
+
+            mods = await core.getStormIfaces('lookup')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('lookup'))
+
+            await core.loadStormPkg(pkgdef)
+
+            mods = await core.getStormIfaces('lookup')
+            self.len(1, mods)
+            self.len(1, core.modsbyiface.get('lookup'))
+
+            todo = s_common.todo('lookup', ('vertex.link', 'woot.com'))
+            vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq(((('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'woot.com')),), vals)
+
+            todo = s_common.todo('newp')
+            vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq([], vals)
+
+            vals = [r async for r in core.view.mergeStormIface('lookup', todo)]
+            self.eq([], vals)
+
+            todo = s_common.todo('search', ('hehe', 'haha'))
+            vals = [r async for r in core.view.mergeStormIface('search', todo)]
+            self.eq(((0, 'foo'), (1, 'bar'), (10, 'baz'), (11, 'faz')), vals)
+
+            with self.raises(s_exc.StormRaise):
+                todo = s_common.todo('boomgenr')
+                [r async for r in core.view.mergeStormIface('boom', todo)]
+
+            todo = s_common.todo('boom')
+            vals = [r async for r in core.view.callStormIface('boom', todo)]
+            self.eq((), vals)
+
+            await core._dropStormPkg(pkgdef)
+            self.none(core.modsbyiface.get('lookup'))
+
+            mods = await core.getStormIfaces('lookup')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('lookup'))
+
+    async def test_cortex_lookmiss(self):
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('1.2.3.4 vertex.link', opts={'mode': 'lookup'})
+            miss = [m for m in msgs if m[0] == 'look:miss']
+            self.len(2, miss)
+            self.eq(('inet:ipv4', 16909060), miss[0][1]['ndef'])
+            self.eq(('inet:fqdn', 'vertex.link'), miss[1][1]['ndef'])
+
     async def test_cortex_axonapi(self):
 
         # local axon...

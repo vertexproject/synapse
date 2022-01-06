@@ -157,6 +157,9 @@ class RiskModule(s_module.CoreModule):
                     ('item', ('mat:item', {}), {
                         'doc': 'The vulnerable material item.',
                     }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The vulnerable host.'
+                    })
                 )),
 
                 ('risk:alert', {}, (
