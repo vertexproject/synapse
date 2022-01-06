@@ -603,7 +603,7 @@ class Guid(Type):
             valu = s_common.guid()
             return valu, {}
 
-        valu = valu.lower()
+        valu = valu.lower().replace('-', '')
         if not s_common.isguid(valu):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='valu is not a guid.')
