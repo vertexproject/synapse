@@ -1575,7 +1575,7 @@ class LibAxon(Lib):
                        'default': None, },
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
                        'default': None, },
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT', },
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'POST', },
                       {'name': 'ssl', 'type': 'boolean',
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
