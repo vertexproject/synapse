@@ -163,6 +163,29 @@ async def matchContexts(testself):
 
 class AstTest(s_test.SynTest):
 
+    async def test_lookup_search(self):
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
+            await core.loadStormPkg({
+                'name': 'testsearch',
+                'modules': [
+                    {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
+                        function search(tokens) {
+                            for $tokn in $tokens {
+                                ou:org:name^=$tokn
+                                emit ((0), $lib.hex.decode($node.iden()))
+                            }
+                        }
+                    '''},
+                ],
+            })
+            await core.nodes('[ ou:org=* :name=apt1 ]')
+            await core.nodes('[ ou:org=* :name=vertex ]')
+            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq('apt1', nodes[0].props.get('name'))
+
     async def test_try_set(self):
         '''
         Test ?= assignment

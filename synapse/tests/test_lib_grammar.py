@@ -14,6 +14,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 Queries = [
+    'emit $foo stop',
     'try { inet:ipv4=asdf } catch TypeError as err { }',
     'try { inet:ipv4=asdf } catch FooBar as err { } catch * as err { }',
     'test:array*[=1.2.3.4]',
@@ -598,6 +599,7 @@ Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [Emit: [VarValue: [Const: foo]], Stop: []]',
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: TypeError, Const: err, Query: []]]]',
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: FooBar, Const: err, Query: []], CatchBlock: [Const: *, Const: err, Query: []]]]',
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',

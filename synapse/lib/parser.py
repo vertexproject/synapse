@@ -74,6 +74,7 @@ terminalEnglishMap = {
     'SETOPER': '= or ?=',
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
+    'STOP': 'stop',
     'SWITCH': 'switch',
     'TAG': 'plain tag name',
     'TRY': 'try',
@@ -96,6 +97,7 @@ terminalEnglishMap = {
     '_EDGEDELN2INIT': '<(',
     '_EDGEDELN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
+    '_EMIT': 'emit',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_WALKNPIVON1': '-->',
@@ -109,6 +111,7 @@ terminalEnglishMap = {
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_TRYSET': '?=',
+    '_STOP': 'stop',
     '_WS': 'whitespace',
     '_WSCOMM': 'whitespace or comment'
 }
@@ -222,6 +225,15 @@ class AstConverter(lark.Transformer):
         text = kids[0].text
         ast = s_ast.EmbedQuery(text, kids)
         return ast
+
+    @lark.v_args(meta=True)
+    def emit(self, kids, meta):
+        kids = self._convert_children(kids)
+        return s_ast.Emit(kids)
+
+    @lark.v_args(meta=True)
+    def stop(self, kids, meta):
+        return s_ast.Stop()
 
     @lark.v_args(meta=True)
     def funccall(self, kids, meta):
