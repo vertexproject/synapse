@@ -269,6 +269,10 @@ class ItModule(s_module.CoreModule):
                 ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                     'doc': 'A url hosted on or served by a host or system.',
                 }),
+                ('it:screenshot', ('guid', {}), {
+                    'doc': 'A screenshot of a host.',
+                    'interfaces': ('it:host:activity',),
+                }),
                 ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
@@ -694,6 +698,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'URL available on the host.',
                     }),
                 )),
+                ('it:screenshot', {}, (
+                    ('image', ('file:bytes', {}), {
+                        'doc': 'The image file.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the screenshot.'})
+                )),
                 ('it:dev:str', {}, (
                     ('norm', ('str', {'lower': True}), {
                         'doc': 'Lower case normalized version of the it:dev:str.',
@@ -935,7 +946,7 @@ class ItModule(s_module.CoreModule):
                     ('version', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                         'doc': 'Version string associated with this hardware specification.'}),
                     ('released', ('time', {}), {
-                        'doc': 'The initial release date for this hardware.'})
+                        'doc': 'The initial release date for this hardware.'}),
                     ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
                 )),

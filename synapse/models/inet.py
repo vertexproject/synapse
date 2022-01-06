@@ -1107,7 +1107,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
                         'doc': 'A URL mirror site.',
                     }),
-
+                    ('inet:urlrender', ('guid', {}), {
+                        'interfaces': ('it:host:activity',),
+                        'doc': 'An instance of loading a URL in a browser.'
+                    }),
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A username string.'
                     }),
@@ -1656,7 +1659,8 @@ class InetModule(s_module.CoreModule):
                         ('response:body', ('file:bytes', {}), {}),
                         ('session', ('inet:http:session', {}), {
                             'doc': 'The HTTP session this request was part of.'}),
-
+                        ('render', ('inet:urlrender', {}), {
+                            'doc': 'The inet:urlrender which caused this HTTP request.'}),
                     )),
 
                     ('inet:http:session', {}, (
@@ -1955,6 +1959,19 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The URL of the mirror.',
                         }),
+                    )),
+
+                    ('inet:urlrender', {}, (
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The initial URL loaded by the browser.'}),
+                        ('browser', ('it:prod:softver', {}), {
+                            'doc': 'The software version of the browser.'}),
+                        ('page:pdf', ('file:bytes', {}), {
+                            'doc': 'The rendered DOM saved as a PDF file.'}),
+                        ('page:html', ('file:bytes', {}), {
+                            'doc': 'The rendered DOM saved as an HTML file.'}),
+                        ('page:image', ('file:bytes', {}), {
+                            'doc': 'The rendered DOM saved as an image.'}),
                     )),
 
                     ('inet:user', {}, ()),
