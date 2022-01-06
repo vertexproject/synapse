@@ -5,6 +5,7 @@ import contextlib
 import ctypes as c
 
 import synapse.exc as s_exc
+import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +49,28 @@ def getFileMappedRegion(filename):
 
 def getTotalMemory():
     '''
-    Get the total amount of memory in the system
+    Get the total amount of memory in the system.
+
+    Notes:
+        This attempts to get information from cgroup data before falling
+        back to ``/proc/meminfo`` data.
+
+    Returns:
+        int: The number of bytes of memory available in the system.
     '''
     # cgroup based checks should be reliable when running inside of memory
     # limited containers. This cgroupv1 based check is generally safe on
     # older systems using cgroupv1 still.
+    # Reference
+    # https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
     fp = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
     if os.path.isfile(fp):
         with open(fp) as f:
             return int(f.read())
-    # A container on a host using cgroupv2 with a max memory enabled will
-    # have a memory.max file available.
+    # A host (or container) using cgroupv2 with a max memory enabled will have
+    # a memory.max file available.
+    # Reference
+    # https://www.kernel.org/doc/Documentation/cgroup-v2.txt
     fp = '/sys/fs/cgroup/memory.max'
     if os.path.isfile(fp):
         with open(fp) as f:
@@ -69,6 +81,8 @@ def getTotalMemory():
     # we find ourselves in a situation where there is not a memory cap.
     # if this happens inside of a container which does not have a maximum
     # memory cap, we could mis-represent the available memory.
+    # Reference
+    # https://www.kernel.org/doc/Documentation/filesystems/proc.txt
     fp = '/proc/meminfo'
     if os.path.isfile(fp):
         global meminfo_total_fallback_log
@@ -78,9 +92,14 @@ def getTotalMemory():
             meminfo_total_fallback_log = True
         with open(fp) as f:
             lines = f.readlines()
-            total = [line for line in lines if line.startswith('MemTotal:')][0]
+            try:
+                total = [line for line in lines if line.startswith('MemTotal:')][0]
+            except IndexError:  # pragma: no cover
+                logger.warning('Unable to find max memory limit from /proc/meminfo')
+                return 0
             parts = total.split(' ')
-            return int(parts[-2])
+            # convert from kibibytes to bytes
+            return int(parts[-2]) * s_const.kibibyte
 
     logger.warning('Unable to find max memory limit')  # pragma: no cover
     return 0  # pragma: no cover
