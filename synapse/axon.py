@@ -493,7 +493,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                 }
 
         Returns:
-            dict: A information dictionary containing the results of the request.
+            dict: An information dictionary containing the results of the request.
         '''
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
@@ -1056,7 +1056,7 @@ class Axon(s_cell.Cell):
                 }
 
         Returns:
-            dict: A information dictionary containing the results of the request.
+            dict: An information dictionary containing the results of the request.
         '''
         proxyurl = self.conf.get('http:proxy')
         cadir = self.conf.get('tls:ca:dir')
@@ -1212,7 +1212,7 @@ class Axon(s_cell.Cell):
                 }
 
         Returns:
-            dict: A information dictionary containing the results of the request.
+            dict: An information dictionary containing the results of the request.
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
