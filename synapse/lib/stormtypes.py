@@ -4602,7 +4602,8 @@ class NodeProps(Prim):
     async def set(self, prop, valu):
         formprop = self.valu.form.prop(prop)
         if formprop is None:
-            raise s_exc.NoSuchProp(name=prop, form=self.valu.form.name)
+            mesg = f'No prop {self.valu.form.name}:{prop}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(prop, valu)
@@ -5578,7 +5579,7 @@ class Layer(Prim):
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg)
+            raise s_exc.NoSuchProp(mesg=mesg)
 
         if prop.isform:
             todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)

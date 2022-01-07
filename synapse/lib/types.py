@@ -1425,7 +1425,8 @@ class NodeProp(Type):
 
         prop = self.modl.prop(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=self.name, prop=propname)
+            mesg = f'No prop {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=self.name, prop=propname)
 
         propnorm, info = prop.type.norm(propvalu)
         return (prop.full, propnorm), {'subs': {'prop': prop.full}}
