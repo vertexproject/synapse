@@ -1377,6 +1377,9 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:str -test:str:newp')
             self.stormIsInErr('No property named test:str:newp.', msgs)
 
+            msgs = await core.stormlist('test:str +test:newp>newp')
+            self.stormIsInErr('No property named test:newp.', msgs)
+
             async for node in core.eval('[test:guid="*" :tick=2001]'):
                 self.true(s_common.isguid(node.ndef[1]))
                 self.nn(node.get('tick'))
