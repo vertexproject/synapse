@@ -102,7 +102,7 @@ setup(
         'pycryptodome>=3.11.0,<3.13.0',
         'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
         'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
-        'cbor2==5.4.1',
+        'cbor2>=5.4.1,<5.4.3',
         'bech32==1.2.0',
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
