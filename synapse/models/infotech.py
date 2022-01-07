@@ -8,6 +8,79 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
+def cpesplit(text):
+    part = ''
+    parts = []
+
+    genr = iter(text)
+    try:
+        while True:
+
+            c = next(genr)
+
+            if c == '\\':
+                c += next(genr)
+
+            if c == ':':
+                parts.append(part)
+                part = ''
+                continue
+
+            part += c
+
+    except StopIteration:
+        parts.append(part)
+
+    return parts
+
+class Cpe22Str(s_types.Str):
+    '''
+    CPE 2.2 Formatted String
+
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    def __init__(self, modl, name, info, opts):
+        opts['lower'] = True
+        s_types.Str.__init__(self, modl, name, info, opts)
+
+    def _normPyStr(self, valu):
+
+        valu = valu.lower()
+        if not valu.startswith('cpe:/'):
+            mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        _, text = valu.split(':/', 1)
+
+        parts = cpesplit(text)
+        if len(parts) > 7:
+            mesg = f'CPE 2.2 string has {len(parts)} parts, expected <= 7.'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        subs = {
+            'part': '',
+            'vendor': '',
+            'product': '',
+            'version': '',
+            'update': '',
+            'edition': '',
+            'language': '',
+        }
+
+        if len(parts) >= 1: subs['part'] = parts[0]
+        if len(parts) >= 2: subs['vendor'] = parts[1]
+        if len(parts) >= 3: subs['product'] = parts[2]
+        if len(parts) >= 4: subs['version'] = parts[3]
+        if len(parts) >= 5: subs['update'] = parts[4]
+        if len(parts) >= 6: subs['edition'] = parts[5]
+        if len(parts) >= 7: subs['language'] = parts[6]
+
+        # canonicalize by trimming any empty parts on the tail
+        while parts and parts[-1] == '':
+            parts.pop()
+
+        return 'cpe:/' + ':'.join(parts), {'subs': subs}
+
 class Cpe23Str(s_types.Str):
     '''
     CPE 2.3 Formatted String
@@ -26,32 +99,6 @@ class Cpe23Str(s_types.Str):
         opts['lower'] = True
         s_types.Str.__init__(self, modl, name, info, opts)
 
-    def _splitCpe23(self, text):
-
-        part = ''
-        parts = []
-
-        genr = iter(text)
-        try:
-            while True:
-
-                c = next(genr)
-
-                if c == '\\':
-                    c += next(genr)
-
-                if c == ':':
-                    parts.append(part)
-                    part = ''
-                    continue
-
-                part += c
-
-        except StopIteration:
-            parts.append(part)
-
-        return parts
-
     def _normPyStr(self, valu):
 
         if not valu.startswith('cpe:2.3:'):
@@ -59,7 +106,7 @@ class Cpe23Str(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
         text, info = s_types.Str._normPyStr(self, valu)
-        parts = self._splitCpe23(text)
+        parts = cpesplit(text)
 
         if len(parts) != 13:
             mesg = f'CPE 2.3 string has {len(parts)} parts, expected 13.'
@@ -238,6 +285,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
                     'doc': 'A NIST CPE 2.3 Formatted String',
+                }),
+                ('it:sec:cpe2.2', 'synapse.models.infotech.Cpe22Str', {}, {
+                    'doc': 'A NIST CPE 2.2 Formatted String',
                 }),
             ),
             'types': (
@@ -731,6 +781,29 @@ class ItModule(s_module.CoreModule):
                     ('other', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "other" field from the CPE 2.3 string.'}),
+                )),
+                ('it:sec:cpe2.2', {}, (
+                    ('part', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "part" field from the CPE 2.2 string.'}),
+                    ('vendor', ('ou:name', {}), {
+                        'ro': True,
+                        'doc': 'The "vendor" field from the CPE 2.2 string.'}),
+                    ('product', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "product" field from the CPE 2.2 string.'}),
+                    ('version', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "version" field from the CPE 2.2 string.'}),
+                    ('update', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "update" field from the CPE 2.2 string.'}),
+                    ('edition', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "edition" field from the CPE 2.2 string.'}),
+                    ('language', ('str', {'lower': True, 'strip': True}), {
+                        'ro': True,
+                        'doc': 'The "language" field from the CPE 2.2 string.'}),
                 )),
                 ('it:sec:cwe', {}, (
                     ('name', ('str', {}), {
