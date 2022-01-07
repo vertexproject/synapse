@@ -116,7 +116,9 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None, },
                       {'name': 'fields', 'type': 'list',
                        'desc': 'A list of info dictionaries containing the name, value or sha256, '
-                               'and additional parameters for fields to post, as multipart/form-data.',
+                               'and additional parameters for fields to post, as multipart/form-data.'
+                               'If a sha256 is specified, the corresponding file from the axon will'
+                               'be uploaded as the value for the field.',
                        'default': None, },
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
