@@ -1027,6 +1027,11 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'string',
             ],
         },
+        'storm:interface:search': {
+            'default': True,
+            'description': 'Enable storm search interfaces for lookup mode.',
+            'type': 'boolean',
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -1119,6 +1124,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self._initStormLibs()
         self._initFeedFuncs()
 
+        self.modsbyiface = {}
+        self.stormiface_search = self.conf.get('storm:interface:search')
+
         self._initCortexHttpApi()
 
         self.model = s_datamodel.Model()
@@ -1184,6 +1192,27 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    async def getStormIfaces(self, name):
+
+        mods = self.modsbyiface.get(name)
+        if mods is not None:
+            return mods
+
+        mods = []
+        for moddef in self.stormmods.values():
+
+            ifaces = moddef.get('interfaces')
+            if ifaces is None:
+                continue
+
+            if name not in ifaces:
+                continue
+
+            mods.append(moddef)
+
+        self.modsbyiface[name] = tuple(mods)
+        return mods
 
     async def getPermDef(self, perm):
         if self.permlook is None:
@@ -2152,6 +2181,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         NOTE: This will *not* persist the package (allowing service dynamism).
         '''
+        self.modsbyiface.clear()
         name = pkgdef.get('name')
 
         mods = pkgdef.get('modules', ())
@@ -2195,6 +2225,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Reverse the process of loadStormPkg()
         '''
+        self.modsbyiface.clear()
         for mdef in pkgdef.get('modules', ()):
             modname = mdef.get('name')
             self.stormmods.pop(modname, None)
@@ -4241,9 +4272,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
 
-    def _viewFromOpts(self, opts):
+    def _viewFromOpts(self, opts, user=None):
 
-        user = self._userFromOpts(opts)
+        if user is None:
+            user = self._userFromOpts(opts)
 
         viewiden = opts.get('view')
         if viewiden is None:

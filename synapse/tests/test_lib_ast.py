@@ -163,6 +163,29 @@ async def matchContexts(testself):
 
 class AstTest(s_test.SynTest):
 
+    async def test_lookup_search(self):
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
+            await core.loadStormPkg({
+                'name': 'testsearch',
+                'modules': [
+                    {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
+                        function search(tokens) {
+                            for $tokn in $tokens {
+                                ou:org:name^=$tokn
+                                emit ((0), $lib.hex.decode($node.iden()))
+                            }
+                        }
+                    '''},
+                ],
+            })
+            await core.nodes('[ ou:org=* :name=apt1 ]')
+            await core.nodes('[ ou:org=* :name=vertex ]')
+            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
+            self.len(1, nodes)
+            self.eq('apt1', nodes[0].props.get('name'))
+
     async def test_try_set(self):
         '''
         Test ?= assignment
@@ -205,24 +228,25 @@ class AstTest(s_test.SynTest):
                 inet:email=visi@vertex.link
                 inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
                 inet:server=tcp://1.2.3.4:123
+                it:sec:cve=CVE-2021-44228
             ]''')
             ndefs = [n.ndef for n in nodes]
-            self.len(5, ndefs)
+            self.len(6, ndefs)
 
             opts = {'mode': 'lookup'}
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 cve-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
             # check lookup refang
-            q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123'
+            q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
-            self.len(5, nodes)
+            self.len(6, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
 
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 | [ +#hehe ]'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228 | [ +#hehe ]'
             nodes = await core.nodes(q, opts=opts)
-            self.len(5, nodes)
+            self.len(6, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
             self.true(all(n.tags.get('hehe') is not None for n in nodes))
 

@@ -269,6 +269,9 @@ class ScrapeTest(s_t_utils.SynTest):
         self.isin('crypto:currency:address', ptypes)
         self.notin('inet:web:message', ptypes)
 
+        ndefs = list(s_scrape.scrape('log4j vuln CVE-2021-44228 is pervasive'))
+        self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+
         nodes = set(s_scrape.scrape(data0))
 
         self.len(26, nodes)
