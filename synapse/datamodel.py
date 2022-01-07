@@ -862,7 +862,9 @@ class Model:
 
         prop = form.delProp(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=f'{formname}:{propname}')
+            name = f'{formname}:{propname}'
+            mesg = f'No prop {name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].remove(prop)

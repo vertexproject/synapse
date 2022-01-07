@@ -4157,7 +4157,8 @@ class SpliceUndoCmd(Cmd):
         if node:
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
@@ -4176,7 +4177,8 @@ class SpliceUndoCmd(Cmd):
         if node:
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             valu = splice.props.get('valu')
 
