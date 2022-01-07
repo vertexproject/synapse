@@ -1022,6 +1022,40 @@ class Axon(s_cell.Cell):
     async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
+
+        Args:
+            fields (list): List of dicts containing the fields to add to the request as form-data.
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+
+        Notes:
+            The dictionaries in the fields list may contain the following values::
+                {
+                    'name': <str> - Name of the field.
+                    'sha256': <bytes> - SHA256 hash of the file to submit for this field.
+                    'value': <str> - Value for the field. Ignored if a sha256 has been specified.
+                    'filename': <str> - Optional filename for the field.
+                    'content_type': <str> - Optional content type for the field.
+                    'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
+                }
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'code': <int> - The response code.
+                    'body': <bytes> - The response body.
+                    'mesg': <str> - An error message if there was an exception when retrieving the URL.
+                    'headers': <dict> - The response headers as a dictionary.
+                }
+
+        Returns:
+            dict: A information dictionary containing the results of the request.
         '''
         proxyurl = self.conf.get('http:proxy')
         cadir = self.conf.get('tls:ca:dir')
