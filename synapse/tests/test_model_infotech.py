@@ -720,6 +720,56 @@ class InfotechModelTest(s_t_utils.SynTest):
             for v, e in testvectors_repr:
                 self.eq(t.repr(v), e)
 
+    async def test_it_forms_screenshot(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                it:screenshot=*
+                    :host=*
+                    :image=*
+                    :desc=WootWoot
+            ]''')
+
+            self.len(1, nodes)
+            self.eq('it:screenshot', nodes[0].ndef[0])
+            self.eq('WootWoot', nodes[0].props['desc'])
+
+            self.len(1, await core.nodes('it:screenshot :host -> it:host'))
+            self.len(1, await core.nodes('it:screenshot :image -> file:bytes'))
+
+    async def test_it_forms_hardware(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                it:prod:hardware=*
+                    :make=dell
+                    :model=XPS13
+                    :version=alpha
+                    :type=pc.laptop
+                    :desc=WootWoot
+                    :released=20220202
+                    :cpe=cpe:2.3:h:dell:xps13::::::::
+                    :parts = (*, *)
+            ]''')
+            self.eq('WootWoot', nodes[0].props['desc'])
+            self.eq('dell', nodes[0].props['make'])
+            self.eq('xps13', nodes[0].props['model'])
+            self.eq('alpha', nodes[0].props['version'])
+            self.eq('cpe:2.3:h:dell:xps13::::::::', nodes[0].props['cpe'])
+            self.eq(1643760000000, nodes[0].props['released'])
+            self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
+            self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
+            self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
+
+            nodes = await core.nodes('''[
+                it:prod:component=*
+                    :hardware={it:prod:hardware:make=dell}
+                    :serial=asdf1234
+                    :host=*
+            ]''')
+            self.nn(nodes[0].props['host'])
+            self.eq('asdf1234', nodes[0].props['serial'])
+            self.len(1, await core.nodes('it:prod:component -> it:host'))
+            self.len(1, await core.nodes('it:prod:component -> it:prod:hardware +:make=dell'))
+
     async def test_it_forms_hostexec(self):
         # forms related to the host execution model
         async with self.getTestCore() as core:
@@ -813,6 +863,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'exe': exe,
                     'time': tick,
                     'url': url,
+                    'page:pdf': '*',
+                    'page:html': '*',
+                    'page:image': '*',
+                    'browser': '*',
                     'client': addr4,
                 }
                 node = await snap.addNode('it:exec:url', u0, uprops)
@@ -825,6 +879,16 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('client'), addr4)
                 self.eq(node.get('client:ipv4'), ipv4)
                 self.eq(node.get('client:port'), port)
+
+                self.nn(node.get('page:pdf'))
+                self.nn(node.get('page:html'))
+                self.nn(node.get('page:image'))
+                self.nn(node.get('browser'))
+                opts = {'vars': {'guid': u0}}
+                self.len(1, await core.nodes('it:exec:url=$guid :page:pdf -> file:bytes', opts=opts))
+                self.len(1, await core.nodes('it:exec:url=$guid :page:html -> file:bytes', opts=opts))
+                self.len(1, await core.nodes('it:exec:url=$guid :page:image -> file:bytes', opts=opts))
+                self.len(1, await core.nodes('it:exec:url=$guid :browser -> it:prod:softver', opts=opts))
 
                 u1 = s_common.guid()
                 uprops['client'] = addr6

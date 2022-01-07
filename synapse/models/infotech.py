@@ -929,6 +929,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
+                ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
