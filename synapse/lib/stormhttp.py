@@ -290,14 +290,8 @@ class LibHttp(s_stormtypes.Lib):
             if any(['sha256' in field for field in fields]):
                 self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
                 axon = self.runt.snap.core.axon
-                for field in fields:
-                    if field.get('sha256'):
-                        field['sha256'] = s_common.uhex(field['sha256'])
-
                 info = await axon.postfiles(fields, url, headers=headers, params=params,
                                             method=meth, ssl=ssl_verify, timeout=timeout)
-                if info.get('mesg'):
-                    info['err'] = info['mesg']
                 return HttpResp(info)
             else:
                 data = self._buildFormData(fields)

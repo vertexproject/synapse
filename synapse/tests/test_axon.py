@@ -35,7 +35,7 @@ pennhash = hashlib.sha256(pbuf).digest()
 rgryhash = hashlib.sha256(rbuf).digest()
 
 fields = [
-    {'name': 'file', 'sha256': asdfhash, 'filename': 'file'},
+    {'name': 'file', 'sha256': s_common.ehex(asdfhash), 'filename': 'file'},
     {'name': 'zip_password', 'value': 'test'},
 ]
 
@@ -594,7 +594,7 @@ class AxonTest(s_t_utils.SynTest):
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
             resp = await core.callStorm(q, opts=opts)
             self.false(resp['ok'])
-            self.isin('Axon does not contain the requested file.', resp.get('mesg'))
+            self.isin('Axon does not contain the requested file.', resp.get('err'))
 
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
@@ -606,7 +606,7 @@ class AxonTest(s_t_utils.SynTest):
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
                 self.false(resp['ok'])
-                self.isin('Can not connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+                self.isin('Can not connect to proxy 127.0.0.1:1', resp.get('err', ''))
 
     async def test_axon_tlscapath(self):
 
@@ -645,7 +645,7 @@ class AxonTest(s_t_utils.SynTest):
 
                 resp = await axon.postfiles(fields, url)
                 self.false(resp.get('ok'))
-                self.isin('unable to get local issuer certificate', resp.get('mesg'))
+                self.isin('unable to get local issuer certificate', resp.get('err'))
 
             conf = {'auth:passwd': 'root', 'tls:ca:dir': tlscadir}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:

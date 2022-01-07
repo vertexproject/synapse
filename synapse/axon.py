@@ -1037,7 +1037,7 @@ class Axon(s_cell.Cell):
             The dictionaries in the fields list may contain the following values::
                 {
                     'name': <str> - Name of the field.
-                    'sha256': <bytes> - SHA256 hash of the file to submit for this field.
+                    'sha256': <str> - SHA256 hash of the file to submit for this field.
                     'value': <str> - Value for the field. Ignored if a sha256 has been specified.
                     'filename': <str> - Optional filename for the field.
                     'content_type': <str> - Optional content type for the field.
@@ -1048,10 +1048,10 @@ class Axon(s_cell.Cell):
 
                 {
                     'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'err': <str> - An error message if there was an exception when retrieving the URL.
                     'url': <str> - The URL retrieved (which could have been redirected)
                     'code': <int> - The response code.
                     'body': <bytes> - The response body.
-                    'mesg': <str> - An error message if there was an exception when retrieving the URL.
                     'headers': <dict> - The response headers as a dictionary.
                 }
 
@@ -1084,7 +1084,7 @@ class Axon(s_cell.Cell):
                 for field in fields:
                     sha256 = field.get('sha256')
                     if sha256:
-                        valu = self.get(sha256)
+                        valu = self.get(s_common.uhex(sha256))
                     else:
                         valu = field.get('value')
 
@@ -1117,10 +1117,10 @@ class Axon(s_cell.Cell):
 
                 return {
                     'ok': False,
+                    'err': mesg,
                     'url': url,
                     'body': b'',
                     'code': -1,
-                    'mesg': mesg,
                     'headers': dict(),
                 }
 
