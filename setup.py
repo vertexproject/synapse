@@ -99,7 +99,7 @@ setup(
         'vcrpy>=4.1.1,<4.2.0',
         'base58==2.1.0',
         'python-bitcoinlib==0.11.0',
-        'pycryptodome=>3.11.0,<3.13.0',
+        'pycryptodome>=3.11.0,<3.13.0',
         'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
         'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
         'cbor2==5.4.1',
