@@ -34,6 +34,11 @@ emptyhash = hashlib.sha256(b'').digest()
 pennhash = hashlib.sha256(pbuf).digest()
 rgryhash = hashlib.sha256(rbuf).digest()
 
+fields = [
+    {'name': 'file', 'sha256': asdfhash, 'filename': 'file'},
+    {'name': 'zip_password', 'value': 'test'},
+]
+
 asdfretn = (8, asdfhash)
 emptyretn = (0, emptyhash)
 pennretn = (9, pennhash)
@@ -583,22 +588,25 @@ class AxonTest(s_t_utils.SynTest):
             '''
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
             resp = await core.callStorm(q, opts=opts)
-            self.eq(True, resp['ok'])
+            self.true(resp['ok'])
             self.eq(200, resp['code'])
 
             opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
             resp = await core.callStorm(q, opts=opts)
-            self.eq(False, resp['ok'])
+            self.false(resp['ok'])
             self.isin('Axon does not contain the requested file.', resp.get('mesg'))
 
             async with axon.getLocalProxy() as proxy:
-                fields = [
-                    {'name': 'file', 'sha256': sha256, 'filename': 'file'},
-                    {'name': 'zip_password', 'value': 'test'},
-                ]
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
-                self.eq(True, resp['ok'])
+                self.true(resp['ok'])
                 self.eq(200, resp['code'])
+
+        conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
+        async with self.getTestAxon(conf=conf) as axon:
+            async with axon.getLocalProxy() as proxy:
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                self.false(resp['ok'])
+                self.isin('Can not connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
     async def test_axon_tlscapath(self):
 
@@ -635,6 +643,10 @@ class AxonTest(s_t_utils.SynTest):
                 self.false(resp.get('ok'))
                 self.isin('unable to get local issuer certificate', resp.get('mesg'))
 
+                resp = await axon.postfiles(fields, url)
+                self.false(resp.get('ok'))
+                self.isin('unable to get local issuer certificate', resp.get('mesg'))
+
             conf = {'auth:passwd': 'root', 'tls:ca:dir': tlscadir}
             async with self.getTestAxon(dirn=dirn, conf=conf) as axon:
                 host, port = await axon.addHttpsPort(0, host='127.0.0.1')
@@ -647,4 +659,7 @@ class AxonTest(s_t_utils.SynTest):
                 axon.addHttpApi('/api/v1/pushfile', HttpPushFile, {'cell': axon})
                 url = f'https://root:root@localhost:{port}/api/v1/pushfile'
                 resp = await axon.wput(asdfhash, url)
+                self.true(resp.get('ok'))
+
+                resp = await axon.postfiles(fields, url)
                 self.true(resp.get('ok'))
