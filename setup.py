@@ -97,7 +97,7 @@ setup(
         'fastjsonschema>=2.14.3,<2.15',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
-        'base58==2.1.0',
+        'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib==0.11.0',
         'pycryptodome>=3.11.0,<3.13.0',
         'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
