@@ -1082,7 +1082,6 @@ class Axon(s_cell.Cell):
                 data._is_multipart = True
 
                 for field in fields:
-
                     sha256 = field.get('sha256')
                     if sha256:
                         valu = self.get(sha256)
@@ -1097,7 +1096,6 @@ class Axon(s_cell.Cell):
 
                 async with sess.request(method, url, headers=headers, params=params,
                                         data=data, ssl=ssl) as resp:
-
                     info = {
                         'ok': True,
                         'url': str(resp.url),
