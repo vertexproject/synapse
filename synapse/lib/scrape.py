@@ -183,7 +183,9 @@ def contextScrape(text, ptype=None, refang=True, first=False):
     '''
 
     if refang:
+        print(f'old: {text}')
         text = refang_text(text)
+        print(f'new: {text}')
 
     for ruletype, blobs in _regexes.items():
         if ptype and ptype != ruletype:
@@ -202,7 +204,7 @@ def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
     Generate regular expression matches for a blob of text.
 
     Args:
-        text (str): The t
+        text (str): The text to generate matches for.
         regx (regex.Regex): A compiled regex object. The regex must contained a named match for ``valu``.
         form (str): The form XXX ???
         opts (dict): XXX
