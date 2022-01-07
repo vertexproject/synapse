@@ -5,6 +5,36 @@ Synapse Changelog
 *****************
 
 
+v2.77.0 - 2022-01-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add Mach-O metadata support the file model. This includes the following
+  new forms: ``file:mime:macho:loadcmd``, ``file:mime:macho:version``,
+  ``file:mime:macho:uuid``, ``file:mime:macho:segment``, and
+  ``file:mime:macho:section``.
+  (`#2503 <https://github.com/vertexproject/synapse/pull/2503>`_)
+- Add ``it:screenshot``, ``it:prod:hardware``, ``it:prod:component``,
+  ``it:prod:hardwaretype``, and ``risk:mitigation`` forms to the model. Add
+  ``:hardware`` property to ``risk:hasvuln`` form. Add ``:hardware`` property
+  to ``it:host`` form. The ``:manu`` and ``:model`` secondary properties on
+  ``it:host`` have been deprecated.
+  (`#2514 <https://github.com/vertexproject/synapse/pull/2514>`_)
+- The ``guid`` type now strips hyphen (``-``) characters when doing norm. This
+  allows users to provide external UUID / GUID strings for use.
+  (`#2514 <https://github.com/vertexproject/synapse/pull/2514>`_)
+- Add a ``Axon.postfiles()`` to allow POSTing files as multi-part form encoded
+  files over HTTP. This is also exposed through the ``fields`` argument on the
+  Storm ``$lib.inet.http.post()`` and ``$lib.inet:http:request`` APIs.
+  (`#2516 <https://github.com/vertexproject/synapse/pull/2516>`_)
+- Add ``.yu`` ccTLD to the list of TLDs identified by the Synapse scrape
+  functionality.
+  (`#2518 <https://github.com/vertexproject/synapse/pull/2518>`_)
+- Add ``mesg`` arguments to all instances of ``NoSuchProp`` exceptions.
+  (`#2519 <https://github.com/vertexproject/synapse/pull/2519>`_)
+
+
 v2.76.0 - 2022-01-04
 ====================
 
