@@ -114,13 +114,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None, },
                       {'name': 'body', 'type': 'bytes', 'desc': 'The data to post, as binary object.',
                        'default': None, },
-                      {'name': 'fields', 'type': 'list',
-                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
-                               'and additional parameters for fields to post, as multipart/form-data. '
-                               'If a sha256 is specified, the request will be sent from the axon '
-                               'and the corresponding file will be uploaded as the value for '
-                               'the field.',
-                       'default': None, },
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
@@ -129,6 +122,13 @@ class LibHttp(s_stormtypes.Lib):
                        'default': 300, },
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
                        'default': True, },
+                      {'name': 'fields', 'type': 'list',
+                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
+                               'and additional parameters for fields to post, as multipart/form-data. '
+                               'If a sha256 is specified, the request will be sent from the axon '
+                               'and the corresponding file will be uploaded as the value for '
+                               'the field.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
@@ -159,13 +159,6 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None, },
                       {'name': 'body', 'type': 'bytes', 'desc': 'The data to include in the body, as binary object.',
                        'default': None, },
-                      {'name': 'fields', 'type': 'list',
-                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
-                               'and additional parameters for fields to post, as multipart/form-data. '
-                               'If a sha256 is specified, the request will be sent from the axon '
-                               'and the corresponding file will be uploaded as the value for '
-                               'the field.',
-                       'default': None, },
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
@@ -174,6 +167,13 @@ class LibHttp(s_stormtypes.Lib):
                        'default': 300, },
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
                        'default': True, },
+                      {'name': 'fields', 'type': 'list',
+                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
+                               'and additional parameters for fields to post, as multipart/form-data. '
+                               'If a sha256 is specified, the request will be sent from the axon '
+                               'and the corresponding file will be uploaded as the value for '
+                               'the field.',
+                       'default': None, },
                    ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
                   }
@@ -219,11 +219,11 @@ class LibHttp(s_stormtypes.Lib):
         return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
                                        timeout=timeout, allow_redirects=allow_redirects, )
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, fields=None,
-                        ssl_verify=True, params=None, timeout=300, allow_redirects=True):
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True,
+                        params=None, timeout=300, allow_redirects=True, fields=None):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
-                                       fields=fields, ssl_verify=ssl_verify, params=params,
-                                       timeout=timeout, allow_redirects=allow_redirects, )
+                                       ssl_verify=ssl_verify, params=params, timeout=timeout,
+                                       allow_redirects=allow_redirects, fields=fields, )
 
     async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
 
@@ -269,8 +269,8 @@ class LibHttp(s_stormtypes.Lib):
         return data
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
-                           fields=None, ssl_verify=True, params=None, timeout=300,
-                           allow_redirects=True, ):
+                           ssl_verify=True, params=None, timeout=300, allow_redirects=True,
+                           fields=None, ):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
