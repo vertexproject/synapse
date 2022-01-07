@@ -498,9 +498,10 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
 
-    async def postfiles(self, fields, url, params=None, headers=None, ssl=True, timeout=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.postfiles(fields, url, params=params, headers=headers, ssl=ssl, timeout=timeout)
+        return await self.cell.postfiles(fields, url, params=params, headers=headers,
+                                         method=method, ssl=ssl, timeout=timeout)
 
     async def wput(self, sha256, url, params=None, headers=None, ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wput'))
