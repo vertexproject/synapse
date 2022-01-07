@@ -1369,9 +1369,6 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that was requested.',
                     }),
-                    ('browser', ('it:prod:softver', {}), {
-                        'doc': 'The software version of the browser.',
-                    }),
                     ('page:pdf', ('file:bytes', {}), {
                         'doc': 'The rendered DOM saved as a PDF file.',
                     }),
