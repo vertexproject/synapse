@@ -21,6 +21,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
+                ('risk:mitigation', ('guid', {}), {
+                    'doc': 'A mitigation for a specific risk:vuln.',
+                }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'An attack type taxonomy.',
                     'interfaces': ('taxonomy',),
@@ -32,6 +35,19 @@ class RiskModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
+                ('risk:mitigation', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability that this mitigation addresses.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'A brief name for this risk mitigation.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the mitigation approach for the vulnerability.'}),
+                    ('software', ('it:prod:softver', {}), {
+                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                )),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.',
@@ -150,6 +166,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('software', ('it:prod:softver', {}), {
                         'doc': 'The vulnerable software.',
+                    }),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The vulnerable hardware.',
                     }),
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The vulnerable material specification.',
