@@ -1342,7 +1342,7 @@ class LiftFormTag(LiftOper):
 
         form = await self.kids[0].compute(runt, path)
         if not runt.model.form(form):
-            raise s_exc.NoSuchProp(name=form)
+            raise s_exc.NoSuchProp(mesg=f'No form {form}', name=form)
 
         tag = await tostr(await self.kids[1].compute(runt, path))
 
@@ -1367,7 +1367,8 @@ class LiftProp(LiftOper):
 
         prop = runt.model.prop(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         assert len(self.kids) == 1
 
@@ -1736,7 +1737,8 @@ class FormPivot(PivotOper):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         # -> baz:ndef
         if isinstance(prop.type, s_types.Ndef):
@@ -1987,7 +1989,8 @@ class PropPivot(PivotOper):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         # TODO if we are pivoting to a form, use ndef!
 
@@ -2321,11 +2324,13 @@ class HasRelPropCond(Cond):
 
             prop = node.form.props.get(part)
             if prop is None:
-                raise s_exc.NoSuchProp(name=part, form=node.form.name)
+                mesg = f'No property named {node.form.name}:{part}'
+                raise s_exc.NoSuchProp(mesg=mesg, name=part, form=node.form.name)
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
-                raise s_exc.NoSuchForm(name=prop.type.name)
+                mesg = f'No form {prop.type.name}'
+                raise s_exc.NoSuchForm(mesg=mesg, name=prop.type.name)
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -2369,7 +2374,8 @@ class HasAbsPropCond(Cond):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         if prop.isform:
 
@@ -2429,7 +2435,8 @@ class AbsPropCond(Cond):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         ctor = prop.type.getCmprCtor(cmpr)
         if ctor is None:
@@ -2636,7 +2643,8 @@ class PropValue(Value):
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=path.node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
 
             valu = path.node.get(name)
             return prop, valu
@@ -2654,8 +2662,9 @@ class PropValue(Value):
                 return None, None
 
             prop = node.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            if prop is None:  # pragma: no cover
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             if i >= imax:
                 return prop, valu
@@ -3157,7 +3166,8 @@ class EditPropSet(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
@@ -3228,7 +3238,8 @@ class EditPropDel(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             runt.layerConfirm(('node', 'prop', 'del', prop.full))
 
@@ -3252,7 +3263,8 @@ class EditUnivDel(Edit):
 
             univ = runt.model.props.get(name)
             if univ is None:
-                raise s_exc.NoSuchProp(name=name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         async for node, path in genr:
             if not univprop.isconst:
@@ -3260,7 +3272,8 @@ class EditUnivDel(Edit):
 
                 univ = runt.model.props.get(name)
                 if univ is None:
-                    raise s_exc.NoSuchProp(name=name)
+                    mesg = f'No property named {name}.'
+                    raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
             runt.layerConfirm(('node', 'prop', 'del', name))
 
