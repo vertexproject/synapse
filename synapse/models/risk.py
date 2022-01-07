@@ -21,6 +21,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
+                ('risk:remediation', ('guid', {}), {
+                    'doc': 'A remediation for a specific risk:vuln.',
+                }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'An attack type taxonomy.',
                     'interfaces': ('taxonomy',),
@@ -32,6 +35,19 @@ class RiskModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
+                ('risk:remediation', {}, {
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability that this remediation addresses.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'A brief name for this remediation approach.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the remediation approach for the vulnerability.'}),
+                    ('software', ('it:prod:softver', {}), {
+                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                }),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.',

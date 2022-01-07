@@ -1353,6 +1353,9 @@ class ItModule(s_module.CoreModule):
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that requested the URL.',
                     }),
+                    ('browser', ('it:prod:softver', {}), {
+                        'doc': 'The software version of the browser.',
+                    }),
                     ('host', ('it:host', {}), {
                         'doc': 'The host running the process that requested the URL. Typically the same host referenced in :proc, if present.',
                     }),
@@ -1364,6 +1367,21 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that was requested.',
+                    }),
+                    ('browser', ('it:prod:softver', {}), {
+                        'doc': 'The software version of the browser.',
+                    }),
+                    ('page:pdf', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as a PDF file.',
+                    }),
+                    ('page:html', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an HTML file.',
+                    }),
+                    ('page:image', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an image.',
+                    }),
+                    ('http:request', ('inet:http:request', {}), {
+                        'doc': 'The HTTP request made to retrieve the intial URL contents.',
                     }),
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'
