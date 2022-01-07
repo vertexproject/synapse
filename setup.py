@@ -85,7 +85,7 @@ setup(
         'lmdb>=1.2.1,<1.4.0',
         'tornado>=6.1.0,<7.0.0',
         'regex>=2021.7.1',
-        'PyYAML>=5.4,<6.0',
+        'PyYAML>=5.4,<6.1.0',
         'aiohttp>=3.8.1,<4.0',
         'aiohttp-socks>=0.6.1,<0.7.0',
         'aioimaplib>=0.9.0,<0.10.0',
