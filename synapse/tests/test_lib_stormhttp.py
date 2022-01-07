@@ -360,6 +360,19 @@ class StormHttpTest(s_test.SynTest):
             self.eq(data.get('params'), {'key': ('valu',), 'foo': ('bar',)})
             self.eq(data.get('body'), 'MTIzNA==')
 
+            q = '''
+            $fields=$lib.list(
+                $lib.dict(name=foo, value=bar),
+                $lib.dict(name=foo, value=bar2),
+                $lib.dict(name=baz, value=cool)
+            )
+            $resp = $lib.inet.http.post($url, fields=$fields, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'foo': ('bar', 'bar2'), 'baz': ('cool',)})
+
     async def test_storm_http_post_file(self):
 
         async with self.getTestCore() as core:

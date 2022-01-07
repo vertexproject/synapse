@@ -200,6 +200,13 @@ class LibHttp(s_stormtypes.Lib):
             'connect': self.inetHttpConnect,
         }
 
+    def strify(self, item):
+        if isinstance(item, (list, tuple)):
+            return [(str(k), str(v)) for (k, v) in item]
+        elif isinstance(item, dict):
+            return {str(k): str(v) for k, v in item.items()}
+        return item
+
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
                             allow_redirects=False):
         return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, params=params,
@@ -222,12 +229,9 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
-        sock = await WebSocket.anit()
+        headers = self.strify(headers)
 
-        if isinstance(headers, (list, tuple)):
-            headers = [(str(k), str(v)) for (k, v) in headers]
-        elif isinstance(headers, dict):
-            headers = {str(k): str(v) for k, v in headers.items()}
+        sock = await WebSocket.anit()
 
         proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
         connector = None
@@ -252,6 +256,16 @@ class LibHttp(s_stormtypes.Lib):
             await sock.fini()
             return s_common.retnexc(e)
 
+    def _buildFormData(self, fields):
+        data = aiohttp.FormData()
+        for field in fields:
+            data.add_field(field.get('name'),
+                           field.get('value'),
+                           content_type=field.get('content_type'),
+                           filename=field.get('filename'),
+                           content_transfer_encoding=field.get('content_transfer_encoding'))
+        return data
+
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
                            fields=None, ssl_verify=True, params=None, timeout=300,
                            allow_redirects=True, ):
@@ -268,29 +282,27 @@ class LibHttp(s_stormtypes.Lib):
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:
-            if isinstance(params, (list, tuple)):
-                params = [(str(k), str(v)) for (k, v) in params]
-            elif isinstance(params, dict):
-                params = {str(k): str(v) for k, v in params.items()}
-            kwargs['params'] = params
+            kwargs['params'] = self.strify(params)
 
-        if isinstance(headers, (list, tuple)):
-            headers = [(str(k), str(v)) for (k, v) in headers]
-        elif isinstance(headers, dict):
-            headers = {str(k): str(v) for k, v in headers.items()}
+        headers = self.strify(headers)
 
         if fields:
-            self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
-            axon = self.runt.snap.core.axon
-            for field in fields:
-                if field.get('sha256'):
-                    field['sha256'] = s_common.uhex(field['sha256'])
+            if any(['sha256' in field for field in fields]):
+                self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+                axon = self.runt.snap.core.axon
+                for field in fields:
+                    if field.get('sha256'):
+                        field['sha256'] = s_common.uhex(field['sha256'])
 
-            info = await axon.postfiles(fields, url, headers=headers, params=params,
-                                        method=meth, ssl=ssl_verify, timeout=timeout)
-            if info.get('mesg'):
-                info['err'] = info['mesg']
-            return HttpResp(info)
+                info = await axon.postfiles(fields, url, headers=headers, params=params,
+                                            method=meth, ssl=ssl_verify, timeout=timeout)
+                if info.get('mesg'):
+                    info['err'] = info['mesg']
+                return HttpResp(info)
+            else:
+                data = self._buildFormData(fields)
+        else:
+            data = body
 
         proxyurl = self.runt.snap.core.conf.get('http:proxy')
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
@@ -311,7 +323,7 @@ class LibHttp(s_stormtypes.Lib):
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
             try:
-                async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
+                async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'headers': dict(resp.headers),
