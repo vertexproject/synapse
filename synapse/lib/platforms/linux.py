@@ -77,7 +77,7 @@ def getTotalMemory():
             valu = f.read()
             if valu != 'max':
                 return int(valu)
-    # /proc/memoinfo is a fallback we can try to use in the event that
+    # /proc/meminfo is a fallback we can try to use in the event that
     # we find ourselves in a situation where there is not a memory cap.
     # if this happens inside of a container which does not have a maximum
     # memory cap, we could mis-represent the available memory.
