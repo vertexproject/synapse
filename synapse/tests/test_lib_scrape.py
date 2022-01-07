@@ -549,18 +549,14 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_scrape_context(self):
         results = list(s_scrape.contextScrape(data2))
         r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]
-        self.eq(r, {'ptype': 'inet:url',
-                    'raw_valu': 'https://www.foobar.com/things.html>',
-                    'raw_valu_end': 63,
-                    'raw_valu_end_cb': 62,
-                    'raw_valu_start': 28,
-                    'raw_valu_start_cb': 28,
+        self.eq(r, {'form': 'inet:url',
+                    'raw_valu': 'https://www.foobar.com/things.html',
+                    'offset': 28,
                     'valu': 'https://www.foobar.com/things.html'})
 
         r = [r for r in results if r.get('valu') == 'www.thingspace.com'][0]
-        self.eq(r, {'ptype': 'inet:fqdn',
+        self.eq(r, {'form': 'inet:fqdn',
                     'raw_valu': 'www.thingspace.com',
-                    'raw_valu_end': 137,
-                    'raw_valu_start': 119,
+                    'offset': 119,
                     'valu': 'www.thingspace.com'}
                 )

@@ -70,9 +70,7 @@ def fqdn_prefix_check(match: regex.Match):
         new_valu = valu.rstrip(inverse_prefixs.get(prefix))
         if new_valu != valu:
             valu = new_valu
-            old_span = match.span('valu')
-            new_span = (old_span[0], old_span[0] + len(valu))
-            cbfo['span'] = new_span
+            cbfo['raw_valu'] = valu
     return valu, cbfo
 
 def fqdn_check(match: regex.Match):
@@ -168,7 +166,7 @@ def scrape(text, ptype=None, refang=True, first=False):
     '''
 
     for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
-        yield info.get('ptype'), info.get('valu')
+        yield info.get('form'), info.get('valu')
 
 def contextScrape(text, ptype=None, refang=True, first=False):
     '''
@@ -192,34 +190,48 @@ def contextScrape(text, ptype=None, refang=True, first=False):
             continue
 
         for (regx, opts) in blobs:
-            cb = opts.get('callback')
 
-            for valu in regx.finditer(text):  # type: regex.Match
-                raw_span = valu.span('valu')
-                raw_valu = valu.group('valu')
-
-                info = {
-                    'ptype': ruletype,
-                    'raw_valu': raw_valu,
-                    'raw_valu_start': raw_span[0],
-                    'raw_valu_end': raw_span[1],
-                }
-
-                if cb:
-                    # CB is expected to return a tufo of <new valu, info>
-                    valu, cbfo = cb(valu)
-                    if valu is None:
-                        continue
-                    new_span = cbfo.get('span')
-                    if new_span:
-                        info['raw_valu_start_cb'] = new_span[0]
-                        info['raw_valu_end_cb'] = new_span[1]
-                else:
-                    valu = raw_valu
-
-                info['valu'] = valu
-
+            for info in genMatches(text, regx, ruletype, opts):
                 yield info
 
                 if first:
                     return
+
+def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
+    '''
+    Generate regular expression matches for a blob of text.
+
+    Args:
+        text (str): The t
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match for ``valu``.
+        form (str): The form XXX ???
+        opts (dict): XXX
+
+    Yields:
+        dict: A dictionary of match results.
+    '''
+    cb = opts.get('callback')
+
+    for valu in regx.finditer(text):  # type: regex.Match
+        raw_span = valu.span('valu')
+        raw_valu = valu.group('valu')
+
+        info = {
+            'form': form,
+            'raw_valu': raw_valu,
+            'offset': raw_span[0]
+        }
+
+        if cb:
+            # CB is expected to return a tufo of <new valu, info>
+            valu, cbfo = cb(valu)
+            if valu is None:
+                continue
+            # Smash cbfo into our info dict
+            info.update(**cbfo)
+        else:
+            valu = raw_valu
+
+        info['valu'] = valu
+
+        yield info
