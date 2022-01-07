@@ -577,13 +577,28 @@ class AxonTest(s_t_utils.SynTest):
                 $lib.dict(name=file, sha256=$sha256, filename=file),
                 $lib.dict(name=zip_password, value=test)
             )
-            $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile", fields=$fields, ssl_verify=(0))
+            $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
+                                        fields=$fields, ssl_verify=(0))
             return($resp)
             '''
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
             resp = await core.callStorm(q, opts=opts)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
+
+            opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(False, resp['ok'])
+            self.isin('Axon does not contain the requested file.', resp.get('mesg'))
+
+            async with axon.getLocalProxy() as proxy:
+                fields = [
+                    {'name': 'file', 'sha256': sha256, 'filename': 'file'},
+                    {'name': 'zip_password', 'value': 'test'},
+                ]
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                self.eq(True, resp['ok'])
+                self.eq(200, resp['code'])
 
     async def test_axon_tlscapath(self):
 

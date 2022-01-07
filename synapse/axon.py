@@ -1084,7 +1084,6 @@ class Axon(s_cell.Cell):
 
                 return {
                     'ok': False,
-                    'url': str(resp.url),
                     'body': b'',
                     'code': -1,
                     'mesg': mesg,
