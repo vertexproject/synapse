@@ -1371,6 +1371,12 @@ class CortexTest(s_t_utils.SynTest):
             async for node in core.eval('test:str="foo bar" [ -:tick ]'):
                 self.none(node.get('tick'))
 
+            msgs = await core.stormlist('test:str [ -:newp ]')
+            self.stormIsInErr('No property named newp.', msgs)
+
+            msgs = await core.stormlist('test:str -test:str:newp')
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
             async for node in core.eval('[test:guid="*" :tick=2001]'):
                 self.true(s_common.isguid(node.ndef[1]))
                 self.nn(node.get('tick'))
@@ -1825,7 +1831,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('test:type10', 'test'))
 
-            # Bad pivots go here
+            msgs = await core.stormlist('test:int :loc -> test:newp')
+            self.stormIsInErr('No property named test:newp', msgs)
+
+            # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
                       'test:pivcomp :lulz <+- *',
                       'test:pivcomp :lulz <- test:str',
