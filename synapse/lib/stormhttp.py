@@ -122,6 +122,13 @@ class LibHttp(s_stormtypes.Lib):
                        'default': 300, },
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
                        'default': True, },
+                      {'name': 'fields', 'type': 'list',
+                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
+                               'and additional parameters for fields to post, as multipart/form-data. '
+                               'If a sha256 is specified, the request will be sent from the axon '
+                               'and the corresponding file will be uploaded as the value for '
+                               'the field.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
         {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
@@ -160,6 +167,13 @@ class LibHttp(s_stormtypes.Lib):
                        'default': 300, },
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
                        'default': True, },
+                      {'name': 'fields', 'type': 'list',
+                       'desc': 'A list of info dictionaries containing the name, value or sha256, '
+                               'and additional parameters for fields to post, as multipart/form-data. '
+                               'If a sha256 is specified, the request will be sent from the axon '
+                               'and the corresponding file will be uploaded as the value for '
+                               'the field.',
+                       'default': None, },
                    ),
                   'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
                   }
@@ -188,6 +202,13 @@ class LibHttp(s_stormtypes.Lib):
             'connect': self.inetHttpConnect,
         }
 
+    def strify(self, item):
+        if isinstance(item, (list, tuple)):
+            return [(str(k), str(v)) for (k, v) in item]
+        elif isinstance(item, dict):
+            return {str(k): str(v) for k, v in item.items()}
+        return item
+
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
                             allow_redirects=False):
         return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, params=params,
@@ -198,11 +219,11 @@ class LibHttp(s_stormtypes.Lib):
         return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
                                        timeout=timeout, allow_redirects=allow_redirects, )
 
-    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True, params=None, timeout=300,
-                        allow_redirects=True):
+    async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True,
+                        params=None, timeout=300, allow_redirects=True, fields=None):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
                                        ssl_verify=ssl_verify, params=params, timeout=timeout,
-                                       allow_redirects=allow_redirects, )
+                                       allow_redirects=allow_redirects, fields=fields, )
 
     async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
 
@@ -210,12 +231,9 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
-        sock = await WebSocket.anit()
+        headers = self.strify(headers)
 
-        if isinstance(headers, (list, tuple)):
-            headers = [(str(k), str(v)) for (k, v) in headers]
-        elif isinstance(headers, dict):
-            headers = {str(k): str(v) for k, v in headers.items()}
+        sock = await WebSocket.anit()
 
         proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
         connector = None
@@ -240,12 +258,24 @@ class LibHttp(s_stormtypes.Lib):
             await sock.fini()
             return s_common.retnexc(e)
 
-    async def _httpRequest(self, meth, url, headers=None, json=None, body=None, ssl_verify=True,
-                           params=None, timeout=300, allow_redirects=True, ):
+    def _buildFormData(self, fields):
+        data = aiohttp.FormData()
+        for field in fields:
+            data.add_field(field.get('name'),
+                           field.get('value'),
+                           content_type=field.get('content_type'),
+                           filename=field.get('filename'),
+                           content_transfer_encoding=field.get('content_transfer_encoding'))
+        return data
+
+    async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
+                           ssl_verify=True, params=None, timeout=300, allow_redirects=True,
+                           fields=None, ):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
         body = await s_stormtypes.toprim(body)
+        fields = await s_stormtypes.toprim(fields)
         headers = await s_stormtypes.toprim(headers)
         params = await s_stormtypes.toprim(params)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
@@ -254,16 +284,21 @@ class LibHttp(s_stormtypes.Lib):
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:
-            if isinstance(params, (list, tuple)):
-                params = [(str(k), str(v)) for (k, v) in params]
-            elif isinstance(params, dict):
-                params = {str(k): str(v) for k, v in params.items()}
-            kwargs['params'] = params
+            kwargs['params'] = self.strify(params)
 
-        if isinstance(headers, (list, tuple)):
-            headers = [(str(k), str(v)) for (k, v) in headers]
-        elif isinstance(headers, dict):
-            headers = {str(k): str(v) for k, v in headers.items()}
+        headers = self.strify(headers)
+
+        if fields:
+            if any(['sha256' in field for field in fields]):
+                self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+                axon = self.runt.snap.core.axon
+                info = await axon.postfiles(fields, url, headers=headers, params=params,
+                                            method=meth, ssl=ssl_verify, timeout=timeout)
+                return HttpResp(info)
+            else:
+                data = self._buildFormData(fields)
+        else:
+            data = body
 
         proxyurl = self.runt.snap.core.conf.get('http:proxy')
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
@@ -284,7 +319,7 @@ class LibHttp(s_stormtypes.Lib):
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as sess:
             try:
-                async with sess.request(meth, url, headers=headers, json=json, data=body, **kwargs) as resp:
+                async with sess.request(meth, url, headers=headers, json=json, data=data, **kwargs) as resp:
                     info = {
                         'code': resp.status,
                         'headers': dict(resp.headers),

@@ -168,4 +168,4 @@ class StormCliTest(s_test.SynTest):
 
                 await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 text = str(outp)
-                self.isin(f'NoSuchProp', text)
+                self.isin('No property named test:newp.', text)
