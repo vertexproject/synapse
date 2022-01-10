@@ -53,6 +53,10 @@ FANGS = {
     '[@]': '@',
 }
 
+# FANGs must be compression matches
+for src, dst in FANGS.items():
+    assert len(dst) <= len(src)
+
 inverse_prefixs = {
     '[': ']',
     '<': '>',
@@ -150,6 +154,58 @@ def refang_text(txt):
         (str): Re-fanged text blob
     '''
     return re_fang.sub(lambda match: FANGS[match.group(0).lower()], txt)
+
+import functools
+
+import re
+def refang_func(match: re.Match, offsets: dict):
+    # print(info)
+    print(match)
+    group = match.group(0)
+    print(group)
+    print(type(group))
+    ret = FANGS[group.lower()]
+    rlen = len(ret)
+    mlen = len(group)
+    if rlen != mlen:
+        # WE have a remap to handle
+        print('REMAP')
+        span = match.span(0)
+        offsets[span[0]] = mlen
+        print(span)
+        print(len(group))
+        print(len(ret))
+
+    print(ret)
+    # Base on ret and its location we have to update info and everything downstream of it
+
+    return ret
+
+def refang_text2(txt):
+    # Create a mapping of our source text
+    ret = txt
+    offsets = {i: 1 for (i, c) in enumerate(ret)}
+    cb = functools.partial(refang_func, info=offsets)
+
+    # Start applying FANGs and modifying the info to match the output
+    ret = re_fang.sub(cb, ret)
+
+    return ret, offsets
+
+def print_stuff(source, dest, info):
+    tlen = len(source)
+    print('I | O | indx')
+    print('------------')
+    for i in range(tlen):
+        ic = source[i]
+        try:
+            oc = dest[i]
+        except IndexError:
+            oc = ' '
+        o = f'{ic} | {oc} | {i}'
+        print(o)
+    print('PINCH IT!')
+
 
 def scrape(text, ptype=None, refang=True, first=False):
     '''

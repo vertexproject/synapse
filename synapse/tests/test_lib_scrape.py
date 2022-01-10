@@ -566,3 +566,41 @@ class ScrapeTest(s_t_utils.SynTest):
                     'offset': 119,
                     'valu': 'www.thingspace.com'}
                 )
+
+    def test_scrape_refang2(self):
+        print('')
+        source = 'The http[:]//www.foo.com place'
+        source = 'The hxxp[:]//www.foo(.)com place'
+        dest, offsets = s_scrape.refang_text2(source)
+        print(source)
+        print(dest)
+        s_scrape.print_stuff(source, dest, offsets)
+        print('fin!')
+
+    def test_inversion(self):
+        print('')
+        source = 'The hxxp[:]//www.foo(.)com place'
+        info = {i: 1 for i, c in enumerate(source)}
+        info[8] = 3
+        info[18] = 3
+        defanged = 'The http://www.foo.com place'
+        found_string = 'http://www.foo.com'
+        found_offest = defanged.find(found_string)
+        found_len = len(found_string)
+        print(found_len)
+        print(found_string)
+        print(found_offest)
+        print(source[found_offest:found_offest + found_len])
+        print('PINCH IT!')
+
+        eoffs = found_offest
+        for i, c in enumerate(found_string, start=found_offest):
+            v = info.get(i, None)
+            if v is None:
+                print('this is broken???')
+                break
+            print(f'{i=} {v=} {eoffs+v=} {source[found_offest: eoffs+v]}')
+            eoffs = eoffs + v
+
+        print(eoffs)
+        print(source[found_offest:eoffs])
