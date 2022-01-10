@@ -574,8 +574,12 @@ class ScrapeTest(s_t_utils.SynTest):
         dest, offsets = s_scrape.refang_text2(source)
         print(source)
         print(dest)
-        s_scrape.print_stuff(source, dest, offsets)
+        # s_scrape.print_stuff(source, dest, offsets)
         print('fin!')
+        from pprint import pprint
+
+        for info in s_scrape.contextScrape2(source):
+            pprint(info)
 
     def test_inversion(self):
         print('')

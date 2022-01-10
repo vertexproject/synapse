@@ -159,7 +159,7 @@ import functools
 
 import re
 def refang_func(match: re.Match, offsets: dict):
-    # print(info)
+    print(offsets)
     print(match)
     group = match.group(0)
     print(group)
@@ -169,7 +169,7 @@ def refang_func(match: re.Match, offsets: dict):
     mlen = len(group)
     if rlen != mlen:
         # WE have a remap to handle
-        print('REMAP')
+        # print('REMAP')
         span = match.span(0)
         offsets[span[0]] = mlen
         print(span)
@@ -185,7 +185,7 @@ def refang_text2(txt):
     # Create a mapping of our source text
     ret = txt
     offsets = {i: 1 for (i, c) in enumerate(ret)}
-    cb = functools.partial(refang_func, info=offsets)
+    cb = functools.partial(refang_func, offsets=offsets)
 
     # Start applying FANGs and modifying the info to match the output
     ret = re_fang.sub(cb, ret)
@@ -255,6 +255,42 @@ def contextScrape(text, ptype=None, refang=True, first=False):
                 if first:
                     return
 
+def _pinchit(text, offsets, info):
+
+    offset = info.get('offset')
+
+    eoffs = offset
+    for i, c in enumerate(info.get('valu'), start=offset):
+        v = offsets.get(i, None)
+        if v is None:
+            print('this is broken???')
+            break
+        # print(f'{i=} {v=} {eoffs+v=} {text[offset: eoffs + v]}')
+        eoffs = eoffs + v
+    raw_valu = text[offset: eoffs]
+    info['raw_valu'] = raw_valu
+
+def contextScrape2(text, ptype=None, refang=True, first=False):
+
+    scrape_text = text
+    if refang:
+        print(f'old: {text}')
+        scrape_text, offsets = refang_text2(text)
+        print(f'new: {scrape_text}')
+
+    for ruletype, blobs in _regexes.items():
+        if ptype and ptype != ruletype:
+            continue
+
+        for (regx, opts) in blobs:
+
+            for info in genMatches(scrape_text, regx, ruletype, opts):
+                if refang:
+                    _pinchit(text, offsets, info)
+                yield info
+
+                if first:
+                    return
 def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
     '''
     Generate regular expression matches for a blob of text.
