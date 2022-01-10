@@ -269,6 +269,10 @@ class ItModule(s_module.CoreModule):
                 ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                     'doc': 'A url hosted on or served by a host or system.',
                 }),
+                ('it:screenshot', ('guid', {}), {
+                    'doc': 'A screenshot of a host.',
+                    'interfaces': ('it:host:activity',),
+                }),
                 ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
@@ -323,7 +327,16 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A arbitrary, unversioned software product.',
                 }),
-
+                ('it:prod:hardware', ('guid', {}), {
+                    'doc': 'A specification for a piece of IT hardware.',
+                }),
+                ('it:prod:component', ('guid', {}), {
+                    'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
+                }),
+                ('it:prod:hardwaretype', ('taxonomy', {}), {
+                    'doc': 'An IT hardware type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
 
@@ -520,11 +533,16 @@ class ItModule(s_module.CoreModule):
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
                     }),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The hardware specification for this host.',
+                    }),
                     ('manu', ('str', {}), {
-                        'doc': 'The manufacturer of the host.',
+                        'deprecated': True,
+                        'doc': 'Please use :hardware::make.',
                     }),
                     ('model', ('str', {}), {
-                        'doc': 'The product model of the host.',
+                        'deprecated': True,
+                        'doc': 'Please use :hardware::model.',
                     }),
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
@@ -679,6 +697,13 @@ class ItModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'URL available on the host.',
                     }),
+                )),
+                ('it:screenshot', {}, (
+                    ('image', ('file:bytes', {}), {
+                        'doc': 'The image file.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the screenshot.'})
                 )),
                 ('it:dev:str', {}, (
                     ('norm', ('str', {'lower': True}), {
@@ -904,7 +929,36 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
-
+                ('it:prod:hardwaretype', {}, ()),
+                ('it:prod:hardware', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The display name for this hardware specification.'}),
+                    ('type', ('it:prod:hardwaretype', {}), {
+                        'doc': 'The type of hardware.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the hardware.'}),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
+                    ('make', ('ou:name', {}), {
+                        'doc': 'The name of the organization which manufactures this hardware.'}),
+                    ('model', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'The model name or number for this hardware specification.'}),
+                    ('version', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'Version string associated with this hardware specification.'}),
+                    ('released', ('time', {}), {
+                        'doc': 'The initial release date for this hardware.'}),
+                    ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
+                )),
+                ('it:prod:component', {}, (
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The hardware specification of this component.'}),
+                    ('serial', ('str', {}), {
+                        'doc': 'The serial number of this componenent.'}),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The it:host which has this component installed.'}),
+                )),
                 ('it:prod:soft', {}, (
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'Name of the software.',
@@ -1300,6 +1354,9 @@ class ItModule(s_module.CoreModule):
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that requested the URL.',
                     }),
+                    ('browser', ('it:prod:softver', {}), {
+                        'doc': 'The software version of the browser.',
+                    }),
                     ('host', ('it:host', {}), {
                         'doc': 'The host running the process that requested the URL. Typically the same host referenced in :proc, if present.',
                     }),
@@ -1311,6 +1368,18 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that was requested.',
+                    }),
+                    ('page:pdf', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as a PDF file.',
+                    }),
+                    ('page:html', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an HTML file.',
+                    }),
+                    ('page:image', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an image.',
+                    }),
+                    ('http:request', ('inet:http:request', {}), {
+                        'doc': 'The HTTP request made to retrieve the intial URL contents.',
                     }),
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'

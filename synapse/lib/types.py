@@ -603,7 +603,7 @@ class Guid(Type):
             valu = s_common.guid()
             return valu, {}
 
-        valu = valu.lower()
+        valu = valu.lower().replace('-', '')
         if not s_common.isguid(valu):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='valu is not a guid.')
@@ -1425,7 +1425,8 @@ class NodeProp(Type):
 
         prop = self.modl.prop(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=self.name, prop=propname)
+            mesg = f'No prop {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=self.name, prop=propname)
 
         propnorm, info = prop.type.norm(propvalu)
         return (prop.full, propnorm), {'subs': {'prop': prop.full}}
