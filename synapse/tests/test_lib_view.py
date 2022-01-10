@@ -37,6 +37,11 @@ class ViewTest(s_t_utils.SynTest):
             self.len(1, await view00.nodes('#bar'))
             self.len(1, await view01.nodes('#bar'))
 
+            # test that the API prevents you from setting view parent that's already set
+            opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormIsInErr('You may not set parent on a view which already has one', msgs)
+
             opts = {'vars': {'fork': view00.iden}}
             msgs = await core.stormlist('$lib.view.get($fork).set(parent, $lib.guid())', opts=opts)
             self.stormIsInErr('The parent view must already exist', msgs)
