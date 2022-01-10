@@ -158,23 +158,25 @@ def refang_text(txt):
 import functools
 
 import re
+
 def refang_func(match: re.Match, offsets: dict):
-    print(offsets)
-    print(match)
+    print(f'{match=} {offsets=}')
     group = match.group(0)
-    print(group)
-    print(type(group))
     ret = FANGS[group.lower()]
     rlen = len(ret)
     mlen = len(group)
+    print(f'{rlen=} {mlen=}')
     if rlen != mlen:
         # WE have a remap to handle
-        # print('REMAP')
+        print('REMAP')
         span = match.span(0)
-        offsets[span[0]] = mlen
-        print(span)
-        print(len(group))
-        print(len(ret))
+        print(f'{span=}')
+
+        consumed = offsets['_consumed']
+        offs = span[0] - consumed
+        nv = mlen - rlen
+        offsets[offs] = nv + 1
+        offsets['_consumed'] = consumed + nv
 
     print(ret)
     # Base on ret and its location we have to update info and everything downstream of it
@@ -184,12 +186,18 @@ def refang_func(match: re.Match, offsets: dict):
 def refang_text2(txt):
     # Create a mapping of our source text
     ret = txt
-    offsets = {i: 1 for (i, c) in enumerate(ret)}
+
+    # The _consumed key is a offset used to track how many chars have been
+    # consumed while the cb is called. This is because the match group
+    # span values are based on their original string locations, and will not
+    # produce values which can be cleanly mapped backwards.
+    offsets = {'_consumed': 0}
     cb = functools.partial(refang_func, offsets=offsets)
 
     # Start applying FANGs and modifying the info to match the output
     ret = re_fang.sub(cb, ret)
-
+    print(f'FINAL {offsets=}')
+    offsets.pop('_consumed')
     return ret, offsets
 
 def print_stuff(source, dest, info):
@@ -239,9 +247,7 @@ def contextScrape(text, ptype=None, refang=True, first=False):
     '''
 
     if refang:
-        print(f'old: {text}')
         text = refang_text(text)
-        print(f'new: {text}')
 
     for ruletype, blobs in _regexes.items():
         if ptype and ptype != ruletype:
@@ -257,18 +263,24 @@ def contextScrape(text, ptype=None, refang=True, first=False):
 
 def _pinchit(text, offsets, info):
 
+    # Our match offset
     offset = info.get('offset')
+    baseoff = 0
+    # We need to see if there are values in the offsets which are less
+    # than our match offset and increment our actual offset by theem.
+    keys = sorted(list(offsets.keys()))
+    for k in keys:
+        if k < offset:
+            baseoff = baseoff + offsets[k] - 1
 
     eoffs = offset
     for i, c in enumerate(info.get('valu'), start=offset):
-        v = offsets.get(i, None)
-        if v is None:
-            print('this is broken???')
-            break
+        v = offsets.get(i, 1)
         # print(f'{i=} {v=} {eoffs+v=} {text[offset: eoffs + v]}')
         eoffs = eoffs + v
-    raw_valu = text[offset: eoffs]
+    raw_valu = text[baseoff + offset: baseoff + eoffs]
     info['raw_valu'] = raw_valu
+    info['offset'] = baseoff + offset
 
 def contextScrape2(text, ptype=None, refang=True, first=False):
 
@@ -291,6 +303,7 @@ def contextScrape2(text, ptype=None, refang=True, first=False):
 
                 if first:
                     return
+
 def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
     '''
     Generate regular expression matches for a blob of text.

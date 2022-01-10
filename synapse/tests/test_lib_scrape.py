@@ -581,6 +581,13 @@ class ScrapeTest(s_t_utils.SynTest):
         for info in s_scrape.contextScrape2(source):
             pprint(info)
 
+    def test_wip(self):
+        print('')
+        from pprint import pprint
+        source = 'what is this hxxp[:]//foo(.)com nothing hxxp[:]//bar(.)com madness'
+        for info in s_scrape.contextScrape2(source):
+            pprint(info)
+
     def test_inversion(self):
         print('')
         source = 'The hxxp[:]//www.foo(.)com place'
