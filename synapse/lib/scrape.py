@@ -198,19 +198,19 @@ def _rewriteRawValu(text, offsets, info):
         if k < offset:
             baseoff = baseoff + offsets[k] - 1
 
-    eoffs = offset
+    end_offset = offset
 
-    # If our valu is not a str, then base our text recovery
-    # on the regex reported valu.
+    # If our return valu is not a str, then base our text recovery
+    # on the original regex matched valu.
     valu = info.get('valu')
     if not isinstance(valu, str):
         valu = info.get('raw_valu')
 
     for i, c in enumerate(valu, start=offset):
         v = offsets.get(i, 1)
-        # print(f'{i=} {v=} {eoffs+v=} {text[offset: eoffs + v]}')
-        eoffs = eoffs + v
-    raw_valu = text[baseoff + offset: baseoff + eoffs]
+        # print(f'{i=} {v=} {end_offset+v=} {text[offset: end_offset + v]}')
+        end_offset = end_offset + v
+    raw_valu = text[baseoff + offset: baseoff + end_offset]
     info['raw_valu'] = raw_valu
     info['offset'] = baseoff + offset
 
