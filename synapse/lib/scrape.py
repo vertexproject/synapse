@@ -274,7 +274,14 @@ def _pinchit(text, offsets, info):
             baseoff = baseoff + offsets[k] - 1
 
     eoffs = offset
-    for i, c in enumerate(info.get('valu'), start=offset):
+
+    # If our valu is not a str, then base our text recovery
+    # on the regex reported valu.
+    valu = info.get('valu')
+    if not isinstance(valu, str):
+        valu = info.get('raw_valu')
+
+    for i, c in enumerate(valu, start=offset):
         v = offsets.get(i, 1)
         # print(f'{i=} {v=} {eoffs+v=} {text[offset: eoffs + v]}')
         eoffs = eoffs + v
@@ -297,8 +304,10 @@ def contextScrape2(text, ptype=None, refang=True, first=False):
         for (regx, opts) in blobs:
 
             for info in genMatches(scrape_text, regx, ruletype, opts):
-                if refang:
+
+                if refang and offsets:
                     _pinchit(text, offsets, info)
+
                 yield info
 
                 if first:

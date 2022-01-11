@@ -584,7 +584,20 @@ class ScrapeTest(s_t_utils.SynTest):
     def test_wip(self):
         print('')
         from pprint import pprint
+        source = 'what is this hxxp[:]//foo(.)com nothing hxxp[:]//bar(.)com madness '
+        source = source + '\n' + eth_addresses
+        for info in s_scrape.contextScrape2(source):
+            pprint(info)
+
+    def test_whole_thing(self):
+        print('')
+        from pprint import pprint
         source = 'what is this hxxp[:]//foo(.)com nothing hxxp[:]//bar(.)com madness'
+        source = '\n'.join([source, data1, data0, data2, cardano_addresses, eth_addresses,
+                            'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]yowza(.)baz[.]edu/foofaz',
+                            'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here',
+                            btc_addresses,
+                            ])
         for info in s_scrape.contextScrape2(source):
             pprint(info)
 
