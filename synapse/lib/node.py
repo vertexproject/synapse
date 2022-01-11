@@ -281,7 +281,8 @@ class Node:
         if prop is None:
 
             if self.snap.strict:
-                raise s_exc.NoSuchProp(name=name, form=self.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.form.name)
 
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
@@ -355,7 +356,8 @@ class Node:
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:
-                raise s_exc.NoSuchProp(name=name, form=self.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.form.name)
             await self.snap.warn(f'No Such Property: {name}')
             return ()
 
@@ -402,7 +404,8 @@ class Node:
 
         prop = self.form.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(form=self.form.name, prop=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
 
         valu = self.props.get(name)
         if valu is None:

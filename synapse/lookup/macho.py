@@ -1,0 +1,73 @@
+# Mach-O Load Command Types
+loadcmd_types = (
+    (1, 'segment'),
+    (2, 'symbol table'),
+    (3, 'gdb symbol table'),
+    (4, 'thread'),
+    (5, 'unix thread'),
+    (6, 'fixed VM shared library'),
+    (7, 'fixed VM shared library identification'),
+    (8, 'object identification'),
+    (9, 'fixed VM file inclusion'),
+    (10, 'prepage'),
+    (11, 'dynamic link-edit symbol table'),
+    (12, 'load dynamically linked shared library'),
+    (13, 'dynamically linked shared library identifier'),
+    (14, 'load dynamic linker'),
+    (15, 'dynamic linker identification'),
+    (16, 'prebound dynamically linked shared library'),
+    (17, 'image routines'),
+    (18, 'sub framework'),
+    (19, 'sub umbrella'),
+    (20, 'sub client'),
+    (21, 'sub library'),
+    (22, 'two level namespace lookup hints'),
+    (23, 'prebind checksum'),
+    (24, 'weak import dynamically linked shared library'),
+    (25, '64bit segment'),
+    (26, '64bit image routines'),
+    (27, 'uuid'),
+    (28, 'runpath additions'),
+    (29, 'code signature'),
+    (30, 'split segment info'),
+    (31, 'load and re-export dynamic library'),
+    (32, 'delay load of dynamic library'),
+    (33, 'encrypted segment information'),
+    (34, 'compressed dynamic library information'),
+    (35, 'load upward dylib'),
+    (36, 'minimum osx version'),
+    (37, 'minimum ios version'),
+    (38, 'compressed table of function start addresses'),
+    (39, 'environment variable string for dynamic library'),
+    (40, 'unix thread replacement'),
+    (41, 'table of non-instructions in __text'),
+    (42, 'source version used to build binary'),
+    (43, 'Code signing DRs copied from linked dynamic libraries'),
+)
+
+def getLoadCmdTypes():
+    return loadcmd_types
+
+# Mach-0 section types
+section_types = (
+    (0, 'regular'),
+    (1, 'zero fill on demand'),
+    (2, 'only literal C strings'),
+    (3, 'only 4 byte literals'),
+    (4, 'only 8 byte literals'),
+    (5, 'only pointers to literals'),
+    (6, 'only non-lazy symbol pointers'),
+    (7, 'only lazy symbol pointers'),
+    (8, 'only symbol stubs'),
+    (9, 'only function pointers for init'),
+    (10, 'only function pointers for fini'),
+    (11, 'contains symbols to be coalesced'),
+    (12, 'zero fill on deman (greater than 4gb)'),
+    (13, 'only pairs of function pointers for interposing'),
+    (14, 'only 16 byte literals'),
+    (15, 'dtrace object format'),
+    (16, 'only lazy symbols pointers to lazy dynamic libraries'),
+)
+
+def getSectionTypes():
+    return section_types

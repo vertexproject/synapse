@@ -1107,7 +1107,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
                         'doc': 'A URL mirror site.',
                     }),
-
                     ('inet:user', ('str', {'lower': True}), {
                         'doc': 'A username string.'
                     }),
@@ -1656,7 +1655,6 @@ class InetModule(s_module.CoreModule):
                         ('response:body', ('file:bytes', {}), {}),
                         ('session', ('inet:http:session', {}), {
                             'doc': 'The HTTP session this request was part of.'}),
-
                     )),
 
                     ('inet:http:session', {}, (
