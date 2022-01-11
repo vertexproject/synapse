@@ -1726,16 +1726,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.notifslab.delete(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime)
         self.notifslab.delete(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype)
 
-    async def iterUserNotifs(self, useriden):
+    async def iterUserNotifsBack(self, useriden, size=None):
         # iterate user notifications backward
         userbyts = s_common.uhex(useriden)
+        count = 0
         for _, indxbyts in self.notifslab.scanByPrefBack(userbyts, db=self.notif_indx_usertype):
             indx = s_common.int64un(indxbyts)
             mesg = self.notifseqn.getraw(indxbyts)
             yield (indx, mesg)
+            count += 1
+            if size and count >= size:
+                break
 
     # async def iterUserNotifsByTime(self, useriden, ival):
-    # async def iterUserNotifsByType(self, useriden, mesgtype):
+    # async def iterUserNotifsByType(self, useriden, mesgtype, ival=None):
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
