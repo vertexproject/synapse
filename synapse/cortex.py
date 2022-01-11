@@ -1735,7 +1735,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             mesg = self.notifseqn.getraw(indxbyts)
             yield (indx, mesg)
             count += 1
-            if size and count >= size:
+            if size is not None and count >= size:
                 break
 
     # async def iterUserNotifsByTime(self, useriden, ival):
