@@ -1,4 +1,5 @@
 import logging
+import functools
 import collections
 
 import idna
@@ -155,113 +156,37 @@ def refang_text(txt):
     '''
     return re_fang.sub(lambda match: FANGS[match.group(0).lower()], txt)
 
-import functools
-
-import re
-
-def refang_func(match: re.Match, offsets: dict):
-    print(f'{match=} {offsets=}')
+def _refang_func(match: regex.Match, offsets: dict):
     group = match.group(0)
     ret = FANGS[group.lower()]
     rlen = len(ret)
     mlen = len(group)
-    print(f'{rlen=} {mlen=}')
     if rlen != mlen:
         # WE have a remap to handle
-        print('REMAP')
         span = match.span(0)
-        print(f'{span=}')
-
         consumed = offsets['_consumed']
         offs = span[0] - consumed
         nv = mlen - rlen
         offsets[offs] = nv + 1
         offsets['_consumed'] = consumed + nv
 
-    print(ret)
-    # Base on ret and its location we have to update info and everything downstream of it
-
     return ret
 
-def refang_text2(txt):
-    # Create a mapping of our source text
-    ret = txt
-
+def refang_text2(txt: str):
     # The _consumed key is a offset used to track how many chars have been
     # consumed while the cb is called. This is because the match group
     # span values are based on their original string locations, and will not
     # produce values which can be cleanly mapped backwards.
     offsets = {'_consumed': 0}
-    cb = functools.partial(refang_func, offsets=offsets)
-
+    cb = functools.partial(_refang_func, offsets=offsets)
     # Start applying FANGs and modifying the info to match the output
-    ret = re_fang.sub(cb, ret)
-    print(f'FINAL {offsets=}')
+    ret = re_fang.sub(cb, txt)
+
+    # Remove the _consumed key since it is no longer useful for later use.
     offsets.pop('_consumed')
     return ret, offsets
 
-def print_stuff(source, dest, info):
-    tlen = len(source)
-    print('I | O | indx')
-    print('------------')
-    for i in range(tlen):
-        ic = source[i]
-        try:
-            oc = dest[i]
-        except IndexError:
-            oc = ' '
-        o = f'{ic} | {oc} | {i}'
-        print(o)
-    print('PINCH IT!')
-
-
-def scrape(text, ptype=None, refang=True, first=False):
-    '''
-    Scrape types from a blob of text and return node tuples.
-
-    Args:
-        text (str): Text to scrape.
-        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
-        refang (bool): Whether to remove de-fanging schemes from text before scraping.
-        first (bool): If true, only yield the first item scraped.
-
-    Returns:
-        (str, object): Yield tuples of node ndef values.
-    '''
-
-    for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
-        yield info.get('form'), info.get('valu')
-
-def contextScrape(text, ptype=None, refang=True, first=False):
-    '''
-    Scrape types from a blob of text and return context information.
-
-    Args:
-        text (str): Text to scrape.
-        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
-        refang (bool): Whether to remove de-fanging schemes from text before scraping.
-        first (bool): If true, only yield the first item scraped.
-
-    Returns:
-        (dict): yield dictionaries of scrape information.
-    '''
-
-    if refang:
-        text = refang_text(text)
-
-    for ruletype, blobs in _regexes.items():
-        if ptype and ptype != ruletype:
-            continue
-
-        for (regx, opts) in blobs:
-
-            for info in genMatches(text, regx, ruletype, opts):
-                yield info
-
-                if first:
-                    return
-
-def _pinchit(text, offsets, info):
+def _rewriteRawValu(text, offsets, info):
 
     # Our match offset
     offset = info.get('offset')
@@ -289,38 +214,13 @@ def _pinchit(text, offsets, info):
     info['raw_valu'] = raw_valu
     info['offset'] = baseoff + offset
 
-def contextScrape2(text, ptype=None, refang=True, first=False):
-
-    scrape_text = text
-    if refang:
-        print(f'old: {text}')
-        scrape_text, offsets = refang_text2(text)
-        print(f'new: {scrape_text}')
-
-    for ruletype, blobs in _regexes.items():
-        if ptype and ptype != ruletype:
-            continue
-
-        for (regx, opts) in blobs:
-
-            for info in genMatches(scrape_text, regx, ruletype, opts):
-
-                if refang and offsets:
-                    _pinchit(text, offsets, info)
-
-                yield info
-
-                if first:
-                    return
-
-def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
+def genMatches(text: str, regx: regex.Regex, opts: dict):
     '''
     Generate regular expression matches for a blob of text.
 
     Args:
         text (str): The text to generate matches for.
         regx (regex.Regex): A compiled regex object. The regex must contained a named match for ``valu``.
-        form (str): The form XXX ???
         opts (dict): XXX
 
     Yields:
@@ -333,7 +233,6 @@ def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
         raw_valu = valu.group('valu')
 
         info = {
-            'form': form,
             'raw_valu': raw_valu,
             'offset': raw_span[0]
         }
@@ -351,3 +250,45 @@ def genMatches(text: str, regx: regex.Regex, form: str, opts: dict):
         info['valu'] = valu
 
         yield info
+
+def contextScrape(text, ptype=None, refang=True, first=False):
+
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+        if ptype and ptype != ruletype:
+            continue
+
+        for (regx, opts) in blobs:
+
+            for info in genMatches(scrape_text, regx, opts):
+
+                info['form'] = ruletype
+
+                if refang:
+                    _rewriteRawValu(text, offsets, info)
+
+                yield info
+
+                if first:
+                    return
+
+def scrape(text, ptype=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and return node tuples.
+
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Returns:
+        (str, object): Yield tuples of node ndef values.
+    '''
+
+    for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
+        yield info.get('form'), info.get('valu')

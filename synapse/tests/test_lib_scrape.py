@@ -578,15 +578,15 @@ class ScrapeTest(s_t_utils.SynTest):
         print('fin!')
         from pprint import pprint
 
-        for info in s_scrape.contextScrape2(source):
+        for info in s_scrape.contextScrape(source):
             pprint(info)
 
     def test_wip(self):
         print('')
         from pprint import pprint
         source = 'what is this hxxp[:]//foo(.)com nothing hxxp[:]//bar(.)com madness '
-        source = source + '\n' + eth_addresses
-        for info in s_scrape.contextScrape2(source):
+        # source = source + '\n' + eth_addresses
+        for info in s_scrape.contextScrape(source):
             pprint(info)
 
     def test_whole_thing(self):
@@ -598,7 +598,7 @@ class ScrapeTest(s_t_utils.SynTest):
                             'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here',
                             btc_addresses,
                             ])
-        for info in s_scrape.contextScrape2(source):
+        for info in s_scrape.contextScrape(source):
             pprint(info)
 
     def test_inversion(self):
