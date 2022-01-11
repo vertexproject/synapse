@@ -54,7 +54,8 @@ FANGS = {
     '[@]': '@',
 }
 
-# FANGs must be compression matches
+# Fangs must be matches of equal or smaller length in order for the
+# contextScrape API to function.
 for src, dst in FANGS.items():
     assert len(dst) <= len(src)
 
@@ -156,17 +157,25 @@ def refang_text(txt):
     '''
     return re_fang.sub(lambda match: FANGS[match.group(0).lower()], txt)
 
-def _refang_func(match: regex.Match, offsets: dict):
+def _refang2_func(match: regex.Match, offsets: dict):
+    # This callback exploits the fact that known de-fanging strategies either
+    # do in-place transforms, or transforms which increase the target string
+    # size. By re-fanging, we are compressing the old string into a new string
+    # of potentially a smaller size. We record the offset where any transform
+    # which would change the resulting string size.
+    # This relies on the prior assertions of refang sizing.
     group = match.group(0)
     ret = FANGS[group.lower()]
     rlen = len(ret)
     mlen = len(group)
     if rlen != mlen:
-        # WE have a remap to handle
         span = match.span(0)
-        consumed = offsets['_consumed']
+        consumed = offsets.get('_consumed', 0)
         offs = span[0] - consumed
         nv = mlen - rlen
+        # For offsets, we record the nv + 1 since the now-compressed string
+        # has one character represented by mlen - rlen + 1 characters in the
+        # original string.
         offsets[offs] = nv + 1
         offsets['_consumed'] = consumed + nv
 
@@ -178,7 +187,7 @@ def refang_text2(txt: str):
     # span values are based on their original string locations, and will not
     # produce values which can be cleanly mapped backwards.
     offsets = {'_consumed': 0}
-    cb = functools.partial(_refang_func, offsets=offsets)
+    cb = functools.partial(_refang2_func, offsets=offsets)
     # Start applying FANGs and modifying the info to match the output
     ret = re_fang.sub(cb, txt)
 
@@ -186,30 +195,34 @@ def refang_text2(txt: str):
     offsets.pop('_consumed')
     return ret, offsets
 
-def _rewriteRawValu(text, offsets, info):
+def _rewriteRawValu(text: str, offsets: dict, info: dict):
 
-    # Our match offset
+    # Our match offset. This is the match offset value into the refanged text.
     offset = info.get('offset')
+
+    # We need to see if there are values in the offsets which are less than our
+    # match offset and increment our base offset by them. This gives us a
+    # shift into the original string where we would find the actual offset.
+    # This can be represented as a a comprehension but I find that the loop
+    # below is easier to read.
     baseoff = 0
-    # We need to see if there are values in the offsets which are less
-    # than our match offset and increment our actual offset by theem.
-    keys = sorted(list(offsets.keys()))
-    for k in keys:
+    for k, v in offsets.items():
         if k < offset:
             baseoff = baseoff + offsets[k] - 1
 
-    end_offset = offset
-
-    # If our return valu is not a str, then base our text recovery
-    # on the original regex matched valu.
+    # If our return valu is not a str, then base our text recovery on the
+    # original regex matched valu.
     valu = info.get('valu')
     if not isinstance(valu, str):
         valu = info.get('raw_valu')
 
+    # Start enumerating each character in our valu, incrementing the end_offset
+    # by 1, or the recorded offset difference in offsets dictionary.
+    end_offset = offset
     for i, c in enumerate(valu, start=offset):
-        v = offsets.get(i, 1)
-        # print(f'{i=} {v=} {end_offset+v=} {text[offset: end_offset + v]}')
-        end_offset = end_offset + v
+        end_offset = end_offset + offsets.get(i, 1)
+
+    # Extract a new raw valu and push the raw_valu and new offset into info
     raw_valu = text[baseoff + offset: baseoff + end_offset]
     info['raw_valu'] = raw_valu
     info['offset'] = baseoff + offset
