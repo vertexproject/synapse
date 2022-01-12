@@ -1700,6 +1700,13 @@ class LibAxon(Lib):
             'jsonlines': self.jsonlines,
         }
 
+    def strify(self, item):
+        if isinstance(item, (list, tuple)):
+            return [(str(k), str(v)) for (k, v) in item]
+        elif isinstance(item, dict):
+            return {str(k): str(v) for k, v in item.items()}
+        return item
+
     async def readlines(self, sha256):
         self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
@@ -1757,6 +1764,9 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
 
+        params = self.strify(params)
+        headers = self.strify(headers)
+
         await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
@@ -1775,6 +1785,9 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+
+        params = self.strify(params)
+        headers = self.strify(headers)
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
@@ -4602,7 +4615,8 @@ class NodeProps(Prim):
     async def set(self, prop, valu):
         formprop = self.valu.form.prop(prop)
         if formprop is None:
-            raise s_exc.NoSuchProp(name=prop, form=self.valu.form.name)
+            mesg = f'No prop {self.valu.form.name}:{prop}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(prop, valu)
@@ -5578,7 +5592,7 @@ class Layer(Prim):
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg)
+            raise s_exc.NoSuchProp(mesg=mesg)
 
         if prop.isform:
             todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
