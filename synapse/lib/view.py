@@ -283,7 +283,7 @@ class View(s_nexus.Pusher):  # type: ignore
             view = view.parent
         return False
 
-    async def calcForkLayers(self):
+    async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
         layers = [self.layers[0]]
@@ -591,11 +591,11 @@ class View(s_nexus.Pusher):  # type: ignore
             self.parent = parent
             await self.info.set(name, valu)
 
-            await self.calcForkLayers()
+            await self._calcForkLayers()
 
             for view in self.core.views.values():
                 if view.isForkOf(self.iden):
-                    await view.calcForkLayers()
+                    await view._calcForkLayers()
 
         else:
             await self.info.set(name, valu)
