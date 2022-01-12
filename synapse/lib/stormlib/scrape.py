@@ -1,5 +1,7 @@
 import logging
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -74,10 +76,12 @@ class LibScrape(s_stormtypes.Lib):
             'ndefs': self._methNdefs,
             'forms': self._methForms,
             'context': self._methContext,
+            'genMatches': self._methGenMatches,
         }
 
     async def __call__(self, text, ptype=None, refang=True, unique=True):
-        # Remove this in 3.0.0
+        # Remove this in 3.0.0 since it is deprecated.
+        s_common.deprecated('$lib.scrape()')
         await self.runt.warnonce('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().')
         async for item in self._methNdefs(text, form=ptype, refang=refang, unique=unique):
             yield item
@@ -132,3 +136,21 @@ class LibScrape(s_stormtypes.Lib):
                 except s_exc.BadTypeValu:
                     continue
                 yield (ftyp, ndef)
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methGenMatches(self, text, pattern, unique=False, flags=regex.IGNORECASE):
+        text = await s_stormtypes.tostr(text)
+        pattern = await s_stormtypes.tostr(pattern)
+        unique = await s_stormtypes.tobool(unique)
+
+        opts = {}
+        regx = regex.compile(pattern, flags=flags)
+        print(f'made {regx}')
+        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
+            for info in s_scrape.genMatches(text, regx, opts=opts):
+                valu = info.pop('valu')
+                if unique:
+                    if valu in items:
+                        continue
+                    await items.add(valu)
+                yield valu, info

@@ -1,3 +1,5 @@
+import synapse.common as s_common
+
 import synapse.tests.utils as s_test
 
 
@@ -8,18 +10,62 @@ class StormScrapeTest(s_test.SynTest):
             'name': 'foobar',
             'modules': [
                 {'name': 'foobar',
-                 'modconf': {'pkgRegex': ''},
+                 'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
+                             'form': 'ps:name'},
                  'interfaces': ['scrape'],
                  'storm': '''
+                    $modRe = $modconf.nameRegex
+                    $modForm = $modconf.form
+                    /*
+                    Example of a generic storm module implementing a scrape interface using
+                    a common helper function that produces offset and raw_value information.
+                    */
                     function scrape(text, form, unique) {
-                        for $match in $lib.regex.find
-                        for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
-                            return($looks)
+                        if ($form = $lib.null or $form = $modForm) {
+                            for ($valu, $info) in $lib.scrape.genMatches($text, $modRe, unique=$unique) {
+                                ($ok, $valu) = $lib.trycast($modForm, $valu)
+                                if $ok {
+                                    emit ($info.offset, ($modForm, $valu, $info))
+                                }
+                            }
+                        }
                     }
                     '''
                  },
-        ],
+            ],
         }
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
+            self.none(core.modsbyiface.get('scrape'))
+
+            mods = await core.getStormIfaces('scrape')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('scrape'))
+
+            await core.loadStormPkg(pkgdef)
+
+            mods = await core.getStormIfaces('scrape')
+            self.len(1, mods)
+            self.len(1, core.modsbyiface.get('scrape'))
+
+            text = '''
+            NAME: billy
+            IP: 1.2.3.4
+            domain: foo.bar[.]com
+            Homepage: http[:]//1.2[.]3.4/billy.html
+
+            NAME: Alice
+            IP: 1.2.3.5
+            domain: foo.boofle.com
+            Homepage: httpx://1.2[.]3.4/alice.html
+            '''
+            todo = s_common.todo('scrape', text, form=None, unique=False)
+            vals = [r async for r in core.view.mergeStormIface('scrape', todo)]
+            print('whoo')
+            for v in vals:
+                print(v)
+            print('fin')
 
     async def test_storm_lib_scrape(self):
 
