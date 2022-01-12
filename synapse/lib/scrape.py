@@ -69,8 +69,6 @@ def fqdn_check(match: regex.Match):
             return None, {}
     return valu, {}
 
-re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
-
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
@@ -143,6 +141,8 @@ FANGS = {
 # contextScrape API to function.
 for src, dst in FANGS.items():
     assert len(dst) <= len(src)
+
+re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
 
 def refang_text(txt):
     '''
