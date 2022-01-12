@@ -5807,7 +5807,7 @@ class View(Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the value to get.', },
                       {'name': 'defv', 'type': 'prim', 'default': None,
-                       'desc': 'The default value returned if hte name is not set in the View.', }
+                       'desc': 'The default value returned if the name is not set in the View.', }
                   ),
                   'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
         {'name': 'fork', 'desc': 'Fork a View in the Cortex.',
