@@ -27,30 +27,30 @@ class StormScrapeTest(s_test.SynTest):
 
             # Backwards compatibility $lib.scrape() adopters
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
-            query = '''for ($form, $ndef) in $lib.scrape($text, $ptype, $refang)
+            query = '''for ($form, $ndef) in $lib.scrape($text, $scrape_form, $refang)
             { $lib.print('{f}={n}', f=$form, n=$ndef) }
             '''
-            varz = {'text': text, 'ptype': None, 'refang': True}
+            varz = {'text': text, 'scrape_form': None, 'refang': True}
             msgs = await core.stormlist(query, opts={'vars': varz})
             self.stormIsInWarn('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().', msgs)
-            self.stormIsInPrint('inet:ipv4=1.2.3.4', msgs)
+            self.stormIsInPrint('inet:ipv4=16909060', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
             self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
             # $lib.scrape.ndefs()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
-            query = '''for ($form, $ndef) in $lib.scrape.ndefs($text, $ptype, $refang)
+            query = '''for ($form, $ndef) in $lib.scrape.ndefs($text, $scrape_form, $refang)
             { $lib.print('{f}={n}', f=$form, n=$ndef) }
             '''
-            varz = {'text': text, 'ptype': None, 'refang': True}
+            varz = {'text': text, 'scrape_form': None, 'refang': True}
             msgs = await core.stormlist(query, opts={'vars': varz})
-            self.stormIsInPrint('inet:ipv4=1.2.3.4', msgs)
+            self.stormIsInPrint('inet:ipv4=16909060', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
             self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
-            varz = {'text': text, 'ptype': 'inet:fqdn', 'refang': True}
+            varz = {'text': text, 'scrape_form': 'inet:fqdn', 'refang': True}
             msgs = await core.stormlist(query, opts={'vars': varz})
-            self.stormNotInPrint('inet:ipv4=1.2.3.4', msgs)
+            self.stormNotInPrint('inet:ipv4=16909060', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
             self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
@@ -61,11 +61,11 @@ class StormScrapeTest(s_test.SynTest):
             '''
             varz = {'text': text, 'unique': True}
             result = await core.callStorm(query, opts={'vars': varz})
-            self.eq(result, {'inet:ipv4=1.2.3.4': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
+            self.eq(result, {'inet:ipv4=16909060': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
 
             varz = {'text': text, 'unique': False}
             result = await core.callStorm(query, opts={'vars': varz})
-            self.eq(result, {'inet:ipv4=1.2.3.4': 2, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 2})
+            self.eq(result, {'inet:ipv4=16909060': 2, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 2})
 
             # $lib.scrape.context() - this is currently just wrapping s_scrape.contextscrape
             query = '''$list = $lib.list() for $info in $lib.scrape.context($text, unique=$unique)

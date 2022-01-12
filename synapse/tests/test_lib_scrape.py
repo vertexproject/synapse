@@ -570,12 +570,6 @@ class ScrapeTest(s_t_utils.SynTest):
         defanged = 'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here'
         self.eq({'example.com'}, {n[1] for n in s_scrape.scrape(defanged, refang=False)})
 
-    def test_dilemma(self):
-        print('...')
-        defanged = 'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]//yowza(.)baz[.]edu/foofaz with more WORDS!'
-        for info in s_scrape.contextScrape(defanged):
-            print(info)
-
     def test_scrape_context(self):
         results = list(s_scrape.contextScrape(data3))
         r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]

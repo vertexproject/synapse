@@ -135,12 +135,12 @@ for (name, rule, opts) in scrape_types:
     blob = (regex.compile(rule, regex.IGNORECASE), opts)
     _regexes[name].append(blob)
 
-def getPtypes():
+def getForms():
     '''
-    Get a list of ptypes recognized by the scrape APIs.
+    Get a list of forms recognized by the scrape APIs.
 
     Returns:
-        list: A list of ptype values.
+        list: A list of form values.
     '''
     return sorted(_regexes.keys())
 
@@ -182,6 +182,22 @@ def _refang2_func(match: regex.Match, offsets: dict):
     return ret
 
 def refang_text2(txt: str):
+    '''
+    Remove address de-fanging in text blobs, .e.g. example[.]com to example.com
+
+    Notes:
+        Matches to keys in FANGS is case-insensitive, but replacement will
+        always be with the lowercase version of the re-fanged value.
+        For example, ``HXXP://FOO.COM`` will be returned as ``http://FOO.COM``
+
+    Args:
+        txt (str): The text to re-fang.
+
+    Returns:
+        tuple(str, dict): A tuple containing the new text, and a dictionary
+        containing offset information where the new text was altered with
+        respect to the original text.
+    '''
     # The _consumed key is a offset used to track how many chars have been
     # consumed while the cb is called. This is because the match group
     # span values are based on their original string locations, and will not
@@ -264,7 +280,7 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
 
         yield info
 
-def contextScrape(text, ptype=None, refang=True, first=False):
+def contextScrape(text, form=None, refang=True, first=False):
 
     scrape_text = text
     offsets = {}
@@ -272,7 +288,7 @@ def contextScrape(text, ptype=None, refang=True, first=False):
         scrape_text, offsets = refang_text2(text)
 
     for ruletype, blobs in _regexes.items():
-        if ptype and ptype != ruletype:
+        if form and form != ruletype:
             continue
 
         for (regx, opts) in blobs:
@@ -303,5 +319,5 @@ def scrape(text, ptype=None, refang=True, first=False):
         (str, object): Yield tuples of node ndef values.
     '''
 
-    for info in contextScrape(text, ptype=ptype, refang=refang, first=first):
+    for info in contextScrape(text, form=ptype, refang=refang, first=first):
         yield info.get('form'), info.get('valu')

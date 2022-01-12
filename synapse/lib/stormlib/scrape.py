@@ -1,5 +1,6 @@
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.scrape as s_scrape
@@ -14,8 +15,8 @@ class LibScrape(s_stormtypes.Lib):
     A Storm Library for providing ipv6 helpers.
     '''
     _storm_locals = (
-        {'name': 'ptypes', 'desc': 'Get a list of available ptype arguments.',
-         'type': {'type': 'function', '_funcname': '_methPtypes',
+        {'name': 'ptypes', 'desc': 'Get a list of available form arguments.',
+         'type': {'type': 'function', '_funcname': '_methForms',
                   'returns': {'type': 'list', 'desc': 'A list of '}}},
         {'name': 'context', 'desc': '''
             Attempt to scrape information from a blob of text, getting the context information about the values found.
@@ -33,7 +34,7 @@ class LibScrape(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str',
                        'desc': 'The text to scrape', },
-                      {'name': 'ptype', 'type': 'str', 'default': None,
+                      {'name': 'form', 'type': 'str', 'default': None,
                        'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
                       {'name': 'refang', 'type': 'boolean', 'default': True,
                        'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
@@ -56,7 +57,7 @@ class LibScrape(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str',
                        'desc': 'The text to scrape', },
-                      {'name': 'ptype', 'type': 'str', 'default': None,
+                      {'name': 'form', 'type': 'str', 'default': None,
                        'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
                       {'name': 'refang', 'type': 'boolean', 'default': True,
                        'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
@@ -71,30 +72,30 @@ class LibScrape(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'ndefs': self._methNdefs,
-            'ptypes': self._methPtypes,
+            'forms': self._methForms,
             'context': self._methContext,
         }
 
     async def __call__(self, text, ptype=None, refang=True, unique=True):
         # Remove this in 3.0.0
         await self.runt.warnonce('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().')
-        async for item in self._methNdefs(text, ptype=ptype, refang=refang, unique=unique):
+        async for item in self._methNdefs(text, form=ptype, refang=refang, unique=unique):
             yield item
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methPtypes(self):
-        return s_scrape.getPtypes()
+    async def _methForms(self):
+        return s_scrape.getForms()
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methContext(self, text, ptype=None, refang=True, unique=False):
+    async def _methContext(self, text, form=None, refang=True, unique=False):
         text = await s_stormtypes.tostr(text)
-        ptype = await s_stormtypes.tostr(ptype, noneok=True)
+        ptype = await s_stormtypes.tostr(form, noneok=True)
         refang = await s_stormtypes.tobool(refang)
         unique = await s_stormtypes.tobool(unique)
 
         async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
 
-            for item in s_scrape.contextScrape(text, ptype=ptype, refang=refang, first=False):
+            for item in s_scrape.contextScrape(text, form=form, refang=refang, first=False):
                 if unique:
                     key = (item.get('ptype'), item.get('valu'))
                     if key in items:
@@ -103,16 +104,22 @@ class LibScrape(s_stormtypes.Lib):
                 yield item
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methNdefs(self, text, ptype=None, refang=True, unique=True):
+    async def _methNdefs(self, text, form=None, refang=True, unique=True):
         text = await s_stormtypes.tostr(text)
-        ptype = await s_stormtypes.tostr(ptype, noneok=True)
+        form = await s_stormtypes.tostr(form, noneok=True)
         refang = await s_stormtypes.tobool(refang)
         unique = await s_stormtypes.tobool(unique)
 
         async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
-            for ptyp, ndef in s_scrape.scrape(text, ptype=ptype, refang=refang, first=False):
+            for ftyp, ndef in s_scrape.scrape(text, ptype=form, refang=refang, first=False):
                 if unique:
-                    if (ptype, ndef) in items:
+                    if (ftyp, ndef) in items:
                         continue
-                    await items.add((ptype, ndef))
-                yield (ptyp, ndef)
+                    await items.add((ftyp, ndef))
+                try:
+                    tobj = self.runt.snap.core.model.type(ftyp)
+                    ndef, _ = tobj.norm(ndef)
+                except s_exc.BadTypeValu:
+                    logger.exception('OH SHIT????')
+                    continue
+                yield (ftyp, ndef)
