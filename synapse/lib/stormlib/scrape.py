@@ -155,7 +155,7 @@ class LibScrape(s_stormtypes.Lib):
 
         opts = {}
         regx = regex.compile(pattern, flags=flags)
-        print(f'made {regx}')
+
         async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
             for info in s_scrape.genMatches(text, regx, opts=opts):
                 valu = info.pop('valu')
