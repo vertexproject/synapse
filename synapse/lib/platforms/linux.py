@@ -90,16 +90,7 @@ def getTotalMemory():
             # Only warn about this fallback one per process.
             logger.debug('Unable to use cgroup information to determine total memory, using /proc/meminfo')
             meminfo_total_fallback_log = True
-        with open(fp) as f:
-            lines = f.readlines()
-            try:
-                total = [line for line in lines if line.startswith('MemTotal:')][0]
-            except IndexError:  # pragma: no cover
-                logger.warning('Unable to find max memory limit from /proc/meminfo')
-                return 0
-            parts = total.split(' ')
-            # convert from kibibytes to bytes
-            return int(parts[-2]) * s_const.kibibyte
+        return getAvailableMemory()
 
     logger.warning('Unable to find max memory limit')  # pragma: no cover
     return 0  # pragma: no cover
@@ -113,10 +104,10 @@ def getAvailableMemory():
     with open(f'/proc/meminfo') as f:
         for line in f:
             if line.startswith('MemFree'):
-                free = int(line.split()[1]) * 1024
+                free = int(line.split()[1]) * s_const.kibibyte
 
             elif line.startswith('MemAvailable'):
-                return int(line.split()[1]) * 1024
+                return int(line.split()[1]) * s_const.kibibyte
 
     return free
 
@@ -140,7 +131,7 @@ def getCurrentLockedMemory():
         for line in smaps:
             if line.startswith('Locked:'):
                 kb = int(line.split()[1])
-                sum += kb * 1024
+                sum += kb * s_const.kibibyte
 
     return sum
 
