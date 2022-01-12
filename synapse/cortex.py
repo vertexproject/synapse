@@ -1032,6 +1032,11 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'Enable storm search interfaces for lookup mode.',
             'type': 'boolean',
         },
+        'storm:interface:scrape': {
+            'default': True,
+            'description': 'Enable built in scrape APIs when using the scrape interface.',
+            'type': 'boolean',
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -1126,6 +1131,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
+        self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
 

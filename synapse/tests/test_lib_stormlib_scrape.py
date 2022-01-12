@@ -9,6 +9,15 @@ class StormScrapeTest(s_test.SynTest):
         pkgdef = {
             'name': 'foobar',
             'modules': [
+                {'name': 'contextscrape',
+                 'interfaces': ['scrape'],
+                 'storm': '''
+                 function scrape(text, form, unique) {
+                    for ($sform, $svalu, $snfo) in $lib.scrape.context($text, form=$form, unique=$unique) {
+                        emit ($snfo.offset, ($sform, $svalu, $snfo) )
+                    }
+                 }
+                 '''},
                 {'name': 'foobar',
                  'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
                              'form': 'ps:name'},
@@ -46,17 +55,17 @@ class StormScrapeTest(s_test.SynTest):
             await core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
-            self.len(1, mods)
-            self.len(1, core.modsbyiface.get('scrape'))
+            self.len(2, mods)
+            self.len(2, core.modsbyiface.get('scrape'))
 
             text = '''
             NAME: billy
-            IP: 1.2.3.4
+            IP: 8.7.6.5
             domain: foo.bar[.]com
             Homepage: http[:]//1.2[.]3.4/billy.html
 
             NAME: Alice
-            IP: 1.2.3.5
+            IP: 3.0.0.9
             domain: foo.boofle.com
             Homepage: httpx://1.2[.]3.4/alice.html
             '''

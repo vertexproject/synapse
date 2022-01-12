@@ -91,6 +91,16 @@ class LibScrape(s_stormtypes.Lib):
         return s_scrape.getForms()
 
     @s_stormtypes.stormfunc(readonly=True)
+    async def _methScrapeIface(self, text, form=None, unique=False):
+        text = await s_stormtypes.tostr(text)
+        form = await s_stormtypes.tostr(form, noneok=True)
+        unique = await s_stormtypes.tobool(unique)
+
+        todo = s_common.todo('scrape', text, form=form, unique=unique)
+        async for (priority, result) in self.runt.snap.view.mergeStormIface('scrape', todo):
+            yield result
+
+    @s_stormtypes.stormfunc(readonly=True)
     async def _methContext(self, text, form=None, refang=True, unique=False):
         text = await s_stormtypes.tostr(text)
         form = await s_stormtypes.tostr(form, noneok=True)

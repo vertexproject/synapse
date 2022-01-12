@@ -172,7 +172,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception as e: # pragma: no cover
+                except Exception as e:  # pragma: no cover
                     logger.exception('mergeStormIface()')
 
             if genrs:
