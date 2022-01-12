@@ -86,6 +86,30 @@ https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}
 
 '''
 
+data3 = '''
+<https://www.foobar.com/things.html>
+
+bech32 segwit values from bip0173
+Mainnet P2WPKH: bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
+Testnet P2WPKH: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+
+(https://blog.newp.com/scrape/all/the/urls)
+
+what is this hxxp[:]//foo(.)com noise
+
+[https://www.thingspace.com/blog/giggles.html]
+
+{https://testme.org/test.php}
+
+nothing hxxp[:]//bar(.)com madness
+
+eip-55 address test vectors
+# All caps
+0x52908400098527886E0F7030069857D2E4169EE7
+0x8617E340B3D01FA5F11F306F4090FD50E238070D
+
+'''
+
 btc_addresses = '''
 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
 
@@ -553,78 +577,28 @@ class ScrapeTest(s_t_utils.SynTest):
             print(info)
 
     def test_scrape_context(self):
-        results = list(s_scrape.contextScrape(data2))
+        results = list(s_scrape.contextScrape(data3))
         r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]
         self.eq(r, {'form': 'inet:url',
                     'raw_valu': 'https://www.foobar.com/things.html',
-                    'offset': 28,
+                    'offset': 2,
                     'valu': 'https://www.foobar.com/things.html'})
 
         r = [r for r in results if r.get('valu') == 'www.thingspace.com'][0]
         self.eq(r, {'form': 'inet:fqdn',
                     'raw_valu': 'www.thingspace.com',
-                    'offset': 119,
+                    'offset': 285,
                     'valu': 'www.thingspace.com'}
                 )
-
-    def test_scrape_refang2(self):
-        print('')
-        source = 'The http[:]//www.foo.com place'
-        source = 'The hxxp[:]//www.foo(.)com place'
-        dest, offsets = s_scrape.refang_text2(source)
-        print(source)
-        print(dest)
-        # s_scrape.print_stuff(source, dest, offsets)
-        print('fin!')
-        from pprint import pprint
-
-        for info in s_scrape.contextScrape(source):
-            pprint(info)
-
-    def test_wip(self):
-        print('')
-        from pprint import pprint
-        source = 'what is this hxxp[:]//foo(.)com nothing hxxp[:]//bar(.)com madness '
-        # source = source + '\n' + eth_addresses
-        for info in s_scrape.contextScrape(source):
-            pprint(info)
-
-    def test_whole_thing(self):
-        print('')
-        from pprint import pprint
-        source = 'what is this hxxp[:]//foo(.)com nothing hxxp[:]//bar(.)com madness'
-        source = '\n'.join([source, data1, data0, data2, cardano_addresses, eth_addresses,
-                            'Im a text BLOB with 255(.)255(.)255.0 and hxxps[:]yowza(.)baz[.]edu/foofaz',
-                            'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here',
-                            btc_addresses,
-                            ])
-        for info in s_scrape.contextScrape(source):
-            pprint(info)
-
-    def test_inversion(self):
-        print('')
-        source = 'The hxxp[:]//www.foo(.)com place'
-        info = {i: 1 for i, c in enumerate(source)}
-        info[8] = 3
-        info[18] = 3
-        defanged = 'The http://www.foo.com place'
-        found_string = 'http://www.foo.com'
-        found_offest = defanged.find(found_string)
-        found_len = len(found_string)
-        print(found_len)
-        print(found_string)
-        print(found_offest)
-        print(source[found_offest:found_offest + found_len])
-        print('PINCH IT!')
-
-        eoffs = found_offest
-        for i, c in enumerate(found_string, start=found_offest):
-            v = info.get(i, None)
-            if v is None:
-                print('this is broken???')
-                break
-            print(f'{i=} {v=} {eoffs+v=} {source[found_offest: eoffs+v]}')
-            eoffs = eoffs + v
-
-        print(eoffs)
-        print(source[found_offest:eoffs])
+        r = [r for r in results if r.get('valu') == ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')][0]
+        self.eq(r, {'form': 'crypto:currency:address',
+                     'offset': 430,
+                     'raw_valu': '0x52908400098527886E0F7030069857D2E4169EE7',
+                     'valu': ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')}
+                )
+        # Assert raw_value matches...
+        for r in results:
+            erv = r.get('raw_valu')
+            offs = r.get('offset')
+            fv = data3[offs:offs + len(erv)]
+            self.eq(erv, fv)
