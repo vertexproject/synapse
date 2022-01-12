@@ -75,12 +75,16 @@ class StormScrapeTest(s_test.SynTest):
             varz = {'text': text, 'unique': True}
             results = await core.callStorm(query, opts={'vars': varz})
             self.len(3, results)
-            for r in results:
-                self.isinstance(r, dict)
-                self.isin('valu', r)
-                self.isin('form', r)
-                self.isin('offset', r)
-                self.isin('raw_valu', r)
+            ndefs = set()
+            for (form, valu, info) in results:
+                ndefs.add((form, valu))
+                self.isinstance(info, dict)
+                self.isinstance(form, str)
+                self.isinstance(valu, (str, int))
+                self.isin('offset', info)
+                self.isin('raw_valu', info)
+            self.eq(ndefs, {('inet:fqdn', 'woot.com'), ('inet:fqdn', 'foo.bar'),
+                            ('inet:ipv4', 16909060,)})
 
             varz = {'text': text, 'unique': False}
             results = await core.callStorm(query, opts={'vars': varz})

@@ -89,19 +89,29 @@ class LibScrape(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methContext(self, text, form=None, refang=True, unique=False):
         text = await s_stormtypes.tostr(text)
-        ptype = await s_stormtypes.tostr(form, noneok=True)
+        form = await s_stormtypes.tostr(form, noneok=True)
         refang = await s_stormtypes.tobool(refang)
         unique = await s_stormtypes.tobool(unique)
 
         async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
 
             for item in s_scrape.contextScrape(text, form=form, refang=refang, first=False):
+                sform = item.pop('form')
+                valu = item.pop('valu')
                 if unique:
-                    key = (item.get('ptype'), item.get('valu'))
+                    key = (form, valu)
                     if key in items:
                         continue
                     await items.add(key)
-                yield item
+
+                try:
+                    tobj = self.runt.snap.core.model.type(sform)
+                    valu, _ = tobj.norm(valu)
+                except s_exc.BadTypeValu:
+                    continue
+
+                # Yield a tuple of <form, normed valu, info>
+                yield sform, valu, item
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methNdefs(self, text, form=None, refang=True, unique=True):
@@ -120,6 +130,5 @@ class LibScrape(s_stormtypes.Lib):
                     tobj = self.runt.snap.core.model.type(ftyp)
                     ndef, _ = tobj.norm(ndef)
                 except s_exc.BadTypeValu:
-                    logger.exception('OH SHIT????')
                     continue
                 yield (ftyp, ndef)

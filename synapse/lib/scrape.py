@@ -162,22 +162,23 @@ def _refang2_func(match: regex.Match, offsets: dict):
     # do in-place transforms, or transforms which increase the target string
     # size. By re-fanging, we are compressing the old string into a new string
     # of potentially a smaller size. We record the offset where any transform
-    # which would change the resulting string size.
+    # affects the contents of the string. This means, downstream, we can avoid
+    # have to go back to the source text if there were **no** transforms done.
     # This relies on the prior assertions of refang sizing.
     group = match.group(0)
     ret = FANGS[group.lower()]
     rlen = len(ret)
     mlen = len(group)
-    if rlen != mlen:
-        span = match.span(0)
-        consumed = offsets.get('_consumed', 0)
-        offs = span[0] - consumed
-        nv = mlen - rlen
-        # For offsets, we record the nv + 1 since the now-compressed string
-        # has one character represented by mlen - rlen + 1 characters in the
-        # original string.
-        offsets[offs] = nv + 1
-        offsets['_consumed'] = consumed + nv
+
+    span = match.span(0)
+    consumed = offsets.get('_consumed', 0)
+    offs = span[0] - consumed
+    nv = mlen - rlen
+    # For offsets, we record the nv + 1 since the now-compressed string
+    # has one character represented by mlen - rlen + 1 characters in the
+    # original string.
+    offsets[offs] = nv + 1
+    offsets['_consumed'] = consumed + nv
 
     return ret
 
@@ -297,7 +298,7 @@ def contextScrape(text, form=None, refang=True, first=False):
 
                 info['form'] = ruletype
 
-                if refang:
+                if refang and offsets:
                     _rewriteRawValu(text, offsets, info)
 
                 yield info

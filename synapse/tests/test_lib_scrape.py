@@ -288,10 +288,10 @@ addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
 class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape_basic(self):
-        ptypes = s_scrape.getPtypes()
-        self.isin('inet:ipv4', ptypes)
-        self.isin('crypto:currency:address', ptypes)
-        self.notin('inet:web:message', ptypes)
+        forms = s_scrape.getForms()
+        self.isin('inet:ipv4', forms)
+        self.isin('crypto:currency:address', forms)
+        self.notin('inet:web:message', forms)
 
         ndefs = list(s_scrape.scrape('log4j vuln CVE-2021-44228 is pervasive'))
         self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
@@ -584,11 +584,22 @@ class ScrapeTest(s_t_utils.SynTest):
                     'offset': 285,
                     'valu': 'www.thingspace.com'}
                 )
+        r = [r for r in results if r.get('valu') == 'http://foo.com'][0]
+        self.eq(r, {'raw_valu': 'hxxp[:]//foo(.)com',
+                    'offset': 250,
+                    'valu': 'http://foo.com',
+                    'form': 'inet:url'})
+        r = [r for r in results if r.get('valu') == 'http://bar.com'][0]
+        self.eq(r, {'raw_valu': 'hxxp[:]//bar(.)com',
+                    'offset': 363,
+                    'valu': 'http://bar.com',
+                    'form': 'inet:url'})
+
         r = [r for r in results if r.get('valu') == ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')][0]
         self.eq(r, {'form': 'crypto:currency:address',
-                     'offset': 430,
-                     'raw_valu': '0x52908400098527886E0F7030069857D2E4169EE7',
-                     'valu': ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')}
+                    'offset': 430,
+                    'raw_valu': '0x52908400098527886E0F7030069857D2E4169EE7',
+                    'valu': ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')}
                 )
         # Assert raw_value matches...
         for r in results:
