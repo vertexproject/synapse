@@ -32,33 +32,6 @@ udots = regex.compile(r'[\u3002\uff0e\uff61]')
 # avoid thread safety issues due to uts46_remap() importing uts46data
 idna.encode('init', uts46=True)
 
-FANGS = {
-    'hxxp:': 'http:',
-    'hxxps:': 'https:',
-    'hxxp[:]': 'http:',
-    'hxxps[:]': 'https:',
-    'hxxp(:)': 'http:',
-    'hxxps(:)': 'https:',
-    '[.]': '.',
-    '[．]': '．',
-    '[。]': '。',
-    '[｡]': '｡',
-    '(.)': '.',
-    '(．)': '．',
-    '(。)': '。',
-    '(｡)': '｡',
-    '[:]': ':',
-    'fxp': 'ftp',
-    'fxps': 'ftps',
-    '[at]': '@',
-    '[@]': '@',
-}
-
-# Fangs must be matches of equal or smaller length in order for the
-# contextScrape API to function.
-for src, dst in FANGS.items():
-    assert len(dst) <= len(src)
-
 inverse_prefixs = {
     '[': ']',
     '<': '>',
@@ -143,6 +116,33 @@ def getForms():
         list: A list of form values.
     '''
     return sorted(_regexes.keys())
+
+FANGS = {
+    'hxxp:': 'http:',
+    'hxxps:': 'https:',
+    'hxxp[:]': 'http:',
+    'hxxps[:]': 'https:',
+    'hxxp(:)': 'http:',
+    'hxxps(:)': 'https:',
+    '[.]': '.',
+    '[．]': '．',
+    '[。]': '。',
+    '[｡]': '｡',
+    '(.)': '.',
+    '(．)': '．',
+    '(。)': '。',
+    '(｡)': '｡',
+    '[:]': ':',
+    'fxp': 'ftp',
+    'fxps': 'ftps',
+    '[at]': '@',
+    '[@]': '@',
+}
+
+# Fangs must be matches of equal or smaller length in order for the
+# contextScrape API to function.
+for src, dst in FANGS.items():
+    assert len(dst) <= len(src)
 
 def refang_text(txt):
     '''
