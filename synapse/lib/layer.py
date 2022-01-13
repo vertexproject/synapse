@@ -1730,7 +1730,7 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'...complete!')
 
-    async def _v5ToV6Buid(self, buid):
+    async def _v5ToV7Buid(self, buid):
 
         byts = self.layrslab.get(buid, db=self.bybuidv3)
         if byts is None:
@@ -1754,15 +1754,15 @@ class Layer(s_nexus.Pusher):
 
         self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
 
-    async def _layrV5toV6(self):
+    async def _layrV5toV7(self):
 
         logger.warning(f'Updating tagprop keys in bytagprop index: {self.dirn}')
 
         for lkey, buid in self.layrslab.scanByFull(db=self.bytagprop):
-            await self._v5ToV6Buid(buid)
+            await self._v5ToV7Buid(buid)
 
-        self.meta.set('version', 6)
-        self.layrvers = 6
+        self.meta.set('version', 7)
+        self.layrvers = 7
 
         logger.warning('...complete!')
 
@@ -1840,11 +1840,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 5:
             await self._layrV4toV5()
 
-        if self.layrvers < 6:
-            await self._layrV5toV6()
+        if self.layrvers < 7:
+            await self._layrV5toV7()
 
-        if self.layrvers != 6:
-            mesg = f'Got layer version {self.layrvers}.  Expected 6.  Accidental downgrade?'
+        if self.layrvers != 7:
+            mesg = f'Got layer version {self.layrvers}.  Expected 7.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
