@@ -1730,33 +1730,36 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'...complete!')
 
+    async def _v5ToV6Buid(self, buid):
+
+        byts = self.layrslab.get(buid, db=self.bybuidv3)
+        if byts is None:
+            return
+
+        sode = s_msgpack.un(byts)
+        tagprops = sode.get('tagprops')
+        if tagprops is None:
+            return
+
+        # do this in a partially-convered / replay safe way
+        for tpkey, tpval in list(tagprops.items()):
+            if isinstance(tpkey, tuple):
+                tagprops.pop(tpkey)
+                tag, prop = tpkey
+
+                if tagprops.get(tag) is None:
+                    tagprops[tag] = {}
+
+                tagprops[tag][prop] = tpval
+
+        self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+
     async def _layrV5toV6(self):
 
-        sode = collections.defaultdict(dict)
+        logger.warning(f'Updating tagprop keys in bytagprop index: {self.dirn}')
 
-        logger.warning(f'Updating tagprop keys in bybuid index: {self.dirn}')
-
-        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
-
-            form, tag, prop = s_msgpack.un(byts)
-            if form is None:
-                continue
-
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-                byts = self.layrslab.get(buid, db=self.bybuidv3)
-                if byts is not None:
-                    sode.clear()
-                    sode.update(s_msgpack.un(byts))
-
-                tpval = sode['tagprops'].pop((tag, prop), None)
-                if tpval is None:
-                    continue
-
-                if tag not in sode['tagprops']:
-                    sode['tagprops'][tag] = {}
-                sode['tagprops'][tag][prop] = tpval
-
-                self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+        for lkey, buid in self.layrslab.scanByFull(db=self.bytagprop):
+            await self._v5ToV6Buid(buid)
 
         self.meta.set('version', 6)
         self.layrvers = 6
