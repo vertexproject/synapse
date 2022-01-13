@@ -17,7 +17,7 @@ class LibScrape(s_stormtypes.Lib):
     A Storm Library for providing ipv6 helpers.
     '''
     _storm_locals = (
-        {'name': 'ptypes', 'desc': 'Get a list of available form arguments.',
+        {'name': 'forms', 'desc': 'Get a list of available form arguments for built in scrape APIs.',
          'type': {'type': 'function', '_funcname': '_methForms',
                   'returns': {'type': 'list', 'desc': 'A list of '}}},
         {'name': 'context', 'desc': '''
@@ -77,6 +77,7 @@ class LibScrape(s_stormtypes.Lib):
             'forms': self._methForms,
             'context': self._methContext,
             'genMatches': self._methGenMatches,
+            'scrapeIface': self._methScrapeIface,
         }
 
     async def __call__(self, text, ptype=None, refang=True, unique=True):
