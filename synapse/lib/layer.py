@@ -1794,7 +1794,7 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
-            self.meta.set('version', 6)
+            self.meta.set('version', 7)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
