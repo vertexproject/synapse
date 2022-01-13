@@ -1368,30 +1368,66 @@ class Layer(s_nexus.Pusher):
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
-    async def verify(self, buids=True, tags=True, props=True):
-        if buids:
-            async for error in self.verifyAllBuids():
+    async def verify(self, config=None):
+
+        if config is None:
+            config = {}
+
+        defconf = None
+        defscan = config.get('scanall', True)
+
+        if defscan:
+            defconf = {}
+
+        scans = config.get('scans', {})
+
+        sodescan = scans.get('sodes', defconf)
+        if sodescan is not None:
+            async for error in self.verifyAllBuids(sodescan):
                 yield error
 
-        if tags:
-            async for error in self.verifyAllTags():
+        tagsscan = scans.get('tags', defconf)
+        if tagsscan is not None:
+            async for error in self.verifyAllTags(tagsscan):
                 yield error
 
-        if props:
-            async for error in self.verifyAllProps():
+        propscan = scans.get('props', defconf)
+        if propscan is not None:
+            async for error in self.verifyAllProps(propscan):
                 yield error
 
-    async def verifyAllBuids(self):
+    async def verifyAllBuids(self, scanconf=None):
+        if scanconf is None:
+            scanconf = {}
+
         async for buid, sode in self.getStorNodes():
             async for error in self.verifyByBuid(buid, sode):
                 yield error
 
-    async def verifyAllTags(self):
+    async def verifyAllTags(self, scanconf=None):
+
+        if scanconf is None:
+            scanconf = {}
+
+        globs = None
+
+        includes = scanconf.get('includes', ())
+        if includes:
+            globs = s_cache.TagGlobs()
+            for incname in includes:
+                globs.add(incname, True)
+
         for name in self.tagabrv.names():
+
+            if globs is not None and not globs.get(name):
+                continue
+
             async for error in self.verifyByTag(name):
                 yield error
 
-    async def verifyAllProps(self):
+    async def verifyAllProps(self, scanconf=None):
+        if scanconf is None:
+            scanconf = {}
         for form, prop in self.getFormProps():
             async for error in self.verifyByProp(form, prop):
                 yield error
@@ -1426,6 +1462,10 @@ class Layer(s_nexus.Pusher):
         oldkeys = []
 
         def verifyIndxKeys(propvalu, stortype, indxkeys):
+
+            # TODO: we dont support verifying array property indexes just yet...
+            if stortype & STOR_FLAG_ARRAY:
+                return
 
             # NOTE: This *will* mutate indxkeys list
             try:
@@ -1505,6 +1545,11 @@ class Layer(s_nexus.Pusher):
         storprops = sode.get('props')
         if storprops:
             for propname, (storvalu, stortype) in storprops.items():
+
+                # TODO: we dont support verifying array property indexes just yet...
+                if stortype & STOR_FLAG_ARRAY:
+                    continue
+
                 try:
                     async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
                         yield error

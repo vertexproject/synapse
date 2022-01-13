@@ -5676,10 +5676,13 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
-    async def verify(self):
+    async def verify(self, config=None):
+
+        config = await toprim(config)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        async for mesg in layr.verify():
+        async for mesg in layr.verify(config=config):
             yield mesg
 
 @registry.registerLib

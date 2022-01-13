@@ -35,7 +35,10 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
             buid = nodes[0].buid
 
+            await core.nodes('[ ou:org=* :names=(hehe, haha) ]')
+
             errors = [e async for e in core.getLayer().verify()]
+            print(repr(errors))
             self.len(0, errors)
 
             core.getLayer()._testDelTagIndx(buid, 'inet:ipv4', 'foo')
