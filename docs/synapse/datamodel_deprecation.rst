@@ -130,6 +130,6 @@ Properties
 
 - `it:host`
     - `:manu`
-        - This property has been superseded by the `it:prod:hardware:make` property, which is typed as an `ou:name`.
+        - This property has been superseded by the `it:prod:hardware:make` property, which is typed as `ou:name`.
     - `:model`
-        - This property has been superseded by the `it:prod:hardware:model` property, which is typed as a str.
+        - This property has been superseded by the `it:prod:hardware:model` property, which is typed as string.
