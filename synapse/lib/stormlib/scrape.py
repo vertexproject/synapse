@@ -102,31 +102,14 @@ class LibScrape(s_stormtypes.Lib):
             yield result
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methContext(self, text, form=None, refang=True, unique=False):
+    async def _methContext(self, text, form=None, unique=False):
         text = await s_stormtypes.tostr(text)
         form = await s_stormtypes.tostr(form, noneok=True)
-        refang = await s_stormtypes.tobool(refang)
         unique = await s_stormtypes.tobool(unique)
 
-        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
-
-            for item in s_scrape.contextScrape(text, form=form, refang=refang, first=False):
-                sform = item.pop('form')
-                valu = item.pop('valu')
-                if unique:
-                    key = (form, valu)
-                    if key in items:
-                        continue
-                    await items.add(key)
-
-                try:
-                    tobj = self.runt.snap.core.model.type(sform)
-                    valu, _ = tobj.norm(valu)
-                except s_exc.BadTypeValu:
-                    continue
-
-                # Yield a tuple of <form, normed valu, info>
-                yield sform, valu, item
+        genr = self.runt.snap.view.scrapeIface(text, form=form, unique=unique)
+        async for (form, valu, info) in genr:
+            yield (form, valu, info)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methNdefs(self, text, form=None, refang=True, unique=True):

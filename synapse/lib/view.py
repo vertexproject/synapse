@@ -12,6 +12,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
+import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -894,3 +895,55 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
+
+    async def scrapeIface(self, text, form=None, unique=False):
+        async with await s_spooled.Set.anit() as matches:  # type: s_spooled.Set
+            # The synapse.lib.scrape APIs handle form arguments for us.
+            for item in s_scrape.contextScrape(text, form=form, refang=True, first=False):
+                sform = item.pop('form')
+                valu = item.pop('valu')
+                if unique:
+                    key = (form, valu)
+                    if key in matches:
+                        await asyncio.sleep(0)
+                        continue
+                    await matches.add(key)
+
+                try:
+                    tobj = self.core.model.type(sform)
+                    valu, _ = tobj.norm(valu)
+                except s_exc.BadTypeValu:
+                    await asyncio.sleep(0)
+                    continue
+
+                # Yield a tuple of <form, normed valu, info>
+                yield sform, valu, item
+
+            todo = s_common.todo('scrape', text, form=form)
+            async for results in self.callStormIface('scrape', todo):
+                logger.info(f'{results=}')
+                for (valu, item) in results:
+                    sform = item.pop('form')
+
+                    # Can we rely on third party ifaces to provide filter results by form?
+                    if form and sform != form:
+                        await asyncio.sleep(0)
+                        continue
+
+                    if unique:
+                        key = (form, valu)
+                        if key in matches:
+                            await asyncio.sleep(0)
+                            continue
+                        await matches.add(key)
+
+                    try:
+                        tobj = self.core.model.type(sform)
+                        valu, _ = tobj.norm(valu)
+                    except s_exc.BadTypeValu:
+                        await asyncio.sleep(0)
+                        continue
+
+                    # Yield a tuple of <form, normed valu, info>
+                    yield sform, valu, item
+                    await asyncio.sleep(0)

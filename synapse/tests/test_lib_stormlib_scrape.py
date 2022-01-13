@@ -9,35 +9,24 @@ class StormScrapeTest(s_test.SynTest):
         pkgdef = {
             'name': 'foobar',
             'modules': [
-                {'name': 'contextscrape',
-                 'interfaces': ['scrape'],
-                 'storm': '''
-                 function scrape(text, form, unique) {
-                    for ($sform, $svalu, $snfo) in $lib.scrape.context($text, form=$form, unique=$unique) {
-                        emit ($snfo.offset, ($sform, $svalu, $snfo) )
-                    }
-                 }
-                 '''},
-                {'name': 'foobar',
-                 'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
+                 {'name': 'foobar',
+                  'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
                              'form': 'ps:name'},
-                 'interfaces': ['scrape'],
-                 'storm': '''
+                  'interfaces': ['scrape'],
+                  'storm': '''
                     $modRe = $modconf.nameRegex
                     $modForm = $modconf.form
                     /*
                     Example of a generic storm module implementing a scrape interface using
                     a common helper function that produces offset and raw_value information.
                     */
-                    function scrape(text, form, unique) {
-                        if ($form = $lib.null or $form = $modForm) {
-                            for ($valu, $info) in $lib.scrape.genMatches($text, $modRe, unique=$unique) {
-                                ($ok, $valu) = $lib.trycast($modForm, $valu)
-                                if $ok {
-                                    emit ($info.offset, ($modForm, $valu, $info))
-                                }
-                            }
+                    function scrape(text, form) {
+                        $ret = $lib.list()
+                        for $info in $lib.scrape.genMatches($text, $modRe) {
+                            $info.form = $modForm
+                            $ret.append($info)
                         }
+                        return ( $ret )
                     }
                     '''
                  },
@@ -55,8 +44,8 @@ class StormScrapeTest(s_test.SynTest):
             await core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
-            self.len(2, mods)
-            self.len(2, core.modsbyiface.get('scrape'))
+            self.len(1, mods)
+            self.len(1, core.modsbyiface.get('scrape'))
 
             text = '''
             NAME: billy
@@ -69,11 +58,12 @@ class StormScrapeTest(s_test.SynTest):
             domain: foo.boofle.com
             Homepage: httpx://1.2[.]3.4/alice.html
             '''
-            todo = s_common.todo('scrape', text, form=None, unique=False)
-            vals = [r async for r in core.view.mergeStormIface('scrape', todo)]
-            print('whoo')
-            for v in vals:
-                print(v)
+            q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
+                $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
+            }'''
+            msgs = await core.stormlist(q, opts={'vars': {'text': text}})
+            for m in msgs:
+                print(m)
             print('fin')
 
     async def test_storm_lib_scrape(self):
