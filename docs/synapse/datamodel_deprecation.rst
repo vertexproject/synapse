@@ -127,3 +127,9 @@ Properties
 - `ou:campaign`
     - `:type`
         - Please use the `:camptype` `taxonomy` property.
+
+- `it:host`
+    - `:manu`
+        - This property has been superseded by the `it:prod:hardware:make` property, which is typed as an `ou:name`.
+    - `:model`
+        - This property has been superseded by the `it:prod:hardware:model` property, which is typed as a str.
