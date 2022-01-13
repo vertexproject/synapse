@@ -760,7 +760,6 @@ workflows:
             branches:
               only:
                 - master
-                - visi-bug-tagprops
 
       - gh-release/dorelease:
           requires:
