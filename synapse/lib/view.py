@@ -919,6 +919,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 # Yield a tuple of <form, normed valu, info>
                 yield sform, valu, item
 
+            # Return early if the scrape interface is disabled
+            if not self.core.stormiface_scrape:
+                return
+
             # Scrape interface:
             #
             # The expected scrape interface takes a text and optional form

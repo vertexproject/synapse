@@ -34,6 +34,21 @@ class StormScrapeTest(s_test.SynTest):
             ],
         }
 
+        text = '''
+        NAME: billy
+        IP: 8.7.6.5
+        domain: foo.bar[.]com
+        Homepage: http[:]//1.2[.]3.4/billy.html
+
+        NAME: Alice
+        IP: 3.0.0.9
+        domain: foo.boofle.com
+        Homepage: hxxps://1.2[.]3.4/alice.html
+        '''
+        q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
+                        $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
+                    }'''
+
         conf = {'provenance:en': False}
         async with self.getTestCore(conf=conf) as core:
             self.none(core.modsbyiface.get('scrape'))
@@ -48,24 +63,24 @@ class StormScrapeTest(s_test.SynTest):
             self.len(1, mods)
             self.len(1, core.modsbyiface.get('scrape'))
 
-            text = '''
-            NAME: billy
-            IP: 8.7.6.5
-            domain: foo.bar[.]com
-            Homepage: http[:]//1.2[.]3.4/billy.html
-
-            NAME: Alice
-            IP: 3.0.0.9
-            domain: foo.boofle.com
-            Homepage: httpx://1.2[.]3.4/alice.html
-            '''
-            q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
-                $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
-            }'''
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-            for m in msgs:
-                print(m)
-            print('fin')
+            self.stormIsInPrint('ps:name=alice', msgs)
+            self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
+            self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
+
+        conf = {'provenance:en': False, 'storm:interface:scrape': False, }
+        async with self.getTestCore(conf=conf) as core:
+
+            await core.loadStormPkg(pkgdef)
+
+            mods = await core.getStormIfaces('scrape')
+            self.len(1, mods)
+            self.len(1, core.modsbyiface.get('scrape'))
+
+            msgs = await core.stormlist(q, opts={'vars': {'text': text}})
+            self.stormNotInPrint('ps:name=alice', msgs)
+            self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
+            self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
 
     async def test_storm_lib_scrape(self):
 
