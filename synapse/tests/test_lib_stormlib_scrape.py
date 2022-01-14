@@ -7,9 +7,9 @@ class StormScrapeTest(s_test.SynTest):
 
     async def test_storm_lib_scrape_iface(self):
         pkgdef = {
-            'name': 'foobar',
+            'name': 'scrapedemo',
             'modules': [
-                 {'name': 'foobar',
+                 {'name': 'scrapename',
                   'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
                              'form': 'ps:name'},
                   'interfaces': ['scrape'],
@@ -19,12 +19,13 @@ class StormScrapeTest(s_test.SynTest):
                     /*
                     Example of a generic storm module implementing a scrape interface using
                     a common helper function that produces offset and raw_value information.
+
+                    The helper does require a named match for valu this is extracted.
                     */
                     function scrape(text, form) {
                         $ret = $lib.list()
-                        for $info in $lib.scrape.genMatches($text, $modRe) {
-                            $info.form = $modForm
-                            $ret.append($info)
+                        for ($valu, $info) in $lib.scrape.genMatches($text, $modRe) {
+                            $ret.append(($modForm, $valu, $info))
                         }
                         return ( $ret )
                     }

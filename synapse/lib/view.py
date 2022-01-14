@@ -919,11 +919,29 @@ class View(s_nexus.Pusher):  # type: ignore
                 # Yield a tuple of <form, normed valu, info>
                 yield sform, valu, item
 
+            # Scrape interface:
+            #
+            # The expected scrape interface takes a text and optional form
+            # argument.
+            #
+            # The expected interface implementation returns a list/tuple of
+            # (form, valu, info) results. Info is expected to contain the
+            # match offset and raw valu.
+            #
+            # We hand in form as a hint for implementers, but we do not rely
+            # on them complying and only giving us that form as a result, so
+            # we drop any form results on the floor.
+            #
+            # Scrape implementers are not responsible for handling uniquing
+            # of their scrape results.
+            #
+            # Scrape implementers are responsible for ensuring that their
+            # resulting raw_valu and offsets are found in the text we sent
+            # to them.
             todo = s_common.todo('scrape', text, form=form)
             async for results in self.callStormIface('scrape', todo):
                 logger.info(f'{results=}')
-                for (valu, item) in results:
-                    sform = item.pop('form')
+                for (sform, valu, info) in results:
 
                     # Can we rely on third party ifaces to provide filter results by form?
                     if form and sform != form:
@@ -945,5 +963,5 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     # Yield a tuple of <form, normed valu, info>
-                    yield sform, valu, item
+                    yield sform, valu, info
                     await asyncio.sleep(0)
