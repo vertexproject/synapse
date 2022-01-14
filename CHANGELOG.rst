@@ -27,6 +27,7 @@ Bugfixes
 - Fix an issue with the Tagprop migration from ``v2.42.0`` where a missing
   index could have resulted in Layer storage nodes not being updated.
   (`#2522 <https://github.com/vertexproject/synapse/pull/2522>`_)
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
 - Fix an issue with ``synapse.lib.platforms.linux.getTotalMemory()`` when
   using a process segregated with the Linux cgroups2 API.
   (`#2517 <https://github.com/vertexproject/synapse/pull/2517>`_)
