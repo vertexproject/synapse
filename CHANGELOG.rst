@@ -10,7 +10,7 @@ v2.78.0 - 2022-01-14
 
 Automatic Migrations
 --------------------
-- Migrate Cortex nodes which may have been missed in an earlier migration due
+- Migrate Cortex nodes which may have been skipped in an earlier migration due
   to missing tagprop indexes. See :ref:`devops-general-migrations` for more
   information about automatic migrations.
 
