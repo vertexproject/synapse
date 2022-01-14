@@ -52,6 +52,9 @@ this would involve running the following shell commands::
     cp -R /backups/cortex00_20200519 /data/cortex00
     python -m synapse.servers.cortex /path/to/cortex
 
+
+.. _devops-general-https:
+
 Cell HTTPS Server
 -----------------
 
@@ -82,6 +85,8 @@ webserver will use:
         environment:
           - SYN_LOG_LEVEL=DEBUG
           - SYN_CORTEX_AUTH_PASSWD=root
+
+.. _devops-general-telepath-tls:
 
 Telepath TLS/SSL Deployments
 ----------------------------
@@ -160,6 +165,8 @@ Once in place, the user will be able to connect to the Cortex using certificate 
 
     python -m synapse.tools.cmdr ssl://user@cortex.vertex.link/
 
+.. _devops-general-performance:
+
 Tips for Better Performance
 ---------------------------
 
@@ -206,3 +213,17 @@ writing to the /proc/sys filesystem.
 
     This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM, and
     relatively slow storage.
+
+
+.. _devops-general-migrations:
+
+Data Migrations
+---------------
+
+In the event that a Synapse release contains a data migration for a part of the Synapse ecosystem, the Changelog will
+indicate what component is being migrated and why. This will be made under the ``Automated Migrations`` header, at the
+top of the changelog.
+
+Automatic data migrations may cause additional startup times on the first boot of the version. Deployments with startup
+or liveliness probes should have those disabled while this upgrade is performed to prevent accidental termination of
+the relevant processes. Please ensure you have a tested backup available before applying these updates.

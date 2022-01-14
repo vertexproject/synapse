@@ -26,7 +26,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 6)
+            self.eq(layr.layrvers, 7)
 
     async def test_layer_verify(self):
 
@@ -1315,6 +1315,40 @@ class LayerTest(s_t_utils.SynTest):
 
             self.eq(10004, await core.count('.created'))
             self.len(2, await core.nodes('syn:tag~=foo'))
+
+            self.checkLayrvers(core)
+
+    async def test_layer_v7(self):
+        async with self.getRegrCore('2.78.0-tagprop-missing-indx') as core:
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            # Our malformed node was migrated properly.
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].get('asn'), 20)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'words')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.3')
+            # Our partially malformed node was migrated properly.
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020303))
+            self.eq(nodes[0].get('asn'), 20)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'bar')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.2')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020302))
+            self.eq(nodes[0].get('asn'), 10)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'foo')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.1')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020301))
+            self.eq(nodes[0].get('asn'), 10)
+            self.eq(nodes[0].getTag('bar'), (None, None))
+            self.none(nodes[0].getTagProp('foo', 'comment'))
 
             self.checkLayrvers(core)
 
