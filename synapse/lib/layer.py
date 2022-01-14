@@ -1730,36 +1730,42 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'...complete!')
 
-    async def _layrV5toV6(self):
+    async def _v5ToV7Buid(self, buid):
 
-        sode = collections.defaultdict(dict)
+        byts = self.layrslab.get(buid, db=self.bybuidv3)
+        if byts is None:
+            return
 
-        logger.warning(f'Updating tagprop keys in bybuid index: {self.dirn}')
+        sode = s_msgpack.un(byts)
+        tagprops = sode.get('tagprops')
+        if tagprops is None:
+            return
 
-        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
+        edited_sode = False
+        # do this in a partially-covered / replay safe way
+        for tpkey, tpval in list(tagprops.items()):
+            if isinstance(tpkey, tuple):
+                tagprops.pop(tpkey)
+                tag, prop = tpkey
 
-            form, tag, prop = s_msgpack.un(byts)
-            if form is None:
-                continue
+                if tagprops.get(tag) is None:
+                    tagprops[tag] = {}
 
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-                byts = self.layrslab.get(buid, db=self.bybuidv3)
-                if byts is not None:
-                    sode.clear()
-                    sode.update(s_msgpack.un(byts))
+                tagprops[tag][prop] = tpval
+                edited_sode = True
 
-                tpval = sode['tagprops'].pop((tag, prop), None)
-                if tpval is None:
-                    continue
+        if edited_sode:
+            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
 
-                if tag not in sode['tagprops']:
-                    sode['tagprops'][tag] = {}
-                sode['tagprops'][tag][prop] = tpval
+    async def _layrV5toV7(self):
 
-                self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+        logger.warning(f'Updating tagprop keys in bytagprop index: {self.dirn}')
 
-        self.meta.set('version', 6)
-        self.layrvers = 6
+        for lkey, buid in self.layrslab.scanByFull(db=self.bytagprop):
+            await self._v5ToV7Buid(buid)
+
+        self.meta.set('version', 7)
+        self.layrvers = 7
 
         logger.warning('...complete!')
 
@@ -1791,7 +1797,7 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
-            self.meta.set('version', 6)
+            self.meta.set('version', 7)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
@@ -1837,11 +1843,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 5:
             await self._layrV4toV5()
 
-        if self.layrvers < 6:
-            await self._layrV5toV6()
+        if self.layrvers < 7:
+            await self._layrV5toV7()
 
-        if self.layrvers != 6:
-            mesg = f'Got layer version {self.layrvers}.  Expected 6.  Accidental downgrade?'
+        if self.layrvers != 7:
+            mesg = f'Got layer version {self.layrvers}.  Expected 7.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
