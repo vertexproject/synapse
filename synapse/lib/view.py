@@ -958,7 +958,11 @@ class View(s_nexus.Pusher):  # type: ignore
                     try:
                         tobj = self.core.model.type(sform)
                         valu, _ = tobj.norm(valu)
-                    except s_exc.BadTypeValu:
+                    except AttributeError:
+                        logger.exception(f'Scrape interface yielded unknown form {sform}')
+                        await asyncio.sleep(0)
+                        continue
+                    except (s_exc.BadTypeValu):
                         await asyncio.sleep(0)
                         continue
 

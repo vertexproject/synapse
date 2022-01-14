@@ -79,7 +79,8 @@ class StormScrapeTest(s_test.SynTest):
             varz = {'text': text, 'scrape_form': None, 'refang': True}
             msgs = await core.stormlist(query, opts={'vars': varz})
             self.stormIsInWarn('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().', msgs)
-            self.stormIsInPrint('inet:ipv4=16909060', msgs)
+            # self.stormIsInPrint('inet:ipv4=16909060', msgs)
+            self.stormIsInPrint('inet:ipv4=1.2.3.4', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
             self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
