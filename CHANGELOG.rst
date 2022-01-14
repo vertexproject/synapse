@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.78.0 - 2022-01-13
+v2.78.0 - 2022-01-14
 ====================
 
 This release contains an automatic data migration that may cause additional
