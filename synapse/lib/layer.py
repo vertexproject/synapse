@@ -1741,6 +1741,7 @@ class Layer(s_nexus.Pusher):
         if tagprops is None:
             return
 
+        edited_sode = False
         # do this in a partially-convered / replay safe way
         for tpkey, tpval in list(tagprops.items()):
             if isinstance(tpkey, tuple):
@@ -1751,8 +1752,10 @@ class Layer(s_nexus.Pusher):
                     tagprops[tag] = {}
 
                 tagprops[tag][prop] = tpval
+                edited_sode = True
 
-        self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+        if edited_sode:
+            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
 
     async def _layrV5toV7(self):
 
