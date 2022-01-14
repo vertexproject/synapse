@@ -1318,6 +1318,32 @@ class LayerTest(s_t_utils.SynTest):
 
             self.checkLayrvers(core)
 
+    async def test_layer_v7(self):
+        async with self.getRegrCore('2.78.0-tagprop-missing-indx') as core:
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            # Our malformed node was migrated properly.
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].get('asn'), 20)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'words')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.2')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020302))
+            self.eq(nodes[0].get('asn'), 10)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'foo')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.1')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020301))
+            self.eq(nodes[0].get('asn'), 10)
+            self.eq(nodes[0].getTag('bar'), (None, None))
+            self.none(nodes[0].getTagProp('foo', 'comment'))
+
+            self.checkLayrvers(core)
+
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)
