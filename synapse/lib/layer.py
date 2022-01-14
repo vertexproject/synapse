@@ -1742,7 +1742,7 @@ class Layer(s_nexus.Pusher):
             return
 
         edited_sode = False
-        # do this in a partially-convered / replay safe way
+        # do this in a partially-covered / replay safe way
         for tpkey, tpval in list(tagprops.items()):
             if isinstance(tpkey, tuple):
                 tagprops.pop(tpkey)
