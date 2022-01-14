@@ -940,7 +940,6 @@ class View(s_nexus.Pusher):  # type: ignore
             # to them.
             todo = s_common.todo('scrape', text, form=form)
             async for results in self.callStormIface('scrape', todo):
-                logger.info(f'{results=}')
                 for (sform, valu, info) in results:
 
                     # Can we rely on third party ifaces to provide filter results by form?
