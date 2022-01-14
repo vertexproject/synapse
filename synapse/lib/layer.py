@@ -1740,19 +1740,19 @@ class Layer(s_nexus.Pusher):
         tagprops = sode.get('tagprops')
         if tagprops is None:
             return
-
         edited_sode = False
         # do this in a partially-covered / replay safe way
         for tpkey, tpval in list(tagprops.items()):
             if isinstance(tpkey, tuple):
                 tagprops.pop(tpkey)
+                edited_sode = True
                 tag, prop = tpkey
 
                 if tagprops.get(tag) is None:
                     tagprops[tag] = {}
-
+                if prop in tagprops[tag]:
+                    continue
                 tagprops[tag][prop] = tpval
-                edited_sode = True
 
         if edited_sode:
             self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
