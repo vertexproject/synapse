@@ -32,7 +32,8 @@ Bugfixes
 
 Improved Documentation
 ----------------------
-- Add devops instructiosn related to automatic data migrations.
+- Add devops instructions related to automatic data migrations for Synapse
+  components.
   (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
 - Update the model deprecation documentation for the ``it:host:model`` and
   ``it:host:make`` properties.
