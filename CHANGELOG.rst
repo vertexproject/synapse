@@ -10,9 +10,9 @@ v2.78.0 - 2022-01-14
 
 Automatic Migrations
 --------------------
-- Fix any storage nodes stored in Cortex Layers that have tag properties
-  with malformed data structures. See :ref:`devops-general-migrations` for
-  more information about automatic migrations.
+- Migrate Cortex nodes which may have been missed in an earlier migration due
+  to missing tagprop indexes. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
 
 Features and Enhancements
 -------------------------
