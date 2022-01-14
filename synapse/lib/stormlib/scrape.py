@@ -90,7 +90,7 @@ class LibScrape(s_stormtypes.Lib):
                         return ( $ret )
                     }
         ''',
-         'type': {'type': 'function', '_functname': '_methGenMatches',
+         'type': {'type': 'function', '_funcname': '_methGenMatches',
                   'args': (
                       {'name': 'text', 'type': 'str',
                        'desc': 'The text to scrape', },
