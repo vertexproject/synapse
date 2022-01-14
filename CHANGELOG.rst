@@ -5,6 +5,39 @@ Synapse Changelog
 *****************
 
 
+v2.78.0 - 2022-01-13
+====================
+
+This release contains an automatic data migration that may cause additional
+startup time on the first boot. Review any storage nodes stored in Layers
+that have tag properties do not have any malformed data structures.
+Deployments with startup or liveliness probes
+should have those disabled while this upgrade is performed to prevent
+accidental termination of the Cortex process. Please ensure you have a tested
+backup available before applying this update.
+
+Features and Enhancements
+-------------------------
+- Expand Synapse requirements to include updated versions of the ``base58``,
+  ``cbor2``, ``lmdb``, ``pycryptodome``, ``PyYAML``, ``xxhash``.
+  (`#2520 <https://github.com/vertexproject/synapse/pull/2520>`_)
+
+Bugfixes
+--------
+- Fix an issue with the Tagprop migration from ``v2.42.0`` where a missing
+  index could have left layer storage nodes to not be properly updated.
+  (`#2522 <https://github.com/vertexproject/synapse/pull/2522>`_)
+- Fix an issue with ``synapse.lib.platforms.linux.getTotalMemory()`` when
+  using a process segregated with the Linux cgroups2 API.
+  (`#2517 <https://github.com/vertexproject/synapse/pull/2517>`_)
+
+Improved Documentation
+----------------------
+- Update the model deprecation documentation for the ``it:host:model`` and
+  ``it:host:make`` properties.
+  (`#2521 <https://github.com/vertexproject/synapse/pull/2521>`_)
+
+
 v2.77.0 - 2022-01-07
 ====================
 
