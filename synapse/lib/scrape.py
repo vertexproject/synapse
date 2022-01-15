@@ -250,8 +250,25 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
 
     Args:
         text (str): The text to generate matches for.
-        regx (regex.Regex): A compiled regex object. The regex must contained a named match for ``valu``.
-        opts (dict): XXX
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for ``valu``.
+        opts (dict): An options dictionary.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            raw_valu
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value - this may be altered by callbacks.
+
+        The options dictionary can contain a ``callback`` key. This function is expected to take a single argument,
+        a regex.Match object, and return a tuple of the new valu and info dictionary. The new valu is used as the
+        ``valu`` key in the returned dictionary, and any other information in the info dictionary is pushed into
+        the return dictionary as well.
 
     Yields:
         dict: A dictionary of match results.
@@ -282,7 +299,33 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
         yield info
 
 def contextScrape(text, form=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and yield info dictionaries.
 
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            raw_valu
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value.
+
+            form
+                The corresponding form for the valu.
+
+    Returns:
+        (dict): Yield info dicts of results.
+    '''
     scrape_text = text
     offsets = {}
     if refang:
