@@ -5787,9 +5787,15 @@ class View(Prim):
             Set a view configuration option.
 
             Current runtime updatable view options include:
-                name (str): A terse name for the view.
-                desc (str): A description of the view.
-                parent (str): The parent view.
+
+                name (str)
+                    A terse name for the View.
+
+                desc (str)
+                    A description of the View.
+
+                parent (str)
+                    The parent View iden.
 
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
