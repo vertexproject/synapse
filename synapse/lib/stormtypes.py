@@ -5434,11 +5434,23 @@ class Layer(Prim):
                     }
 
             Notes:
-                The message format yielded by this API is considered BETA and may be subject to change!
+                The config format argument and message format yielded by this API is considered BETA
+                and may be subject to change! The formats will be documented when the convention stabilizes.
             ''',
          'type': {'type': 'function', '_funcname': 'verify',
+                  'args': (
+                      {'name': 'config', 'type': 'dict', 'desc': 'The scan config to use (default all enabled).', 'default': None},
+                  ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
+        {'name': 'getStorNode', 'desc': '''
+            Retrieve the raw storage node for the specified node id.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5483,6 +5495,7 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
+            'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
             'getMirrorStatus': self.getMirrorStatus,
         }
@@ -5620,6 +5633,13 @@ class Layer(Prim):
             count += 1
             if size is not None and size == count:
                 break
+
+    async def getStorNode(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        self.runt.confirm(('layer', 'read'), gateiden=layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getStorNode(s_common.uhex(nodeid))
 
     async def getStorNodes(self):
         layriden = self.valu.get('iden')

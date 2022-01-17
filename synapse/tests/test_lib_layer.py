@@ -38,7 +38,6 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('[ ou:org=* :names=(hehe, haha) ]')
 
             errors = [e async for e in core.getLayer().verify()]
-            print(repr(errors))
             self.len(0, errors)
 
             core.getLayer()._testDelTagIndx(buid, 'inet:ipv4', 'foo')
@@ -70,6 +69,16 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
             core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+
+            config = {'scanall': False, 'scans': {'tagindex': {'include': ('foo',)}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            config = {'scanall': False, 'scans': {'tagindex': {'include': ('baz',)}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(0, errors)
+
             errors = [e async for e in core.getLayer().verifyAllTags()]
             self.len(1, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
@@ -104,8 +113,8 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
-            self.eq(errors[0][0], 'NoTagForTagIndex')
-            self.eq(errors[1][0], 'NoPropForPropIndex')
+            self.eq(errors[0][0], 'NoNodeForTagIndex')
+            self.eq(errors[1][0], 'NoNodeForPropIndex')
 
         # Smash in a bad stortype into a sode.
         async with self.getTestCore() as core:
@@ -123,6 +132,12 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoStorTypeForProp')
             self.eq(errors[1][0], 'NoStorTypeForProp')
             self.eq(errors[2][0], 'SpurPropKeyForIndx')
+
+    async def test_layer_getstornode(self):
+        async with self.getTestCore() as core:
+            sode = await core.callStorm('[ inet:fqdn=vertex.link ] return($lib.layer.get().getStorNode($node.iden()))')
+            self.eq('inet:fqdn', sode.get('form'))
+            self.eq(('vertex.link', 17), sode.get('valu'))
 
     async def test_layer_abrv(self):
 
