@@ -574,23 +574,23 @@ class ScrapeTest(s_t_utils.SynTest):
         results = list(s_scrape.contextScrape(data3))
         r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]
         self.eq(r, {'form': 'inet:url',
-                    'raw_valu': 'https://www.foobar.com/things.html',
+                    'match': 'https://www.foobar.com/things.html',
                     'offset': 2,
                     'valu': 'https://www.foobar.com/things.html'})
 
         r = [r for r in results if r.get('valu') == 'www.thingspace.com'][0]
         self.eq(r, {'form': 'inet:fqdn',
-                    'raw_valu': 'www.thingspace.com',
+                    'match': 'www.thingspace.com',
                     'offset': 285,
                     'valu': 'www.thingspace.com'}
                 )
         r = [r for r in results if r.get('valu') == 'http://foo.com'][0]
-        self.eq(r, {'raw_valu': 'hxxp[:]//foo(.)com',
+        self.eq(r, {'match': 'hxxp[:]//foo(.)com',
                     'offset': 250,
                     'valu': 'http://foo.com',
                     'form': 'inet:url'})
         r = [r for r in results if r.get('valu') == 'http://bar.com'][0]
-        self.eq(r, {'raw_valu': 'hxxp[:]//bar(.)com',
+        self.eq(r, {'match': 'hxxp[:]//bar(.)com',
                     'offset': 363,
                     'valu': 'http://bar.com',
                     'form': 'inet:url'})
@@ -598,12 +598,12 @@ class ScrapeTest(s_t_utils.SynTest):
         r = [r for r in results if r.get('valu') == ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')][0]
         self.eq(r, {'form': 'crypto:currency:address',
                     'offset': 430,
-                    'raw_valu': '0x52908400098527886E0F7030069857D2E4169EE7',
+                    'match': '0x52908400098527886E0F7030069857D2E4169EE7',
                     'valu': ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')}
                 )
         # Assert raw_value matches...
         for r in results:
-            erv = r.get('raw_valu')
+            erv = r.get('match')
             offs = r.get('offset')
             fv = data3[offs:offs + len(erv)]
             self.eq(erv, fv)

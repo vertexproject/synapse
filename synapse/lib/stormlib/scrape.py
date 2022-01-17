@@ -39,10 +39,6 @@ class LibScrape(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str',
                        'desc': 'The text to scrape', },
-                      {'name': 'form', 'type': 'str', 'default': None,
-                       'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
-                      {'name': 'unique', 'type': 'boolean', 'default': False,
-                       'desc': 'Only yield unique items from the text.', },
                   ),
                   'returns': {'name': 'yields', 'type': 'dict',
                               'desc': 'A dictionary of scraped values, rule types, and offsets scraped from the text.',
@@ -60,10 +56,6 @@ class LibScrape(s_stormtypes.Lib):
                   'args': (
                       {'name': 'text', 'type': 'str',
                        'desc': 'The text to scrape', },
-                      {'name': 'form', 'type': 'str', 'default': None,
-                       'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
-                      {'name': 'unique', 'type': 'boolean', 'default': True,
-                       'desc': 'Only yield unique items from the text.', },
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A list of (form, value) tuples scraped from the text.', }}},
@@ -96,8 +88,6 @@ class LibScrape(s_stormtypes.Lib):
                        'desc': 'The text to scrape', },
                       {'name': 'pattern', 'type': 'str',
                        'desc': 'The regular expression pattern to match against.', },
-                      {'name': 'unique', 'type': 'boolean', 'default': False,
-                       'desc': 'Only yield unique items from the text.', },
                       {'name': 'flags', 'type': 'int', 'default': regex.IGNORECASE,
                        'desc': 'Regex flags to use (defaults to IGNORECASE).'},
                   ),
@@ -129,17 +119,6 @@ class LibScrape(s_stormtypes.Lib):
                         continue
                     await items.add(item)
 
-                # This is a change for early adopters of $lib.scrape
-                # sform, valu = item
-                # try:
-                #     tobj = self.runt.snap.core.model.type(sform)
-                #     valu, _ = tobj.norm(valu)
-                # except (AttributeError, s_exc.BadTypeValu):
-                #     logger.exception('Oh shit?')
-                #     await asyncio.sleep(0)
-                #     continue
-                # yield (sform, valu)
-
                 yield item
                 await asyncio.sleep(0)
 
@@ -148,39 +127,29 @@ class LibScrape(s_stormtypes.Lib):
         return s_scrape.getForms()
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methContext(self, text, form=None, unique=False):
+    async def _methContext(self, text):
         text = await s_stormtypes.tostr(text)
-        form = await s_stormtypes.tostr(form, noneok=True)
-        unique = await s_stormtypes.tobool(unique)
 
-        genr = self.runt.snap.view.scrapeIface(text, form=form, unique=unique)
+        genr = self.runt.snap.view.scrapeIface(text)
         async for (form, valu, info) in genr:
             yield (form, valu, info)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methNdefs(self, text, form=None, unique=True):
+    async def _methNdefs(self, text):
         text = await s_stormtypes.tostr(text)
-        form = await s_stormtypes.tostr(form, noneok=True)
-        unique = await s_stormtypes.tobool(unique)
 
-        genr = self._methContext(text, form=form, unique=unique)
-        async for (form, valu, info) in genr:
+        genr = self.runt.snap.view.scrapeIface(text, unique=True)
+        async for (form, valu, _) in genr:
             yield (form, valu)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methGenMatches(self, text, pattern, unique=False, flags=regex.IGNORECASE):
+    async def _methGenMatches(self, text, pattern, flags=regex.IGNORECASE):
         text = await s_stormtypes.tostr(text)
         pattern = await s_stormtypes.tostr(pattern)
-        unique = await s_stormtypes.tobool(unique)
 
         opts = {}
         regx = regex.compile(pattern, flags=flags)
 
-        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
-            for info in s_scrape.genMatches(text, regx, opts=opts):
-                valu = info.pop('valu')
-                if unique:
-                    if valu in items:
-                        continue
-                    await items.add(valu)
-                yield valu, info
+        for info in s_scrape.genMatches(text, regx, opts=opts):
+            valu = info.pop('valu')
+            yield valu, info

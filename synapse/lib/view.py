@@ -896,11 +896,11 @@ class View(s_nexus.Pusher):  # type: ignore
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
 
-    async def scrapeIface(self, text, form=None, unique=False):
+    async def scrapeIface(self, text, unique=False):
         async with await s_spooled.Set.anit() as matches:  # type: s_spooled.Set
             # The synapse.lib.scrape APIs handle form arguments for us.
-            for item in s_scrape.contextScrape(text, form=form, refang=True, first=False):
-                sform = item.pop('form')
+            for item in s_scrape.contextScrape(text, refang=True, first=False):
+                form = item.pop('form')
                 valu = item.pop('valu')
                 if unique:
                     key = (form, valu)
@@ -910,14 +910,14 @@ class View(s_nexus.Pusher):  # type: ignore
                     await matches.add(key)
 
                 try:
-                    tobj = self.core.model.type(sform)
+                    tobj = self.core.model.type(form)
                     valu, _ = tobj.norm(valu)
                 except s_exc.BadTypeValu:
                     await asyncio.sleep(0)
                     continue
 
                 # Yield a tuple of <form, normed valu, info>
-                yield sform, valu, item
+                yield form, valu, item
 
             # Return early if the scrape interface is disabled
             if not self.core.stormiface_scrape:
@@ -932,24 +932,15 @@ class View(s_nexus.Pusher):  # type: ignore
             # (form, valu, info) results. Info is expected to contain the
             # match offset and raw valu.
             #
-            # We hand in form as a hint for implementers, but we do not rely
-            # on them complying and only giving us that form as a result, so
-            # we drop any form results on the floor.
-            #
             # Scrape implementers are not responsible for handling uniquing
             # of their scrape results.
             #
             # Scrape implementers are responsible for ensuring that their
             # resulting raw_valu and offsets are found in the text we sent
             # to them.
-            todo = s_common.todo('scrape', text, form=form)
+            todo = s_common.todo('scrape', text)
             async for results in self.callStormIface('scrape', todo):
-                for (sform, valu, info) in results:
-
-                    # Can we rely on third party ifaces to provide filter results by form?
-                    if form and sform != form:
-                        await asyncio.sleep(0)
-                        continue
+                for (form, valu, info) in results:
 
                     if unique:
                         key = (form, valu)
@@ -959,10 +950,10 @@ class View(s_nexus.Pusher):  # type: ignore
                         await matches.add(key)
 
                     try:
-                        tobj = self.core.model.type(sform)
+                        tobj = self.core.model.type(form)
                         valu, _ = tobj.norm(valu)
                     except AttributeError:
-                        logger.exception(f'Scrape interface yielded unknown form {sform}')
+                        logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)
                         continue
                     except (s_exc.BadTypeValu):
@@ -970,5 +961,5 @@ class View(s_nexus.Pusher):  # type: ignore
                         continue
 
                     # Yield a tuple of <form, normed valu, info>
-                    yield sform, valu, info
+                    yield form, valu, info
                     await asyncio.sleep(0)

@@ -22,7 +22,7 @@ class StormScrapeTest(s_test.SynTest):
 
                     The helper does require a named match for valu this is extracted.
                     */
-                    function scrape(text, form) {
+                    function scrape(text) {
                         $ret = $lib.list()
                         for ($valu, $info) in $lib.scrape.genMatches($text, $modRe) {
                             $ret.append(($modForm, $valu, $info))
@@ -101,42 +101,32 @@ class StormScrapeTest(s_test.SynTest):
 
             # $lib.scrape.ndefs()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
-            query = '''for ($form, $ndef) in $lib.scrape.ndefs($text, $scrape_form, $refang)
+            query = '''for ($form, $ndef) in $lib.scrape.ndefs($text)
             { $lib.print('{f}={n}', f=$form, n=$ndef) }
             '''
-            varz = {'text': text, 'scrape_form': None, 'refang': True}
+            varz = {'text': text}
             msgs = await core.stormlist(query, opts={'vars': varz})
             self.stormIsInPrint('inet:ipv4=16909060', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
             self.stormIsInPrint('inet:fqdn=woot.com', msgs)
 
-            varz = {'text': text, 'scrape_form': 'inet:fqdn', 'refang': True}
-            msgs = await core.stormlist(query, opts={'vars': varz})
-            self.stormNotInPrint('inet:ipv4=16909060', msgs)
-            self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
-            self.stormIsInPrint('inet:fqdn=woot.com', msgs)
-
             text = text + ' and then there was another 1.2.3.4 that happened at woot.com '
-            query = '''$tally = $lib.stats.tally() for ($form, $ndef) in $lib.scrape.ndefs($text, unique=$unique)
+            query = '''$tally = $lib.stats.tally() for ($form, $ndef) in $lib.scrape.ndefs($text)
             { $valu=$lib.str.format('{f}={n}', f=$form, n=$ndef) $tally.inc($valu) }
             fini { return ( $tally ) }
             '''
-            varz = {'text': text, 'unique': True}
+            varz = {'text': text}
             result = await core.callStorm(query, opts={'vars': varz})
             self.eq(result, {'inet:ipv4=16909060': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
 
-            varz = {'text': text, 'unique': False}
-            result = await core.callStorm(query, opts={'vars': varz})
-            self.eq(result, {'inet:ipv4=16909060': 2, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 2})
-
             # $lib.scrape.context() - this is currently just wrapping s_scrape.contextscrape
-            query = '''$list = $lib.list() for $info in $lib.scrape.context($text, unique=$unique)
+            query = '''$list = $lib.list() for $info in $lib.scrape.context($text)
             { $list.append($info) }
             fini { return ( $list ) }
             '''
             varz = {'text': text, 'unique': True}
             results = await core.callStorm(query, opts={'vars': varz})
-            self.len(3, results)
+            self.len(5, results)
             ndefs = set()
             for (form, valu, info) in results:
                 ndefs.add((form, valu))
@@ -144,7 +134,7 @@ class StormScrapeTest(s_test.SynTest):
                 self.isinstance(form, str)
                 self.isinstance(valu, (str, int))
                 self.isin('offset', info)
-                self.isin('raw_valu', info)
+                self.isin('match', info)
             self.eq(ndefs, {('inet:fqdn', 'woot.com'), ('inet:fqdn', 'foo.bar'),
                             ('inet:ipv4', 16909060,)})
 

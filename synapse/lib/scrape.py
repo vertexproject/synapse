@@ -49,7 +49,7 @@ def fqdn_prefix_check(match: regex.Match):
         new_valu = valu.rstrip(inverse_prefixs.get(prefix))
         if new_valu != valu:
             valu = new_valu
-            cbfo['raw_valu'] = valu
+            cbfo['match'] = valu
     return valu, cbfo
 
 def fqdn_check(match: regex.Match):
@@ -137,12 +137,17 @@ FANGS = {
     '[@]': '@',
 }
 
-# Fangs must be matches of equal or smaller length in order for the
-# contextScrape API to function.
-for src, dst in FANGS.items():
-    assert len(dst) <= len(src)
+def genFangRegex(fangs, flags=regex.IGNORECASE):
+    # Fangs must be matches of equal or smaller length in order for the
+    # contextScrape API to function.
+    for src, dst in fangs.items():
+        if len(dst) > len(src):
+            raise AssertionError(f'fang dst[{dst}] must be <= in length to src[{src}]')
+    restr = "|".join(map(regex.escape, fangs.keys()))
+    re = regex.compile(restr, flags)
+    return re
 
-re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
+re_fang = genFangRegex(FANGS)
 
 def refang_text(txt):
     '''
@@ -157,7 +162,7 @@ def refang_text(txt):
     '''
     return re_fang.sub(lambda match: FANGS[match.group(0).lower()], txt)
 
-def _refang2_func(match: regex.Match, offsets: dict):
+def _refang2_func(match: regex.Match, offsets: dict, fangs: dict):
     # This callback exploits the fact that known de-fanging strategies either
     # do in-place transforms, or transforms which increase the target string
     # size. By re-fanging, we are compressing the old string into a new string
@@ -166,7 +171,7 @@ def _refang2_func(match: regex.Match, offsets: dict):
     # have to go back to the source text if there were **no** transforms done.
     # This relies on the prior assertions of refang sizing.
     group = match.group(0)
-    ret = FANGS[group.lower()]
+    ret = fangs[group.lower()]
     rlen = len(ret)
     mlen = len(group)
 
@@ -182,7 +187,7 @@ def _refang2_func(match: regex.Match, offsets: dict):
 
     return ret
 
-def refang_text2(txt: str):
+def refang_text2(txt: str, re: regex.Regex =re_fang, fangs: dict =FANGS):
     '''
     Remove address de-fanging in text blobs, .e.g. example[.]com to example.com
 
@@ -204,9 +209,9 @@ def refang_text2(txt: str):
     # span values are based on their original string locations, and will not
     # produce values which can be cleanly mapped backwards.
     offsets = {'_consumed': 0}
-    cb = functools.partial(_refang2_func, offsets=offsets)
+    cb = functools.partial(_refang2_func, offsets=offsets, fangs=fangs)
     # Start applying FANGs and modifying the info to match the output
-    ret = re_fang.sub(cb, txt)
+    ret = re.sub(cb, txt)
 
     # Remove the _consumed key since it is no longer useful for later use.
     offsets.pop('_consumed')
@@ -231,7 +236,7 @@ def _rewriteRawValu(text: str, offsets: dict, info: dict):
     # original regex matched valu.
     valu = info.get('valu')
     if not isinstance(valu, str):
-        valu = info.get('raw_valu')
+        valu = info.get('match')
 
     # Start enumerating each character in our valu, incrementing the end_offset
     # by 1, or the recorded offset difference in offsets dictionary.
@@ -241,7 +246,7 @@ def _rewriteRawValu(text: str, offsets: dict, info: dict):
 
     # Extract a new raw valu and push the raw_valu and new offset into info
     raw_valu = text[baseoff + offset: baseoff + end_offset]
-    info['raw_valu'] = raw_valu
+    info['match'] = raw_valu
     info['offset'] = baseoff + offset
 
 def genMatches(text: str, regx: regex.Regex, opts: dict):
@@ -280,7 +285,7 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
         raw_valu = valu.group('valu')
 
         info = {
-            'raw_valu': raw_valu,
+            'match': raw_valu,
             'offset': raw_span[0]
         }
 
