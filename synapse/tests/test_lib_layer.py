@@ -133,6 +133,40 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForProp')
             self.eq(errors[2][0], 'SpurPropKeyForIndx')
 
+        # test autofix for tagindex verify
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            # test autofix=node
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+
+            config = {'scans': {'tagindex': {'autofix': 'node'}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            # test autofix=index
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+
+            config = {'scans': {'tagindex': {'autofix': 'index'}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
     async def test_layer_getstornode(self):
         async with self.getTestCore() as core:
             sode = await core.callStorm('[ inet:fqdn=vertex.link ] return($lib.layer.get().getStorNode($node.iden()))')

@@ -1385,9 +1385,7 @@ class Layer(s_nexus.Pusher):
             config = {}
 
         defconf = None
-        defscan = config.get('scanall', True)
-
-        if defscan:
+        if config.get('scanall', True):
             defconf = {}
 
         scans = config.get('scans', {})
@@ -1428,12 +1426,13 @@ class Layer(s_nexus.Pusher):
             for incname in includes:
                 globs.add(incname, True)
 
+        autofix = scanconf.get('autofix')
         for name in self.tagabrv.names():
 
             if globs is not None and not globs.get(name):
                 continue
 
-            async for error in self.verifyByTag(name):
+            async for error in self.verifyByTag(name, autofix=autofix):
                 yield error
 
     async def verifyAllProps(self, scanconf=None):
@@ -1443,24 +1442,39 @@ class Layer(s_nexus.Pusher):
             async for error in self.verifyByProp(form, prop):
                 yield error
 
-    async def verifyByTag(self, tag):
+    async def verifyByTag(self, tag, autofix=None):
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+
+        async def tryfix(lkey, buid, form):
+            if autofix == 'node':
+                sode = self._genStorNode(buid)
+                sode.setdefault('form', form)
+                sode['tags'][tag] = (None, None)
+                self.setSodeDirty(buid, sode, form)
+            elif autofix == 'index':
+                self.layrslab.delete(lkey, buid, db=self.bytag)
+
         for lkey, buid in self.layrslab.scanByPref(tagabrv, db=self.bytag):
 
             await asyncio.sleep(0)
 
+            (form, prop) = self.getAbrvProp(lkey[8:])
+
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover
-                yield ('NoNodeForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                await tryfix(lkey, buid, form)
+                yield ('NoNodeForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
             tags = sode.get('tags')
             if tags is None:
-                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                await tryfix(lkey, buid, form)
+                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
             if tags.get(tag) is None:
-                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                await tryfix(lkey, buid, form)
+                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
     async def verifyByProp(self, form, prop):
@@ -1964,9 +1978,9 @@ class Layer(s_nexus.Pusher):
     def setTagPropAbrv(self, *args):
         return self.tagpropabrv.setBytsToAbrv(s_msgpack.en(args))
 
+    @s_cache.memoizemethod()
     def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
-
         return s_msgpack.un(byts)
 
     async def getNodeValu(self, buid, prop=None):
