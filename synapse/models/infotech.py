@@ -538,11 +538,11 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('manu', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware::make.',
+                        'doc': 'Please use :hardware:make.',
                     }),
                     ('model', ('str', {}), {
                         'deprecated': True,
-                        'doc': 'Please use :hardware::model.',
+                        'doc': 'Please use :hardware:model.',
                     }),
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',

@@ -5,6 +5,41 @@ Synapse Changelog
 *****************
 
 
+v2.78.0 - 2022-01-14
+====================
+
+Automatic Migrations
+--------------------
+- Migrate Cortex nodes which may have been skipped in an earlier migration due
+  to missing tagprop indexes. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Expand Synapse requirements to include updated versions of the ``base58``,
+  ``cbor2``, ``lmdb``, ``pycryptodome``, ``PyYAML``, ``xxhash``.
+  (`#2520 <https://github.com/vertexproject/synapse/pull/2520>`_)
+
+Bugfixes
+--------
+- Fix an issue with the Tagprop migration from ``v2.42.0`` where a missing
+  index could have resulted in Layer storage nodes not being updated.
+  (`#2522 <https://github.com/vertexproject/synapse/pull/2522>`_)
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
+- Fix an issue with ``synapse.lib.platforms.linux.getTotalMemory()`` when
+  using a process segregated with the Linux cgroups2 API.
+  (`#2517 <https://github.com/vertexproject/synapse/pull/2517>`_)
+
+Improved Documentation
+----------------------
+- Add devops instructions related to automatic data migrations for Synapse
+  components.
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
+- Update the model deprecation documentation for the ``it:host:model`` and
+  ``it:host:make`` properties.
+  (`#2521 <https://github.com/vertexproject/synapse/pull/2521>`_)
+
+
 v2.77.0 - 2022-01-07
 ====================
 
