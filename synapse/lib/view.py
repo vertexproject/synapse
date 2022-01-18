@@ -278,6 +278,27 @@ class View(s_nexus.Pusher):  # type: ignore
     def isafork(self):
         return self.parent is not None
 
+    def isForkOf(self, viewiden):
+        view = self.parent
+        while view is not None:
+            if view.iden == viewiden:
+                return True
+            view = view.parent
+        return False
+
+    async def _calcForkLayers(self):
+        # recompute the proper set of layers for a forked view
+        # (this may only be called from within a nexus handler)
+        layers = [self.layers[0]]
+
+        view = self.parent
+        while view is not None:
+            layers.append(view.layers[0])
+            view = view.parent
+
+        self.layers = layers
+        await self.info.set('layers', [layr.iden for layr in layers])
+
     async def pack(self):
         d = {'iden': self.iden}
         d.update(self.info.pack())
@@ -388,6 +409,10 @@ class View(s_nexus.Pusher):  # type: ignore
         A simple non-streaming way to return a list of nodes.
         '''
         return [n async for n in self.eval(text, opts=opts)]
+
+    async def stormlist(self, text, opts=None):
+        # an ease-of-use API for testing
+        return [m async for m in self.storm(text, opts=opts)]
 
     async def storm(self, text, opts=None):
         '''
@@ -539,11 +564,45 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc',):
+        if name not in ('name', 'desc', 'parent'):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
-        # TODO when we can set more props, we may need to parse values.
-        await self.info.set(name, valu)
+
+        if name == 'parent':
+
+            parent = self.core.getView(valu)
+            if parent is None:
+                mesg = 'The parent view must already exist.'
+                raise s_exc.NoSuchView(mesg=mesg)
+
+            if parent.iden == self.iden:
+                mesg = 'A view may not have parent set to itself.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if parent.isForkOf(self.iden):
+                mesg = 'Circular dependency of view parents is not supported.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if self.parent is not None:
+                mesg = 'You may not set parent on a view which already has one.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if len(self.layers) != 1:
+                mesg = 'You may not set parent on a view which has more than one layer.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            self.parent = parent
+            await self.info.set(name, valu)
+
+            await self._calcForkLayers()
+
+            for view in self.core.views.values():
+                if view.isForkOf(self.iden):
+                    await view._calcForkLayers()
+
+        else:
+            await self.info.set(name, valu)
+
         return valu
 
     async def addLayer(self, layriden, indx=None):
