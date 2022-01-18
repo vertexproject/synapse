@@ -102,7 +102,6 @@ class LibScrape(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             'ndefs': self._methNdefs,
-            'forms': self._methForms,
             'context': self._methContext,
             'genMatches': self._methGenMatches,
         }
@@ -124,10 +123,6 @@ class LibScrape(s_stormtypes.Lib):
 
                 yield item
                 await asyncio.sleep(0)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methForms(self):
-        return s_scrape.getForms()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methContext(self, text):

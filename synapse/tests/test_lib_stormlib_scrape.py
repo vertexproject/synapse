@@ -75,6 +75,11 @@ class StormScrapeTest(s_test.SynTest):
         IP: 8.6.7.5
         domain: newp.net
         Homepage: hzzps[:]\\giggles.com/mallory.html
+
+        NAME: Mallory
+        IP: 8.6.7.5
+        domain: newpers.net
+        Homepage: hzzps[:]\\giggles.com/mallory.html
         '''
         q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
                         $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
@@ -100,6 +105,29 @@ class StormScrapeTest(s_test.SynTest):
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
             self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
             self.stormIsInPrint("'match': 'hzzps[:]\\\\giggles.com/mallory.html'", msgs)
+
+            cq = '''$ret=$lib.list()
+            for ($form, $valu) in $lib.scrape.ndefs($text) {
+                $ret.append(($form, $valu))
+            }
+            fini { return ($ret) }
+            '''
+            ndefs = await core.callStorm(cq, opts={'vars': {'text': text}})
+            self.eq(ndefs, (('inet:url', 'http://1.2.3.4/billy.html'),
+                            ('inet:url', 'https://1.2.3.4/alice.html'),
+                            ('inet:ipv4', 134678021),
+                            ('inet:ipv4', 16909060),
+                            ('inet:ipv4', 50331657),
+                            ('inet:ipv4', 134612741),
+                            ('inet:fqdn', 'foo.bar.com'),
+                            ('inet:fqdn', 'foo.boofle.com'),
+                            ('inet:fqdn', 'newp.net'),
+                            ('inet:fqdn', 'giggles.com'),
+                            ('inet:fqdn', 'newpers.net'),
+                            ('ps:name', 'billy'),
+                            ('ps:name', 'alice'),
+                            ('ps:name', 'mallory'),
+                            ('inet:url', 'https://giggles.com/mallory.html')))
 
         conf = {'provenance:en': False, 'storm:interface:scrape': False, }
         async with self.getTestCore(conf=conf) as core:

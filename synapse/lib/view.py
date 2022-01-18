@@ -912,7 +912,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     tobj = self.core.model.type(form)
                     valu, _ = tobj.norm(valu)
-                except s_exc.BadTypeValu:
+                except s_exc.BadTypeValu:  # pragma: no cover
                     await asyncio.sleep(0)
                     continue
 
@@ -932,9 +932,6 @@ class View(s_nexus.Pusher):  # type: ignore
             # (form, valu, info) results. Info is expected to contain the
             # match offset and raw valu.
             #
-            # Scrape implementers are not responsible for handling uniquing
-            # of their scrape results.
-            #
             # Scrape implementers are responsible for ensuring that their
             # resulting raw_valu and offsets are found in the text we sent
             # to them.
@@ -952,11 +949,11 @@ class View(s_nexus.Pusher):  # type: ignore
                     try:
                         tobj = self.core.model.type(form)
                         valu, _ = tobj.norm(valu)
-                    except AttributeError:
+                    except AttributeError:  # pragma: no cover
                         logger.exception(f'Scrape interface yielded unknown form {form}')
                         await asyncio.sleep(0)
                         continue
-                    except (s_exc.BadTypeValu):
+                    except (s_exc.BadTypeValu):  # pragma: no cover
                         await asyncio.sleep(0)
                         continue
 
