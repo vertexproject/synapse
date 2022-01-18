@@ -1097,6 +1097,16 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$lib.list().pop()')
 
+    async def test_storm_layer_getstornode(self):
+
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            opts = {'user': visi.iden, 'vars': {'iden': nodes[0].iden()}}
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            self.eq(sode['form'], 'inet:ipv4')
+            self.eq(sode['valu'], (0x01020304, 4))
+
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'
