@@ -1058,7 +1058,7 @@ class ItModule(s_module.CoreModule):
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
                     }),
-                    ('name', ('str', {'lower': True, 'strip': True}), {
+                    ('name', ('it:dev:str', {}), {
                         'doc': 'Name of the software.',
                     }),
                     ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {

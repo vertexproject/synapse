@@ -470,7 +470,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'url': url1,
                     'software': prod0,
                     'arch': 'amd64',
-                    'name': 'Balloonmaker ',
+                    'name': 'balloonmaker',
                     'desc': 'makes balloons',
                 }
                 ver0 = s_common.guid()
