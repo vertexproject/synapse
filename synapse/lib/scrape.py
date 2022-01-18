@@ -121,6 +121,8 @@ FANGS = {
     'hxxps:': 'https:',
     'hxxp[:]': 'http:',
     'hxxps[:]': 'https:',
+    'hxxp[://]': 'http://',
+    'hxxps[://]': 'https://',
     'hxxp(:)': 'http:',
     'hxxps(:)': 'https:',
     '[.]': '.',
