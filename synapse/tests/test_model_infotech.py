@@ -469,7 +469,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'released': '2018-04-03 08:44:22',
                     'url': url1,
                     'software': prod0,
-                    'arch': 'amd64'
+                    'arch': 'amd64',
+                    'name': 'Balloonmaker ',
+                    'desc': 'makes balloons',
                 }
                 ver0 = s_common.guid()
                 node = await snap.addNode('it:prod:softver', ver0, vprops)
@@ -488,6 +490,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('semver:pre'), 'beta')
                 self.eq(node.get('semver:build'), 'exp.sha.5114f85')
                 self.eq(node.get('url'), url1)
+                self.eq(node.get('name'), 'balloonmaker')
+                self.eq(node.get('desc'), 'makes balloons')
                 # callback node creation checks
                 nodes = await snap.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85')
                 self.len(1, nodes)
