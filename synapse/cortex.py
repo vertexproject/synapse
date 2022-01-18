@@ -1029,12 +1029,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         },
         'storm:interface:search': {
             'default': True,
-            'description': 'Enable storm search interfaces for lookup mode.',
+            'description': 'Enable Storm search interfaces for lookup mode.',
             'type': 'boolean',
         },
         'storm:interface:scrape': {
             'default': True,
-            'description': 'Enable built in scrape APIs when using the scrape interface.',
+            'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
         'http:proxy': {
