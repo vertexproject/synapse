@@ -1067,6 +1067,27 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$lib.list().pop()')
 
+    async def test_storm_layer_getstornode(self):
+
+        async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            opts = {'user': visi.iden, 'vars': {'iden': nodes[0].iden()}}
+            sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
+            self.eq(sode['form'], 'inet:ipv4')
+            self.eq(sode['valu'], (0x01020304, 4))
+
+            # check auth deny...
+            layriden = await core.callStorm('return($lib.view.get().fork().layers.0.iden)')
+
+            opts = {'user': visi.iden, 'vars': {'layriden': layriden, 'iden': nodes[0].iden()}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.layer.get($layriden).getStorNode($iden))', opts=opts)
+
+            # check perms the old way...
+            await visi.addRule((True, ('layer', 'read')), gateiden=layriden)
+            await core.callStorm('return($lib.layer.get($layriden).getStorNode($iden))', opts=opts)
+
     async def test_storm_lib_fire(self):
         async with self.getTestCore() as core:
             text = '$lib.fire(foo:bar, baz=faz)'

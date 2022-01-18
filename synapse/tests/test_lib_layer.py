@@ -35,6 +35,8 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
             buid = nodes[0].buid
 
+            await core.nodes('[ ou:org=* :names=(hehe, haha) ]')
+
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
@@ -67,6 +69,16 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
             core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+
+            config = {'scanall': False, 'scans': {'tagindex': {'include': ('foo',)}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            config = {'scanall': False, 'scans': {'tagindex': {'include': ('baz',)}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(0, errors)
+
             errors = [e async for e in core.getLayer().verifyAllTags()]
             self.len(1, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
@@ -101,8 +113,8 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
-            self.eq(errors[0][0], 'NoTagForTagIndex')
-            self.eq(errors[1][0], 'NoPropForPropIndex')
+            self.eq(errors[0][0], 'NoNodeForTagIndex')
+            self.eq(errors[1][0], 'NoNodeForPropIndex')
 
         # Smash in a bad stortype into a sode.
         async with self.getTestCore() as core:
@@ -120,6 +132,40 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoStorTypeForProp')
             self.eq(errors[1][0], 'NoStorTypeForProp')
             self.eq(errors[2][0], 'SpurPropKeyForIndx')
+
+        # test autofix for tagindex verify
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            # test autofix=node
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+
+            config = {'scans': {'tagindex': {'autofix': 'node'}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            # test autofix=index
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+
+            config = {'scans': {'tagindex': {'autofix': 'index'}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
 
     async def test_layer_abrv(self):
 
