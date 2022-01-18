@@ -350,9 +350,6 @@ class Snap(s_base.Base):
 
         for (layr, sode) in sodes:
 
-            if sode is None:
-                continue
-
             form = sode.get('form')
             valt = sode.get('valu')
             if valt is not None:
