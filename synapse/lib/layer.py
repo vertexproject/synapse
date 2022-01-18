@@ -319,7 +319,7 @@ class IndxByForm(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
 
         valt = sode.get('valu')
@@ -340,7 +340,7 @@ class IndxByProp(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
 
         valt = sode['props'].get(self.prop)
@@ -361,7 +361,7 @@ class IndxByPropArray(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
         valt = sode['props'].get(self.prop)
         if valt is not None:
@@ -386,7 +386,7 @@ class IndxByTag(IndxBy):
 
     def getNodeValuForm(self, buid):
         sode = self.layr._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
         valt = sode['tags'].get(self.tag)
         if valt is not None:
@@ -407,7 +407,7 @@ class IndxByTagProp(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
         props = sode['tagprops'].get(self.tag)
         if not props:
@@ -1988,7 +1988,7 @@ class Layer(s_nexus.Pusher):
         Retrieve either the form valu or a prop valu for the given node by buid.
         '''
         sode = self._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return (None, None)
         if prop is None:
             return sode.get('valu', (None, None))[0]
@@ -1996,13 +1996,13 @@ class Layer(s_nexus.Pusher):
 
     async def getNodeTag(self, buid, tag):
         sode = self._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
         return sode['tags'].get(tag)
 
     async def getNodeForm(self, buid):
         sode = self._getStorNode(buid)
-        if sode is None:
+        if sode is None: # pragma: no cover
             return None
         return sode.get('form')
 
@@ -2123,7 +2123,7 @@ class Layer(s_nexus.Pusher):
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
 
             sode = self._getStorNode(buid)
-            if sode is None:
+            if sode is None: # pragma: no cover
                 # logger.warning(f'TagIndex for #{tag} has {s_common.ehex(buid)} but no storage node.')
                 continue
 
@@ -2148,7 +2148,7 @@ class Layer(s_nexus.Pusher):
             valu = await self.getNodeTag(buid, tag)
             if filt(valu):
                 sode = self._getStorNode(buid)
-                if sode is None:
+                if sode is None: # pragma: no cover
                     # logger.warning(f'TagValuIndex for #{tag} has {s_common.ehex(buid)} but no storage node.')
                     continue
                 yield None, buid, deepcopy(sode)
@@ -2191,7 +2191,7 @@ class Layer(s_nexus.Pusher):
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
 
             sode = self._getStorNode(buid)
-            if sode is None:
+            if sode is None: # pragma: no cover
                 # logger.warning(f'TagPropIndex for {form}#{tag}:{prop} has {s_common.ehex(buid)} but no storage node.')
                 continue
 
@@ -2206,7 +2206,7 @@ class Layer(s_nexus.Pusher):
             async for lkey, buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
 
                 sode = self._getStorNode(buid)
-                if sode is None:
+                if sode is None: # pragma: no cover
                     # logger.warning(f'TagPropValuIndex for {form}#{tag}:{prop} has {s_common.ehex(buid)} but no storage node.')
                     continue
 
@@ -2222,7 +2222,7 @@ class Layer(s_nexus.Pusher):
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
             sode = self._getStorNode(buid)
-            if sode is None:
+            if sode is None: # pragma: no cover
                 # logger.warning(f'PropIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
                 continue
             yield lkey[8:], buid, deepcopy(sode)
@@ -2232,7 +2232,7 @@ class Layer(s_nexus.Pusher):
         for cmpr, valu, kind in cmprvals:
             async for lkey, buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 sode = self._getStorNode(buid)
-                if sode is None:
+                if sode is None: # pragma: no cover
                     # logger.warning(f'FormValuIndex for {form} has {s_common.ehex(buid)} but no storage node.')
                     continue
                 yield lkey[8:], buid, deepcopy(sode)
@@ -2246,7 +2246,7 @@ class Layer(s_nexus.Pusher):
             async for lkey, buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
 
                 sode = self._getStorNode(buid)
-                if sode is None:
+                if sode is None: # pragma: no cover
                     # logger.warning(f'PropValuIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
                     continue
 
@@ -2256,7 +2256,7 @@ class Layer(s_nexus.Pusher):
         for cmpr, valu, kind in cmprvals:
             async for lkey, buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
                 sode = self._getStorNode(buid)
-                if sode is None:
+                if sode is None: # pragma: no cover
                     # logger.warning(f'PropArrayIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
                     continue
                 yield lkey[8:], buid, deepcopy(sode)
@@ -2271,7 +2271,7 @@ class Layer(s_nexus.Pusher):
         for abrv, buid in self.dataslab.scanByDups(abrv, db=self.dataname):
 
             sode = self._getStorNode(buid)
-            if sode is None:
+            if sode is None: # pragma: no cover
                 # logger.warning(f'PropArrayIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
                 continue
 
