@@ -5395,11 +5395,23 @@ class Layer(Prim):
                     }
 
             Notes:
-                The message format yielded by this API is considered BETA and may be subject to change!
+                The config format argument and message format yielded by this API is considered BETA
+                and may be subject to change! The formats will be documented when the convention stabilizes.
             ''',
          'type': {'type': 'function', '_funcname': 'verify',
+                  'args': (
+                      {'name': 'config', 'type': 'dict', 'desc': 'The scan config to use (default all enabled).', 'default': None},
+                  ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
+        {'name': 'getStorNode', 'desc': '''
+            Retrieve the raw storage node for the specified node id.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5444,6 +5456,7 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
+            'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
             'getMirrorStatus': self.getMirrorStatus,
         }
@@ -5534,17 +5547,17 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        todo = s_common.todo('getFormCounts')
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getFormCounts()
 
     async def _methGetTagCount(self, tagname, formname=None):
         tagname = await tostr(tagname)
         formname = await tostr(formname, noneok=True)
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        todo = s_common.todo('getTagCount', tagname, formname=formname)
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getTagCount(tagname, formname=formname)
 
     async def _methGetPropCount(self, propname, maxsize=None):
         propname = await tostr(propname)
@@ -5555,16 +5568,17 @@ class Layer(Prim):
             mesg = f'No property named {propname}'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if prop.isform:
-            todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
-        elif prop.isuniv:
-            todo = s_common.todo('getUnivPropCount', prop.name, maxsize=maxsize)
-        else:
-            todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
-
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        if prop.isform:
+            return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+
+        if prop.isuniv:
+            return await layr.getUnivPropCount(prop.name, maxsize=maxsize)
+
+        return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
 
     async def _methLayerEdits(self, offs=0, wait=True, size=None):
         offs = await toint(offs)
@@ -5582,13 +5596,18 @@ class Layer(Prim):
             if size is not None and size == count:
                 break
 
+    async def getStorNode(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getStorNode(s_common.uhex(nodeid))
+
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
-        self.runt.confirm(('layer', 'read'), gateiden=layriden)
-
-        todo = s_common.todo('getStorNodes')
-
-        async for item in self.runt.dyniter(layriden, todo):
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getStorNodes():
             yield item
 
     async def _methLayerGet(self, name, defv=None):
@@ -5637,10 +5656,13 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
-    async def verify(self):
+    async def verify(self, config=None):
+
+        config = await toprim(config)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        async for mesg in layr.verify():
+        async for mesg in layr.verify(config=config):
             yield mesg
 
 @registry.registerLib
