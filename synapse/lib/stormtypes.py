@@ -5744,19 +5744,37 @@ class View(Prim):
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
          'type': 'list', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
+        {'name': 'set', 'desc': '''
+            Set a view configuration option.
+
+            Current runtime updatable view options include:
+
+                name (str)
+                    A terse name for the View.
+
+                desc (str)
+                    A description of the View.
+
+                parent (str)
+                    The parent View iden.
+
+            To maintain consistency with the view.fork() semantics, setting the "parent"
+            option on a view has a few limitations:
+                * The view must not already have a parent
+                * The view must not have more than 1 layer
+         ''',
          'type': {'type': 'function', '_funcname': '_methViewSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the value to set.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a arbitrary value in the View definition.',
+        {'name': 'get', 'desc': 'Get a view configuration option.',
          'type': {'type': 'function', '_funcname': '_methViewGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the value to get.', },
                       {'name': 'defv', 'type': 'prim', 'default': None,
-                       'desc': 'The default value returned if hte name is not set in the View.', }
+                       'desc': 'The default value returned if the name is not set in the View.', }
                   ),
                   'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
         {'name': 'fork', 'desc': 'Fork a View in the Cortex.',
@@ -5892,6 +5910,8 @@ class View(Prim):
         if name == 'name':
             valu = await tostr(valu)
         elif name == 'desc':
+            valu = await tostr(valu)
+        elif name == 'parent':
             valu = await tostr(valu)
         else:
             mesg = f'View does not support setting: {name}'
