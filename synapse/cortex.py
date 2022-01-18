@@ -62,6 +62,7 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
+import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
@@ -1028,7 +1029,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         },
         'storm:interface:search': {
             'default': True,
-            'description': 'Enable storm search interfaces for lookup mode.',
+            'description': 'Enable Storm search interfaces for lookup mode.',
+            'type': 'boolean',
+        },
+        'storm:interface:scrape': {
+            'default': True,
+            'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
         'http:proxy': {
@@ -1125,6 +1131,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
+        self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
 

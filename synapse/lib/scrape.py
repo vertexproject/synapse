@@ -1,10 +1,12 @@
 import logging
+import functools
 import collections
 
 import idna
 import regex
 import unicodedata
 
+import synapse.exc as s_exc
 import synapse.data as s_data
 
 import synapse.lib.crypto.coin as s_coin
@@ -31,28 +33,6 @@ udots = regex.compile(r'[\u3002\uff0e\uff61]')
 # avoid thread safety issues due to uts46_remap() importing uts46data
 idna.encode('init', uts46=True)
 
-FANGS = {
-    'hxxp:': 'http:',
-    'hxxps:': 'https:',
-    'hxxp[:]': 'http:',
-    'hxxps[:]': 'https:',
-    'hxxp(:)': 'http:',
-    'hxxps(:)': 'https:',
-    '[.]': '.',
-    '[．]': '．',
-    '[。]': '。',
-    '[｡]': '｡',
-    '(.)': '.',
-    '(．)': '．',
-    '(。)': '。',
-    '(｡)': '｡',
-    '[:]': ':',
-    'fxp': 'ftp',
-    'fxps': 'ftps',
-    '[at]': '@',
-    '[@]': '@',
-}
-
 inverse_prefixs = {
     '[': ']',
     '<': '>',
@@ -65,9 +45,13 @@ def fqdn_prefix_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
     prefix = mnfo.get('prefix')
+    cbfo = {}
     if prefix is not None:
-        valu = valu.rstrip(inverse_prefixs.get(prefix))
-    return valu
+        new_valu = valu.rstrip(inverse_prefixs.get(prefix))
+        if new_valu != valu:
+            valu = new_valu
+            cbfo['match'] = valu
+    return valu, cbfo
 
 def fqdn_check(match: regex.Match):
     mnfo = match.groupdict()
@@ -83,10 +67,8 @@ def fqdn_check(match: regex.Match):
         try:
             nval.encode('idna').decode('utf8').lower()
         except UnicodeError:
-            return None
-    return valu
-
-re_fang = regex.compile("|".join(map(regex.escape, FANGS.keys())), regex.IGNORECASE)
+            return None, {}
+    return valu, {}
 
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
@@ -125,6 +107,49 @@ for (name, rule, opts) in scrape_types:
     blob = (regex.compile(rule, regex.IGNORECASE), opts)
     _regexes[name].append(blob)
 
+def getForms():
+    '''
+    Get a list of forms recognized by the scrape APIs.
+
+    Returns:
+        list: A list of form values.
+    '''
+    return sorted(_regexes.keys())
+
+FANGS = {
+    'hxxp:': 'http:',
+    'hxxps:': 'https:',
+    'hxxp[:]': 'http:',
+    'hxxps[:]': 'https:',
+    'hxxp(:)': 'http:',
+    'hxxps(:)': 'https:',
+    '[.]': '.',
+    '[．]': '．',
+    '[。]': '。',
+    '[｡]': '｡',
+    '(.)': '.',
+    '(．)': '．',
+    '(。)': '。',
+    '(｡)': '｡',
+    '[:]': ':',
+    'fxp': 'ftp',
+    'fxps': 'ftps',
+    '[at]': '@',
+    '[@]': '@',
+}
+
+def genFangRegex(fangs, flags=regex.IGNORECASE):
+    # Fangs must be matches of equal or smaller length in order for the
+    # contextScrape API to function.
+    for src, dst in fangs.items():
+        if len(dst) > len(src):
+            raise s_exc.BadArg(mesg=f'fang dst[{dst}] must be <= in length to src[{src}]',
+                               src=src, dst=dst)
+    restr = "|".join(map(regex.escape, fangs.keys()))
+    re = regex.compile(restr, flags)
+    return re
+
+re_fang = genFangRegex(FANGS)
 
 def refang_text(txt):
     '''
@@ -138,6 +163,198 @@ def refang_text(txt):
         (str): Re-fanged text blob
     '''
     return re_fang.sub(lambda match: FANGS[match.group(0).lower()], txt)
+
+def _refang2_func(match: regex.Match, offsets: dict, fangs: dict):
+    # This callback exploits the fact that known de-fanging strategies either
+    # do in-place transforms, or transforms which increase the target string
+    # size. By re-fanging, we are compressing the old string into a new string
+    # of potentially a smaller size. We record the offset where any transform
+    # affects the contents of the string. This means, downstream, we can avoid
+    # have to go back to the source text if there were **no** transforms done.
+    # This relies on the prior assertions of refang sizing.
+    group = match.group(0)
+    ret = fangs[group.lower()]
+    rlen = len(ret)
+    mlen = len(group)
+
+    span = match.span(0)
+    consumed = offsets.get('_consumed', 0)
+    offs = span[0] - consumed
+    nv = mlen - rlen
+    # For offsets, we record the nv + 1 since the now-compressed string
+    # has one character represented by mlen - rlen + 1 characters in the
+    # original string.
+    offsets[offs] = nv + 1
+    offsets['_consumed'] = consumed + nv
+
+    return ret
+
+def refang_text2(txt: str, re: regex.Regex =re_fang, fangs: dict =FANGS):
+    '''
+    Remove address de-fanging in text blobs, .e.g. example[.]com to example.com
+
+    Notes:
+        Matches to keys in FANGS is case-insensitive, but replacement will
+        always be with the lowercase version of the re-fanged value.
+        For example, ``HXXP://FOO.COM`` will be returned as ``http://FOO.COM``
+
+    Args:
+        txt (str): The text to re-fang.
+
+    Returns:
+        tuple(str, dict): A tuple containing the new text, and a dictionary
+        containing offset information where the new text was altered with
+        respect to the original text.
+    '''
+    # The _consumed key is a offset used to track how many chars have been
+    # consumed while the cb is called. This is because the match group
+    # span values are based on their original string locations, and will not
+    # produce values which can be cleanly mapped backwards.
+    offsets = {'_consumed': 0}
+    cb = functools.partial(_refang2_func, offsets=offsets, fangs=fangs)
+    # Start applying FANGs and modifying the info to match the output
+    ret = re.sub(cb, txt)
+
+    # Remove the _consumed key since it is no longer useful for later use.
+    offsets.pop('_consumed')
+    return ret, offsets
+
+def _rewriteRawValu(text: str, offsets: dict, info: dict):
+
+    # Our match offset. This is the match offset value into the refanged text.
+    offset = info.get('offset')
+
+    # We need to see if there are values in the offsets which are less than our
+    # match offset and increment our base offset by them. This gives us a
+    # shift into the original string where we would find the actual offset.
+    # This can be represented as a a comprehension but I find that the loop
+    # below is easier to read.
+    baseoff = 0
+    for k, v in offsets.items():
+        if k < offset:
+            baseoff = baseoff + offsets[k] - 1
+
+    # If our return valu is not a str, then base our text recovery on the
+    # original regex matched valu.
+    valu = info.get('valu')
+    if not isinstance(valu, str):
+        valu = info.get('match')
+
+    # Start enumerating each character in our valu, incrementing the end_offset
+    # by 1, or the recorded offset difference in offsets dictionary.
+    end_offset = offset
+    for i, c in enumerate(valu, start=offset):
+        end_offset = end_offset + offsets.get(i, 1)
+
+    # Extract a new match and push the match and new offset into info
+    match = text[baseoff + offset: baseoff + end_offset]
+    info['match'] = match
+    info['offset'] = baseoff + offset
+
+def genMatches(text: str, regx: regex.Regex, opts: dict):
+    '''
+    Generate regular expression matches for a blob of text.
+
+    Args:
+        text (str): The text to generate matches for.
+        regx (regex.Regex): A compiled regex object. The regex must contained a named match group for ``valu``.
+        opts (dict): An options dictionary.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            raw_valu
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value - this may be altered by callbacks.
+
+        The options dictionary can contain a ``callback`` key. This function is expected to take a single argument,
+        a regex.Match object, and return a tuple of the new valu and info dictionary. The new valu is used as the
+        ``valu`` key in the returned dictionary, and any other information in the info dictionary is pushed into
+        the return dictionary as well.
+
+    Yields:
+        dict: A dictionary of match results.
+    '''
+    cb = opts.get('callback')
+
+    for valu in regx.finditer(text):  # type: regex.Match
+        raw_span = valu.span('valu')
+        raw_valu = valu.group('valu')
+
+        info = {
+            'match': raw_valu,
+            'offset': raw_span[0]
+        }
+
+        if cb:
+            # CB is expected to return a tufo of <new valu, info>
+            valu, cbfo = cb(valu)
+            if valu is None:
+                continue
+            # Smash cbfo into our info dict
+            info.update(**cbfo)
+        else:
+            valu = raw_valu
+
+        info['valu'] = valu
+
+        yield info
+
+def contextScrape(text, form=None, refang=True, first=False):
+    '''
+    Scrape types from a blob of text and yield info dictionaries.
+
+    Args:
+        text (str): Text to scrape.
+        ptype (str): Optional ptype to scrape. If present, only scrape items which match the provided type.
+        refang (bool): Whether to remove de-fanging schemes from text before scraping.
+        first (bool): If true, only yield the first item scraped.
+
+    Notes:
+        The dictionaries yielded by this function contains the following keys:
+
+            match
+                The raw matching text found in the input text.
+
+            offset
+                The offset into the text where the match was found.
+
+            valu
+                The resulting value.
+
+            form
+                The corresponding form for the valu.
+
+    Returns:
+        (dict): Yield info dicts of results.
+    '''
+    scrape_text = text
+    offsets = {}
+    if refang:
+        scrape_text, offsets = refang_text2(text)
+
+    for ruletype, blobs in _regexes.items():
+        if form and form != ruletype:
+            continue
+
+        for (regx, opts) in blobs:
+
+            for info in genMatches(scrape_text, regx, opts):
+
+                info['form'] = ruletype
+
+                if refang and offsets:
+                    _rewriteRawValu(text, offsets, info)
+
+                yield info
+
+                if first:
+                    return
 
 def scrape(text, ptype=None, refang=True, first=False):
     '''
@@ -153,26 +370,5 @@ def scrape(text, ptype=None, refang=True, first=False):
         (str, object): Yield tuples of node ndef values.
     '''
 
-    if refang:
-        text = refang_text(text)
-
-    for ruletype, blobs in _regexes.items():
-        if ptype and ptype != ruletype:
-            continue
-
-        for (regx, opts) in blobs:
-            cb = opts.get('callback')
-
-            for valu in regx.finditer(text):  # type: regex.Match
-
-                if cb:
-                    valu = cb(valu)
-                    if valu is None:
-                        continue
-                else:
-                    mnfo = valu.groupdict()
-                    valu = mnfo.get('valu')
-
-                yield (ruletype, valu)
-                if first:
-                    return
+    for info in contextScrape(text, form=ptype, refang=refang, first=first):
+        yield info.get('form'), info.get('valu')
