@@ -1,3 +1,5 @@
+import synapse.exc as s_exc
+
 import synapse.lib.scrape as s_scrape
 
 import synapse.tests.utils as s_t_utils
@@ -292,6 +294,9 @@ class ScrapeTest(s_t_utils.SynTest):
         self.isin('inet:ipv4', forms)
         self.isin('crypto:currency:address', forms)
         self.notin('inet:web:message', forms)
+
+        with self.raises(s_exc.BadArg):
+            s_scrape.genFangRegex({'hehe': 'haha', 'newp': 'bignope'})
 
         ndefs = list(s_scrape.scrape('log4j vuln CVE-2021-44228 is pervasive'))
         self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
