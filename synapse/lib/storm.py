@@ -1710,17 +1710,17 @@ class Runtime(s_base.Base):
             return
         await self.snap.core.reqGateKeys(gatekeys)
 
-    async def reqUserCanReadLayer(self, iden):
+    async def reqUserCanReadLayer(self, layriden):
 
         if self.asroot:
             return
 
-        for view in self.snap.core.viewsbylayer.get(iden, ()):
+        for view in self.snap.core.viewsbylayer.get(layriden, ()):
             if self.user.allowed(('view', 'read'), gateiden=view.iden):
                 return
 
         # check the old way too...
-        if self.user.allowed(('layer', 'read'), gateiden=iden):
+        if self.user.allowed(('layer', 'read'), gateiden=layriden):
             return
 
         mesg = 'User can not read layer.'
