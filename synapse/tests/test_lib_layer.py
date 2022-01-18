@@ -167,12 +167,6 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
 
-    async def test_layer_getstornode(self):
-        async with self.getTestCore() as core:
-            sode = await core.callStorm('[ inet:fqdn=vertex.link ] return($lib.layer.get().getStorNode($node.iden()))')
-            self.eq('inet:fqdn', sode.get('form'))
-            self.eq(('vertex.link', 17), sode.get('valu'))
-
     async def test_layer_abrv(self):
 
         async with self.getTestCore() as core:
