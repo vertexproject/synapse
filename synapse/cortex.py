@@ -3401,7 +3401,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden = vdef.get('iden')
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
-            self._calcViewsByLayer()
+
+        self._calcViewsByLayer()
 
     async def addView(self, vdef, nexs=True):
 
