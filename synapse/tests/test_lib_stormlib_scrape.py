@@ -9,11 +9,12 @@ class StormScrapeTest(s_test.SynTest):
         pkgdef = {
             'name': 'scrapedemo',
             'modules': [
-                 {'name': 'scrapename',
-                  'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
-                             'form': 'ps:name'},
-                  'interfaces': ['scrape'],
-                  'storm': '''
+                {'name': 'scrapename',
+                 'modconf': {'nameRegex': '(Name\\:\\s)(?<valu>[a-z0-9]+)\\s',
+                             'form': 'ps:name',
+                             },
+                 'interfaces': ['scrape'],
+                 'storm': '''
                     $modRe = $modconf.nameRegex
                     $modForm = $modconf.form
                     /*
@@ -25,6 +26,31 @@ class StormScrapeTest(s_test.SynTest):
                     function scrape(text) {
                         $ret = $lib.list()
                         for ($valu, $info) in $lib.scrape.genMatches($text, $modRe) {
+                            $ret.append(($modForm, $valu, $info))
+                        }
+                        return ( $ret )
+                    }
+                    '''
+                 },
+                {'name': 'scrape_hzzp_text',
+                 'modconf': {'nameRegex': '(?P<valu>http[s]?://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
+                             'form': 'inet:url',
+                             'fangs': (
+                                 ('hzzp[:]\\', 'http://'),
+                                 ('hzzps[:]\\', 'https://'),
+                             )
+                             },
+                 'interfaces': ['scrape'],
+                 'storm': '''
+                    $modRe = $modconf.nameRegex
+                    $modForm = $modconf.form
+                    $modFangs = $modconf.fangs
+                    /*
+                    Example of an storm module that scraps and matches on hzzp enfanged urls.
+                    */
+                    function scrape(text) {
+                        $ret = $lib.list()
+                        for ($valu, $info) in $lib.scrape.genMatches($text, $modRe, fangs=$modFangs) {
                             $ret.append(($modForm, $valu, $info))
                         }
                         return ( $ret )
@@ -44,6 +70,11 @@ class StormScrapeTest(s_test.SynTest):
         IP: 3.0.0.9
         domain: foo.boofle.com
         Homepage: hxxps://1.2[.]3.4/alice.html
+
+        NAME: Mallory
+        IP: 8.6.7.5
+        domain: newp.net
+        Homepage: hzzps[:]\\giggles.com/mallory.html
         '''
         q = '''for ($form, $valu, $info) in $lib.scrape.context($text) {
                         $lib.print('{f}={v} {i}', f=$form, v=$valu, i=$info)
@@ -60,13 +91,15 @@ class StormScrapeTest(s_test.SynTest):
             await core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
-            self.len(1, mods)
-            self.len(1, core.modsbyiface.get('scrape'))
+            self.len(2, mods)
+            self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
             self.stormIsInPrint('ps:name=alice', msgs)
             self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
+            self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
+            self.stormIsInPrint("'match': 'hzzps[:]\\\\giggles.com/mallory.html'", msgs)
 
         conf = {'provenance:en': False, 'storm:interface:scrape': False, }
         async with self.getTestCore(conf=conf) as core:
@@ -74,8 +107,8 @@ class StormScrapeTest(s_test.SynTest):
             await core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
-            self.len(1, mods)
-            self.len(1, core.modsbyiface.get('scrape'))
+            self.len(2, mods)
+            self.len(2, core.modsbyiface.get('scrape'))
 
             msgs = await core.stormlist(q, opts={'vars': {'text': text}})
             self.stormNotInPrint('ps:name=alice', msgs)

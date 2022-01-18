@@ -88,6 +88,9 @@ class LibScrape(s_stormtypes.Lib):
                        'desc': 'The text to scrape', },
                       {'name': 'pattern', 'type': 'str',
                        'desc': 'The regular expression pattern to match against.', },
+                      {'name': 'fangs', 'type': 'list', 'default': None,
+                       'desc': 'A list of (src, dst) pairs to refang from text. The src must be equal or larger '
+                               'than the dst in length.'},
                       {'name': 'flags', 'type': 'int', 'default': regex.IGNORECASE,
                        'desc': 'Regex flags to use (defaults to IGNORECASE).'},
                   ),
@@ -143,13 +146,28 @@ class LibScrape(s_stormtypes.Lib):
             yield (form, valu)
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methGenMatches(self, text, pattern, flags=regex.IGNORECASE):
+    async def _methGenMatches(self, text, pattern, fangs=None, flags=regex.IGNORECASE):
         text = await s_stormtypes.tostr(text)
         pattern = await s_stormtypes.tostr(pattern)
+        fangs = await s_stormtypes.toprim(fangs)
+        flags = await s_stormtypes.toint(flags)
 
         opts = {}
         regx = regex.compile(pattern, flags=flags)
 
-        for info in s_scrape.genMatches(text, regx, opts=opts):
+        _fangs = None
+        _fangre = None
+        offsets = None
+        scrape_text = text
+        if fangs:
+            _fangs = {src: dst for (src, dst) in fangs}
+            _fangre = s_scrape.genFangRegex(_fangs)
+            scrape_text, offsets = s_scrape.refang_text2(text, re=_fangre, fangs=_fangs)
+
+        for info in s_scrape.genMatches(scrape_text, regx, opts=opts):
             valu = info.pop('valu')
+
+            if _fangs and offsets:
+                s_scrape._rewriteRawValu(text, offsets, info)
+
             yield valu, info

@@ -6,6 +6,7 @@ import idna
 import regex
 import unicodedata
 
+import synapse.exc as s_exc
 import synapse.data as s_data
 
 import synapse.lib.crypto.coin as s_coin
@@ -142,7 +143,8 @@ def genFangRegex(fangs, flags=regex.IGNORECASE):
     # contextScrape API to function.
     for src, dst in fangs.items():
         if len(dst) > len(src):
-            raise AssertionError(f'fang dst[{dst}] must be <= in length to src[{src}]')
+            raise s_exc.BadArg(mesg=f'fang dst[{dst}] must be <= in length to src[{src}]',
+                               src=src, dst=dst)
     restr = "|".join(map(regex.escape, fangs.keys()))
     re = regex.compile(restr, flags)
     return re
