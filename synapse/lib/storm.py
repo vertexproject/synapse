@@ -1710,6 +1710,22 @@ class Runtime(s_base.Base):
             return
         await self.snap.core.reqGateKeys(gatekeys)
 
+    async def reqUserCanReadLayer(self, iden):
+
+        if self.asroot:
+            return
+
+        for view in self.snap.core.viewsbylayer.get(iden, ()):
+            if self.user.allowed(('view', 'read'), gateiden=view.iden):
+                return
+
+        # check the old way too...
+        if self.user.allowed(('layer', 'read'), gateiden=iden):
+            return
+
+        mesg = 'User can not read layer.'
+        raise s_exc.AuthDeny(mesg=mesg)
+
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
         if self.asroot:

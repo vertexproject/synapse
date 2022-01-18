@@ -1063,6 +1063,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.views = {}
         self.layers = {}
+        self.viewsbylayer = collections.defaultdict(list)
+
         self.modules = {}
         self.splicers = {}
         self.feedfuncs = {}
@@ -3361,6 +3363,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return view
 
+    def _calcViewsByLayer(self):
+        # keep track of views by layer
+        self.viewsbylayer.clear()
+        for view in self.views.values():
+            for layr in view.layers:
+                self.viewsbylayer[layr.iden].append(view)
+
     async def _initCoreViews(self):
 
         defiden = self.cellinfo.get('defaultview')
@@ -3392,6 +3401,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden = vdef.get('iden')
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
+            self._calcViewsByLayer()
 
     async def addView(self, vdef, nexs=True):
 
@@ -3442,6 +3452,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await self._loadView(node)
         view.init2()
 
+        self._calcViewsByLayer()
         return await view.pack()
 
     async def delView(self, iden):
@@ -3473,6 +3484,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
+        self._calcViewsByLayer()
         await self.auth.delAuthGate(iden)
 
     async def delLayer(self, iden):
@@ -3520,6 +3532,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
+        self._calcViewsByLayer()
 
     def getLayer(self, iden=None):
         '''

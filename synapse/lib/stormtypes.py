@@ -5586,17 +5586,17 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        todo = s_common.todo('getFormCounts')
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getFormCounts()
 
     async def _methGetTagCount(self, tagname, formname=None):
         tagname = await tostr(tagname)
         formname = await tostr(formname, noneok=True)
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        todo = s_common.todo('getTagCount', tagname, formname=formname)
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getTagCount(tagname, formname=formname)
 
     async def _methGetPropCount(self, propname, maxsize=None):
         propname = await tostr(propname)
@@ -5607,16 +5607,17 @@ class Layer(Prim):
             mesg = f'No property named {propname}'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if prop.isform:
-            todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
-        elif prop.isuniv:
-            todo = s_common.todo('getUnivPropCount', prop.name, maxsize=maxsize)
-        else:
-            todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
-
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        if prop.isform:
+            return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+
+        if prop.isuniv:
+            return await layr.getUnivPropCount(prop.name, maxsize=maxsize)
+
+        return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
 
     async def _methLayerEdits(self, offs=0, wait=True, size=None):
         offs = await toint(offs)
@@ -5637,17 +5638,15 @@ class Layer(Prim):
     async def getStorNode(self, nodeid):
         nodeid = await tostr(nodeid)
         layriden = self.valu.get('iden')
-        self.runt.confirm(('layer', 'read'), gateiden=layriden)
+        await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
         return await layr.getStorNode(s_common.uhex(nodeid))
 
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
-        self.runt.confirm(('layer', 'read'), gateiden=layriden)
-
-        todo = s_common.todo('getStorNodes')
-
-        async for item in self.runt.dyniter(layriden, todo):
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getStorNodes():
             yield item
 
     async def _methLayerGet(self, name, defv=None):
