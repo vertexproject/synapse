@@ -933,7 +933,7 @@ class View(s_nexus.Pusher):  # type: ignore
             # match offset and raw valu.
             #
             # Scrape implementers are responsible for ensuring that their
-            # resulting raw_valu and offsets are found in the text we sent
+            # resulting match and offsets are found in the text we sent
             # to them.
             todo = s_common.todo('scrape', text)
             async for results in self.callStormIface('scrape', todo):

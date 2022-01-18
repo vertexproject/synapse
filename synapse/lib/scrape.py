@@ -246,9 +246,9 @@ def _rewriteRawValu(text: str, offsets: dict, info: dict):
     for i, c in enumerate(valu, start=offset):
         end_offset = end_offset + offsets.get(i, 1)
 
-    # Extract a new raw valu and push the raw_valu and new offset into info
-    raw_valu = text[baseoff + offset: baseoff + end_offset]
-    info['match'] = raw_valu
+    # Extract a new match and push the match and new offset into info
+    match = text[baseoff + offset: baseoff + end_offset]
+    info['match'] = match
     info['offset'] = baseoff + offset
 
 def genMatches(text: str, regx: regex.Regex, opts: dict):
@@ -318,7 +318,7 @@ def contextScrape(text, form=None, refang=True, first=False):
     Notes:
         The dictionaries yielded by this function contains the following keys:
 
-            raw_valu
+            match
                 The raw matching text found in the input text.
 
             offset

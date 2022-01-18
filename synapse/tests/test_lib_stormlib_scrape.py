@@ -19,7 +19,7 @@ class StormScrapeTest(s_test.SynTest):
                     $modForm = $modconf.form
                     /*
                     Example of a generic storm module implementing a scrape interface using
-                    a common helper function that produces offset and raw_value information.
+                    a common helper function that produces offset and match information.
 
                     The helper does require a named match for valu this is extracted.
                     */

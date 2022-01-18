@@ -62,7 +62,7 @@ class LibScrape(s_stormtypes.Lib):
 
         Notes:
             The pattern must have a named regular expression match for the key ``valu`` using the
-            named group synapse. For example ``(somekey\\s)(?<valu>[a-z0-9]+)\\s``.
+            named group syntax. For example ``(somekey\\s)(?<valu>[a-z0-9]+)\\s``.
 
         Examples:
             A scrape implementation with a regex that matches name keys in text::
