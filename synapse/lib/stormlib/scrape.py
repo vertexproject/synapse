@@ -18,10 +18,6 @@ class LibScrape(s_stormtypes.Lib):
     A Storm Library for providing ipv6 helpers.
     '''
     _storm_locals = (
-        {'name': 'forms', 'desc': 'Get a list of available form arguments for built in scrape APIs.',
-         'type': {'type': 'function', '_funcname': '_methForms',
-                  'returns': {'type': 'list',
-                              'desc': 'A list of (form, valu, info) where info is a dictionart of metadata. '}}},
         {'name': 'context', 'desc': '''
             Attempt to scrape information from a blob of text, getting the context information about the values found.
 
