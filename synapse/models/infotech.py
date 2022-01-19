@@ -1058,8 +1058,15 @@ class ItModule(s_module.CoreModule):
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name of the software at a particular version.',
                     }),
+                    ('name', ('it:dev:str', {}), {
+                        'doc': 'Name of the software.',
+                    }),
                     ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software version.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the software.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('cpe', ('it:sec:cpe', {}), {
                         'doc': 'The NIST CPE 2.3 string specifying this software version',
