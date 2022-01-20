@@ -824,15 +824,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
     VERSTRING = s_version.verstring
 
-    async def __anit__(self, dirn, conf=None, readonly=False, nexsroot=None):
+    async def __anit__(self, dirn, conf=None, readonly=False):
 
         # phase 1
         if conf is None:
             conf = {}
-
-        # allow a cell to recieve an alternate nexsroot to facilitate
-        # embedding once cell within another and unifying their nexslog
-        self.cellroot = nexsroot
 
         self.starttime = time.monotonic()  # Used for uptime calc
         self.startms = s_common.now()      # Used to report start time
