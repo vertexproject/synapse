@@ -55,6 +55,39 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_userjson(self):
+
+        async with self.getTestCore() as core:
+            self.true(await core.callStorm('return($lib.user.json.set(hi, $lib.dict(foo=bar, baz=faz)))'))
+            self.true(await core.callStorm('return($lib.user.json.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
+            self.eq('bar', await core.callStorm('return($lib.user.json.get(hi, prop=foo))'))
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.user.json.get(hi))'))
+
+            await core.callStorm('$lib.user.json.set(hi, hehe, prop=foo)')
+            items = await core.callStorm('''
+            $list = $lib.list()
+            for $item in $lib.user.json.iter() { $list.append($item) }
+            return($list)
+            ''')
+            self.eq(items, (
+                (('bye', 'bye'), {'zip': 'zop', 'bip': 'bop'}),
+                (('hi',), {'baz': 'faz', 'foo': 'hehe'}),
+            ))
+            self.eq('zop', await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))'))
+
+            visi = await core.auth.addUser('visi')
+
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))', opts=asvisi)
+
+            self.none(await core.callStorm('return($lib.user.json.get(hi))', opts=asvisi))
+            await core.callStorm('if (not $lib.user.json.has(hehe)) { $lib.user.json.set(hehe, $lib.dict()) }', opts=asvisi)
+
+            self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
+            self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
+            self.eq('haha', await core.callStorm('return($lib.user.json.get(hehe, prop=foo))', opts=asvisi))
+
     async def test_stormtypes_registry(self):
 
         class NewpType(s_stormtypes.StormType):

@@ -4184,6 +4184,7 @@ class LibUser(Lib):
         super().addLibFuncs()
         self.locls.update({
             'vars': StormHiveDict(self.runt, self.runt.user.vars),
+            'json': UserJson(self.runt, self.runt.user.iden),
             'profile': StormHiveDict(self.runt, self.runt.user.profile),
         })
 
@@ -6547,6 +6548,132 @@ class Gate(Prim):
         return hash((self._storm_typename, self.locls['iden']))
 
 @registry.registerType
+class UserJson(Prim):
+    '''
+    Implements per-user JSON storage.
+    '''
+    _storm_typename = 'storm:auth:user:json'
+    _ismutable = False
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
+         'type': {'type': 'function', '_funcname': 'get',
+                   'args': (
+                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                    ),
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+
+        {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
+
+        {'name': 'del', 'desc': 'Delete a stored JSON object or object property for the user.',
+         'type': {'type': 'function', '_funcname': '_del',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   )}},
+
+        {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
+         'type': {'type': 'function', '_funcname': 'iter',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+    )
+
+    def __init__(self, runt, valu):
+        Prim.__init__(self, valu)
+        self.runt = runt
+        self.locls.update({
+            'get': self.get,
+            'set': self.set,
+            'has': self.has,
+            'del': self._del,
+            'iter': self.iter,
+        })
+
+    async def has(self, path):
+
+        path = await toprim(path)
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'get'))
+
+        return await self.runt.snap.core.hasJsonObj(fullpath)
+
+    async def get(self, path, prop=None):
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'get'))
+
+        if prop is None:
+            return await self.runt.snap.core.getJsonObj(fullpath)
+
+        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+
+    async def set(self, path, valu, prop=None):
+        path = await toprim(path)
+        valu = await toprim(valu)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'set'))
+
+        if prop is None:
+            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            return True
+
+        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+
+    async def _del(self, path, prop=None):
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'set'))
+
+        if prop is None:
+            await self.runt.snap.core.delJsonObj(fullpath, valu)
+
+        return await self.runt.snap.core.delJsonObjProp(fullpath, valu, prop=prop)
+
+    async def iter(self):
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'get'))
+
+        fullpath = ('users', self.valu, 'json')
+        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+            yield path, item
+
+@registry.registerType
 class User(Prim):
     '''
     Implements the Storm API for a User.
@@ -6659,9 +6786,15 @@ class User(Prim):
             'name': self._setUserName,
             'email': self._methUserSetEmail,
         })
+        self.ctors.update({
+            'json': self._ctorUserJson,
+        })
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
+
+    def _ctorUserJson(self, path=None):
+        return UserJson(self.runt, self.valu)
 
     def getObjLocals(self):
         return {

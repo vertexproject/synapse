@@ -36,6 +36,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -1146,6 +1147,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Initialize our storage and views
         await self._initCoreAxon()
+        await self._initCoreJsonStor()
 
         await self._initCoreLayers()
         await self._initCoreViews()
@@ -3002,6 +3004,66 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.inaugural:
             await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
+
+    async def _initCoreJsonStor(self):
+
+        turl = self.conf.get('jsonstor')
+        if turl is not None:
+            self.jsonstor = s_telepath.Client(turl)
+        else:
+            path = os.path.join(self.dirn, 'jsonstor')
+            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path)
+
+        self.onfini(self.jsonstor)
+
+    async def getJsonObj(self, path):
+        return await self.jsonstor.getPathObj(path)
+
+    async def hasJsonObj(self, path):
+        return await self.jsonstor.hasPathObj(path)
+
+    async def getJsonObjs(self, path):
+        async for item in self.jsonstor.getPathObjs(path):
+            yield item
+
+    async def getJsonObjProp(self, path, prop):
+        return await self.jsonstor.getPathObjProp(path, prop)
+
+    async def delJsonObj(self, path):
+        if isinstance(self.jsonstor, s_telepath.Client):
+            return await self.jsonstor.delJsonObj(path)
+        return await self._delJsonObj(path)
+
+    async def delJsonObjProp(self, path, prop):
+        if isinstance(self.jsonstor, s_telepath.Client):
+            return await self.jsonstor.delJsonObjProp(path, prop)
+        return await self._delJsonObjProp(path, path)
+
+    async def setJsonObj(self, path, item):
+        if isinstance(self.jsonstor, s_telepath.Client):
+            return await self.jsonstor.setPathObj(path, item)
+        return await self._setJsonObj(path, item)
+
+    async def setJsonObjProp(self, path, prop, item):
+        if isinstance(self.jsonstor, s_telepath.Client):
+            return await self.jsonstor.setPathObjProp(path, prop, item)
+        return await self._setJsonObjProp(path, prop, item)
+
+    @s_nexus.Pusher.onPushAuto('json:del')
+    async def _delJsonObj(self, path):
+        return await self.jsonstor.delPathObj(path)
+
+    @s_nexus.Pusher.onPushAuto('json:set')
+    async def _setJsonObj(self, path, item):
+        return await self.jsonstor.setPathObj(path, item)
+
+    @s_nexus.Pusher.onPushAuto('json:del:prop')
+    async def _delJsonObjProp(self, path, prop):
+        return await self.jsonstor.delPathObjProp(path, prop)
+
+    @s_nexus.Pusher.onPushAuto('json:set:prop')
+    async def _setJsonObjProp(self, path, prop, item):
+        return await self.jsonstor.setPathObjProp(path, prop, item)
 
     async def _initCoreAxon(self):
         turl = self.conf.get('axon')
