@@ -513,7 +513,7 @@ terminalClassMap = {
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
-    'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),
+    'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'BOOL': lambda x: s_ast.Bool(x == 'true'),
