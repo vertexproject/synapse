@@ -44,6 +44,23 @@ def loadOpticFiles(pkgdef, path):
                     'file': base64.b64encode(fd.read()).decode(),
                 }
 
+def loadOpticWorkflows(pkgdef, path):
+
+    wdefs = pkgdef['optic']['workflows']
+
+    for root, dirs, files in os.walk(path):
+
+        for name in files:
+
+            if name.startswith('.'):  # pragma: no cover
+                continue
+
+            fullname = s_common.genpath(root, name)
+            if not os.path.isfile(fullname):  # pragma: no cover
+                continue
+
+            wdefs[name.rstrip('.yaml')] = s_common.yamlload(fullname)
+
 def tryLoadPkgProto(fp, opticdir=None, readonly=False):
     '''
     Try to get a Storm Package prototype from disk with or without inline documentation.
@@ -157,11 +174,11 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
             with s_common.genfile(cmd_path) as fd:
                 cmd['storm'] = fd.read().decode()
 
-    for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
-        name = wdef.get('name')
-        wyaml = s_common.yamlload(protodir, 'workflows', f'{name}.yaml')
-        if wyaml is not None:
-            wdef.update(wyaml)
+    wflowdir = s_common.genpath(protodir, 'workflows')
+    if os.path.isdir(wflowdir):
+        pkgdef.setdefault('optic', {})
+        pkgdef['optic'].setdefault('workflows', {})
+        loadOpticWorkflows(pkgdef, wflowdir)
 
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')
