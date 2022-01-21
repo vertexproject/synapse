@@ -6547,6 +6547,145 @@ class Gate(Prim):
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
 
+@registry.registerLib
+class LibJsonStor(Lib):
+    '''
+    Implements cortex JSON storage.
+    '''
+    _storm_lib_path = ('jsonstor',)
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Return a stored JSON object or object property.',
+         'type': {'type': 'function', '_funcname': 'get',
+                   'args': (
+                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                    ),
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+
+        {'name': 'set', 'desc': 'Set a JSON object or object property.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
+
+        {'name': 'del', 'desc': 'Delete a stored JSON object or object.',
+         'type': {'type': 'function', '_funcname': '_del',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
+
+        {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the JSON objects.',
+         'type': {'type': 'function', '_funcname': 'iter',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                   ),
+                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+    )
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self.get,
+            'set': self.set,
+            'has': self.has,
+            'del': self._del,
+            'iter': self.iter,
+        })
+
+    async def has(self, path):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.has() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+        return await self.runt.snap.core.hasJsonObj(fullpath)
+
+    async def get(self, path, prop=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.get() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+
+        if prop is None:
+            return await self.runt.snap.core.getJsonObj(fullpath)
+
+        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+
+    async def set(self, path, valu, prop=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.set() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        valu = await toprim(valu)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+
+        if prop is None:
+            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            return True
+
+        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+
+    async def _del(self, path, prop=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.del() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+
+        if prop is None:
+            await self.runt.snap.core.delJsonObj(fullpath)
+            return True
+
+        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
+
+    async def iter(self, path=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.iter() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+
+        fullpath = ('cells', self.runt.snap.core.iden)
+        if path is not None:
+            if isinstance(path, str):
+                path = tuple(path.split('/'))
+            fullpath += path
+
+        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+            yield path, item
+
 @registry.registerType
 class UserJson(Prim):
     '''
@@ -6673,8 +6812,10 @@ class UserJson(Prim):
             self.runt.confirm(('user', 'json', 'get'))
 
         fullpath = ('users', self.valu, 'json')
-        if isinstance(path, str):
-            fullpath += tuple(path.split('/'))
+        if path is not None:
+            if isinstance(path, str):
+                path = tuple(path.split('/'))
+            fullpath += path
 
         async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
             yield path, item

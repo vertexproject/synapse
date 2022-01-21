@@ -55,6 +55,30 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_jsonstor(self):
+
+        async with self.getTestCore() as core:
+            self.none(await core.callStorm('return($lib.jsonstor.get(foo))'))
+            self.none(await core.callStorm('return($lib.jsonstor.get(foo, prop=bar))'))
+            self.true(await core.callStorm('return($lib.jsonstor.set(hi, $lib.dict(foo=bar, baz=faz)))'))
+            self.true(await core.callStorm('return($lib.jsonstor.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
+            self.eq('bar', await core.callStorm('return($lib.jsonstor.get(hi, prop=foo))'))
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.jsonstor.get(hi))'))
+
+            await core.callStorm('$lib.jsonstor.set(hi, hehe, prop=foo)')
+            items = await core.callStorm('''
+            $list = $lib.list()
+            for $item in $lib.jsonstor.iter(bye) { $list.append($item) }
+            return($list)
+            ''')
+            self.eq(items, (
+                (('bye', ), {'zip': 'zop', 'bip': 'bop'}),
+            ))
+            self.true(await core.callStorm('return($lib.jsonstor.del(bye/bye, prop=zip))'))
+            self.none(await core.callStorm('return($lib.jsonstor.get(bye/bye, prop=zip))'))
+            self.true(await core.callStorm('return($lib.jsonstor.del(bye/bye))'))
+            self.none(await core.callStorm('return($lib.jsonstor.get(bye/bye))'))
+
     async def test_stormtypes_userjson(self):
 
         async with self.getTestCore() as core:
