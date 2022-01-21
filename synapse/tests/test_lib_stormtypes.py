@@ -100,6 +100,15 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
             self.eq('haha', await core.callStorm('return($lib.user.json.get(hehe, prop=foo))', opts=asvisi))
 
+            self.eq('haha', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.set(hehe, lolz, prop=foo))'))
+            self.eq('lolz', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.del(hehe, prop=foo))'))
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.del(hehe))'))
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe))'))
+            self.false(await core.callStorm('return($lib.auth.users.byname(visi).json.has(hehe))'))
+
     async def test_stormtypes_registry(self):
 
         class NewpType(s_stormtypes.StormType):

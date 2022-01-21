@@ -48,6 +48,10 @@ class CortexTest(s_t_utils.SynTest):
             self.none(await core.delJsonObj('foo'))
             self.none(await core.getJsonObj('foo'))
 
+            await core.setJsonObj('foo/bar', 'zoinks')
+            items = [x async for x in core.getJsonObjs(('foo'))]
+            self.eq(items, ((('bar',), 'zoinks'),))
+
         # test with a remote jsonstor
         with self.getTestDir() as dirn:
 

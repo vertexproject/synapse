@@ -6660,9 +6660,10 @@ class UserJson(Prim):
             self.runt.confirm(('user', 'json', 'set'))
 
         if prop is None:
-            await self.runt.snap.core.delJsonObj(fullpath, valu)
+            await self.runt.snap.core.delJsonObj(fullpath)
+            return True
 
-        return await self.runt.snap.core.delJsonObjProp(fullpath, valu, prop=prop)
+        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
 
     async def iter(self, path=None):
 
