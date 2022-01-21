@@ -427,6 +427,7 @@ class JsonStorCell(s_cell.Cell):
     async def getPathObjs(self, path):
         async for item in self.jsonstor.getPathObjs(path):
             yield item
+            await asyncio.sleep(0)
 
     async def getPathObjProp(self, path, prop):
         return await self.jsonstor.getPathObjProp(path, prop)
