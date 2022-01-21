@@ -75,6 +75,16 @@ class StormTypesTest(s_test.SynTest):
                 (('bye', 'bye'), {'zip': 'zop', 'bip': 'bop'}),
                 (('hi',), {'baz': 'faz', 'foo': 'hehe'}),
             ))
+
+            items = await core.callStorm('''
+            $list = $lib.list()
+            for $item in $lib.user.json.iter(path=bye) { $list.append($item) }
+            return($list)
+            ''')
+            self.eq(items, (
+                (('bye',), {'zip': 'zop', 'bip': 'bop'}),
+            ))
+
             self.eq('zop', await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))'))
 
             visi = await core.auth.addUser('visi')

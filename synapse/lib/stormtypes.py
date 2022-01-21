@@ -6582,8 +6582,7 @@ class UserJson(Prim):
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
                   'args': (
-                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
-                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
     )
@@ -6664,12 +6663,17 @@ class UserJson(Prim):
 
         return await self.runt.snap.core.delJsonObjProp(fullpath, valu, prop=prop)
 
-    async def iter(self):
+    async def iter(self, path=None):
+
+        path = await toprim(path)
 
         if self.runt.user.iden != self.valu:
             self.runt.confirm(('user', 'json', 'get'))
 
         fullpath = ('users', self.valu, 'json')
+        if isinstance(path, str):
+            fullpath += tuple(path.split('/'))
+
         async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
             yield path, item
 
