@@ -6577,7 +6577,8 @@ class UserJson(Prim):
                   'args': (
                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
-                   )}},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
 
         {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
          'type': {'type': 'function', '_funcname': 'iter',
