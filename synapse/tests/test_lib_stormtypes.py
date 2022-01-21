@@ -59,9 +59,11 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             self.none(await core.callStorm('return($lib.jsonstor.get(foo))'))
+            self.false(await core.callStorm('return($lib.jsonstor.has(foo))'))
             self.none(await core.callStorm('return($lib.jsonstor.get(foo, prop=bar))'))
             self.true(await core.callStorm('return($lib.jsonstor.set(hi, $lib.dict(foo=bar, baz=faz)))'))
             self.true(await core.callStorm('return($lib.jsonstor.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
+            self.true(await core.callStorm('return($lib.jsonstor.has(bye/bye))'))
             self.eq('bar', await core.callStorm('return($lib.jsonstor.get(hi, prop=foo))'))
             self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.jsonstor.get(hi))'))
 
