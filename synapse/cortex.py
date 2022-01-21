@@ -969,6 +969,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote axon.',
             'type': 'string'
         },
+        'jsonstor': {
+            'description': 'A telepath URL for a remote jsonstor.',
+            'type': 'string'
+        },
         'cron:enable': {
             'default': True,
             'description': 'Enable cron jobs running.',
@@ -3007,9 +3011,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _initCoreJsonStor(self):
 
-        turl = self.conf.get('jsonstor')
-        if turl is not None:
-            self.jsonstor = s_telepath.Client(turl)
+        self.jsonurl = self.conf.get('jsonstor')
+        if self.jsonurl is not None:
+            self.jsonstor = await s_telepath.Client.anit(self.jsonurl)
         else:
             path = os.path.join(self.dirn, 'jsonstor')
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path)
@@ -3017,35 +3021,47 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(self.jsonstor)
 
     async def getJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
         return await self.jsonstor.getPathObj(path)
 
     async def hasJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
         return await self.jsonstor.hasPathObj(path)
 
     async def getJsonObjs(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
         async for item in self.jsonstor.getPathObjs(path):
             yield item
 
     async def getJsonObjProp(self, path, prop):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
         return await self.jsonstor.getPathObjProp(path, prop)
 
     async def delJsonObj(self, path):
-        if isinstance(self.jsonstor, s_telepath.Client):
-            return await self.jsonstor.delJsonObj(path)
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+            return await self.jsonstor.delPathObj(path)
         return await self._delJsonObj(path)
 
     async def delJsonObjProp(self, path, prop):
-        if isinstance(self.jsonstor, s_telepath.Client):
-            return await self.jsonstor.delJsonObjProp(path, prop)
-        return await self._delJsonObjProp(path, path)
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+            return await self.jsonstor.delPathObjProp(path, prop)
+        return await self._delJsonObjProp(path, prop)
 
     async def setJsonObj(self, path, item):
-        if isinstance(self.jsonstor, s_telepath.Client):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
             return await self.jsonstor.setPathObj(path, item)
         return await self._setJsonObj(path, item)
 
     async def setJsonObjProp(self, path, prop, item):
-        if isinstance(self.jsonstor, s_telepath.Client):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
             return await self.jsonstor.setPathObjProp(path, prop, item)
         return await self._setJsonObjProp(path, prop, item)
 

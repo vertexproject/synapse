@@ -58,6 +58,8 @@ class StormTypesTest(s_test.SynTest):
     async def test_stormtypes_userjson(self):
 
         async with self.getTestCore() as core:
+            self.none(await core.callStorm('return($lib.user.json.get(foo))'))
+            self.none(await core.callStorm('return($lib.user.json.get(foo, prop=bar))'))
             self.true(await core.callStorm('return($lib.user.json.set(hi, $lib.dict(foo=bar, baz=faz)))'))
             self.true(await core.callStorm('return($lib.user.json.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
             self.eq('bar', await core.callStorm('return($lib.user.json.get(hi, prop=foo))'))
