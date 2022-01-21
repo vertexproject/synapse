@@ -20,6 +20,24 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_triplequote(self):
+        async with self.getTestCore() as core:
+            retn = await core.callStorm("""
+            return($lib.yaml.load('''
+                foo: bar
+                baz:
+                    - hehe's
+                    - haha's
+            '''))
+            """)
+            self.eq(retn, {'foo': 'bar', 'baz': ("hehe's", "haha's")})
+
+            self.eq(''' '"lol"' ''', await core.callStorm("""return(''' '"lol"' ''')"""))
+
+            retn = await core.callStorm("""return(('''foo bar''', '''baz faz'''))""")
+            self.eq(retn, ('foo bar', 'baz faz'))
+            self.eq("'''", await core.callStorm("""return("'''")"""))
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''

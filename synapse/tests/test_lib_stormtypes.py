@@ -55,6 +55,97 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_jsonstor(self):
+
+        async with self.getTestCore() as core:
+            self.none(await core.callStorm('return($lib.jsonstor.get(foo))'))
+            self.false(await core.callStorm('return($lib.jsonstor.has(foo))'))
+            self.none(await core.callStorm('return($lib.jsonstor.get(foo, prop=bar))'))
+            self.true(await core.callStorm('return($lib.jsonstor.set(hi, $lib.dict(foo=bar, baz=faz)))'))
+            self.true(await core.callStorm('return($lib.jsonstor.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
+            self.true(await core.callStorm('return($lib.jsonstor.has(bye/bye))'))
+            self.eq('bar', await core.callStorm('return($lib.jsonstor.get(hi, prop=foo))'))
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.jsonstor.get(hi))'))
+
+            await core.callStorm('$lib.jsonstor.set(hi, hehe, prop=foo)')
+            items = await core.callStorm('''
+            $list = $lib.list()
+            for $item in $lib.jsonstor.iter(bye) { $list.append($item) }
+            return($list)
+            ''')
+            self.eq(items, (
+                (('bye', ), {'zip': 'zop', 'bip': 'bop'}),
+            ))
+            self.true(await core.callStorm('return($lib.jsonstor.del(bye/bye, prop=zip))'))
+            self.none(await core.callStorm('return($lib.jsonstor.get(bye/bye, prop=zip))'))
+            self.true(await core.callStorm('return($lib.jsonstor.del(bye/bye))'))
+            self.none(await core.callStorm('return($lib.jsonstor.get(bye/bye))'))
+
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.get(foo))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.set(foo, bar))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.del(foo))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('for $item in $lib.jsonstor.iter() {}', opts=asvisi)
+
+    async def test_stormtypes_userjson(self):
+
+        async with self.getTestCore() as core:
+            self.none(await core.callStorm('return($lib.user.json.get(foo))'))
+            self.none(await core.callStorm('return($lib.user.json.get(foo, prop=bar))'))
+            self.true(await core.callStorm('return($lib.user.json.set(hi, $lib.dict(foo=bar, baz=faz)))'))
+            self.true(await core.callStorm('return($lib.user.json.set(bye/bye, $lib.dict(zip=zop, bip=bop)))'))
+            self.eq('bar', await core.callStorm('return($lib.user.json.get(hi, prop=foo))'))
+            self.eq({'foo': 'bar', 'baz': 'faz'}, await core.callStorm('return($lib.user.json.get(hi))'))
+
+            await core.callStorm('$lib.user.json.set(hi, hehe, prop=foo)')
+            items = await core.callStorm('''
+            $list = $lib.list()
+            for $item in $lib.user.json.iter() { $list.append($item) }
+            return($list)
+            ''')
+            self.eq(items, (
+                (('bye', 'bye'), {'zip': 'zop', 'bip': 'bop'}),
+                (('hi',), {'baz': 'faz', 'foo': 'hehe'}),
+            ))
+
+            items = await core.callStorm('''
+            $list = $lib.list()
+            for $item in $lib.user.json.iter(path=bye) { $list.append($item) }
+            return($list)
+            ''')
+            self.eq(items, (
+                (('bye',), {'zip': 'zop', 'bip': 'bop'}),
+            ))
+
+            self.eq('zop', await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))'))
+
+            visi = await core.auth.addUser('visi')
+
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.auth.users.byname(root).json.get(bye/bye, prop=zip))', opts=asvisi)
+
+            self.none(await core.callStorm('return($lib.user.json.get(hi))', opts=asvisi))
+            await core.callStorm('if (not $lib.user.json.has(hehe)) { $lib.user.json.set(hehe, $lib.dict()) }', opts=asvisi)
+
+            self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
+            self.true(await core.callStorm('return($lib.user.json.set(hehe, haha, prop=foo))', opts=asvisi))
+            self.eq('haha', await core.callStorm('return($lib.user.json.get(hehe, prop=foo))', opts=asvisi))
+
+            self.eq('haha', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.set(hehe, lolz, prop=foo))'))
+            self.eq('lolz', await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.del(hehe, prop=foo))'))
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe, prop=foo))'))
+            self.true(await core.callStorm('return($lib.auth.users.byname(visi).json.del(hehe))'))
+            self.none(await core.callStorm('return($lib.auth.users.byname(visi).json.get(hehe))'))
+            self.false(await core.callStorm('return($lib.auth.users.byname(visi).json.has(hehe))'))
+
     async def test_stormtypes_registry(self):
 
         class NewpType(s_stormtypes.StormType):
