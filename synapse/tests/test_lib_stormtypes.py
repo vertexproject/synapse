@@ -79,6 +79,17 @@ class StormTypesTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.jsonstor.del(bye/bye))'))
             self.none(await core.callStorm('return($lib.jsonstor.get(bye/bye))'))
 
+            visi = await core.auth.addUser('visi')
+            asvisi = {'user': visi.iden}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.get(foo))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.set(foo, bar))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.del(foo))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('for $item in $lib.jsonstor.iter() {}', opts=asvisi)
+
     async def test_stormtypes_userjson(self):
 
         async with self.getTestCore() as core:
