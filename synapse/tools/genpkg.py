@@ -52,14 +52,14 @@ def loadOpticWorkflows(pkgdef, path):
 
         for name in files:
 
-            if name.startswith('.'):  # pragma: no cover
+            if not name.endswith('.yaml') or name == '.yaml':
                 continue
 
             fullname = s_common.genpath(root, name)
             if not os.path.isfile(fullname):  # pragma: no cover
                 continue
 
-            wdefs[name.rstrip('.yaml')] = s_common.yamlload(fullname)
+            wdefs[name[:-5]] = s_common.yamlload(fullname)
 
 def tryLoadPkgProto(fp, opticdir=None, readonly=False):
     '''
