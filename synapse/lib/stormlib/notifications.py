@@ -49,7 +49,7 @@ class NotifyLib(s_stormtypes.Lib):
                     {'name': 'indx', 'type': 'int', 'desc': 'The index number of the notification to return.'},
                 ),
                 'returns': {
-                    'name': 'retn', 'type': 'dict|null',
+                    'name': 'retn', 'type': 'dict',
                     'desc': 'The requested notification or $lib.null.'},
             },
         },
