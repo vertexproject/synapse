@@ -3622,7 +3622,8 @@ class BackgroundCmd(Cmd):
             'vars': runtvars,
         }
 
-        query = await runt.getStormQuery(self.opts.query)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
 
         # make sure the subquery *could* have run with existing vars
         query.validate(runt)
