@@ -29,6 +29,37 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_usernotifs(self):
+
+        async def testUserNotifs(core):
+            async with core.getLocalProxy() as proxy:
+                root = core.auth.rootuser.iden
+                indx = await proxy.addUserNotif(root, 'hehe', {'foo': 'bar'})
+                self.nn(indx)
+                item = await proxy.getUserNotif(indx)
+                self.eq(root, item[0])
+                self.eq('hehe', item[2])
+                self.eq({'foo': 'bar'}, item[3])
+                msgs = [x async for x in proxy.iterUserNotifs(root)]
+
+                self.len(1, msgs)
+                self.eq(root, msgs[0][1][0])
+                self.eq('hehe', msgs[0][1][2])
+                self.eq({'foo': 'bar'}, msgs[0][1][3])
+
+                await proxy.delUserNotif(indx)
+                self.none(await proxy.getUserNotif(indx))
+
+        # test a local jsonstor
+        async with self.getTestCore() as core:
+            await testUserNotifs(core)
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testUserNotifs(core)
+
     async def test_cortex_jsonstor(self):
 
         async def testCoreJson(core):

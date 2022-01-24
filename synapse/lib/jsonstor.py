@@ -408,6 +408,11 @@ class JsonStorApi(s_cell.CellApi):
         async for item in self.cell.iterUserNotifs(useriden, size=size):
             yield item
 
+    @s_cell.adminapi()
+    async def watchAllUserNotifs(self):
+        async for item in self.cell.watchAllUserNotifs():
+            yield item
+
 class JsonStorCell(s_cell.Cell):
 
     cellapi = JsonStorApi
@@ -561,6 +566,12 @@ class JsonStorCell(s_cell.Cell):
             count += 1
             if size is not None and count >= size:
                 break
+
+    async def watchAllUserNotifs(self):
+        # yield only new notifications as they arrive
+        offs = self.notifseqn.index()
+        async for item in self.notifseqn.aiter(offs=offs, wait=True, timeout=120):
+            yield item
 
     # async def iterUserNotifsByTime(self, useriden, ival):
     # async def iterUserNotifsByType(self, useriden, mesgtype, ival=None):

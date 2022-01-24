@@ -951,6 +951,28 @@ class CoreApi(s_cell.CellApi):
         async for byts in self.cell.axon.get(s_common.uhex(sha256)):
             yield byts
 
+    @s_cell.adminapi()
+    async def getUserNotif(self, indx):
+        return await self.cell.getUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def delUserNotif(self, indx):
+        return await self.cell.delUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    @s_cell.adminapi()
+    async def iterUserNotifs(self, useriden, size=None):
+        async for item in self.cell.iterUserNotifs(useriden, size=size):
+            yield item
+
+    @s_cell.adminapi()
+    async def watchAllUserNotifs(self):
+        async for item in self.cell.watchAllUserNotifs():
+            yield item
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -3083,6 +3105,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.jsonurl is not None:
             await self.jsonstor.waitready()
         async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
+            yield item
+
+    async def watchAllUserNotifs(self):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.watchAllUserNotifs():
             yield item
 
     async def _initCoreAxon(self):
