@@ -391,6 +391,23 @@ class JsonStorApi(s_cell.CellApi):
         async for item in self.cell.getsQueue(name, offs, size=size, cull=cull, wait=wait):
             yield item
 
+    @s_cell.adminapi()
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    @s_cell.adminapi()
+    async def getUserNotif(self, indx):
+        return await self.cell.getUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def delUserNotif(self, indx):
+        return await self.cell.delUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def iterUserNotifs(self, useriden, size=None):
+        async for item in self.cell.iterUserNotifs(useriden, size=size):
+            yield item
+
 class JsonStorCell(s_cell.Cell):
 
     cellapi = JsonStorApi

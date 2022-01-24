@@ -53,15 +53,10 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(items, ((('bar',), 'zoinks'),))
 
         # test with a remote jsonstor
-        with self.getTestDir() as dirn:
-
-            path = os.path.join(dirn, 'jsonstor')
-            async with await s_jsonstor.JsonStorCell.anit(path) as jsonstor:
-                jsonurl = jsonstor.getLocalUrl()
-                conf = {'jsonstor': jsonurl}
-                path = os.path.join(dirn, 'cortex')
-                async with await s_cortex.Cortex.anit(path, conf=conf) as core:
-                    await testCoreJson(core)
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testCoreJson(core)
 
         # test a local jsonstor
         async with self.getTestCore() as core:

@@ -56,7 +56,8 @@ jsonsbuf = b'''
 class StormTypesTest(s_test.SynTest):
 
     async def test_stormtypes_notify(self):
-        async with self.getTestCore() as core:
+
+        async def testUserNotif(core):
             visi = await core.auth.addUser('visi')
 
             asvisi = {'user': visi.iden}
@@ -88,6 +89,15 @@ class StormTypesTest(s_test.SynTest):
                 }
             ''')
             self.stormNotInPrint(f'{visi.iden} says heya', msgs)
+
+        async with self.getTestCore() as core:
+            await testUserNotif(core)
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testUserNotif(core)
 
     async def test_stormtypes_jsonstor(self):
 
