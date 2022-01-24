@@ -37,21 +37,46 @@ class NotifyLib(s_stormtypes.Lib):
                     'desc': 'Returns an ($ok, $valu) tuple.'},
             },
         },
+        {
+            'name': 'get',
+            'desc': '''
+            Return a notification by ID (or $lib.null).
+
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'get',
+                'args': (
+                    {'name': 'indx', 'type': 'int', 'desc': 'The index number of the notification to return.'},
+                ),
+                'returns': {
+                    'name': 'retn', 'type': 'dict|null',
+                    'desc': 'The requested notification or $lib.null.'},
+            },
+        },
     )
 
     def getObjLocals(self):
         return {
+            'get': self.get,
             'del': self._del,
             'list': self.list,
             # 'bytime':
             # 'bytype':
         }
 
+    async def get(self, indx):
+        indx = await s_stormtypes.toint(indx)
+        mesg = await self.runt.snap.core.getUserNotif(indx)
+        if mesg[0] != self.runt.user.iden and not self.runt.isAdmin():
+            mesg = 'You may only get notifications which belong to you.'
+            raise s_exc.AuthDeny(mesg=mesg)
+        return mesg
+
     async def _del(self, indx):
         indx = await s_stormtypes.toint(indx)
         mesg = await self.runt.snap.core.getUserNotif(indx)
         if mesg[0] != self.runt.user.iden and not self.runt.isAdmin():
-            mesg = 'You may only delete notifications which belong to you!'
+            mesg = 'You may only delete notifications which belong to you.'
             raise s_exc.AuthDeny(mesg=mesg)
         await self.runt.snap.core.delUserNotif(indx)
 

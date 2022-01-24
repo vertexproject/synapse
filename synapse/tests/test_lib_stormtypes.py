@@ -90,6 +90,13 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.stormNotInPrint(f'{visi.iden} says heya', msgs)
 
+            indx = await core.callStorm('return($lib.auth.users.byname(root).notify(hehe, $lib.dict(haha=hoho)))')
+            opts = {'vars': {'indx': indx}}
+            mesg = await core.callStorm('return($lib.notifications.get($indx))', opts=opts)
+            self.eq(mesg[0], core.auth.rootuser.iden)
+            self.eq(mesg[2], 'hehe')
+            self.eq(mesg[3], {'haha': 'hoho'})
+
         async with self.getTestCore() as core:
             await testUserNotif(core)
 
