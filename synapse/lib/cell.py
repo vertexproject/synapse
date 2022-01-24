@@ -2055,10 +2055,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellHiveAuth(self):
 
-        nexsroot = self.nexsroot
-        if self.cellparent is not None:
-            nexsroot = None
-
         node = await self.hive.open(('auth',))
         auth = await s_hiveauth.Auth.anit(node, nexsroot=self.getCellNexsRoot())
 
