@@ -2144,8 +2144,11 @@ class Parser:
                 return
 
         # check for help before processing other args
-        if opts.get('help'):
-            self.help()
+        if opts.pop('help', None):
+            mesg = None
+            if opts or posargs:
+                mesg = f'Extra arguments and flags are not supported with the help flag: {self.prog} {" ".join(argv)}'
+            self.help(mesg)
             return
 
         # process positional arguments
@@ -3622,7 +3625,8 @@ class BackgroundCmd(Cmd):
             'vars': runtvars,
         }
 
-        query = await runt.getStormQuery(self.opts.query)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
 
         # make sure the subquery *could* have run with existing vars
         query.validate(runt)
