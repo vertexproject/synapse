@@ -2394,6 +2394,12 @@ class StormTest(s_t_utils.SynTest):
         self.isin('Arguments:', pars.mesgs)
         self.isin('  <hehe>                      : No help available', pars.mesgs)
 
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('hehe')
+        opts = pars.parse_args(['newp', '-h'])
+        self.none(opts)
+        self.isin('ERROR: Extra arguments and flags are not supported with the help flag: hehe newp -h', pars.mesgs)
+
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
         opts = pars.parse_args(['--no-foo'])
