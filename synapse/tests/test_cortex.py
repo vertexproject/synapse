@@ -50,6 +50,21 @@ class CortexTest(s_t_utils.SynTest):
                 await proxy.delUserNotif(indx)
                 self.none(await proxy.getUserNotif(indx))
 
+                retn = []
+                done = asyncio.Event()
+                async def watcher():
+                    async for item in proxy.watchAllUserNotifs():
+                        retn.append(item)
+                        done.set()
+                        return
+                core.schedCoro(watcher())
+                await asyncio.sleep(0.1)
+                await proxy.addUserNotif(root, 'lolz')
+                await asyncio.wait_for(done.wait(), timeout=2)
+                self.len(1, retn)
+                self.eq(retn[0][1][0], root)
+                self.eq(retn[0][1][2], 'lolz')
+
         # test a local jsonstor
         async with self.getTestCore() as core:
             await testUserNotifs(core)
