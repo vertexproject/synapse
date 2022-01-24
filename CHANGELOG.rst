@@ -5,6 +5,81 @@ Synapse Changelog
 *****************
 
 
+v2.79.0 - 2022-01-18
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.scrape.ndefs()`` and ``$lib.scrape.context()`` to scrape text.
+  The ``ndefs()`` API yields a unique set of node form and value pairs,
+  while the ``context()`` API yields node form, value, and context information
+  for all matches in the text.
+  (`#2508 <https://github.com/vertexproject/synapse/pull/2508>`_)
+- Add ``:name`` and ``:desc`` properties to the ``it:prod:softver`` form.
+  (`#2528 <https://github.com/vertexproject/synapse/pull/2528>`_)
+- Update the ``Layer.verify()`` routines to reduce false errors related to
+  array types. The method now takes a dictionary of configuration options.
+  These routines are in a beta status and are subject to change.
+  (`#2527 <https://github.com/vertexproject/synapse/pull/2527>`_)
+- Allow setting a View's parent if does not have an existing parent View
+  and only has a single layer.
+  (`#2515 <https://github.com/vertexproject/synapse/pull/2515>`_)
+- Add ``hxxp[:\\]`` and ``hxxps[:\\]`` to the list of known defanging
+  strategies which are identified and replaced during text scraping.
+  (`#2526 <https://github.com/vertexproject/synapse/pull/2526>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``typing-extensions`` module.
+  (`#2525 <https://github.com/vertexproject/synapse/pull/2525>`_)
+
+Bugfixes
+--------
+- Storm module interfaces now populate ``modconf`` data when loaded.
+  (`#2508 <https://github.com/vertexproject/synapse/pull/2508>`_)
+- Fix a missing keyword argument from the ``AxonApi.wput()`` method.
+  (`#2527 <https://github.com/vertexproject/synapse/pull/2527>`_)
+
+Deprecations
+------------
+- The ``$lib.scrape()`` function has been deprecated in favor the new
+  ``$lib.scrape`` library functions.
+  (`#2508 <https://github.com/vertexproject/synapse/pull/2508>`_)
+
+
+v2.78.0 - 2022-01-14
+====================
+
+Automatic Migrations
+--------------------
+- Migrate Cortex nodes which may have been skipped in an earlier migration due
+  to missing tagprop indexes. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Expand Synapse requirements to include updated versions of the ``base58``,
+  ``cbor2``, ``lmdb``, ``pycryptodome``, ``PyYAML``, ``xxhash``.
+  (`#2520 <https://github.com/vertexproject/synapse/pull/2520>`_)
+
+Bugfixes
+--------
+- Fix an issue with the Tagprop migration from ``v2.42.0`` where a missing
+  index could have resulted in Layer storage nodes not being updated.
+  (`#2522 <https://github.com/vertexproject/synapse/pull/2522>`_)
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
+- Fix an issue with ``synapse.lib.platforms.linux.getTotalMemory()`` when
+  using a process segregated with the Linux cgroups2 API.
+  (`#2517 <https://github.com/vertexproject/synapse/pull/2517>`_)
+
+Improved Documentation
+----------------------
+- Add devops instructions related to automatic data migrations for Synapse
+  components.
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
+- Update the model deprecation documentation for the ``it:host:model`` and
+  ``it:host:make`` properties.
+  (`#2521 <https://github.com/vertexproject/synapse/pull/2521>`_)
+
+
 v2.77.0 - 2022-01-07
 ====================
 
@@ -65,6 +140,7 @@ Features and Enhancements
 Bugfixes
 --------
 - Fix an ``IndexError`` that can occur during ``Layer.verify()`` routines.
+  These routines are in a beta status and are subject to change.
   (`#2507 <https://github.com/vertexproject/synapse/pull/2507>`_)
 - Ensure that parameter and header arguments passed to Storm
   ``$lib.inet.http`` functions are cast into strings values.
@@ -113,6 +189,7 @@ Features and Enhancements
 - Add Layer index verification routines, to compare the Layer indices against
   the stored data for Nodes. This is exposed via the ``.verify()`` API on the
   Stormtypes ``storm:layer`` object.
+  These routines are in a beta status and are subject to change.
   (`#2488 <https://github.com/vertexproject/synapse/pull/2488>`_)
 - The ``.json()`` API on ``storm:http:resp`` now raises a
   ``s_exc.BadJsonText`` exception, which can be caught with the Storm

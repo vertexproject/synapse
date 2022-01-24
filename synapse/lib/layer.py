@@ -319,6 +319,9 @@ class IndxByForm(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+
         valt = sode.get('valu')
         if valt is not None:
             return valt[0]
@@ -337,6 +340,9 @@ class IndxByProp(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
+
         valt = sode['props'].get(self.prop)
         if valt is not None:
             return valt[0]
@@ -355,6 +361,8 @@ class IndxByPropArray(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
         valt = sode['props'].get(self.prop)
         if valt is not None:
             return valt[0]
@@ -378,6 +386,8 @@ class IndxByTag(IndxBy):
 
     def getNodeValuForm(self, buid):
         sode = self.layr._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
         valt = sode['tags'].get(self.tag)
         if valt is not None:
             return valt, sode['form']
@@ -397,7 +407,8 @@ class IndxByTagProp(IndxBy):
 
     def getNodeValu(self, buid):
         sode = self.layr._getStorNode(buid)
-
+        if sode is None: # pragma: no cover
+            return None
         props = sode['tagprops'].get(self.tag)
         if not props:
             return
@@ -1368,52 +1379,102 @@ class Layer(s_nexus.Pusher):
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
 
-    async def verify(self, buids=True, tags=True, props=True):
-        if buids:
-            async for error in self.verifyAllBuids():
+    async def verify(self, config=None):
+
+        if config is None:
+            config = {}
+
+        defconf = None
+        if config.get('scanall', True):
+            defconf = {}
+
+        scans = config.get('scans', {})
+
+        nodescan = scans.get('nodes', defconf)
+        if nodescan is not None:
+            async for error in self.verifyAllBuids(nodescan):
                 yield error
 
-        if tags:
-            async for error in self.verifyAllTags():
+        tagsscan = scans.get('tagindex', defconf)
+        if tagsscan is not None:
+            async for error in self.verifyAllTags(tagsscan):
                 yield error
 
-        if props:
-            async for error in self.verifyAllProps():
+        propscan = scans.get('propindex', defconf)
+        if propscan is not None:
+            async for error in self.verifyAllProps(propscan):
                 yield error
 
-    async def verifyAllBuids(self):
+    async def verifyAllBuids(self, scanconf=None):
+        if scanconf is None:
+            scanconf = {}
+
         async for buid, sode in self.getStorNodes():
             async for error in self.verifyByBuid(buid, sode):
                 yield error
 
-    async def verifyAllTags(self):
+    async def verifyAllTags(self, scanconf=None):
+
+        if scanconf is None:
+            scanconf = {}
+
+        globs = None
+
+        includes = scanconf.get('include', ())
+        if includes:
+            globs = s_cache.TagGlobs()
+            for incname in includes:
+                globs.add(incname, True)
+
+        autofix = scanconf.get('autofix')
         for name in self.tagabrv.names():
-            async for error in self.verifyByTag(name):
+
+            if globs is not None and not globs.get(name):
+                continue
+
+            async for error in self.verifyByTag(name, autofix=autofix):
                 yield error
 
-    async def verifyAllProps(self):
+    async def verifyAllProps(self, scanconf=None):
+        if scanconf is None:
+            scanconf = {}
         for form, prop in self.getFormProps():
             async for error in self.verifyByProp(form, prop):
                 yield error
 
-    async def verifyByTag(self, tag):
+    async def verifyByTag(self, tag, autofix=None):
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
+
+        async def tryfix(lkey, buid, form):
+            if autofix == 'node':
+                sode = self._genStorNode(buid)
+                sode.setdefault('form', form)
+                sode['tags'][tag] = (None, None)
+                self.setSodeDirty(buid, sode, form)
+            elif autofix == 'index':
+                self.layrslab.delete(lkey, buid, db=self.bytag)
+
         for lkey, buid in self.layrslab.scanByPref(tagabrv, db=self.bytag):
 
             await asyncio.sleep(0)
 
+            (form, prop) = self.getAbrvProp(lkey[8:])
+
             sode = self._getStorNode(buid)
             if sode is None: # pragma: no cover
-                yield ('NoNodeForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                await tryfix(lkey, buid, form)
+                yield ('NoNodeForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
             tags = sode.get('tags')
             if tags is None:
-                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                await tryfix(lkey, buid, form)
+                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
             if tags.get(tag) is None:
-                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'tag': tag})
+                await tryfix(lkey, buid, form)
+                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
     async def verifyByProp(self, form, prop):
@@ -1426,6 +1487,10 @@ class Layer(s_nexus.Pusher):
         oldkeys = []
 
         def verifyIndxKeys(propvalu, stortype, indxkeys):
+
+            # TODO: we dont support verifying array property indexes just yet...
+            if stortype & STOR_FLAG_ARRAY:
+                return
 
             # NOTE: This *will* mutate indxkeys list
             try:
@@ -1456,6 +1521,7 @@ class Layer(s_nexus.Pusher):
                         yield error
 
                 oldbuid = buid
+                indx = lkey[len(abrv):]
 
                 sode = self._getStorNode(buid)
                 if sode is None: # pragma: no cover
@@ -1468,13 +1534,11 @@ class Layer(s_nexus.Pusher):
                 if prop is not None:
                     props = sode.get('props')
                     if props is None:
-                        indx = lkey[len(abrv):]
                         yield ('NoPropForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
                         continue
 
                     oldvalu = props.get(prop)
                     if oldvalu is None:
-                        indx = lkey[len(abrv):]
                         yield ('NoValuForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
                         continue
                 else:
@@ -1505,6 +1569,11 @@ class Layer(s_nexus.Pusher):
         storprops = sode.get('props')
         if storprops:
             for propname, (storvalu, stortype) in storprops.items():
+
+                # TODO: we dont support verifying array property indexes just yet...
+                if stortype & STOR_FLAG_ARRAY:
+                    continue
+
                 try:
                     async for error in self.stortypes[stortype].verifyBuidProp(buid, form, propname, storvalu):
                         yield error
@@ -1730,36 +1799,42 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'...complete!')
 
-    async def _layrV5toV6(self):
+    async def _v5ToV7Buid(self, buid):
 
-        sode = collections.defaultdict(dict)
+        byts = self.layrslab.get(buid, db=self.bybuidv3)
+        if byts is None:
+            return
 
-        logger.warning(f'Updating tagprop keys in bybuid index: {self.dirn}')
+        sode = s_msgpack.un(byts)
+        tagprops = sode.get('tagprops')
+        if tagprops is None:
+            return
+        edited_sode = False
+        # do this in a partially-covered / replay safe way
+        for tpkey, tpval in list(tagprops.items()):
+            if isinstance(tpkey, tuple):
+                tagprops.pop(tpkey)
+                edited_sode = True
+                tag, prop = tpkey
 
-        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
-
-            form, tag, prop = s_msgpack.un(byts)
-            if form is None:
-                continue
-
-            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-                byts = self.layrslab.get(buid, db=self.bybuidv3)
-                if byts is not None:
-                    sode.clear()
-                    sode.update(s_msgpack.un(byts))
-
-                tpval = sode['tagprops'].pop((tag, prop), None)
-                if tpval is None:
+                if tagprops.get(tag) is None:
+                    tagprops[tag] = {}
+                if prop in tagprops[tag]:
                     continue
+                tagprops[tag][prop] = tpval
 
-                if tag not in sode['tagprops']:
-                    sode['tagprops'][tag] = {}
-                sode['tagprops'][tag][prop] = tpval
+        if edited_sode:
+            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
 
-                self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+    async def _layrV5toV7(self):
 
-        self.meta.set('version', 6)
-        self.layrvers = 6
+        logger.warning(f'Updating tagprop keys in bytagprop index: {self.dirn}')
+
+        for lkey, buid in self.layrslab.scanByFull(db=self.bytagprop):
+            await self._v5ToV7Buid(buid)
+
+        self.meta.set('version', 7)
+        self.layrvers = 7
 
         logger.warning('...complete!')
 
@@ -1791,7 +1866,7 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
-            self.meta.set('version', 6)
+            self.meta.set('version', 7)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
@@ -1837,11 +1912,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 5:
             await self._layrV4toV5()
 
-        if self.layrvers < 6:
-            await self._layrV5toV6()
+        if self.layrvers < 7:
+            await self._layrV5toV7()
 
-        if self.layrvers != 6:
-            mesg = f'Got layer version {self.layrvers}.  Expected 6.  Accidental downgrade?'
+        if self.layrvers != 7:
+            mesg = f'Got layer version {self.layrvers}.  Expected 7.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
@@ -1903,9 +1978,9 @@ class Layer(s_nexus.Pusher):
     def setTagPropAbrv(self, *args):
         return self.tagpropabrv.setBytsToAbrv(s_msgpack.en(args))
 
+    @s_cache.memoizemethod()
     def getAbrvProp(self, abrv):
         byts = self.propabrv.abrvToByts(abrv)
-
         return s_msgpack.un(byts)
 
     async def getNodeValu(self, buid, prop=None):
@@ -1913,16 +1988,22 @@ class Layer(s_nexus.Pusher):
         Retrieve either the form valu or a prop valu for the given node by buid.
         '''
         sode = self._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return (None, None)
         if prop is None:
             return sode.get('valu', (None, None))[0]
         return sode['props'].get(prop, (None, None))[0]
 
     async def getNodeTag(self, buid, tag):
         sode = self._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
         return sode['tags'].get(tag)
 
     async def getNodeForm(self, buid):
         sode = self._getStorNode(buid)
+        if sode is None: # pragma: no cover
+            return None
         return sode.get('form')
 
     def setSodeDirty(self, buid, sode, form):
@@ -1948,7 +2029,10 @@ class Layer(s_nexus.Pusher):
         self.dirty.clear()
 
     async def getStorNode(self, buid):
-        return deepcopy(self._getStorNode(buid))
+        sode = self._getStorNode(buid)
+        if sode is not None:
+            return deepcopy(sode)
+        return {}
 
     def _getStorNode(self, buid):
         '''
@@ -1968,13 +2052,25 @@ class Layer(s_nexus.Pusher):
         if sode is not None:
             return sode
 
-        sode = collections.defaultdict(dict)
+        byts = self.layrslab.get(buid, db=self.bybuidv3)
+        if byts is None:
+            return None
 
+        sode = collections.defaultdict(dict)
+        sode.update(s_msgpack.un(byts))
         self.buidcache[buid] = sode
 
-        byts = self.layrslab.get(buid, db=self.bybuidv3)
-        if byts is not None:
-            sode.update(s_msgpack.un(byts))
+        return sode
+
+    def _genStorNode(self, buid):
+        # get or create the storage node. this returns the *actual* storage node
+
+        sode = self._getStorNode(buid)
+        if sode is not None:
+            return sode
+
+        sode = collections.defaultdict(dict)
+        self.buidcache[buid] = sode
 
         return sode
 
@@ -2025,7 +2121,13 @@ class Layer(s_nexus.Pusher):
             return
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytag):
-            yield None, buid, deepcopy(self._getStorNode(buid))
+
+            sode = self._getStorNode(buid)
+            if sode is None: # pragma: no cover
+                # logger.warning(f'TagIndex for #{tag} has {s_common.ehex(buid)} but no storage node.')
+                continue
+
+            yield None, buid, deepcopy(sode)
 
     async def liftByTagValu(self, tag, cmpr, valu, form=None):
 
@@ -2045,7 +2147,11 @@ class Layer(s_nexus.Pusher):
             # filter based on the ival value before lifting the node...
             valu = await self.getNodeTag(buid, tag)
             if filt(valu):
-                yield None, buid, deepcopy(self._getStorNode(buid))
+                sode = self._getStorNode(buid)
+                if sode is None: # pragma: no cover
+                    # logger.warning(f'TagValuIndex for #{tag} has {s_common.ehex(buid)} but no storage node.')
+                    continue
+                yield None, buid, deepcopy(sode)
 
     async def hasTagProp(self, name):
         async for _ in self.liftTagProp(name):
@@ -2083,7 +2189,13 @@ class Layer(s_nexus.Pusher):
             return
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
-            yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+
+            sode = self._getStorNode(buid)
+            if sode is None: # pragma: no cover
+                # logger.warning(f'TagPropIndex for {form}#{tag}:{prop} has {s_common.ehex(buid)} but no storage node.')
+                continue
+
+            yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByTagPropValu(self, form, tag, prop, cmprvals):
         '''
@@ -2092,7 +2204,13 @@ class Layer(s_nexus.Pusher):
         for cmpr, valu, kind in cmprvals:
 
             async for lkey, buid in self.stortypes[kind].indxByTagProp(form, tag, prop, cmpr, valu):
-                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+
+                sode = self._getStorNode(buid)
+                if sode is None: # pragma: no cover
+                    # logger.warning(f'TagPropValuIndex for {form}#{tag}:{prop} has {s_common.ehex(buid)} but no storage node.')
+                    continue
+
+                yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByProp(self, form, prop):
 
@@ -2103,25 +2221,45 @@ class Layer(s_nexus.Pusher):
             return
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
-            yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+            sode = self._getStorNode(buid)
+            if sode is None: # pragma: no cover
+                # logger.warning(f'PropIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
+                continue
+            yield lkey[8:], buid, deepcopy(sode)
 
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
             async for lkey, buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
-                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+                sode = self._getStorNode(buid)
+                if sode is None: # pragma: no cover
+                    # logger.warning(f'FormValuIndex for {form} has {s_common.ehex(buid)} but no storage node.')
+                    continue
+                yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByPropValu(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
+
             if kind & 0x8000:
                 kind = STOR_TYPE_MSGP
+
             async for lkey, buid in self.stortypes[kind].indxByProp(form, prop, cmpr, valu):
-                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+
+                sode = self._getStorNode(buid)
+                if sode is None: # pragma: no cover
+                    # logger.warning(f'PropValuIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
+                    continue
+
+                yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByPropArray(self, form, prop, cmprvals):
         for cmpr, valu, kind in cmprvals:
             async for lkey, buid in self.stortypes[kind].indxByPropArray(form, prop, cmpr, valu):
-                yield lkey[8:], buid, deepcopy(self._getStorNode(buid))
+                sode = self._getStorNode(buid)
+                if sode is None: # pragma: no cover
+                    # logger.warning(f'PropArrayIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
+                    continue
+                yield lkey[8:], buid, deepcopy(sode)
 
     async def liftByDataName(self, name):
         try:
@@ -2132,14 +2270,20 @@ class Layer(s_nexus.Pusher):
 
         for abrv, buid in self.dataslab.scanByDups(abrv, db=self.dataname):
 
-            sode = self._getStorNode(buid).copy()
+            sode = self._getStorNode(buid)
+            if sode is None: # pragma: no cover
+                # logger.warning(f'PropArrayIndex for {form}:{prop} has {s_common.ehex(buid)} but no storage node.')
+                continue
+
+            sode = deepcopy(sode)
 
             byts = self.dataslab.get(buid + abrv, db=self.nodedata)
-            if byts is not None:
-                item = s_msgpack.un(byts)
-                sode['nodedata'][name] = item
+            if byts is None:
+                # logger.warning(f'NodeData for {name} has {s_common.ehex(buid)} but no data.')
+                continue
 
-            yield None, buid, deepcopy(sode)
+            sode['nodedata'] = {name: s_msgpack.un(byts)}
+            yield None, buid, sode
 
     async def storNodeEdits(self, nodeedits, meta):
 
@@ -2205,7 +2349,7 @@ class Layer(s_nexus.Pusher):
 
             buid, form, edits = nodeedits.popleft()
 
-            sode = self._getStorNode(buid)
+            sode = self._genStorNode(buid)
 
             changes = []
             for edit in edits:

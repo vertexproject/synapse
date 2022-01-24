@@ -39,18 +39,18 @@ def btc_bech32_check(match: regex.Match):
     try:
         _ = bitcoin_b32.CBech32Data(text)
     except bitcoin_b32.Bech32Error:
-        return None
+        return None, {}
     # The proper form of a bech32 address is lowercased. We do not want to verify
     # a mixed case form, so lowercase it prior to returning.
-    return ('btc', text.lower())
+    return ('btc', text.lower()), {}
 
 def btc_base58_check(match: regex.Match):
     text = match.groupdict().get('valu')
     try:
         base58.b58decode_check(text)
     except ValueError:
-        return None
-    return ('btc', text)
+        return None, {}
+    return ('btc', text), {}
 
 def ether_eip55(body: str):
     # From EIP-55 reference implementation
@@ -82,44 +82,44 @@ def eth_check(match: regex.Match):
 
         ret = ether_eip55(body)
         if ret is None or ret != text:
-            return None
+            return None, {}
 
-        return ('eth', text)
+        return ('eth', text), {}
     # any valid 0x<40 character> hex string is possibly a ETH address.
-    return ('eth', text.lower())
+    return ('eth', text.lower()), {}
 
 def bch_check(match: regex.Match):
     text = match.groupdict().get('valu')
     # Checksum if we're mixed case or not
     prefix, body = text.split(':', 1)
     if not body.isupper() and not body.islower():
-        return None
+        return None, {}
     try:
         cashaddr_convert.Address._cash_string(text)
     except:
-        return None
+        return None, {}
     text = text.lower()
-    return ('bch', text)
+    return ('bch', text), {}
 
 def xrp_check(match: regex.Match):
     text = match.groupdict().get('valu')
     if xrp_addresscodec.is_valid_classic_address(text) or xrp_addresscodec.is_valid_xaddress(text):
-        return ('xrp', text)
-    return None
+        return ('xrp', text), {}
+    return None, {}
 
 def substrate_check(match: regex.Match):
     text = match.groupdict().get('valu')
     prefix = text[0]  # str
     if prefix == '1' and substrate_ss58.is_valid_ss58_address(text, valid_ss58_format=0):
         # polkadot
-        return ('dot', text)
+        return ('dot', text), {}
     elif prefix.isupper() and substrate_ss58.is_valid_ss58_address(text, valid_ss58_format=2):
         # kusuma
-        return ('ksm', text)
+        return ('ksm', text), {}
     else:
         # Do nothing with generic substrate matches
         # Generic substrate addresses are checked with valid_ss58_format=42
-        return None
+        return None, {}
 
 def cardano_byron_check(match: regex.Match):
     text = match.groupdict().get('valu')
@@ -128,19 +128,19 @@ def cardano_byron_check(match: regex.Match):
         decoded_text = base58.b58decode(text)
         message = cbor2.loads(decoded_text)
         if len(message) != 2:
-            return None
+            return None, {}
         csum = message[1]
         computed_checksum = binascii.crc32(message[0].value)
         if csum == computed_checksum:
-            return ('ada', text)
+            return ('ada', text), {}
     except (ValueError, cbor2.CBORError):
         pass
-    return None
+    return None, {}
 
 def cardano_shelly_check(match: regex.Match):
     text = match.groupdict().get('valu')
     # Bech32 decoding
     ret = bech32.bech32_decode(text)
     if ret == (None, None):
-        return None
-    return ('ada', text)
+        return None, {}
+    return ('ada', text), {}

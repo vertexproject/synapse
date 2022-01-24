@@ -402,6 +402,13 @@ class JsonStorCell(s_cell.Cell):
         self.onfini(self.jsonstor.fini)
         self.onfini(self.multique.fini)
 
+        self.notif_abrv_user = self.slab.getNameAbrv('users')
+        self.notif_abrv_type = self.slab.getNameAbrv('types')
+
+        self.notifseqn = self.slab.getSeqn('notifs')
+        self.notif_indx_usertime = self.slab.initdb('indx:user:time', dupsort=True)
+        self.notif_indx_usertype = self.slab.initdb('indx:user:type', dupsort=True)
+
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item
@@ -427,6 +434,7 @@ class JsonStorCell(s_cell.Cell):
     async def getPathObjs(self, path):
         async for item in self.jsonstor.getPathObjs(path):
             yield item
+            await asyncio.sleep(0)
 
     async def getPathObjProp(self, path, prop):
         return await self.jsonstor.getPathObjProp(path, prop)
@@ -482,3 +490,60 @@ class JsonStorCell(s_cell.Cell):
             await self.cullQueue(name, offs - 1)
         async for item in self.multique.gets(name, offs, size=size, wait=wait):
             yield item
+
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        mesg = (useriden, s_common.now(), mesgtype, mesgdata)
+        return await self._push('notif:add', mesg)
+
+    async def getUserNotif(self, indx):
+        return self.notifseqn.get(indx)
+
+    @s_nexus.Pusher.onPush('notif:add', passitem=True)
+    async def _addUserNotif(self, mesg, nexsitem):
+
+        indx = self.notifseqn.add(mesg, indx=nexsitem[0])
+        indxbyts = s_common.int64en(indx)
+
+        useriden, mesgtime, mesgtype, mesgdata = mesg
+
+        userbyts = s_common.uhex(useriden)
+        timebyts = s_common.int64en(mesgtime)
+        typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
+
+        self.slab.put(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime, dupdata=True)
+        self.slab.put(userbyts + typeabrv, indxbyts, db=self.notif_indx_usertype, dupdata=True)
+
+        return indx
+
+    @s_nexus.Pusher.onPushAuto('notif:del')
+    async def delUserNotif(self, indx):
+
+        envl = self.notifseqn.pop(indx)
+        if envl is None:
+            return
+
+        mesg = envl[1]
+        useriden, mesgtime, mesgtype, mesgdata = mesg
+
+        indxbyts = s_common.int64en(indx)
+        userbyts = s_common.uhex(useriden)
+        timebyts = s_common.int64en(mesgtime)
+        typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
+
+        self.slab.delete(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime)
+        self.slab.delete(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype)
+
+    async def iterUserNotifs(self, useriden, size=None):
+        # iterate user notifications backward
+        userbyts = s_common.uhex(useriden)
+        count = 0
+        for _, indxbyts in self.slab.scanByPrefBack(userbyts, db=self.notif_indx_usertype):
+            indx = s_common.int64un(indxbyts)
+            mesg = self.notifseqn.getraw(indxbyts)
+            yield (indx, mesg)
+            count += 1
+            if size is not None and count >= size:
+                break
+
+    # async def iterUserNotifsByTime(self, useriden, ival):
+    # async def iterUserNotifsByType(self, useriden, mesgtype, ival=None):

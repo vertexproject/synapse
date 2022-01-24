@@ -562,7 +562,7 @@ class AxonTest(s_t_utils.SynTest):
 
             async with axon.getLocalProxy() as proxy:
 
-                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                resp = await proxy.wput(sha256, f'https://127.0.0.1:{port}/api/v1/pushfile', method='PUT', ssl=False)
                 self.eq(True, resp['ok'])
                 self.eq(200, resp['code'])
 

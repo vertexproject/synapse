@@ -12,6 +12,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
+import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -157,8 +158,8 @@ class View(s_nexus.Pusher):  # type: ignore
             for moddef in await self.core.getStormIfaces(name):
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
-
-                    runt = await snap.addStormRuntime(query, user=root)
+                    modconf = moddef.get('modconf', {})
+                    runt = await snap.addStormRuntime(query, opts={'vars': {'modconf': modconf}}, user=root)
 
                     # let it initialize the function
                     async for item in runt.execute():
@@ -172,7 +173,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception as e: # pragma: no cover
+                except Exception as e:  # pragma: no cover
                     logger.exception('mergeStormIface()')
 
             if genrs:
@@ -190,8 +191,10 @@ class View(s_nexus.Pusher):  # type: ignore
                 try:
                     query = await self.core.getStormQuery(moddef.get('storm'))
 
+                    modconf = moddef.get('modconf', {})
+
                     # TODO look at caching the function returned as presume a persistant runtime?
-                    async with snap.getStormRuntime(query, user=root) as runt:
+                    async with snap.getStormRuntime(query, opts={'vars': {'modconf': modconf}}, user=root) as runt:
 
                         # let it initialize the function
                         async for item in runt.execute():
@@ -274,6 +277,27 @@ class View(s_nexus.Pusher):  # type: ignore
 
     def isafork(self):
         return self.parent is not None
+
+    def isForkOf(self, viewiden):
+        view = self.parent
+        while view is not None:
+            if view.iden == viewiden:
+                return True
+            view = view.parent
+        return False
+
+    async def _calcForkLayers(self):
+        # recompute the proper set of layers for a forked view
+        # (this may only be called from within a nexus handler)
+        layers = [self.layers[0]]
+
+        view = self.parent
+        while view is not None:
+            layers.append(view.layers[0])
+            view = view.parent
+
+        self.layers = layers
+        await self.info.set('layers', [layr.iden for layr in layers])
 
     async def pack(self):
         d = {'iden': self.iden}
@@ -385,6 +409,10 @@ class View(s_nexus.Pusher):  # type: ignore
         A simple non-streaming way to return a list of nodes.
         '''
         return [n async for n in self.eval(text, opts=opts)]
+
+    async def stormlist(self, text, opts=None):
+        # an ease-of-use API for testing
+        return [m async for m in self.storm(text, opts=opts)]
 
     async def storm(self, text, opts=None):
         '''
@@ -536,11 +564,47 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc',):
+        if name not in ('name', 'desc', 'parent'):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
-        # TODO when we can set more props, we may need to parse values.
-        await self.info.set(name, valu)
+
+        if name == 'parent':
+
+            parent = self.core.getView(valu)
+            if parent is None:
+                mesg = 'The parent view must already exist.'
+                raise s_exc.NoSuchView(mesg=mesg)
+
+            if parent.iden == self.iden:
+                mesg = 'A view may not have parent set to itself.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if parent.isForkOf(self.iden):
+                mesg = 'Circular dependency of view parents is not supported.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if self.parent is not None:
+                mesg = 'You may not set parent on a view which already has one.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if len(self.layers) != 1:
+                mesg = 'You may not set parent on a view which has more than one layer.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            self.parent = parent
+            await self.info.set(name, valu)
+
+            await self._calcForkLayers()
+
+            for view in self.core.views.values():
+                if view.isForkOf(self.iden):
+                    await view._calcForkLayers()
+
+            await self.core._calcViewsByLayer()
+
+        else:
+            await self.info.set(name, valu)
+
         return valu
 
     async def addLayer(self, layriden, indx=None):
@@ -892,3 +956,68 @@ class View(s_nexus.Pusher):  # type: ignore
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)
         # TODO remove addNodeEdits?
+
+    async def scrapeIface(self, text, unique=False):
+        async with await s_spooled.Set.anit() as matches:  # type: s_spooled.Set
+            # The synapse.lib.scrape APIs handle form arguments for us.
+            for item in s_scrape.contextScrape(text, refang=True, first=False):
+                form = item.pop('form')
+                valu = item.pop('valu')
+                if unique:
+                    key = (form, valu)
+                    if key in matches:
+                        await asyncio.sleep(0)
+                        continue
+                    await matches.add(key)
+
+                try:
+                    tobj = self.core.model.type(form)
+                    valu, _ = tobj.norm(valu)
+                except s_exc.BadTypeValu:  # pragma: no cover
+                    await asyncio.sleep(0)
+                    continue
+
+                # Yield a tuple of <form, normed valu, info>
+                yield form, valu, item
+
+            # Return early if the scrape interface is disabled
+            if not self.core.stormiface_scrape:
+                return
+
+            # Scrape interface:
+            #
+            # The expected scrape interface takes a text and optional form
+            # argument.
+            #
+            # The expected interface implementation returns a list/tuple of
+            # (form, valu, info) results. Info is expected to contain the
+            # match offset and raw valu.
+            #
+            # Scrape implementers are responsible for ensuring that their
+            # resulting match and offsets are found in the text we sent
+            # to them.
+            todo = s_common.todo('scrape', text)
+            async for results in self.callStormIface('scrape', todo):
+                for (form, valu, info) in results:
+
+                    if unique:
+                        key = (form, valu)
+                        if key in matches:
+                            await asyncio.sleep(0)
+                            continue
+                        await matches.add(key)
+
+                    try:
+                        tobj = self.core.model.type(form)
+                        valu, _ = tobj.norm(valu)
+                    except AttributeError:  # pragma: no cover
+                        logger.exception(f'Scrape interface yielded unknown form {form}')
+                        await asyncio.sleep(0)
+                        continue
+                    except (s_exc.BadTypeValu):  # pragma: no cover
+                        await asyncio.sleep(0)
+                        continue
+
+                    # Yield a tuple of <form, normed valu, info>
+                    yield form, valu, info
+                    await asyncio.sleep(0)

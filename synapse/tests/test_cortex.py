@@ -1,3 +1,4 @@
+import os
 import copy
 import time
 import asyncio
@@ -15,6 +16,7 @@ import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tools.backup as s_tools_backup
 
@@ -27,6 +29,77 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_jsonstor(self):
+
+        async def testCoreJson(core):
+            self.none(await core.getJsonObj('foo'))
+            self.none(await core.getJsonObjProp('foo', 'bar'))
+            self.none(await core.setJsonObj('foo', {'bar': 'baz'}))
+            self.true(await core.setJsonObjProp('foo', 'zip', 'zop'))
+
+            self.true(await core.hasJsonObj('foo'))
+            self.false(await core.hasJsonObj('newp'))
+
+            self.eq('baz', await core.getJsonObjProp('foo', 'bar'))
+            self.eq({'bar': 'baz', 'zip': 'zop'}, await core.getJsonObj('foo'))
+
+            self.true(await core.delJsonObjProp('foo', 'bar'))
+            self.eq({'zip': 'zop'}, await core.getJsonObj('foo'))
+            self.none(await core.delJsonObj('foo'))
+            self.none(await core.getJsonObj('foo'))
+
+            await core.setJsonObj('foo/bar', 'zoinks')
+            items = [x async for x in core.getJsonObjs(('foo'))]
+            self.eq(items, ((('bar',), 'zoinks'),))
+
+        # test with a remote jsonstor
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'jsonstor')
+            async with await s_jsonstor.JsonStorCell.anit(path) as jsonstor:
+                jsonurl = jsonstor.getLocalUrl()
+                conf = {'jsonstor': jsonurl}
+                path = os.path.join(dirn, 'cortex')
+                async with await s_cortex.Cortex.anit(path, conf=conf) as core:
+                    await testCoreJson(core)
+
+        # test a local jsonstor
+        async with self.getTestCore() as core:
+            await testCoreJson(core)
+
+        # test a local jsonstor and mirror writeback
+        with self.getTestDir() as dirn:
+            path00 = os.path.join(dirn, 'core00')
+            path01 = os.path.join(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                    await testCoreJson(core01)
+                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
+                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
+
+        # test a local jsonstor and mirror sync
+        with self.getTestDir() as dirn:
+            path00 = os.path.join(dirn, 'core00')
+            path01 = os.path.join(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                    await testCoreJson(core00)
+                    await core01.sync()
+                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
+                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
+
     async def test_cortex_layer_mirror(self):
 
         # test a layer mirror from a layer

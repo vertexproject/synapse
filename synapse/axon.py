@@ -496,16 +496,18 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             dict: An information dictionary containing the results of the request.
         '''
         await self._reqUserAllowed(('axon', 'wget'))
-        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl,
+                                    timeout=timeout)
 
     async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.postfiles(fields, url, params=params, headers=headers,
                                          method=method, ssl=ssl, timeout=timeout)
 
-    async def wput(self, sha256, url, params=None, headers=None, ssl=True, timeout=None):
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.wput(sha256, url, params=params, headers=headers, ssl=ssl, timeout=timeout)
+        return await self.cell.wput(sha256, url, params=params, headers=headers, method=method, ssl=ssl,
+                                    timeout=timeout)
 
     async def metrics(self):
         '''
@@ -1124,7 +1126,8 @@ class Axon(s_cell.Cell):
                     'headers': dict(),
                 }
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
+                   filename=None, filemime=None):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''

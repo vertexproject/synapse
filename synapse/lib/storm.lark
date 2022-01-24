@@ -214,8 +214,8 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 
 _safe_cmpr: BYNAME | CMPR
 
-_rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | dollarexpr
+_rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -315,6 +315,7 @@ _condexpr: _cond | orexpr | andexpr
 orexpr: _condexpr _WS "or" _WS _cond
 andexpr: _condexpr _WS "and" _WS _cond
 
+TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'/
 

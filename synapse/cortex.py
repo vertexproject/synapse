@@ -36,6 +36,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -62,6 +63,7 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
+import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
@@ -968,6 +970,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote axon.',
             'type': 'string'
         },
+        'jsonstor': {
+            'description': 'A telepath URL for a remote jsonstor.',
+            'type': 'string'
+        },
         'cron:enable': {
             'default': True,
             'description': 'Enable cron jobs running.',
@@ -1029,7 +1035,12 @@ class Cortex(s_cell.Cell):  # type: ignore
         },
         'storm:interface:search': {
             'default': True,
-            'description': 'Enable storm search interfaces for lookup mode.',
+            'description': 'Enable Storm search interfaces for lookup mode.',
+            'type': 'boolean',
+        },
+        'storm:interface:scrape': {
+            'default': True,
+            'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
             'type': 'boolean',
         },
         'http:proxy': {
@@ -1064,6 +1075,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.views = {}
         self.layers = {}
+        self.viewsbylayer = collections.defaultdict(list)
+
         self.modules = {}
         self.splicers = {}
         self.feedfuncs = {}
@@ -1126,6 +1139,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
+        self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
 
@@ -1143,7 +1157,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initCoreViews()
         self.onfini(self._finiStor)
         await self._initCoreQueues()
-        await self._initCoreNotifs()
 
         self.addHealthFunc(self._cortexHealth)
 
@@ -1279,9 +1292,12 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
+        await self._initJsonStor()
+
         if self.isactive:
             await self._checkNexsIndx()
             await self._checkLayerModels()
+
         await self._initCoreMods()
         await self._initStormSvcs()
 
@@ -1661,85 +1677,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(slab.fini)
 
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
-
-    async def _initCoreNotifs(self):
-        path = os.path.join(self.dirn, 'slabs', 'notifications.lmdb')
-
-        self.notifslab = await s_lmdbslab.Slab.anit(path)
-        self.onfini(self.notifslab.fini)
-
-        self.notif_abrv_user = self.notifslab.getNameAbrv('users')
-        self.notif_abrv_type = self.notifslab.getNameAbrv('types')
-
-        self.notifseqn = self.notifslab.getSeqn('notifs')
-        self.notif_indx_usertime = self.notifslab.initdb('indx:user:time', dupsort=True)
-        self.notif_indx_usertype = self.notifslab.initdb('indx:user:type', dupsort=True)
-
-    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
-
-        user = self.auth.user(useriden)
-        if user is None:
-            raise s_exc.NoSuchUser(mesg=f'No user found with iden: {useriden}')
-
-        mesg = (useriden, s_common.now(), mesgtype, mesgdata)
-
-        return await self._push('notif:add', mesg)
-
-    async def delUserNotif(self, indx):
-        return await self._push('notif:del', indx)
-
-    async def getUserNotif(self, indx):
-        return self.notifseqn.get(indx)
-
-    @s_nexus.Pusher.onPush('notif:add', passitem=True)
-    async def _addUserNotif(self, mesg, nexsitem):
-
-        indx = self.notifseqn.add(mesg, indx=nexsitem[0])
-        indxbyts = s_common.int64en(indx)
-
-        useriden, mesgtime, mesgtype, mesgdata = mesg
-
-        userbyts = s_common.uhex(useriden)
-        timebyts = s_common.int64en(mesgtime)
-        typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
-
-        self.notifslab.put(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime, dupdata=True)
-        self.notifslab.put(userbyts + typeabrv, indxbyts, db=self.notif_indx_usertype, dupdata=True)
-
-        return indx
-
-    @s_nexus.Pusher.onPush('notif:del')
-    async def _delUserNotif(self, indx):
-
-        envl = self.notifseqn.pop(indx)
-        if envl is None:
-            return
-
-        mesg = envl[1]
-        useriden, mesgtime, mesgtype, mesgdata = mesg
-
-        indxbyts = s_common.int64en(indx)
-        userbyts = s_common.uhex(useriden)
-        timebyts = s_common.int64en(mesgtime)
-        typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
-
-        self.notifslab.delete(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime)
-        self.notifslab.delete(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype)
-
-    async def iterUserNotifsBack(self, useriden, size=None):
-        # iterate user notifications backward
-        userbyts = s_common.uhex(useriden)
-        count = 0
-        for _, indxbyts in self.notifslab.scanByPrefBack(userbyts, db=self.notif_indx_usertype):
-            indx = s_common.int64un(indxbyts)
-            mesg = self.notifseqn.getraw(indxbyts)
-            yield (indx, mesg)
-            count += 1
-            if size is not None and count >= size:
-                break
-
-    # async def iterUserNotifsByTime(self, useriden, ival):
-    # async def iterUserNotifsByType(self, useriden, mesgtype, ival=None):
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -3075,6 +3012,79 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
 
+    async def _initJsonStor(self):
+
+        self.jsonurl = self.conf.get('jsonstor')
+        if self.jsonurl is not None:
+            self.jsonstor = await s_telepath.Client.anit(self.jsonurl)
+        else:
+            path = os.path.join(self.dirn, 'jsonstor')
+            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, parent=self)
+
+        self.onfini(self.jsonstor)
+
+    async def getJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getPathObj(path)
+
+    async def hasJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.hasPathObj(path)
+
+    async def getJsonObjs(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.getPathObjs(path):
+            yield item
+
+    async def getJsonObjProp(self, path, prop):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getPathObjProp(path, prop)
+
+    async def delJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delPathObj(path)
+
+    async def delJsonObjProp(self, path, prop):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delPathObjProp(path, prop)
+
+    async def setJsonObj(self, path, item):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.setPathObj(path, item)
+
+    async def setJsonObjProp(self, path, prop, item):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.setPathObjProp(path, prop, item)
+
+    async def getUserNotif(self, indx):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getUserNotif(indx)
+
+    async def delUserNotif(self, indx):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delUserNotif(indx)
+
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    async def iterUserNotifs(self, useriden, size=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
+            yield item
+
     async def _initCoreAxon(self):
         turl = self.conf.get('axon')
         if turl is None:
@@ -3442,6 +3452,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return view
 
+    def _calcViewsByLayer(self):
+        # keep track of views by layer
+        self.viewsbylayer.clear()
+        for view in self.views.values():
+            for layr in view.layers:
+                self.viewsbylayer[layr.iden].append(view)
+
     async def _initCoreViews(self):
 
         defiden = self.cellinfo.get('defaultview')
@@ -3473,6 +3490,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden = vdef.get('iden')
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
+
+        self._calcViewsByLayer()
 
     async def addView(self, vdef, nexs=True):
 
@@ -3523,6 +3542,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await self._loadView(node)
         view.init2()
 
+        self._calcViewsByLayer()
         return await view.pack()
 
     async def delView(self, iden):
@@ -3554,6 +3574,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
+        self._calcViewsByLayer()
         await self.auth.delAuthGate(iden)
 
     async def delLayer(self, iden):
@@ -3601,6 +3622,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
+        self._calcViewsByLayer()
 
     def getLayer(self, iden=None):
         '''
