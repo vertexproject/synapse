@@ -96,6 +96,8 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['logo']['mime'], 'image/svg')
             self.eq(pdef['logo']['file'], 'c3R1ZmYK')
 
+            self.len(3, pdef['optic']['workflows'])
+
             wflow = pdef['optic']['workflows']['testpkg-foo']
             self.eq(wflow, {'name': 'foo', 'desc': 'a foo workflow'})
 
