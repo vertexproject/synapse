@@ -2144,8 +2144,11 @@ class Parser:
                 return
 
         # check for help before processing other args
-        if opts.get('help'):
-            self.help()
+        if opts.pop('help', None):
+            mesg = None
+            if opts or posargs:
+                mesg = f'Extra arguments and flags are not supported with the help flag: {self.prog} {" ".join(argv)}'
+            self.help(mesg)
             return
 
         # process positional arguments
