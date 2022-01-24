@@ -60,9 +60,5 @@ class NotifyLib(s_stormtypes.Lib):
 
     async def list(self, size=None):
         size = await s_stormtypes.toint(size, noneok=True)
-        count = 0
-        async for mesg in self.runt.snap.core.iterUserNotifs(self.runt.user.iden):
+        async for mesg in self.runt.snap.core.iterUserNotifs(self.runt.user.iden, size=size):
             yield mesg
-            count += 1
-            if size is not None and size <= count:
-                break
