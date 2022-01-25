@@ -3,6 +3,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
 class NotifyLib(s_stormtypes.Lib):
+    '''A Storm library for a user interacting with their notifications.'''
     _storm_lib_path = ('notifications', )
     _storm_locals = (
         {
