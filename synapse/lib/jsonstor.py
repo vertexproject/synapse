@@ -411,8 +411,8 @@ class JsonStorApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi()
-    async def watchAllUserNotifs(self):
-        async for item in self.cell.watchAllUserNotifs():
+    async def watchAllUserNotifs(self, offs=None):
+        async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
 class JsonStorCell(s_cell.Cell):
@@ -568,9 +568,10 @@ class JsonStorCell(s_cell.Cell):
             if size is not None and count >= size:
                 break
 
-    async def watchAllUserNotifs(self):
+    async def watchAllUserNotifs(self, offs=None):
         # yield only new notifications as they arrive
-        offs = self.notifseqn.index()
+        if offs is None:
+            offs = self.notifseqn.index()
         async for item in self.notifseqn.aiter(offs=offs, wait=True, timeout=120):
             yield item
 
