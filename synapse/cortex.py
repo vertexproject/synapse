@@ -969,8 +969,8 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi()
-    async def watchAllUserNotifs(self):
-        async for item in self.cell.watchAllUserNotifs():
+    async def watchAllUserNotifs(self, offs=None):
+        async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
 class Cortex(s_cell.Cell):  # type: ignore
@@ -3107,10 +3107,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
             yield item
 
-    async def watchAllUserNotifs(self):
+    async def watchAllUserNotifs(self, offs=None):
         if self.jsonurl is not None:
             await self.jsonstor.waitready()
-        async for item in self.jsonstor.watchAllUserNotifs():
+        async for item in self.jsonstor.watchAllUserNotifs(offs=offs):
             yield item
 
     async def _initCoreAxon(self):
