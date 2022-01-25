@@ -68,6 +68,7 @@ import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
+import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
@@ -950,6 +951,28 @@ class CoreApi(s_cell.CellApi):
         async for byts in self.cell.axon.get(s_common.uhex(sha256)):
             yield byts
 
+    @s_cell.adminapi()
+    async def getUserNotif(self, indx):
+        return await self.cell.getUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def delUserNotif(self, indx):
+        return await self.cell.delUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    @s_cell.adminapi()
+    async def iterUserNotifs(self, useriden, size=None):
+        async for item in self.cell.iterUserNotifs(useriden, size=size):
+            yield item
+
+    @s_cell.adminapi()
+    async def watchAllUserNotifs(self, offs=None):
+        async for item in self.cell.watchAllUserNotifs(offs=offs):
+            yield item
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1151,7 +1174,6 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # Initialize our storage and views
         await self._initCoreAxon()
-        await self._initCoreJsonStor()
 
         await self._initCoreLayers()
         await self._initCoreViews()
@@ -1292,9 +1314,12 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
+        await self._initJsonStor()
+
         if self.isactive:
             await self._checkNexsIndx()
             await self._checkLayerModels()
+
         await self._initCoreMods()
         await self._initStormSvcs()
 
@@ -3009,14 +3034,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
 
-    async def _initCoreJsonStor(self):
+    async def _initJsonStor(self):
 
         self.jsonurl = self.conf.get('jsonstor')
         if self.jsonurl is not None:
             self.jsonstor = await s_telepath.Client.anit(self.jsonurl)
         else:
             path = os.path.join(self.dirn, 'jsonstor')
-            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path)
+            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, parent=self)
 
         self.onfini(self.jsonstor)
 
@@ -3044,42 +3069,49 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def delJsonObj(self, path):
         if self.jsonurl is not None:
             await self.jsonstor.waitready()
-            return await self.jsonstor.delPathObj(path)
-        return await self._delJsonObj(path)
+        return await self.jsonstor.delPathObj(path)
 
     async def delJsonObjProp(self, path, prop):
         if self.jsonurl is not None:
             await self.jsonstor.waitready()
-            return await self.jsonstor.delPathObjProp(path, prop)
-        return await self._delJsonObjProp(path, prop)
+        return await self.jsonstor.delPathObjProp(path, prop)
 
     async def setJsonObj(self, path, item):
         if self.jsonurl is not None:
             await self.jsonstor.waitready()
-            return await self.jsonstor.setPathObj(path, item)
-        return await self._setJsonObj(path, item)
+        return await self.jsonstor.setPathObj(path, item)
 
     async def setJsonObjProp(self, path, prop, item):
         if self.jsonurl is not None:
             await self.jsonstor.waitready()
-            return await self.jsonstor.setPathObjProp(path, prop, item)
-        return await self._setJsonObjProp(path, prop, item)
-
-    @s_nexus.Pusher.onPushAuto('json:del')
-    async def _delJsonObj(self, path):
-        return await self.jsonstor.delPathObj(path)
-
-    @s_nexus.Pusher.onPushAuto('json:set')
-    async def _setJsonObj(self, path, item):
-        return await self.jsonstor.setPathObj(path, item)
-
-    @s_nexus.Pusher.onPushAuto('json:del:prop')
-    async def _delJsonObjProp(self, path, prop):
-        return await self.jsonstor.delPathObjProp(path, prop)
-
-    @s_nexus.Pusher.onPushAuto('json:set:prop')
-    async def _setJsonObjProp(self, path, prop, item):
         return await self.jsonstor.setPathObjProp(path, prop, item)
+
+    async def getUserNotif(self, indx):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getUserNotif(indx)
+
+    async def delUserNotif(self, indx):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delUserNotif(indx)
+
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    async def iterUserNotifs(self, useriden, size=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
+            yield item
+
+    async def watchAllUserNotifs(self, offs=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.watchAllUserNotifs(offs=offs):
+            yield item
 
     async def _initCoreAxon(self):
         turl = self.conf.get('axon')
