@@ -348,6 +348,16 @@ class StormTypesTest(s_test.SynTest):
             self.len(0, await core.nodes('test:int#foo'))
             self.len(1, await core.nodes('test:int#bar'))
 
+            await core.nodes('test:comp [+#foo.thing1.cool +#bar.thing2.cool +#bar.thing3.notcool.newp +#bar.thing3.notcool.yup]')
+            ret = await core.callStorm('test:comp return ( $node.tags(leaf=$lib.true) )')
+            self.eq(set(ret), {'foo.thing1.cool', 'bar.thing2.cool', 'bar.thing3.notcool.newp', 'bar.thing3.notcool.yup'})
+
+            ret = await core.callStorm('test:comp return ( $node.tags(glob="*.*.cool", leaf=$lib.true) )')
+            self.eq(set(ret), {'foo.thing1.cool', 'bar.thing2.cool'})
+
+            ret = await core.callStorm('test:comp return ( $node.tags(glob="*.*.notcool.*", leaf=$lib.false) )')
+            self.eq(set(ret), {'bar.thing3.notcool.yup', 'bar.thing3.notcool.newp'})
+
     async def test_node_globtags(self):
 
         def check_fire_mesgs(storm_mesgs, expected_data):
