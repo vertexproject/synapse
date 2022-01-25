@@ -2,7 +2,10 @@ import os
 import sys
 import base64
 import asyncio
+import logging
 import argparse
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -10,6 +13,10 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
+
+logger = logging.getLogger(__name__)
+
+wflownamere = regex.compile(r'^([\w-]+)\.yaml$')
 
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
@@ -43,6 +50,28 @@ def loadOpticFiles(pkgdef, path):
                 pkgfiles[pkgfname] = {
                     'file': base64.b64encode(fd.read()).decode(),
                 }
+
+def loadOpticWorkflows(pkgdef, path):
+
+    wdefs = pkgdef['optic']['workflows']
+
+    for root, dirs, files in os.walk(path):
+
+        for name in files:
+
+            match = wflownamere.match(name)
+
+            if match is None:
+                logger.warning('Skipping workflow "%s" that does not match pattern "%s"' % (name, wflownamere.pattern))
+                continue
+
+            wname = match.groups()[0]
+
+            fullname = s_common.genpath(root, name)
+            if not os.path.isfile(fullname):  # pragma: no cover
+                continue
+
+            wdefs[wname] = s_common.yamlload(fullname)
 
 def tryLoadPkgProto(fp, opticdir=None, readonly=False):
     '''
@@ -157,11 +186,11 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
             with s_common.genfile(cmd_path) as fd:
                 cmd['storm'] = fd.read().decode()
 
-    for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
-        name = wdef.get('name')
-        wyaml = s_common.yamlload(protodir, 'workflows', f'{name}.yaml')
-        if wyaml is not None:
-            wdef.update(wyaml)
+    wflowdir = s_common.genpath(protodir, 'workflows')
+    if os.path.isdir(wflowdir):
+        pkgdef.setdefault('optic', {})
+        pkgdef['optic'].setdefault('workflows', {})
+        loadOpticWorkflows(pkgdef, wflowdir)
 
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')
