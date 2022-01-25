@@ -4771,7 +4771,7 @@ class Node(Prim):
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
                       {'name': 'leaf', 'type': 'bool', 'default': False,
-                       'desc': 'If true, only full tags are included in the return set.'},
+                       'desc': 'If true, only leaf tags are included in the returned tags.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
