@@ -6868,6 +6868,19 @@ class User(Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
+         'type': {'type': 'function', '_funcname': '_methUserTell',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
+         'type': {'type': 'function', '_funcname': '_methUserNotify',
+                  'args': (
+                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notfication type.', },
+                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
