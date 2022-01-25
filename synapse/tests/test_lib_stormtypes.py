@@ -55,6 +55,88 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_notify(self):
+
+        async def testUserNotif(core):
+            visi = await core.auth.addUser('visi')
+
+            asvisi = {'user': visi.iden}
+            mesgindx = await core.callStorm('return($lib.auth.users.byname(root).tell(heya))', opts=asvisi)
+
+            msgs = await core.stormlist('''
+                for ($indx, $mesg) in $lib.notifications.list() {
+                    ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
+                    if ($mesgtype = "tell") {
+                        $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
+                    }
+                }
+            ''')
+            self.stormIsInPrint(f'{visi.iden} says heya', msgs)
+
+            opts = {'user': visi.iden, 'vars': {'indx': mesgindx}}
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('$lib.notifications.del($indx)', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.notifications.get($indx))', opts=opts)
+
+            opts = {'vars': {'indx': mesgindx}}
+            await core.callStorm('$lib.notifications.del($indx)', opts=opts)
+
+            msgs = await core.stormlist('''
+                for ($indx, $mesg) in $lib.notifications.list() {
+                    ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
+                    if ($mesgtype = "tell") {
+                        $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
+                    }
+                }
+            ''')
+            self.stormNotInPrint(f'{visi.iden} says heya', msgs)
+
+            indx = await core.callStorm('return($lib.auth.users.byname(root).notify(hehe, $lib.dict(haha=hoho)))')
+            opts = {'vars': {'indx': indx}}
+            mesg = await core.callStorm('return($lib.notifications.get($indx))', opts=opts)
+            self.eq(mesg[0], core.auth.rootuser.iden)
+            self.eq(mesg[2], 'hehe')
+            self.eq(mesg[3], {'haha': 'hoho'})
+
+            opts = {'user': visi.iden}
+            q = 'return($lib.auth.users.byname(root).notify(newp, $lib.dict(key=valu)))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            q = 'return($lib.auth.users.byname(root).notify(newp, $lib.dict(key=valu)))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            # Push a handful of notifications and list a subset of them
+            q = '''$m=$lib.str.format('hello {i}', i=$i) return($lib.auth.users.byname(root).tell($m))'''
+            for i in range(5):
+                opts = {'user': visi.iden, 'vars': {'i': i}}
+                await core.callStorm(q, opts=opts)
+
+            q = '''for ($indx, $mesg) in $lib.notifications.list(size=$size) {
+                ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
+                $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
+            }'''
+            opts = {'vars': {'size': 3}}
+            msgs = await core.stormlist(q, opts=opts)
+            # We have a valid message that is the first item yielded
+            # but it is not a "tell" format.
+            self.stormIsInPrint('None says None', msgs)
+            self.stormIsInPrint('hello 4', msgs)
+            self.stormIsInPrint('hello 3', msgs)
+            self.stormNotInPrint('hello 2', msgs)
+
+        async with self.getTestCore() as core:
+            await testUserNotif(core)
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testUserNotif(core)
+
     async def test_stormtypes_jsonstor(self):
 
         async with self.getTestCore() as core:
