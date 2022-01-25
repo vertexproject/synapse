@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -10,6 +11,7 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
+logger = logging.getLogger(__name__)
 
 class JsonStor(s_base.Base):
     '''
@@ -533,13 +535,12 @@ class JsonStorCell(s_cell.Cell):
         typeabrv = self.notif_abrv_type.setBytsToAbrv(mesgtype.encode())
 
         self.slab.put(userbyts + timebyts, indxbyts, db=self.notif_indx_usertime, dupdata=True)
-        self.slab.put(userbyts + typeabrv, indxbyts, db=self.notif_indx_usertype, dupdata=True)
+        self.slab.put(userbyts + typeabrv + timebyts, indxbyts, db=self.notif_indx_usertype, dupdata=True)
 
         return indx
 
     @s_nexus.Pusher.onPushAuto('notif:del')
     async def delUserNotif(self, indx):
-
         envl = self.notifseqn.pop(indx)
         if envl is None:
             return

@@ -73,9 +73,12 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.stormIsInPrint(f'{visi.iden} says heya', msgs)
 
+            opts = {'user': visi.iden, 'vars': {'indx': mesgindx}}
             with self.raises(s_exc.AuthDeny):
-                opts = {'user': visi.iden, 'vars': {'indx': mesgindx}}
                 await core.callStorm('$lib.notifications.del($indx)', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.notifications.get($indx))', opts=opts)
 
             opts = {'vars': {'indx': mesgindx}}
             await core.callStorm('$lib.notifications.del($indx)', opts=opts)
@@ -96,6 +99,34 @@ class StormTypesTest(s_test.SynTest):
             self.eq(mesg[0], core.auth.rootuser.iden)
             self.eq(mesg[2], 'hehe')
             self.eq(mesg[3], {'haha': 'hoho'})
+
+            opts = {'user': visi.iden}
+            q = 'return($lib.auth.users.byname(root).notify(newp, $lib.dict(key=valu)))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            q = 'return($lib.auth.users.byname(root).notify(newp, $lib.dict(key=valu)))'
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm(q, opts=opts)
+
+            # Push a handful of notifications and list a subset of them
+            q = '''$m=$lib.str.format('hello {i}', i=$i) return($lib.auth.users.byname(root).tell($m))'''
+            for i in range(5):
+                opts = {'user': visi.iden, 'vars': {'i': i}}
+                await core.callStorm(q, opts=opts)
+
+            q = '''for ($indx, $mesg) in $lib.notifications.list(size=$size) {
+                ($useriden, $mesgtime, $mesgtype, $mesgdata) = $mesg
+                $lib.print("{user} says {text}", user=$mesgdata.from, text=$mesgdata.text)
+            }'''
+            opts = {'vars': {'size': 3}}
+            msgs = await core.stormlist(q, opts=opts)
+            # We have a valid message that is the first item yielded
+            # but it is not a "tell" format.
+            self.stormIsInPrint('None says None', msgs)
+            self.stormIsInPrint('hello 4', msgs)
+            self.stormIsInPrint('hello 3', msgs)
+            self.stormNotInPrint('hello 2', msgs)
 
         async with self.getTestCore() as core:
             await testUserNotif(core)
