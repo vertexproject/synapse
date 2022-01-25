@@ -4770,6 +4770,8 @@ class Node(Prim):
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
+                      {'name': 'leaf', 'type': 'bool', 'default': False,
+                       'desc': 'If true, only full tags are included in the return set.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
@@ -4906,8 +4908,21 @@ class Node(Prim):
         return self.valu.form.name == name
 
     @stormfunc(readonly=True)
-    async def _methNodeTags(self, glob=None):
+    async def _methNodeTags(self, glob=None, leaf=False):
+        glob = await tostr(glob, noneok=True)
+        leaf = await tobool(leaf)
+
         tags = list(self.valu.tags.keys())
+        if leaf:
+            _tags = []
+            # brute force rather than build a tree.  faster in small sets.
+            for tag in sorted((t for t in tags), reverse=True, key=lambda x: len(x)):
+                look = tag + '.'
+                if any([r.startswith(look) for r in _tags]):
+                    continue
+                _tags.append(tag)
+            tags = _tags
+
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
