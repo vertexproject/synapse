@@ -15,6 +15,12 @@ class BaseModule(s_module.CoreModule):
                 ('meta:source', ('guid', {}), {
                     'doc': 'A data source unique identifier.'}),
 
+                ('meta:timeline', ('guid', {}), {
+                    'doc': 'A curated timeline of analytically relevant events.'}),
+
+                ('meta:event', ('guid', {}), {
+                    'doc': 'An analytically relevant event in a curated timeline.'}),
+
                 ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
@@ -51,6 +57,32 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A human friendly name for the source.'}),
                     ('type', ('str', {'lower': True}), {
                         'doc': 'An optional type field used to group sources.'}),
+                )),
+
+                # type (iden, indx) to allow ordered lifts within a guid namespace?
+                # ('ou:sop:phase',
+                # ('ou:sop:template' # the definition of phases of a killchain / lifecycle?
+                # ('ou:sop:observed' # an instance of
+
+                ('meta:playbook', {}, (
+                    # goal?
+                )),
+                ('meta:play'
+
+                ('meta:timeline', {}, (
+                    ('title', ('str', {}), {
+                        'doc': 'A title for the timeline.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A brief description of the timeline.'}),
+                )),
+                ('meta:event', {}, (
+                    ('timeline', ('meta:timeline', {}), {
+                        'doc': 'The timeline containing the event.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'A title for the timeline.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the event occurred.'}),
+                    # TODO way to formalize recommended -(refs)> convention
                 )),
 
                 ('meta:seen', {}, (
