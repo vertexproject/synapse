@@ -6868,6 +6868,19 @@ class User(Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
+         'type': {'type': 'function', '_funcname': '_methUserTell',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
+         'type': {'type': 'function', '_funcname': '_methUserNotify',
+                  'args': (
+                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notfication type.', },
+                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
@@ -6946,6 +6959,8 @@ class User(Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
+            'tell': self._methUserTell,
+            'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
@@ -6959,6 +6974,22 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    async def _methUserTell(self, text):
+        mesgdata = {
+            'text': await tostr(text),
+            'from': self.runt.user.iden,
+        }
+        self.runt.confirm(('tell', self.valu), default=True)
+        return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
+
+    async def _methUserNotify(self, mesgtype, mesgdata):
+        mesgtype = await tostr(mesgtype)
+        mesgdata = await toprim(mesgdata)
+        if not self.runt.isAdmin():
+            mesg = '$user.notify() method requires admin privs.'
+            raise s_exc.AuthDeny(mesg=mesg)
+        return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _setUserName(self, name):
 
