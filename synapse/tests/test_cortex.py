@@ -39,6 +39,10 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
                 self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
 
+    async def test_cortex_bugfix_2_80_0(self):
+        async with self.getRegrCore('2.80.0-jsoniden') as core:
+            self.eq(core.jsonstor.iden, s_common.guid((core.iden, 'jsonstor')))
+
     async def test_cortex_usernotifs(self):
 
         async def testUserNotifs(core):

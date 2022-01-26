@@ -3043,7 +3043,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             path = os.path.join(self.dirn, 'jsonstor')
             jsoniden = s_common.guid((self.iden, 'jsonstor'))
 
-            idenpath = os.path.join(path, 'cell.iden')
+            idenpath = os.path.join(path, 'cell.guid')
             # check that the jsonstor cell GUID is what it should be. If not, update it.
             # ( bugfix for first release where cell was allowed to generate it's own iden )
             if os.path.isfile(idenpath):
