@@ -72,18 +72,29 @@ class BaseModule(s_module.CoreModule):
                 ('meta:timeline', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A title for the timeline.'}),
-                    ('desc', ('str', {}), {
-                        'doc': 'A brief description of the timeline.'}),
+                    ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A prose summary of the timeline.'}),
                 )),
+                #('chron:timeline?
                 ('meta:event', {}, (
                     ('timeline', ('meta:timeline', {}), {
                         'doc': 'The timeline containing the event.'}),
-                    ('name', ('str', {}), {
-                        'doc': 'A title for the timeline.'}),
+                    ('title', ('str', {}), {
+                        'doc': 'A title for the event.'}),
+                    ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A prose summary of the event.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time that the event occurred.'}),
+                    ('phase', ('meta:lifecycle', {}), {}),
+                    ('type', ('meta:eventtype', {}), {}),
+                    ('node', ('ndef', {}), {}),
+                    ('data', ('json', {}), {}),
                     # TODO way to formalize recommended -(refs)> convention
                 )),
+                # taxonomy
+                ('meta:eventtype', {}, ()),
 
                 ('meta:seen', {}, (
 
