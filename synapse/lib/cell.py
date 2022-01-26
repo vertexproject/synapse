@@ -824,7 +824,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     VERSION = s_version.version
     VERSTRING = s_version.verstring
 
-    async def __anit__(self, dirn, conf=None, readonly=False):
+    async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
         # phase 1
         if conf is None:
@@ -836,6 +836,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.dirn = s_common.gendir(dirn)
 
         self.auth = None
+        self.cellparent = parent
         self.sessions = {}
         self.isactive = False
         self.inaugural = False
@@ -1027,9 +1028,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def initNexusSubsystem(self):
-        mirror = self.conf.get('mirror')
-        await self.nexsroot.startup(mirror, celliden=self.iden)
-        await self.setCellActive(mirror is None)
+        if self.cellparent is None:
+            mirror = self.conf.get('mirror')
+            await self.nexsroot.startup(mirror, celliden=self.iden)
+            await self.setCellActive(mirror is None)
 
     async def initServiceNetwork(self):
 
@@ -1123,6 +1125,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Initialize a NexsRoot to use for the cell.
         '''
+        if self.cellparent:
+            return self.cellparent.nexsroot
+
         map_async = self.conf.get('nexslog:async')
         return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async)
 
@@ -2003,7 +2008,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         isnew = not self.slab.dbexists('hive')
 
         db = self.slab.initdb('hive')
-        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.nexsroot)
+        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot())
         self.onfini(hive)
 
         if isnew:
@@ -2042,10 +2047,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self._initCellHiveAuth()
 
+    def getCellNexsRoot(self):
+        # the "cell scope" nexusroot only exists if we are *not* embedded
+        # (aka we dont have a self.cellparent)
+        if self.cellparent is None:
+            return self.nexsroot
+
     async def _initCellHiveAuth(self):
 
+        seed = s_common.guid((self.iden, 'hive', 'auth'))
+
         node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
+        auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
 
         self.onfini(auth.fini)
         return auth

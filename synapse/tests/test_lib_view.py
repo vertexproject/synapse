@@ -7,6 +7,62 @@ from synapse.tests.utils import alist
 
 class ViewTest(s_t_utils.SynTest):
 
+    async def test_view_set_parent(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+
+            await view00.nodes('[ inet:fqdn=vertex.link ]')
+            await view01.nodes('inet:fqdn=vertex.link [ +#foo ]')
+
+            # one to insert on the bottom
+            layr02 = await core.addLayer()
+            vdef02 = {'layers': [layr02['iden']]}
+            view02 = core.getView((await core.addView(vdef=vdef02))['iden'])
+
+            # test the storm APIs for setting view parent
+            opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
+            await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+
+            # test that merging selected nodes works correctly
+            self.len(0, await view02.nodes('inet:fqdn=vertex.link'))
+            msgs = await view00.stormlist('inet:fqdn | merge --apply')
+            self.len(1, await view02.nodes('inet:fqdn=vertex.link'))
+            self.len(0, await view02.nodes('inet:fqdn=vertex.link +#foo'))
+
+            # check that edits made to the new base layer are reflected in forks
+            self.len(1, await view02.nodes('inet:fqdn=vertex.link [+#bar]'))
+            self.len(1, await view00.nodes('#bar'))
+            self.len(1, await view01.nodes('#bar'))
+
+            # test that the API prevents you from setting view parent that's already set
+            opts = {'vars': {'base': view02.iden, 'fork': view00.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormIsInErr('You may not set parent on a view which already has one', msgs)
+
+            opts = {'vars': {'fork': view00.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $lib.guid())', opts=opts)
+            self.stormIsInErr('The parent view must already exist', msgs)
+
+            opts = {'vars': {'fork': view00.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $fork)', opts=opts)
+            self.stormIsInErr('A view may not have parent set to itself', msgs)
+
+            opts = {'vars': {'fork': view00.iden, 'base': view01.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormIsInErr('Circular dependency of view parents is not supported', msgs)
+
+            layr03 = await core.addLayer()
+            layr04 = await core.addLayer()
+            vdef03 = {'layers': [layr03['iden'], layr04['iden']]}
+            vdef03 = await core.addView(vdef=vdef03)
+
+            opts = {'vars': {'fork': vdef03['iden'], 'base': view01.iden}}
+            msgs = await core.stormlist('$lib.view.get($fork).set(parent, $base)', opts=opts)
+            self.stormIsInErr('You may not set parent on a view which has more than one layer', msgs)
+
     async def test_view_fork_merge(self):
 
         async with self.getTestCore() as core:

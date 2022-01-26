@@ -1,3 +1,4 @@
+import os
 import copy
 import time
 import asyncio
@@ -15,6 +16,7 @@ import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tools.backup as s_tools_backup
 
@@ -27,6 +29,132 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_cellguid(self):
+        iden = s_common.guid()
+        conf = {'cell:guid': iden}
+        async with self.getTestCore(conf=conf) as core00:
+            async with self.getTestCore(conf=conf) as core01:
+                self.eq(core00.iden, core01.iden)
+                self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
+                self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
+                self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+
+    async def test_cortex_bugfix_2_80_0(self):
+        async with self.getRegrCore('2.80.0-jsoniden') as core:
+            self.eq(core.jsonstor.iden, s_common.guid((core.iden, 'jsonstor')))
+
+    async def test_cortex_usernotifs(self):
+
+        async def testUserNotifs(core):
+            async with core.getLocalProxy() as proxy:
+                root = core.auth.rootuser.iden
+                indx = await proxy.addUserNotif(root, 'hehe', {'foo': 'bar'})
+                self.nn(indx)
+                item = await proxy.getUserNotif(indx)
+                self.eq(root, item[0])
+                self.eq('hehe', item[2])
+                self.eq({'foo': 'bar'}, item[3])
+                msgs = [x async for x in proxy.iterUserNotifs(root)]
+
+                self.len(1, msgs)
+                self.eq(root, msgs[0][1][0])
+                self.eq('hehe', msgs[0][1][2])
+                self.eq({'foo': 'bar'}, msgs[0][1][3])
+
+                await proxy.delUserNotif(indx)
+                self.none(await proxy.getUserNotif(indx))
+
+                retn = []
+                done = asyncio.Event()
+                async def watcher():
+                    async for item in proxy.watchAllUserNotifs():
+                        retn.append(item)
+                        done.set()
+                        return
+                core.schedCoro(watcher())
+                await asyncio.sleep(0.1)
+                await proxy.addUserNotif(root, 'lolz')
+                await asyncio.wait_for(done.wait(), timeout=2)
+                self.len(1, retn)
+                self.eq(retn[0][1][0], root)
+                self.eq(retn[0][1][2], 'lolz')
+
+        # test a local jsonstor
+        async with self.getTestCore() as core:
+            await testUserNotifs(core)
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testUserNotifs(core)
+
+    async def test_cortex_jsonstor(self):
+
+        async def testCoreJson(core):
+            self.none(await core.getJsonObj('foo'))
+            self.none(await core.getJsonObjProp('foo', 'bar'))
+            self.none(await core.setJsonObj('foo', {'bar': 'baz'}))
+            self.true(await core.setJsonObjProp('foo', 'zip', 'zop'))
+
+            self.true(await core.hasJsonObj('foo'))
+            self.false(await core.hasJsonObj('newp'))
+
+            self.eq('baz', await core.getJsonObjProp('foo', 'bar'))
+            self.eq({'bar': 'baz', 'zip': 'zop'}, await core.getJsonObj('foo'))
+
+            self.true(await core.delJsonObjProp('foo', 'bar'))
+            self.eq({'zip': 'zop'}, await core.getJsonObj('foo'))
+            self.none(await core.delJsonObj('foo'))
+            self.none(await core.getJsonObj('foo'))
+
+            await core.setJsonObj('foo/bar', 'zoinks')
+            items = [x async for x in core.getJsonObjs(('foo'))]
+            self.eq(items, ((('bar',), 'zoinks'),))
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testCoreJson(core)
+
+        # test a local jsonstor
+        async with self.getTestCore() as core:
+            await testCoreJson(core)
+
+        # test a local jsonstor and mirror writeback
+        with self.getTestDir() as dirn:
+            path00 = os.path.join(dirn, 'core00')
+            path01 = os.path.join(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                    await testCoreJson(core01)
+                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
+                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
+
+        # test a local jsonstor and mirror sync
+        with self.getTestDir() as dirn:
+            path00 = os.path.join(dirn, 'core00')
+            path01 = os.path.join(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                    await testCoreJson(core00)
+                    await core01.sync()
+                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
+                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
+
     async def test_cortex_layer_mirror(self):
 
         # test a layer mirror from a layer
@@ -1371,6 +1499,15 @@ class CortexTest(s_t_utils.SynTest):
             async for node in core.eval('test:str="foo bar" [ -:tick ]'):
                 self.none(node.get('tick'))
 
+            msgs = await core.stormlist('test:str [ -:newp ]')
+            self.stormIsInErr('No property named newp.', msgs)
+
+            msgs = await core.stormlist('test:str -test:str:newp')
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
+            msgs = await core.stormlist('test:str +test:newp>newp')
+            self.stormIsInErr('No property named test:newp.', msgs)
+
             async for node in core.eval('[test:guid="*" :tick=2001]'):
                 self.true(s_common.isguid(node.ndef[1]))
                 self.nn(node.get('tick'))
@@ -1825,7 +1962,10 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('test:type10', 'test'))
 
-            # Bad pivots go here
+            msgs = await core.stormlist('test:int :loc -> test:newp')
+            self.stormIsInErr('No property named test:newp', msgs)
+
+            # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
                       'test:pivcomp :lulz <+- *',
                       'test:pivcomp :lulz <- test:str',

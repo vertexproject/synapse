@@ -493,14 +493,21 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                 }
 
         Returns:
-            dict: A information dictionary containing the results of the request.
+            dict: An information dictionary containing the results of the request.
         '''
         await self._reqUserAllowed(('axon', 'wget'))
-        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl, timeout=timeout)
+        return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl,
+                                    timeout=timeout)
 
-    async def wput(self, sha256, url, params=None, headers=None, ssl=True, timeout=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
         await self._reqUserAllowed(('axon', 'wput'))
-        return await self.cell.wput(sha256, url, params=params, headers=headers, ssl=ssl, timeout=timeout)
+        return await self.cell.postfiles(fields, url, params=params, headers=headers,
+                                         method=method, ssl=ssl, timeout=timeout)
+
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None):
+        await self._reqUserAllowed(('axon', 'wput'))
+        return await self.cell.wput(sha256, url, params=params, headers=headers, method=method, ssl=ssl,
+                                    timeout=timeout)
 
     async def metrics(self):
         '''
@@ -1015,7 +1022,112 @@ class Axon(s_cell.Cell):
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, filename=None, filemime=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
+        '''
+        Send files from the axon as fields in a multipart/form-data HTTP request.
+
+        Args:
+            fields (list): List of dicts containing the fields to add to the request as form-data.
+            url (str): The URL to retrieve.
+            params (dict): Additional parameters to add to the URL.
+            headers (dict): Additional HTTP headers to add in the request.
+            method (str): The HTTP method to use.
+            ssl (bool): Perform SSL verification.
+            timeout (int): The timeout of the request, in seconds.
+
+        Notes:
+            The dictionaries in the fields list may contain the following values::
+                {
+                    'name': <str> - Name of the field.
+                    'sha256': <str> - SHA256 hash of the file to submit for this field.
+                    'value': <str> - Value for the field. Ignored if a sha256 has been specified.
+                    'filename': <str> - Optional filename for the field.
+                    'content_type': <str> - Optional content type for the field.
+                    'content_transfer_encoding': <str> - Optional content-transfer-encoding header for the field.
+                }
+
+            The dictionary returned by this may contain the following values::
+
+                {
+                    'ok': <boolean> - False if there were exceptions retrieving the URL.
+                    'err': <str> - An error message if there was an exception when retrieving the URL.
+                    'url': <str> - The URL retrieved (which could have been redirected)
+                    'code': <int> - The response code.
+                    'body': <bytes> - The response body.
+                    'headers': <dict> - The response headers as a dictionary.
+                }
+
+        Returns:
+            dict: An information dictionary containing the results of the request.
+        '''
+        proxyurl = self.conf.get('http:proxy')
+        cadir = self.conf.get('tls:ca:dir')
+
+        connector = None
+        if proxyurl is not None:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+
+        if ssl is False:
+            pass
+        elif cadir:
+            ssl = s_common.getSslCtx(cadir)
+        else:
+            # default aiohttp behavior
+            ssl = None
+
+        atimeout = aiohttp.ClientTimeout(total=timeout)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=atimeout) as sess:
+
+            try:
+                data = aiohttp.FormData()
+                data._is_multipart = True
+
+                for field in fields:
+                    sha256 = field.get('sha256')
+                    if sha256:
+                        valu = self.get(s_common.uhex(sha256))
+                    else:
+                        valu = field.get('value')
+
+                    data.add_field(field.get('name'),
+                                   valu,
+                                   content_type=field.get('content_type'),
+                                   filename=field.get('filename'),
+                                   content_transfer_encoding=field.get('content_transfer_encoding'))
+
+                async with sess.request(method, url, headers=headers, params=params,
+                                        data=data, ssl=ssl) as resp:
+                    info = {
+                        'ok': True,
+                        'url': str(resp.url),
+                        'code': resp.status,
+                        'body': await resp.read(),
+                        'headers': dict(resp.headers),
+                    }
+                    return info
+
+            except asyncio.CancelledError:  # pramga: no cover
+                raise
+
+            except Exception as e:
+                logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
+                exc = s_common.excinfo(e)
+                mesg = exc.get('errmsg')
+                if not mesg:
+                    mesg = exc.get('err')
+
+                return {
+                    'ok': False,
+                    'err': mesg,
+                    'url': url,
+                    'body': b'',
+                    'code': -1,
+                    'headers': dict(),
+                }
+
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
+                   filename=None, filemime=None):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
@@ -1102,7 +1214,7 @@ class Axon(s_cell.Cell):
                 }
 
         Returns:
-            dict: A information dictionary containing the results of the request.
+            dict: An information dictionary containing the results of the request.
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 

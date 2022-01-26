@@ -64,6 +64,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thishost as s_thishost
 import synapse.lib.stormtypes as s_stormtypes
@@ -1152,6 +1153,12 @@ class SynTest(unittest.TestCase):
             core.stormlog = True
             async with core.getLocalProxy() as prox:
                 yield core, prox
+
+    @contextlib.asynccontextmanager
+    async def getTestJsonStor(self):
+        with self.getTestDir() as dirn:
+            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
+                yield jsonstor
 
     @contextlib.asynccontextmanager
     async def getTestCryo(self, dirn=None, conf=None):

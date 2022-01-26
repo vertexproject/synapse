@@ -78,7 +78,7 @@ class Auth(s_nexus.Pusher):
 
     '''
 
-    async def __anit__(self, node, nexsroot=None):
+    async def __anit__(self, node, nexsroot=None, seed=None):
         '''
         Args:
             node (HiveNode): The root of the persistent storage for auth
@@ -88,6 +88,9 @@ class Auth(s_nexus.Pusher):
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
 
         self.node = node
+
+        if seed is None:
+            seed = s_common.guid()
 
         self.usersbyiden = {}
         self.rolesbyiden = {}
@@ -116,14 +119,14 @@ class Auth(s_nexus.Pusher):
         self.allrole = await self.getRoleByName('all')
         if self.allrole is None:
             # initialize the role of which all users are a member
-            guid = s_common.guid()
+            guid = s_common.guid((seed, 'auth', 'role', 'all'))
             await self._addRole(guid, 'all')
             self.allrole = self.role(guid)
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
-            guid = s_common.guid()
+            guid = s_common.guid((seed, 'auth', 'user', 'root'))
             await self._addUser(guid, 'root')
             self.rootuser = self.user(guid)
 

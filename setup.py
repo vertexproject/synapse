@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.76.0'
+VERSION = '2.80.1'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -81,11 +81,11 @@ setup(
         'pyOpenSSL>=21.0.0,<22.0.0',
         'cryptography>=36.0.0,<39.0.0',
         'msgpack>=1.0.2,<1.1.0',
-        'xxhash>=1.4.4,<2.0.0',
-        'lmdb>=1.2.1,<1.3.0',
+        'xxhash>=1.4.4,<2.1.0',
+        'lmdb>=1.2.1,<1.4.0',
         'tornado>=6.1.0,<7.0.0',
         'regex>=2021.7.1',
-        'PyYAML>=5.4,<6.0',
+        'PyYAML>=5.4,<6.1.0',
         'aiohttp>=3.8.1,<4.0',
         'aiohttp-socks>=0.6.1,<0.7.0',
         'aioimaplib>=0.9.0,<0.10.0',
@@ -93,16 +93,16 @@ setup(
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark-parser==0.11.2',
         'Pygments>=2.7.4,<2.8.0',
-        'packaging>=20.0,<21.0',
+        'packaging>=20.0,<22.0',
         'fastjsonschema>=2.14.3,<2.15',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
-        'base58==2.1.0',
+        'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib==0.11.0',
-        'pycryptodome==3.11.0',
-        'typing-extensions==3.7.4',  # synapse.vendor.xrpl req
-        'scalecodec==1.0.2',  # synapse.vendor.substrateinterface req
-        'cbor2==5.4.1',
+        'pycryptodome>=3.11.0,<3.14.0',
+        'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
+        'scalecodec>=1.0.2,<1.0.29',  # synapse.vendor.substrateinterface req
+        'cbor2>=5.4.1,<5.4.3',
         'bech32==1.2.0',
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
@@ -127,6 +127,7 @@ setup(
             'pycodestyle>=2.8.0,<3.0.0',
             'bump2version>=1.0.1,<1.1.0',
             'pytest-xdist>=2.4.0,<3.0.0',
+            'coverage>=6.2,<6.3',
         ],
     },
 

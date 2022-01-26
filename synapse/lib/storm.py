@@ -1710,6 +1710,22 @@ class Runtime(s_base.Base):
             return
         await self.snap.core.reqGateKeys(gatekeys)
 
+    async def reqUserCanReadLayer(self, layriden):
+
+        if self.asroot:
+            return
+
+        for view in self.snap.core.viewsbylayer.get(layriden, ()):
+            if self.user.allowed(('view', 'read'), gateiden=view.iden):
+                return
+
+        # check the old way too...
+        if self.user.allowed(('layer', 'read'), gateiden=layriden):
+            return
+
+        mesg = 'User can not read layer.'
+        raise s_exc.AuthDeny(mesg=mesg)
+
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
         if self.asroot:
@@ -2128,8 +2144,11 @@ class Parser:
                 return
 
         # check for help before processing other args
-        if opts.get('help'):
-            self.help()
+        if opts.pop('help', None):
+            mesg = None
+            if opts or posargs:
+                mesg = f'Extra arguments and flags are not supported with the help flag: {self.prog} {" ".join(argv)}'
+            self.help(mesg)
             return
 
         # process positional arguments
@@ -3606,7 +3625,8 @@ class BackgroundCmd(Cmd):
             'vars': runtvars,
         }
 
-        query = await runt.getStormQuery(self.opts.query)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
 
         # make sure the subquery *could* have run with existing vars
         query.validate(runt)
@@ -4156,8 +4176,9 @@ class SpliceUndoCmd(Cmd):
 
         if node:
             prop = node.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            if prop is None:  # pragma: no cover
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
@@ -4175,8 +4196,9 @@ class SpliceUndoCmd(Cmd):
 
         if node:
             prop = node.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            if prop is None:  # pragma: no cover
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             valu = splice.props.get('valu')
 

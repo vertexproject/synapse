@@ -20,6 +20,24 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_triplequote(self):
+        async with self.getTestCore() as core:
+            retn = await core.callStorm("""
+            return($lib.yaml.load('''
+                foo: bar
+                baz:
+                    - hehe's
+                    - haha's
+            '''))
+            """)
+            self.eq(retn, {'foo': 'bar', 'baz': ("hehe's", "haha's")})
+
+            self.eq(''' '"lol"' ''', await core.callStorm("""return(''' '"lol"' ''')"""))
+
+            retn = await core.callStorm("""return(('''foo bar''', '''baz faz'''))""")
+            self.eq(retn, ('foo bar', 'baz faz'))
+            self.eq("'''", await core.callStorm("""return("'''")"""))
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''
@@ -346,6 +364,11 @@ class StormTest(s_t_utils.SynTest):
                     }
                 }''')
             self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
+
+            await core.nodes('''$lib.queue.gen(bar)
+            background ${ $lib.queue.get(bar).put(haha) }
+            ''')
+            self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
@@ -2370,6 +2393,12 @@ class StormTest(s_t_utils.SynTest):
         self.isin('  --help                      : Display the command usage.', pars.mesgs)
         self.isin('Arguments:', pars.mesgs)
         self.isin('  <hehe>                      : No help available', pars.mesgs)
+
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('hehe')
+        opts = pars.parse_args(['newp', '-h'])
+        self.none(opts)
+        self.isin('ERROR: Extra arguments and flags are not supported with the help flag: hehe newp -h', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')

@@ -295,6 +295,11 @@ class SlabSeqn:
         if valu is not None:
             return s_msgpack.un(valu)
 
+    def getraw(self, byts):
+        valu = self.slab.get(byts, db=self.db)
+        if valu is not None:
+            return s_msgpack.un(valu)
+
     def slice(self, offs, size):
 
         imax = size - 1

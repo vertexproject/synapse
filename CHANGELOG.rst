@@ -5,6 +5,156 @@ Synapse Changelog
 *****************
 
 
+v2.80.1 - 2022-01-26
+====================
+
+Bugfixes
+--------
+- The embedded JsonStor added to the Cortex in ``v2.80.0`` needed to have a
+  stable iden for the Cell and and auth subsystem. This has been added.
+  (`#2536 <https://github.com/vertexproject/synapse/pull/2536>`_)
+
+
+v2.80.0 - 2022-01-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a triple quoted string ``'''`` syntax to Storm for defining multiline
+  strings.
+  (`#2530 <https://github.com/vertexproject/synapse/pull/2530>`_)
+- Add a JSONStor to the Cortex, and expose that in Storm for storing user
+  related content.
+  (`#2530 <https://github.com/vertexproject/synapse/pull/2530>`_)
+  (`#2513 <https://github.com/vertexproject/synapse/pull/2513>`_)
+- Add durable user notifications to Storm that can be used to send and receive
+  messages between users.
+  (`#2513 <https://github.com/vertexproject/synapse/pull/2513>`_)
+- Add a ``leaf`` argument to ``$node.tags()`` that causes the function to only
+  return the leaf tags.
+  (`#2535 <https://github.com/vertexproject/synapse/pull/2535>`_)
+- Add an error message in the default help text in pure Storm commands when a
+  user provides additional arguments or switches, in addition to the
+  ``--help`` switch.
+  (`#2533 <https://github.com/vertexproject/synapse/pull/2533>`_)
+- Update ``synapse.tools.genpkg`` to automatically bundle Optic workflows from
+  files on disk.
+  (`#2531 <https://github.com/vertexproject/synapse/pull/2531>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``packaging``, ``pycryptome`` and ``scalecodec`` modules.
+  (`#2534 <https://github.com/vertexproject/synapse/pull/2534>`_)
+
+Bugfixes
+--------
+- Add a missing ``tostr()`` call to the Storm ``background`` query argument.
+  (`#2532 <https://github.com/vertexproject/synapse/pull/2532>`_)
+
+
+v2.79.0 - 2022-01-18
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.scrape.ndefs()`` and ``$lib.scrape.context()`` to scrape text.
+  The ``ndefs()`` API yields a unique set of node form and value pairs,
+  while the ``context()`` API yields node form, value, and context information
+  for all matches in the text.
+  (`#2508 <https://github.com/vertexproject/synapse/pull/2508>`_)
+- Add ``:name`` and ``:desc`` properties to the ``it:prod:softver`` form.
+  (`#2528 <https://github.com/vertexproject/synapse/pull/2528>`_)
+- Update the ``Layer.verify()`` routines to reduce false errors related to
+  array types. The method now takes a dictionary of configuration options.
+  These routines are in a beta status and are subject to change.
+  (`#2527 <https://github.com/vertexproject/synapse/pull/2527>`_)
+- Allow setting a View's parent if does not have an existing parent View
+  and only has a single layer.
+  (`#2515 <https://github.com/vertexproject/synapse/pull/2515>`_)
+- Add ``hxxp[:\\]`` and ``hxxps[:\\]`` to the list of known defanging
+  strategies which are identified and replaced during text scraping.
+  (`#2526 <https://github.com/vertexproject/synapse/pull/2526>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``typing-extensions`` module.
+  (`#2525 <https://github.com/vertexproject/synapse/pull/2525>`_)
+
+Bugfixes
+--------
+- Storm module interfaces now populate ``modconf`` data when loaded.
+  (`#2508 <https://github.com/vertexproject/synapse/pull/2508>`_)
+- Fix a missing keyword argument from the ``AxonApi.wput()`` method.
+  (`#2527 <https://github.com/vertexproject/synapse/pull/2527>`_)
+
+Deprecations
+------------
+- The ``$lib.scrape()`` function has been deprecated in favor the new
+  ``$lib.scrape`` library functions.
+  (`#2508 <https://github.com/vertexproject/synapse/pull/2508>`_)
+
+
+v2.78.0 - 2022-01-14
+====================
+
+Automatic Migrations
+--------------------
+- Migrate Cortex nodes which may have been skipped in an earlier migration due
+  to missing tagprop indexes. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Expand Synapse requirements to include updated versions of the ``base58``,
+  ``cbor2``, ``lmdb``, ``pycryptodome``, ``PyYAML``, ``xxhash``.
+  (`#2520 <https://github.com/vertexproject/synapse/pull/2520>`_)
+
+Bugfixes
+--------
+- Fix an issue with the Tagprop migration from ``v2.42.0`` where a missing
+  index could have resulted in Layer storage nodes not being updated.
+  (`#2522 <https://github.com/vertexproject/synapse/pull/2522>`_)
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
+- Fix an issue with ``synapse.lib.platforms.linux.getTotalMemory()`` when
+  using a process segregated with the Linux cgroups2 API.
+  (`#2517 <https://github.com/vertexproject/synapse/pull/2517>`_)
+
+Improved Documentation
+----------------------
+- Add devops instructions related to automatic data migrations for Synapse
+  components.
+  (`#2523 <https://github.com/vertexproject/synapse/pull/2523>`_)
+- Update the model deprecation documentation for the ``it:host:model`` and
+  ``it:host:make`` properties.
+  (`#2521 <https://github.com/vertexproject/synapse/pull/2521>`_)
+
+
+v2.77.0 - 2022-01-07
+====================
+
+Features and Enhancements
+-------------------------
+- Add Mach-O metadata support the file model. This includes the following
+  new forms: ``file:mime:macho:loadcmd``, ``file:mime:macho:version``,
+  ``file:mime:macho:uuid``, ``file:mime:macho:segment``, and
+  ``file:mime:macho:section``.
+  (`#2503 <https://github.com/vertexproject/synapse/pull/2503>`_)
+- Add ``it:screenshot``, ``it:prod:hardware``, ``it:prod:component``,
+  ``it:prod:hardwaretype``, and ``risk:mitigation`` forms to the model. Add
+  ``:hardware`` property to ``risk:hasvuln`` form. Add ``:hardware`` property
+  to ``it:host`` form. The ``:manu`` and ``:model`` secondary properties on
+  ``it:host`` have been deprecated.
+  (`#2514 <https://github.com/vertexproject/synapse/pull/2514>`_)
+- The ``guid`` type now strips hyphen (``-``) characters when doing norm. This
+  allows users to provide external UUID / GUID strings for use.
+  (`#2514 <https://github.com/vertexproject/synapse/pull/2514>`_)
+- Add a ``Axon.postfiles()`` to allow POSTing files as multi-part form encoded
+  files over HTTP. This is also exposed through the ``fields`` argument on the
+  Storm ``$lib.inet.http.post()`` and ``$lib.inet:http:request`` APIs.
+  (`#2516 <https://github.com/vertexproject/synapse/pull/2516>`_)
+- Add ``.yu`` ccTLD to the list of TLDs identified by the Synapse scrape
+  functionality.
+  (`#2518 <https://github.com/vertexproject/synapse/pull/2518>`_)
+- Add ``mesg`` arguments to all instances of ``NoSuchProp`` exceptions.
+  (`#2519 <https://github.com/vertexproject/synapse/pull/2519>`_)
+
+
 v2.76.0 - 2022-01-04
 ====================
 
@@ -35,6 +185,7 @@ Features and Enhancements
 Bugfixes
 --------
 - Fix an ``IndexError`` that can occur during ``Layer.verify()`` routines.
+  These routines are in a beta status and are subject to change.
   (`#2507 <https://github.com/vertexproject/synapse/pull/2507>`_)
 - Ensure that parameter and header arguments passed to Storm
   ``$lib.inet.http`` functions are cast into strings values.
@@ -83,6 +234,7 @@ Features and Enhancements
 - Add Layer index verification routines, to compare the Layer indices against
   the stored data for Nodes. This is exposed via the ``.verify()`` API on the
   Stormtypes ``storm:layer`` object.
+  These routines are in a beta status and are subject to change.
   (`#2488 <https://github.com/vertexproject/synapse/pull/2488>`_)
 - The ``.json()`` API on ``storm:http:resp`` now raises a
   ``s_exc.BadJsonText`` exception, which can be caught with the Storm

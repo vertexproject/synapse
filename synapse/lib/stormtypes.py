@@ -28,7 +28,6 @@ import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
-import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
@@ -1092,28 +1091,6 @@ class LibBase(Lib):
                     $lib.debug = $lib.true''',
 
          'type': 'boolean', },
-        {'name': 'scrape', 'desc': '''
-        Attempt to scrape node form, value tuples from a blob of text.
-
-        Examples:
-            Scrape some text and attempt to make nodes out of it::
-
-                for ($form, $valu) in $lib.scrape($text) {
-                    [ ( *$form ?= $valu ) ]
-                }''',
-         'type': {'type': 'function', '_funcname': '_scrape',
-                  'args': (
-                      {'name': 'text', 'type': 'str',
-                       'desc': 'The text to scrape', },
-                      {'name': 'ptype', 'type': 'str', 'default': None,
-                       'desc': 'Optional type to scrape. If present, only scrape items which match the provided type.', },
-                      {'name': 'refang', 'type': 'boolean', 'default': True,
-                       'desc': 'Whether to remove de-fanging schemes from text before scraping.', },
-                      {'name': 'unique', 'type': 'boolean', 'default': True,
-                       'desc': 'Only yield unique items from the text.', },
-                  ),
-                  'returns': {'name': 'yields', 'type': 'list',
-                              'desc': 'A list of (form, value) tuples scraped from the text.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1149,7 +1126,6 @@ class LibBase(Lib):
             'raise': self._raise,
             'range': self._range,
             'pprint': self._pprint,
-            'scrape': self._scrape,
             'sorted': self._sorted,
             'import': self._libBaseImport,
             'trycast': self.trycast,
@@ -1390,21 +1366,6 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
-
-    @stormfunc(readonly=True)
-    async def _scrape(self, text, ptype=None, refang=True, unique=True):
-        text = await tostr(text)
-        ptype = await tostr(ptype, noneok=True)
-        refang = await tobool(refang)
-        unique = await tobool(unique)
-
-        async with await s_spooled.Set.anit() as items:  # type: s_spooled.Set
-            for ptyp, ndef in s_scrape.scrape(text, ptype=ptype, refang=refang, first=False):
-                if unique:
-                    if (ptype, ndef) in items:
-                        continue
-                    await items.add((ptype, ndef))
-                yield (ptyp, ndef)
 
 @registry.registerLib
 class LibPs(Lib):
@@ -1700,6 +1661,13 @@ class LibAxon(Lib):
             'jsonlines': self.jsonlines,
         }
 
+    def strify(self, item):
+        if isinstance(item, (list, tuple)):
+            return [(str(k), str(v)) for (k, v) in item]
+        elif isinstance(item, dict):
+            return {str(k): str(v) for k, v in item.items()}
+        return item
+
     async def readlines(self, sha256):
         self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
@@ -1757,6 +1725,9 @@ class LibAxon(Lib):
         headers = await toprim(headers)
         timeout = await toprim(timeout)
 
+        params = self.strify(params)
+        headers = self.strify(headers)
+
         await self.runt.snap.core.getAxon()
 
         axon = self.runt.snap.core.axon
@@ -1775,6 +1746,9 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+
+        params = self.strify(params)
+        headers = self.strify(headers)
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
@@ -4210,6 +4184,7 @@ class LibUser(Lib):
         super().addLibFuncs()
         self.locls.update({
             'vars': StormHiveDict(self.runt, self.runt.user.vars),
+            'json': UserJson(self.runt, self.runt.user.iden),
             'profile': StormHiveDict(self.runt, self.runt.user.profile),
         })
 
@@ -4602,7 +4577,8 @@ class NodeProps(Prim):
     async def set(self, prop, valu):
         formprop = self.valu.form.prop(prop)
         if formprop is None:
-            raise s_exc.NoSuchProp(name=prop, form=self.valu.form.name)
+            mesg = f'No prop {self.valu.form.name}:{prop}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(prop, valu)
@@ -4794,6 +4770,8 @@ class Node(Prim):
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
+                      {'name': 'leaf', 'type': 'bool', 'default': False,
+                       'desc': 'If true, only leaf tags are included in the returned tags.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
@@ -4930,8 +4908,21 @@ class Node(Prim):
         return self.valu.form.name == name
 
     @stormfunc(readonly=True)
-    async def _methNodeTags(self, glob=None):
+    async def _methNodeTags(self, glob=None, leaf=False):
+        glob = await tostr(glob, noneok=True)
+        leaf = await tobool(leaf)
+
         tags = list(self.valu.tags.keys())
+        if leaf:
+            _tags = []
+            # brute force rather than build a tree.  faster in small sets.
+            for tag in sorted((t for t in tags), reverse=True, key=lambda x: len(x)):
+                look = tag + '.'
+                if any([r.startswith(look) for r in _tags]):
+                    continue
+                _tags.append(tag)
+            tags = _tags
+
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
@@ -5420,11 +5411,23 @@ class Layer(Prim):
                     }
 
             Notes:
-                The message format yielded by this API is considered BETA and may be subject to change!
+                The config format argument and message format yielded by this API is considered BETA
+                and may be subject to change! The formats will be documented when the convention stabilizes.
             ''',
          'type': {'type': 'function', '_funcname': 'verify',
+                  'args': (
+                      {'name': 'config', 'type': 'dict', 'desc': 'The scan config to use (default all enabled).', 'default': None},
+                  ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
+        {'name': 'getStorNode', 'desc': '''
+            Retrieve the raw storage node for the specified node id.
+            ''',
+         'type': {'type': 'function', '_funcname': 'getStorNode',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5469,6 +5472,7 @@ class Layer(Prim):
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
+            'getStorNode': self.getStorNode,
             'getStorNodes': self.getStorNodes,
             'getMirrorStatus': self.getMirrorStatus,
         }
@@ -5559,17 +5563,17 @@ class Layer(Prim):
     @stormfunc(readonly=True)
     async def _methGetFormcount(self):
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        todo = s_common.todo('getFormCounts')
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getFormCounts()
 
     async def _methGetTagCount(self, tagname, formname=None):
         tagname = await tostr(tagname)
         formname = await tostr(formname, noneok=True)
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        todo = s_common.todo('getTagCount', tagname, formname=formname)
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getTagCount(tagname, formname=formname)
 
     async def _methGetPropCount(self, propname, maxsize=None):
         propname = await tostr(propname)
@@ -5578,18 +5582,19 @@ class Layer(Prim):
         prop = self.runt.snap.core.model.prop(propname)
         if prop is None:
             mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg)
-
-        if prop.isform:
-            todo = s_common.todo('getPropCount', prop.name, None, maxsize=maxsize)
-        elif prop.isuniv:
-            todo = s_common.todo('getUnivPropCount', prop.name, maxsize=maxsize)
-        else:
-            todo = s_common.todo('getPropCount', prop.form.name, prop.name, maxsize=maxsize)
+            raise s_exc.NoSuchProp(mesg=mesg)
 
         layriden = self.valu.get('iden')
-        gatekeys = ((self.runt.user.iden, ('layer', 'read'), layriden),)
-        return await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        if prop.isform:
+            return await layr.getPropCount(prop.name, None, maxsize=maxsize)
+
+        if prop.isuniv:
+            return await layr.getUnivPropCount(prop.name, maxsize=maxsize)
+
+        return await layr.getPropCount(prop.form.name, prop.name, maxsize=maxsize)
 
     async def _methLayerEdits(self, offs=0, wait=True, size=None):
         offs = await toint(offs)
@@ -5607,13 +5612,18 @@ class Layer(Prim):
             if size is not None and size == count:
                 break
 
+    async def getStorNode(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        return await layr.getStorNode(s_common.uhex(nodeid))
+
     async def getStorNodes(self):
         layriden = self.valu.get('iden')
-        self.runt.confirm(('layer', 'read'), gateiden=layriden)
-
-        todo = s_common.todo('getStorNodes')
-
-        async for item in self.runt.dyniter(layriden, todo):
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.getStorNodes():
             yield item
 
     async def _methLayerGet(self, name, defv=None):
@@ -5662,10 +5672,13 @@ class Layer(Prim):
         readonly = self.valu.get('readonly')
         return f'Layer: {iden} (name: {name}) readonly: {readonly} creator: {creator}'
 
-    async def verify(self):
+    async def verify(self, config=None):
+
+        config = await toprim(config)
+
         iden = self.valu.get('iden')
         layr = self.runt.snap.core.getLayer(iden)
-        async for mesg in layr.verify():
+        async for mesg in layr.verify(config=config):
             yield mesg
 
 @registry.registerLib
@@ -5769,19 +5782,37 @@ class View(Prim):
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``storm:trigger`` objects associated with the ``storm:view``.',
          'type': 'list', },
-        {'name': 'set', 'desc': 'Set a arbitrary value in the View definition.',
+        {'name': 'set', 'desc': '''
+            Set a view configuration option.
+
+            Current runtime updatable view options include:
+
+                name (str)
+                    A terse name for the View.
+
+                desc (str)
+                    A description of the View.
+
+                parent (str)
+                    The parent View iden.
+
+            To maintain consistency with the view.fork() semantics, setting the "parent"
+            option on a view has a few limitations:
+                * The view must not already have a parent
+                * The view must not have more than 1 layer
+         ''',
          'type': {'type': 'function', '_funcname': '_methViewSet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the value to set.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'get', 'desc': 'Get a arbitrary value in the View definition.',
+        {'name': 'get', 'desc': 'Get a view configuration option.',
          'type': {'type': 'function', '_funcname': '_methViewGet',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'Name of the value to get.', },
                       {'name': 'defv', 'type': 'prim', 'default': None,
-                       'desc': 'The default value returned if hte name is not set in the View.', }
+                       'desc': 'The default value returned if the name is not set in the View.', }
                   ),
                   'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
         {'name': 'fork', 'desc': 'Fork a View in the Cortex.',
@@ -5917,6 +5948,8 @@ class View(Prim):
         if name == 'name':
             valu = await tostr(valu)
         elif name == 'desc':
+            valu = await tostr(valu)
+        elif name == 'parent':
             valu = await tostr(valu)
         else:
             mesg = f'View does not support setting: {name}'
@@ -6529,6 +6562,279 @@ class Gate(Prim):
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
 
+@registry.registerLib
+class LibJsonStor(Lib):
+    '''
+    Implements cortex JSON storage.
+    '''
+    _storm_lib_path = ('jsonstor',)
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Return a stored JSON object or object property.',
+         'type': {'type': 'function', '_funcname': 'get',
+                   'args': (
+                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                    ),
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+
+        {'name': 'set', 'desc': 'Set a JSON object or object property.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
+
+        {'name': 'del', 'desc': 'Delete a stored JSON object or object.',
+         'type': {'type': 'function', '_funcname': '_del',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
+
+        {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the JSON objects.',
+         'type': {'type': 'function', '_funcname': 'iter',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                   ),
+                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+    )
+
+    def addLibFuncs(self):
+        self.locls.update({
+            'get': self.get,
+            'set': self.set,
+            'has': self.has,
+            'del': self._del,
+            'iter': self.iter,
+        })
+
+    async def has(self, path):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.has() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+        return await self.runt.snap.core.hasJsonObj(fullpath)
+
+    async def get(self, path, prop=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.get() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+
+        if prop is None:
+            return await self.runt.snap.core.getJsonObj(fullpath)
+
+        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+
+    async def set(self, path, valu, prop=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.set() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        valu = await toprim(valu)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+
+        if prop is None:
+            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            return True
+
+        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+
+    async def _del(self, path, prop=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.del() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('cells', self.runt.snap.core.iden) + path
+
+        if prop is None:
+            await self.runt.snap.core.delJsonObj(fullpath)
+            return True
+
+        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
+
+    async def iter(self, path=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.iter() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        path = await toprim(path)
+
+        fullpath = ('cells', self.runt.snap.core.iden)
+        if path is not None:
+            if isinstance(path, str):
+                path = tuple(path.split('/'))
+            fullpath += path
+
+        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+            yield path, item
+
+@registry.registerType
+class UserJson(Prim):
+    '''
+    Implements per-user JSON storage.
+    '''
+    _storm_typename = 'storm:auth:user:json'
+    _ismutable = False
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Return a stored JSON object or object property for the user.',
+         'type': {'type': 'function', '_funcname': 'get',
+                   'args': (
+                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                        {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                    ),
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+
+        {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
+         'type': {'type': 'function', '_funcname': 'set',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path elements.'},
+                       {'name': 'valu', 'type': 'prim', 'desc': 'The value to set as the JSON object or object property.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the set operation was successful.'}}},
+
+        {'name': 'del', 'desc': 'Delete a stored JSON object or object property for the user.',
+         'type': {'type': 'function', '_funcname': '_del',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
+                       {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
+                   ),
+                   'returns': {'type': 'boolean', 'desc': 'True if the del operation was successful.'}}},
+
+        {'name': 'iter', 'desc': 'Yield (<path>, <valu>) tuples for the users JSON objects.',
+         'type': {'type': 'function', '_funcname': 'iter',
+                  'args': (
+                       {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
+                   ),
+                   'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+    )
+
+    def __init__(self, runt, valu):
+        Prim.__init__(self, valu)
+        self.runt = runt
+        self.locls.update({
+            'get': self.get,
+            'set': self.set,
+            'has': self.has,
+            'del': self._del,
+            'iter': self.iter,
+        })
+
+    async def has(self, path):
+
+        path = await toprim(path)
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'get'))
+
+        return await self.runt.snap.core.hasJsonObj(fullpath)
+
+    async def get(self, path, prop=None):
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'get'))
+
+        if prop is None:
+            return await self.runt.snap.core.getJsonObj(fullpath)
+
+        return await self.runt.snap.core.getJsonObjProp(fullpath, prop=prop)
+
+    async def set(self, path, valu, prop=None):
+        path = await toprim(path)
+        valu = await toprim(valu)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'set'))
+
+        if prop is None:
+            await self.runt.snap.core.setJsonObj(fullpath, valu)
+            return True
+
+        return await self.runt.snap.core.setJsonObjProp(fullpath, prop, valu)
+
+    async def _del(self, path, prop=None):
+        path = await toprim(path)
+        prop = await toprim(prop)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        fullpath = ('users', self.valu, 'json') + path
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'set'))
+
+        if prop is None:
+            await self.runt.snap.core.delJsonObj(fullpath)
+            return True
+
+        return await self.runt.snap.core.delJsonObjProp(fullpath, prop=prop)
+
+    async def iter(self, path=None):
+
+        path = await toprim(path)
+
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('user', 'json', 'get'))
+
+        fullpath = ('users', self.valu, 'json')
+        if path is not None:
+            if isinstance(path, str):
+                path = tuple(path.split('/'))
+            fullpath += path
+
+        async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
+            yield path, item
+
 @registry.registerType
 class User(Prim):
     '''
@@ -6575,6 +6881,19 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserRevoke',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
+         'type': {'type': 'function', '_funcname': '_methUserTell',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
+         'type': {'type': 'function', '_funcname': '_methUserNotify',
+                  'args': (
+                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notfication type.', },
+                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
@@ -6642,13 +6961,21 @@ class User(Prim):
             'name': self._setUserName,
             'email': self._methUserSetEmail,
         })
+        self.ctors.update({
+            'json': self._ctorUserJson,
+        })
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
 
+    def _ctorUserJson(self, path=None):
+        return UserJson(self.runt, self.valu)
+
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
+            'tell': self._methUserTell,
+            'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
@@ -6662,6 +6989,22 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    async def _methUserTell(self, text):
+        mesgdata = {
+            'text': await tostr(text),
+            'from': self.runt.user.iden,
+        }
+        self.runt.confirm(('tell', self.valu), default=True)
+        return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
+
+    async def _methUserNotify(self, mesgtype, mesgdata):
+        mesgtype = await tostr(mesgtype)
+        mesgdata = await toprim(mesgdata)
+        if not self.runt.isAdmin():
+            mesg = '$user.notify() method requires admin privs.'
+            raise s_exc.AuthDeny(mesg=mesg)
+        return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _setUserName(self, name):
 
