@@ -25,6 +25,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-Google-Search <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-google-search/index.html>`_
 - `Synapse-GreyNoise <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-greynoise/index.html>`_
 - `Synapse-HybridAnalysis <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-hybridanalysis/index.html>`_
+- `Synapse-Intezer-Analyze <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-intezer-analyze/index.html>`_
 - `Synapse-Jira <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-jira/index.html>`_
 - `Synapse-Malshare <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-malshare/index.html>`_
 - `Synapse-MISP (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html>`_
@@ -39,6 +40,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-URLScan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-urlscan/index.html>`_
 - `Synapse-Utils <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-utils/index.html>`_
 - `Synapse-Virustotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html>`_
+- `Synapse-Wappalyzer <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-wappalyzer/index.html>`_
 - `Synapse-VMRay <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vmray/index.html>`_
 - `Synapse-VXIntel <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vxintel/index.html>`_
 - `Synapse-Whoxy <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-whoxy/index.html>`_

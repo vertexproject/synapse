@@ -5,6 +5,41 @@ Synapse Changelog
 *****************
 
 
+v2.80.0 - 2022-01-25
+====================
+
+Features and Enhancements
+-------------------------
+- Add a triple quoted string ``'''`` syntax to Storm for defining multiline
+  strings.
+  (`#2530 <https://github.com/vertexproject/synapse/pull/2530>`_)
+- Add a JSONStor to the Cortex, and expose that in Storm for storing user
+  related content.
+  (`#2530 <https://github.com/vertexproject/synapse/pull/2530>`_)
+  (`#2513 <https://github.com/vertexproject/synapse/pull/2513>`_)
+- Add durable user notifications to Storm that can be used to send and receive
+  messages between users.
+  (`#2513 <https://github.com/vertexproject/synapse/pull/2513>`_)
+- Add a ``leaf`` argument to ``$node.tags()`` that causes the function to only
+  return the leaf tags.
+  (`#2535 <https://github.com/vertexproject/synapse/pull/2535>`_)
+- Add an error message in the default help text in pure Storm commands when a
+  user provides additional arguments or switches, in addition to the
+  ``--help`` switch.
+  (`#2533 <https://github.com/vertexproject/synapse/pull/2533>`_)
+- Update ``synapse.tools.genpkg`` to automatically bundle Optic workflows from
+  files on disk.
+  (`#2531 <https://github.com/vertexproject/synapse/pull/2531>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``packaging``, ``pycryptome`` and ``scalecodec`` modules.
+  (`#2534 <https://github.com/vertexproject/synapse/pull/2534>`_)
+
+Bugfixes
+--------
+- Add a missing ``tostr()`` call to the Storm ``background`` query argument.
+  (`#2532 <https://github.com/vertexproject/synapse/pull/2532>`_)
+
+
 v2.79.0 - 2022-01-18
 ====================
 

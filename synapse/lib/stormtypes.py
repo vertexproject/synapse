@@ -4770,6 +4770,8 @@ class Node(Prim):
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
+                      {'name': 'leaf', 'type': 'bool', 'default': False,
+                       'desc': 'If true, only leaf tags are included in the returned tags.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of tags on the node. '
@@ -4906,8 +4908,21 @@ class Node(Prim):
         return self.valu.form.name == name
 
     @stormfunc(readonly=True)
-    async def _methNodeTags(self, glob=None):
+    async def _methNodeTags(self, glob=None, leaf=False):
+        glob = await tostr(glob, noneok=True)
+        leaf = await tobool(leaf)
+
         tags = list(self.valu.tags.keys())
+        if leaf:
+            _tags = []
+            # brute force rather than build a tree.  faster in small sets.
+            for tag in sorted((t for t in tags), reverse=True, key=lambda x: len(x)):
+                look = tag + '.'
+                if any([r.startswith(look) for r in _tags]):
+                    continue
+                _tags.append(tag)
+            tags = _tags
+
         if glob is not None:
             regx = s_cache.getTagGlobRegx(glob)
             tags = [t for t in tags if regx.fullmatch(t)]
@@ -6868,6 +6883,19 @@ class User(Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Role.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'tell', 'desc': 'Send a tell notification to a user.',
+         'type': {'type': 'function', '_funcname': '_methUserTell',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
+         'type': {'type': 'function', '_funcname': '_methUserNotify',
+                  'args': (
+                      {'name': 'mesgtype', 'type': 'str', 'desc': 'The notfication type.', },
+                      {'name': 'mesgdata', 'type': 'dict', 'desc': 'The notification data.', },
+                  ),
+                  'returns': {'type': 'null', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the User.',
          'type': {'type': 'function', '_funcname': '_methUserAddRule',
                   'args': (
@@ -6946,6 +6974,8 @@ class User(Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
+            'tell': self._methUserTell,
+            'notify': self._methUserNotify,
             'roles': self._methUserRoles,
             'allowed': self._methUserAllowed,
             'grant': self._methUserGrant,
@@ -6959,6 +6989,22 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    async def _methUserTell(self, text):
+        mesgdata = {
+            'text': await tostr(text),
+            'from': self.runt.user.iden,
+        }
+        self.runt.confirm(('tell', self.valu), default=True)
+        return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
+
+    async def _methUserNotify(self, mesgtype, mesgdata):
+        mesgtype = await tostr(mesgtype)
+        mesgdata = await toprim(mesgdata)
+        if not self.runt.isAdmin():
+            mesg = '$user.notify() method requires admin privs.'
+            raise s_exc.AuthDeny(mesg=mesg)
+        return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
     async def _setUserName(self, name):
 

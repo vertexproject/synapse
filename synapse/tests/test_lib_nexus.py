@@ -166,7 +166,7 @@ class NexusTest(s_t_utils.SynTest):
 
             nexsindx = await core00.getNexsIndx()
             layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-            self.eq(nexsindx, layrindx)
+            self.ge(nexsindx, layrindx)
 
             # Make sure a mirror gets updated to the correct index
             url = core00.getLocalUrl()
@@ -177,7 +177,7 @@ class NexusTest(s_t_utils.SynTest):
                 await core01.sync()
 
                 layrindx = max([await layr.getEditIndx() for layr in core01.layers.values()])
-                self.eq(nexsindx, layrindx)
+                self.ge(nexsindx, layrindx)
 
             # Can only move index forward
             self.false(await core00.setNexsIndx(0))
@@ -188,4 +188,4 @@ class NexusTest(s_t_utils.SynTest):
 
             nexsindx = await core.getNexsIndx()
             layrindx = max([await layr.getEditIndx() for layr in core.layers.values()])
-            self.eq(nexsindx, layrindx)
+            self.ge(nexsindx, layrindx)
