@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.80.1 - 2022-01-26
+====================
+
+Bugfixes
+--------
+- The embedded JsonStor added to the Cortex in ``v2.80.0`` needed to have a
+  stable iden for the Cell and and auth subsystem. This has been added.
+  (`#2536 <https://github.com/vertexproject/synapse/pull/2536>`_)
+
+
 v2.80.0 - 2022-01-25
 ====================
 
