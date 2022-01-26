@@ -29,6 +29,16 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_cellguid(self):
+        iden = s_common.guid()
+        conf = {'cell:guid': iden}
+        async with self.getTestCore(conf=conf) as core00:
+            async with self.getTestCore(conf=conf) as core01:
+                self.eq(core00.iden, core01.iden)
+                self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
+                self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
+                self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+
     async def test_cortex_usernotifs(self):
 
         async def testUserNotifs(core):
