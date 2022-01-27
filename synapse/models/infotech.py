@@ -781,7 +781,6 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
-                        'ro': True,
                         'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
                     }),
                     ('part', ('str', {'lower': True, 'strip': True}), {
