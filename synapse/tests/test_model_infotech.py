@@ -1156,3 +1156,36 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(f'file:bytes={baseFile} -> it:reveng:filefunc -> it:reveng:function -> it:reveng:impfunc')
             self.len(len(impcalls), nodes)
+
+    async def test_infotech_cpes(self):
+
+        async with self.getTestCore() as core:
+
+            cpe23 = core.model.type('it:sec:cpe')
+            cpe22 = core.model.type('it:sec:cpe:v2_2')
+
+            with self.raises(s_exc.BadTypeValu):
+                cpe22.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
+
+            with self.raises(s_exc.BadTypeValu):
+                cpe23.norm('cpe:/a:vertex:synapse:0:1:2:3:4:5:6:7:8:9')
+
+            with self.raises(s_exc.BadTypeValu):
+                cpe23.norm('cpe:2.3:a:vertex:synapse')
+
+            # test cast 2.2 -> 2.3 upsample
+            norm, info = cpe23.norm('cpe:/a:vertex:synapse')
+            self.eq(norm, 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
+
+            # test cast 2.3 -> 2.2 downsample
+            norm, info = cpe22.norm('cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*')
+            self.eq(norm, 'cpe:/a:vertex:synapse')
+
+            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:* ]')
+            self.eq('cpe:/a:vertex:synapse', nodes[0].props['v2_2'])
+
+            # test lift by either via upsample and downsample
+            self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse'))
+            self.len(1, await core.nodes('it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
