@@ -333,7 +333,7 @@ CPPCOMMENT: /\/\/[^\n]*/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS: /[a-z_][a-z0-9]*(:[a-z0-9_]+)+([:.][a-z_][a-z0-9_]+)*/
+PROPS: /[a-z_][a-z0-9]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*/
 // A universal property
 UNIVNAME: /\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*/
 univprop:  UNIVNAME | "." _varvalu
