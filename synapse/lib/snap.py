@@ -677,7 +677,8 @@ class Snap(s_base.Base):
             props = {}
 
         norm, info = form.type.norm(valu)
-        return [x async for x in _getadds(form, props, norm, info, doaddnode=addnode)]
+        stuff = [x async for x in _getadds(form, props, norm, info, doaddnode=addnode)]
+        return stuff
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))

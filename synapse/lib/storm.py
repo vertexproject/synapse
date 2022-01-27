@@ -1937,7 +1937,10 @@ class Runtime(s_base.Base):
                     raise s_exc.NoSuchView(iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
-                snap = await view.snap(self.user)
+                # JUST FOR TESTING
+                new_snap = await view.snap(self.user)
+                new_snap.link(snap.dist)
+                snap = new_snap
 
         return snap
 
@@ -3576,7 +3579,7 @@ class ViewExecCmd(Cmd):
             text = await s_stormtypes.tostr(self.opts.storm)
             query = await runt.getStormQuery(text)
 
-            opts = {'view': self.opts.view}
+            opts = {'view': view}
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for item in subr.execute():
                     await asyncio.sleep(0)

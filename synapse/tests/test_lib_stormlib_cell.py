@@ -146,3 +146,41 @@ class StormCellTest(s_test.SynTest):
             self.stormIsInPrint('Applied fix (2, 0, 0)', msgs)
 
             self.len(2, await core.nodes('crypto:currency:coin'))
+
+    async def test_stormfix_cpe2_2(self):
+
+        async with self.getTestCore() as core:
+            view0 = core.getView().iden
+            view1 = await core.callStorm('return ( $lib.view.get().fork().iden )')
+            view2 = await core.callStorm('return($lib.view.add(($lib.layer.add().iden,)).iden)')
+            # Create it:sec:cpe nodes and strip off the :v2_2 property
+            nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*] [-:v2_2]',
+                                      opts={'view': view0})
+            self.none(nodes[0].get('v2_2'))
+            nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:vertex:testsss:*:*:*:*:*:*:*:*] [-:v2_2]',
+                                     opts={'view': view1})
+            self.none(nodes[0].get('v2_2'))
+            nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:vertex:stuffff:*:*:*:*:*:*:*:*] [-:v2_2]',
+                                     opts={'view': view2})
+            self.none(nodes[0].get('v2_2'))
+
+            self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
+            self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
+            self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
+
+            # Set the hotfix valu
+            opts = {'vars': {'key': s_cell.runtime_fixes_key, 'valu': (2, 0, 0)}}
+            await core.callStorm('$lib.globals.set($key, $valu)', opts)
+
+            # Run all hotfixes.
+            msgs = await core.stormlist('$lib.cell.hotFixesApply()')
+            for m in msgs:
+                print(m)
+            self.stormIsInPrint('Applying fix (3, 0, 0) for [Populate it:sec:cpe:v2_2', msgs)
+            self.stormIsInPrint('Applied fix (3, 0, 0)', msgs)
+            nodes = await core.nodes('it:sec:cpe', opts={'view': view0})
+            for nodes in nodes:
+                print(nodes)
+            # self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
+            # self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
+            # self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))

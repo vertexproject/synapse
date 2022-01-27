@@ -5,6 +5,16 @@ Synapse Changelog
 *****************
 
 
+v2.81.9 - 2022-01-27
+====================
+
+Features and Enhancements
+-------------------------
+- The ``it:sec:cpe`` now recognizes CPE 2.2 strings during type normalization.
+  CPE 2.2 strings will be upcast to CPE 2.3 and the 2.2 string will be added
+  to the ``:v2_2`` secondary property of ``it:sec:cpe``.
+(`#2537 <https://github.com/vertexproject/synapse/pull/2537>`_)
+
 v2.80.1 - 2022-01-26
 ====================
 
