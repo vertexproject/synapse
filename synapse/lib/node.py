@@ -331,7 +331,6 @@ class Node:
         # not a form and when normalizing the property we have no subs
         # or adds to consider.
         if prop.type.form is None and info.get('subs') is None and not info.get('adds'):
-            logger.info(f'FAST PASS {self.ndef} {self.snap.view.iden}')
             nodeedits = [(self.buid, self.form.name,
                           [(s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ())])]
         else:

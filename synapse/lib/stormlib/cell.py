@@ -59,8 +59,7 @@ storm_missing_coins = '''
 storm_missing_cpe22 = '''
 $views = $lib.view.list(deporder=$lib.true)
 for $view in $views {
-    $lib.print('Fixing {v}', v=$view.iden)
-    view.exec $view.iden { it:sec:cpe $lib.print($node.value()) -:v2_2 [ :v2_2=$node.value() ] $lib.print($node) }
+    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value() ] }
 }
 '''
 
@@ -155,7 +154,7 @@ class CellLib(s_stormtypes.Lib):
             assert text is not None
             assert desc is not None
             assert vars is not None
-            logger.info(f'Applying fix {vers} for [{desc}]')
+
             await self.runt.printf(f'Applying fix {vers} for [{desc}]')
             try:
                 query = await self.runt.getStormQuery(text)

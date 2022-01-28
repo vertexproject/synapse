@@ -1937,10 +1937,7 @@ class Runtime(s_base.Base):
                     raise s_exc.NoSuchView(iden=viewiden)
 
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
-                # JUST FOR TESTING
-                new_snap = await view.snap(self.user)
-                new_snap.link(snap.dist)
-                snap = new_snap
+                snap = await view.snap(self.user)
 
         return snap
 
