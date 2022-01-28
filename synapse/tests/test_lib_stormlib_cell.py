@@ -181,6 +181,6 @@ class StormCellTest(s_test.SynTest):
             nodes = await core.nodes('it:sec:cpe', opts={'view': view0})
             for nodes in nodes:
                 print(nodes)
-            # self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
-            # self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
-            # self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
+            self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))

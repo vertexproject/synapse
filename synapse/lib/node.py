@@ -327,8 +327,16 @@ class Node:
             if curv == norm:
                 return False
 
-        props = {prop.name: norm}
-        nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
+        # Optimize fast property setting when the destination property is
+        # not a form and when normalizing the property we have no subs
+        # or adds to consider.
+        if prop.type.form is None and info.get('subs') is None and not info.get('adds'):
+            logger.info(f'FAST PASS {self.ndef} {self.snap.view.iden}')
+            nodeedits = [(self.buid, self.form.name,
+                          [(s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ())])]
+        else:
+            props = {prop.name: norm}
+            nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
         await self.snap.applyNodeEdits(nodeedits)
 
