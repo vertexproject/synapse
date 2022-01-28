@@ -5,17 +5,17 @@ import synapse.exc as s_exc
 # TODO:  commonize with storm.lark
 re_scmd = '[a-z][a-z0-9.]+'
 scmdre = regex.compile(re_scmd)
-univrestr = r'\.[a-z_][a-z0-9]*([:.][a-z0-9]+)*'
+univrestr = r'\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*'
 univre = regex.compile(univrestr)
-proprestr = r'[a-z_][a-z0-9]*(:[a-z0-9]+)+([:.][a-z_ ][a-z0-9]+)*'
+proprestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z_ ][a-z0-9_]+)*'
 proporunivrestr = f'({univrestr})|({proprestr})'
 proporunivre = regex.compile(proporunivrestr)
 propre = regex.compile(proprestr)
-formrestr = r'[a-z_][a-z0-9]*(:[a-z0-9]+)+'
+formrestr = r'[a-z_][a-z0-9_]*(:[a-z0-9_]+)+'
 formre = regex.compile(formrestr)
 tagrestr = r'(\w+\.)*\w+'
 tagre = regex.compile(tagrestr)
-basepropnopivpropstr = r'[a-z_][a-z0-9]*(?:(\:|\.)[a-z_][a-z0-9]*)*'
+basepropnopivpropstr = r'[a-z_][a-z0-9_]*(?:(\:|\.)[a-z_][a-z0-9_]*)*'
 basepropnopivpropre = regex.compile(basepropnopivpropstr)
 
 whites = set(' \t\n')
