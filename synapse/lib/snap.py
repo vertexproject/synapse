@@ -541,134 +541,135 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def _getadds(self, formobj, propinputs, formnorm, forminfo, doaddnode=True):
+    async def getNodeAdds(self, form, valu, props, addnode=True):
 
-        if formobj.locked:
-            mesg = f'Form {formobj.full} is locked due to deprecation.'
-            raise s_exc.IsDeprLocked(mesg=mesg)
+        async def _getadds(f, p, formnorm, forminfo, doaddnode=True):
 
-        edits = []  # Non-primary prop edits
-        topsubedits = []  # Primary prop sub edits
-
-        formsubs = forminfo.get('subs', {})
-        for subname, subvalu in formsubs.items():
-            propinputs[subname] = subvalu
-
-        for propname, propvalu in propinputs.items():
-            subedits: s_layer.NodeEditsT = []
-
-            prop = formobj.prop(propname)
-            if prop is None:
-                continue
-
-            if prop.locked:
-                mesg = f'Prop {prop.full} is locked due to deprecation.'
-                if not self.strict:
-                    await self.warn(mesg)
-                    continue
+            if f.locked:
+                mesg = f'Form {f.full} is locked due to deprecation.'
                 raise s_exc.IsDeprLocked(mesg=mesg)
 
-            assert prop.type.stortype is not None
+            edits = []  # Non-primary prop edits
+            topsubedits = []  # Primary prop sub edits
 
-            propnorm, typeinfo = prop.type.norm(propvalu)
+            formsubs = forminfo.get('subs', {})
+            for subname, subvalu in formsubs.items():
+                p[subname] = subvalu
 
-            if isinstance(prop.type, s_types.Ndef):
-                ndefname, ndefvalu = propvalu
-                ndefform = self.core.model.form(ndefname)
-                if ndefform is None:
-                    raise s_exc.NoSuchForm(name=ndefname)
+            for propname, propvalu in p.items():
+                subedits: s_layer.NodeEditsT = []
 
-                if ndefform.locked:
-                    mesg = f'Form {ndefform.full} is locked due to deprecation.'
+                prop = f.prop(propname)
+                if prop is None:
+                    continue
+
+                if prop.locked:
+                    mesg = f'Prop {prop.full} is locked due to deprecation.'
                     if not self.strict:
                         await self.warn(mesg)
                         continue
                     raise s_exc.IsDeprLocked(mesg=mesg)
 
-                ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
-                do_subedit = True
-                if self.buidprefetch:
-                    node = await self.getNodeByBuid(s_common.buid((ndefform.name, ndefnorm)))
-                    do_subedit = node is None
+                assert prop.type.stortype is not None
 
-                if do_subedit:
-                    subedits.extend([x async for x in self._getadds(ndefform, {}, ndefnorm, ndefinfo)])
+                propnorm, typeinfo = prop.type.norm(propvalu)
 
-            elif isinstance(prop.type, s_types.Array):
-                arrayform = self.core.model.form(prop.type.arraytype.name)
-                if arrayform is not None:
-                    if arrayform.locked:
-                        mesg = f'Form {arrayform.full} is locked due to deprecation.'
+                if isinstance(prop.type, s_types.Ndef):
+                    ndefname, ndefvalu = propvalu
+                    ndefform = self.core.model.form(ndefname)
+                    if ndefform is None:
+                        raise s_exc.NoSuchForm(name=ndefname)
+
+                    if ndefform.locked:
+                        mesg = f'Form {ndefform.full} is locked due to deprecation.'
                         if not self.strict:
                             await self.warn(mesg)
                             continue
                         raise s_exc.IsDeprLocked(mesg=mesg)
 
-                    for arrayvalu in propnorm:
-                        arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
+                    ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
+                    do_subedit = True
+                    if self.buidprefetch:
+                        node = await self.getNodeByBuid(s_common.buid((ndefform.name, ndefnorm)))
+                        do_subedit = node is None
 
-                        if self.buidprefetch:
-                            node = await self.getNodeByBuid(s_common.buid((arrayform.name, arraynorm)))
-                            if node is not None:
+                    if do_subedit:
+                        subedits.extend([x async for x in _getadds(ndefform, {}, ndefnorm, ndefinfo)])
+
+                elif isinstance(prop.type, s_types.Array):
+                    arrayform = self.core.model.form(prop.type.arraytype.name)
+                    if arrayform is not None:
+                        if arrayform.locked:
+                            mesg = f'Form {arrayform.full} is locked due to deprecation.'
+                            if not self.strict:
+                                await self.warn(mesg)
                                 continue
+                            raise s_exc.IsDeprLocked(mesg=mesg)
 
-                        subedits.extend([x async for x in self._getadds(arrayform, {}, arraynorm, arrayinfo)])
+                        for arrayvalu in propnorm:
+                            arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
 
-            propsubs = typeinfo.get('subs')
-            if propsubs is not None:
-                for subname, subvalu in propsubs.items():
-                    fullname = f'{prop.full}:{subname}'
-                    subprop = self.core.model.prop(fullname)
-                    if subprop is None:
-                        continue
-                    if subprop.name in propinputs:
-                        # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
-                        continue
+                            if self.buidprefetch:
+                                node = await self.getNodeByBuid(s_common.buid((arrayform.name, arraynorm)))
+                                if node is not None:
+                                    continue
 
-                    assert subprop.type.stortype is not None
+                            subedits.extend([x async for x in _getadds(arrayform, {}, arraynorm, arrayinfo)])
 
-                    subpropform = self.core.model.form(subprop.type.name)
-                    if subpropform:
-                        subnorm, subinfo = subprop.type.norm(subvalu)
-                        psubs = [x async for x in self._getadds(subpropform, {}, subnorm, subinfo)]
-                        edits.append(
-                            (s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
-                    else:
-                        subnorm, _ = subprop.type.norm(subvalu)
-                        edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
+                propsubs = typeinfo.get('subs')
+                if propsubs is not None:
+                    for subname, subvalu in propsubs.items():
+                        fullname = f'{prop.full}:{subname}'
+                        subprop = self.core.model.prop(fullname)
+                        if subprop is None:
+                            continue
+                        if subprop.name in p:
+                            # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
+                            continue
 
-            propform = self.core.model.form(prop.type.name)
-            if propform is not None:
+                        assert subprop.type.stortype is not None
 
-                doedit = True
-                if self.buidprefetch:
-                    node = await self.getNodeByBuid(s_common.buid((propform.name, propnorm)))
-                    doedit = node is None
+                        subpropform = self.core.model.form(subprop.type.name)
+                        if subpropform:
+                            subnorm, subinfo = subprop.type.norm(subvalu)
+                            psubs = [x async for x in _getadds(subpropform, {}, subnorm, subinfo)]
+                            edits.append(
+                                (s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
+                        else:
+                            subnorm, _ = subprop.type.norm(subvalu)
+                            edits.append(
+                                (s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
-                if doedit:
-                    subedits.extend([x async for x in self._getadds(propform, {}, propnorm, typeinfo)])
+                propform = self.core.model.form(prop.type.name)
+                if propform is not None:
 
-            edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
-            if propname in formsubs:
-                topsubedits.append(edit)
+                    doedit = True
+                    if self.buidprefetch:
+                        node = await self.getNodeByBuid(s_common.buid((propform.name, propnorm)))
+                        doedit = node is None
+
+                    if doedit:
+                        subedits.extend([x async for x in _getadds(propform, {}, propnorm, typeinfo)])
+
+                edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
+                if propname in formsubs:
+                    topsubedits.append(edit)
+                else:
+                    edits.append(edit)
+
+            buid = s_common.buid((f.name, formnorm))
+
+            if doaddnode:
+                # Make all the sub edits for the primary property a conditional nodeEdit under a top-level NODE_ADD
+                # edit
+                if topsubedits:
+                    subnodeedits: s_layer.NodeEditsT = [(buid, f.name, topsubedits)]
+                else:
+                    subnodeedits = ()
+                topedit: s_layer.EditT = (s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype), subnodeedits)
+                yield (buid, f.name, [topedit] + edits)
             else:
-                edits.append(edit)
-
-        buid = s_common.buid((formobj.name, formnorm))
-
-        if doaddnode:
-            # Make all the sub edits for the primary property a conditional nodeEdit under a top-level NODE_ADD
-            # edit
-            if topsubedits:
-                subnodeedits: s_layer.NodeEditsT = [(buid, formobj.name, topsubedits)]
-            else:
-                subnodeedits = ()
-            topedit: s_layer.EditT = (s_layer.EDIT_NODE_ADD, (formnorm, formobj.type.stortype), subnodeedits)
-            yield (buid, formobj.name, [topedit] + edits)
-        else:
-            yield (buid, formobj.name, edits)
-
-    async def getNodeAdds(self, form, valu, props, addnode=True):
+                yield (buid, f.name, edits)
 
         if self.core.maxnodes is not None and self.core.maxnodes <= self.core.nodecount:
             mesg = f'Cortex is at node:count limit: {self.core.maxnodes}'
@@ -678,8 +679,7 @@ class Snap(s_base.Base):
             props = {}
 
         norm, info = form.type.norm(valu)
-        stuff = [x async for x in self._getadds(form, props, norm, info, doaddnode=addnode)]
-        return stuff
+        return [x async for x in _getadds(form, props, norm, info, doaddnode=addnode)]
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
