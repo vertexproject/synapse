@@ -716,7 +716,6 @@ class Model:
             raise s_exc.NoSuchType(name=formname)
 
         form = Form(self, formname, forminfo)
-        _type.form = form
 
         self.forms[formname] = form
         self.props[formname] = form

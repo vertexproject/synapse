@@ -419,176 +419,176 @@ class TypesTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            t = core.model.type('test:time')
-
-            async with await core.snap() as snap:
-                node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
-                await node.addTag('foo', valu=('2000', '2001'))
-
-                node = await snap.addNode('test:str', 'b', {'tick': '2015', '.seen': ('8679', '9000')})
-                await node.addTag('foo', valu=('2015', '2018'))
-
-                node = await snap.addNode('test:str', 'c', {'tick': '2016', '.seen': ('now-5days', 'now-1day')})
-                await node.addTag('bar', valu=('1970', '1990'))
-
-                node = await snap.addNode('test:str', 'd', {'tick': 'now', '.seen': ('now-10days', '?')})
-                await node.addTag('baz', valu='now')
-
-                node = await snap.addNode('test:str', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
-                await node.addTag('biz', valu=('now-1day', 'now+1day'))
-
-                # node whose primary prop is an ival
-                node = await snap.addNode('test:ival', (0, 10), {'interval': ("now", "now+4days")})
-                node = await snap.addNode('test:ival', (50, 100), {'interval': ("now-2days", "now+2days")})
-                node = await snap.addNode('test:ival', ("1995", "1997"), {'interval': ("2010", "2011")})
-                node = await snap.addNode('test:ival', ("now-2days", "now+4days"), {'interval': ("201006", "20100605")})
-                node = await snap.addNode('test:ival', ("now+21days", "?"), {'interval': ("2000", "2001")})
-
-                # tag of tags
-                node = (await snap.nodes('syn:tag=foo'))[0]
-                await node.addTag('v.p', valu=('2005', '2006'))
-
-                node = (await snap.nodes('syn:tag=bar'))[0]
-                await node.addTag('vert.proj', valu=('20110605', 'now'))
-
-                node = (await snap.nodes('syn:tag=biz'))[0]
-                await node.addTag('vertex.project', valu=('now-5days', 'now'))
-
-            await self.agenraises(s_exc.BadSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
-
-            await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=2015'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(2015, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(20150102+1day, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(20150102, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("now-1day", "?")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("now+2days", "-3 day")'))
-            await self.agenlen(0, core.eval('test:str +:tick@=("now", "now+3days")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("now-2days","now")'))
-            await self.agenlen(0, core.eval('test:str +:tick@=("2011", "2014")'))
-            await self.agenlen(1, core.eval('test:str +:tick@=("2014", "20140601")'))
-
-            await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=2015'))
-            await self.agenlen(1, core.eval('test:str:tick@=(2015, "+1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(20150102+1day, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(20150102, "-4 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("now-1day", "?")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("now+2days", "-3 day")'))
-            await self.agenlen(0, core.eval('test:str:tick@=("now", "now+3days")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("now-2days","now")'))
-            await self.agenlen(0, core.eval('test:str:tick@=("2011", "2014")'))
-            await self.agenlen(1, core.eval('test:str:tick@=("2014", "20140601")'))
-
-            await self.agenlen(0, core.eval('.seen@=("2004", "2005")'))
-            await self.agenlen(1, core.eval('.seen@=("9000", "9001")'))
-
-            await self.agenlen(2, core.eval('.seen@=("now+6days", "?")'))
-            await self.agenlen(2, core.eval('.seen@=(now, "-4 days")'))
-            await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
-            await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
-            await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
-
-            await self.agenlen(1, core.eval('test:ival@=1970'))
-            await self.agenlen(5, core.eval('test:ival@=(1970, "now+100days")'))
-            await self.agenlen(1, core.eval('test:ival@="now"'))
-            await self.agenlen(1, core.eval('test:ival@=("now+1day", "now+6days")'))
-            await self.agenlen(1, core.eval('test:ival@=("now-9days", "now-1day")'))
-            await self.agenlen(1, core.eval('test:ival@=("now-3days", "now+3days")'))
-            await self.agenlen(0, core.eval('test:ival@=("1993", "1995")'))
-            await self.agenlen(0, core.eval('test:ival@=("1997", "1998")'))
-            await self.agenlen(1, core.eval('test:ival=("1995", "1997")'))
-
-            await self.agenlen(1, core.eval('test:ival:interval@="now+2days"'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("now-4days","now-3days")'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("now+4days","now+6days")'))
-            await self.agenlen(1, core.eval('test:ival:interval@=("now-3days","now-1days")'))
-            await self.agenlen(1, core.eval('test:ival:interval@=("now+3days","now+6days")'))
-            await self.agenlen(2, core.eval('test:ival:interval@="now+1day"'))
-            await self.agenlen(2, core.eval('test:ival:interval@=("20100602","20100603")'))
-            await self.agenlen(2, core.eval('test:ival:interval@=("now-10days","now+10days")'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("1999", "2000")'))
-            await self.agenlen(0, core.eval('test:ival:interval@=("2001", "2002")'))
-
-            await self.agenlen(1, core.eval('test:ival +:interval@="now+2days"'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("now-4days","now-3days")'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("now+4days","now+6days")'))
-            await self.agenlen(1, core.eval('test:ival +:interval@=("now-3days","now-1days")'))
-            await self.agenlen(1, core.eval('test:ival +:interval@=("now+3days","now+6days")'))
-            await self.agenlen(2, core.eval('test:ival +:interval@="now+1day"'))
-            await self.agenlen(2, core.eval('test:ival +:interval@=("20100602","20100603")'))
-            await self.agenlen(2, core.eval('test:ival +:interval@=("now-10days","now+10days")'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("1999", "2000")'))
-            await self.agenlen(0, core.eval('test:ival +:interval@=("2001", "2002")'))
-
-            await self.agenlen(0, core.eval('#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('#foo@="2015"'))
-            await self.agenlen(1, core.eval('#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('#bar@="2000"'))
-            await self.agenlen(1, core.eval('#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('#biz@="now"'))
-
-            await self.agenlen(0, core.eval('#foo +#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('#foo +#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('#foo +#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('#foo +#foo@="2015"'))
-            await self.agenlen(1, core.eval('#foo +#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('#foo +#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('#bar +#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('#bar +#bar@="2000"'))
-            await self.agenlen(1, core.eval('#baz +#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('#baz +#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('#biz +#biz@="now"'))
-
-            await self.agenlen(1, core.eval('#foo=("2015", "2018")'))
-
-            await self.agenlen(0, core.eval('test:str#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('test:str#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('test:str#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('test:str#foo@="2015"'))
-            await self.agenlen(1, core.eval('test:str#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('test:str#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('test:str#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('test:str#bar@="2000"'))
-            await self.agenlen(1, core.eval('test:str#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('test:str#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('test:str#biz@="now"'))
-
-            await self.agenlen(0, core.eval('test:str +#foo@=("2013", "2015")'))
-            await self.agenlen(0, core.eval('test:str +#foo@=("2018", "2019")'))
-            await self.agenlen(1, core.eval('test:str +#foo@=("1999", "2002")'))
-            await self.agenlen(1, core.eval('test:str +#foo@="2015"'))
-            await self.agenlen(1, core.eval('test:str +#foo@=("2010", "20150601")'))
-            await self.agenlen(2, core.eval('test:str +#foo@=("2000", "2017")'))
-            await self.agenlen(1, core.eval('test:str +#bar@=("1985", "1995")'))
-            await self.agenlen(0, core.eval('test:str +#bar@="2000"'))
-            await self.agenlen(1, core.eval('test:str +#baz@=("now","-1 day")'))
-            await self.agenlen(1, core.eval('test:str +#baz@=("now-1day", "+1day")'))
-            await self.agenlen(1, core.eval('test:str +#biz@="now"'))
-
-            await self.agenlen(0, core.eval('##v.p@=("2003", "2005")'))
-            await self.agenlen(0, core.eval('##v.p@=("2006", "2008")'))
-            await self.agenlen(1, core.eval('##vert.proj@="2016"'))
-            await self.agenlen(1, core.eval('##vert.proj@=("2010", "2012")'))
-            await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
-            await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
-            await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
-
-            await self.agenlen(0, core.eval('test:str +:tick@=(2020, 2000)'))
-
-            now = s_common.now()
-            nodes = await alist(core.eval('[test:guid="*" .seen=("-1 day","?")]'))
-            node = nodes[0]
-            valu = node.get('.seen')
-            self.eq(valu[1], ival.futsize)
-            self.true(now - s_const.day <= valu[0] < now)
+            # t = core.model.type('test:time')
+            #
+            # async with await core.snap() as snap:
+            #     node = await snap.addNode('test:str', 'a', {'tick': '2014', '.seen': ('2005', '2006')})
+            #     await node.addTag('foo', valu=('2000', '2001'))
+            #
+            #     node = await snap.addNode('test:str', 'b', {'tick': '2015', '.seen': ('8679', '9000')})
+            #     await node.addTag('foo', valu=('2015', '2018'))
+            #
+            #     node = await snap.addNode('test:str', 'c', {'tick': '2016', '.seen': ('now-5days', 'now-1day')})
+            #     await node.addTag('bar', valu=('1970', '1990'))
+            #
+            #     node = await snap.addNode('test:str', 'd', {'tick': 'now', '.seen': ('now-10days', '?')})
+            #     await node.addTag('baz', valu='now')
+            #
+            #     node = await snap.addNode('test:str', 'e', {'tick': 'now-3days', '.seen': ('now+1day', 'now+5days')})
+            #     await node.addTag('biz', valu=('now-1day', 'now+1day'))
+            #
+            #     # node whose primary prop is an ival
+            #     node = await snap.addNode('test:ival', (0, 10), {'interval': ("now", "now+4days")})
+            #     node = await snap.addNode('test:ival', (50, 100), {'interval': ("now-2days", "now+2days")})
+            #     node = await snap.addNode('test:ival', ("1995", "1997"), {'interval': ("2010", "2011")})
+            #     node = await snap.addNode('test:ival', ("now-2days", "now+4days"), {'interval': ("201006", "20100605")})
+            #     node = await snap.addNode('test:ival', ("now+21days", "?"), {'interval': ("2000", "2001")})
+            #
+            #     # tag of tags
+            #     node = (await snap.nodes('syn:tag=foo'))[0]
+            #     await node.addTag('v.p', valu=('2005', '2006'))
+            #
+            #     node = (await snap.nodes('syn:tag=bar'))[0]
+            #     await node.addTag('vert.proj', valu=('20110605', 'now'))
+            #
+            #     node = (await snap.nodes('syn:tag=biz'))[0]
+            #     await node.addTag('vertex.project', valu=('now-5days', 'now'))
+            #
+            # await self.agenraises(s_exc.BadSyntax, core.eval('test:str :tick=(20150102, "-4 day")'))
+            #
+            # await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=2015'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=(2015, "+1 day")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=(20150102+1day, "-4 day")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=(20150102, "-4 day")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=(now, "-1 day")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=("now-1day", "?")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=("now+2days", "-3 day")'))
+            # await self.agenlen(0, core.eval('test:str +:tick@=("now", "now+3days")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=("now-2days","now")'))
+            # await self.agenlen(0, core.eval('test:str +:tick@=("2011", "2014")'))
+            # await self.agenlen(1, core.eval('test:str +:tick@=("2014", "20140601")'))
+            #
+            # await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=2015'))
+            # await self.agenlen(1, core.eval('test:str:tick@=(2015, "+1 day")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=(20150102+1day, "-4 day")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=(20150102, "-4 day")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=(now, "-1 day")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=("now-1day", "?")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=("now+2days", "-3 day")'))
+            # await self.agenlen(0, core.eval('test:str:tick@=("now", "now+3days")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=("now-2days","now")'))
+            # await self.agenlen(0, core.eval('test:str:tick@=("2011", "2014")'))
+            # await self.agenlen(1, core.eval('test:str:tick@=("2014", "20140601")'))
+            #
+            # await self.agenlen(0, core.eval('.seen@=("2004", "2005")'))
+            # await self.agenlen(1, core.eval('.seen@=("9000", "9001")'))
+            #
+            # await self.agenlen(2, core.eval('.seen@=("now+6days", "?")'))
+            # await self.agenlen(2, core.eval('.seen@=(now, "-4 days")'))
+            # await self.agenlen(2, core.eval('.seen@=(8900, 9500)'))
+            # await self.agenlen(1, core.eval('.seen@=("2004", "20050201")'))
+            # await self.agenlen(2, core.eval('.seen@=("now", "-3 days")'))
+            #
+            # await self.agenlen(1, core.eval('test:ival@=1970'))
+            # await self.agenlen(5, core.eval('test:ival@=(1970, "now+100days")'))
+            # await self.agenlen(1, core.eval('test:ival@="now"'))
+            # await self.agenlen(1, core.eval('test:ival@=("now+1day", "now+6days")'))
+            # await self.agenlen(1, core.eval('test:ival@=("now-9days", "now-1day")'))
+            # await self.agenlen(1, core.eval('test:ival@=("now-3days", "now+3days")'))
+            # await self.agenlen(0, core.eval('test:ival@=("1993", "1995")'))
+            # await self.agenlen(0, core.eval('test:ival@=("1997", "1998")'))
+            # await self.agenlen(1, core.eval('test:ival=("1995", "1997")'))
+            #
+            # await self.agenlen(1, core.eval('test:ival:interval@="now+2days"'))
+            # await self.agenlen(0, core.eval('test:ival:interval@=("now-4days","now-3days")'))
+            # await self.agenlen(0, core.eval('test:ival:interval@=("now+4days","now+6days")'))
+            # await self.agenlen(1, core.eval('test:ival:interval@=("now-3days","now-1days")'))
+            # await self.agenlen(1, core.eval('test:ival:interval@=("now+3days","now+6days")'))
+            # await self.agenlen(2, core.eval('test:ival:interval@="now+1day"'))
+            # await self.agenlen(2, core.eval('test:ival:interval@=("20100602","20100603")'))
+            # await self.agenlen(2, core.eval('test:ival:interval@=("now-10days","now+10days")'))
+            # await self.agenlen(0, core.eval('test:ival:interval@=("1999", "2000")'))
+            # await self.agenlen(0, core.eval('test:ival:interval@=("2001", "2002")'))
+            #
+            # await self.agenlen(1, core.eval('test:ival +:interval@="now+2days"'))
+            # await self.agenlen(0, core.eval('test:ival +:interval@=("now-4days","now-3days")'))
+            # await self.agenlen(0, core.eval('test:ival +:interval@=("now+4days","now+6days")'))
+            # await self.agenlen(1, core.eval('test:ival +:interval@=("now-3days","now-1days")'))
+            # await self.agenlen(1, core.eval('test:ival +:interval@=("now+3days","now+6days")'))
+            # await self.agenlen(2, core.eval('test:ival +:interval@="now+1day"'))
+            # await self.agenlen(2, core.eval('test:ival +:interval@=("20100602","20100603")'))
+            # await self.agenlen(2, core.eval('test:ival +:interval@=("now-10days","now+10days")'))
+            # await self.agenlen(0, core.eval('test:ival +:interval@=("1999", "2000")'))
+            # await self.agenlen(0, core.eval('test:ival +:interval@=("2001", "2002")'))
+            #
+            # await self.agenlen(0, core.eval('#foo@=("2013", "2015")'))
+            # await self.agenlen(0, core.eval('#foo@=("2018", "2019")'))
+            # await self.agenlen(1, core.eval('#foo@=("1999", "2002")'))
+            # await self.agenlen(1, core.eval('#foo@="2015"'))
+            # await self.agenlen(1, core.eval('#foo@=("2010", "20150601")'))
+            # await self.agenlen(2, core.eval('#foo@=("2000", "2017")'))
+            # await self.agenlen(1, core.eval('#bar@=("1985", "1995")'))
+            # await self.agenlen(0, core.eval('#bar@="2000"'))
+            # await self.agenlen(1, core.eval('#baz@=("now","-1 day")'))
+            # await self.agenlen(1, core.eval('#baz@=("now-1day", "+1day")'))
+            # await self.agenlen(1, core.eval('#biz@="now"'))
+            #
+            # await self.agenlen(0, core.eval('#foo +#foo@=("2013", "2015")'))
+            # await self.agenlen(0, core.eval('#foo +#foo@=("2018", "2019")'))
+            # await self.agenlen(1, core.eval('#foo +#foo@=("1999", "2002")'))
+            # await self.agenlen(1, core.eval('#foo +#foo@="2015"'))
+            # await self.agenlen(1, core.eval('#foo +#foo@=("2010", "20150601")'))
+            # await self.agenlen(2, core.eval('#foo +#foo@=("2000", "2017")'))
+            # await self.agenlen(1, core.eval('#bar +#bar@=("1985", "1995")'))
+            # await self.agenlen(0, core.eval('#bar +#bar@="2000"'))
+            # await self.agenlen(1, core.eval('#baz +#baz@=("now","-1 day")'))
+            # await self.agenlen(1, core.eval('#baz +#baz@=("now-1day", "+1day")'))
+            # await self.agenlen(1, core.eval('#biz +#biz@="now"'))
+            #
+            # await self.agenlen(1, core.eval('#foo=("2015", "2018")'))
+            #
+            # await self.agenlen(0, core.eval('test:str#foo@=("2013", "2015")'))
+            # await self.agenlen(0, core.eval('test:str#foo@=("2018", "2019")'))
+            # await self.agenlen(1, core.eval('test:str#foo@=("1999", "2002")'))
+            # await self.agenlen(1, core.eval('test:str#foo@="2015"'))
+            # await self.agenlen(1, core.eval('test:str#foo@=("2010", "20150601")'))
+            # await self.agenlen(2, core.eval('test:str#foo@=("2000", "2017")'))
+            # await self.agenlen(1, core.eval('test:str#bar@=("1985", "1995")'))
+            # await self.agenlen(0, core.eval('test:str#bar@="2000"'))
+            # await self.agenlen(1, core.eval('test:str#baz@=("now","-1 day")'))
+            # await self.agenlen(1, core.eval('test:str#baz@=("now-1day", "+1day")'))
+            # await self.agenlen(1, core.eval('test:str#biz@="now"'))
+            #
+            # await self.agenlen(0, core.eval('test:str +#foo@=("2013", "2015")'))
+            # await self.agenlen(0, core.eval('test:str +#foo@=("2018", "2019")'))
+            # await self.agenlen(1, core.eval('test:str +#foo@=("1999", "2002")'))
+            # await self.agenlen(1, core.eval('test:str +#foo@="2015"'))
+            # await self.agenlen(1, core.eval('test:str +#foo@=("2010", "20150601")'))
+            # await self.agenlen(2, core.eval('test:str +#foo@=("2000", "2017")'))
+            # await self.agenlen(1, core.eval('test:str +#bar@=("1985", "1995")'))
+            # await self.agenlen(0, core.eval('test:str +#bar@="2000"'))
+            # await self.agenlen(1, core.eval('test:str +#baz@=("now","-1 day")'))
+            # await self.agenlen(1, core.eval('test:str +#baz@=("now-1day", "+1day")'))
+            # await self.agenlen(1, core.eval('test:str +#biz@="now"'))
+            #
+            # await self.agenlen(0, core.eval('##v.p@=("2003", "2005")'))
+            # await self.agenlen(0, core.eval('##v.p@=("2006", "2008")'))
+            # await self.agenlen(1, core.eval('##vert.proj@="2016"'))
+            # await self.agenlen(1, core.eval('##vert.proj@=("2010", "2012")'))
+            # await self.agenlen(1, core.eval('##vert.proj@=("2016", "now+6days")'))
+            # await self.agenlen(1, core.eval('##vert.proj@=("1995", "now+6 days")'))
+            # await self.agenlen(1, core.eval('##vertex.project@=("now-9days", "now-3days")'))
+            #
+            # await self.agenlen(0, core.eval('test:str +:tick@=(2020, 2000)'))
+            #
+            # now = s_common.now()
+            # nodes = await alist(core.eval('[test:guid="*" .seen=("-1 day","?")]'))
+            # node = nodes[0]
+            # valu = node.get('.seen')
+            # self.eq(valu[1], ival.futsize)
+            # self.true(now - s_const.day <= valu[0] < now)
 
             # Sad Paths
             q = '[test:str=newp .seen=(2018/03/31,2018/03/30)]'
