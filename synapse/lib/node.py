@@ -334,10 +334,7 @@ class Node:
             if curv == norm:
                 return False
 
-        # Optimize fast property setting when the destination property is
-        # not a form and when normalizing the property we have no subs
-        # or adds to consider.
-        if not info and self.snap.core.model.form(prop.type.name) is None:
+        if self._fastPropSet(prop, info):
             # logger.info(f'FAST PATH {self.ndef} {prop.name}={norm}')
             nodeedits = [(self.buid, self.form.name,
                           [(s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ())])]
@@ -347,6 +344,24 @@ class Node:
 
         await self.snap.applyNodeEdits(nodeedits)
 
+        return True
+
+    def _fastPropSet(self, prop, info):
+        '''
+        Checks for fast property setting when the following are true:
+        1. No subs
+        2. No adds
+        3. Destination property is not a form itself
+
+        If new values are plumbed into type info dictionaries need to
+        consider updating this.
+        '''
+        if info.get('subs'):
+            return False
+        if info.get('adds'):
+            return False
+        if self.snap.core.model.form(prop.type.name):
+            return False
         return True
 
     def has(self, name):
