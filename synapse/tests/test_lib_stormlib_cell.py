@@ -174,13 +174,10 @@ class StormCellTest(s_test.SynTest):
 
             # Run all hotfixes.
             msgs = await core.stormlist('$lib.cell.hotFixesApply()')
-            for m in msgs:
-                print(m)
+
             self.stormIsInPrint('Applying fix (3, 0, 0) for [Populate it:sec:cpe:v2_2', msgs)
             self.stormIsInPrint('Applied fix (3, 0, 0)', msgs)
-            nodes = await core.nodes('it:sec:cpe', opts={'view': view0})
-            for nodes in nodes:
-                print(nodes)
+
             self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
             self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
             self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))

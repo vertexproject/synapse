@@ -633,12 +633,10 @@ class Snap(s_base.Base):
                         if subpropform:
                             subnorm, subinfo = subprop.type.norm(subvalu)
                             psubs = [x async for x in _getadds(subpropform, {}, subnorm, subinfo)]
-                            edits.append(
-                                (s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
+                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
                         else:
                             subnorm, _ = subprop.type.norm(subvalu)
-                            edits.append(
-                                (s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
+                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
 
                 propform = self.core.model.form(prop.type.name)
                 if propform is not None:
