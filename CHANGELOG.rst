@@ -15,6 +15,19 @@ Features and Enhancements
   to the ``:v2_2`` secondary property of ``it:sec:cpe``.
   (`#2537 <https://github.com/vertexproject/synapse/pull/2537>`_)
   (`#2538 <https://github.com/vertexproject/synapse/pull/2538>`_)
+  (`#2539 <https://github.com/vertexproject/synapse/pull/2539>`_)
+- Setting properties on nodes may now take a fast path if the normed property
+  has no subs, no autoadds and is not a locked property.
+  (`#2539 <https://github.com/vertexproject/synapse/pull/2539>`_)
+
+Bugfixes
+--------
+- Fix an issue with ``Ival`` ``norm()`` routines when norming a tuple or list
+  of values. The max value returned previously could have exceeded the value
+  of the future marker ``?``, which would have been then caused an a
+  ``BadTypeValu`` exception during node edit construction. This is  is now
+  caught during the initial ``norm()`` call.
+  (`#2539 <https://github.com/vertexproject/synapse/pull/2539>`_)
 
 
 v2.80.1 - 2022-01-26
