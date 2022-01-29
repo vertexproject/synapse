@@ -287,6 +287,13 @@ class Node:
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
+        if prop.locked:
+            mesg = f'Prop {prop.full} is locked due to deprecation.'
+            if self.snap.strict:
+                raise s_exc.IsDeprLocked(mesg=mesg, name=prop.full)
+            await self.snap.warn(mesg)
+            return False
+
         if self.form.isrunt:
 
             if prop.info.get('ro'):
@@ -330,11 +337,8 @@ class Node:
         # Optimize fast property setting when the destination property is
         # not a form and when normalizing the property we have no subs
         # or adds to consider.
-        if self.snap.core.model.form(prop.type.name) is None \
-                and info.get('subs') is None \
-                and not info.get('adds') \
-                and not prop.locked:
-            logger.info(f'FAST PATH {self.ndef} {prop.name}={norm}')
+        if not info and self.snap.core.model.form(prop.type.name) is None:
+            # logger.info(f'FAST PATH {self.ndef} {prop.name}={norm}')
             nodeedits = [(self.buid, self.form.name,
                           [(s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ())])]
         else:
