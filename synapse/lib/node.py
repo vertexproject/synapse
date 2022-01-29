@@ -335,7 +335,6 @@ class Node:
                 return False
 
         if self._fastPropSet(prop, info):
-            # logger.info(f'FAST PATH {self.ndef} {prop.name}={norm}')
             nodeedits = [(self.buid, self.form.name,
                           [(s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ())])]
         else:
