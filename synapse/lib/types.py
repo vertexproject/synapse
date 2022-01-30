@@ -1155,6 +1155,10 @@ class Ival(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='Ival range must in (min, max) format')
 
+        if maxv > self.futsize:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival upper range cannot exceed future size marker')
+
         return (minv, maxv), info
 
     def _normByTickTock(self, valu):
