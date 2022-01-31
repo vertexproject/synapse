@@ -76,6 +76,6 @@ available in Python 3.7 and Python 3.8 versions. It can be found on Dockerhub at
 
 The following images are available::
 
-    vertexproject/synapse-base-image3:py38
-    vertexproject/synapse-base-image3:py37
+    vertexproject/vtx-base-image:py38
+    vertexproject/vtx-base-image:py37
 
