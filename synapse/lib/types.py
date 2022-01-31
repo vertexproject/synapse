@@ -436,11 +436,13 @@ class Array(Type):
 
         adds = []
         norms = []
+        arraysubs = []
 
         for item in valu:
             norm, info = self.arraytype.norm(item)
             adds.extend(info.get('adds', ()))
             norms.append(norm)
+            arraysubs.append((norm, info))
 
         form = self.modl.form(self.arraytype.name)
         if form is not None:
@@ -464,7 +466,7 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        return tuple(norms), {'adds': adds}
+        return tuple(norms), {'adds': adds, 'arraysubs': arraysubs}
 
     def repr(self, valu):
         rval = [self.arraytype.repr(v) for v in valu]

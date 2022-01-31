@@ -55,6 +55,129 @@ class Scrubber:
             return True
         return False
 
+class ProtoNode:
+    '''
+    A prototype node used for staging node adds using a NodeAddContext.
+    '''
+    def __init__(self, ctx, buid, form, valu, node):
+        self.ctx = ctx
+        self.form = form
+        self.valu = valu
+        self.buid = buid
+        self.node = node
+        self.props = {}
+
+    def getNodeEdit(self):
+
+        edits = []
+
+        if not self.node:
+            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype), ()))
+
+        for name, valu in self.props.items():
+            prop = self.form.props.get(name)
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()))
+
+        if not edits:
+            return None
+
+        return (self.buid, self.form.name, edits)
+
+    async def set(self, name, valu):
+        # quick check before we even norm
+        if self.props.get(name) == valu:
+            return
+
+        prop = self.form.props.get(name)
+        if prop is None:
+            return
+
+        if prop.locked:
+            return
+
+        propnorm, propinfo = prop.type.norm(valu)
+
+        if self.props.get(name) == propnorm:
+            return
+
+        self.props[name] = propnorm
+        propform = self.ctx.snap.core.model.form(prop.type.name)
+        if propform is not None:
+            await self.ctx.addNode(prop.type.name, propnorm)
+
+        # TODO can we mandate any subs are returned pre-normalized?
+        propsubs = propinfo.get('subs')
+        if propsubs is not None:
+            for subname, subvalu in propsubs.items():
+                await self.set(f'{name}:{subname}', subvalu)
+
+        if isinstance(prop.type, s_types.Ndef):
+            await self.ctx.addNode(*propnorm)
+
+        elif isinstance(prop.type, s_types.Array):
+            arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
+            if arrayform is not None:
+                for arraynorm, arrayinfo in propinfo.get('arraysubs'):
+                    await self.ctx._initProtoNode(arrayform, arraynorm, arrayinfo)
+
+class AddNodeContext:
+    '''
+    An AddNodeContext allows tracking node adds with subs/deps.
+    '''
+    def __init__(self, snap):
+        self.snap = snap
+        self.protonodes = {}
+
+    def getNodeEdits(self):
+        nodeedits = []
+        for protonode in self.protonodes.values():
+            nodeedit = protonode.getNodeEdit()
+            if nodeedit is not None:
+                nodeedits.append(nodeedit)
+        return nodeedits
+
+    async def addNode(self, formname, valu, props=None):
+
+        form = self.snap.core.model.form(formname)
+        if form is None:
+            mesg = f'No form named {formname}.'
+            raise s_exc.NoSuchForm(mesg=mesg)
+
+        if form.locked:
+            mesg = f'Form {form.full} is locked due to deprecation.'
+            if self.snap.strict:
+                raise s_exc.IsDeprLocked(mesg=mesg)
+
+            self.snap.warn(mesg)
+            return
+
+        normvalu, norminfo = form.type.norm(valu)
+
+        protonode = await self._initProtoNode(form, normvalu, norminfo)
+        if props is not None:
+            [await protonode.set(p, v) for (p, v) in props.items()]
+
+    async def _initProtoNode(self, form, norm, norminfo):
+
+        ndef = (form.name, norm)
+
+        protonode = self.protonodes.get(ndef)
+        if protonode is not None:
+            return protonode
+
+        buid = s_common.buid(ndef)
+        node = await self.snap.getNodeByBuid(buid)
+
+        protonode = ProtoNode(self, buid, form, norm, node)
+
+        self.protonodes[ndef] = protonode
+
+        subs = norminfo.get('subs')
+        if subs is not None:
+            [await protonode.set(p, v) for (p, v) in subs.items()]
+
+        return protonode
+
 class Snap(s_base.Base):
     '''
     A "snapshot" is a transaction across multiple Cortex layers.
@@ -541,143 +664,17 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def getNodeAdds(self, form, valu, props, addnode=True):
-
-        async def _getadds(f, p, formnorm, forminfo, doaddnode=True):
-
-            if f.locked:
-                mesg = f'Form {f.full} is locked due to deprecation.'
-                raise s_exc.IsDeprLocked(mesg=mesg)
-
-            edits = []  # Non-primary prop edits
-            topsubedits = []  # Primary prop sub edits
-
-            formsubs = forminfo.get('subs', {})
-            for subname, subvalu in formsubs.items():
-                p[subname] = subvalu
-
-            for propname, propvalu in p.items():
-                subedits: s_layer.NodeEditsT = []
-
-                prop = f.prop(propname)
-                if prop is None:
-                    continue
-
-                if prop.locked:
-                    mesg = f'Prop {prop.full} is locked due to deprecation.'
-                    if not self.strict:
-                        await self.warn(mesg)
-                        continue
-                    raise s_exc.IsDeprLocked(mesg=mesg)
-
-                assert prop.type.stortype is not None
-
-                propnorm, typeinfo = prop.type.norm(propvalu)
-
-                if isinstance(prop.type, s_types.Ndef):
-                    ndefname, ndefvalu = propvalu
-                    ndefform = self.core.model.form(ndefname)
-                    if ndefform is None:
-                        raise s_exc.NoSuchForm(name=ndefname)
-
-                    if ndefform.locked:
-                        mesg = f'Form {ndefform.full} is locked due to deprecation.'
-                        if not self.strict:
-                            await self.warn(mesg)
-                            continue
-                        raise s_exc.IsDeprLocked(mesg=mesg)
-
-                    ndefnorm, ndefinfo = ndefform.type.norm(ndefvalu)
-                    do_subedit = True
-                    if self.buidprefetch:
-                        node = await self.getNodeByBuid(s_common.buid((ndefform.name, ndefnorm)))
-                        do_subedit = node is None
-
-                    if do_subedit:
-                        subedits.extend([x async for x in _getadds(ndefform, {}, ndefnorm, ndefinfo)])
-
-                elif isinstance(prop.type, s_types.Array):
-                    arrayform = self.core.model.form(prop.type.arraytype.name)
-                    if arrayform is not None:
-                        if arrayform.locked:
-                            mesg = f'Form {arrayform.full} is locked due to deprecation.'
-                            if not self.strict:
-                                await self.warn(mesg)
-                                continue
-                            raise s_exc.IsDeprLocked(mesg=mesg)
-
-                        for arrayvalu in propnorm:
-                            arraynorm, arrayinfo = arrayform.type.norm(arrayvalu)
-
-                            if self.buidprefetch:
-                                node = await self.getNodeByBuid(s_common.buid((arrayform.name, arraynorm)))
-                                if node is not None:
-                                    continue
-
-                            subedits.extend([x async for x in _getadds(arrayform, {}, arraynorm, arrayinfo)])
-
-                propsubs = typeinfo.get('subs')
-                if propsubs is not None:
-                    for subname, subvalu in propsubs.items():
-                        fullname = f'{prop.full}:{subname}'
-                        subprop = self.core.model.prop(fullname)
-                        if subprop is None:
-                            continue
-                        if subprop.name in p:
-                            # Don't emit multiple EDIT_PROP_SET edits when one will be unconditionally made.
-                            continue
-
-                        assert subprop.type.stortype is not None
-
-                        subpropform = self.core.model.form(subprop.type.name)
-                        if subpropform:
-                            subnorm, subinfo = subprop.type.norm(subvalu)
-                            psubs = [x async for x in _getadds(subpropform, {}, subnorm, subinfo)]
-                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), psubs))
-                        else:
-                            subnorm, _ = subprop.type.norm(subvalu)
-                            edits.append((s_layer.EDIT_PROP_SET, (subprop.name, subnorm, None, subprop.type.stortype), ()))
-
-                propform = self.core.model.form(prop.type.name)
-                if propform is not None:
-
-                    doedit = True
-                    if self.buidprefetch:
-                        node = await self.getNodeByBuid(s_common.buid((propform.name, propnorm)))
-                        doedit = node is None
-
-                    if doedit:
-                        subedits.extend([x async for x in _getadds(propform, {}, propnorm, typeinfo)])
-
-                edit: s_layer.EditT = (s_layer.EDIT_PROP_SET, (propname, propnorm, None, prop.type.stortype), subedits)
-                if propname in formsubs:
-                    topsubedits.append(edit)
-                else:
-                    edits.append(edit)
-
-            buid = s_common.buid((f.name, formnorm))
-
-            if doaddnode:
-                # Make all the sub edits for the primary property a conditional nodeEdit under a top-level NODE_ADD
-                # edit
-                if topsubedits:
-                    subnodeedits: s_layer.NodeEditsT = [(buid, f.name, topsubedits)]
-                else:
-                    subnodeedits = ()
-                topedit: s_layer.EditT = (s_layer.EDIT_NODE_ADD, (formnorm, f.type.stortype), subnodeedits)
-                yield (buid, f.name, [topedit] + edits)
-            else:
-                yield (buid, f.name, edits)
+    async def getNodeAdds(self, form, valu, props):
 
         if self.core.maxnodes is not None and self.core.maxnodes <= self.core.nodecount:
             mesg = f'Cortex is at node:count limit: {self.core.maxnodes}'
             raise s_exc.HitLimit(mesg=mesg)
 
-        if props is None:
-            props = {}
+        addctx = AddNodeContext(self)
 
-        norm, info = form.type.norm(valu)
-        return [x async for x in _getadds(form, props, norm, info, doaddnode=addnode)]
+        await addctx.addNode(form.name, valu, props=props)
+
+        return addctx.getNodeEdits()
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
@@ -862,16 +859,6 @@ class Snap(s_base.Base):
 
         try:
 
-            if self.buidprefetch:
-                norm, info = form.type.norm(valu)
-                node = await self.getNodeByBuid(s_common.buid((form.name, norm)))
-                if node is not None:
-                    # TODO implement node.setNodeProps()
-                    if props is not None:
-                        for p, v in props.items():
-                            await node.set(p, v)
-                    return node
-
             adds = await self.getNodeAdds(form, valu, props=props)
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
@@ -882,6 +869,10 @@ class Snap(s_base.Base):
                 await self.warn(f'addNode: {e}')
                 return None
             raise
+
+        if not adds:
+            norm = form.type.norm(valu)[0]
+            return await self.getNodeByNdef((form.name, norm))
 
         nodes = await self.applyNodeEdits(adds)
         assert len(nodes) >= 1
@@ -957,7 +948,7 @@ class Snap(s_base.Base):
             node = await self.getNodeByBuid(buid)
             if node is not None:
                 if props is not None:
-                    return (node, await self.getNodeAdds(form, valu, props=props, addnode=False))
+                    return (node, await self.getNodeAdds(form, valu, props=props))
                 else:
                     return (node, [(buid, form.name, [])])
 
