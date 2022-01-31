@@ -56,6 +56,13 @@ storm_missing_coins = '''
     }
 '''
 
+storm_missing_cpe22 = '''
+$views = $lib.view.list(deporder=$lib.true)
+for $view in $views {
+    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value() ] }
+}
+'''
+
 
 hotfixes = (
     ((1, 0, 0), {
@@ -65,6 +72,10 @@ hotfixes = (
     ((2, 0, 0), {
         'desc': 'Populate crypto:currency:coin nodes from existing addresses.',
         'query': storm_missing_coins,
+    }),
+    ((3, 0, 0), {
+        'desc': 'Populate it:sec:cpe:v2_2 properties from existing CPE where the property is not set.',
+        'query': storm_missing_cpe22,
     }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'

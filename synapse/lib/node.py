@@ -287,6 +287,13 @@ class Node:
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
+        if prop.locked:
+            mesg = f'Prop {prop.full} is locked due to deprecation.'
+            if self.snap.strict:
+                raise s_exc.IsDeprLocked(mesg=mesg, name=prop.full)
+            await self.snap.warn(mesg)
+            return False
+
         if self.form.isrunt:
 
             if prop.info.get('ro'):
