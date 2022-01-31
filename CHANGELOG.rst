@@ -14,7 +14,7 @@ Features and Enhancements
   CPE 2.2 strings will be upcast to CPE 2.3 and the 2.2 string will be added
   to the ``:v2_2`` secondary property of ``it:sec:cpe``. The Storm hotfix
   ``$lib.cell.hotFixesApply()`` can be used to populate the ``:v2_2``
-  property on existing ``it:sec:cpe`` strings where it is not set.
+  property on existing ``it:sec:cpe`` nodes where it is not set.
   (`#2537 <https://github.com/vertexproject/synapse/pull/2537>`_)
   (`#2538 <https://github.com/vertexproject/synapse/pull/2538>`_)
   (`#2539 <https://github.com/vertexproject/synapse/pull/2539>`_)
