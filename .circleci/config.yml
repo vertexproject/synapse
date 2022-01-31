@@ -761,6 +761,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_docker_vtxbim
 
       - gh-release/dorelease:
           requires:
