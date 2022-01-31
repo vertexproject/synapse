@@ -117,6 +117,7 @@ class ProtoNode:
         elif isinstance(prop.type, s_types.Array):
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
             if arrayform is not None:
+                # FIXME we should just make "adds" an array of (norm, info)s...
                 for arraynorm, arrayinfo in propinfo.get('arraysubs'):
                     await self.ctx._initProtoNode(arrayform, arraynorm, arrayinfo)
 
@@ -212,8 +213,6 @@ class Snap(s_base.Base):
         self.core = view.core
         self.view = view
         self.user = user
-
-        self.buidprefetch = self.view.isafork()
 
         self.layers = list(reversed(view.layers))
         self.wlyr = self.layers[-1]
@@ -942,15 +941,14 @@ class Snap(s_base.Base):
             raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
                                    form=form.full, prop=valu)
 
-        if self.buidprefetch:
-            norm, info = form.type.norm(valu)
-            buid = s_common.buid((form.name, norm))
-            node = await self.getNodeByBuid(buid)
-            if node is not None:
-                if props is not None:
-                    return (node, await self.getNodeAdds(form, valu, props=props))
-                else:
-                    return (node, [(buid, form.name, [])])
+        norm, info = form.type.norm(valu)
+        buid = s_common.buid((form.name, norm))
+        node = await self.getNodeByBuid(buid)
+        if node is not None:
+            if props is not None:
+                return (node, await self.getNodeAdds(form, valu, props=props))
+            else:
+                return (node, [(buid, form.name, [])])
 
         return (None, await self.getNodeAdds(form, valu, props=props))
 
