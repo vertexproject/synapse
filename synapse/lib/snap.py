@@ -93,6 +93,11 @@ class ProtoNode:
             return
 
         if prop.locked:
+            mesg = f'Property {prop.full} is locked due to deprecation.'
+            if self.ctx.snap.strict:
+                raise s_exc.IsDeprLocked(mesg=mesg)
+
+            self.snap.warn(mesg)
             return
 
         propnorm, propinfo = prop.type.norm(valu)
