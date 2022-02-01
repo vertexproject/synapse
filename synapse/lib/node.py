@@ -319,6 +319,7 @@ class Node:
 
         await self.snap.core._callPropSetHook(self, prop, norm)
 
+        # TODO: this logic should move into the node editor
         if curv is not None and not init:
 
             if prop.info.get('ro'):
@@ -334,10 +335,8 @@ class Node:
             if curv == norm:
                 return False
 
-        props = {prop.name: norm}
-        nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props)
-
-        await self.snap.applyNodeEdits(nodeedits)
+        async with self.snap.getNodeEditor(self) as editor:
+            await editor.set(prop.name, norm, norminfo=info)
 
         return True
 

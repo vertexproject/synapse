@@ -83,7 +83,17 @@ class ProtoNode:
 
         return (self.buid, self.form.name, edits)
 
-    async def set(self, name, valu):
+    def get(self, name):
+
+        # get the current value including the pending prop sets
+        curv = self.props.get(name)
+        if curv is not None:
+            return curv
+
+        if self.node is not None:
+            return self.node.get(name)
+
+    async def set(self, name, valu, norminfo=None):
         # quick check before we even norm
         if self.props.get(name) == valu:
             return
@@ -93,37 +103,39 @@ class ProtoNode:
             return
 
         if prop.locked:
-            mesg = f'Property {prop.full} is locked due to deprecation.'
+            mesg = f'Prop {prop.full} is locked due to deprecation.'
             if self.ctx.snap.strict:
                 raise s_exc.IsDeprLocked(mesg=mesg)
 
-            self.snap.warn(mesg)
+            await self.ctx.snap.warn(mesg)
             return
 
-        propnorm, propinfo = prop.type.norm(valu)
+        if norminfo is None:
+            valu, norminfo = prop.type.norm(valu)
 
-        if self.props.get(name) == propnorm:
+        curv = self.get(name)
+        if curv == valu:
             return
 
-        self.props[name] = propnorm
+        self.props[name] = valu
         propform = self.ctx.snap.core.model.form(prop.type.name)
         if propform is not None:
-            await self.ctx.addNode(prop.type.name, propnorm)
+            await self.ctx.addNode(prop.type.name, valu)
 
         # TODO can we mandate any subs are returned pre-normalized?
-        propsubs = propinfo.get('subs')
+        propsubs = norminfo.get('subs')
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 await self.set(f'{name}:{subname}', subvalu)
 
         if isinstance(prop.type, s_types.Ndef):
-            await self.ctx.addNode(*propnorm)
+            await self.ctx.addNode(*valu)
 
         elif isinstance(prop.type, s_types.Array):
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
             if arrayform is not None:
                 # FIXME we should just make "adds" an array of (norm, info)s...
-                for arraynorm, arrayinfo in propinfo.get('arraysubs'):
+                for arraynorm, arrayinfo in norminfo.get('arraysubs'):
                     await self.ctx._initProtoNode(arrayform, arraynorm, arrayinfo)
 
 class AddNodeContext:
@@ -154,7 +166,7 @@ class AddNodeContext:
             if self.snap.strict:
                 raise s_exc.IsDeprLocked(mesg=mesg)
 
-            self.snap.warn(mesg)
+            await self.snap.warn(mesg)
             return
 
         normvalu, norminfo = form.type.norm(valu)
@@ -162,6 +174,11 @@ class AddNodeContext:
         protonode = await self._initProtoNode(form, normvalu, norminfo)
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
+
+    def loadNode(self, node):
+        protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
+        self.protonodes[node.ndef] = protonode
+        return protonode
 
     async def _initProtoNode(self, form, norm, norminfo):
 
@@ -667,6 +684,18 @@ class Snap(s_base.Base):
             node = await self._joinSodes(buid, sodes)
             if node is not None:
                 yield node
+
+    @contextlib.asynccontextmanager
+    async def getNodeEditor(self, node):
+
+        addctx = AddNodeContext(self)
+        protonode = addctx.loadNode(node)
+
+        yield protonode
+
+        nodeedits = addctx.getNodeEdits()
+        if nodeedits:
+            await self.applyNodeEdits(nodeedits)
 
     async def getNodeAdds(self, form, valu, props):
 

@@ -214,7 +214,7 @@ class StormlibModelTest(s_test.SynTest):
                     form = core.model.form(form)
                     props = {'sic': '5678'}
                     with self.raises(s_exc.IsDeprLocked):
-                        _ = await snap.getNodeAdds(form, valu, props, addnode=False)
+                        _ = await snap.getNodeAdds(form, valu, props)
                 # End coverage test
 
                 mesgs = await core.stormlist('model.deprecated.locks')
