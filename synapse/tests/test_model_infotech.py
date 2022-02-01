@@ -1185,7 +1185,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('cpe:/a:vertex:synapse', nodes[0].props['v2_2'])
 
             # test lift by either via upsample and downsample
-            self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse'))
+            self.len(1, await core.nodes('it:sec:cpe=cpe:/a:vertex:synapse +:v2_2=cpe:/a:vertex:synapse'))
             self.len(1, await core.nodes('it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))

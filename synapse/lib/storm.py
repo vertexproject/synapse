@@ -3576,7 +3576,7 @@ class ViewExecCmd(Cmd):
             text = await s_stormtypes.tostr(self.opts.storm)
             query = await runt.getStormQuery(text)
 
-            opts = {'view': self.opts.view}
+            opts = {'view': view}
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for item in subr.execute():
                     await asyncio.sleep(0)
