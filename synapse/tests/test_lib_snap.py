@@ -358,12 +358,12 @@ class SnapTest(s_t_utils.SynTest):
                 original_node0 = await snap0.addNode('test:str', 'node0')
                 self.len(1, snap0.buidcache)
                 self.len(1, snap0.livenodes)
-                self.len(0, snap0.tagcache)
+                # TODO do we need this any more? self.len(0, snap0.tagcache)
 
                 await original_node0.addTag('foo.bar.baz')
                 self.len(4, snap0.buidcache)
                 self.len(4, snap0.livenodes)
-                self.len(3, snap0.tagcache)
+                # TODO self.len(3, snap0.tagcache)
 
                 async with await core.snap() as snap1:  # type: s_snap.Snap
                     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))

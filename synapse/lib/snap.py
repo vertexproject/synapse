@@ -107,12 +107,14 @@ class ProtoNode:
 
     async def getData(self, name):
 
-        curv = self.nodedata.get(name)
-        if curv is not None:
+        curv = self.nodedata.get(name, s_common.novalu)
+        if curv is not s_common.novalu:
             return curv
 
         if self.node is not None:
-            return await self.node.getData(name)
+            return await self.node.getData(name, defv=s_common.novalu)
+
+        return s_common.novalu
 
     async def setData(self, name, valu):
 
@@ -294,6 +296,7 @@ class AddNodeContext:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
                 if self.snap.strict: raise e
+                await self.snap.warn('addNode() BadTypeValu {formname}={valu} {e}')
                 return None
 
         protonode = await self._initProtoNode(form, valu, norminfo)

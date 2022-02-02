@@ -728,13 +728,15 @@ class Node:
         self.snap.livenodes.pop(self.buid, None)
 
     async def hasData(self, name):
+        if name in self.nodedata:
+            return True
         return await self.snap.hasNodeData(self.buid, name)
 
-    async def getData(self, name):
+    async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
-        return await self.snap.getNodeData(self.buid, name)
+        return await self.snap.getNodeData(self.buid, name, defv=defv)
 
     async def setData(self, name, valu):
         async with self.snap.getNodeEditor(self) as protonode:
