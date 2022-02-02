@@ -13,6 +13,15 @@ import synapse.tests.utils as s_t_utils
 
 class SnapTest(s_t_utils.SynTest):
 
+    async def test_snap_bork(self):
+
+        pode = (('inet:email', 'visi@vertex.link'), {})
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                async for node in snap.addNodes([pode]):
+                    pass
+            self.len(1, await core.nodes('inet:user=visi'))
+
     async def test_snap_eval_storm(self):
 
         async with self.getTestCore() as core:
