@@ -65,7 +65,12 @@ class ProtoNode:
         self.valu = valu
         self.buid = buid
         self.node = node
+
+        self.tags = {}
         self.props = {}
+        self.edges = set()
+        self.tagprops = {}
+        self.nodedata = {}
 
     def getNodeEdit(self):
 
@@ -78,10 +83,127 @@ class ProtoNode:
             prop = self.form.props.get(name)
             edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()))
 
+        for name, valu in self.tags.items():
+            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
+
+        for verb, n2iden in self.edges:
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
+
+        for (tag, name), valu in self.tagprops.items():
+            prop = self.ctx.snap.core.model.getTagProp(name)
+            edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype), ()))
+
+        for name, valu in self.nodedata.items():
+            edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+
         if not edits:
             return None
 
         return (self.buid, self.form.name, edits)
+
+    async def addEdge(self, verb, n2iden):
+        # TODO deconflict edges to prevent transactions if not needed
+        self.edges.add((verb, n2iden))
+
+    async def getData(self, name):
+
+        curv = self.nodedata.get(name)
+        if curv is not None:
+            return curv
+
+        if self.node is not None:
+            return await self.node.getData(name)
+
+    async def setData(self, name, valu):
+
+        if await self.getData(name) == valu:
+            return
+
+        s_common.reqjsonsafe(valu)
+        self.nodedata[name] = valu
+
+    async def _getRealTag(self, tag):
+
+        if not self.ctx.snap.core.isTagValid(tag):
+            mesg = f'The tag ({tag}) does not meet the regex for the tree.'
+            return await self.ctx.snap._raiseOnStrict(s_exc.BadTag, mesg)
+
+        protonode = await self.ctx.addNode('syn:tag', tag)
+        isnow = protonode.get('isnow')
+        while isnow is not None:
+            protonode = await self.ctx.addNode('syn:tag', isnow)
+            isnow = protonode.get('isnow')
+
+        return protonode
+
+    def getTag(self, tag):
+
+        curv = self.tags.get(tag)
+        if curv is not None:
+            return curv
+
+        if self.node is not None:
+            return self.node.getTag(tag)
+
+    async def addTag(self, tag, valu=(None, None)):
+
+        tagnode = await self._getRealTag(tag)
+        if tagnode is None:
+            return
+
+        if valu != (None, None):
+            valu, _ = self.ctx.snap.core.model.type('ival').norm(valu)
+
+        tagup = tagnode.get('up')
+        if tagup:
+            await self.addTag(tagup)
+
+        curv = self.getTag(tagnode.valu)
+        if curv == valu:
+            return tagnode
+
+        if curv is None:
+            self.tags[tagnode.valu] = valu
+            return tagnode
+
+        valu = s_time.ival(*valu, *curv)
+        self.tags[tagnode.valu] = valu
+
+        return tagnode
+
+    def getTagProp(self, tag, name):
+
+        curv = self.tagprops.get((tag, name))
+        if curv is not None:
+            return cuv
+
+        if self.node is not None:
+            return self.node.getTagProp(tag, name)
+
+    async def setTagProp(self, tag, name, valu):
+
+        tagnode = await self.addTag(tag)
+        if tagnode is None:
+            return
+
+        prop = self.ctx.snap.core.model.getTagProp(name)
+        if prop is None:
+            mesg = f'Tagprop {name} does not exist in this Cortex.'
+            return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
+
+        try:
+            norm, info = prop.type.norm(valu)
+        except s_exc.BadTypeValu as e:
+            if self.ctx.snap.strict:
+                raise e
+            await self.ctx.snap.warn(f'Bad property value: #{tagnode.valu}:{prop.name}={valu!r}')
+            return
+
+        curv = self.getTagProp(tagnode.valu, name)
+        if curv == norm:
+            return
+
+        self.tagprops[(tagnode.valu, name)] = norm
 
     def get(self, name):
 
@@ -104,11 +226,7 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
-            if self.ctx.snap.strict:
-                raise s_exc.IsDeprLocked(mesg=mesg)
-
-            await self.ctx.snap.warn(mesg)
-            return
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
 
         if norminfo is None:
             valu, norminfo = prop.type.norm(valu)
@@ -117,7 +235,11 @@ class ProtoNode:
         if curv == valu:
             return
 
+        if self.node is not None:
+            await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
+
         self.props[name] = valu
+
         propform = self.ctx.snap.core.model.form(prop.type.name)
         if propform is not None:
             await self.ctx.addNode(prop.type.name, valu)
@@ -128,15 +250,10 @@ class ProtoNode:
             for subname, subvalu in propsubs.items():
                 await self.set(f'{name}:{subname}', subvalu)
 
-        if isinstance(prop.type, s_types.Ndef):
-            await self.ctx.addNode(*valu)
-
-        elif isinstance(prop.type, s_types.Array):
-            arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
-            if arrayform is not None:
-                # FIXME we should just make "adds" an array of (norm, info)s...
-                for arraynorm, arrayinfo in norminfo.get('arraysubs'):
-                    await self.ctx._initProtoNode(arrayform, arraynorm, arrayinfo)
+        propadds = norminfo.get('adds')
+        if propadds is not None:
+            for addname, addvalu, addinfo in propadds:
+                await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
 
 class AddNodeContext:
     '''
@@ -145,6 +262,7 @@ class AddNodeContext:
     def __init__(self, snap):
         self.snap = snap
         self.protonodes = {}
+        self.maxnodes = snap.core.maxnodes
 
     def getNodeEdits(self):
         nodeedits = []
@@ -154,30 +272,41 @@ class AddNodeContext:
                 nodeedits.append(nodeedit)
         return nodeedits
 
-    async def addNode(self, formname, valu, props=None):
+    async def addNode(self, formname, valu, props=None, norminfo=None):
+
+        self.snap.core._checkMaxNodes()
 
         form = self.snap.core.model.form(formname)
         if form is None:
             mesg = f'No form named {formname}.'
-            raise s_exc.NoSuchForm(mesg=mesg)
+            return await self.snap._raiseOnStrict(s_exc.NoSuchForm, mesg)
+
+        if form.isrunt:
+            mesg = f'Cannot make runt nodes: {formname}.'
+            return await self.snap._raiseOnStrict(s_exc.IsRuntForm, mesg)
 
         if form.locked:
             mesg = f'Form {form.full} is locked due to deprecation.'
-            if self.snap.strict:
-                raise s_exc.IsDeprLocked(mesg=mesg)
+            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
 
-            await self.snap.warn(mesg)
-            return
+        if norminfo is None:
+            try:
+                valu, norminfo = form.type.norm(valu)
+            except s_exc.BadTypeValu as e:
+                if self.snap.strict: raise e
+                return None
 
-        normvalu, norminfo = form.type.norm(valu)
-
-        protonode = await self._initProtoNode(form, normvalu, norminfo)
+        protonode = await self._initProtoNode(form, valu, norminfo)
         if props is not None:
             [await protonode.set(p, v) for (p, v) in props.items()]
 
+        return protonode
+
     def loadNode(self, node):
-        protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
-        self.protonodes[node.ndef] = protonode
+        protonode = self.protonodes.get(node.ndef)
+        if protonode is None:
+            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
+            self.protonodes[node.ndef] = protonode
         return protonode
 
     async def _initProtoNode(self, form, norm, norminfo):
@@ -688,10 +817,25 @@ class Snap(s_base.Base):
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node):
 
+        if node.form.isrunt:
+            mesg = f'Cannot edit runt nodes: {node.form.name}.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+
         addctx = AddNodeContext(self)
         protonode = addctx.loadNode(node)
 
         yield protonode
+
+        nodeedits = addctx.getNodeEdits()
+        if nodeedits:
+            await self.applyNodeEdits(nodeedits)
+
+    @contextlib.asynccontextmanager
+    async def getEditor(self):
+
+        addctx = AddNodeContext(self)
+
+        yield addctx
 
         nodeedits = addctx.getNodeEdits()
         if nodeedits:
@@ -882,36 +1026,13 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        form = self.core.model.form(name)
-        if form is None:
-            raise s_exc.NoSuchForm(name=name)
-
-        if form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
-                                   form=form.full, prop=valu)
-
-        try:
-
-            adds = await self.getNodeAdds(form, valu, props=props)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
-            if not self.strict:
-                await self.warn(f'addNode: {e}')
+        async with self.getEditor() as editor:
+            protonode = await editor.addNode(name, valu, props=props)
+            if protonode is None:
                 return None
-            raise
 
-        if not adds:
-            norm = form.type.norm(valu)[0]
-            return await self.getNodeByNdef((form.name, norm))
-
-        nodes = await self.applyNodeEdits(adds)
-        assert len(nodes) >= 1
-
-        # Adds is top-down, so the first node is what we want
-        return nodes[0]
+        # the newly constructed node is cached
+        return await self.getNodeByBuid(protonode.buid)
 
     async def addFeedNodes(self, name, items):
         '''
@@ -963,111 +1084,7 @@ class Snap(s_base.Base):
     async def _raiseOnStrict(self, ctor, mesg, **info):
         if self.strict:
             raise ctor(mesg=mesg, **info)
-        return False
-
-    async def _getAddNodeEdits(self, name, valu, props=None):
-
-        form = self.core.model.form(name)
-        if form is None:
-            raise s_exc.NoSuchForm(name=name)
-
-        if form.isrunt:
-            raise s_exc.IsRuntForm(mesg='Cannot make runt nodes.',
-                                   form=form.full, prop=valu)
-
-        norm, info = form.type.norm(valu)
-        buid = s_common.buid((form.name, norm))
-        node = await self.getNodeByBuid(buid)
-        if node is not None:
-            if props is not None:
-                return (node, await self.getNodeAdds(form, valu, props=props))
-            else:
-                return (node, [(buid, form.name, [])])
-
-        return (None, await self.getNodeAdds(form, valu, props=props))
-
-    async def _getAddTagEdits(self, node, tags):
-
-        edits = []
-        for tag, valu in tags.items():
-
-            path = s_chop.tagpath(tag)
-            name = '.'.join(path)
-
-            if not await self.core.isTagValid(name):
-                await self.warn(f'Tag {tag} does not meet the regex for the tree.')
-                continue
-
-            tagnode = await self.addTagNode(name)
-
-            isnow = tagnode.get('isnow')
-            if isnow:
-                await self.warn(f'Tag {name} is now {isnow}')
-                name = isnow
-                path = isnow.split('.')
-
-            if isinstance(valu, list):
-                valu = tuple(valu)
-
-            if valu != (None, None):
-                try:
-                    valu = self.core.model.type('ival').norm(valu)[0]
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception as e:
-                    await self.warn(f'Bad tag value: #{tag}={valu}')
-                    continue
-
-            curv = None
-            if node is not None:
-                curv = node.tags.get(name)
-                if curv == valu:
-                    continue
-
-            if curv is None:
-                tags = s_chop.tags(name)
-                for tag in tags[:-1]:
-                    if node is not None and node.tags.get(tag) is not None:
-                        continue
-
-                    await self.addTagNode(tag)
-                    edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None), ()))
-
-            else:
-                valu = s_time.ival(*valu, *curv)
-
-            edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
-
-        return edits
-
-    async def _getAddTagPropEdits(self, node, tagprops):
-
-        edits = []
-        for tag, props in tagprops.items():
-            for name, valu in props.items():
-
-                prop = self.core.model.getTagProp(name)
-                if prop is None:
-                    await self.warn(f'Tagprop {name} does not exist in this Cortex.')
-                    continue
-
-                try:
-                    norm, info = prop.type.norm(valu)
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception as e:
-                    await self.warn(f'Bad property value: #{tag}:{prop.name}={valu!r}')
-                    continue
-
-                tagkey = (tag, name)
-                if node is not None:
-                    curv = node.tagprops.get(tagkey)
-                    if norm == curv:
-                        continue
-
-                edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()))
-
-        return edits
+        await self.warn(mesg)
 
     async def addNodes(self, nodedefs):
         '''
@@ -1123,94 +1140,40 @@ class Snap(s_base.Base):
         if props is not None:
             props.pop('.created', None)
 
-        (node, editset) = await self._getAddNodeEdits(formname, formvalu, props=props)
-        if editset is None:
-            return None
+        async with self.getEditor() as editor:
 
-        buid, form, edits = editset[0]
+            protonode = await editor.addNode(formname, formvalu, props=props)
+            if protonode is None:
+                return
 
-        tags = forminfo.get('tags')
-        tagprops = forminfo.get('tagprops')
-        if tagprops is not None:
-            if tags is None:
-                tags = {}
+            tags = forminfo.get('tags')
+            if tags is not None:
+                for tagname, tagvalu in tags.items():
+                    await protonode.addTag(tagname, tagvalu)
 
-            for tag in tagprops.keys():
-                tags[tag] = (None, None)
+            nodedata = forminfo.get('nodedata')
+            if nodedata is not None:
+                for dataname, datavalu in nodedata.items():
+                    await protonode.setData(tagname, tagvalu)
 
-        if tags is not None:
-            tagedits = await self._getAddTagEdits(node, tags)
-            edits.extend(tagedits)
+            tagprops = forminfo.get('tagprops')
+            if tagprops is not None:
+                for tag, props in tagprops.items():
+                    for name, valu in props.items():
+                        await protonode.setTagProp(tag, name, valu)
 
-        if tagprops is not None:
-            tpedits = await self._getAddTagPropEdits(node, tagprops)
-            edits.extend(tpedits)
+            for verb, n2iden in forminfo.get('edges', ()):
 
-        nodedata = forminfo.get('nodedata')
-        if nodedata is not None:
-            try:
-                for name, data in nodedata.items():
-                    # make sure we have valid nodedata
-                    if not (isinstance(name, str)):
-                        await self.warn(f'Nodedata key is not a string: {name}')
+                if isinstance(n2iden, (tuple, list)):
+                    n2proto = editor.addNode(*n2iden)
+                    if n2proto is None:
                         continue
-                    s_common.reqjsonsafe(data)
-                    edits.append((s_layer.EDIT_NODEDATA_SET, (name, data, None), ()))
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception as e:
-                await self.warn(f'Failed adding node data on {formname}, {formvalu}, {forminfo}: {e}')
 
-        n2edits = []
-        for verb, n2iden in forminfo.get('edges', ()):
-            # check for embedded ndef rather than n2iden
-            if isinstance(n2iden, (list, tuple)):
-                n2formname, n2valu = n2iden
+                    n2iden = n2proto.iden()
 
-                n2form = self.core.model.form(n2formname)
-                if n2form is None:
-                    await self.warn(f'Failed to make n2 edge node for {n2iden}: invalid form')
-                    continue
+                await protonode.addEdge(verb, n2iden)
 
-                if n2form.isrunt:
-                    await self.warn(f'Edges cannot be used with runt nodes: {n2formname}')
-                    continue
-
-                try:
-                    n2norm, _ = n2form.type.norm(n2valu)
-                    n2buid = s_common.buid((n2form.name, n2norm))
-
-                    if n2buid not in n2buids:
-                        _, n2editset = await self._getAddNodeEdits(n2formname, n2valu)
-                        n2edits.extend(n2editset)
-
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                    raise
-
-                except:  # pragma: no cover
-                    await self.warn(f'Failed to make n2 edge node for {n2iden}')
-                    continue
-
-                n2iden = s_common.ehex(n2buid)
-                n2buids.add(n2buid)
-
-            # make sure a valid iden and verb were passed in
-            elif not (isinstance(n2iden, str) and len(n2iden) == 64):
-                await self.warn(f'Invalid n2 iden {n2iden}')
-                continue
-
-            if not (isinstance(verb, str)):  # pragma: no cover
-                await self.warn(f'Invalid edge verb {verb}')
-                continue
-
-            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
-
-        nodeedits = [(buid, form, edits)]
-        nodeedits.extend(n2edits)
-
-        nodes = await self.applyNodeEdits(nodeedits)
-        if nodes:
-            return nodes[0]
+        return await self.getNodeByBuid(protonode.buid)
 
     async def getRuntNodes(self, full, valu=None, cmpr=None):
 

@@ -504,58 +504,8 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        path = s_chop.tagpath(tag)
-
-        name = '.'.join(path)
-
-        if not await self.snap.core.isTagValid(name):
-            mesg = f'The tag does not meet the regex for the tree.'
-            raise s_exc.BadTag(mesg=mesg)
-
-        tagnode = await self.snap.addTagNode(name)
-
-        # implement tag renames...
-        isnow = tagnode.get('isnow')
-        if isnow:
-            await self.snap.warn(f'tag {name} is now {isnow}')
-            name = isnow
-            path = isnow.split('.')
-
-        if isinstance(valu, list):
-            valu = tuple(valu)
-
-        if valu != (None, None):
-            valu = self.snap.core.model.type('ival').norm(valu)[0]
-
-        curv = self.tags.get(name)
-        if curv == valu:
-            return
-
-        edits = []
-        if curv is None:
-
-            tags = s_chop.tags(name)
-            for tag in tags[:-1]:
-
-                if self.tags.get(tag) is not None:
-                    continue
-
-                await self.snap.addTagNode(tag)
-
-                edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None), ()))
-
-        else:
-            # merge values into one interval
-            valu = s_time.ival(*valu, *curv)
-
-        if valu == curv:
-            return
-
-        edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
-
-        nodeedit = (self.buid, self.form.name, edits)
-
-        await self.snap.applyNodeEdit(nodeedit)
+        async with self.snap.getNodeEditor(self) as protonode:
+            await protonode.addTag(tag, valu=valu)
 
     def _getTagTree(self):
 
@@ -686,31 +636,8 @@ class Node:
         '''
         Set the value of the given tag property.
         '''
-        if not self.hasTag(tag):
-            await self.addTag(tag)
-
-        prop = self.snap.core.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
-                                      name=name)
-
-        try:
-            norm, info = prop.type.norm(valu)
-        except Exception as e:
-            mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
-
-        edits = (
-            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()),
-        )
-
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
-
-        props = self.tagprops.get(tag)
-        if props is None:
-            props = self.tagprops[tag] = {}
-
-        props[name] = norm
+        async with self.snap.getNodeEditor(self) as editor:
+            await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
         prop = self.snap.core.model.getTagProp(name)
@@ -810,10 +737,8 @@ class Node:
         return await self.snap.getNodeData(self.buid, name)
 
     async def setData(self, name, valu):
-        edits = (
-            (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
-        )
-        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
+        async with self.snap.getNodeEditor(self) as protonode:
+            await protonode.setData(name, valu)
 
     async def popData(self, name):
         retn = await self.snap.getNodeData(self.buid, name)

@@ -436,19 +436,15 @@ class Array(Type):
 
         adds = []
         norms = []
-        arraysubs = []
+
+        form = self.modl.form(self.arraytype.name)
 
         for item in valu:
             norm, info = self.arraytype.norm(item)
             adds.extend(info.get('adds', ()))
+            if form is not None:
+                adds.append((form.name, norm, info))
             norms.append(norm)
-            arraysubs.append((norm, info))
-
-        form = self.modl.form(self.arraytype.name)
-        if form is not None:
-            adds.extend([(form.name, n) for n in norms])
-
-        adds = list(set(adds))
 
         if self.isuniq:
 
@@ -466,7 +462,7 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        return tuple(norms), {'adds': adds, 'arraysubs': arraysubs}
+        return tuple(norms), {'adds': adds}
 
     def repr(self, valu):
         rval = [self.arraytype.repr(v) for v in valu]
@@ -518,6 +514,7 @@ class Comp(Type):
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
+            # TODO is providing adds here necessary?
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
@@ -1275,10 +1272,10 @@ class Ndef(Type):
         if form is None:
             raise s_exc.NoSuchForm(name=self.name, form=formname)
 
-        formnorm, info = form.type.norm(formvalu)
+        formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
 
-        adds = (norm,)
+        adds = ((form.name, formnorm, forminfo),)
         subs = {'form': form.name}
 
         return norm, {'adds': adds, 'subs': subs}
