@@ -277,66 +277,8 @@ class Node:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        prop = self.form.prop(name)
-        if prop is None:
-
-            if self.snap.strict:
-                mesg = f'No property named {name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.form.name)
-
-            await self.snap.warn(f'NoSuchProp: name={name}')
-            return False
-
-        if prop.locked:
-            mesg = f'Prop {prop.full} is locked due to deprecation.'
-            if self.snap.strict:
-                raise s_exc.IsDeprLocked(mesg=mesg, name=prop.full)
-            await self.snap.warn(mesg)
-            return False
-
-        if self.form.isrunt:
-
-            if prop.info.get('ro'):
-                mesg = 'Cannot set read-only props on runt nodes'
-                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
-
-            await self.snap.core.runRuntPropSet(self, prop, valu)
-            return True
-
-        curv = self.props.get(name)
-
-        # normalize the property value...
-        try:
-            norm, info = prop.type.norm(valu)
-
-        except Exception as e:
-            mesg = f'Bad property value: {prop.full}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
-
-        # do we already have the value?
-        if curv == norm:
-            return False
-
-        await self.snap.core._callPropSetHook(self, prop, norm)
-
-        # TODO: this logic should move into the node editor
-        if curv is not None and not init:
-
-            if prop.info.get('ro'):
-
-                if self.snap.strict:
-                    raise s_exc.ReadOnlyProp(name=prop.full)
-
-                # not setting a set-once prop unless we are init...
-                return False
-
-            # check for type specific merging...
-            norm = prop.type.merge(curv, norm)
-            if curv == norm:
-                return False
-
         async with self.snap.getNodeEditor(self) as editor:
-            await editor.set(prop.name, norm, norminfo=info)
+            await editor.set(name, valu)
 
         return True
 

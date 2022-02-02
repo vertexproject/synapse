@@ -197,7 +197,7 @@ class StormlibModelTest(s_test.SynTest):
                     nodes = await core.nodes('ou:org=(t0,)')
                     self.none(nodes[0].get('sic'))
 
-                # Coverage test for node.set() / snap.getNodeAdds
+                # Coverage test for node.set()
                 async with await core.snap() as snap:
                     snap.strict = False
                     _msgs = []
@@ -210,11 +210,9 @@ class StormlibModelTest(s_test.SynTest):
                     self.none(nodes[0].get('sic'))
 
                     snap.strict = True
-                    form, valu = nodes[0].ndef
-                    form = core.model.form(form)
-                    props = {'sic': '5678'}
                     with self.raises(s_exc.IsDeprLocked):
-                        _ = await snap.getNodeAdds(form, valu, props)
+                        await snap.nodes('ou:org=(t0,) [ :sic=5678 ]')
+
                 # End coverage test
 
                 mesgs = await core.stormlist('model.deprecated.locks')

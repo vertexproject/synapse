@@ -5910,15 +5910,15 @@ class View(Prim):
 
         viewiden = self.valu.get('iden')
 
-        view = await self.runt.snap.core.getView(viewiden)
+        view = self.runt.snap.core.getView(viewiden)
 
         self.runt.layerConfirm(('node', 'add', form))
 
         for propname in props.keys():
             fullname = f'{form}:{propname}'
-            runt.layerConfirm(('node', 'prop', 'set', fullname))
+            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
 
-        return self.runt.snap.addNode(form, valu, props=props)
+        return await self.runt.snap.addNode(form, valu, props=props)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden

@@ -844,18 +844,6 @@ class Snap(s_base.Base):
         if nodeedits:
             await self.applyNodeEdits(nodeedits)
 
-    async def getNodeAdds(self, form, valu, props):
-
-        if self.core.maxnodes is not None and self.core.maxnodes <= self.core.nodecount:
-            mesg = f'Cortex is at node:count limit: {self.core.maxnodes}'
-            raise s_exc.HitLimit(mesg=mesg)
-
-        addctx = AddNodeContext(self)
-
-        await addctx.addNode(form.name, valu, props=props)
-
-        return addctx.getNodeEdits()
-
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
         return nodes[0]
