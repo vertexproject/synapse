@@ -57,7 +57,7 @@ class Scrubber:
 
 class ProtoNode:
     '''
-    A prototype node used for staging node adds using a NodeAddContext.
+    A prototype node used for staging node adds using a SnapEditor.
     '''
     def __init__(self, ctx, buid, form, valu, node):
         self.ctx = ctx
@@ -71,6 +71,9 @@ class ProtoNode:
         self.edges = set()
         self.tagprops = {}
         self.nodedata = {}
+
+    def iden(self):
+        return s_common.ehex(self.buid)
 
     def getNodeEdit(self):
 
@@ -121,7 +124,12 @@ class ProtoNode:
         if await self.getData(name) == valu:
             return
 
-        s_common.reqjsonsafe(valu)
+        try:
+            s_common.reqjsonsafe(valu)
+        except s_exc.MustBeJsonSafe as e:
+            if self.ctx.snap.strict: raise e
+            return await self.ctx.snap.warn(str(e))
+
         self.nodedata[name] = valu
 
     async def _getRealTag(self, tag):
@@ -154,7 +162,11 @@ class ProtoNode:
             return
 
         if valu != (None, None):
-            valu, _ = self.ctx.snap.core.model.type('ival').norm(valu)
+            try:
+                valu, _ = self.ctx.snap.core.model.type('ival').norm(valu)
+            except s_exc.BadTypeValu as e:
+                if self.ctx.snap.strict: raise e
+                return await self.ctx.snap.warn(f'Invalid Tag Value: {valu}.')
 
         tagup = tagnode.get('up')
         if tagup:
@@ -218,24 +230,41 @@ class ProtoNode:
             return self.node.get(name)
 
     async def set(self, name, valu, norminfo=None):
-        # quick check before we even norm
-        if self.props.get(name) == valu:
-            return
 
         prop = self.form.props.get(name)
         if prop is None:
-            return
+            return False
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return False
+
+        if isinstance(prop.type, s_types.Array):
+            arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
+            if arrayform.locked:
+                mesg = f'Prop {prop.full} is locked due to deprecation.'
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                return False
 
         if norminfo is None:
-            valu, norminfo = prop.type.norm(valu)
+            try:
+                valu, norminfo = prop.type.norm(valu)
+            except s_exc.BadTypeValu as e:
+                if self.ctx.snap.strict: raise e
+                await self.ctx.snap.warn(e)
+                return False
+
+        if isinstance(prop.type, s_types.Ndef):
+            ndefform = self.ctx.snap.core.model.form(valu[0])
+            if ndefform.locked:
+                mesg = f'Prop {prop.full} is locked due to deprecation.'
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                return False
 
         curv = self.get(name)
         if curv == valu:
-            return
+            return False
 
         if self.node is not None:
             await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
@@ -244,22 +273,26 @@ class ProtoNode:
 
         propform = self.ctx.snap.core.model.form(prop.type.name)
         if propform is not None:
-            await self.ctx.addNode(prop.type.name, valu)
+            await self.ctx.addNode(propform.name, valu, norminfo=norminfo)
 
         # TODO can we mandate any subs are returned pre-normalized?
         propsubs = norminfo.get('subs')
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
-                await self.set(f'{name}:{subname}', subvalu)
+                full = f'{prop.name}:{subname}'
+                if self.form.props.get(full) is not None:
+                    await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
         if propadds is not None:
             for addname, addvalu, addinfo in propadds:
                 await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
 
-class AddNodeContext:
+        return True
+
+class SnapEditor:
     '''
-    An AddNodeContext allows tracking node adds with subs/deps.
+    A SnapEditor allows tracking node edits with subs/deps as a transaction.
     '''
     def __init__(self, snap):
         self.snap = snap
@@ -824,23 +857,23 @@ class Snap(s_base.Base):
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
             raise s_exc.IsRuntForm(mesg=mesg)
 
-        addctx = AddNodeContext(self)
-        protonode = addctx.loadNode(node)
+        editor = SnapEditor(self)
+        protonode = editor.loadNode(node)
 
         yield protonode
 
-        nodeedits = addctx.getNodeEdits()
+        nodeedits = editor.getNodeEdits()
         if nodeedits:
             await self.applyNodeEdits(nodeedits)
 
     @contextlib.asynccontextmanager
     async def getEditor(self):
 
-        addctx = AddNodeContext(self)
+        editor = SnapEditor(self)
 
-        yield addctx
+        yield editor
 
-        nodeedits = addctx.getNodeEdits()
+        nodeedits = editor.getNodeEdits()
         if nodeedits:
             await self.applyNodeEdits(nodeedits)
 
@@ -1076,6 +1109,7 @@ class Snap(s_base.Base):
         if self.strict:
             raise ctor(mesg=mesg, **info)
         await self.warn(mesg)
+        return None
 
     async def addNodes(self, nodedefs):
         '''
@@ -1143,9 +1177,11 @@ class Snap(s_base.Base):
                     await protonode.addTag(tagname, tagvalu)
 
             nodedata = forminfo.get('nodedata')
-            if nodedata is not None:
+            if isinstance(nodedata, dict):
                 for dataname, datavalu in nodedata.items():
-                    await protonode.setData(tagname, tagvalu)
+                    if not isinstance(dataname, str):
+                        continue
+                    await protonode.setData(dataname, datavalu)
 
             tagprops = forminfo.get('tagprops')
             if tagprops is not None:
@@ -1156,11 +1192,20 @@ class Snap(s_base.Base):
             for verb, n2iden in forminfo.get('edges', ()):
 
                 if isinstance(n2iden, (tuple, list)):
-                    n2proto = editor.addNode(*n2iden)
+                    n2proto = await editor.addNode(*n2iden)
                     if n2proto is None:
                         continue
 
                     n2iden = n2proto.iden()
+
+                if not isinstance(verb, str):
+                    continue
+
+                if not isinstance(n2iden, str):
+                    continue
+
+                if not s_common.isbuidhex(n2iden):
+                    continue
 
                 await protonode.addEdge(verb, n2iden)
 

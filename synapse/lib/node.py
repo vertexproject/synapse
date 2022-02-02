@@ -277,10 +277,26 @@ class Node:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        async with self.snap.getNodeEditor(self) as editor:
-            await editor.set(name, valu)
+        prop = self.form.props.get(name)
+        if prop is None:
+            mesg = f'No property named {name} on form {self.form.name}.'
+            await self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg)
+            return False
 
-        return True
+        if self.form.isrunt:
+            if prop.info.get('ro'):
+                mesg = 'Cannot set read-only props on runt nodes'
+                raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
+
+            await self.snap.core.runRuntPropSet(self, prop, valu)
+            return True
+
+        if prop.info.get('ro') and self.props.get(name) is not None:
+            mesg = f'Property is read only: {prop.full}.'
+            raise s_exc.ReadOnlyProp(mesg=mesg)
+
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.set(name, valu)
 
     def has(self, name):
         return name in self.props
