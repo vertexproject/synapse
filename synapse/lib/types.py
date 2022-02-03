@@ -711,7 +711,7 @@ class HugeNum(Type):
 
         if self.opts.get('norm'):
             huge.normalize(), {}
-        return huge.to_eng_string(), {}
+        return "{:f}".format(huge), {}
 
     def _ctorCmprEq(self, text):
         base = s_common.hugenum(text)

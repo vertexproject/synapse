@@ -803,7 +803,7 @@ class StorTypeHugeNum(StorType):
 
     def getHugeIndx(self, norm):
         scaled = s_common.hugenum(norm).scaleb(15)
-        byts = int(scaled + self.offset).to_bytes(16, byteorder='big')
+        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(16, byteorder='big')
         return byts
 
     def indx(self, norm):
