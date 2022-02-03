@@ -242,7 +242,7 @@ class ProtoNode:
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
-            if arrayform.locked:
+            if arrayform is not None and arrayform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
                 await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
                 return False
