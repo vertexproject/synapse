@@ -1402,7 +1402,7 @@ class Data(Type):
             s_common.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)
-        except s_exc.MustBeJsonSafe as e:
+        except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
