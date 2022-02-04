@@ -132,7 +132,47 @@ class ModelRevTest(s_tests.SynTest):
 
             nodes = await core.nodes('_test:huge=0.000000000000009')
             print(nodes)
-            nodes = await core.nodes("crypto:smart:token=(0894c3a6c8eda46344cdc1ddb0e896b1, '0.000000000000001')")
+
+            nodes = await core.nodes("crypto:smart:token=(ad17516393ea1857ea660c290112bcca, '0.000000000000002')")
             print(nodes)
-            
+
+            nodes = await core.nodes("crypto:smart:token:tokenid='0.000000000000002'")
+            print(nodes)
+
+            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com')
+            print(nodes)
+
+            opts={'view': '9477410524e02fcd91608decd6314574'}
+
+            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com', opts=opts)
+            print(nodes)
+            print('EDGES---------------')
+            nodes = await core.nodes("crypto:smart:token -(hnum)> *")
+            for n in nodes:
+                print(n)
+
+            print('EDGES---------------')
+            nodes = await core.nodes("crypto:smart:token <(*)- *")
+            for n in nodes:
+                print(n)
+
+            print('EDGES---------------')
+            nodes = await core.nodes('_test:huge <(layer2)- *', opts=opts)
+            for n in nodes:
+                print(n)
+
+            print('EDGES---------------')
+            nodes = await core.nodes('_test:huge -(layer2)> *', opts=opts)
+            for n in nodes:
+                print(n)
+
+            print('EDGES---------------')
+            nodes = await core.nodes('inet:fqdn=huge.com <(layer2)- *', opts=opts)
+            for n in nodes:
+                print(n)
+            print('EDGES---------------')
+
+            nodes = await core.nodes('_test:huge', opts=opts)
+            for n in nodes:
+                print(n)
             self.eq(1,2)
