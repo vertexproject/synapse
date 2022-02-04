@@ -8,6 +8,82 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
+def cpesplit(text):
+    part = ''
+    parts = []
+
+    genr = iter(text)
+    try:
+        while True:
+
+            c = next(genr)
+
+            if c == '\\':
+                c += next(genr)
+
+            if c == ':':
+                parts.append(part)
+                part = ''
+                continue
+
+            part += c
+
+    except StopIteration:
+        parts.append(part)
+
+    return parts
+
+class Cpe22Str(s_types.Str):
+    '''
+    CPE 2.2 Formatted String
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    def __init__(self, modl, name, info, opts):
+        opts['lower'] = True
+        s_types.Str.__init__(self, modl, name, info, opts)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+    def _normPyStr(self, valu):
+
+        text = valu.lower()
+        if text.startswith('cpe:/'):
+            parts = chopCpe22(text)
+        elif text.startswith('cpe:2.3:'):
+            parts = cpesplit(text[8:])
+        else:
+            mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        return zipCpe22(parts), {}
+
+    def _normPyList(self, parts):
+        return zipCpe22(parts), {}
+
+def zipCpe22(parts):
+    parts = list(parts)
+    while parts and parts[-1] in ('', '*'):
+        parts.pop()
+    text = ':'.join(parts[:7])
+    return f'cpe:/{text}'
+
+def chopCpe22(text):
+    '''
+    CPE 2.2 Formatted String
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    if not text.startswith('cpe:/'):
+        mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+    _, text = text.split(':/', 1)
+    parts = cpesplit(text)
+    if len(parts) > 7:
+        mesg = f'CPE 2.2 string has {len(parts)} parts, expected <= 7.'
+        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+    return parts
+
 class Cpe23Str(s_types.Str):
     '''
     CPE 2.3 Formatted String
@@ -26,60 +102,38 @@ class Cpe23Str(s_types.Str):
         opts['lower'] = True
         s_types.Str.__init__(self, modl, name, info, opts)
 
-    def _splitCpe23(self, text):
-
-        part = ''
-        parts = []
-
-        genr = iter(text)
-        try:
-            while True:
-
-                c = next(genr)
-
-                if c == '\\':
-                    c += next(genr)
-
-                if c == ':':
-                    parts.append(part)
-                    part = ''
-                    continue
-
-                part += c
-
-        except StopIteration:
-            parts.append(part)
-
-        return parts
-
     def _normPyStr(self, valu):
-
-        if not valu.startswith('cpe:2.3:'):
+        text = valu.lower()
+        if text.startswith('cpe:2.3:'):
+            parts = cpesplit(text[8:])
+            if len(parts) != 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected 11.'
+                raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+        elif text.startswith('cpe:/'):
+            # automatically normalize CPE 2.2 format to CPE 2.3
+            parts = chopCpe22(text)
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
+        else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
-        text, info = s_types.Str._normPyStr(self, valu)
-        parts = self._splitCpe23(text)
-
-        if len(parts) != 13:
-            mesg = f'CPE 2.3 string has {len(parts)} parts, expected 13.'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
         subs = {
-            'part': parts[2],
-            'vendor': parts[3],
-            'product': parts[4],
-            'version': parts[5],
-            'update': parts[6],
-            'edition': parts[7],
-            'language': parts[8],
-            'sw_edition': parts[9],
-            'target_sw': parts[10],
-            'target_hw': parts[11],
-            'other': parts[12],
+            'v2_2': parts,
+            'part': parts[0],
+            'vendor': parts[1],
+            'product': parts[2],
+            'version': parts[3],
+            'update': parts[4],
+            'edition': parts[5],
+            'language': parts[6],
+            'sw_edition': parts[7],
+            'target_sw': parts[8],
+            'target_hw': parts[9],
+            'other': parts[10],
         }
 
-        return ':'.join(parts), {'subs': subs}
+        return 'cpe:2.3:' + ':'.join(parts), {'subs': subs}
 
 class SemVer(s_types.Int):
     '''
@@ -238,6 +292,9 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
                     'doc': 'A NIST CPE 2.3 Formatted String',
+                }),
+                ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
+                    'doc': 'A NIST CPE 2.2 Formatted String',
                 }),
             ),
             'types': (
@@ -723,6 +780,9 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:sec:cpe', {}, (
+                    ('v2_2', ('it:sec:cpe:v2_2', {}), {
+                        'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
+                    }),
                     ('part', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "part" field from the CPE 2.3 string.'}),

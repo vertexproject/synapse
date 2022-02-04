@@ -3041,7 +3041,22 @@ class Cortex(s_cell.Cell):  # type: ignore
             self.jsonstor = await s_telepath.Client.anit(self.jsonurl)
         else:
             path = os.path.join(self.dirn, 'jsonstor')
-            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, parent=self)
+            jsoniden = s_common.guid((self.iden, 'jsonstor'))
+
+            idenpath = os.path.join(path, 'cell.guid')
+            # check that the jsonstor cell GUID is what it should be. If not, update it.
+            # ( bugfix for first release where cell was allowed to generate it's own iden )
+            if os.path.isfile(idenpath):
+
+                with open(idenpath, 'r') as fd:
+                    existiden = fd.read()
+
+                if jsoniden != existiden:
+                    with open(idenpath, 'w') as fd:
+                        fd.write(jsoniden)
+
+            conf = {'cell:guid': jsoniden}
+            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
 
         self.onfini(self.jsonstor)
 

@@ -287,6 +287,13 @@ class Node:
             await self.snap.warn(f'NoSuchProp: name={name}')
             return False
 
+        if prop.locked:
+            mesg = f'Prop {prop.full} is locked due to deprecation.'
+            if self.snap.strict:
+                raise s_exc.IsDeprLocked(mesg=mesg, name=prop.full)
+            await self.snap.warn(mesg)
+            return False
+
         if self.form.isrunt:
 
             if prop.info.get('ro'):
@@ -327,11 +334,33 @@ class Node:
             if curv == norm:
                 return False
 
-        props = {prop.name: norm}
-        nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
+        if self._fastPropSet(prop, info):
+            nodeedits = [(self.buid, self.form.name,
+                          [(s_layer.EDIT_PROP_SET, (prop.name, norm, None, prop.type.stortype), ())])]
+        else:
+            props = {prop.name: norm}
+            nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
 
         await self.snap.applyNodeEdits(nodeedits)
 
+        return True
+
+    def _fastPropSet(self, prop, info):
+        '''
+        Checks for fast property setting when the following are true:
+        1. No subs
+        2. No adds
+        3. Destination property is not a form itself
+
+        If new values are plumbed into type info dictionaries need to
+        consider updating this.
+        '''
+        if info.get('subs'):
+            return False
+        if info.get('adds'):
+            return False
+        if self.snap.core.model.form(prop.type.name):
+            return False
         return True
 
     def has(self, name):

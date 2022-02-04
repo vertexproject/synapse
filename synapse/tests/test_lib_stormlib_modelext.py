@@ -57,7 +57,7 @@ class SynTest(s_test.SynTest):
 
             with self.raises(s_exc.BadPropDef):
                 q = '''$l =$lib.list('str', $lib.dict()) $d=$lib.dict(doc="Foo")
-                $lib.model.ext.addFormProp('test:str', '_test:_my_prop', $l, $d)
+                $lib.model.ext.addFormProp('test:str', '_test:_my^prop', $l, $d)
                 '''
                 await core.callStorm(q)
 
@@ -68,19 +68,19 @@ class SynTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addUnivProp(_woot_stuff, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addUnivProp(_woot^stuff, (int, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addUnivProp(_woot:_stuff_2, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addUnivProp(_woot:_stuff^2, (int, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addTagProp(some_score, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addTagProp(some^score, (int, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$lib.model.ext.addTagProp(_someones:_score_value, (int, $lib.dict()), $lib.dict())'''
+                q = '''$lib.model.ext.addTagProp(_someones:_score^value, (int, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
             # Permission errors
