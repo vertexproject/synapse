@@ -3289,7 +3289,7 @@ class Layer(s_nexus.Pusher):
 
     async def splicesBack(self, offs=None, size=None):
 
-        s_common.deprecated('splices')
+        s_common.deprecated('splicesBack')
         if not self.logedits:
             return
 
