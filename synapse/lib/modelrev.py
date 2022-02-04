@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 6)
+maxvers = (0, 2, 7)
 
 class ModelRev:
 
@@ -242,6 +242,130 @@ class ModelRev:
 
                 if len(nodeedits) >= 1000:
                     await save()
+
+            if nodeedits:
+                await save()
+
+    def getElementsByStor(self, stortype):
+
+        typs = set()
+        for name, typ in self.core.model.types.items():
+            if (typ.stortype == stortype):
+                typs.add(name)
+
+        forms = {}
+        props = {}
+
+#        for name, form in self.core.model.forms.items():
+#            fields = form.type.opts.get('fields')
+#            if fields:
+#                for field in fields:
+#                    if isinstance(field[1], tuple):
+#                        if field[1][0] in typs:
+#                            forms.add(name)
+#                            print('form', name, fields)
+#                            break
+#                    else:
+#                        if field[1] in typs:
+#                            forms.add(name)
+#                            print('form', name, fields)
+#                            break
+#                    
+#            if (form.type.stortype == stortype):
+#                print('form', name)
+
+        for name, prop in self.core.model.props.items():
+            if not prop.isform and prop.univ:
+                continue
+
+            fields = prop.type.opts.get('fields')
+            if fields:
+                hnums = set()
+                for i, field in enumerate(fields):
+                    if (isinstance(field[1], str) and field[1] in typs) or \
+                       (isinstance(field[1], tuple) and field[1][0] in typs):
+                        hnums.add(i)
+
+                if prop.isform:
+                    forms[name] = hnums
+                else:
+                    props[name] = hnums
+    
+#                        if field[1][0] in typs:
+#                            if prop.isform:
+#                                forms[name] = fields
+#                            else:
+#                                props[name] = fields
+#                            break
+#                    else:
+#                        if field[1] in typs:
+#                            if prop.isform:
+#                                forms[name] = fields
+#                            else:
+#                                props[name] = fields
+#                            break
+                    
+            if (prop.type.stortype == stortype):
+                if prop.isform:
+                    forms[name] = None
+                else:
+                    props[name] = None
+
+        return (typs, forms, props)
+
+    async def revModel20220202(self, layers):
+
+        huge = self.core.model.type('hugenum')
+        (typs, forms, props) = self.getElementsByStor(s_layer.STOR_TYPE_HUGENUM)
+
+        for layr in layers:
+            print(layr)
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for form in forms:
+                comp = forms[form]
+                if comp:
+                    stortype = s_layer.STOR_TYPE_MSGP
+                else:
+                    stortype = s_layer.STOR_TYPE_HUGENUM
+
+                async for buid, propvalu in layr.iterFormRows(form, stortype=stortype):
+                    sodes = await self.core._getStorNodes(buid, layers)
+                    print('BUID', buid)
+                    print('SODES')
+                    for s in sodes:
+                        print(s)
+
+                    valu = None
+                    for sode in sodes:
+                        valu = sode.get('valu')
+                        if valu:
+                            break
+
+                    if comp:
+                        print(comp)
+                        hnorm = [huge.norm(x)[0] if i in comp else x for (i, x) in enumerate(valu[0])]
+                        print(s_common.buid((form, hnorm)))
+                    else:
+                        print(s_common.buid((form, valu[0])))
+                        hnorm = huge.norm(valu[0])[0]
+
+                    newbuid = s_common.buid((form, hnorm))
+#                   layer.iterNodeEdgesN1(self, buid, verb=None):
+                    
+                    nodeedits.append(
+                        (newbuid, form, (
+                            (s_layer.EDIT_NODE_ADD, (hnorm, stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:
+                        await save()
 
             if nodeedits:
                 await save()

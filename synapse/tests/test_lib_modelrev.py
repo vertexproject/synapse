@@ -125,3 +125,14 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].ndef[1], 'cve-2013-9999')
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
+
+    async def test_modelrev_0_2_7(self):
+
+        async with self.getRegrCore('model-0.2.7') as core:
+
+            nodes = await core.nodes('_test:huge=0.000000000000009')
+            print(nodes)
+            nodes = await core.nodes("crypto:smart:token=(0894c3a6c8eda46344cdc1ddb0e896b1, '0.000000000000001')")
+            print(nodes)
+            
+            self.eq(1,2)
