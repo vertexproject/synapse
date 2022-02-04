@@ -3479,7 +3479,7 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
 
         hasval = len(self.kids) > 1 + oper_offset
 
@@ -3492,14 +3492,23 @@ class EditTagAdd(Edit):
                 names = [names]
 
             for name in names:
-                parts = name.split('.')
 
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                if isinstance(name, list):
+                    name = tuple(name)
 
-                if hasval:
-                    valu = await self.kids[1 + oper_offset].compute(runt, path)
-                    valu = await s_stormtypes.toprim(valu)
                 try:
+                    normtupl = await runt.snap.getTagNorm(name)
+                    if normtupl is None:
+                        continue
+
+                    name, info = normtupl
+                    parts = name.split('.')
+
+                    runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+                    if hasval:
+                        valu = await self.kids[1 + oper_offset].compute(runt, path)
+                        valu = await s_stormtypes.toprim(valu)
                     await node.addTag(name, valu=valu)
                 except excignore:
                     pass
@@ -3518,6 +3527,12 @@ class EditTagDel(Edit):
         async for node, path in genr:
 
             name = await self.kids[0].compute(runt, path)
+
+            normtupl = await runt.snap.getTagNorm(name)
+            if normtupl is None:
+                continue
+
+            name, info = normtupl
             parts = name.split('.')
 
             runt.layerConfirm(('node', 'tag', 'del', *parts))
@@ -3547,6 +3562,11 @@ class EditTagPropSet(Edit):
             valu = await self.kids[2].compute(runt, path)
             valu = await s_stormtypes.toprim(valu)
 
+            normtupl = await runt.snap.getTagNorm(tag)
+            if normtupl is None:
+                continue
+
+            tag, info = normtupl
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
@@ -3575,6 +3595,12 @@ class EditTagPropDel(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(runt, path)
+
+            normtupl = await runt.snap.getTagNorm(tag)
+            if normtupl is None:
+                continue
+
+            tag, info = normtupl
 
             tagparts = tag.split('.')
 

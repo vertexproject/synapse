@@ -58,6 +58,9 @@ class Scrubber:
 class ProtoNode:
     '''
     A prototype node used for staging node adds using a SnapEditor.
+
+    TODO: This could eventually fully mirror the synapse.lib.node.Node API and be used
+          to slipstream into sections of the pipeline to facilitate a bulk edit / transaction
     '''
     def __init__(self, ctx, buid, form, valu, node):
         self.ctx = ctx
@@ -134,17 +137,17 @@ class ProtoNode:
 
     async def _getRealTag(self, tag):
 
-        if not self.ctx.snap.core.isTagValid(tag):
-            mesg = f'The tag ({tag}) does not meet the regex for the tree.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.BadTag, mesg)
+        normtupl = await self.ctx.snap.getTagNorm(tag)
+        if normtupl is None:
+            return None
 
-        protonode = await self.ctx.addNode('syn:tag', tag)
-        isnow = protonode.get('isnow')
-        while isnow is not None:
-            protonode = await self.ctx.addNode('syn:tag', isnow)
-            isnow = protonode.get('isnow')
+        norm, info = normtupl
 
-        return protonode
+        tagnode = await self.ctx.snap.getTagNode(norm)
+        if tagnode is not s_common.novalu:
+            return self.ctx.loadNode(tagnode)
+
+        return await self.ctx.addNode('syn:tag', norm, norminfo=info)
 
     def getTag(self, tag):
 
@@ -155,9 +158,11 @@ class ProtoNode:
         if self.node is not None:
             return self.node.getTag(tag)
 
-    async def addTag(self, tag, valu=(None, None)):
+    async def addTag(self, tag, valu=(None, None), tagnode=None):
 
-        tagnode = await self._getRealTag(tag)
+        if tagnode is None:
+            tagnode = await self._getRealTag(tag)
+
         if tagnode is None:
             return
 
@@ -414,11 +419,10 @@ class Snap(s_base.Base):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self._tagcachesize = 10000
-        self._buidcachesize = 100000
-        self.tagcache = s_cache.FixedCache(self._addTagNode, size=self._tagcachesize)
+        self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=1000)
+        self.tagcache = s_cache.FixedCache(self._getTagNode, size=1000)
         # Keeps alive the most recently accessed node objects
-        self.buidcache = collections.deque(maxlen=self._buidcachesize)
+        self.buidcache = collections.deque(maxlen=100000)
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
         self._warnonce_keys = set()
 
@@ -544,6 +548,7 @@ class Snap(s_base.Base):
 
     async def clearCache(self):
         self.tagcache.clear()
+        self.tagnorms.clear()
         self.buidcache.clear()
         self.livenodes.clear()
 
@@ -1031,7 +1036,7 @@ class Snap(s_base.Base):
 
         return saveoff, changes, nodes
 
-    async def addNode(self, name, valu, props=None):
+    async def addNode(self, name, valu, props=None, norminfo=None):
         '''
         Add a node by form name and value with optional props.
 
@@ -1051,7 +1056,7 @@ class Snap(s_base.Base):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         async with self.getEditor() as editor:
-            protonode = await editor.addNode(name, valu, props=props)
+            protonode = await editor.addNode(name, valu, props=props, norminfo=norminfo)
             if protonode is None:
                 return None
 
@@ -1096,14 +1101,41 @@ class Snap(s_base.Base):
 
         await func(self, items)
 
-    async def addTagNode(self, name):
+    async def getTagNorm(self, tagname):
+        return await self.tagnorms.aget(tagname)
+
+    async def _getTagNorm(self, tagname):
+
+        if not self.core.isTagValid(tagname):
+            mesg = f'The tag ({tagname}) does not meet the regex for the tree.'
+            await self._raiseOnStrict(s_exc.BadTag, mesg)
+            return None
+
+        try:
+            return self.core.model.type('syn:tag').norm(tagname)
+        except s_exc.BadTypeValu as e:
+            if self.strict: raise e
+            await self.warn(f'Invalid tag name {tagname}: {e}')
+
+    async def getTagNode(self, name):
         '''
-        Ensure that the given syn:tag node exists.
+        Retrieve a cached tag node. Requires name is normed. Does not add.
         '''
         return await self.tagcache.aget(name)
 
-    async def _addTagNode(self, name):
-        return await self.addNode('syn:tag', name)
+    async def _getTagNode(self, tagnorm):
+
+        tagnode = await self.getNodeByBuid(s_common.buid(('syn:tag', tagnorm)))
+        if tagnode is not None:
+            isnow = tagnode.get('isnow')
+            while isnow is not None:
+                tagnode = await self.getNodeByBuid(s_common.buid(('syn:tag', isnow)))
+                isnow = tagnode.get('isnow')
+
+        if tagnode is None:
+            return s_common.novalu
+
+        return tagnode
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
         if self.strict:

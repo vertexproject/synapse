@@ -5841,7 +5841,7 @@ class View(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
-        {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation failes, no changes are made.''',
+        {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation fails, no changes are made.''',
          'type': {'type': 'function', '_funcname': 'addNode',
                   'args': (
                       {'name': 'form', 'type': 'str', 'desc': 'The form name.'},

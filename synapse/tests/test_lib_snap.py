@@ -13,15 +13,6 @@ import synapse.tests.utils as s_t_utils
 
 class SnapTest(s_t_utils.SynTest):
 
-    async def test_snap_bork(self):
-
-        pode = (('inet:email', 'visi@vertex.link'), {})
-        async with self.getTestCore() as core:
-            async with await core.snap() as snap:
-                async for node in snap.addNodes([pode]):
-                    pass
-            self.len(1, await core.nodes('inet:user=visi'))
-
     async def test_snap_eval_storm(self):
 
         async with self.getTestCore() as core:
@@ -358,12 +349,13 @@ class SnapTest(s_t_utils.SynTest):
                 original_node0 = await snap0.addNode('test:str', 'node0')
                 self.len(1, snap0.buidcache)
                 self.len(1, snap0.livenodes)
-                # TODO do we need this any more? self.len(0, snap0.tagcache)
+                self.len(0, snap0.tagcache)
+                self.len(0, snap0.tagnorms)
 
                 await original_node0.addTag('foo.bar.baz')
                 self.len(4, snap0.buidcache)
                 self.len(4, snap0.livenodes)
-                # TODO self.len(3, snap0.tagcache)
+                self.len(3, snap0.tagnorms)
 
                 async with await core.snap() as snap1:  # type: s_snap.Snap
                     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
@@ -383,6 +375,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(0, snap0.buidcache)
                 self.len(0, snap0.livenodes)
                 self.len(0, snap0.tagcache)
+                self.len(0, snap0.tagnorms)
 
                 # After clearing the cache and lifting nodes, the new node
                 # was lifted directly from the layer.
