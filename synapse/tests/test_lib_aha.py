@@ -1,3 +1,5 @@
+import os
+
 from unittest import mock
 
 import synapse.exc as s_exc
@@ -391,3 +393,26 @@ class AhaTest(s_test.SynTest):
 
                         async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                             self.nn(await proxy.getCellIden())
+
+    async def test_lib_aha_bootstrap(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'aha:name': 'aha.do.vertex.link',
+                'aha:admin': 'root@do.vertex.link',
+                'aha:network': 'do.vertex.link',
+            }
+
+            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.crt')))
+                self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.key')))
+                self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
+                self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.key')))
+                self.true(os.path.isfile(os.path.join(dirn, 'certs', 'users', 'root@do.vertex.link.crt')))
+                self.true(os.path.isfile(os.path.join(dirn, 'certs', 'users', 'root@do.vertex.link.key')))
+
+                host, port = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.do.vertex.link&ca=do.vertex.link')
+
+                async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=aha.do.vertex.link') as proxy:
+                    await proxy.getCellInfo()
