@@ -5,6 +5,7 @@ import contextlib
 import collections
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 
@@ -556,3 +557,22 @@ class SnapTest(s_t_utils.SynTest):
 
             nodes = await view1.nodes('#woot:data=foo')
             self.len(2, nodes)
+
+    async def test_snap_editor(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+            root = core.auth.rootuser
+            async with await core.view.snap(user=root) as snap:
+                async with snap.getEditor() as editor:
+                    fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
+                    news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+                    self.false(await news.addEdge('refs', s_common.ehex(fqdn.buid)))
+                    self.len(0, editor.getNodeEdits())
+
+                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    nodeedits = editor.getNodeEdits()
+                    self.len(1, nodeedits)
+                    self.len(1, nodeedits[0][2])
+
+            self.len(1, await core.nodes('media:news -(pwns)> *'))

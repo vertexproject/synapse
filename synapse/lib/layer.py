@@ -2883,6 +2883,10 @@ class Layer(s_nexus.Pusher):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n1buid)
 
+    async def hasNodeEdge(self, buid1, verb, buid2):
+        lkey = buid1 + verb.encode()
+        return self.layrslab.hasdup(lkey, buid2, db=self.edgesn1)
+
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''
         Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.

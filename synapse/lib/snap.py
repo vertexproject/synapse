@@ -108,8 +108,10 @@ class ProtoNode:
         return (self.buid, self.form.name, edits)
 
     async def addEdge(self, verb, n2iden):
-        # TODO deconflict edges to prevent transactions if not needed
-        self.edges.add((verb, n2iden))
+        if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
+            self.edges.add((verb, n2iden))
+            return True
+        return False
 
     async def getData(self, name):
 
@@ -1280,6 +1282,12 @@ class Snap(s_base.Base):
 
                     await edgeset.add(edge)
                     yield edge
+
+    async def hasNodeEdge(self, buid1, verb, buid2):
+        for layr in self.layers:
+            if await layr.hasNodeEdge(buid1, verb, buid2):
+                return True
+        return False
 
     async def hasNodeData(self, buid, name):
         '''
