@@ -116,7 +116,7 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCert(self, name, signas=None, outp=None, csr=None, sans=None):
+    def genHostCert(self, name, signas=None, outp=None, csr=None, sans=None, save=True):
         '''
         Generates a host keypair.
 
@@ -155,14 +155,15 @@ class CertDir:
         else:
             self.selfSignCert(cert, pkey)
 
-        if not pkey._only_public:
-            keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
-            if outp is not None:
-                outp.printf('key saved: %s' % (keypath,))
+        if save:
+            if not pkey._only_public:
+                keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
+                if outp is not None:
+                    outp.printf('key saved: %s' % (keypath,))
 
-        crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
-        if outp is not None:
-            outp.printf('cert saved: %s' % (crtpath,))
+            crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
@@ -184,7 +185,7 @@ class CertDir:
         '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
-    def genUserCert(self, name, signas=None, outp=None, csr=None):
+    def genUserCert(self, name, signas=None, outp=None, csr=None, save=True):
         '''
         Generates a user keypair.
 
@@ -216,14 +217,15 @@ class CertDir:
         else:
             self.selfSignCert(cert, pkey)
 
-        crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
-        if outp is not None:
-            outp.printf('cert saved: %s' % (crtpath,))
-
-        if not pkey._only_public:
-            keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
+        if save:
+            crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
             if outp is not None:
-                outp.printf('key saved: %s' % (keypath,))
+                outp.printf('cert saved: %s' % (crtpath,))
+
+            if not pkey._only_public:
+                keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
+                if outp is not None:
+                    outp.printf('key saved: %s' % (keypath,))
 
         return pkey, cert
 

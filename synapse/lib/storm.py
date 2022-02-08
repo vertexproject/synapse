@@ -4048,6 +4048,7 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.list')
         maxtime = None
         if self.opts.maxtimestamp:
             maxtime = self.opts.maxtimestamp
@@ -4280,6 +4281,7 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.undo')
         if self.opts.force:
             if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
