@@ -320,8 +320,8 @@ class ModelRev:
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         for form in forms:
-            ftyp = self.core.model.type(form)
 
+            ftyp = self.core.model.type(form)
             stortype = ftyp.stortype
 
             async for buid, sodes in self.core._liftByProp(form, None, layers):
@@ -441,9 +441,6 @@ class ModelRev:
                         edits['dels'].clear()
                         edits['n2edges'].clear()
 
-        nodeedits = {layr.iden: [] for layr in layers}
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
         for prop in props:
 
             ptyp = self.core.model.props[prop]
@@ -458,6 +455,14 @@ class ModelRev:
             stortype = ptyp.type.stortype
 
             for layr in layers:
+
+                nodeedits = []
+                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+                async def save():
+                    await layr.storNodeEdits(nodeedits, meta)
+                    nodeedits.clear()
+
                 async for buid, propvalu in layr.iterPropRows(form, pname):
 
                     newval = ptyp.type.norm(propvalu)[0]
@@ -465,15 +470,17 @@ class ModelRev:
                     if newval == propvalu:
                         continue
 
-                    nodeedits[layriden].append(
-                        (s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()),
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()),
+                        )),
                     )
 
-                    for layriden, edits in nodeedits.items():
-                        if edits:
-                            nedits = [(buid, form, edits)]
-                            await layrmap[layriden].storNodeEdits(nedits, meta)
-                            edits.clear()
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                if nodeedits:
+                    await save()
 
         for tagprop in tagprops:
 
@@ -481,6 +488,14 @@ class ModelRev:
             stortype = tptyp.type.stortype
 
             for layr in layers:
+
+                nodeedits = []
+                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+                async def save():
+                    await layr.storNodeEdits(nodeedits, meta)
+                    nodeedits.clear()
+
                 async for _, tag in layr.iterFormRows('syn:tag'):
 
                     async for buid, tpvalu in layr.iterTagPropRows(tag, tagprop):
@@ -490,15 +505,17 @@ class ModelRev:
                         if newval == tpvalu:
                             continue
 
-                        nodeedits[layriden].append(
-                            (s_layer.EDIT_TAGPROP_SET, (tag, tagprop, newval, None, stortype), ()),
+                        nodeedits.append(
+                            (buid, form, (
+                                (s_layer.EDIT_TAGPROP_SET, (tag, tagprop, newval, None, stortype), ()),
+                            )),
                         )
 
-                        for layriden, edits in nodeedits.items():
-                            if edits:
-                                nedits = [(buid, form, edits)]
-                                await layrmap[layriden].storNodeEdits(nedits, meta)
-                                edits.clear()
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                if nodeedits:
+                    await save()
 
     async def revCoreLayers(self):
 
