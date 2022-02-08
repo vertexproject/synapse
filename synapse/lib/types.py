@@ -710,8 +710,9 @@ class HugeNum(Type):
             raise s_exc.BadTypeValu(mesg=mesg)
 
         if self.opts.get('norm'):
-            huge.normalize(), {}
-        return "{:f}".format(huge), {}
+            return '{:f}'.format(huge.normalize()), {}
+
+        return '{:f}'.format(huge), {}
 
     def _ctorCmprEq(self, text):
         base = s_common.hugenum(text)

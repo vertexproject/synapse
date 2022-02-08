@@ -131,48 +131,85 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.7') as core:
 
             nodes = await core.nodes('_test:huge=0.000000000000009')
-            print(nodes)
+            self.len(1, nodes)
 
             nodes = await core.nodes("crypto:smart:token=(ad17516393ea1857ea660c290112bcca, '0.000000000000002')")
-            print(nodes)
+            self.len(1, nodes)
 
             nodes = await core.nodes("crypto:smart:token:tokenid='0.000000000000002'")
-            print(nodes)
+            self.len(1, nodes)
 
             nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com')
-            print(nodes)
+            self.len(0, nodes)
 
-            opts={'view': '9477410524e02fcd91608decd6314574'}
+            opts = {'view': '9477410524e02fcd91608decd6314574'}
 
             nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com', opts=opts)
-            print(nodes)
-            print('EDGES---------------')
+            self.len(1, nodes)
+
             nodes = await core.nodes("crypto:smart:token -(hnum)> *")
-            for n in nodes:
-                print(n)
+            self.len(1, nodes)
 
-            print('EDGES---------------')
             nodes = await core.nodes("crypto:smart:token <(*)- *")
-            for n in nodes:
-                print(n)
+            self.len(1, nodes)
 
-            print('EDGES---------------')
             nodes = await core.nodes('_test:huge <(layer2)- *', opts=opts)
-            for n in nodes:
-                print(n)
+            self.len(7, nodes)
 
-            print('EDGES---------------')
             nodes = await core.nodes('_test:huge -(layer2)> *', opts=opts)
-            for n in nodes:
-                print(n)
+            self.len(9, nodes)
 
-            print('EDGES---------------')
             nodes = await core.nodes('inet:fqdn=huge.com <(layer2)- *', opts=opts)
-            for n in nodes:
-                print(n)
-            print('EDGES---------------')
+            self.len(3, nodes)
 
-            nodes = await core.nodes('_test:huge', opts=opts)
-            for n in nodes:
-                print(n)
-            self.eq(1,2)
+            nodes = await core.nodes('yield $lib.lift.byNodeData(layer2)', opts=opts)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('yield $lib.lift.byNodeData(layer2)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('yield $lib.lift.byNodeData(compdata)')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('''
+                _test:hugearraycomp=(
+                    (bd7f5abb84db51d9845b238f62a6684d, 0.000000000000001),
+                    (20a84f63e2820ff8b2caed85ba096360, 0.000000000000006)
+                )
+            ''')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('''
+                _test:hugearraycomp=(
+                    ('11b51985e9e5a3eadcb9ddeb3e05f4b7', 0.00000000000001),
+                    ('0c640aab86c6e1ab5283b9410e54019a', 0.00000000000006)
+                )
+            ''')
+            self.len(1, nodes)
+
+            nodes = await core.nodes("crypto:smart:token=('36758b150b708675b2fec5a7768bcc25', '70E-15')")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("crypto:smart:token=('36758b150b708675b2fec5a7768bcc25', '0.00000000000007')")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("crypto:smart:token=('36758b150b708675b2fec5a7768bcc25', '0.000000000000070')")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("edge:has")
+            self.len(2, nodes)
+
+            nodes = await core.nodes("econ:acquired")
+            self.len(4, nodes)
+
+            nodes = await core.nodes("._huge:univarraycomp")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("inet:web:chprofile")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("_test:hugerange")
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge')
+            self.len(2, nodes)

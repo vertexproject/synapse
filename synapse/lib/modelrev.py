@@ -4,6 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
+import synapse.lib.types as s_types
 
 logger = logging.getLogger(__name__)
 
@@ -246,100 +247,101 @@ class ModelRev:
             if nodeedits:
                 await save()
 
-    def getElementsByStor(self, stortype):
+    def typeHasStortype(self, typedef, stortype):
 
-        typs = set()
-        for name, typ in self.core.model.types.items():
-            if (typ.stortype == stortype):
-                typs.add(name)
+        if isinstance(typedef, s_types.Comp):
+            fields = typedef.opts.get('fields')
+            for i, (name, _) in enumerate(fields):
+                if self.typeHasStortype(typedef.tcache[name], stortype):
+                    return True
 
-        forms = {}
-        props = {}
+        elif isinstance(typedef, s_types.Array):
+            return self.typeHasStortype(typedef.arraytype, stortype)
 
-#        for name, form in self.core.model.forms.items():
-#            fields = form.type.opts.get('fields')
-#            if fields:
-#                for field in fields:
-#                    if isinstance(field[1], tuple):
-#                        if field[1][0] in typs:
-#                            forms.add(name)
-#                            print('form', name, fields)
-#                            break
-#                    else:
-#                        if field[1] in typs:
-#                            forms.add(name)
-#                            print('form', name, fields)
-#                            break
-#                    
-#            if (form.type.stortype == stortype):
-#                print('form', name)
+        elif isinstance(typedef, s_types.Range):
+            return self.typeHasStortype(typedef.subtype, stortype)
+
+        elif (typedef.stortype == stortype):
+            return True
+
+        return False
+
+    def typeHasNdefs(self, typedef):
+
+        if isinstance(typedef, s_types.Comp):
+            fields = typedef.opts.get('fields')
+            for i, (name, _) in enumerate(fields):
+                if self.typeHasNdefs(typedef.tcache[name]):
+                    return True
+
+        elif isinstance(typedef, s_types.Array):
+            return self.typeHasNdefs(typedef.arraytype)
+
+        elif isinstance(typedef, s_types.Ndef):
+            return True
+
+        elif isinstance(typedef, s_types.Edge):
+            return True
+
+        elif isinstance(typedef, s_types.NodeProp):
+            return True
+
+        return False
+
+    def getElementsByStortype(self, stortype):
+
+        forms = set()
+        props = set()
+        tagprops = set()
 
         for name, prop in self.core.model.props.items():
             if not prop.isform and prop.univ:
                 continue
 
-            fields = prop.type.opts.get('fields')
-            if fields:
-                hnums = set()
-                for i, field in enumerate(fields):
-                    if (isinstance(field[1], str) and field[1] in typs) or \
-                       (isinstance(field[1], tuple) and field[1][0] in typs):
-                        hnums.add(i)
-
+            if self.typeHasStortype(prop.type, stortype) or self.typeHasNdefs(prop.type):
                 if prop.isform:
-                    forms[name] = hnums
+                    forms.add(name)
                 else:
-                    props[name] = hnums
-    
-            if (prop.type.stortype == stortype):
-                if prop.isform:
-                    forms[name] = None
-                else:
-                    props[name] = None
+                    props.add(name)
 
-        return (forms, props)
+        for tname, tprop in self.core.model.tagprops.items():
+            if self.typeHasStortype(tprop.type, stortype) or self.typeHasNdefs(tprop.type):
+                tagprops.add(tname)
+
+        return (forms, props, tagprops)
 
     async def revModel20220202(self, layers):
 
-        huge = self.core.model.type('hugenum')
-        (forms, props) = self.getElementsByStor(s_layer.STOR_TYPE_HUGENUM)
-        
+        (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
+
         layrmap = {layr.iden: layr for layr in layers}
         nodeedits = {layr.iden: {'adds': [], 'dels': [], 'n2edges': []} for layr in layers}
 
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden, 'migrto': None, 'migrfrom': None}
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
-        for (form, comp) in forms.items(): 
-            if comp:
-                stortype = s_layer.STOR_TYPE_MSGP
-            else:
-                stortype = s_layer.STOR_TYPE_HUGENUM
+        for form in forms:
+            ftyp = self.core.model.type(form)
+
+            stortype = ftyp.stortype
 
             async for buid, sodes in self.core._liftByProp(form, None, layers):
-                print('OLDBUID', buid)
+
                 valu = None
                 for _, sode in sodes:
                     valu = sode.get('valu')
                     if valu:
                         break
 
-                if comp:
-                    hnorm = [huge.norm(x)[0] if i in comp else x for (i, x) in enumerate(valu[0])]
-                else:
-                    hnorm = huge.norm(valu[0])[0]
-
+                hnorm = ftyp.norm(valu[0])[0]
                 newbuid = s_common.buid((form, hnorm))
                 if buid == newbuid:
-                    print('UP TO DATE')
                     continue
 
-                print('NEWBUID', newbuid)
-                meta['migrto'] = newbuid
-                meta['migrfrom'] = buid
+                meta['migr'] = {'from': buid, 'to': newbuid}
 
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)
-                
+
                 for layr in layers:
                     async for (verb, n2iden) in layr.iterNodeEdgesN1(buid):
                         nodeedits[layr.iden]['adds'].append(
@@ -353,22 +355,29 @@ class ModelRev:
                         n1buid = s_common.uhex(n1iden)
                         n2sodes = await self.core._getStorNodes(n1buid, layers)
                         n1form = None
+
                         for s2 in n2sodes:
                             n1form = s2.get('form')
                             if n1form is not None:
                                 break
+
                         nodeedits[layr.iden]['n2edges'].append(
                             (n1buid, n1form, (
                                 (s_layer.EDIT_EDGE_ADD, (verb, newiden), ()),
                                 (s_layer.EDIT_EDGE_DEL, (verb, iden), ()),
                             )),
                         )
-                    async for item in layr.iterNodeData(buid):
-                        print(item)
 
-                print('SODES')
+                    async for (name, nvalu) in layr.iterNodeData(buid):
+                        nodeedits[layr.iden]['adds'].append(
+                            (s_layer.EDIT_NODEDATA_SET, (name, nvalu, None), ()),
+                        )
+                        nodeedits[layr.iden]['dels'].append(
+                            (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
+                        )
+
                 for layriden, sode in sodes:
-                    print(layriden, sode)
+
                     if 'valu' in sode:
                         nodeedits[layriden]['adds'].append(
                             (s_layer.EDIT_NODE_ADD, (hnorm, stortype), ()),
@@ -378,18 +387,53 @@ class ModelRev:
                         )
 
                     for prop, (pval, ptyp) in sode.get('props', {}).items():
+                        if prop.startswith('.') and prop in props:
+                            fp = self.core.model.univs[prop]
+                            newval = fp.type.norm(pval)[0]
+
+                        else:
+                            fullprop = ':'.join((form, prop))
+                            if fullprop in props:
+                                fp = self.core.model.props[fullprop]
+                                newval = fp.type.norm(pval)[0]
+                            else:
+                                newval = pval
+
                         nodeedits[layriden]['adds'].append(
-                            (s_layer.EDIT_PROP_SET, (prop, pval, None, ptyp), ()),
+                            (s_layer.EDIT_PROP_SET, (prop, newval, None, ptyp), ()),
                         )
                         nodeedits[layriden]['dels'].append(
                             (s_layer.EDIT_PROP_DEL, (prop, pval, ptyp), ()),
                         )
 
+                    for tag, tval in sode.get('tags', {}).items():
+                        nodeedits[layriden]['adds'].append(
+                            (s_layer.EDIT_TAG_SET, (tag, tval, None), ()),
+                        )
+                        nodeedits[layriden]['dels'].append(
+                            (s_layer.EDIT_TAG_DEL, (tag, tval), ()),
+                        )
+
+                    for tag, tprops in sode.get('tagprops', {}).items():
+                        for tprop, (tpval, tptyp) in tprops.items():
+                            if tprop in tagprops:
+                                tp = self.core.model.tagprops[tprop]
+                                newval = tp.type.norm(tpval)[0]
+                            else:
+                                newval = tpval
+
+                            nodeedits[layriden]['adds'].append(
+                                (s_layer.EDIT_TAGPROP_SET, (tag, tprop, newval, None, tptyp), ()),
+                            )
+                            nodeedits[layriden]['dels'].append(
+                                (s_layer.EDIT_TAGPROP_DEL, (tag, tprop, newval, tptyp), ()),
+                            )
+
                 for layriden, edits in nodeedits.items():
                     if edits['adds']:
                         nedits = [
                             (newbuid, form, edits['adds']),
-                            (buid, form, edits['dels']),                            
+                            (buid, form, edits['dels']),
                         ]
                         await layrmap[layriden].storNodeEdits(nedits, meta)
                         await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
@@ -397,9 +441,64 @@ class ModelRev:
                         edits['dels'].clear()
                         edits['n2edges'].clear()
 
-                print('')
-                print('')
-                print('')
+        nodeedits = {layr.iden: [] for layr in layers}
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        for prop in props:
+
+            ptyp = self.core.model.props[prop]
+            form = ptyp.form
+
+            if form:
+                form = form.name
+            if form and form in forms:
+                continue
+
+            pname = ptyp.name
+            stortype = ptyp.type.stortype
+
+            for layr in layers:
+                async for buid, propvalu in layr.iterPropRows(form, pname):
+
+                    newval = ptyp.type.norm(propvalu)[0]
+
+                    if newval == propvalu:
+                        continue
+
+                    nodeedits[layriden].append(
+                        (s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()),
+                    )
+
+                    for layriden, edits in nodeedits.items():
+                        if edits:
+                            nedits = [(buid, form, edits)]
+                            await layrmap[layriden].storNodeEdits(nedits, meta)
+                            edits.clear()
+
+        for tagprop in tagprops:
+
+            tptyp = self.core.model.tagprops[tagprop]
+            stortype = tptyp.type.stortype
+
+            for layr in layers:
+                async for _, tag in layr.iterFormRows('syn:tag'):
+
+                    async for buid, tpvalu in layr.iterTagPropRows(tag, tagprop):
+
+                        newval = tptyp.type.norm(tpvalu)[0]
+
+                        if newval == tpvalu:
+                            continue
+
+                        nodeedits[layriden].append(
+                            (s_layer.EDIT_TAGPROP_SET, (tag, tagprop, newval, None, stortype), ()),
+                        )
+
+                        for layriden, edits in nodeedits.items():
+                            if edits:
+                                nedits = [(buid, form, edits)]
+                                await layrmap[layriden].storNodeEdits(nedits, meta)
+                                edits.clear()
 
     async def revCoreLayers(self):
 
