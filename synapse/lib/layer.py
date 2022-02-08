@@ -170,6 +170,7 @@ class LayerApi(s_cell.CellApi):
 
         Nodeedits will be flattened into splices before being yielded.
         '''
+        s_common.deprecated('splices')
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.splices(offs=offs, size=size):
             yield item
@@ -3260,6 +3261,7 @@ class Layer(s_nexus.Pusher):
 
         Nodeedits will be flattened into splices before being yielded.
         '''
+        s_common.deprecated('splices')
         if not self.logedits:
             return
 
@@ -3291,6 +3293,7 @@ class Layer(s_nexus.Pusher):
 
     async def splicesBack(self, offs=None, size=None):
 
+        s_common.deprecated('splicesBack')
         if not self.logedits:
             return
 

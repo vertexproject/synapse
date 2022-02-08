@@ -135,6 +135,21 @@ class AhaCell(s_cell.Cell):
     async def initServiceRuntime(self):
         self.addActiveCoro(self._clearInactiveSessions)
 
+        if self.isactive:
+            # bootstrap a CA for our aha:network
+            netw = self.conf.get('aha:network')
+            if netw is not None:
+
+                await self.genCaCert(netw)
+
+                host = self.conf.get('aha:name')
+                if host is not None:
+                    await self._genHostCert(host, signas=netw)
+
+                user = self.conf.get('aha:admin')
+                if user is not None:
+                    await self._genUserCert(user, signas=netw)
+
     async def _clearInactiveSessions(self):
 
         async for svc in self.getAhaSvcs():
@@ -265,6 +280,24 @@ class AhaCell(s_cell.Cell):
 
         return cacert
 
+    async def _genHostCert(self, hostname, signas=None):
+
+        if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', '{hostname}.crt')):
+            return
+
+        pkey, cert = await s_coro.executor(self.certdir.genHostCert, hostname, signas=signas, save=False)
+        pkey = self.certdir._pkeyToByts(pkey).decode()
+        cert = self.certdir._certToByts(cert).decode()
+        await self.saveHostCert(hostname, pkey, cert)
+
+    async def _genUserCert(self, username, signas=None):
+        if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', '{username}.crt')):
+            return
+        pkey, cert = await s_coro.executor(self.certdir.genUserCert, username, signas=signas, save=False)
+        pkey = self.certdir._pkeyToByts(pkey).decode()
+        cert = self.certdir._certToByts(cert).decode()
+        await self.saveUserCert(username, pkey, cert)
+
     async def getCaCert(self, network):
 
         path = self.certdir.getCaCertPath(network)
@@ -276,11 +309,26 @@ class AhaCell(s_cell.Cell):
 
     @s_nexus.Pusher.onPushAuto('aha:ca:save')
     async def saveCaCert(self, name, cakey, cacert):
-        # manually save the files to a certpath compatible location
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.key') as fd:
             fd.write(cakey.encode())
         with s_common.genfile(self.dirn, 'certs', 'cas', f'{name}.crt') as fd:
             fd.write(cacert.encode())
+
+    @s_nexus.Pusher.onPushAuto('aha:host:save')
+    async def saveHostCert(self, name, hostkey, hostcert):
+        with s_common.genfile(self.dirn, 'certs', 'hosts', f'{name}.key') as fd:
+            fd.write(hostkey.encode())
+
+        with s_common.genfile(self.dirn, 'certs', 'hosts', f'{name}.crt') as fd:
+            fd.write(hostcert.encode())
+
+    @s_nexus.Pusher.onPushAuto('aha:user:save')
+    async def saveUserCert(self, name, userkey, usercert):
+        with s_common.genfile(self.dirn, 'certs', 'users', f'{name}.key') as fd:
+            fd.write(userkey.encode())
+
+        with s_common.genfile(self.dirn, 'certs', 'users', f'{name}.crt') as fd:
+            fd.write(usercert.encode())
 
     async def signHostCsr(self, csrtext, signas=None, sans=None):
         xcsr = self.certdir._loadCsrByts(csrtext.encode())
