@@ -71,16 +71,8 @@ class Node:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
             raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'addEdge() got an invalid node iden: {n2iden}'
-            raise s_exc.BadArg(mesg=mesg)
-
-        nodeedits = (
-            (self.buid, self.form.name, (
-                (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
-            )),
-        )
-        await self.snap.applyNodeEdits(nodeedits)
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.addEdge(verb, n2iden)
 
     async def delEdge(self, verb, n2iden):
 

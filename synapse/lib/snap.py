@@ -108,9 +108,26 @@ class ProtoNode:
         return (self.buid, self.form.name, edits)
 
     async def addEdge(self, verb, n2iden):
+
+        if not isinstance(verb, str):
+            mesg = f'addEdge() got an invalid type for verb: {verb}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        if not isinstance(n2iden, str):
+            mesg = f'addEdge() got an invalid type for n2iden: {n2iden}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
+        if not s_common.isbuidhex(n2iden):
+            mesg = f'addEdge() got an invalid node iden: {n2iden}'
+            await self.ctx.snap._raiseOnStrict(s_exc.BadArg, mesg)
+            return False
+
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edges.add((verb, n2iden))
             return True
+
         return False
 
     async def getData(self, name):
@@ -1236,15 +1253,6 @@ class Snap(s_base.Base):
                         continue
 
                     n2iden = n2proto.iden()
-
-                if not isinstance(verb, str):
-                    continue
-
-                if not isinstance(n2iden, str):
-                    continue
-
-                if not s_common.isbuidhex(n2iden):
-                    continue
 
                 await protonode.addEdge(verb, n2iden)
 
