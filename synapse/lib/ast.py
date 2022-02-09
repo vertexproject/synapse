@@ -2942,13 +2942,13 @@ class ExprDict(Value):
     async def compute(self, runt, path):
 
         if self.const is not None:
-            return s_msgpack.un(self.const)
+            return s_stormtypes.Dict(s_msgpack.un(self.const))
 
         valu = {}
         for i in range(0, len(self.kids), 2):
             valu[await self.kids[i].compute(runt, path)] = await self.kids[i + 1].compute(runt, path)
 
-        return valu
+        return s_stormtypes.Dict(valu)
 
 class ExprList(Value):
 
