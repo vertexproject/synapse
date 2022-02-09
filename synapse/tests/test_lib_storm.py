@@ -20,6 +20,23 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_jsonexpr(self):
+        async with self.getTestCore() as core:
+
+            # test a pure const for the msgpack optimization
+            retn = await core.callStorm('return((["foo"]))')
+            self.eq(retn, ('foo',))
+
+            # test a dynamic multi-entry list
+            retn = await core.callStorm('$foo = "foo" return(([$foo, $foo, $foo]))')
+            self.eq(retn, ('foo', 'foo', 'foo'))
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('$foo=foo $bar=bar return(({$foo: $bar, "baz": 10}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""

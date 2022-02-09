@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -2927,6 +2928,39 @@ class Const(Value):
 
     async def compute(self, runt, path):
         return self.valu
+
+class ExprDict(Value):
+
+    def prepare(self):
+        self.const = None
+        if all(isinstance(k, Const) for k in self.kids):
+            valu = {}
+            for i in range(0, len(self.kids), 2):
+                valu[self.kids[i].value()] = self.kids[i + 1].value()
+            self.const = s_msgpack.en(valu)
+
+    async def compute(self, runt, path):
+
+        if self.const is not None:
+            return s_msgpack.un(self.const)
+
+        valu = {}
+        for i in range(0, len(self.kids), 2):
+            valu[await self.kids[i].compute(runt, path)] = await self.kids[i + 1].compute(runt, path)
+
+        return valu
+
+class ExprList(Value):
+
+    def prepare(self):
+        self.const = None
+        if all(isinstance(k, Const) for k in self.kids):
+            self.const = s_msgpack.en([k.value() for k in self.kids])
+
+    async def compute(self, runt, path):
+        if self.const is not None:
+            return s_msgpack.un(self.const)
+        return [await v.compute(runt, path) for v in self.kids]
 
 class VarList(Const):
     pass
