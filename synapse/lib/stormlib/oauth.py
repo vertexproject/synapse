@@ -9,7 +9,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class OAuthV1Lib(s_stormtypes.Lib):
     '''
-    A Storm library to handle oauth v1 authentication
+    A Storm library to handle oauth v1 authentication.
     '''
     _storm_locals = (
         {
@@ -55,7 +55,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
 @s_stormtypes.registry.registerType
 class OAuthV1Client(s_stormtypes.StormType):
     '''
-    A client for doing OAuth Authentication from Storm
+    A client for doing OAuth Authentication from Storm.
     '''
     _storm_locals = (
         {
