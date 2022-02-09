@@ -3528,16 +3528,19 @@ class EditTagDel(Edit):
 
             name = await self.kids[0].compute(runt, path)
 
-            normtupl = await runt.snap.getTagNorm(name)
-            if normtupl is None:
-                continue
+            # special case for backward compatibility
+            if name:
 
-            name, info = normtupl
-            parts = name.split('.')
+                normtupl = await runt.snap.getTagNorm(name)
+                if normtupl is None:
+                    continue
 
-            runt.layerConfirm(('node', 'tag', 'del', *parts))
+                name, info = normtupl
+                parts = name.split('.')
 
-            await node.delTag(name)
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
+
+                await node.delTag(name)
 
             yield node, path
 

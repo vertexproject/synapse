@@ -409,6 +409,8 @@ class Snap(s_base.Base):
     ('log', {'level': 'mesg': })
     ('print', {}),
     '''
+    tagcachesize = 1000
+    buidcachesize = 100000
 
     async def __anit__(self, view, user):
         '''
@@ -443,10 +445,10 @@ class Snap(s_base.Base):
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
 
-        self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=1000)
-        self.tagcache = s_cache.FixedCache(self._getTagNode, size=1000)
+        self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=self.tagcachesize)
+        self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
         # Keeps alive the most recently accessed node objects
-        self.buidcache = collections.deque(maxlen=100000)
+        self.buidcache = collections.deque(maxlen=self.buidcachesize)
         self.livenodes = weakref.WeakValueDictionary()  # buid -> Node
         self._warnonce_keys = set()
 
