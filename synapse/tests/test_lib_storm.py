@@ -37,6 +37,20 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('$foo=foo $bar=bar return(({$foo: $bar, "baz": 10}))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            retn = await core.callStorm('''
+                $list = (["foo"])
+                $list.append(bar)
+                return($list)
+            ''')
+            self.eq(retn, ('foo', 'bar'))
+
+            retn = await core.callStorm('''
+                $dict = ({"foo": "bar"})
+                $dict.baz = (10)
+                return($dict)
+            ''')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""
