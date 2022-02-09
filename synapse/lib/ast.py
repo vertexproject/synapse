@@ -2959,8 +2959,8 @@ class ExprList(Value):
 
     async def compute(self, runt, path):
         if self.const is not None:
-            return s_msgpack.un(self.const)
-        return [await v.compute(runt, path) for v in self.kids]
+            return s_stormtypes.List(s_msgpack.un(self.const))
+        return s_stormtypes.List([await v.compute(runt, path) for v in self.kids])
 
 class VarList(Const):
     pass
