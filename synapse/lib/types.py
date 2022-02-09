@@ -515,7 +515,10 @@ class Comp(Type):
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
 
-            # TODO is providing adds here necessary?
+            typeform = self.modl.form(_type.name)
+            if typeform is not None:
+                adds.append((typeform.name, norm, info))
+
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
