@@ -514,6 +514,7 @@ class Comp(Type):
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
+
             # TODO is providing adds here necessary?
             adds.extend(info.get('adds', ()))
 

@@ -196,7 +196,7 @@ class ProtoNode:
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
-            return cuv
+            return curv
 
         if self.node is not None:
             return self.node.getTagProp(tag, name)
@@ -370,6 +370,11 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             [await protonode.set(p, v) for (p, v) in subs.items()]
+
+        adds = norminfo.get('adds')
+        if adds is not None:
+            for addname, addvalu, addinfo in adds:
+                await self.addNode(addname, addvalu, norminfo=addinfo)
 
         return protonode
 
