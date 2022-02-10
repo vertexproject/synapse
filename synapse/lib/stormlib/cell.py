@@ -86,7 +86,7 @@ def getMaxHotFixes():
 @s_stormtypes.registry.registerLib
 class CellLib(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with a Cell.
+    A Storm Library for interacting with the Cortex.
     '''
     _storm_locals = (
         {'name': 'getCellInfo', 'desc': 'Return metadata specific for the Cortex.',
