@@ -1468,9 +1468,7 @@ class Layer(s_nexus.Pusher):
         autofix = scanconf.get('autofix')
         include = scanconf.get('include', None)
 
-        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
-
-            form, tag, prop = s_msgpack.un(byts)
+        for form, tag, prop in self.getTagProps():
 
             if include is not None and prop not in include:
                 continue
@@ -2179,6 +2177,10 @@ class Layer(s_nexus.Pusher):
 
     def getFormProps(self):
         for byts in self.propabrv.keys():
+            yield s_msgpack.un(byts)
+
+    def getTagProps(self):
+        for byts in self.tagpropabrv.keys():
             yield s_msgpack.un(byts)
 
     @s_cache.memoizemethod()

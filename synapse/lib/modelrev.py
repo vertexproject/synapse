@@ -363,9 +363,7 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
-            for byts, abrv in layr.tagpropabrv.slab.scanByFull(db=layr.tagpropabrv.name2abrv):
-
-                form, tag, prop = s_msgpack.un(byts)
+            for form, tag, prop in layr.getTagProps():
 
                 if form is None or prop not in tagprops:
                     continue
