@@ -2389,8 +2389,7 @@ class Layer(s_nexus.Pusher):
 
     async def liftTagProp(self, name):
 
-        for byts, abrv in self.tagpropabrv.slab.scanByFull(db=self.tagpropabrv.name2abrv):
-            form, tag, prop = s_msgpack.un(byts)
+        for form, tag, prop in self.getTagProps():
 
             if form is not None or prop != name:
                 continue
