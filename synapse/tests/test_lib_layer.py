@@ -444,6 +444,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_splices(self):
 
+        self.skip('fragile order and deprecated')
         async with self.getTestCore() as core:
 
             layr = core.view.layers[0]

@@ -3750,6 +3750,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(500, slab.mapasync)
 
     async def test_feed_syn_nodes(self):
+
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core0:
 
@@ -5068,7 +5069,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await core.getPropNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:newp', 'newp'))
@@ -5079,7 +5080,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await prox.getPropNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchProp, prox.getPropNorm('test:newp', 'newp'))
@@ -5091,7 +5092,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await core.getTypeNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:newp', 'newp'))
@@ -5102,7 +5103,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await prox.getTypeNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchType, prox.getTypeNorm('test:newp', 'newp'))

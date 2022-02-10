@@ -1427,7 +1427,10 @@ class InetModelTest(s_t_utils.SynTest):
                               'site': 'vertex.link',
                               'site:host': 'vertex',
                               'site:domain': 'link', },
-                     'adds': []}
+                     'adds': (
+                        ('inet:fqdn', 'vertex.link', {'subs': {'domain': 'link', 'host': 'vertex'}}),
+                        ('inet:user', 'person1', {}),
+                    )}
             self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
 
             # Form Tests

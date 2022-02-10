@@ -1537,7 +1537,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return retn
 
-    async def isTagValid(self, tagname):
+    def isTagValid(self, tagname):
         '''
         Check if a tag name is valid according to tag model regular expressions.
 
@@ -3811,6 +3811,16 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layr.initLayerPassive()
 
         return await layr.pack()
+
+    def _checkMaxNodes(self, delta=1):
+
+        if self.maxnodes is None:
+            return
+
+        remain = self.maxnodes - self.nodecount
+        if remain < delta:
+            mesg = f'Cortex is at node:count limit: {self.maxnodes}'
+            raise s_exc.HitLimit(mesg=mesg)
 
     async def _initLayr(self, layrinfo, nexsoffs=None):
         '''
