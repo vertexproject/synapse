@@ -212,4 +212,19 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
 
             nodes = await core.nodes('inet:fqdn:_huge')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value=0.000000000000003')
+            self.len(1, nodes)
+
+            nodes = await core.nodes("inet:fqdn:_huge:array*[=0.000000000000001]")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("#test:cool:huge=0.000000000000005", opts=opts)
+            self.len(3, nodes)
+
+            nodes = await core.nodes("#test:cool:huge=0.000000000000005")
+            self.len(2, nodes)
+
+            nodes = await core.nodes("#test:cool:comp")
             self.len(2, nodes)

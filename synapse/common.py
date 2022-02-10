@@ -170,6 +170,12 @@ def hugeadd(x, y):
     '''
     return hugectx.add(x, y)
 
+def hugesub(x, y):
+    '''
+    Subtract two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.sub(x, y)
+
 def vertup(vstr):
     '''
     Convert a version string to a tuple.

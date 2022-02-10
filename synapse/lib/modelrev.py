@@ -5,6 +5,7 @@ import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -310,6 +311,86 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
+    async def updateProps(self, props, layers, skip=None):
+
+        for prop in props:
+            ptyp = self.core.model.props[prop]
+            form = ptyp.form
+
+            if form:
+                form = form.name
+            if skip is not None and (form and form in skip):
+                continue
+
+            pname = ptyp.name
+            stortype = ptyp.type.stortype
+
+            for layr in layers:
+
+                nodeedits = []
+                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+                async def save():
+                    await layr.storNodeEdits(nodeedits, meta)
+                    nodeedits.clear()
+
+                async for buid, propvalu in layr.iterPropRows(form, pname):
+
+                    newval = ptyp.type.norm(propvalu)[0]
+                    if newval == propvalu:
+                        continue
+
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                if nodeedits:
+                    await save()
+
+    async def updateTagProps(self, tagprops, layers):
+
+        for layr in layers:
+
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for byts, abrv in layr.tagpropabrv.slab.scanByFull(db=layr.tagpropabrv.name2abrv):
+
+                form, tag, prop = s_msgpack.un(byts)
+
+                if form is None or prop not in tagprops:
+                    continue
+
+                tptyp = self.core.model.tagprops[prop]
+                stortype = tptyp.type.stortype
+
+                async for buid, valu in layr.iterTagPropRows(tag, prop, form=form):
+
+                    newval = tptyp.type.norm(valu)[0]
+                    if newval == valu:
+                        continue
+
+                    nodeedits.append(
+                        (buid, form, (
+                            (s_layer.EDIT_TAGPROP_SET, (tag, prop, newval, None, stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+            if nodeedits:
+                await save()
+
     async def revModel20220202(self, layers):
 
         (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
@@ -441,81 +522,30 @@ class ModelRev:
                         edits['dels'].clear()
                         edits['n2edges'].clear()
 
-        for prop in props:
+        await self.updateProps(props, layers, skip=forms)
 
+        fixprops = {'include': [], 'autofix': 'index'}
+        for form in forms:
+            fixprops['include'].append((form, None))
+
+        for prop in props:
             ptyp = self.core.model.props[prop]
             form = ptyp.form
 
             if form:
                 form = form.name
-            if form and form in forms:
-                continue
+            fixprops['include'].append((form, ptyp.name))
 
-            pname = ptyp.name
-            stortype = ptyp.type.stortype
+        for layr in layers:
+            async for mesg in layr.verifyAllProps(scanconf=fixprops):
+                pass
 
-            for layr in layers:
+        await self.updateTagProps(tagprops, layers)
 
-                nodeedits = []
-                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-                async def save():
-                    await layr.storNodeEdits(nodeedits, meta)
-                    nodeedits.clear()
-
-                async for buid, propvalu in layr.iterPropRows(form, pname):
-
-                    newval = ptyp.type.norm(propvalu)[0]
-
-                    if newval == propvalu:
-                        continue
-
-                    nodeedits.append(
-                        (buid, form, (
-                            (s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()),
-                        )),
-                    )
-
-                    if len(nodeedits) >= 1000:
-                        await save()
-
-                if nodeedits:
-                    await save()
-
-        for tagprop in tagprops:
-
-            tptyp = self.core.model.tagprops[tagprop]
-            stortype = tptyp.type.stortype
-
-            for layr in layers:
-
-                nodeedits = []
-                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
-
-                async def save():
-                    await layr.storNodeEdits(nodeedits, meta)
-                    nodeedits.clear()
-
-                async for _, tag in layr.iterFormRows('syn:tag'):
-
-                    async for buid, tpvalu in layr.iterTagPropRows(tag, tagprop):
-
-                        newval = tptyp.type.norm(tpvalu)[0]
-
-                        if newval == tpvalu:
-                            continue
-
-                        nodeedits.append(
-                            (buid, form, (
-                                (s_layer.EDIT_TAGPROP_SET, (tag, tagprop, newval, None, stortype), ()),
-                            )),
-                        )
-
-                    if len(nodeedits) >= 1000:
-                        await save()
-
-                if nodeedits:
-                    await save()
+        fixprops = {'include': tagprops, 'autofix': 'index'}
+        for layr in layers:
+            async for mesg in layr.verifyAllTagProps(scanconf=fixprops):
+                pass
 
     async def revCoreLayers(self):
 
