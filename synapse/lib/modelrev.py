@@ -393,10 +393,24 @@ class ModelRev:
 
         (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
 
+        cnt = 0
         layrmap = {layr.iden: layr for layr in layers}
         nodeedits = {layr.iden: {'adds': [], 'dels': [], 'n2edges': []} for layr in layers}
-
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        async def save(buid, newbuid):
+            cnt = 0
+            for layriden, edits in nodeedits.items():
+                if edits['adds']:
+                    nedits = [
+                        (newbuid, form, edits['adds']),
+                        (buid, form, edits['dels']),
+                    ]
+                    await layrmap[layriden].storNodeEdits(nedits, meta)
+                    await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
+                    edits['adds'].clear()
+                    edits['dels'].clear()
+                    edits['n2edges'].clear()
 
         for form in forms:
 
@@ -421,40 +435,6 @@ class ModelRev:
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)
 
-                for layr in layers:
-                    async for (verb, n2iden) in layr.iterNodeEdgesN1(buid):
-                        nodeedits[layr.iden]['adds'].append(
-                            (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
-                        )
-                        nodeedits[layr.iden]['dels'].append(
-                            (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
-                        )
-
-                    async for (verb, n1iden) in layr.iterNodeEdgesN2(buid):
-                        n1buid = s_common.uhex(n1iden)
-                        n2sodes = await self.core._getStorNodes(n1buid, layers)
-                        n1form = None
-
-                        for s2 in n2sodes:
-                            n1form = s2.get('form')
-                            if n1form is not None:
-                                break
-
-                        nodeedits[layr.iden]['n2edges'].append(
-                            (n1buid, n1form, (
-                                (s_layer.EDIT_EDGE_ADD, (verb, newiden), ()),
-                                (s_layer.EDIT_EDGE_DEL, (verb, iden), ()),
-                            )),
-                        )
-
-                    async for (name, nvalu) in layr.iterNodeData(buid):
-                        nodeedits[layr.iden]['adds'].append(
-                            (s_layer.EDIT_NODEDATA_SET, (name, nvalu, None), ()),
-                        )
-                        nodeedits[layr.iden]['dels'].append(
-                            (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
-                        )
-
                 for layriden, sode in sodes:
 
                     if 'valu' in sode:
@@ -464,6 +444,9 @@ class ModelRev:
                         nodeedits[layriden]['dels'].append(
                             (s_layer.EDIT_NODE_DEL, (valu[0], stortype), ()),
                         )
+                        cnt += 2
+                        if cnt >= 1000:
+                            await save(buid, newbuid)
 
                     for prop, (pval, ptyp) in sode.get('props', {}).items():
                         if prop.startswith('.') and prop in props:
@@ -484,6 +467,9 @@ class ModelRev:
                         nodeedits[layriden]['dels'].append(
                             (s_layer.EDIT_PROP_DEL, (prop, pval, ptyp), ()),
                         )
+                        cnt += 2
+                        if cnt >= 1000:
+                            await save(buid, newbuid)
 
                     for tag, tval in sode.get('tags', {}).items():
                         nodeedits[layriden]['adds'].append(
@@ -492,6 +478,9 @@ class ModelRev:
                         nodeedits[layriden]['dels'].append(
                             (s_layer.EDIT_TAG_DEL, (tag, tval), ()),
                         )
+                        cnt += 2
+                        if cnt >= 1000:
+                            await save(buid, newbuid)
 
                     for tag, tprops in sode.get('tagprops', {}).items():
                         for tprop, (tpval, tptyp) in tprops.items():
@@ -507,20 +496,57 @@ class ModelRev:
                             nodeedits[layriden]['dels'].append(
                                 (s_layer.EDIT_TAGPROP_DEL, (tag, tprop, newval, tptyp), ()),
                             )
+                            cnt += 2
+                            if cnt >= 1000:
+                                await save(buid, newbuid)
 
-                for layriden, edits in nodeedits.items():
-                    if edits['adds']:
-                        nedits = [
-                            (newbuid, form, edits['adds']),
-                            (buid, form, edits['dels']),
-                        ]
-                        await layrmap[layriden].storNodeEdits(nedits, meta)
-                        await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
-                        edits['adds'].clear()
-                        edits['dels'].clear()
-                        edits['n2edges'].clear()
+                for layr in layers:
+                    async for (verb, n2iden) in layr.iterNodeEdgesN1(buid):
+                        nodeedits[layr.iden]['adds'].append(
+                            (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
+                        )
+                        nodeedits[layr.iden]['dels'].append(
+                            (s_layer.EDIT_EDGE_DEL, (verb, n2iden), ()),
+                        )
+                        cnt += 2
+                        if cnt >= 1000:
+                            await save(buid, newbuid)
+
+                    async for (verb, n1iden) in layr.iterNodeEdgesN2(buid):
+                        n1buid = s_common.uhex(n1iden)
+                        n2sodes = await self.core._getStorNodes(n1buid, layers)
+                        n1form = None
+
+                        for s2 in n2sodes:
+                            n1form = s2.get('form')
+                            if n1form is not None:
+                                break
+
+                        nodeedits[layr.iden]['n2edges'].append(
+                            (n1buid, n1form, (
+                                (s_layer.EDIT_EDGE_ADD, (verb, newiden), ()),
+                                (s_layer.EDIT_EDGE_DEL, (verb, iden), ()),
+                            )),
+                        )
+                        cnt += 2
+                        if cnt >= 1000:
+                            await save(buid, newbuid)
+
+                    async for (name, nvalu) in layr.iterNodeData(buid):
+                        nodeedits[layr.iden]['adds'].append(
+                            (s_layer.EDIT_NODEDATA_SET, (name, nvalu, None), ()),
+                        )
+                        nodeedits[layr.iden]['dels'].append(
+                            (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
+                        )
+                        cnt += 2
+                        if cnt >= 1000:
+                            await save(buid, newbuid)
+
+                await save(buid, newbuid)
 
         await self.updateProps(props, layers, skip=forms)
+        await self.updateTagProps(tagprops, layers)
 
         fixprops = {'include': [], 'autofix': 'index'}
         for form in forms:
@@ -534,15 +560,12 @@ class ModelRev:
                 form = form.name
             fixprops['include'].append((form, ptyp.name))
 
+        fixtagprops = {'include': tagprops, 'autofix': 'index'}
+
         for layr in layers:
             async for mesg in layr.verifyAllProps(scanconf=fixprops):
                 pass
-
-        await self.updateTagProps(tagprops, layers)
-
-        fixprops = {'include': tagprops, 'autofix': 'index'}
-        for layr in layers:
-            async for mesg in layr.verifyAllTagProps(scanconf=fixprops):
+            async for mesg in layr.verifyAllTagProps(scanconf=fixtagprops):
                 pass
 
     async def revCoreLayers(self):

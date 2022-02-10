@@ -174,7 +174,7 @@ def hugesub(x, y):
     '''
     Subtract two decimal.Decimal with proper precision to support synapse hugenums.
     '''
-    return hugectx.sub(x, y)
+    return hugectx.subtract(x, y)
 
 def vertup(vstr):
     '''
