@@ -5,6 +5,36 @@ Synapse Changelog
 *****************
 
 
+v2.82.0 - 2022-02-10
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``addNode()`` API to the Stormtupes ``storm:view`` object. This
+  allows the programatic creation of a node with properties being set in
+  a transactional fashion.
+  (`#2540 <https://github.com/vertexproject/synapse/pull/2540>`_)
+- Add support to Storm for creating JSON style list and dictionary objects.
+  (`#2544 <https://github.com/vertexproject/synapse/pull/2544>`_)
+- The ``AhaCell`` now bootstraps TLS CA certificates for the configured
+  ``aha:network`` value, a host certificate for the ``aha:name`` value,
+  and a user certificate for the ``aha:admin`` value.
+  (`#2542 <https://github.com/vertexproject/synapse/pull/2542>`_)
+- Add ``mesg`` arguments to all exceptions raised in ``synapse.lib.certdir``.
+  (`#2546 <https://github.com/vertexproject/synapse/pull/2546>`_)
+
+Documentation
+-------------
+- Fix some missing and incorrect docstrings for Stormtypes.
+  (`#2545 <https://github.com/vertexproject/synapse/pull/2545>`_)
+
+Deprecations
+------------
+- Telepath APIs and Storm commands related to ``splices`` have been marked as
+  deprecated.
+  (`#2541 <https://github.com/vertexproject/synapse/pull/2541>`_)
+
+
 v2.81.0 - 2022-01-31
 ====================
 
