@@ -682,7 +682,7 @@ class CertDir:
             None
         '''
         if not os.path.isfile(path):
-            raise s_exc.NoSuchFile(mesg='File does not exist', path=path)
+            raise s_exc.NoSuchFile(mesg=f'File {path} does not exist', path=path)
 
         fname = os.path.split(path)[1]
         parts = fname.rsplit('.', 1)
@@ -694,7 +694,7 @@ class CertDir:
 
         newpath = s_common.genpath(self.certdirs[0], mode, fname)
         if os.path.isfile(newpath):
-            raise s_exc.FileExists('File already exists')
+            raise s_exc.FileExists(mesg=f'File {newpath} already exists', path=path)
 
         shutil.copy(path, newpath)
         if outp is not None:
@@ -787,10 +787,10 @@ class CertDir:
         '''
         cakey = self.getCaKey(signas)
         if cakey is None:
-            raise s_exc.NoCertKey('Missing .key for %s' % signas)
+            raise s_exc.NoCertKey(mesg=f'Missing .key for {signas}')
         cacert = self.getCaCert(signas)
         if cacert is None:
-            raise s_exc.NoCertKey('Missing .crt for %s' % signas)
+            raise s_exc.NoCertKey(mesg=f'Missing .crt for {signas}')
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, self.signing_digest)
@@ -975,7 +975,7 @@ class CertDir:
 
     def _checkDupFile(self, path):
         if os.path.isfile(path):
-            raise s_exc.DupFileName(path=path)
+            raise s_exc.DupFileName(mesg=f'Duplicate file {path}', path=path)
 
     def _genBasePkeyCert(self, name, pkey=None):
 
