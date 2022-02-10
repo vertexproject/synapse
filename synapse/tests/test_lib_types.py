@@ -682,7 +682,7 @@ class TypesTest(s_t_utils.SynTest):
 
         norm, info = t.norm(('test:str', 'Foobar!'))
         self.eq(norm, ('test:str', 'Foobar!'))
-        self.eq(info, {'adds': (('test:str', 'Foobar!'),),
+        self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
                        'subs': {'form': 'test:str'}})
 
         rval = t.repr(('test:str', 'Foobar!'))

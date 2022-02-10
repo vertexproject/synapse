@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -2928,6 +2929,39 @@ class Const(Value):
     async def compute(self, runt, path):
         return self.valu
 
+class ExprDict(Value):
+
+    def prepare(self):
+        self.const = None
+        if all(isinstance(k, Const) for k in self.kids):
+            valu = {}
+            for i in range(0, len(self.kids), 2):
+                valu[self.kids[i].value()] = self.kids[i + 1].value()
+            self.const = s_msgpack.en(valu)
+
+    async def compute(self, runt, path):
+
+        if self.const is not None:
+            return s_stormtypes.Dict(s_msgpack.un(self.const))
+
+        valu = {}
+        for i in range(0, len(self.kids), 2):
+            valu[await self.kids[i].compute(runt, path)] = await self.kids[i + 1].compute(runt, path)
+
+        return s_stormtypes.Dict(valu)
+
+class ExprList(Value):
+
+    def prepare(self):
+        self.const = None
+        if all(isinstance(k, Const) for k in self.kids):
+            self.const = s_msgpack.en([k.value() for k in self.kids])
+
+    async def compute(self, runt, path):
+        if self.const is not None:
+            return s_stormtypes.List(list(s_msgpack.un(self.const)))
+        return s_stormtypes.List([await v.compute(runt, path) for v in self.kids])
+
 class VarList(Const):
     pass
 
@@ -3479,7 +3513,7 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
 
         hasval = len(self.kids) > 1 + oper_offset
 
@@ -3492,14 +3526,23 @@ class EditTagAdd(Edit):
                 names = [names]
 
             for name in names:
-                parts = name.split('.')
 
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                if isinstance(name, list):
+                    name = tuple(name)
 
-                if hasval:
-                    valu = await self.kids[1 + oper_offset].compute(runt, path)
-                    valu = await s_stormtypes.toprim(valu)
                 try:
+                    normtupl = await runt.snap.getTagNorm(name)
+                    if normtupl is None:
+                        continue
+
+                    name, info = normtupl
+                    parts = name.split('.')
+
+                    runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+                    if hasval:
+                        valu = await self.kids[1 + oper_offset].compute(runt, path)
+                        valu = await s_stormtypes.toprim(valu)
                     await node.addTag(name, valu=valu)
                 except excignore:
                     pass
@@ -3518,11 +3561,20 @@ class EditTagDel(Edit):
         async for node, path in genr:
 
             name = await self.kids[0].compute(runt, path)
-            parts = name.split('.')
 
-            runt.layerConfirm(('node', 'tag', 'del', *parts))
+            # special case for backward compatibility
+            if name:
 
-            await node.delTag(name)
+                normtupl = await runt.snap.getTagNorm(name)
+                if normtupl is None:
+                    continue
+
+                name, info = normtupl
+                parts = name.split('.')
+
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
+
+                await node.delTag(name)
 
             yield node, path
 
@@ -3547,6 +3599,11 @@ class EditTagPropSet(Edit):
             valu = await self.kids[2].compute(runt, path)
             valu = await s_stormtypes.toprim(valu)
 
+            normtupl = await runt.snap.getTagNorm(tag)
+            if normtupl is None:
+                continue
+
+            tag, info = normtupl
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
@@ -3575,6 +3632,12 @@ class EditTagPropDel(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(runt, path)
+
+            normtupl = await runt.snap.getTagNorm(tag)
+            if normtupl is None:
+                continue
+
+            tag, info = normtupl
 
             tagparts = tag.split('.')
 

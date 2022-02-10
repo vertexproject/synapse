@@ -5841,6 +5841,14 @@ class View(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
+        {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation fails, no changes are made.''',
+         'type': {'type': 'function', '_funcname': 'addNode',
+                  'args': (
+                      {'name': 'form', 'type': 'str', 'desc': 'The form name.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
+                      {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'The node which may have been just constructed.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -5888,11 +5896,29 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'addNode': self.addNode,
             'getEdges': self._methGetEdges,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def addNode(self, form, valu, props=None):
+        form = await tostr(form)
+        valu = await toprim(valu)
+        props = await toprim(props)
+
+        viewiden = self.valu.get('iden')
+
+        view = self.runt.snap.core.getView(viewiden)
+
+        self.runt.layerConfirm(('node', 'add', form))
+
+        for propname in props.keys():
+            fullname = f'{form}:{propname}'
+            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
+
+        return await self.runt.snap.addNode(form, valu, props=props)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
