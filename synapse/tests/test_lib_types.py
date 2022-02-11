@@ -875,6 +875,9 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ttime = model.types.get('time')
 
+        with self.raises(s_exc.BadTypeValu):
+            ttime.norm('0000-00-00')
+
         self.gt(s_common.now(), ttime.norm('-1hour')[0])
 
         tminmax = ttime.clone({'min': True, 'max': True})

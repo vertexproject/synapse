@@ -27,30 +27,34 @@ def _rawparse(text, base=None, chop=False):
         text = text[:17]
 
     tlen = len(text)
-    if tlen == 4:
-        dt = datetime.datetime.strptime(text, '%Y')
 
-    elif tlen == 6:
-        dt = datetime.datetime.strptime(text, '%Y%m')
+    try:
+        if tlen == 4:
+            dt = datetime.datetime.strptime(text, '%Y')
 
-    elif tlen == 8:
-        dt = datetime.datetime.strptime(text, '%Y%m%d')
+        elif tlen == 6:
+            dt = datetime.datetime.strptime(text, '%Y%m')
 
-    elif tlen == 10:
-        dt = datetime.datetime.strptime(text, '%Y%m%d%H')
+        elif tlen == 8:
+            dt = datetime.datetime.strptime(text, '%Y%m%d')
 
-    elif tlen == 12:
-        dt = datetime.datetime.strptime(text, '%Y%m%d%H%M')
+        elif tlen == 10:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H')
 
-    elif tlen == 14:
-        dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
+        elif tlen == 12:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M')
 
-    elif 15 <= tlen <= 20:
-        dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
+        elif tlen == 14:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S')
 
-    else:
-        raise s_exc.BadTypeValu(valu=text, name='time',
-                                mesg='Unknown time format')
+        elif 15 <= tlen <= 20:
+            dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
+
+        else:
+            raise s_exc.BadTypeValu(valu=text, name='time',
+                                    mesg='Unknown time format')
+    except ValueError as e:
+        raise s_exc.BadTypeValu(mesg=str(e))
 
     return dt, base, tlen
 
