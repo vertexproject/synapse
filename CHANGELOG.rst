@@ -10,9 +10,8 @@ v2.82.1 - 2022-02-11
 
 Bugfixes
 --------
-- Correct an issue with property setting and read-only checks which was
-  accidentally changed during the refactor to support transactional node
-  creation.
+- Re-order node edit validation to only check read-only status of properties
+  if the value would change.
   (`#2547 <https://github.com/vertexproject/synapse/pull/2547>`_)
 - Raise the correct exception when parsing invalid time values, like
   ``0000-00-00``.
