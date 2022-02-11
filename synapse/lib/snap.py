@@ -290,6 +290,11 @@ class ProtoNode:
         if curv == valu:
             return False
 
+        if prop.info.get('ro') and curv is not None:
+            mesg = f'Property is read only: {prop.full}.'
+            await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
+            return False
+
         if self.node is not None:
             await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
 
