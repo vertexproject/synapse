@@ -5,6 +5,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.time as s_time
 import synapse.lib.const as s_const
+import synapse.lib.types as s_types
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -19,6 +20,26 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
+
+    def test_hugenum(self):
+
+        model = s_datamodel.Model()
+        huge = model.type('hugenum')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('170141183460469231731688')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('-170141183460469231731688')
+
+        self.eq('0.000000000000001', huge.norm('1E-15')[0])
+        self.eq('0.000000000000001', huge.norm('1.0E-15')[0])
+        self.eq('0.000000000000001', huge.norm('0.000000000000001')[0])
+
+        self.eq('0', huge.norm('1E-16')[0])
+        self.eq('0', huge.norm('5E-16')[0])
+        self.eq('0.000000000000001', huge.norm('6E-16')[0])
+        self.eq('1.000000000000002', huge.norm('1.0000000000000015')[0])
 
     def test_taxonomy(self):
 

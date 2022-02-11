@@ -796,7 +796,7 @@ class StorTypeHugeNum(StorType):
             'range=': self._liftHugeRange,
         })
 
-        self.one = s_common.hugenum(1)
+        self.one = s_common.hugenum('1E-15')
         self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffff)
 
         self.zerobyts = b'\x00' * 16
@@ -811,7 +811,9 @@ class StorTypeHugeNum(StorType):
         return (self.getHugeIndx(norm),)
 
     def decodeIndx(self, bytz):
-        return float(((int.from_bytes(bytz, 'big')) - self.offset) / 10 ** 15)
+        huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
+        valu = s_common.hugesub(huge, self.offset).scaleb(-15)
+        return '{:f}'.format(valu.normalize())
 
     async def _liftHugeEq(self, liftby, valu):
         byts = self.getHugeIndx(valu)
@@ -1369,6 +1371,11 @@ class Layer(s_nexus.Pusher):
         sode['props'].pop(prop, None)
         self.setSodeDirty(buid, sode, form)
 
+    def _testDelFormValuStor(self, buid, form):
+        sode = self._getStorNode(buid)
+        sode['valu'] = None
+        self.setSodeDirty(buid, sode, form)
+
     def _testAddPropIndx(self, buid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.setPropAbrv(form, prop)
@@ -1379,6 +1386,15 @@ class Layer(s_nexus.Pusher):
         formabrv = self.setPropAbrv(form, None)
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
+
+    def _testAddTagPropIndx(self, buid, form, tag, prop, valu):
+        tpabrv = self.setTagPropAbrv(None, tag, prop)
+        ftpabrv = self.setTagPropAbrv(form, tag, prop)
+
+        tagprop = self.core.model.tagprop(prop)
+        for indx in self.stortypes[tagprop.type.stortype].indx(valu):
+            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
+            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
 
     async def verify(self, config=None):
 
@@ -1501,11 +1517,6 @@ class Layer(s_nexus.Pusher):
                 continue
 
             tags = sode.get('tags')
-            if tags is None:
-                await tryfix(lkey, buid, form)
-                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
-                continue
-
             if tags.get(tag) is None:
                 await tryfix(lkey, buid, form)
                 yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
@@ -1545,7 +1556,7 @@ class Layer(s_nexus.Pusher):
             for indxkey in indxkeys:
                 indx = indxkey[len(abrv):]
                 await tryfix(indxkey, buid)
-                yield ('SpurPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                yield ('SpurPropKeyForIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
 
@@ -1571,11 +1582,6 @@ class Layer(s_nexus.Pusher):
 
                 if prop is not None:
                     props = sode.get('props')
-                    if props is None:
-                        await tryfix(lkey, buid)
-                        yield ('NoPropForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
-                        continue
-
                     oldvalu = props.get(prop)
                     if oldvalu is None:
                         await tryfix(lkey, buid)
@@ -1626,7 +1632,7 @@ class Layer(s_nexus.Pusher):
             for indxkey in indxkeys:
                 indx = indxkey[len(abrv):]
                 await tryfix(indxkey, buid)
-                yield ('SpurPropArrayKeyForIndx', {'buid': s_common.ehex(buid), 'form': form,
+                yield ('SpurPropArrayKeyForIndex', {'buid': s_common.ehex(buid), 'form': form,
                                                    'prop': prop, 'indx': indx})
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
@@ -1654,12 +1660,6 @@ class Layer(s_nexus.Pusher):
 
                 if prop is not None:
                     props = sode.get('props')
-                    if props is None:
-                        await tryfix(lkey, buid)
-                        yield ('NoPropForPropArrayIndex', {'buid': s_common.ehex(buid),
-                                                           'form': form, 'prop': prop, 'indx': indx})
-                        continue
-
                     oldvalu = props.get(prop)
                     if oldvalu is None:
                         await tryfix(lkey, buid)
@@ -1717,7 +1717,7 @@ class Layer(s_nexus.Pusher):
             for indxkey in indxkeys:
                 indx = indxkey[len(abrv):]
                 await tryfix(indxkey, buid)
-                yield ('SpurTagPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form,
+                yield ('SpurTagPropKeyForIndex', {'buid': s_common.ehex(buid), 'form': form,
                                                  'tag': tag, 'prop': prop, 'indx': indx})
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
@@ -1744,12 +1744,6 @@ class Layer(s_nexus.Pusher):
                 oldkeys.clear()
 
                 tags = sode.get('tagprops')
-                if tags is None:
-                    await tryfix(lkey, buid)
-                    yield ('NoTagForTagPropIndex', {'buid': s_common.ehex(buid), 'form': form,
-                                                     'tag': tag, 'prop': prop, 'indx': indx})
-                    continue
-
                 props = tags.get(tag)
                 if props is None:
                     await tryfix(lkey, buid)

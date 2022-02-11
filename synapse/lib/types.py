@@ -678,10 +678,6 @@ intstors = {
 hugemax = 170141183460469231731687
 class HugeNum(Type):
 
-    _opt_defs = (
-        ('norm', True),
-    )
-
     stortype = s_layer.STOR_TYPE_HUGENUM
 
     def __init__(self, modl, name, info, opts):
@@ -712,8 +708,7 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if self.opts.get('norm'):
-            return '{:f}'.format(huge.normalize()), {}
+        huge = round(huge, 15).normalize()
 
         return '{:f}'.format(huge), {}
 
