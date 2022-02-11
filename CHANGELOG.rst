@@ -5,6 +5,25 @@ Synapse Changelog
 *****************
 
 
+v2.82.1 - 2022-02-11
+====================
+
+Bugfixes
+--------
+- Correct an issue with property setting and read-only checks which was
+  accidentally changed during the refactor to support transactional node
+  creation.
+  (`#2547 <https://github.com/vertexproject/synapse/pull/2547>`_)
+- Raise the correct exception when parsing invalid time values, like
+  ``0000-00-00``.
+  (`#2548 <https://github.com/vertexproject/synapse/pull/2548>`_)
+- Disable the ``Snap.buidcache`` for ``StormDmon`` use. The combination of the
+  cache and a ``StormDmon`` potentially having a long lived ``Snap`` could
+  cause potentially unseen cache coherency issues which could go unnoticed
+  by ``StormDmon`` authors.
+  (`#2549 <https://github.com/vertexproject/synapse/pull/2549>`_)
+
+
 v2.82.0 - 2022-02-10
 ====================
 
