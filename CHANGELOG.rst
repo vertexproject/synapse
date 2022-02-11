@@ -16,10 +16,8 @@ Bugfixes
 - Raise the correct exception when parsing invalid time values, like
   ``0000-00-00``.
   (`#2548 <https://github.com/vertexproject/synapse/pull/2548>`_)
-- Disable the ``Snap.buidcache`` for ``StormDmon`` use. The combination of the
-  cache and a ``StormDmon`` potentially having a long lived ``Snap`` could
-  cause potentially unseen cache coherency issues which could go unnoticed
-  by ``StormDmon`` authors.
+- Disable node caching for ``StormDmon`` runtimes to avoid potential
+  cache coherency issues.
   (`#2549 <https://github.com/vertexproject/synapse/pull/2549>`_)
 
 
