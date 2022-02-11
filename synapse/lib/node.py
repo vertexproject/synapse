@@ -283,11 +283,6 @@ class Node:
             await self.snap.core.runRuntPropSet(self, prop, valu)
             return True
 
-        if prop.info.get('ro') and self.props.get(name) is not None:
-            mesg = f'Property is read only: {prop.full}.'
-            await self.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg)
-            return False
-
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.set(name, valu)
 

@@ -10,8 +10,8 @@ v2.82.0 - 2022-02-10
 
 Features and Enhancements
 -------------------------
-- Add an ``addNode()`` API to the Stormtupes ``storm:view`` object. This
-  allows the programatic creation of a node with properties being set in
+- Add an ``addNode()`` API to the Stormtypes ``storm:view`` object. This
+  allows the programmatic creation of a node with properties being set in
   a transactional fashion.
   (`#2540 <https://github.com/vertexproject/synapse/pull/2540>`_)
 - Add support to Storm for creating JSON style list and dictionary objects.
