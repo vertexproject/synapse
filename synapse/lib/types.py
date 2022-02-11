@@ -708,7 +708,7 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        huge = round(huge, 15).normalize()
+        huge = s_common.hugeround(huge).normalize(s_common.hugectx)
 
         return '{:f}'.format(huge), {}
 

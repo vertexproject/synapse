@@ -813,7 +813,7 @@ class StorTypeHugeNum(StorType):
     def decodeIndx(self, bytz):
         huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
         valu = s_common.hugesub(huge, self.offset).scaleb(-15)
-        return '{:f}'.format(valu.normalize())
+        return '{:f}'.format(valu.normalize(s_common.hugectx))
 
     async def _liftHugeEq(self, liftby, valu):
         byts = self.getHugeIndx(valu)

@@ -176,6 +176,13 @@ def hugesub(x, y):
     '''
     return hugectx.subtract(x, y)
 
+hugeexp = decimal.Decimal('1E-15')
+def hugeround(x):
+    '''
+    Round a decimal.Decimal with proper precision for synapse hugenums.
+    '''
+    return hugectx.quantize(x, hugeexp)
+
 def vertup(vstr):
     '''
     Convert a version string to a tuple.
