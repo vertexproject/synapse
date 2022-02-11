@@ -1562,6 +1562,7 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+                    snap.cachebuids = False
 
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
