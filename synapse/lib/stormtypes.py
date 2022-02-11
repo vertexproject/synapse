@@ -2138,12 +2138,22 @@ class LibTime(Lib):
                       {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
+        {'name': 'toutc', 'desc': '''
+        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        ''',
+         'type': {'type': 'function', '_funcname': 'toutc',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time'},
+                      {'name': 'timezone', 'desc': 'A timezone name. See python pytz docs for options.', 'type': 'str'},
+                  ),
+                  'returns': {'type': 'time', 'desc': 'The time adjusted to UTC.', }}},
     )
     _storm_lib_path = ('time',)
 
     def getObjLocals(self):
         return {
             'now': self._now,
+            'toutc': self.toutc,
             'fromunix': self._fromunix,
             'parse': self._parse,
             'format': self._format,
@@ -2162,6 +2172,16 @@ class LibTime(Lib):
             'dayofmonth': self.dayofmonth,
             'monthofyear': self.monthofyear,
         }
+
+    async def toutc(self, tick, timezone):
+
+        tick = await toprim(tick)
+        timezone = await tostr(timezone)
+
+        timetype = self.runt.snap.core.model.type('time')
+
+        norm, info = timetype.norm(tick)
+        return s_time.toutc(norm, timezone)
 
     def _now(self):
         return s_common.now()

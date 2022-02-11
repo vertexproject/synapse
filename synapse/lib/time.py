@@ -1,7 +1,7 @@
 '''
 Time related utilities for synapse "epoch millis" time values.
 '''
-
+import pytz
 import datetime
 
 from dateutil.relativedelta import relativedelta
@@ -245,3 +245,13 @@ def delta(text):
         raise s_exc.BadTypeValu(name='time', valu=text, mesg=mesg)
 
     return size * base
+
+def toutc(tick, fromzone):
+    try:
+        tz = pytz.timezone(fromzone)
+    except pytz.exceptions.UnknownTimeZoneError:
+        mesg = f'Unknown timezone: {fromzone}'
+        raise s_exc.BadArg(mesg=mesg)
+
+    base = datetime.datetime(1970, 1, 1, tzinfo=tz) + datetime.timedelta(milliseconds=tick)
+    return int(base.astimezone(pytz.UTC).timestamp() * 1000)

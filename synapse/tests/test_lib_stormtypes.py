@@ -15,6 +15,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
@@ -2216,6 +2217,12 @@ class StormTypesTest(s_test.SynTest):
             self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
             self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
             self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
+
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toutc(2020-02-11@14:08:00.123, EST))')
+            self.eq(valu, tick + (s_time.onehour * 5))
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.time.toutc(2020, VISI))')
 
     async def test_storm_lib_time_ticker(self):
 
