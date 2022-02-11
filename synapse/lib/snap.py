@@ -741,8 +741,8 @@ class Snap(s_base.Base):
         })
 
         node = s_node.Node(self, pode, bylayer=bylayer)
-        self.livenodes[buid] = node
         if self.cachebuids:
+            self.livenodes[buid] = node
             self.buidcache.append(node)
 
         await asyncio.sleep(0)
