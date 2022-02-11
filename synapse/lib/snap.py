@@ -451,6 +451,7 @@ class Snap(s_base.Base):
 
         self.debug = False      # Set to true to enable debug output.
         self.write = False      # True when the snap has a write lock on a layer.
+        self.cachebuids = True
 
         self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=self.tagcachesize)
         self.tagcache = s_cache.FixedCache(self._getTagNode, size=self.tagcachesize)
@@ -740,8 +741,9 @@ class Snap(s_base.Base):
         })
 
         node = s_node.Node(self, pode, bylayer=bylayer)
-        self.livenodes[buid] = node
-        self.buidcache.append(node)
+        if self.cachebuids:
+            self.livenodes[buid] = node
+            self.buidcache.append(node)
 
         await asyncio.sleep(0)
         return node
