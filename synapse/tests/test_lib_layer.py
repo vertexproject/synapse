@@ -138,21 +138,47 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoStorTypeForProp')
             self.eq(errors[2][0], 'SpurPropKeyForIndex')
 
+        # Check arrays
+        async with self.getTestCore() as core:
             nodes = await core.nodes('[ ps:contact=* :names=(foo, bar)]')
             buid = nodes[0].buid
+
+            layr = core.getLayer()
             sode = await layr.getStorNode(buid)
             names = sode['props']['names']
             sode['props']['names'] = (names[0], 8675309)
             layr.setSodeDirty(buid, sode, sode.get('form'))
 
             scanconf = {'include': [('ps:contact', 'names')]}
-            errors = [e async for e in core.getLayer().verifyAllProps(scanconf=scanconf)]
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
             self.len(5, errors)
             self.eq(errors[0][0], 'NoStorTypeForProp')
             self.eq(errors[1][0], 'SpurPropKeyForIndex')
             self.eq(errors[2][0], 'NoStorTypeForPropArray')
             self.eq(errors[3][0], 'SpurPropArrayKeyForIndex')
             self.eq(errors[4][0], 'SpurPropArrayKeyForIndex')
+
+            sode = await layr.getStorNode(buid)
+            names = sode['props']['names']
+            sode['props'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+
+            q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
+            await core.nodes(q)
+            nodes = await core.nodes('[ _test:array=(1, 2, 3) ]')
+            buid = nodes[0].buid
+            core.getLayer()._testDelFormValuStor(buid, '_test:array')
+
+            scanconf = {'include': [('_test:array', None)]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
 
         # test autofix for tagindex verify
         async with self.getTestCore() as core:
