@@ -156,7 +156,7 @@ class EconTest(s_utils.SynTest):
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].ndef[1])
             self.eq('stock', nodes[0].get('type'))
             self.eq('nasdaq/tsla', nodes[0].get('ticker'))
-            self.eq('9999.00', nodes[0].get('price'))
+            self.eq('9999', nodes[0].get('price'))
             self.eq(1580515200000, nodes[0].get('time'))
 
             self.len(1, await core.nodes('econ:fin:security -> econ:fin:exchange +:name=nasdaq'))
@@ -172,7 +172,7 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.eq(1580601600000, nodes[0].get('time'))
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
-            self.eq('9999.00', nodes[0].get('price'))
+            self.eq('9999', nodes[0].get('price'))
 
             nodes = await core.nodes('''
                 [
@@ -188,9 +188,9 @@ class EconTest(s_utils.SynTest):
             self.len(1, nodes)
             self.eq((1580601600000, 1580688000000), nodes[0].get('ival'))
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].get('security'))
-            self.eq('9999.00', nodes[0].get('price:open'))
+            self.eq('9999', nodes[0].get('price:open'))
             self.eq('9999.01', nodes[0].get('price:close'))
-            self.eq('999999999999.00', nodes[0].get('price:high'))
+            self.eq('999999999999', nodes[0].get('price:high'))
             self.eq('0.00001', nodes[0].get('price:low'))
 
             nodes = await core.nodes('[ econ:acct:payment=* :from:contract=* :to:contract=* :memo="2012 Chateauneuf du Pape" ]')
@@ -218,4 +218,4 @@ class EconTest(s_utils.SynTest):
             self.eq(nodes[0].get('crypto:address'), ('btc', '12345'))
             self.eq(nodes[0].get('amount'), '123.45')
             self.eq(nodes[0].get('currency'), 'usd')
-            self.eq(nodes[0].get('delta'), '12.00')
+            self.eq(nodes[0].get('delta'), '12')
