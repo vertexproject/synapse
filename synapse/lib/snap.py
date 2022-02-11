@@ -275,6 +275,7 @@ class ProtoNode:
             try:
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
+                e.errinfo['prop'] = prop.full
                 if self.ctx.snap.strict: raise e
                 await self.ctx.snap.warn(e)
                 return False
