@@ -336,7 +336,13 @@ class ModelRev:
 
                 async for buid, propvalu in layr.iterPropRows(form, pname):
 
-                    newval = ptyp.type.norm(propvalu)[0]
+                    try:
+                        newval = ptyp.type.norm(propvalu)[0]
+                    except s_exc.BadTypeValu as e:
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'Bad prop value {prop}={propvalu!r} : {oldm}')
+                        continue
+
                     if newval == propvalu:
                         continue
 
@@ -373,7 +379,13 @@ class ModelRev:
 
                 async for buid, valu in layr.iterTagPropRows(tag, prop, form=form):
 
-                    newval = tptyp.type.norm(valu)[0]
+                    try:
+                        newval = tptyp.type.norm(valu)[0]
+                    except s_exc.BadTypeValu as e:
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'Bad prop value {tag}:{prop}={valu!r} : {oldm}')
+                        continue
+
                     if newval == valu:
                         continue
 
@@ -425,7 +437,13 @@ class ModelRev:
                     if valu:
                         break
 
-                hnorm = ftyp.norm(valu[0])[0]
+                try:
+                    hnorm = ftyp.norm(valu[0])[0]
+                except s_exc.BadTypeValu as e:
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Bad form value {form}={valu[0]!r} : {oldm}')
+                    continue
+
                 newbuid = s_common.buid((form, hnorm))
                 if buid == newbuid:
                     continue
@@ -451,13 +469,23 @@ class ModelRev:
                     for prop, (pval, ptyp) in sode.get('props', {}).items():
                         if prop.startswith('.') and prop in props:
                             fp = self.core.model.univs[prop]
-                            newval = fp.type.norm(pval)[0]
+                            try:
+                                newval = fp.type.norm(pval)[0]
+                            except s_exc.BadTypeValu as e:
+                                oldm = e.errinfo.get('mesg')
+                                logger.warning(f'Bad prop value {prop}={pval!r} : {oldm}')
+                                continue
 
                         else:
                             fullprop = ':'.join((form, prop))
                             if fullprop in props:
                                 fp = self.core.model.props[fullprop]
-                                newval = fp.type.norm(pval)[0]
+                                try:
+                                    newval = fp.type.norm(pval)[0]
+                                except s_exc.BadTypeValu as e:
+                                    oldm = e.errinfo.get('mesg')
+                                    logger.warning(f'Bad prop value {fullprop}={pval!r} : {oldm}')
+                                    continue
                             else:
                                 newval = pval
 
