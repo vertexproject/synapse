@@ -177,7 +177,7 @@ class ModelRevTest(s_tests.SynTest):
             self.len(0, nodes)
 
             nodes = await core.nodes('yield $lib.lift.byNodeData(compdata)')
-            self.len(2, nodes)
+            self.len(1, nodes)
 
             nodes = await core.nodes('''
                 _test:hugearraycomp=(
