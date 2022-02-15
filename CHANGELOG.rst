@@ -5,6 +5,22 @@ Synapse Changelog
 *****************
 
 
+v2.82.1 - 2022-02-11
+====================
+
+Bugfixes
+--------
+- Re-order node edit validation to only check read-only status of properties
+  if the value would change.
+  (`#2547 <https://github.com/vertexproject/synapse/pull/2547>`_)
+- Raise the correct exception when parsing invalid time values, like
+  ``0000-00-00``.
+  (`#2548 <https://github.com/vertexproject/synapse/pull/2548>`_)
+- Disable node caching for ``StormDmon`` runtimes to avoid potential
+  cache coherency issues.
+  (`#2549 <https://github.com/vertexproject/synapse/pull/2549>`_)
+
+
 v2.82.0 - 2022-02-10
 ====================
 
