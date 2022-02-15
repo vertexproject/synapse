@@ -588,6 +588,7 @@ class ModelRev:
                     nodeedits[nodedel[0]]['dels'].append(nodedel[1])
 
                 await save(buid, newbuid)
+                cnt = 0
 
         await self.updateProps(props, layers, skip=forms)
         await self.updateTagProps(tagprops, layers)
