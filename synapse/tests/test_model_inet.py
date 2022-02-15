@@ -349,6 +349,8 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:softnames': ('foobar', 'bazfaz'),
             'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
             'dst:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
+            'ip:proto': 6,
+            'ip:tcp:flags': 0x20,
         }
         expected_props = {
             'time': 0,
@@ -376,6 +378,8 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:softnames': ('bazfaz', 'foobar'),
             'src:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
             'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
+            'ip:proto': 6,
+            'ip:tcp:flags': 0x20,
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
