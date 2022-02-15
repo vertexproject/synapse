@@ -249,7 +249,10 @@ class ModelRev:
                 await save()
 
     def typeHasStortype(self, typedef, stortype):
-
+        '''
+        Return True if a type or one of its subtypes uses a specific stortype,
+        otherwise return False.
+        '''
         if isinstance(typedef, s_types.Comp):
             fields = typedef.opts.get('fields')
             for i, (name, _) in enumerate(fields):
@@ -268,7 +271,10 @@ class ModelRev:
         return False
 
     def typeHasNdefs(self, typedef):
-
+        '''
+        Return True if a type or one of its subtypes uses ndefs or nodeprops,
+        otherwise return False.
+        '''
         if isinstance(typedef, s_types.Comp):
             fields = typedef.opts.get('fields')
             for i, (name, _) in enumerate(fields):
@@ -278,19 +284,18 @@ class ModelRev:
         elif isinstance(typedef, s_types.Array):
             return self.typeHasNdefs(typedef.arraytype)
 
-        elif isinstance(typedef, s_types.Ndef):
-            return True
-
-        elif isinstance(typedef, s_types.Edge):
-            return True
-
-        elif isinstance(typedef, s_types.NodeProp):
+        elif isinstance(typedef, s_types.Ndef) or \
+             isinstance(typedef, s_types.Edge) or \
+             isinstance(typedef, s_types.NodeProp):
             return True
 
         return False
 
     def getElementsByStortype(self, stortype):
-
+        '''
+        Get the names of form, prop and tagprop model elements which use a specific
+        stortype, or refer to other nodes via ndefs/nodeprops.
+        '''
         forms = set()
         props = set()
         tagprops = set()
@@ -312,7 +317,9 @@ class ModelRev:
         return (forms, props, tagprops)
 
     async def updateProps(self, props, layers, skip=None):
-
+        '''
+        Lift and re-norm prop values for the specified props in the specified layers.
+        '''
         for prop in props:
             ptyp = self.core.model.props[prop]
             form = ptyp.form
@@ -359,7 +366,9 @@ class ModelRev:
                     await save()
 
     async def updateTagProps(self, tagprops, layers):
-
+        '''
+        Lift and re-norm prop values for the specified tagprops in the specified layers.
+        '''
         for layr in layers:
 
             nodeedits = []
@@ -432,6 +441,7 @@ class ModelRev:
 
             async for buid, sodes in self.core._liftByProp(form, None, layers):
 
+                # Find the sode with the node value to recompute the buid
                 valu = None
                 for _, sode in sodes:
                     valu = sode.get('valu')
@@ -456,6 +466,7 @@ class ModelRev:
 
                 nodedel = None
 
+                # Move props, tags, and tagprops for each sode to the new buid
                 for layriden, sode in sodes:
 
                     if 'valu' in sode:
@@ -530,6 +541,7 @@ class ModelRev:
                                 await save(buid, newbuid)
                                 cnt = 0
 
+                # Move edges and nodedata for each layer to the new buid
                 for layr in layers:
                     async for (verb, n2iden) in layr.iterNodeEdgesN1(buid):
 
@@ -584,15 +596,18 @@ class ModelRev:
                             await save(buid, newbuid)
                             cnt = 0
 
+                # Delete the node with the old buid last to prevent wiping nodedata early
                 if nodedel:
                     nodeedits[nodedel[0]]['dels'].append(nodedel[1])
 
                 await save(buid, newbuid)
                 cnt = 0
 
+        # Update props and tagprops for nodes where the buid remains the same
         await self.updateProps(props, layers, skip=forms)
         await self.updateTagProps(tagprops, layers)
 
+        # Clean up old invalid hugenum index values
         fixprops = {'include': [], 'autofix': 'index'}
         for form in forms:
             fixprops['include'].append((form, None))
