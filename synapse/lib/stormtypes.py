@@ -53,6 +53,7 @@ class StormTypesRegistry:
         'any',
         'int',
         'null',
+        'time',
         'prim',
         'undef',
         'integer',
