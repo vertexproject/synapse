@@ -464,9 +464,6 @@ class ModelRev:
                         )
                         nodedel = (layriden, (s_layer.EDIT_NODE_DEL, (valu[0], stortype), ()))
                         cnt += 1
-                        if cnt >= 1000:
-                            await save(buid, newbuid)
-                            cnt = 0
 
                     for prop, (pval, ptyp) in sode.get('props', {}).items():
                         if prop.startswith('.') and prop in props:
