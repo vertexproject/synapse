@@ -535,6 +535,10 @@ class ModelRev:
 
                 for layr in layers:
                     async for (verb, n2iden) in layr.iterNodeEdgesN1(buid):
+
+                        if n2iden == iden:
+                            n2iden = newiden
+
                         nodeedits[layr.iden]['adds'].append(
                             (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
                         )
@@ -547,6 +551,10 @@ class ModelRev:
                             cnt = 0
 
                     async for (verb, n1iden) in layr.iterNodeEdgesN2(buid):
+
+                        if n1iden == iden:
+                            continue
+
                         n1buid = s_common.uhex(n1iden)
                         n2sodes = await self.core._getStorNodes(n1buid, layers)
                         n1form = None
