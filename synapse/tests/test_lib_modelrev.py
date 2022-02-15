@@ -1,3 +1,4 @@
+import asyncio
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 
@@ -158,10 +159,10 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
 
             nodes = await core.nodes('_test:huge <(layer2)- *', opts=opts)
-            self.len(7, nodes)
+            self.len(10, nodes)
 
             nodes = await core.nodes('_test:huge -(layer2)> *', opts=opts)
-            self.len(9, nodes)
+            self.len(12, nodes)
 
             nodes = await core.nodes('inet:fqdn=huge.com <(layer2)- *', opts=opts)
             self.len(3, nodes)
@@ -177,7 +178,7 @@ class ModelRevTest(s_tests.SynTest):
             self.len(0, nodes)
 
             nodes = await core.nodes('yield $lib.lift.byNodeData(compdata)')
-            self.len(1, nodes)
+            self.len(2, nodes)
 
             nodes = await core.nodes('''
                 _test:hugearraycomp=(

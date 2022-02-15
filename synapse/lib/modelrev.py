@@ -411,17 +411,18 @@ class ModelRev:
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         async def save(buid, newbuid):
-            cnt = 0
+
             for layriden, edits in nodeedits.items():
                 if edits['adds']:
-                    nedits = [
-                        (newbuid, form, edits['adds']),
-                        (buid, form, edits['dels']),
-                    ]
-                    await layrmap[layriden].storNodeEdits(nedits, meta)
-                    await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
+                    await layrmap[layriden].storNodeEdits([(newbuid, form, edits['adds'])], meta)
                     edits['adds'].clear()
+
+                if edits['dels']:
+                    await layrmap[layriden].storNodeEdits([(buid, form, edits['dels'])], meta)
                     edits['dels'].clear()
+
+                if edits['n2edges']:
+                    await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
                     edits['n2edges'].clear()
 
         for form in forms:
@@ -453,18 +454,19 @@ class ModelRev:
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)
 
+                nodedel = None
+
                 for layriden, sode in sodes:
 
                     if 'valu' in sode:
                         nodeedits[layriden]['adds'].append(
                             (s_layer.EDIT_NODE_ADD, (hnorm, stortype), ()),
                         )
-                        nodeedits[layriden]['dels'].append(
-                            (s_layer.EDIT_NODE_DEL, (valu[0], stortype), ()),
-                        )
-                        cnt += 2
+                        nodedel = (layriden, (s_layer.EDIT_NODE_DEL, (valu[0], stortype), ()))
+                        cnt += 1
                         if cnt >= 1000:
                             await save(buid, newbuid)
+                            cnt = 0
 
                     for prop, (pval, ptyp) in sode.get('props', {}).items():
                         if prop.startswith('.') and prop in props:
@@ -498,6 +500,7 @@ class ModelRev:
                         cnt += 2
                         if cnt >= 1000:
                             await save(buid, newbuid)
+                            cnt = 0
 
                     for tag, tval in sode.get('tags', {}).items():
                         nodeedits[layriden]['adds'].append(
@@ -509,6 +512,7 @@ class ModelRev:
                         cnt += 2
                         if cnt >= 1000:
                             await save(buid, newbuid)
+                            cnt = 0
 
                     for tag, tprops in sode.get('tagprops', {}).items():
                         for tprop, (tpval, tptyp) in tprops.items():
@@ -527,6 +531,7 @@ class ModelRev:
                             cnt += 2
                             if cnt >= 1000:
                                 await save(buid, newbuid)
+                                cnt = 0
 
                 for layr in layers:
                     async for (verb, n2iden) in layr.iterNodeEdgesN1(buid):
@@ -539,6 +544,7 @@ class ModelRev:
                         cnt += 2
                         if cnt >= 1000:
                             await save(buid, newbuid)
+                            cnt = 0
 
                     async for (verb, n1iden) in layr.iterNodeEdgesN2(buid):
                         n1buid = s_common.uhex(n1iden)
@@ -559,6 +565,7 @@ class ModelRev:
                         cnt += 2
                         if cnt >= 1000:
                             await save(buid, newbuid)
+                            cnt = 0
 
                     async for (name, nvalu) in layr.iterNodeData(buid):
                         nodeedits[layr.iden]['adds'].append(
@@ -570,6 +577,10 @@ class ModelRev:
                         cnt += 2
                         if cnt >= 1000:
                             await save(buid, newbuid)
+                            cnt = 0
+
+                if nodedel:
+                    nodeedits[nodedel[0]]['dels'].append(nodedel[1])
 
                 await save(buid, newbuid)
 
