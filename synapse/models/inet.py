@@ -1570,6 +1570,12 @@ class InetModule(s_module.CoreModule):
                         ('src:softnames', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of software names identified on the source host.',
                         }),
+                        ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
+                            'doc': 'The IP protocol number of the flow.',
+                        }),
+                        ('ip:tcp:flags', ('int', {'min': 0, 'max': 0xff}), {
+                            'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.',
+                        }),
                     )),
 
                     ('inet:fqdn', {}, (
