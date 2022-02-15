@@ -2913,11 +2913,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 newlayer(bool):  whether to emit a new layer item first
             wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
         '''
-        topoffs = await self.getNexsIndx()  # The latest offset when this function started
         catchingup = True                   # whether we've caught up to topoffs
         layrsadded = {}                     # layriden -> True.  Captures all the layers added while catching up
         todo = set()                        # outstanding futures of active live streaming from layers
         layrgenrs = {}                      # layriden -> genr.  maps active layers to that layer's async generator
+
+        # The offset to start from once the catch-up phase is complete
+        topoffs = max(layr.nodeeditlog.index() for layr in self.layers.values())
 
         if offsdict is None:
             offsdict = {}
