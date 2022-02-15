@@ -276,3 +276,12 @@ class ModelRevTest(s_tests.SynTest):
             )'''
             nodes = await core.nodes(q)
             self.len(2, nodes)
+
+            nodes = await core.nodes('it:dev:str=coverage')
+            self.len(1, nodes)
+
+            self.len(1007, nodes[0].props)
+            self.len(1005, nodes[0].tags)
+            self.len(1005, nodes[0].tagprops)
+
+            self.eq(1005, await core.callStorm('_test:huge=90E-15 return($node.data.list().size())'))
