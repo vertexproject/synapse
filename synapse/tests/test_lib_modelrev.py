@@ -277,10 +277,10 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
-            nodes = await core.nodes('it:dev:str=coverage')
+            nodes = await core.nodes('_test:huge=90E-15')
             self.len(1, nodes)
 
-            self.len(1007, nodes[0].props)
+            self.len(1006, nodes[0].props)
             self.len(1005, nodes[0].tags)
             self.len(1005, nodes[0].tagprops)
 
