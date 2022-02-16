@@ -24,11 +24,11 @@ class LoggerLib(s_stormtypes.Lib):
             This requires the ``storm.lib.log.debug`` permission to use.
 
         Examples:
-            Log an debug message::
+            Log a debug message::
 
                 $lib.log.debug('I am a debug message!')
 
-            Log an debug message with extra information::
+            Log a debug message with extra information::
 
                 $lib.log.debug('Extra information included here.', extra=({"key": $valu}))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
@@ -72,11 +72,11 @@ class LoggerLib(s_stormtypes.Lib):
                 This requires the ``storm.lib.log.warning`` permission to use.
 
             Examples:
-                Log an warning message::
+                Log a warning message::
 
                     $lib.log.warning('I am a warning message!')
 
-                Log an warning message with extra information::
+                Log a warning message with extra information::
 
                     $lib.log.warning('Extra information included here.', extra=({"key": $valu}))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
