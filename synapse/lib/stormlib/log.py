@@ -34,8 +34,9 @@ class LoggerLib(s_stormtypes.Lib):
             return extra
         extra = await s_stormtypes.toprim(extra)
         if extra and not isinstance(extra, dict):
-            mesg = f'extra provided to log call must be a dictionary compatible type. Got {type(extra)}.'
-            raise s_exc.StormRuntimeError(mesg=mesg)
+            mesg = f'extra provided to log call must be a dictionary compatible type. Got {extra.__class__.__name__} ' \
+                   f'instead.'
+            raise s_exc.BadArg(mesg=mesg, arg='extra')
         extra = {'synapse': extra}
         return extra
 
