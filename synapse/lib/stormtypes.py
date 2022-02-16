@@ -5798,6 +5798,7 @@ class View(Prim):
 
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
+
                 * The view must not already have a parent
                 * The view must not have more than 1 layer
          ''',

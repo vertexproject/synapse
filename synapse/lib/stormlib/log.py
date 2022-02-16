@@ -29,7 +29,7 @@ class LoggerLib(s_stormtypes.Lib):
 
             Log s debug message with extra information::
 
-                $lib.log.debug('Extra information included here.', extra=$lib.dict(key=$valu)''',
+                $lib.log.debug('Extra information included here.', extra=$lib.dict(key=$valu))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -53,7 +53,7 @@ class LoggerLib(s_stormtypes.Lib):
 
                 Log a info message with extra information::
 
-                    $lib.log.info('Extra information included here.', extra=$lib.dict(key=$valu)''',
+                    $lib.log.info('Extra information included here.', extra=$lib.dict(key=$valu))''',
          'type': {'type': 'function', '_funcname': '_logInfo',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -77,7 +77,7 @@ class LoggerLib(s_stormtypes.Lib):
 
                 Log a warning message with extra information::
 
-                    $lib.log.warning('Extra information included here.', extra=$lib.dict(key=$valu)''',
+                    $lib.log.warning('Extra information included here.', extra=$lib.dict(key=$valu))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -101,7 +101,7 @@ class LoggerLib(s_stormtypes.Lib):
 
                 Log a error message with extra information::
 
-                    $lib.log.error('Extra information included here.', extra=$lib.dict(key=$valu)''',
+                    $lib.log.error('Extra information included here.', extra=$lib.dict(key=$valu))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
