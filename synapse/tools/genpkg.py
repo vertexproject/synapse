@@ -115,6 +115,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     protodir = os.path.dirname(full)
     pkgname = pkgdef.get('name')
 
+    genopts = pkgdef.pop('genopts', {})
+
     logodef = pkgdef.get('logo')
     if logodef is not None:
 
@@ -152,8 +154,14 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
             raise s_exc.BadPkgDef(mesg=mesg)
 
     for mod in pkgdef.get('modules', ()):
+
         name = mod.get('name')
-        mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
+
+        basename = name
+        if genopts.get('dotstorm', False):
+            basename = f'{basename}.storm'
+
+        mod_path = s_common.genpath(protodir, 'storm', 'modules', basename)
         if readonly:
             mod['storm'] = getStormStr(mod_path)
         else:
@@ -179,7 +187,12 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     for cmd in pkgdef.get('commands', ()):
         name = cmd.get('name')
-        cmd_path = s_common.genpath(protodir, 'storm', 'commands', name)
+
+        basename = name
+        if genopts.get('dotstorm'):
+            basename = f'{basename}.storm'
+
+        cmd_path = s_common.genpath(protodir, 'storm', 'commands', basename)
         if readonly:
             cmd['storm'] = getStormStr(cmd_path)
         else:
