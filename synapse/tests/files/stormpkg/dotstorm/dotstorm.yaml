@@ -1,7 +1,7 @@
 name: dotstorm
 version: 0.0.1
 
-opts:
+genopts:
   dotstorm: true
 
 modules:
