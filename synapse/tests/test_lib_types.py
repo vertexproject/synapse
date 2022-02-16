@@ -32,6 +32,12 @@ class TypesTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             huge.norm('-7307508186654514591018424164')
 
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm(None)
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('foo')
+
         self.eq('0.00000000000000000001', huge.norm('1E-20')[0])
         self.eq('0.00000000000000000001', huge.norm('1.0E-20')[0])
         self.eq('0.00000000000000000001', huge.norm('0.00000000000000000001')[0])

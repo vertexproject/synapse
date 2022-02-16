@@ -699,7 +699,12 @@ class HugeNum(Type):
 
     def norm(self, valu):
 
-        huge = s_common.hugenum(valu)
+        try:
+            huge = s_common.hugenum(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e)) from None
+
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
