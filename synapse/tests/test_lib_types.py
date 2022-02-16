@@ -47,6 +47,12 @@ class TypesTest(s_t_utils.SynTest):
         big2 = '7307508186654514591018424162.000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
+        bign = '-7307508186654514591018424162.00000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '-7307508186654514591018424162.000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
     def test_taxonomy(self):
 
         model = s_datamodel.Model()

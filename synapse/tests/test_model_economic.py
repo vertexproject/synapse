@@ -48,10 +48,10 @@ class EconTest(s_utils.SynTest):
             self.len(0, await core.nodes('econ:purchase:price=13.372'))
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('econ:purchase [ :price=170141183460469231731688 ]')
+                await core.nodes('econ:purchase [ :price=7307508186654514591018424164 ]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('econ:purchase [ :price=-170141183460469231731688 ]')
+                await core.nodes('econ:purchase [ :price=-7307508186654514591018424164 ]')
 
             self.len(1, await core.nodes('econ:purchase:price*range=(13,14)'))
 
