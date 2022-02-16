@@ -796,15 +796,15 @@ class StorTypeHugeNum(StorType):
             'range=': self._liftHugeRange,
         })
 
-        self.one = s_common.hugenum('1E-15')
-        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffff)
+        self.one = s_common.hugeexp
+        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffffffff)
 
-        self.zerobyts = b'\x00' * 16
-        self.fullbyts = b'\xff' * 16
+        self.zerobyts = b'\x00' * 18
+        self.fullbyts = b'\xff' * 18
 
     def getHugeIndx(self, norm):
-        scaled = s_common.hugenum(norm).scaleb(15)
-        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(16, byteorder='big')
+        scaled = s_common.hugenum(norm).scaleb(20)
+        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(18, byteorder='big')
         return byts
 
     def indx(self, norm):
@@ -812,7 +812,7 @@ class StorTypeHugeNum(StorType):
 
     def decodeIndx(self, bytz):
         huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
-        valu = s_common.hugesub(huge, self.offset).scaleb(-15)
+        valu = s_common.hugesub(huge, self.offset).scaleb(-20)
         return '{:f}'.format(valu.normalize(s_common.hugectx))
 
     async def _liftHugeEq(self, liftby, valu):

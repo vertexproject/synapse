@@ -32,19 +32,19 @@ class TypesTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             huge.norm('-170141183460469231731688')
 
-        self.eq('0.000000000000001', huge.norm('1E-15')[0])
-        self.eq('0.000000000000001', huge.norm('1.0E-15')[0])
-        self.eq('0.000000000000001', huge.norm('0.000000000000001')[0])
+        self.eq('0.00000000000000000001', huge.norm('1E-20')[0])
+        self.eq('0.00000000000000000001', huge.norm('1.0E-20')[0])
+        self.eq('0.00000000000000000001', huge.norm('0.00000000000000000001')[0])
 
-        self.eq('0', huge.norm('1E-16')[0])
-        self.eq('0', huge.norm('5E-16')[0])
-        self.eq('0.000000000000001', huge.norm('6E-16')[0])
-        self.eq('1.000000000000002', huge.norm('1.0000000000000015')[0])
+        self.eq('0', huge.norm('1E-21')[0])
+        self.eq('0', huge.norm('5E-21')[0])
+        self.eq('0.00000000000000000001', huge.norm('6E-21')[0])
+        self.eq('1.00000000000000000002', huge.norm('1.000000000000000000015')[0])
 
-        bign = '170141183460469231731685.000000000000002'
+        bign = '111503725992653115707677.00000000000000000002'
         self.eq(bign, huge.norm(bign)[0])
 
-        big2 = '170141183460469231731685.0000000000000015'
+        big2 = '111503725992653115707677.000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
     def test_taxonomy(self):

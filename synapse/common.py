@@ -157,7 +157,7 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
-hugectx = decimal.Context(prec=39)
+hugectx = decimal.Context(prec=44)
 def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
@@ -176,7 +176,7 @@ def hugesub(x, y):
     '''
     return hugectx.subtract(x, y)
 
-hugeexp = decimal.Decimal('1E-15')
+hugeexp = decimal.Decimal('1E-20')
 def hugeround(x):
     '''
     Round a decimal.Decimal with proper precision for synapse hugenums.
