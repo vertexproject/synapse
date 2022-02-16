@@ -114,7 +114,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     protodir = os.path.dirname(full)
     pkgname = pkgdef.get('name')
-    pkgopts = pkgdef.get('opts')
+    pkgopts = pkgdef.get('opts', {})
 
     logodef = pkgdef.get('logo')
     if logodef is not None:
