@@ -177,6 +177,13 @@ reqValidPkgdef = s_config.getJsValidator({
             'type': 'string',
             'pattern': s_version.semverstr,
         },
+        'opts': {
+            'type': 'object',
+            'properties': {
+                'dotstorm': {'type': 'boolean'},
+            },
+            'additionalProperties': True,
+        },
         'synapse_minversion': {
             'type': ['array', 'null'],
             'items': {'type': 'number'}
