@@ -27,10 +27,10 @@ class TypesTest(s_t_utils.SynTest):
         huge = model.type('hugenum')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('170141183460469231731688')
+            huge.norm('7307508186654514591018424164')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('-170141183460469231731688')
+            huge.norm('-7307508186654514591018424164')
 
         self.eq('0.00000000000000000001', huge.norm('1E-20')[0])
         self.eq('0.00000000000000000001', huge.norm('1.0E-20')[0])
@@ -41,10 +41,10 @@ class TypesTest(s_t_utils.SynTest):
         self.eq('0.00000000000000000001', huge.norm('6E-21')[0])
         self.eq('1.00000000000000000002', huge.norm('1.000000000000000000015')[0])
 
-        bign = '111503725992653115707677.00000000000000000002'
+        bign = '7307508186654514591018424162.00000000000000000002'
         self.eq(bign, huge.norm(bign)[0])
 
-        big2 = '111503725992653115707677.000000000000000000015'
+        big2 = '7307508186654514591018424162.000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
     def test_taxonomy(self):

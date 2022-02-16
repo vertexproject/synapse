@@ -675,7 +675,7 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
-hugemax = 111503725992653115707678
+hugemax = 7307508186654514591018424163
 class HugeNum(Type):
 
     stortype = s_layer.STOR_TYPE_HUGENUM

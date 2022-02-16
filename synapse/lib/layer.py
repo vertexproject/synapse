@@ -797,14 +797,14 @@ class StorTypeHugeNum(StorType):
         })
 
         self.one = s_common.hugeexp
-        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffffffff)
+        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffffffffffff)
 
-        self.zerobyts = b'\x00' * 18
-        self.fullbyts = b'\xff' * 18
+        self.zerobyts = b'\x00' * 20
+        self.fullbyts = b'\xff' * 20
 
     def getHugeIndx(self, norm):
         scaled = s_common.hugenum(norm).scaleb(20)
-        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(18, byteorder='big')
+        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(20, byteorder='big')
         return byts
 
     def indx(self, norm):
