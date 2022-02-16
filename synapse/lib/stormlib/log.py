@@ -13,7 +13,8 @@ stormlogger = logging.getLogger('synapse.storm.log')
 @s_stormtypes.registry.registerLib
 class LoggerLib(s_stormtypes.Lib):
     '''
-    A Storm library which implements server side logging.
+    A Storm library which implements server side logging. These messages are logged to the
+    ``synapse.storm.log`` logger.
     '''
     _storm_locals = (
         {'name': 'debug', 'desc': '''
@@ -23,13 +24,13 @@ class LoggerLib(s_stormtypes.Lib):
             This requires the ``storm.lib.log.debug`` permission to use.
 
         Examples:
-            Log a debug message::
+            Log an debug message::
 
                 $lib.log.debug('I am a debug message!')
 
-            Log s debug message with extra information::
+            Log an debug message with extra information::
 
-                $lib.log.debug('Extra information included here.', extra=$lib.dict(key=$valu))''',
+                $lib.log.debug('Extra information included here.', extra=({"key": $valu}))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -47,13 +48,13 @@ class LoggerLib(s_stormtypes.Lib):
                 This requires the ``storm.lib.log.info`` permission to use.
 
             Examples:
-                Log a info message::
+                Log an info message::
 
                     $lib.log.info('I am a info message!')
 
-                Log a info message with extra information::
+                Log an info message with extra information::
 
-                    $lib.log.info('Extra information included here.', extra=$lib.dict(key=$valu))''',
+                    $lib.log.info('Extra information included here.', extra=({"key": $valu}))''',
          'type': {'type': 'function', '_funcname': '_logInfo',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -71,13 +72,13 @@ class LoggerLib(s_stormtypes.Lib):
                 This requires the ``storm.lib.log.warning`` permission to use.
 
             Examples:
-                Log a warning message::
+                Log an warning message::
 
                     $lib.log.warning('I am a warning message!')
 
-                Log a warning message with extra information::
+                Log an warning message with extra information::
 
-                    $lib.log.warning('Extra information included here.', extra=$lib.dict(key=$valu))''',
+                    $lib.log.warning('Extra information included here.', extra=({"key": $valu}))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -95,13 +96,13 @@ class LoggerLib(s_stormtypes.Lib):
                 This requires the ``storm.lib.log.error`` permission to use.
 
             Examples:
-                Log a error message::
+                Log an error message::
 
                     $lib.log.error('I am a error message!')
 
-                Log a error message with extra information::
+                Log an error message with extra information::
 
-                    $lib.log.error('Extra information included here.', extra=$lib.dict(key=$valu))''',
+                    $lib.log.error('Extra information included here.', extra=({"key": $valu}))''',
          'type': {'type': 'function', '_funcname': '_logDebug',
                   'args': (
                       {'name': 'mesg', 'type': 'str', 'desc': 'The message to log.'},
@@ -137,7 +138,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logDebug(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'debug'), gateiden=None)
+        self.runt.confirm(('storm', 'lib', 'log', 'debug'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.debug(mesg, extra=extra)
@@ -145,7 +146,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logInfo(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'info'), gateiden=None)
+        self.runt.confirm(('storm', 'lib', 'log', 'info'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.info(mesg, extra=extra)
@@ -153,7 +154,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logWarning(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'warning'), gateiden=None)
+        self.runt.confirm(('storm', 'lib', 'log', 'warning'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.warning(mesg, extra=extra)
@@ -161,7 +162,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logError(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'error'), gateiden=None)
+        self.runt.confirm(('storm', 'lib', 'log', 'error'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.error(mesg, extra=extra)

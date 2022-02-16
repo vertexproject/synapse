@@ -28,14 +28,14 @@ class LogTest(s_test.SynTest):
 
             # Extra without structlog handler in place has no change in results
             with self.getAsyncLoggerStream(logname, 'debug message') as stream:
-                await core.callStorm('$lib.log.debug("debug message", extra=$lib.dict(key=valu))')
+                await core.callStorm('$lib.log.debug("debug message", extra=({"key": "valu"}))')
                 self.true(await stream.wait(6))
             stream.seek(0)
             self.eq(stream.read(), 'debug message\n')
 
             # Extra can be empty too
             with self.getAsyncLoggerStream(logname, 'debug message') as stream:
-                await core.callStorm('$lib.log.debug("debug message", extra=$lib.dict())')
+                await core.callStorm('$lib.log.debug("debug message", extra=({}))')
                 self.true(await stream.wait(6))
             stream.seek(0)
             self.eq(stream.read(), 'debug message\n')
@@ -47,7 +47,7 @@ class LogTest(s_test.SynTest):
             # structlog test
             with self.getStructuredAsyncLoggerStream(logname, '"key": "valu"') as stream:
                 await core.callStorm('$lib.log.debug("struct1 message")')
-                await core.callStorm('$lib.log.debug("struct2 message", extra=$lib.dict(key=valu))')
+                await core.callStorm('$lib.log.debug("struct2 message", extra=({"key": "valu"}))')
                 self.true(await stream.wait(6))
 
             data = stream.getvalue()
