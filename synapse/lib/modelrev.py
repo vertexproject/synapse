@@ -284,9 +284,7 @@ class ModelRev:
         elif isinstance(typedef, s_types.Array):
             return self.typeHasNdefs(typedef.arraytype)
 
-        elif isinstance(typedef, s_types.Ndef) or \
-             isinstance(typedef, s_types.Edge) or \
-             isinstance(typedef, s_types.NodeProp):
+        elif isinstance(typedef, (s_types.Ndef, s_types.Edge, s_types.NodeProp)):
             return True
 
         return False
