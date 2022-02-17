@@ -15,10 +15,10 @@ Features and Enhancements
   (`#2554 <https://github.com/vertexproject/synapse/pull/2554>`_)
 - Add ``$lib.log.debug()``, ``$lib.log.info()``, ``$lib.log.warning()``, and
   ``$lib.log.error()`` Stormtypes APIs. These allow a user to send log
-  message to the Cortex output directly.
-- Add support for the ``synapse.tools.genpkg`` tool to support using files
-  with the ``.storm`` extension. This is enabled by adding the following
-  option to a Storm package definition:
+  messages to the Cortex logging output directly.
+- Update the ``synapse.tools.genpkg`` tool to support using files with the
+  ``.storm`` extension. This is enabled by adding the following option to a
+  Storm package definition.
   (`#2555 <https://github.com/vertexproject/synapse/pull/2555>`_)
 
   ::
