@@ -5,6 +5,44 @@ Synapse Changelog
 *****************
 
 
+v2.83.0 - 2022-02-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:ip:proto`` and ``:ip:tcp:flags`` properties to the ``inet:flow``
+  form.
+  (`#2554 <https://github.com/vertexproject/synapse/pull/2554>`_)
+- Add ``$lib.log.debug()``, ``$lib.log.info()``, ``$lib.log.warning()``, and
+  ``$lib.log.error()`` Stormtypes APIs. These allow a user to send log
+  message to the Cortex output directly.
+- Add support for the ``synapse.tools.genpkg`` tool to support using files
+  with the ``.storm`` extension. This is enabled by adding the following
+  option to a Storm package definition:
+  (`#2555 <https://github.com/vertexproject/synapse/pull/2555>`_)
+
+  ::
+
+    genopts:
+      dotstorm: true
+
+
+- Add form and prop values to ``BadTypeValu`` exceptions when raised during
+  node edit generation.
+  (`#2552 <https://github.com/vertexproject/synapse/pull/2552>`_)
+
+Bugfixes
+--------
+- Correct a race condition in the ``CoreApi.syncLayersEvents`` and
+  ``CoreApi.syncIndexEvents`` APIs.
+  (`#2553 <https://github.com/vertexproject/synapse/pull/2553>`_)
+
+Documentation
+-------------
+- Remove outdated documentation related to making ``CoreModule`` classes.
+  (`#2556 <https://github.com/vertexproject/synapse/pull/2556>`_)
+
+
 v2.82.1 - 2022-02-11
 ====================
 
