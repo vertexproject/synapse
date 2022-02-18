@@ -31,7 +31,8 @@ async def _main(argv, outp):
     output_path = s_common.genpath(opts.output)
     os.makedirs(output_path)
 
-    certdirn = s_common.genpath(output_path, '_certs')
+    syndir = s_common.gendir(output_path, '_syndir')
+    certdirn = s_common.genpath(syndir, 'certs')
     logger.info(f'Prepping certdir @ {certdirn}')
 
     certdir = s_certdir.CertDir(path=certdirn)
@@ -86,6 +87,8 @@ async def _main(argv, outp):
     ahaadminkey, ahaadmincert = certdir.genUserCert(ahaadmin, signas=ahanetwork)
 
     svc2ahaconnect = {}
+
+    stormsvcs = []
 
     for svcinfo in definition.get('svcs', ()):  # type: dict
         svcname = svcinfo.get('name')
@@ -162,8 +165,30 @@ async def _main(argv, outp):
                  'version': '3.3'}
         s_common.yamlsave(svcdc, svcroot, 'docker-compose.yaml')
 
+        if svcinfo.get('stormsvc', False):
+            stormstr = f'service.add {svcname} {svc_aha_connect}'
+            stormsvcs.append(stormstr)
+
     logger.info('Copying certdir to ahasvcdir')
     shutil.copytree(certdirn, s_common.genpath(ahasvcdir, 'certs'), dirs_exist_ok=True)
+
+    telefp = s_common.genpath(syndir, 'telepath.yaml')
+    logger.info('Creating telepath.yaml at {telefp}')
+    tnfo = {
+        'version': 1,
+        'aha:servers': [
+            aharegistry,
+        ]
+    }
+    s_common.yamlsave(tnfo, telefp)
+
+    if stormsvcs:
+        stormfp = s_common.genpath(output_path, 'storm_services.storm')
+        logger.info(f'Saving stormservice config to {stormfp}')
+
+        storm = ' | '.join(stormsvcs)
+        with s_common.genfile(stormfp) as fd:
+            fd.write(storm.encode())
 
     return 0
 
