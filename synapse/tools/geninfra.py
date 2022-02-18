@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import asyncio
 import logging
 import argparse
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 # FIXME - set the correct version prior to release.
 # reqver = '>=2.26.0,<3.0.0'
 
-from typing import Tuple
+from typing import List, Tuple
 
 def readfile(fp):
     '''Read a filepath in rb mode'''
@@ -30,7 +31,6 @@ def readfile(fp):
         return fd.read()
 
 async def addAhaUser(aha: s_aha.AhaCell, svcname: str, svcnetw: str) -> None:
-
     username = f'{svcname}@{svcnetw}'
     udef = await aha.getUserDefByName(username)
     if udef is None:
@@ -48,7 +48,6 @@ async def addAhaUser(aha: s_aha.AhaCell, svcname: str, svcnetw: str) -> None:
 
 async def genSvcCerts(aha, dirn, certdir: s_certdir.CertDir,
                       svcname: str, svcnetw: str) -> Tuple[Tuple[str, bytes], ...]:
-
     user = f'{svcname}@{svcnetw}'
     name = f'{svcname}.{svcnetw}'
 
@@ -83,6 +82,14 @@ async def genSvcCerts(aha, dirn, certdir: s_certdir.CertDir,
         (f'certs/hosts/{name}.key', readfile(hostkey)),
     )
 
+def getAhaRegistry(template: str, svcname: str) -> List[str]:
+    ret = []
+
+    info = s_telepath.chopurl(template)
+    info['user'] = svcname
+    url = s_telepath.zipurl(info)
+    ret.append(url)
+    return ret
 
 async def _main(argv, outp):
     pars = getArgParser()
@@ -111,7 +118,7 @@ async def _main(argv, outp):
     ahadmonlisten = f'ssl://{ahalisten}:{ahaport}/?hostname={ahaname}&ca={ahanetwork}'
 
     # This is a format() friendly string
-    aharegistry_template = f'ssl://{{name}}@{ahadnsname}:{ahaport}/'
+    aharegistry_template = f'ssl://USER@{ahadnsname}:{ahaport}/'
 
     ahaconf = {
         'https:port': None,
@@ -140,6 +147,9 @@ async def _main(argv, outp):
     _tempconf = {
         'dmon:listen': None
     }
+
+    svc2ahatemplate = {}  # Put listen urls here keyed to the service?
+
     # We'll end up using the backup tool to
     with s_common.getTempDir() as dirn:
         tmpcertdir = s_common.genpath(dirn, 'certs')
@@ -158,6 +168,8 @@ async def _main(argv, outp):
                 svcroot = s_common.genpath(output_path, svcname)
                 svcstorage = s_common.genpath(svcroot, 'storage')
 
+                svcfull = f'{svcname}.{ahanetwork}'
+
                 # Add the aha user
                 await addAhaUser(aha, svcname, ahanetwork)
 
@@ -168,6 +180,49 @@ async def _main(argv, outp):
                     with s_common.genfile(fp) as fd:
                         fd.write(byts)
 
+                svc_dmon_listen = f'ssl://0.0.0.0:0?hostname={svcfull}&ca={ahanetwork}'
+                svc_aha_connect = f'aha://{{name}}@{svcfull}/'
+                svc2ahatemplate[svcname] = svc_aha_connect
+
+                # Generate svcconf
+                conf = svc.get('cellconf', {})  # type: dict
+                conf = copy.deepcopy(conf)
+                # Mandatory values
+                conf.setdefault('backup:dir', '/vertex/storage')
+                conf.setdefault('aha:name', svcname)
+                conf.setdefault('aha:network', ahanetwork)
+                conf.setdefault('aha:registry', getAhaRegistry(aharegistry_template, svcname))
+                conf.setdefault('aha:admin', ahaadmin)
+                conf.setdefault('https:port', None)
+                conf.setdefault('dmon:listen', svc_dmon_listen)
+
+                # Check if items require interpolation
+                for k, v in list(conf.items()):
+                    if isinstance(v, str) and v.startswith('GENINFRAURL_'):
+                        target_svc = v.split('_', 1)[1]
+                        template = svc2ahatemplate[target_svc]
+                        url = template.format(name=svcname)
+                        conf[k] = url
+
+                s_common.yamlsave(conf, svcstorage, 'cell.yaml')
+
+                # Generate docker-compose file
+
+                env = svc.get('environment', {})
+                env.setdefault('SYN_LOG_LEVEL', 'DEBUG')
+                env.setdefault('SYN_LOG_STRUCT', '1')
+
+                svcdc = {'services': {svcfull: {'environment': env,
+                                                'image': svc['image'],
+                                                'logging': {'driver': 'json-file',
+                                                            'options': {'max-file': '1',
+                                                                        'max-size': '100m'}},
+                                                'network_mode': 'host',
+                                                'restart': 'unless-stopped',
+                                                'volumes': ['./storage:/vertex/storage',
+                                                            './backups:/vertex/backups']}},
+                         'version': '3.3'}
+                s_common.yamlsave(svcdc, svcroot, 'docker-compose.yaml')
 
 def getArgParser():
     desc = 'CLI tool to generate simple x509 certificates from an Aha server.'
