@@ -173,7 +173,7 @@ async def _main(argv, outp):
     shutil.copytree(certdirn, s_common.genpath(ahasvcdir, 'certs'), dirs_exist_ok=True)
 
     telefp = s_common.genpath(syndir, 'telepath.yaml')
-    logger.info('Creating telepath.yaml at {telefp}')
+    logger.info(f'Creating telepath.yaml at {telefp}')
     tnfo = {
         'version': 1,
         'aha:servers': [
