@@ -285,6 +285,7 @@ class AhaCell(s_cell.Cell):
         if os.path.isfile(os.path.join(self.dirn, 'certs', 'hosts', '{hostname}.crt')):
             return
 
+        logger.info(f'Generating a host cert for {hostname}')
         pkey, cert = await s_coro.executor(self.certdir.genHostCert, hostname, signas=signas, save=False)
         pkey = self.certdir._pkeyToByts(pkey).decode()
         cert = self.certdir._certToByts(cert).decode()
@@ -293,6 +294,7 @@ class AhaCell(s_cell.Cell):
     async def _genUserCert(self, username, signas=None):
         if os.path.isfile(os.path.join(self.dirn, 'certs', 'users', '{username}.crt')):
             return
+        logger.info(f'Generating a user cert for {username}')
         pkey, cert = await s_coro.executor(self.certdir.genUserCert, username, signas=signas, save=False)
         pkey = self.certdir._pkeyToByts(pkey).decode()
         cert = self.certdir._certToByts(cert).decode()
