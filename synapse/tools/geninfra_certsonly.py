@@ -32,11 +32,14 @@ async def _main(argv, outp):
     os.makedirs(output_path)
 
     certdirn = s_common.genpath(output_path, '_certs')
+    logger.info(f'Prepping certdir @ {certdirn}')
+
     certdir = s_certdir.CertDir(path=certdirn)
 
+    logger.info('Making aha dir')
     ahainfo = definition.get('aha')
 
-    ahanetwork = ahainfo['network']
+    ahanetwork = ahainfo['aha:network']
     ahaname = ahainfo.get('aha:name', 'aha')
     ahaname = f'{ahaname}.{ahanetwork}'
     ahaadmin_raw = ahainfo.get('aha:admin', 'root')
@@ -77,7 +80,6 @@ async def _main(argv, outp):
     }
     s_common.yamlsave(ahadc, aharoot, 'docker-compose.yaml')
     s_common.yamlsave(ahaconf, ahasvcdir, 'cell.yaml')
-    prep_certdir(ahasvcdir)
 
     cakey, cacert = certdir.genCaCert(ahanetwork)
     ahakey, ahacert = certdir.genHostCert(ahaname, signas=ahanetwork)
@@ -93,6 +95,8 @@ async def _main(argv, outp):
 
         svcfull = f'{svcname}.{ahanetwork}'
         svcuser = f'{svcname}@{ahanetwork}'
+
+        logger.info(f'Prepping dir for {svcfull}')
 
         svchkey, svchcrt = certdir.genHostCert(svcfull, signas=ahanetwork)
         svcukey, svcucrt = certdir.genUserCert(svcuser, signas=ahanetwork)
@@ -135,6 +139,7 @@ async def _main(argv, outp):
             if isinstance(v, str) and v.startswith('GENAHAURL_'):
                 target_svc = v.split('_', 1)[1]
                 url = svc2ahaconnect[target_svc]
+                logger.info(f'Replaced {k}={v} with {url}')
                 conf[k] = url
 
         s_common.yamlsave(conf, svcstorage, 'cell.yaml')
@@ -157,7 +162,10 @@ async def _main(argv, outp):
                  'version': '3.3'}
         s_common.yamlsave(svcdc, svcroot, 'docker-compose.yaml')
 
-    shutil.copytree(certdirn, ahasvcdir)
+    logger.info('Copying certdir to ahasvcdir')
+    shutil.copytree(certdirn, s_common.genpath(ahasvcdir, 'certs'), dirs_exist_ok=True)
+
+    return 0
 
 def getArgParser():
     desc = 'CLI tool to generate simple x509 certificates from an Aha server.'
