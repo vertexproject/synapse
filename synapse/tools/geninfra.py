@@ -14,12 +14,75 @@ import synapse.telepath as s_telepath
 import synapse.lib.aha as s_aha
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
 # FIXME - set the correct version prior to release.
 # reqver = '>=2.26.0,<3.0.0'
+
+from typing import Tuple
+
+def readfile(fp):
+    '''Read a filepath in rb mode'''
+    with open(fp, 'rb') as fd:
+        return fd.read()
+
+async def addAhaUser(aha: s_aha.AhaCell, svcname: str, svcnetw: str) -> None:
+
+    username = f'{svcname}@{svcnetw}'
+    udef = await aha.getUserDefByName(username)
+    if udef is None:
+        await aha.addUser(username)
+        udef = await aha.getUserDefByName(username)
+
+    getrule = (True, ('aha', 'service', 'get', svcnetw))
+    addrule = (True, ('aha', 'service', 'add', svcnetw, svcname))
+
+    if getrule not in udef.get('rules'):
+        await aha.addUserRule(udef['iden'], getrule)
+
+    if addrule not in udef.get('rules'):
+        await aha.addUserRule(udef['iden'], addrule)
+
+async def genSvcCerts(aha, dirn, certdir: s_certdir.CertDir,
+                      svcname: str, svcnetw: str) -> Tuple[Tuple[str, bytes], ...]:
+
+    user = f'{svcname}@{svcnetw}'
+    name = f'{svcname}.{svcnetw}'
+
+    cacrt = s_common.genpath(dirn, 'certs', 'cas', f'{svcnetw}.crt')
+    hostkey = s_common.genpath(dirn, 'certs', 'hosts', f'{name}.key')
+    hostcrt = s_common.genpath(dirn, 'certs', 'hosts', f'{name}.crt')
+    userkey = s_common.genpath(dirn, 'certs', 'users', f'{user}.key')
+    usercrt = s_common.genpath(dirn, 'certs', 'users', f'{user}.crt')
+
+    if not os.path.isfile(cacrt):
+        byts = await aha.genCaCert(svcnetw)
+        with open(cacrt, 'wb') as fd:
+            fd.write(byts.encode())
+
+    if not os.path.isfile(userkey):
+        byts = certdir.genUserCsr(user)
+        crtbyts = await aha.signUserCsr(byts.decode(), signas=svcnetw)
+        with open(usercrt, 'wb') as fd:
+            fd.write(crtbyts.encode())
+
+    if not os.path.isfile(hostkey):
+        byts = certdir.genHostCsr(name)
+        crtbyts = await aha.signHostCsr(byts.decode(), signas=svcnetw)
+        with open(hostcrt, 'wb') as fd:
+            fd.write(crtbyts.encode())
+
+    return (
+        (f'certs/cas/{svcnetw}.crt', readfile(cacrt)),
+        (f'certs/users/{user}.crt', readfile(usercrt)),
+        (f'certs/users/{user}.key', readfile(userkey)),
+        (f'certs/hosts/{name}.crt', readfile(hostcrt)),
+        (f'certs/hosts/{name}.key', readfile(hostkey)),
+    )
+
 
 async def _main(argv, outp):
     pars = getArgParser()
@@ -59,33 +122,51 @@ async def _main(argv, outp):
     }
 
     aharoot = s_common.genpath(output_path, 'aha')
-    ahasvcdir = s_common.genpath(aharoot, 'svcdata', 'aha')
+    ahasvcdir = s_common.genpath(aharoot, 'storage')
 
-    ahadc = {'services': {'aha': {'environment': ['SYN_LOG_LEVEL=DEBUG',
-                                                  'SYN_LOG_STRUCT=1'],
+    ahadc = {'services': {'aha': {'environment': {'SYN_LOG_LEVEL': 'DEBUG',
+                                                  'SYN_LOG_STRUCT': '1'},
                                   'image': 'vertexproject/synapse-aha:v2.x.x',
                                   'logging': {'driver': 'json-file',
                                               'options': {'max-file': '1',
                                                           'max-size': '100m'}},
                                   'network_mode': 'host',
-                                  'volumes': ['./svcdata/aha:/vertex/storage',
-                                              './backups/aha:/vertex/backups']}},
+                                  'volumes': ['./storage:/vertex/storage',
+                                              './backups:/vertex/backups']}},
              'version': '3.3'}
     s_common.yamlsave(ahadc, aharoot, 'docker-compose.yaml')
-    s_common.yamlsave(ahaconf, ahasvcdir, 'cell.yaml')
+    # s_common.yamlsave(ahaconf, ahasvcdir, 'cell.yaml')
 
     _tempconf = {
         'dmon:listen': None
     }
     # We'll end up using the backup tool to
     with s_common.getTempDir() as dirn:
+        tmpcertdir = s_common.genpath(dirn, 'certs')
+        certdir = s_certdir.CertDir(tmpcertdir)
+        tmpahadirn = s_common.genpath(dirn, 'aha')
+        s_common.yamlsave(ahaconf, tmpahadirn, 'cell.yaml')
         async with await s_aha.AhaCell.anit(dirn=ahasvcdir,
                                             conf=_tempconf) as aha:  # type: s_aha.AhaCell
-            # Smash the svcdir in directly
+
+            # Smash the backup:dir into the aha cell.yaml
             ahaconf['backup:dir'] = '/vertex/storage'
-            s_common.yamlsave(ahaconf, ahasvcdir, 'cell.yaml')
+            s_common.yamlsave(ahaconf, tmpahadirn, 'cell.yaml')
 
             for svc in definition.get('svcs', ()):
+                svcname = svc.get('name')
+                svcroot = s_common.genpath(output_path, svcname)
+                svcstorage = s_common.genpath(svcroot, 'storage')
+
+                # Add the aha user
+                await addAhaUser(aha, svcname, ahanetwork)
+
+                # Generate certs
+                certinfo = await genSvcCerts(aha, dirn, certdir, svcname, ahanetwork)
+                for (certpath, byts) in certinfo:
+                    fp = s_common.genpath(svcstorage, certpath)
+                    with s_common.genfile(fp) as fd:
+                        fd.write(byts)
 
 
 def getArgParser():
