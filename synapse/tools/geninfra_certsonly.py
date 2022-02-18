@@ -5,69 +5,13 @@ import shutil
 import asyncio
 import logging
 import argparse
-import contextlib
 
-from OpenSSL import crypto
-
-import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
-import synapse.lib.aha as s_aha
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.certdir as s_certdir
-import synapse.lib.version as s_version
-
-import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
-
-# FIXME - set the correct version prior to release.
-# reqver = '>=2.26.0,<3.0.0'
-
-from typing import List, Tuple
-
-def readfile(fp):
-    '''Read a filepath in rb mode'''
-    with open(fp, 'rb') as fd:
-        return fd.read()
-
-async def genSvcCerts(aha, dirn, certdir: s_certdir.CertDir,
-                      svcname: str, svcnetw: str) -> Tuple[Tuple[str, bytes], ...]:
-    user = f'{svcname}@{svcnetw}'
-    name = f'{svcname}.{svcnetw}'
-
-    cacrt = s_common.genpath(dirn, 'cas', f'{svcnetw}.crt')
-    hostkey = s_common.genpath(dirn, 'hosts', f'{name}.key')
-    hostcrt = s_common.genpath(dirn, 'hosts', f'{name}.crt')
-    userkey = s_common.genpath(dirn, 'users', f'{user}.key')
-    usercrt = s_common.genpath(dirn, 'users', f'{user}.crt')
-
-    if not os.path.isfile(cacrt):
-        byts = await aha.genCaCert(svcnetw)
-        with open(cacrt, 'wb') as fd:
-            fd.write(byts.encode())
-
-    if not os.path.isfile(userkey):
-        byts = certdir.genUserCsr(user)
-        crtbyts = await aha.signUserCsr(byts.decode(), signas=svcnetw)
-        with open(usercrt, 'wb') as fd:
-            fd.write(crtbyts.encode())
-
-    if not os.path.isfile(hostkey):
-        byts = certdir.genHostCsr(name)
-        crtbyts = await aha.signHostCsr(byts.decode(), signas=svcnetw)
-        with open(hostcrt, 'wb') as fd:
-            fd.write(crtbyts.encode())
-
-    return (
-        (f'certs/cas/{svcnetw}.crt', readfile(cacrt)),
-        (f'certs/users/{user}.crt', readfile(usercrt)),
-        (f'certs/users/{user}.key', readfile(userkey)),
-        (f'certs/hosts/{name}.crt', readfile(hostcrt)),
-        (f'certs/hosts/{name}.key', readfile(hostkey)),
-    )
 
 def prep_certdir(dirn):
     s_common.gendir(dirn, 'certs', 'cas')
@@ -138,18 +82,6 @@ async def _main(argv, outp):
     cakey, cacert = certdir.genCaCert(ahanetwork)
     ahakey, ahacert = certdir.genHostCert(ahaname, signas=ahanetwork)
     ahaadminkey, ahaadmincert = certdir.genUserCert(ahaadmin, signas=ahanetwork)
-
-    #
-    # with s_common.genfile(ahasvcdir, 'certs', 'ca', f'{ahanetwork}.key') as fd:
-    #     fd.write(certdir._pkeyToByts(cakey))
-    # with s_common.genfile(ahasvcdir, 'certs', 'ca', f'{ahanetwork}.crt') as fd:
-    #     fd.write(certdir._certToByts(cacert))
-    #
-    # with s_common.genfile(ahasvcdir, 'certs', 'ca', f'{ahanetwork}.key') as fd:
-    #     fd.write(certdir._pkeyToByts(cakey))
-    # with s_common.genfile(ahasvcdir, 'certs', 'ca', f'{ahanetwork}.crt') as fd:
-    #     fd.write(certdir._certToByts(cacert))
-    #
 
     svc2ahaconnect = {}
 
