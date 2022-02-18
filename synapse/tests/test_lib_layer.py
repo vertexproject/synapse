@@ -133,10 +133,9 @@ class LayerTest(s_t_utils.SynTest):
             layr.setSodeDirty(buid, sode, sode.get('form'))
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(3, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoStorTypeForProp')
             self.eq(errors[1][0], 'NoStorTypeForProp')
-            self.eq(errors[2][0], 'SpurPropKeyForIndex')
 
         # Check arrays
         async with self.getTestCore() as core:
@@ -151,12 +150,10 @@ class LayerTest(s_t_utils.SynTest):
 
             scanconf = {'include': [('ps:contact', 'names')]}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(5, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoStorTypeForProp')
-            self.eq(errors[1][0], 'SpurPropKeyForIndex')
+            self.eq(errors[1][0], 'NoStorTypeForPropArray')
             self.eq(errors[2][0], 'NoStorTypeForPropArray')
-            self.eq(errors[3][0], 'SpurPropArrayKeyForIndex')
-            self.eq(errors[4][0], 'SpurPropArrayKeyForIndex')
 
             sode = await layr.getStorNode(buid)
             names = sode['props']['names']
@@ -164,9 +161,10 @@ class LayerTest(s_t_utils.SynTest):
             layr.setSodeDirty(buid, sode, sode.get('form'))
 
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(2, errors)
+            self.len(3, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
 
             q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
             await core.nodes(q)
@@ -176,9 +174,23 @@ class LayerTest(s_t_utils.SynTest):
 
             scanconf = {'include': [('_test:array', None)]}
             errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
-            self.len(2, errors)
+            self.len(4, errors)
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
+
+            scanconf = {'include': [('_test:array', None)], 'autofix': 'index'}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(4, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
+
+            scanconf = {'include': [('_test:array', None)]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(0, errors)
 
         # test autofix for tagindex verify
         async with self.getTestCore() as core:
@@ -229,6 +241,10 @@ class LayerTest(s_t_utils.SynTest):
 
             layr._testAddTagPropIndx(buid, 'inet:ipv4', 'foo', 'score', 5)
 
+            scanconf = {'include': ['newp']}
+            errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
+            self.len(0, errors)
+
             errors = [e async for e in layr.verifyAllTagProps()]
             self.len(2, errors)
             self.eq(errors[0][0], 'NoNodeForTagPropIndex')
@@ -243,11 +259,9 @@ class LayerTest(s_t_utils.SynTest):
             layr.setSodeDirty(buid, sode, sode.get('form'))
 
             errors = [e async for e in core.getLayer().verify()]
-            self.len(4, errors)
+            self.len(2, errors)
             self.eq(errors[0][0], 'NoStorTypeForTagProp')
-            self.eq(errors[1][0], 'SpurTagPropKeyForIndex')
-            self.eq(errors[2][0], 'NoStorTypeForTagProp')
-            self.eq(errors[3][0], 'SpurTagPropKeyForIndex')
+            self.eq(errors[1][0], 'NoStorTypeForTagProp')
 
             sode = await layr.getStorNode(buid)
             sode['tagprops']['foo'] = {}
@@ -266,6 +280,13 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, errors)
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
+
+            scanconf = {'autofix': 'index'}
+            errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
+            self.len(2, errors)
+
+            errors = [e async for e in layr.verifyAllTagProps()]
+            self.len(0, errors)
 
     async def test_layer_abrv(self):
 
