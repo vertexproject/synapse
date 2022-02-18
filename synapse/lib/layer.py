@@ -1369,6 +1369,11 @@ class Layer(s_nexus.Pusher):
         sode['props'].pop(prop, None)
         self.setSodeDirty(buid, sode, form)
 
+    def _testDelFormValuStor(self, buid, form):
+        sode = self._getStorNode(buid)
+        sode['valu'] = None
+        self.setSodeDirty(buid, sode, form)
+
     def _testAddPropIndx(self, buid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.setPropAbrv(form, prop)
@@ -1379,6 +1384,15 @@ class Layer(s_nexus.Pusher):
         formabrv = self.setPropAbrv(form, None)
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
         self.layrslab.put(tagabrv + formabrv, buid, db=self.bytag)
+
+    def _testAddTagPropIndx(self, buid, form, tag, prop, valu):
+        tpabrv = self.setTagPropAbrv(None, tag, prop)
+        ftpabrv = self.setTagPropAbrv(form, tag, prop)
+
+        tagprop = self.core.model.tagprop(prop)
+        for indx in self.stortypes[tagprop.type.stortype].indx(valu):
+            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
+            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
 
     async def verify(self, config=None):
 
@@ -1404,6 +1418,11 @@ class Layer(s_nexus.Pusher):
         propscan = scans.get('propindex', defconf)
         if propscan is not None:
             async for error in self.verifyAllProps(propscan):
+                yield error
+
+        tagpropscan = scans.get('tagpropindex', defconf)
+        if tagpropscan is not None:
+            async for error in self.verifyAllTagProps(tagpropscan):
                 yield error
 
     async def verifyAllBuids(self, scanconf=None):
@@ -1437,10 +1456,38 @@ class Layer(s_nexus.Pusher):
                 yield error
 
     async def verifyAllProps(self, scanconf=None):
+
         if scanconf is None:
             scanconf = {}
+
+        autofix = scanconf.get('autofix')
+        include = scanconf.get('include', None)
+
         for form, prop in self.getFormProps():
-            async for error in self.verifyByProp(form, prop):
+
+            if include is not None and (form, prop) not in include:
+                continue
+
+            async for error in self.verifyByProp(form, prop, autofix=autofix):
+                yield error
+
+            async for error in self.verifyByPropArray(form, prop, autofix=autofix):
+                yield error
+
+    async def verifyAllTagProps(self, scanconf=None):
+
+        if scanconf is None:
+            scanconf = {}
+
+        autofix = scanconf.get('autofix')
+        include = scanconf.get('include', None)
+
+        for form, tag, prop in self.getTagProps():
+
+            if include is not None and prop not in include:
+                continue
+
+            async for error in self.verifyByTagProp(form, tag, prop, autofix=autofix):
                 yield error
 
     async def verifyByTag(self, tag, autofix=None):
@@ -1468,17 +1515,12 @@ class Layer(s_nexus.Pusher):
                 continue
 
             tags = sode.get('tags')
-            if tags is None:
-                await tryfix(lkey, buid, form)
-                yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
-                continue
-
             if tags.get(tag) is None:
                 await tryfix(lkey, buid, form)
                 yield ('NoTagForTagIndex', {'buid': s_common.ehex(buid), 'form': form, 'tag': tag})
                 continue
 
-    async def verifyByProp(self, form, prop):
+    async def verifyByProp(self, form, prop, autofix=None):
 
         abrv = self.getPropAbrv(form, prop)
 
@@ -1487,11 +1529,14 @@ class Layer(s_nexus.Pusher):
         oldvalu = None
         oldkeys = []
 
-        def verifyIndxKeys(propvalu, stortype, indxkeys):
+        async def tryfix(lkey, buid):
+            if autofix == 'index':
+                self.layrslab.delete(lkey, buid, db=self.byprop)
 
-            # TODO: we dont support verifying array property indexes just yet...
+        async def verifyIndxKeys(propvalu, stortype, indxkeys, buid):
+
             if stortype & STOR_FLAG_ARRAY:
-                return
+                stortype = STOR_TYPE_MSGP
 
             # NOTE: This *will* mutate indxkeys list
             try:
@@ -1509,7 +1554,8 @@ class Layer(s_nexus.Pusher):
 
             for indxkey in indxkeys:
                 indx = indxkey[len(abrv):]
-                yield ('SpurPropKeyForIndx', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                await tryfix(indxkey, buid)
+                yield ('SpurPropKeyForIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
 
@@ -1518,14 +1564,15 @@ class Layer(s_nexus.Pusher):
             if buid != oldbuid:
 
                 if oldvalu is not None:
-                    for error in verifyIndxKeys(*oldvalu, oldkeys):
+                    async for error in verifyIndxKeys(*oldvalu, oldkeys, oldbuid):
                         yield error
 
                 oldbuid = buid
                 indx = lkey[len(abrv):]
 
                 sode = self._getStorNode(buid)
-                if sode is None: # pragma: no cover
+                if sode is None:
+                    await tryfix(lkey, buid)
                     yield ('NoNodeForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
                     continue
 
@@ -1534,17 +1581,15 @@ class Layer(s_nexus.Pusher):
 
                 if prop is not None:
                     props = sode.get('props')
-                    if props is None:
-                        yield ('NoPropForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
-                        continue
-
                     oldvalu = props.get(prop)
                     if oldvalu is None:
+                        await tryfix(lkey, buid)
                         yield ('NoValuForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
                         continue
                 else:
                     oldvalu = sode.get('valu')
                     if oldvalu is None:
+                        await tryfix(lkey, buid)
                         yield ('NoValuForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
                         continue
 
@@ -1553,7 +1598,171 @@ class Layer(s_nexus.Pusher):
 
         # mop up the last one...
         if oldvalu is not None:
-            for error in verifyIndxKeys(*oldvalu, oldkeys):
+            async for error in verifyIndxKeys(*oldvalu, oldkeys, oldbuid):
+                yield error
+
+    async def verifyByPropArray(self, form, prop, autofix=None):
+
+        abrv = self.getPropAbrv(form, prop)
+
+        sode = None
+        oldbuid = None
+        oldvalu = None
+        oldkeys = []
+
+        async def tryfix(lkey, buid):
+            if autofix == 'index':
+                self.layrslab.delete(lkey, buid, db=self.byarray)
+
+        async def verifyIndxKeys(propvalu, stortype, indxkeys, buid):
+            # NOTE: This *will* mutate indxkeys list
+            try:
+                for indx in self.getStorIndx(stortype, propvalu):
+                    indxkey = abrv + indx
+                    if indxkey not in indxkeys:
+                        continue
+
+                    indxkeys.remove(indxkey)
+
+            except IndexError:
+                yield ('NoStorTypeForPropArray', {'buid': s_common.ehex(buid), 'form': form,
+                                                  'prop': prop, 'stortype': stortype})
+
+            for indxkey in indxkeys:
+                indx = indxkey[len(abrv):]
+                await tryfix(indxkey, buid)
+                yield ('SpurPropArrayKeyForIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                   'prop': prop, 'indx': indx})
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
+
+            await asyncio.sleep(0)
+
+            if buid != oldbuid:
+
+                if oldvalu is not None:
+                    async for error in verifyIndxKeys(*oldvalu, oldkeys, oldbuid):
+                        yield error
+
+                oldbuid = buid
+                indx = lkey[len(abrv):]
+
+                sode = self._getStorNode(buid)
+                if sode is None:
+                    await tryfix(lkey, buid)
+                    yield ('NoNodeForPropArrayIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                       'prop': prop, 'indx': indx})
+                    continue
+
+                oldvalu = None
+                oldkeys.clear()
+
+                if prop is not None:
+                    props = sode.get('props')
+                    oldvalu = props.get(prop)
+                    if oldvalu is None:
+                        await tryfix(lkey, buid)
+                        yield ('NoValuForPropArrayIndex', {'buid': s_common.ehex(buid),
+                                                           'form': form, 'prop': prop, 'indx': indx})
+                        continue
+                else:
+                    oldvalu = sode.get('valu')
+                    if oldvalu is None:
+                        await tryfix(lkey, buid)
+                        yield ('NoValuForPropArrayIndex', {'buid': s_common.ehex(buid),
+                                                           'form': form, 'prop': prop, 'indx': indx})
+                        continue
+
+            # store the index keys to verify at the end
+            oldkeys.append(lkey)
+
+        # mop up the last one...
+        if oldvalu is not None:
+            async for error in verifyIndxKeys(*oldvalu, oldkeys, oldbuid):
+                yield error
+
+    async def verifyByTagProp(self, form, tag, prop, autofix=None):
+
+        abrv = self.getTagPropAbrv(form, tag, prop)
+
+        sode = None
+        oldbuid = None
+        oldvalu = None
+        oldkeys = []
+
+        async def tryfix(lkey, buid):
+            if autofix == 'index':
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+
+        async def verifyIndxKeys(propvalu, stortype, indxkeys, buid):
+
+            if stortype & STOR_FLAG_ARRAY: # pragma: no cover
+                # TODO: These aren't possible yet
+                stortype = STOR_TYPE_MSGP
+
+            # NOTE: This *will* mutate indxkeys list
+            try:
+                for indx in self.stortypes[stortype].indx(propvalu):
+                    indxkey = abrv + indx
+                    if indxkey not in indxkeys:
+                        continue
+
+                    indxkeys.remove(indxkey)
+
+            except IndexError:
+                yield ('NoStorTypeForTagProp', {'buid': s_common.ehex(buid), 'form': form,
+                                                'tag': tag, 'prop': prop, 'stortype': stortype})
+
+            for indxkey in indxkeys:
+                indx = indxkey[len(abrv):]
+                await tryfix(indxkey, buid)
+                yield ('SpurTagPropKeyForIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                 'tag': tag, 'prop': prop, 'indx': indx})
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.bytagprop):
+
+            await asyncio.sleep(0)
+
+            if buid != oldbuid:
+
+                if oldvalu is not None:
+                    async for error in verifyIndxKeys(*oldvalu, oldkeys, oldbuid):
+                        yield error
+
+                oldbuid = buid
+                indx = lkey[len(abrv):]
+
+                sode = self._getStorNode(buid)
+                if sode is None:
+                    await tryfix(lkey, buid)
+                    yield ('NoNodeForTagPropIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                     'tag': tag, 'prop': prop, 'indx': indx})
+                    continue
+
+                oldvalu = None
+                oldkeys.clear()
+
+                tags = sode.get('tagprops')
+                props = tags.get(tag)
+                if props is None:
+                    await tryfix(lkey, buid)
+                    yield ('NoPropForTagPropIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                     'tag': tag, 'prop': prop, 'indx': indx})
+                    continue
+
+                oldvalu = props.get(prop)
+                if oldvalu is None:
+                    await tryfix(lkey, buid)
+                    yield ('NoValuForTagPropIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                     'tag': tag, 'prop': prop, 'indx': indx})
+                    continue
+
+            # store the index keys to verify at the end
+            oldkeys.append(lkey)
+
+        # mop up the last one...
+        if oldvalu is not None:
+            async for error in verifyIndxKeys(*oldvalu, oldkeys, oldbuid):
                 yield error
 
     async def verifyByBuid(self, buid, sode):
@@ -1972,6 +2181,10 @@ class Layer(s_nexus.Pusher):
         for byts in self.propabrv.keys():
             yield s_msgpack.un(byts)
 
+    def getTagProps(self):
+        for byts in self.tagpropabrv.keys():
+            yield s_msgpack.un(byts)
+
     @s_cache.memoizemethod()
     def getTagPropAbrv(self, *args):
         return self.tagpropabrv.bytsToAbrv(s_msgpack.en(args))
@@ -2168,11 +2381,12 @@ class Layer(s_nexus.Pusher):
         return self.dataslab.has(buid + abrv, db=self.nodedata)
 
     async def liftTagProp(self, name):
-        '''
-        Note:
-            This will lift *all* syn:tag nodes.
-        '''
-        async for _, tag in self.iterFormRows('syn:tag'):
+
+        for form, tag, prop in self.getTagProps():
+
+            if form is not None or prop != name:
+                continue
+
             try:
                 abrv = self.getTagPropAbrv(None, tag, name)
 

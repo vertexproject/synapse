@@ -91,6 +91,11 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
 
+            core.getLayer()._testDelFormValuStor(buid, 'inet:ipv4')
+            errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', None)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
@@ -99,7 +104,7 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.len(1, errors)
-            self.eq(errors[0][0], 'SpurPropKeyForIndx')
+            self.eq(errors[0][0], 'SpurPropKeyForIndex')
 
         async with self.getTestCore() as core:
 
@@ -131,7 +136,49 @@ class LayerTest(s_t_utils.SynTest):
             self.len(3, errors)
             self.eq(errors[0][0], 'NoStorTypeForProp')
             self.eq(errors[1][0], 'NoStorTypeForProp')
-            self.eq(errors[2][0], 'SpurPropKeyForIndx')
+            self.eq(errors[2][0], 'SpurPropKeyForIndex')
+
+        # Check arrays
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ ps:contact=* :names=(foo, bar)]')
+            buid = nodes[0].buid
+
+            layr = core.getLayer()
+            sode = await layr.getStorNode(buid)
+            names = sode['props']['names']
+            sode['props']['names'] = (names[0], 8675309)
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            scanconf = {'include': [('ps:contact', 'names')]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(5, errors)
+            self.eq(errors[0][0], 'NoStorTypeForProp')
+            self.eq(errors[1][0], 'SpurPropKeyForIndex')
+            self.eq(errors[2][0], 'NoStorTypeForPropArray')
+            self.eq(errors[3][0], 'SpurPropArrayKeyForIndex')
+            self.eq(errors[4][0], 'SpurPropArrayKeyForIndex')
+
+            sode = await layr.getStorNode(buid)
+            names = sode['props']['names']
+            sode['props'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+
+            q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
+            await core.nodes(q)
+            nodes = await core.nodes('[ _test:array=(1, 2, 3) ]')
+            buid = nodes[0].buid
+            core.getLayer()._testDelFormValuStor(buid, '_test:array')
+
+            scanconf = {'include': [('_test:array', None)]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
 
         # test autofix for tagindex verify
         async with self.getTestCore() as core:
@@ -166,6 +213,59 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
+
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            layr = core.getLayer()
+            errors = [e async for e in layr.verifyAllBuids()]
+            self.len(0, errors)
+
+            errors = [e async for e in layr.verifyAllProps()]
+            self.len(0, errors)
+
+            errors = [e async for e in layr.verifyAllTagProps()]
+            self.len(0, errors)
+
+            layr._testAddTagPropIndx(buid, 'inet:ipv4', 'foo', 'score', 5)
+
+            errors = [e async for e in layr.verifyAllTagProps()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoNodeForTagPropIndex')
+            self.eq(errors[1][0], 'NoNodeForTagPropIndex')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#foo:score=5 ]')
+            buid = nodes[0].buid
+
+            sode = await layr.getStorNode(buid)
+            score = sode['tagprops']['foo']['score']
+            sode['tagprops']['foo']['score'] = (score[0], 8675309)
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(4, errors)
+            self.eq(errors[0][0], 'NoStorTypeForTagProp')
+            self.eq(errors[1][0], 'SpurTagPropKeyForIndex')
+            self.eq(errors[2][0], 'NoStorTypeForTagProp')
+            self.eq(errors[3][0], 'SpurTagPropKeyForIndex')
+
+            sode = await layr.getStorNode(buid)
+            sode['tagprops']['foo'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoValuForTagPropIndex')
+            self.eq(errors[1][0], 'NoValuForTagPropIndex')
+
+            sode = await layr.getStorNode(buid)
+            sode['tagprops'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoPropForTagPropIndex')
+            self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
     async def test_layer_abrv(self):
 
