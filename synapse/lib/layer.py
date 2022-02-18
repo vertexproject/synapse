@@ -170,6 +170,7 @@ class LayerApi(s_cell.CellApi):
 
         Nodeedits will be flattened into splices before being yielded.
         '''
+        s_common.deprecated('splices')
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.splices(offs=offs, size=size):
             yield item
@@ -2882,6 +2883,10 @@ class Layer(s_nexus.Pusher):
             verb = lkey[32:].decode()
             yield verb, s_common.ehex(n1buid)
 
+    async def hasNodeEdge(self, buid1, verb, buid2):
+        lkey = buid1 + verb.encode()
+        return self.layrslab.hasdup(lkey, buid2, db=self.edgesn1)
+
     async def iterFormRows(self, form, stortype=None, startvalu=None):
         '''
         Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
@@ -3256,6 +3261,7 @@ class Layer(s_nexus.Pusher):
 
         Nodeedits will be flattened into splices before being yielded.
         '''
+        s_common.deprecated('splices')
         if not self.logedits:
             return
 
@@ -3287,6 +3293,7 @@ class Layer(s_nexus.Pusher):
 
     async def splicesBack(self, offs=None, size=None):
 
+        s_common.deprecated('splicesBack')
         if not self.logedits:
             return
 

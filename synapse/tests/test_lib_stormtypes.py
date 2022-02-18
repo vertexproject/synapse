@@ -3390,6 +3390,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 1003)
             self.eq(counts.get('test:guid'), 1)
 
+            opts = {'vars': {'props': {'asn': 'asdf'}}}
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            opts = {'vars': {'props': {'asn': '1234'}}}
+            nodes = await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
+            self.eq(1234, nodes[0].get('asn'))
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:

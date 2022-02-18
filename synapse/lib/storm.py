@@ -1562,6 +1562,7 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+                    snap.cachebuids = False
 
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
@@ -3225,12 +3226,13 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newparts = (await s_stormtypes.tostr(self.opts.newtag)).split('.')
+        newname, newinfo = await snap.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))
         runt.layerConfirm(('node', 'tag', 'add', *newparts))
 
-        newt = await snap.addNode('syn:tag', self.opts.newtag)
+        newt = await snap.addNode('syn:tag', newname, norminfo=newinfo)
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
@@ -3245,7 +3247,7 @@ class MoveTagCmd(Cmd):
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow)
-            newtag = await snap.addTagNode(isnow)
+            newtag = await snap.addNode('syn:tag', isnow)
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -4048,6 +4050,7 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.list')
         maxtime = None
         if self.opts.maxtimestamp:
             maxtime = self.opts.maxtimestamp
@@ -4280,6 +4283,7 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.undo')
         if self.opts.force:
             if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'

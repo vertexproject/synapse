@@ -5,6 +5,90 @@ Synapse Changelog
 *****************
 
 
+v2.83.0 - 2022-02-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:ip:proto`` and ``:ip:tcp:flags`` properties to the ``inet:flow``
+  form.
+  (`#2554 <https://github.com/vertexproject/synapse/pull/2554>`_)
+- Add ``$lib.log.debug()``, ``$lib.log.info()``, ``$lib.log.warning()``, and
+  ``$lib.log.error()`` Stormtypes APIs. These allow a user to send log
+  messages to the Cortex logging output directly.
+- Update the ``synapse.tools.genpkg`` tool to support using files with the
+  ``.storm`` extension. This is enabled by adding the following option to a
+  Storm package definition.
+  (`#2555 <https://github.com/vertexproject/synapse/pull/2555>`_)
+
+  ::
+
+    genopts:
+      dotstorm: true
+
+
+- Add form and prop values to ``BadTypeValu`` exceptions when raised during
+  node edit generation.
+  (`#2552 <https://github.com/vertexproject/synapse/pull/2552>`_)
+
+Bugfixes
+--------
+- Correct a race condition in the ``CoreApi.syncLayersEvents`` and
+  ``CoreApi.syncIndexEvents`` APIs.
+  (`#2553 <https://github.com/vertexproject/synapse/pull/2553>`_)
+
+Documentation
+-------------
+- Remove outdated documentation related to making ``CoreModule`` classes.
+  (`#2556 <https://github.com/vertexproject/synapse/pull/2556>`_)
+
+
+v2.82.1 - 2022-02-11
+====================
+
+Bugfixes
+--------
+- Re-order node edit validation to only check read-only status of properties
+  if the value would change.
+  (`#2547 <https://github.com/vertexproject/synapse/pull/2547>`_)
+- Raise the correct exception when parsing invalid time values, like
+  ``0000-00-00``.
+  (`#2548 <https://github.com/vertexproject/synapse/pull/2548>`_)
+- Disable node caching for ``StormDmon`` runtimes to avoid potential
+  cache coherency issues.
+  (`#2549 <https://github.com/vertexproject/synapse/pull/2549>`_)
+
+
+v2.82.0 - 2022-02-10
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``addNode()`` API to the Stormtypes ``storm:view`` object. This
+  allows the programmatic creation of a node with properties being set in
+  a transactional fashion.
+  (`#2540 <https://github.com/vertexproject/synapse/pull/2540>`_)
+- Add support to Storm for creating JSON style list and dictionary objects.
+  (`#2544 <https://github.com/vertexproject/synapse/pull/2544>`_)
+- The ``AhaCell`` now bootstraps TLS CA certificates for the configured
+  ``aha:network`` value, a host certificate for the ``aha:name`` value,
+  and a user certificate for the ``aha:admin`` value.
+  (`#2542 <https://github.com/vertexproject/synapse/pull/2542>`_)
+- Add ``mesg`` arguments to all exceptions raised in ``synapse.lib.certdir``.
+  (`#2546 <https://github.com/vertexproject/synapse/pull/2546>`_)
+
+Documentation
+-------------
+- Fix some missing and incorrect docstrings for Stormtypes.
+  (`#2545 <https://github.com/vertexproject/synapse/pull/2545>`_)
+
+Deprecations
+------------
+- Telepath APIs and Storm commands related to ``splices`` have been marked as
+  deprecated.
+  (`#2541 <https://github.com/vertexproject/synapse/pull/2541>`_)
+
+
 v2.81.0 - 2022-01-31
 ====================
 

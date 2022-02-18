@@ -682,7 +682,7 @@ class TypesTest(s_t_utils.SynTest):
 
         norm, info = t.norm(('test:str', 'Foobar!'))
         self.eq(norm, ('test:str', 'Foobar!'))
-        self.eq(info, {'adds': (('test:str', 'Foobar!'),),
+        self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
                        'subs': {'form': 'test:str'}})
 
         rval = t.repr(('test:str', 'Foobar!'))
@@ -874,6 +874,9 @@ class TypesTest(s_t_utils.SynTest):
 
         model = s_datamodel.Model()
         ttime = model.types.get('time')
+
+        with self.raises(s_exc.BadTypeValu):
+            ttime.norm('0000-00-00')
 
         self.gt(s_common.now(), ttime.norm('-1hour')[0])
 

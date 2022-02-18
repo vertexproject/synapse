@@ -437,16 +437,14 @@ class Array(Type):
         adds = []
         norms = []
 
+        form = self.modl.form(self.arraytype.name)
+
         for item in valu:
             norm, info = self.arraytype.norm(item)
             adds.extend(info.get('adds', ()))
+            if form is not None:
+                adds.append((form.name, norm, info))
             norms.append(norm)
-
-        form = self.modl.form(self.arraytype.name)
-        if form is not None:
-            adds.extend([(form.name, n) for n in norms])
-
-        adds = list(set(adds))
 
         if self.isuniq:
 
@@ -516,6 +514,11 @@ class Comp(Type):
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
+
+            typeform = self.modl.form(_type.name)
+            if typeform is not None:
+                adds.append((typeform.name, norm, info))
+
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
@@ -1273,10 +1276,10 @@ class Ndef(Type):
         if form is None:
             raise s_exc.NoSuchForm(name=self.name, form=formname)
 
-        formnorm, info = form.type.norm(formvalu)
+        formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
 
-        adds = (norm,)
+        adds = ((form.name, formnorm, forminfo),)
         subs = {'form': form.name}
 
         return norm, {'adds': adds, 'subs': subs}
@@ -1403,7 +1406,7 @@ class Data(Type):
             s_common.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)
-        except s_exc.MustBeJsonSafe as e:
+        except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
