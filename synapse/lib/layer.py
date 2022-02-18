@@ -1380,6 +1380,12 @@ class Layer(s_nexus.Pusher):
         for indx in self.stortypes[modlprop.type.stortype].indx(valu):
             self.layrslab.put(abrv + indx, buid, db=self.byprop)
 
+    def _testAddPropArrayIndx(self, buid, form, prop, valu):
+        modlprop = self.core.model.prop(f'{form}:{prop}')
+        abrv = self.setPropAbrv(form, prop)
+        for indx in self.getStorIndx(modlprop.type.stortype, valu):
+            self.layrslab.put(abrv + indx, buid, db=self.byarray)
+
     def _testAddTagIndx(self, buid, form, tag):
         formabrv = self.setPropAbrv(form, None)
         tagabrv = self.tagabrv.bytsToAbrv(tag.encode())
