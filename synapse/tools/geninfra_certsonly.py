@@ -18,6 +18,10 @@ def prep_certdir(dirn):
     s_common.gendir(dirn, 'certs', 'hosts')
     s_common.gendir(dirn, 'certs', 'users')
 
+DEFAULT_DOCKER_LOGGING = {'driver': 'json-file',
+                          'options': {'max-file': '1',
+                                      'max-size': '100m'}}
+
 async def _main(argv, outp):
     pars = getArgParser()
     opts = pars.parse_args(argv)
@@ -30,6 +34,9 @@ async def _main(argv, outp):
 
     output_path = s_common.genpath(opts.output)
     os.makedirs(output_path)
+
+    docker_defaults = definition.get('docker', {})
+    docker_logging = docker_defaults.get('logging', DEFAULT_DOCKER_LOGGING)
 
     syndir = s_common.gendir(output_path, '_syndir')
     certdirn = s_common.genpath(syndir, 'certs')
@@ -71,9 +78,7 @@ async def _main(argv, outp):
                     'SYN_LOG_STRUCT': '1',
                 },
                 'image': 'vertexproject/synapse-aha:v2.x.x',
-                'logging': {'driver': 'json-file',
-                            'options': {'max-file': '1',
-                                        'max-size': '100m'}},
+                'logging': docker_logging,
                 'network_mode': 'host',
                 'volumes': ['./storage:/vertex/storage',
                             './backups:/vertex/backups']}},
@@ -144,6 +149,14 @@ async def _main(argv, outp):
                 url = svc2ahaconnect[target_svc]
                 logger.info(f'Replaced {k}={v} with {url}')
                 conf[k] = url
+                continue
+
+            if isinstance(v, str) and v.startswith('GENFQDN_'):
+                prefix = v.split('_', 1)[1]
+                fqdn = f'{prefix}.{ahanetwork}'
+                logger.info(f'Replaced {k}={v} with {fqdn}')
+                conf[k] = fqdn
+                continue
 
         s_common.yamlsave(conf, svcstorage, 'cell.yaml')
 
@@ -155,9 +168,7 @@ async def _main(argv, outp):
 
         svcdc = {'services': {svcfull: {'environment': env,
                                         'image': svcinfo['image'],
-                                        'logging': {'driver': 'json-file',
-                                                    'options': {'max-file': '1',
-                                                                'max-size': '100m'}},
+                                        'logging': docker_logging,
                                         'network_mode': 'host',
                                         'restart': 'unless-stopped',
                                         'volumes': ['./storage:/vertex/storage',
