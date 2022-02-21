@@ -19,9 +19,21 @@ def prep_certdir(dirn):
     s_common.gendir(dirn, 'certs', 'hosts')
     s_common.gendir(dirn, 'certs', 'users')
 
+_supported_versions = '>=0.1.0,<=0.2.0'
+
 DEFAULT_DOCKER_LOGGING = {'driver': 'json-file',
                           'options': {'max-file': '1',
                                       'max-size': '100m'}}
+
+DEFAULT_DOCKER_NETWORK_MODE = 'host'
+DEFAULT_DOCKER_RESTART = 'unless-stopped'
+
+DOCKER_COMPOSE_DEFAULTS = {
+    'logging': DEFAULT_DOCKER_LOGGING,
+    'network_mode': DEFAULT_DOCKER_NETWORK_MODE,
+    'restart': DEFAULT_DOCKER_RESTART,
+    'labels': {},
+}
 
 infraschema = {
     'definitions': {
@@ -33,6 +45,20 @@ infraschema = {
                 'aha:admin': {'type': 'string', 'default': 'root'},
                 'aha:listen': {'type': 'string', 'default': '0.0.0.0'},
                 'aha:port': {'type': 'integer', 'default': 27492},
+                'docker': {
+                    'type': 'object',
+                    'properties': {
+                        'image': {'type': 'string',
+                                  'default': 'vertexproject/synapse-aha:v2.x.x'},
+                        'environment': {'type': 'object', 'default': {}},
+                        'labels': {'type': 'object', 'default': {}},
+                    },
+                    'default': {
+                        'image': 'vertexproject/synapse-aha:v2.x.x',
+                        'environment': {},
+                        'labels': {},
+                    }
+                }
             },
             'required': [
                 'aha:network',
@@ -42,79 +68,86 @@ infraschema = {
             'type': 'object',
             'properties': {
                 'name': {'type': 'string'},
-                'image': {'type': 'string'},
                 'svcport': {'type': 'integer',
                             'default': 0},
                 'svclisten': {'type': 'string',
                               'default': '0.0.0.0'},
-                'environment': {
-                    'type': 'object',
-                },
                 'cellconf': {
                     'type': 'object',
+                },
+                'docker': {
+                    'type': 'object',
+                    'properties': {
+                        'image': {'type': 'string'},
+                        'environment': {'type': 'object', 'default': {}},
+                        'labels': {'type': 'object', 'default': {}},
+                    },
+                    'rquired': [
+                        'image',
+                    ]
                 }
             },
             'required': [
                 'name',
-                'image',
+                'docker',
             ]
         },
-        'dockerDefaults': {
+        'dockerComposeDefaults': {
             'type': 'object',
+            'properties': {
+                'logging': {'type': 'object', 'default': DEFAULT_DOCKER_LOGGING, },
+                'network_mode': {'type': 'string',
+                                 'default': DEFAULT_DOCKER_NETWORK_MODE},
+                'restart': {'type': 'string',
+                            'default': DEFAULT_DOCKER_RESTART},
+                'labels': {'type': 'object', 'default': {}},
+            },
         }
     },
     'type': 'object',
-    # 'fields': {
-    #     'aha': {
-    #         'type': {'$ref': '#/definitions/ahaSvc'}
-    #     },
-    #     'svcs': {
-    #         'type': 'array',
-    #         'items': {'$ref': '#/definitions/genericSvc'}
-    #     },
-    #     'docker': {
-    #         'type': {
-    #             '$ref': '#/definitions/dockerDefaults',
-    #         }
-    #     }
-    # },
-    'type': 'object',
-    'fields': {
+    'properties': {
         'aha': {
-            'type': 'object'
+            '$ref': '#/definitions/ahaSvc',
         },
         'svcs': {
-            'type': 'array'
+            'type': 'array',
+            'items': {'$ref': '#/definitions/genericSvc'}
         },
         'docker': {
-            'type': 'object',
+            '$ref': '#/definitions/dockerComposeDefaults',
+            'default': DOCKER_COMPOSE_DEFAULTS,
+        },
+        'version': {
+            'type': 'string',
+            'pattern': '^[0-9]+\\.[0-9]+\\.[0-9]+$',
         }
     },
-    # 'required': [
-    #     'aha',
-    # ],
-    # 'additionalProperties': False
+    'required': [
+        'aha',
+        'svcs',
+        'version',
+    ],
 }
 
 reqValidInfra = s_config.getJsValidator(infraschema)
-
 
 async def _main(argv, outp):
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
     definition = s_common.yamlload(opts.definition)
-    from pprint import pprint
-    pprint(definition.keys())
-    # return 0
     reqValidInfra(definition)
-    return
+    import synapse.lib.version as s_version
+    s_version.reqVersion(definition.get('version').split('.'), _supported_versions)
 
     output_path = s_common.genpath(opts.output)
     os.makedirs(output_path)
 
-    docker_defaults = definition.get('docker', {})
-    docker_logging = docker_defaults.get('logging', DEFAULT_DOCKER_LOGGING)
+    docker_defaults = definition.get('docker')
+    docker_logging = docker_defaults.get('logging')
+    default_docker_labels = docker_defaults.get('labels')
+    docker_restart = docker_defaults.get('restart')
+    docker_network_mode = docker_defaults.get('network_mode')
 
     syndir = s_common.gendir(output_path, '_syndir')
     certdirn = s_common.genpath(syndir, 'certs')
@@ -148,18 +181,32 @@ async def _main(argv, outp):
 
     aharoot = s_common.gendir(output_path, 'aha')
     ahasvcdir = s_common.gendir(aharoot, 'storage')
+    ahadnfo = ahainfo.get('docker')
+    ahalabels = {k: v for k, v in default_docker_labels.items()}
+    ahalabels.update(ahadnfo.get('labels'))
+    ahaenv = ahadnfo.get('environment')
+    ahaenv.setdefault('SYN_LOG_LEVEL', 'DEBUG')
+    ahaenv.setdefault('SYN_LOG_STRUCT', '1')
+
+    for k, v in ahadnfo.get('environment').items():
+        ahaenv.setdefault(k, v)
+
+    ahacomposesvc = {
+                'environment': ahaenv,
+                'image': ahadnfo.get('image'),
+                'logging': docker_logging,
+                'network_mode': docker_network_mode,
+                'restart': docker_restart,
+                'volumes': ['./storage:/vertex/storage',
+                            './backups:/vertex/backups']}
+
+    if ahalabels:
+        ahacomposesvc['labels'] = ahalabels
+
     ahadc = {
         'services': {
-            'aha': {
-                'environment': {
-                    'SYN_LOG_LEVEL': 'DEBUG',
-                    'SYN_LOG_STRUCT': '1',
-                },
-                'image': 'vertexproject/synapse-aha:v2.x.x',
-                'logging': docker_logging,
-                'network_mode': 'host',
-                'volumes': ['./storage:/vertex/storage',
-                            './backups:/vertex/backups']}},
+            ahaname: ahacomposesvc
+        },
         'version': '3.3',
     }
     s_common.yamlsave(ahadc, aharoot, 'docker-compose.yaml')
@@ -240,18 +287,29 @@ async def _main(argv, outp):
 
         # Generate docker-compose file
 
-        env = svcinfo.get('environment', {})
-        env.setdefault('SYN_LOG_LEVEL', 'DEBUG')
-        env.setdefault('SYN_LOG_STRUCT', '1')
+        svcdnfo = svcinfo.get('docker')
 
-        svcdc = {'services': {svcfull: {'environment': env,
-                                        'image': svcinfo['image'],
-                                        'logging': docker_logging,
-                                        'network_mode': 'host',
-                                        'restart': 'unless-stopped',
-                                        'volumes': ['./storage:/vertex/storage',
-                                                    './backups:/vertex/backups']}},
-                 'version': '3.3'}
+        svcenv = svcdnfo.get('environment')
+        svcenv.setdefault('SYN_LOG_LEVEL', 'DEBUG')
+        svcenv.setdefault('SYN_LOG_STRUCT', '1')
+
+        svclabels = {k: v for k, v in default_docker_labels.items()}
+        svclabels.update(svcdnfo.get('labels'))
+        svccompose = {'environment': svcenv,
+                      'image': svcdnfo['image'],
+                      'logging': docker_logging,
+                      'network_mode': docker_network_mode,
+                      'restart': docker_restart,
+                      'volumes': ['./storage:/vertex/storage',
+                                  './backups:/vertex/backups']}
+        if svclabels:
+            svccompose['labels'] = svclabels
+
+        svcdc = {
+            'services': {
+                svcfull: svccompose,
+            },
+            'version': '3.3'}
         s_common.yamlsave(svcdc, svcroot, 'docker-compose.yaml')
 
         if svcinfo.get('stormsvc', False):
