@@ -1168,12 +1168,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self._initCortexHttpApi()
 
-        self.model = s_datamodel.Model()
-
-        self.model.vers = self.cellinfo.get('cortex:model:version')
-        if self.model.vers is None:
-            self.model.vers = (0, 2, 6)
+        modlvers = self.cellinfo.get('cortex:model:version')
+        if modlvers is None:
+            modlvers = (0, 2, 6)
             await self.cellinfo.set('cortex:model:version', (0, 2, 6))
+
+        self.model = s_datamodel.Model(vers=modlvers)
 
         # Perform module loading
         await self._loadCoreMods()
