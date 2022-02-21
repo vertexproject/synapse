@@ -157,6 +157,13 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
+hugectxv1 = decimal.Context(prec=15)
+def hugenumv1(valu):
+    '''
+    Return a decimal.Decimal with original hugenum precision.
+    '''
+    return decimal.Decimal(valu, context=hugectxv1)
+
 hugectx = decimal.Context(prec=48)
 def hugenum(valu):
     '''

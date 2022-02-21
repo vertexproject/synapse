@@ -196,6 +196,29 @@ class SlabAbrv:
 
         return abrv
 
+    def newBytsToAbrv(self, byts):
+        '''
+        Replace an existing abrv with a new one if it currently exists.
+
+        Returns a tuple of abrvs (old, new).
+        '''
+        try:
+            abrv = self.bytsToAbrv(byts)
+        except s_exc.NoSuchAbrv:
+            return
+
+        newabrv = s_common.int64en(self.offs)
+
+        self.offs += 1
+
+        self.slab.put(byts, newabrv, db=self.name2abrv)
+        self.slab.put(newabrv, byts, db=self.abrv2name)
+
+        self.slab.delete(byts, abrv, db=self.name2abrv)
+        self.slab.delete(abrv, byts, db=self.abrv2name)
+
+        return abrv, newabrv
+
     def names(self):
         for byts in self.slab.scanKeys(db=self.name2abrv):
             yield byts.decode()

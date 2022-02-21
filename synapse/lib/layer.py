@@ -848,6 +848,69 @@ class StorTypeHugeNum(StorType):
         for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
             yield item
 
+class StorTypeHugeNumV1(StorType):
+
+    def __init__(self, layr, stortype):
+        StorType.__init__(self, layr, STOR_TYPE_HUGENUM)
+        self.lifters.update({
+            '=': self._liftHugeEq,
+            '<': self._liftHugeLt,
+            '>': self._liftHugeGt,
+            '<=': self._liftHugeLe,
+            '>=': self._liftHugeGe,
+            'range=': self._liftHugeRange,
+        })
+
+        self.one = s_common.hugenumv1(1)
+        self.offset = s_common.hugenumv1(0x7fffffffffffffffffffffffffffffff)
+
+        self.zerobyts = b'\x00' * 16
+        self.fullbyts = b'\xff' * 16
+
+    def getHugeIndx(self, norm):
+        scaled = s_common.hugenumv1(norm).scaleb(15)
+        byts = int(scaled + self.offset).to_bytes(16, byteorder='big')
+        return byts
+
+    def indx(self, norm):
+        return (self.getHugeIndx(norm),)
+
+    def decodeIndx(self, bytz):
+        return float(((int.from_bytes(bytz, 'big')) - self.offset) / 10 ** 15)
+
+    async def _liftHugeEq(self, liftby, valu):
+        byts = self.getHugeIndx(valu)
+        for item in liftby.keyBuidsByDups(byts):
+            yield item
+
+    async def _liftHugeGt(self, liftby, valu):
+        valu = s_common.hugenumv1(valu)
+        async for item in self._liftHugeGe(liftby, valu + self.one):
+            yield item
+
+    async def _liftHugeLt(self, liftby, valu):
+        valu = s_common.hugenumv1(valu)
+        async for item in self._liftHugeLe(liftby, valu - self.one):
+            yield item
+
+    async def _liftHugeGe(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu)
+        pkeymax = self.fullbyts
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeLe(self, liftby, valu):
+        pkeymin = self.zerobyts
+        pkeymax = self.getHugeIndx(valu)
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeRange(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu[0])
+        pkeymax = self.getHugeIndx(valu[1])
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
 class StorTypeFloat(StorType):
     FloatPacker = struct.Struct('>d')
     fpack = FloatPacker.pack
@@ -1208,6 +1271,9 @@ class Layer(s_nexus.Pusher):
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
         ]
+
+        if self.core.model.vers < (0, 2, 7):
+            self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNumV1(self, STOR_TYPE_HUGENUM)
 
         await self._initLayerStorage()
 
@@ -3403,7 +3469,67 @@ class Layer(s_nexus.Pusher):
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
-    async def setModelVers(self, vers):
+    async def updateAbrvs(self, props, tagprops):
+        propabrvs = {}
+        for (form, prop) in props:
+            retn = self.propabrv.newBytsToAbrv(s_msgpack.en((form, prop)))
+            if retn is None:
+                continue
+            (old, new) = retn
+            propabrvs[old] = new
+
+        tagpropabrvs = {}
+        for tagprop in tagprops:
+            retn = self.tagpropabrv.newBytsToAbrv(s_msgpack.en(tagprop))
+            if retn is None:
+                continue
+            (old, new) = retn
+            tagpropabrvs[old] = new
+
+        await self.layrinfo.set('abrv:migrations', (propabrvs, tagpropabrvs))
+
+    async def dropIndexes(self):
+
+        indxmap = await self.layrinfo.get('abrv:migrations')
+        if indxmap is None:
+            return
+
+        (propabrvs, tagpropabrvs) = indxmap
+
+        for propabrv in propabrvs:
+            for lkey, buid in self.layrslab.scanByPref(propabrv, db=self.byprop):
+                await asyncio.sleep(0)
+                self.layrslab.delete(lkey, buid, db=self.byprop)
+
+            for lkey, buid in self.layrslab.scanByPref(propabrv, db=self.byarray):
+                await asyncio.sleep(0)
+                self.layrslab.delete(lkey, buid, db=self.byarray)
+
+        for tagpropabrv in tagpropabrvs:
+            for lkey, buid in self.layrslab.scanByPref(tagpropabrv, db=self.bytagprop):
+                await asyncio.sleep(0)
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+
+    async def verifyIndexes(self, props, tagprops):
+
+        scanconf = {'include': props, 'autofix': 'index'}
+        async for mesg in self.verifyAllProps(scanconf=scanconf):
+            pass
+
+        scanconf = {'include': tagprops, 'autofix': 'index'}
+        async for mesg in self.verifyAllTagProps(scanconf=scanconf):
+            pass
+
+    async def setModelVers(self, vers, *args):
+        await self._push('layer:set:modelvers', vers, *args)
+
+    @s_nexus.Pusher.onPush('layer:set:modelvers')
+    async def _setModelVers(self, vers, *args):
+        if vers == (0, 2, 7):
+            self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNum(self, STOR_TYPE_HUGENUM)
+        elif vers == (0, 2, 8):
+            await self.verifyIndexes(*args)
+
         await self.layrinfo.set('model:version', vers)
 
     async def getStorNodes(self):

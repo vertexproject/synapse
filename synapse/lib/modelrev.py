@@ -9,7 +9,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 7)
+maxvers = (0, 2, 9)
 
 class ModelRev:
 
@@ -21,7 +21,7 @@ class ModelRev:
             ((0, 2, 3), self.revModel20210528),
             ((0, 2, 5), self.revModel20210801),
             ((0, 2, 6), self.revModel20211112),
-            ((0, 2, 7), self.revModel20220202),
+            ((0, 2, 9), self.revModel20220202),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -410,6 +410,10 @@ class ModelRev:
 
     async def revModel20220202(self, layers):
 
+        await self.core.updateModel((0, 2, 7))
+        for layr in layers:
+            await layr.setModelVers((0, 2, 7))
+
         (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
 
         cnt = 0
@@ -606,9 +610,9 @@ class ModelRev:
         await self.updateTagProps(tagprops, layers)
 
         # Clean up old invalid hugenum index values
-        fixprops = {'include': [], 'autofix': 'index'}
+        fixprops = []
         for form in forms:
-            fixprops['include'].append((form, None))
+            fixprops.append((form, None))
 
         for prop in props:
             ptyp = self.core.model.props[prop]
@@ -616,15 +620,10 @@ class ModelRev:
 
             if form:
                 form = form.name
-            fixprops['include'].append((form, ptyp.name))
-
-        fixtagprops = {'include': tagprops, 'autofix': 'index'}
+            fixprops.append((form, ptyp.name))
 
         for layr in layers:
-            async for mesg in layr.verifyAllProps(scanconf=fixprops):
-                pass
-            async for mesg in layr.verifyAllTagProps(scanconf=fixtagprops):
-                pass
+            await layr.setModelVers((0, 2, 8), fixprops, list(tagprops))
 
     async def revCoreLayers(self):
 
@@ -669,6 +668,7 @@ class ModelRev:
 
             await revmeth(todo)
 
+            await self.core.updateModel(revvers)
             [await lyr.setModelVers(revvers) for lyr in todo]
 
         logger.warning('...model migrations complete!')

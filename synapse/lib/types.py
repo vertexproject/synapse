@@ -676,6 +676,8 @@ intstors = {
 }
 
 hugemax = 7307508186654514591018424163
+hugemaxv1 = 170141183460469231731687
+
 class HugeNum(Type):
 
     stortype = s_layer.STOR_TYPE_HUGENUM
@@ -697,7 +699,30 @@ class HugeNum(Type):
             'range=': self._storLiftRange,
         })
 
-    def norm(self, valu):
+        if modl.vers < (0, 2, 7):
+            self.norm = self.normv1
+        else:
+            self.norm = self.normv2
+
+    def normv1(self, valu):
+        if self.modl.vers >= (0, 2, 7):
+            self.norm = self.normv2
+            return self.norm(valu)
+
+        huge = s_common.hugenumv1(valu)
+        if huge > hugemaxv1:
+            mesg = f'Value ({valu}) is too large for hugenum.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        if abs(huge) > hugemaxv1:
+            mesg = f'Value ({valu}) is too small for hugenum.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        if self.opts.get('norm'):
+            huge.normalize(), {}
+        return huge.to_eng_string(), {}
+
+    def normv2(self, valu):
 
         try:
             huge = s_common.hugenum(valu)

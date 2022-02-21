@@ -14,6 +14,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
+import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +417,9 @@ class Model:
     '''
     The data model used by a Cortex hypergraph.
     '''
-    def __init__(self):
+    def __init__(self, vers=s_modelrev.maxvers):
+
+        self.vers = vers
 
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
