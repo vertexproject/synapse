@@ -680,12 +680,18 @@ class LibService(Lib):
             ''',
          'type': {'type': 'function', '_funcname': '_libSvcList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Service definitions.', }}},
-        {'name': 'wait', 'desc': 'Wait for a given service to be ready.',
+        {'name': 'wait', 'desc': '''
+        Wait for a given service to be ready.
+
+        Notes:
+            If a timeout value is not specified, this will block a Storm query until the service is available.
+        ''',
          'type': {'type': 'function', '_funcname': '_libSvcWait',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name, or iden, of the service to wait for.', },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Number of seconds to wait for the service.'}
                   ),
-                  'returns': {'type': 'null', 'desc': 'Returns null when the service is available.', }}},
+                  'returns': {'type': 'bool', 'desc': 'Returns true if the service is available, false otherwise.', }}},
     )
     _storm_lib_path = ('service',)
 
@@ -753,13 +759,29 @@ class LibService(Lib):
 
         return retn
 
-    async def _libSvcWait(self, name):
+    async def _libSvcWait(self, name, timeout=None):
+        name = await tostr(name)
+        timeout = await toint(timeout, noneok=True)
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
         await self._checkSvcGetPerm(ssvc)
-        await ssvc.ready.wait()
+
+        # Short circuit asyncio.wait_for logic by checking the ready event
+        # value. If we call wait_for with a timeout=0 we'll almost always
+        # raise a TimeoutError unless the future previously had the option
+        # to complete.
+        if timeout == 0:
+            return ssvc.ready.is_set()
+
+        fut = ssvc.ready.wait()
+        try:
+            await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            return False
+        else:
+            return True
 
 @registry.registerLib
 class LibTags(Lib):
