@@ -77,4 +77,4 @@ class TimeTest(s_t_utils.SynTest):
 
     def test_time_toutc(self):
         tick = s_time.parse('2020-02-11 14:08:00.123')
-        self.eq(s_time.toutc(tick, 'EST'), tick + (s_time.onehour * 5))
+        self.eq(s_time.toUTC(tick, 'EST'), tick + (s_time.onehour * 5))
