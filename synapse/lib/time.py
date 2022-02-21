@@ -246,7 +246,7 @@ def delta(text):
 
     return size * base
 
-def toutc(tick, fromzone):
+def toUTC(tick, fromzone):
     try:
         tz = pytz.timezone(fromzone)
     except pytz.exceptions.UnknownTimeZoneError:

@@ -2219,10 +2219,12 @@ class StormTypesTest(s_test.SynTest):
             self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
 
             tick = s_time.parse('2020-02-11 14:08:00.123')
-            valu = await core.callStorm('return($lib.time.toutc(2020-02-11@14:08:00.123, EST))')
-            self.eq(valu, tick + (s_time.onehour * 5))
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.time.toutc(2020, VISI))')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, EST))')
+            self.eq(valu, (True, tick + (s_time.onehour * 5)))
+
+            valu = await core.callStorm('return($lib.time.toUTC(2020, VISI))')
+            self.false(valu[0])
+            self.eq(valu[1]['err'], 'BadArg')
 
     async def test_storm_lib_time_ticker(self):
 
