@@ -107,6 +107,7 @@ setup(
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
+        'pytz>=2021.3,<2022',
     ],
 
     extras_require={

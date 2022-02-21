@@ -74,3 +74,7 @@ class TimeTest(s_t_utils.SynTest):
 
         # invalid
         self.raises(s_exc.BadTypeValu, s_time.parse, '2020-07-07T16:29:53+36:00')
+
+    def test_time_toutc(self):
+        tick = s_time.parse('2020-02-11 14:08:00.123')
+        self.eq(s_time.toUTC(tick, 'EST'), tick + (s_time.onehour * 5))

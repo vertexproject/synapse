@@ -53,6 +53,7 @@ class StormTypesRegistry:
         'any',
         'int',
         'null',
+        'time',
         'prim',
         'undef',
         'integer',
@@ -2138,12 +2139,22 @@ class LibTime(Lib):
                       {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
+        {'name': 'toUTC', 'desc': '''
+        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        ''',
+         'type': {'type': 'function', '_funcname': 'toUTC',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time'},
+                      {'name': 'timezone', 'desc': 'A timezone name. See python pytz docs for options.', 'type': 'str'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.', }}},
     )
     _storm_lib_path = ('time',)
 
     def getObjLocals(self):
         return {
             'now': self._now,
+            'toUTC': self.toUTC,
             'fromunix': self._fromunix,
             'parse': self._parse,
             'format': self._format,
@@ -2162,6 +2173,19 @@ class LibTime(Lib):
             'dayofmonth': self.dayofmonth,
             'monthofyear': self.monthofyear,
         }
+
+    async def toUTC(self, tick, timezone):
+
+        tick = await toprim(tick)
+        timezone = await tostr(timezone)
+
+        timetype = self.runt.snap.core.model.type('time')
+
+        norm, info = timetype.norm(tick)
+        try:
+            return (True, s_time.toUTC(norm, timezone))
+        except s_exc.BadArg as e:
+            return (False, s_common.excinfo(e))
 
     def _now(self):
         return s_common.now()
