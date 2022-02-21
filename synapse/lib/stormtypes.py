@@ -53,6 +53,7 @@ class StormTypesRegistry:
         'any',
         'int',
         'null',
+        'time',
         'prim',
         'undef',
         'integer',
@@ -680,12 +681,20 @@ class LibService(Lib):
             ''',
          'type': {'type': 'function', '_funcname': '_libSvcList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Service definitions.', }}},
-        {'name': 'wait', 'desc': 'Wait for a given service to be ready.',
+        {'name': 'wait', 'desc': '''
+        Wait for a given service to be ready.
+
+        Notes:
+            If a timeout value is not specified, this will block a Storm query until the service is available.
+        ''',
          'type': {'type': 'function', '_funcname': '_libSvcWait',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name, or iden, of the service to wait for.', },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Number of seconds to wait for the service.',
+                       'default': None, }
                   ),
-                  'returns': {'type': 'null', 'desc': 'Returns null when the service is available.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
+                                                         'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_path = ('service',)
 
@@ -753,13 +762,29 @@ class LibService(Lib):
 
         return retn
 
-    async def _libSvcWait(self, name):
+    async def _libSvcWait(self, name, timeout=None):
+        name = await tostr(name)
+        timeout = await toint(timeout, noneok=True)
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
         await self._checkSvcGetPerm(ssvc)
-        await ssvc.ready.wait()
+
+        # Short circuit asyncio.wait_for logic by checking the ready event
+        # value. If we call wait_for with a timeout=0 we'll almost always
+        # raise a TimeoutError unless the future previously had the option
+        # to complete.
+        if timeout == 0:
+            return ssvc.ready.is_set()
+
+        fut = ssvc.ready.wait()
+        try:
+            await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            return False
+        else:
+            return True
 
 @registry.registerLib
 class LibTags(Lib):
@@ -2138,12 +2163,22 @@ class LibTime(Lib):
                       {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
+        {'name': 'toUTC', 'desc': '''
+        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        ''',
+         'type': {'type': 'function', '_funcname': 'toUTC',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time'},
+                      {'name': 'timezone', 'desc': 'A timezone name. See python pytz docs for options.', 'type': 'str'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.', }}},
     )
     _storm_lib_path = ('time',)
 
     def getObjLocals(self):
         return {
             'now': self._now,
+            'toUTC': self.toUTC,
             'fromunix': self._fromunix,
             'parse': self._parse,
             'format': self._format,
@@ -2162,6 +2197,19 @@ class LibTime(Lib):
             'dayofmonth': self.dayofmonth,
             'monthofyear': self.monthofyear,
         }
+
+    async def toUTC(self, tick, timezone):
+
+        tick = await toprim(tick)
+        timezone = await tostr(timezone)
+
+        timetype = self.runt.snap.core.model.type('time')
+
+        norm, info = timetype.norm(tick)
+        try:
+            return (True, s_time.toUTC(norm, timezone))
+        except s_exc.BadArg as e:
+            return (False, s_common.excinfo(e))
 
     def _now(self):
         return s_common.now()
