@@ -137,6 +137,13 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoStorTypeForProp')
             self.eq(errors[1][0], 'NoStorTypeForProp')
 
+            sode['props'] = None
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(4, errors)
+            for err in errors:
+                self.eq(err[0], 'NoValuForPropIndex')
+
         # Check arrays
         async with self.getTestCore() as core:
 
@@ -177,6 +184,16 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoValuForPropArrayIndex')
             self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+
+            sode['props'] = None
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(5, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[3][0], 'NoValuForPropIndex')
+            self.eq(errors[4][0], 'NoValuForPropIndex')
 
             await core.nodes('ps:contact | delnode --force')
 
@@ -307,6 +324,15 @@ class LayerTest(s_t_utils.SynTest):
 
             sode = await layr.getStorNode(buid)
             sode['tagprops'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoPropForTagPropIndex')
+            self.eq(errors[1][0], 'NoPropForTagPropIndex')
+
+            sode = await layr.getStorNode(buid)
+            sode['tagprops'] = None
             layr.setSodeDirty(buid, sode, sode.get('form'))
 
             errors = [e async for e in core.getLayer().verify()]

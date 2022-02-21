@@ -1548,6 +1548,11 @@ class Layer(s_nexus.Pusher):
 
             if prop is not None:
                 props = sode.get('props')
+                if props is None:
+                    await tryfix(lkey, buid)
+                    yield ('NoValuForPropIndex', {'buid': s_common.ehex(buid), 'form': form, 'prop': prop, 'indx': indx})
+                    continue
+
                 valu = props.get(prop)
                 if valu is None:
                     await tryfix(lkey, buid)
@@ -1601,6 +1606,12 @@ class Layer(s_nexus.Pusher):
 
             if prop is not None:
                 props = sode.get('props')
+                if props is None:
+                    await tryfix(lkey, buid)
+                    yield ('NoValuForPropArrayIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                       'prop': prop, 'indx': indx})
+                    continue
+
                 valu = props.get(prop)
                 if valu is None:
                     await tryfix(lkey, buid)
@@ -1653,6 +1664,11 @@ class Layer(s_nexus.Pusher):
                 continue
 
             tags = sode.get('tagprops')
+            if tags is None:
+                yield ('NoPropForTagPropIndex', {'buid': s_common.ehex(buid), 'form': form,
+                                                 'tag': tag, 'prop': prop, 'indx': indx})
+                continue
+
             props = tags.get(tag)
             if props is None:
                 await tryfix(lkey, buid)
