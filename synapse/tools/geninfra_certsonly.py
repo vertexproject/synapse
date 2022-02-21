@@ -8,6 +8,7 @@ import argparse
 
 import synapse.common as s_common
 
+import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 
@@ -22,15 +23,92 @@ DEFAULT_DOCKER_LOGGING = {'driver': 'json-file',
                           'options': {'max-file': '1',
                                       'max-size': '100m'}}
 
+infraschema = {
+    'definitions': {
+        'ahaSvc': {
+            'type': 'object',
+            'properties': {
+                'aha:network': {'type': 'string'},
+                'aha:name': {'type': 'string', 'default': 'aha'},
+                'aha:admin': {'type': 'string', 'default': 'root'},
+                'aha:listen': {'type': 'string', 'default': '0.0.0.0'},
+                'aha:port': {'type': 'integer', 'default': 27492},
+            },
+            'required': [
+                'aha:network',
+            ]
+        },
+        'genericSvc': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'image': {'type': 'string'},
+                'svcport': {'type': 'integer',
+                            'default': 0},
+                'svclisten': {'type': 'string',
+                              'default': '0.0.0.0'},
+                'environment': {
+                    'type': 'object',
+                },
+                'cellconf': {
+                    'type': 'object',
+                }
+            },
+            'required': [
+                'name',
+                'image',
+            ]
+        },
+        'dockerDefaults': {
+            'type': 'object',
+        }
+    },
+    'type': 'object',
+    # 'fields': {
+    #     'aha': {
+    #         'type': {'$ref': '#/definitions/ahaSvc'}
+    #     },
+    #     'svcs': {
+    #         'type': 'array',
+    #         'items': {'$ref': '#/definitions/genericSvc'}
+    #     },
+    #     'docker': {
+    #         'type': {
+    #             '$ref': '#/definitions/dockerDefaults',
+    #         }
+    #     }
+    # },
+    'type': 'object',
+    'fields': {
+        'aha': {
+            'type': 'object'
+        },
+        'svcs': {
+            'type': 'array'
+        },
+        'docker': {
+            'type': 'object',
+        }
+    },
+    # 'required': [
+    #     'aha',
+    # ],
+    # 'additionalProperties': False
+}
+
+reqValidInfra = s_config.getJsValidator(infraschema)
+
+
 async def _main(argv, outp):
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
     definition = s_common.yamlload(opts.definition)
     from pprint import pprint
-    pprint(definition)
+    pprint(definition.keys())
     # return 0
-    assert bool(definition), f'invalid definition {definition=}'
+    reqValidInfra(definition)
+    return
 
     output_path = s_common.genpath(opts.output)
     os.makedirs(output_path)
@@ -204,8 +282,8 @@ async def _main(argv, outp):
     return 0
 
 def getArgParser():
-    desc = 'CLI tool to generate simple x509 certificates from an Aha server.'
-    pars = argparse.ArgumentParser(prog='aha.easycert', description=desc)
+    desc = 'CLI tool to generate TLS deployments with docker-compose.'
+    pars = argparse.ArgumentParser(prog='synapse.tools.infra.gentls', description=desc)
 
     pars.add_argument('-d', '--definition', required=True, type=str,
                       help='Infrastructure definition')
