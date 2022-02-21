@@ -1,6 +1,7 @@
 import os
 import sys
 import copy
+import stat
 import shutil
 import asyncio
 import logging
@@ -11,6 +12,7 @@ import synapse.common as s_common
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +139,6 @@ async def _main(argv, outp):
 
     definition = s_common.yamlload(opts.definition)
     reqValidInfra(definition)
-    import synapse.lib.version as s_version
     s_version.reqVersion(definition.get('version').split('.'), _supported_versions)
 
     output_path = s_common.genpath(opts.output)
@@ -219,6 +220,7 @@ async def _main(argv, outp):
     svc2ahaconnect = {}
 
     stormsvcs = []
+    usergens = []
 
     for svcinfo in definition.get('svcs', ()):  # type: dict
         svcname = svcinfo.get('name')
@@ -252,7 +254,7 @@ async def _main(argv, outp):
         svcport = svcinfo.get('svcport', '0')
         svclistn = svcinfo.get('svclisten', '0.0.0.0')
         svc_dmon_listen = f'ssl://{svclistn}:{svcport}/?hostname={svcfull}&ca={ahanetwork}'
-        svc_aha_connect = f'aha://{ahaadmin_raw}@{svcfull}/'
+        svc_aha_connect = f'aha://{{user}}@{svcfull}/'
         svc2ahaconnect[svcname] = svc_aha_connect
 
         # Generate svcconf
@@ -271,7 +273,17 @@ async def _main(argv, outp):
         for k, v in list(conf.items()):
             if isinstance(v, str) and v.startswith('GENAHAURL_'):
                 target_svc = v.split('_', 1)[1]
-                url = svc2ahaconnect[target_svc]
+                base_url = svc2ahaconnect[target_svc]
+                url = base_url.format(user=ahaadmin_raw)
+                logger.info(f'Replaced {k}={v} with {url}')
+                conf[k] = url
+                continue
+
+            if isinstance(v, str) and v.startswith('GENSVCAHAURL_'):
+                target_svc = v.split('_', 1)[1]
+                base_url = svc2ahaconnect[target_svc]
+                url = base_url.format(user=svcname)
+                usergens.append((base_url.format(user=ahaadmin_raw), svcuser))
                 logger.info(f'Replaced {k}={v} with {url}')
                 conf[k] = url
                 continue
@@ -336,6 +348,26 @@ async def _main(argv, outp):
         storm = ' | '.join(stormsvcs)
         with s_common.genfile(stormfp) as fd:
             fd.write(storm.encode())
+
+    if usergens:
+        fp = s_common.genpath(output_path, 'usergens.sh')
+        logger.info(f'Generating usergens script to {fp}.')
+        lines = []
+        lines.append('#!/bin/bash')
+        lines.append('')
+        lines.append('# Setting variables to use the generated _syndir')
+        lines.append('export SYN_DIR=./_syndir/')
+        lines.append('export SYN_CERT_DIR=./_syndir/certs/')
+        for (svcurl, user) in usergens:
+            lines.append(f"echo 'Creating user {user} @ {svcurl}'")
+            lines.append(f'python -m synapse.tools.cellauth {svcurl} modify --adduser {user}')
+            lines.append(f"echo 'Creating setting admin for {user} @ {svcurl}'")
+            lines.append(f'python -m synapse.tools.cellauth {svcurl} modify --admin {user}')
+
+        with s_common.genfile(fp) as fd:
+            fd.write('\n'.join(lines).encode())
+        st = os.stat(fp)
+        os.chmod(fp, st.st_mode | stat.S_IEXEC)
 
     return 0
 
