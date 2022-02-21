@@ -372,13 +372,13 @@ async def _main(argv, outp):
     return 0
 
 def getArgParser():
-    desc = 'CLI tool to generate TLS deployments with docker-compose.'
-    pars = argparse.ArgumentParser(prog='synapse.tools.infra.gentls', description=desc)
+    desc = 'CLI tool to generate TLS based Synapse deployments using docker-compose.'
+    pars = argparse.ArgumentParser(prog='synapse.tools.infra.gendc', description=desc)
 
-    pars.add_argument('-d', '--definition', required=True, type=str,
-                      help='Infrastructure definition')
-    pars.add_argument('-o', '--output', required=True, type=str,
-                      help='Output directory')
+    pars.add_argument('definition', type=str,
+                      help='Infrastructure definition yaml file.')
+    pars.add_argument('output', type=str,
+                      help='Output directory.')
 
     return pars
 
