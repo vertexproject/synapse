@@ -423,7 +423,7 @@ class StormSvcTest(s_test.SynTest):
 
             self.true(await proxy.waitfini(6))
 
-            self.false(await core.callStorm('return($lib.service.wait(fake, timeout=(0.1)))'))
+            self.false(await core.callStorm('return($lib.service.wait(fake, timeout=(1)))'))
             # This blocks indefinitely without a timeout value provided.
             fut = core.callStorm('return($lib.service.wait(fake))')
             with self.raises(asyncio.TimeoutError):
