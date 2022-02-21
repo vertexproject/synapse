@@ -1453,6 +1453,10 @@ class Layer(s_nexus.Pusher):
                 globs.add(incname, True)
 
         autofix = scanconf.get('autofix')
+        if autofix not in (None, 'node', 'index'):
+            mesg = f'invalid tag index autofix strategy "{autofix}"'
+            raise s_exc.BadArg(mesg=mesg)
+
         for name in self.tagabrv.names():
 
             if globs is not None and not globs.get(name):
@@ -1467,6 +1471,10 @@ class Layer(s_nexus.Pusher):
             scanconf = {}
 
         autofix = scanconf.get('autofix')
+        if autofix not in (None, 'index'):
+            mesg = f'invalid prop index autofix strategy "{autofix}"'
+            raise s_exc.BadArg(mesg=mesg)
+
         include = scanconf.get('include', None)
 
         for form, prop in self.getFormProps():
@@ -1486,6 +1494,10 @@ class Layer(s_nexus.Pusher):
             scanconf = {}
 
         autofix = scanconf.get('autofix')
+        if autofix not in (None, 'index'):
+            mesg = f'invalid tagprop index autofix strategy "{autofix}"'
+            raise s_exc.BadArg(mesg=mesg)
+
         include = scanconf.get('include', None)
 
         for form, tag, prop in self.getTagProps():

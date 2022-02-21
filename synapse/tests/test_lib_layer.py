@@ -340,6 +340,17 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
+            scanconf = {'autofix': 'newp'}
+
+            with self.raises(s_exc.BadArg):
+                errors = [e async for e in layr.verifyAllTags(scanconf=scanconf)]
+
+            with self.raises(s_exc.BadArg):
+                errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+
+            with self.raises(s_exc.BadArg):
+                errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
+
     async def test_layer_abrv(self):
 
         async with self.getTestCore() as core:
