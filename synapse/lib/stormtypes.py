@@ -689,9 +689,11 @@ class LibService(Lib):
          'type': {'type': 'function', '_funcname': '_libSvcWait',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name, or iden, of the service to wait for.', },
-                      {'name': 'timeout', 'type': 'int', 'desc': 'Number of seconds to wait for the service.'}
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Number of seconds to wait for the service.',
+                       'default': None, }
                   ),
-                  'returns': {'type': 'bool', 'desc': 'Returns true if the service is available, false otherwise.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
+                                                         'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_path = ('service',)
 
