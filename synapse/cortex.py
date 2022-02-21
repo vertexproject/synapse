@@ -36,6 +36,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -3147,22 +3148,18 @@ class Cortex(s_cell.Cell):  # type: ignore
             self.axready.set()
             return
 
-        async def teleloop():
-            self.axready.clear()
-            while not self.isfini:
-                try:
-                    self.axon = await s_telepath.openurl(turl)
-                    self.axon.onfini(teleloop)
-                    self.dynitems['axon'] = self.axon
-                    self.axready.set()
-                    return
-                except asyncio.CancelledError:  # TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception as e:
-                    logger.warning('remote axon error: %r' % (e,))
-                await self.waitfini(1)
+        async def onlink(proxy: s_telepath.Proxy):
+            logger.debug(f'Connected to remote axon {s_urlhelp.sanitizeUrl(turl)}')
 
-        self.schedCoro(teleloop())
+            async def fini():
+                self.axready.clear()
+
+            proxy.onfini(fini)
+            self.axready.set()
+
+        self.axon = await s_telepath.Client.anit(turl, onlink=onlink)
+        self.dynitems['axon'] = self.axon
+        self.onfini(self.axon)
 
     async def _initStormCmds(self):
         '''
