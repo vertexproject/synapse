@@ -319,7 +319,6 @@ class ModelRev:
         Lift and re-norm prop values for the specified props in the specified layers.
         '''
         hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
-        newstor = s_layer.StorTypeHugeNum(layers[0], s_layer.STOR_TYPE_HUGENUM)
 
         for prop in props:
             ptyp = self.core.model.props[prop]
@@ -387,7 +386,6 @@ class ModelRev:
                         if realtype != s_layer.STOR_TYPE_HUGENUM and newval == propvalu:
                             continue
 
-                        # always delete hugenum array indxs
                         if realtype == s_layer.STOR_TYPE_HUGENUM:
                             for indx in arrayindx(propvalu):
                                 delarrayindx.append((indxby.abrv + indx, buid))
@@ -576,11 +574,11 @@ class ModelRev:
                     if realtype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
                         continue
 
-                    # always delete hugenum array indxs
                     if realtype == s_layer.STOR_TYPE_HUGENUM:
                         for indx in arrayindx(valu):
                             for vlay in valulayrs:
                                 nodeedits[vlay]['delproparrayindx'].append((layrabrv[vlay] + indx, buid))
+                                cnt += 1
 
                 else:
                     if stortype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
@@ -590,6 +588,7 @@ class ModelRev:
                         indx = hugestorv1.indx(valu)[0]
                         for vlay in valulayrs:
                             nodeedits[vlay]['delpropindx'].append((layrabrv[vlay] + indx, buid))
+                            cnt += 1
 
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)

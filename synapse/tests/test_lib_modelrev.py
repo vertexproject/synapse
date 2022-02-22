@@ -1,4 +1,3 @@
-import asyncio
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
 
