@@ -77,6 +77,7 @@ infraschema = {
                 'cellconf': {
                     'type': 'object',
                 },
+                'stormsvc': {'type': 'boolean'},
                 'docker': {
                     'type': 'object',
                     'properties': {
@@ -325,11 +326,11 @@ async def _main(argv, outp):
         s_common.yamlsave(svcdc, svcroot, 'docker-compose.yaml')
 
         if svcinfo.get('stormsvc', False):
-            stormstr = f'service.add {svcname} {svc_aha_connect}'
+            stormstr = f'service.add {svcname} {svc_aha_connect.format(user=ahaadmin_raw)}'
             stormsvcs.append(stormstr)
 
     logger.info('Copying certdir to ahasvcdir')
-    shutil.copytree(certdirn, s_common.genpath(ahasvcdir, 'certs'), dirs_exist_ok=True)
+    shutil.copytree(certdirn, s_common.genpath(ahasvcdir, 'certs'), )
 
     telefp = s_common.genpath(syndir, 'telepath.yaml')
     logger.info(f'Creating telepath.yaml at {telefp}')
