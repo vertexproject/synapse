@@ -718,8 +718,6 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if self.opts.get('norm'):
-            huge.normalize(), {}
         return huge.to_eng_string(), {}
 
     def normv2(self, valu):

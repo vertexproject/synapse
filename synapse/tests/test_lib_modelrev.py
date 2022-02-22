@@ -342,6 +342,12 @@ class ModelRevTest(s_tests.SynTest):
                     nodes = await core01.nodes('crypto:currency:transaction:value=0')
                     self.len(7, nodes)
 
+                    with self.raises(s_exc.BadTypeValu):
+                        nodes = await core01.nodes('crypto:currency:transaction:value=170141183460469231731688')
+
+                    with self.raises(s_exc.BadTypeValu):
+                        nodes = await core01.nodes('crypto:currency:transaction:value=-170141183460469231731688')
+
                 async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
                     async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
                         await core01.sync()
