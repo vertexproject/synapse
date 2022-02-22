@@ -5461,6 +5461,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))
 
+                vdef2 = await core.view.fork()
+                opts = {'view': vdef2.get('iden')}
+
+                await core.addTagProp('added', ('time', {}), {})
+
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar ]')
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:added="2049" ]', opts=opts)
+
+                with self.raises(s_exc.CantDelProp):
+                    await core.delTagProp('added')
+
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
+                await core.delTagProp('added')
+
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:
 
