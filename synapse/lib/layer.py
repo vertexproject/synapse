@@ -3483,11 +3483,11 @@ class Layer(s_nexus.Pusher):
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
-    async def setModelVers(self, vers, *args):
-        await self._push('layer:set:modelvers', vers, *args)
+    async def setModelVers(self, vers):
+        await self._push('layer:set:modelvers', vers)
 
     @s_nexus.Pusher.onPush('layer:set:modelvers')
-    async def _setModelVers(self, vers, *args):
+    async def _setModelVers(self, vers):
         if vers == (0, 2, 7):
             self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNum(self, STOR_TYPE_HUGENUM)
 

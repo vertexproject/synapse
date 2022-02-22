@@ -9,7 +9,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 9)
+maxvers = (0, 2, 8)
 
 class ModelRev:
 
@@ -21,7 +21,7 @@ class ModelRev:
             ((0, 2, 3), self.revModel20210528),
             ((0, 2, 5), self.revModel20210801),
             ((0, 2, 6), self.revModel20211112),
-            ((0, 2, 9), self.revModel20220202),
+            ((0, 2, 8), self.revModel20220202),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -747,22 +747,6 @@ class ModelRev:
         # Update props and tagprops for nodes where the buid remains the same
         await self.updateProps(props, layers)
         await self.updateTagProps(tagprops, layers)
-
-        # Clean up old invalid hugenum index values
-        fixprops = []
-        for form in forms:
-            fixprops.append((form, None))
-
-        for prop in props:
-            ptyp = self.core.model.props[prop]
-            form = ptyp.form
-
-            if form:
-                form = form.name
-            fixprops.append((form, ptyp.name))
-
-        for layr in layers:
-            await layr.setModelVers((0, 2, 8), fixprops, list(tagprops))
 
     async def revCoreLayers(self):
 
