@@ -594,12 +594,6 @@ class ModelRev:
                 newiden = s_common.ehex(newbuid)
 
                 if buid == newbuid:
-                    for layriden, sode in sodes:
-                        if 'valu' in sode:
-                            nodeedits[layriden]['adds'].append(
-                                (s_layer.EDIT_NODE_ADD, (hnorm, stortype), ()),
-                            )
-
                     await save(buid, newbuid)
                     cnt = 0
                     continue

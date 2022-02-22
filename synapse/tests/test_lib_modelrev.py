@@ -302,7 +302,7 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
-    async def test_modelrev_0_2_6_compat(self):
+    async def test_modelrev_0_2_6_mirror(self):
 
         regr = os.getenv('SYN_REGRESSION_REPO')
         if regr is None:
