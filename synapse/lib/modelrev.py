@@ -2,6 +2,7 @@ import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
@@ -314,10 +315,49 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
+    def addExtModel(self, oldm):
+        for formname, basetype, typeopts, typeinfo in self.core.extforms.values():
+            try:
+                oldm.addType(formname, basetype, typeopts, typeinfo)
+                form = oldm.addForm(formname, {}, ())
+            except Exception as e:
+                logger.warning(f'Extended form ({formname}) error: {e}')
+            else:
+                if form.type.deprecated:
+                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
+                           f' be removed in 3.0.0'
+                    logger.warning(mesg)
+
+        for form, prop, tdef, info in self.core.extprops.values():
+            try:
+                prop = oldm.addFormProp(form, prop, tdef, info)
+            except Exception as e:
+                logger.warning(f'ext prop ({form}:{prop}) error: {e}')
+            else:
+                if prop.type.deprecated:
+                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
+                           f' be removed in 3.0.0'
+                    logger.warning(mesg)
+
+        for prop, tdef, info in self.core.extunivs.values():
+            try:
+                oldm.addUnivProp(prop, tdef, info)
+            except Exception as e:
+                logger.warning(f'ext univ ({prop}) error: {e}')
+
+        for prop, tdef, info in self.core.exttagprops.values():
+            try:
+                oldm.addTagProp(prop, tdef, info)
+            except Exception as e:
+                logger.warning(f'ext tag prop ({prop}) error: {e}')
+
     async def updateProps(self, props, layers, skip=None):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
         '''
+        hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
+        newstor = s_layer.StorTypeHugeNum(layers[0], s_layer.STOR_TYPE_HUGENUM)
+
         for prop in props:
             ptyp = self.core.model.props[prop]
             form = ptyp.form
@@ -329,17 +369,49 @@ class ModelRev:
 
             pname = ptyp.name
             stortype = ptyp.type.stortype
+            isarray = False
+            if stortype & s_layer.STOR_FLAG_ARRAY:
+                isarray = True
+                realtype = stortype & 0x7fff
+                if realtype == s_layer.STOR_TYPE_HUGENUM:
+                    realstor =  hugestorv1
+                else:
+                    realstor = layers[0].stortypes[realtype]
+
+            def arrayindx(valu):
+                return set([realstor.indx(aval)[0] for aval in valu])
 
             for layr in layers:
 
+                delindx = []
+                delarrayindx = []
                 nodeedits = []
-                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden,
+                        'migr': {'delpropindx':  delindx, 'delproparrayindx': delarrayindx}}
 
                 async def save():
                     await layr.storNodeEdits(nodeedits, meta)
                     nodeedits.clear()
+                    delindx.clear()
+                    delarrayindx.clear()
 
-                async for buid, propvalu in layr.iterPropRows(form, pname):
+                try:
+                    indxby = s_layer.IndxByProp(layr, form, pname)
+                except s_exc.NoSuchAbrv:
+                    continue
+
+                abrvlen = indxby.abrvlen
+
+                for key, buid in layr.layrslab.scanByPref(indxby.abrv, db=indxby.db):
+
+                    if stortype == s_layer.STOR_TYPE_HUGENUM and len(key) == 28:
+                        continue
+
+                    propvalu = indxby.getNodeValu(buid)
+    
+                    if propvalu is None:
+                        delindx.append((key, buid))
+                        continue
 
                     try:
                         newval = ptyp.type.norm(propvalu)[0]
@@ -348,19 +420,33 @@ class ModelRev:
                         logger.warning(f'Bad prop value {prop}={propvalu!r} : {oldm}')
                         continue
 
+                    if isarray:
+                        if realtype != s_layer.STOR_TYPE_HUGENUM and newval == propvalu:
+                            continue
+
+                        # always delete hugenum array indxs
+                        if realtype == s_layer.STOR_TYPE_HUGENUM:
+                            for indx in arrayindx(propvalu):
+                                delarrayindx.append((indxby.abrv + indx, buid))
+
+                        delindx.append((key, buid))
+                    else:
+                        if stortype != s_layer.STOR_TYPE_HUGENUM and newval == propvalu:
+                            continue
+
+                        delindx.append((key, buid))
+
+                    edits = []
                     if newval == propvalu:
-                        continue
+                        edits.append((s_layer.EDIT_PROP_DEL, (pname, None, stortype), ()))
+                    edits.append((s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()))
 
-                    nodeedits.append(
-                        (buid, form, (
-                            (s_layer.EDIT_PROP_SET, (pname, newval, None, stortype), ()),
-                        )),
-                    )
+                    nodeedits.append((buid, form, edits))
 
-                    if len(nodeedits) >= 1000:
+                    if len(nodeedits) + len(delindx) + len(delarrayindx)>= 1000:
                         await save()
 
-                if nodeedits:
+                if nodeedits or delindx or delarrayindx:
                     await save()
 
     async def updateTagProps(self, tagprops, layers):
@@ -369,12 +455,15 @@ class ModelRev:
         '''
         for layr in layers:
 
+            delindx = []
             nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden,
+                    'migr': {'deltagpropindx':  delindx}}
 
             async def save():
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
+                delindx.clear()
 
             for form, tag, prop in layr.getTagProps():
 
@@ -384,7 +473,19 @@ class ModelRev:
                 tptyp = self.core.model.tagprops[prop]
                 stortype = tptyp.type.stortype
 
-                async for buid, valu in layr.iterTagPropRows(tag, prop, form=form):
+                indxby = s_layer.IndxByTagProp(layr, form, tag, prop)
+                indxbynoform = s_layer.IndxByTagProp(layr, None, tag, prop)
+                abrvlen = indxby.abrvlen
+
+                for key, buid in layr.layrslab.scanByPref(indxby.abrv, db=indxby.db):
+
+                    indx = key[abrvlen:]
+                    valu = indxby.getNodeValu(buid)
+
+                    if valu is None:
+                        delindx.append((key, buid))
+                        delindx.append((indxbynoform.abrv + indx, buid))
+                        continue
 
                     try:
                         newval = tptyp.type.norm(valu)[0]
@@ -393,8 +494,11 @@ class ModelRev:
                         logger.warning(f'Bad prop value {tag}:{prop}={valu!r} : {oldm}')
                         continue
 
-                    if newval == valu:
+                    if stortype != s_layer.STOR_TYPE_HUGENUM and newval == valu:
                         continue
+
+                    delindx.append((key, buid))
+                    delindx.append((indxbynoform.abrv + indx, buid))
 
                     nodeedits.append(
                         (buid, form, (
@@ -402,10 +506,10 @@ class ModelRev:
                         )),
                     )
 
-                    if len(nodeedits) >= 1000:
+                    if len(nodeedits) + len(delindx) >= 1000:
                         await save()
 
-            if nodeedits:
+            if nodeedits or delindx:
                 await save()
 
     async def revModel20220202(self, layers):
@@ -414,57 +518,126 @@ class ModelRev:
         for layr in layers:
             await layr.setModelVers((0, 2, 7))
 
+        oldmodl = s_datamodel.Model(vers=(0, 2, 6))
+        oldmodl.addDataModels(self.core.model.modeldefs)
+        self.addExtModel(oldmodl)
+
+        hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
+
         (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
 
         cnt = 0
         layrmap = {layr.iden: layr for layr in layers}
-        nodeedits = {layr.iden: {'adds': [], 'dels': [], 'n2edges': []} for layr in layers}
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = {}
+        for layr in layers:
+            nodeedits[layr.iden] = {
+                'adds': [], 
+                'dels': [], 
+                'n2edges': [],
+                'meta': {
+                    'time': s_common.now(),
+                    'user': self.core.auth.rootuser.iden,
+                    'delpropindx': [],
+                    'delproparrayindx': [],
+                },
+            }
 
         async def save(buid, newbuid):
 
             for layriden, edits in nodeedits.items():
+                layrmeta = edits['meta']
                 if edits['adds']:
-                    await layrmap[layriden].storNodeEdits([(newbuid, form, edits['adds'])], meta)
+                    await layrmap[layriden].storNodeEdits([(newbuid, form, edits['adds'])], layrmeta)
                     edits['adds'].clear()
 
                 if edits['dels']:
-                    await layrmap[layriden].storNodeEdits([(buid, form, edits['dels'])], meta)
+                    await layrmap[layriden].storNodeEdits([(buid, form, edits['dels'])], layrmeta)
                     edits['dels'].clear()
 
                 if edits['n2edges']:
-                    await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
+                    await layrmap[layriden].storNodeEdits(edits['n2edges'], layrmeta)
                     edits['n2edges'].clear()
 
+                layrmeta['delpropindx'].clear()
+                layrmeta['delproparrayindx'].clear()
+
         for form in forms:
+
+            layrabrv = {}
+            for layr in layers:
+                try:
+                    layrabrv[layr.iden] = layr.getPropAbrv(form, None)
+                except s_exc.NoSuchAbrv:
+                    continue
 
             ftyp = self.core.model.type(form)
             stortype = ftyp.stortype
 
+            isarray = False
+            if stortype & s_layer.STOR_FLAG_ARRAY:
+                isarray = True
+                realtype = stortype & 0x7fff
+                if realtype == s_layer.STOR_TYPE_HUGENUM:
+                    realstor =  hugestorv1
+                else:
+                    realstor = layers[0].stortypes[realtype]
+
+            def arrayindx(valu):
+                return set([realstor.indx(aval)[0] for aval in valu])
+
             async for buid, sodes in self.core._liftByProp(form, None, layers):
 
                 # Find the sode with the node value to recompute the buid
+                valulayrs = []
                 valu = None
-                for _, sode in sodes:
+                for layriden, sode in sodes:
                     valu = sode.get('valu')
                     if valu:
-                        break
+                        valu = valu[0]
+                        valulayrs.append(layriden)
 
                 try:
-                    hnorm = ftyp.norm(valu[0])[0]
+                    hnorm = ftyp.norm(valu)[0]
                 except s_exc.BadTypeValu as e:
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'Bad form value {form}={valu[0]!r} : {oldm}')
+                    logger.warning(f'Bad form value {form}={valu!r} : {oldm}')
                     continue
 
                 newbuid = s_common.buid((form, hnorm))
-                if buid == newbuid:
-                    continue
 
-                meta['migr'] = {'from': buid, 'to': newbuid}
+                if isarray:
+                    if realtype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
+                        continue
+
+                    # always delete hugenum array indxs
+                    if realtype == s_layer.STOR_TYPE_HUGENUM:
+                        for indx in arrayindx(valu):
+                            for vlay in valulayrs:
+                                nodeedits[vlay]['meta']['delproparrayindx'].append((layrabrv[vlay] + indx, buid))
+
+                else:
+                    if stortype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
+                        continue
+
+                    if stortype == s_layer.STOR_TYPE_HUGENUM:
+                        indx = hugestorv1.indx(valu)[0]
+                        for vlay in valulayrs:
+                             nodeedits[vlay]['meta']['delpropindx'].append((layrabrv[vlay] + indx, buid))
 
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)
+
+                if buid == newbuid:
+                    for layriden, sode in sodes:
+                        if 'valu' in sode:
+                            nodeedits[layriden]['adds'].append(
+                                (s_layer.EDIT_NODE_ADD, (hnorm, stortype), ()),
+                            )
+                    
+                    await save(buid, newbuid)
+                    cnt = 0
+                    continue
 
                 nodedel = None
 
@@ -475,7 +648,7 @@ class ModelRev:
                         nodeedits[layriden]['adds'].append(
                             (s_layer.EDIT_NODE_ADD, (hnorm, stortype), ()),
                         )
-                        nodedel = (layriden, (s_layer.EDIT_NODE_DEL, (valu[0], stortype), ()))
+                        nodedel = (layriden, (s_layer.EDIT_NODE_DEL, (valu, stortype), ()))
                         cnt += 1
 
                     for prop, (pval, ptyp) in sode.get('props', {}).items():
@@ -501,11 +674,12 @@ class ModelRev:
                             else:
                                 newval = pval
 
+
                         nodeedits[layriden]['adds'].append(
                             (s_layer.EDIT_PROP_SET, (prop, newval, None, ptyp), ()),
                         )
                         nodeedits[layriden]['dels'].append(
-                            (s_layer.EDIT_PROP_DEL, (prop, pval, ptyp), ()),
+                            (s_layer.EDIT_PROP_DEL, (prop, None, ptyp), ()),
                         )
                         cnt += 2
                         if cnt >= 1000:
@@ -517,7 +691,7 @@ class ModelRev:
                             (s_layer.EDIT_TAG_SET, (tag, tval, None), ()),
                         )
                         nodeedits[layriden]['dels'].append(
-                            (s_layer.EDIT_TAG_DEL, (tag, tval), ()),
+                            (s_layer.EDIT_TAG_DEL, (tag, None), ()),
                         )
                         cnt += 2
                         if cnt >= 1000:
@@ -536,7 +710,7 @@ class ModelRev:
                                 (s_layer.EDIT_TAGPROP_SET, (tag, tprop, newval, None, tptyp), ()),
                             )
                             nodeedits[layriden]['dels'].append(
-                                (s_layer.EDIT_TAGPROP_DEL, (tag, tprop, newval, tptyp), ()),
+                                (s_layer.EDIT_TAGPROP_DEL, (tag, tprop, None, tptyp), ()),
                             )
                             cnt += 2
                             if cnt >= 1000:
@@ -606,7 +780,7 @@ class ModelRev:
                 cnt = 0
 
         # Update props and tagprops for nodes where the buid remains the same
-        await self.updateProps(props, layers, skip=forms)
+        await self.updateProps(props, layers)
         await self.updateTagProps(tagprops, layers)
 
         # Clean up old invalid hugenum index values

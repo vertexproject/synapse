@@ -448,7 +448,9 @@ class StorType:
         indxby = IndxByProp(self.layr, form, prop)
         for indx in self.indx(valu):
             if not indxby.hasIndxBuid(indx, buid):
-                yield ('NoPropIndex', {'prop': 'prop', 'valu': valu})
+                if buid == b'\x8e\x08/\xe4\xe7\nft\xd52\xe8\x01#"\x82\xc7\xe9\x9e\xb4P\x07\n8\x8a4=\x81\x91=\xf2\x04\x87':
+                    print('MISSING', indx, buid)
+                yield ('NoPropIndex', {'prop': prop, 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu):
         try:
@@ -2607,6 +2609,10 @@ class Layer(s_nexus.Pusher):
             if changes:
                 edited = True
 
+        migr = meta.get('migr')
+        if migr:
+            await self.doMigrOps(migr)
+
         flatedits = list(results.values())
 
         if edited:
@@ -2620,6 +2626,16 @@ class Layer(s_nexus.Pusher):
         await asyncio.sleep(0)
 
         return flatedits
+
+    async def doMigrOps(self, migr):
+        for (key, buid) in migr.get('delpropindx', []):
+            self.layrslab.delete(key, buid, db=self.byprop)
+
+        for (key, buid) in migr.get('deltagpropindx', []):
+            self.layrslab.delete(key, buid, db=self.bytagprop)
+
+        for (key, buid) in migr.get('delproparrayindx', []):
+            self.layrslab.delete(key, buid, db=self.byarray)
 
     def mayDelBuid(self, buid, sode):
 
@@ -2742,6 +2758,9 @@ class Layer(s_nexus.Pusher):
     def _editPropSet(self, buid, form, edit, sode, meta):
 
         prop, valu, oldv, stortype = edit[1]
+        if buid == b'\x8e\x08/\xe4\xe7\nft\xd52\xe8\x01#"\x82\xc7\xe9\x9e\xb4P\x07\n8\x8a4=\x81\x91=\xf2\x04\x87':
+            print('editp', buid, prop, valu, oldv, stortype)
+
 
         oldv, oldt = sode['props'].get(prop, (None, None))
 
@@ -2800,6 +2819,8 @@ class Layer(s_nexus.Pusher):
         else:
 
             for indx in self.getStorIndx(stortype, valu):
+                if buid == b'\x8e\x08/\xe4\xe7\nft\xd52\xe8\x01#"\x82\xc7\xe9\x9e\xb4P\x07\n8\x8a4=\x81\x91=\xf2\x04\x87':
+                    print('PUTTING', abrv + indx, buid)
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
@@ -3528,7 +3549,8 @@ class Layer(s_nexus.Pusher):
         if vers == (0, 2, 7):
             self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNum(self, STOR_TYPE_HUGENUM)
         elif vers == (0, 2, 8):
-            await self.verifyIndexes(*args)
+            #await self.verifyIndexes(*args)
+            pass
 
         await self.layrinfo.set('model:version', vers)
 

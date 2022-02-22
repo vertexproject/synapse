@@ -131,6 +131,12 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.7') as core:
 
+            for layr in core.layers.values():
+                errors = [e async for e in layr.verify()]
+                for e in errors:
+                    print(e)
+                print(len(errors))
+
             nodes = await core.nodes('_test:huge=0.000000000000009')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '0.000000000000009')
@@ -246,6 +252,8 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].props['_huge:array'], ('0.000000000000001', '0.000000000000002'))
 
             nodes = await core.nodes("#test:cool:huge=0.000000000000005", opts=opts)
+            for n in nodes:
+                print(n)
             self.len(3, nodes)
 
             nodes = await core.nodes("#test:cool:huge=0.000000000000005")
