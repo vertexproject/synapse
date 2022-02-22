@@ -5,11 +5,7 @@ import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 
-
 import synapse.tools.infra.gendc as s_t_gendc
-
-
-from pprint import pprint
 
 class InfraGendcTest(s_t_utils.SynTest):
 
