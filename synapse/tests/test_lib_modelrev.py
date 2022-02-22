@@ -1,4 +1,6 @@
+import os
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_tests
@@ -299,3 +301,62 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, errors)
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
+
+    async def test_modelrev_0_2_6_compat(self):
+
+        regr = os.getenv('SYN_REGRESSION_REPO')
+        if regr is None:
+            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+
+        regr = s_common.genpath(regr)
+
+        if not os.path.isdir(regr):
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
+
+        dirn = os.path.join(regr, 'cortexes', 'model-0.2.7')
+
+        with self.getTestDir(copyfrom=dirn) as regrdir00:
+
+            with self.getTestDir(copyfrom=dirn) as regrdir01:
+
+                conf00 = {'nexslog:en': True}
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+
+                    conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+
+                async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
+                    self.len(7, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value>0.00000000000000000001')
+                    self.len(0, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
+                    self.len(7, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value<0.00000000000000000002')
+                    self.len(0, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value=0')
+                    self.len(7, nodes)
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+                    async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+                        await core01.sync()
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
+                        self.len(3, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value>0.00000000000000000001')
+                        self.len(5, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
+                        self.len(3, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value<0.00000000000000000002')
+                        self.len(2, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value=0')
+                        self.len(1, nodes)
