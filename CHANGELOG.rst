@@ -10,7 +10,7 @@ v2.84.0 - 2022-02-22
 
 Features and Enhancements
 -------------------------
-- Add ``$lib.time.toUTC()`` to adjust a local ephoch milliseconds time to
+- Add ``$lib.time.toUTC()`` to adjust a local epoch milliseconds time to
   UTC.
   (`#2550 <https://github.com/vertexproject/synapse/pull/2550>`_)
 - Add a optional ``timeout`` argument to ``$lib.service.wait()``. The function
