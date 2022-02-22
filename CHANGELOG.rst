@@ -5,6 +5,26 @@ Synapse Changelog
 *****************
 
 
+v2.84.0 - 2022-02-22
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.time.toUTC()`` to adjust a local epoch milliseconds time to
+  UTC.
+  (`#2550 <https://github.com/vertexproject/synapse/pull/2550>`_)
+- Add a optional ``timeout`` argument to ``$lib.service.wait()``. The function
+  now returns ``$lib.true`` if the service is available, or ``$lib.false`` if
+  the service does not become available during the timeout window.
+  (`#2561 <https://github.com/vertexproject/synapse/pull/2561>`_)
+- Update the ``Layer.verify()`` routines to add verification of tagprop and
+  array indexes in layers.  These routines are in a beta status and are
+  subject to change.
+  (`#2560 <https://github.com/vertexproject/synapse/pull/2560>`_)
+- Update the Cortex's connection to a remote Axon to use a Telepath Client.
+  (`#2559 <https://github.com/vertexproject/synapse/pull/2559>`_)
+
+
 v2.83.0 - 2022-02-17
 ====================
 
