@@ -448,8 +448,6 @@ class StorType:
         indxby = IndxByProp(self.layr, form, prop)
         for indx in self.indx(valu):
             if not indxby.hasIndxBuid(indx, buid):
-                if buid == b'\x8e\x08/\xe4\xe7\nft\xd52\xe8\x01#"\x82\xc7\xe9\x9e\xb4P\x07\n8\x8a4=\x81\x91=\xf2\x04\x87':
-                    print('MISSING', indx, buid)
                 yield ('NoPropIndex', {'prop': prop, 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu):
@@ -2758,9 +2756,6 @@ class Layer(s_nexus.Pusher):
     def _editPropSet(self, buid, form, edit, sode, meta):
 
         prop, valu, oldv, stortype = edit[1]
-        if buid == b'\x8e\x08/\xe4\xe7\nft\xd52\xe8\x01#"\x82\xc7\xe9\x9e\xb4P\x07\n8\x8a4=\x81\x91=\xf2\x04\x87':
-            print('editp', buid, prop, valu, oldv, stortype)
-
 
         oldv, oldt = sode['props'].get(prop, (None, None))
 
@@ -2819,8 +2814,6 @@ class Layer(s_nexus.Pusher):
         else:
 
             for indx in self.getStorIndx(stortype, valu):
-                if buid == b'\x8e\x08/\xe4\xe7\nft\xd52\xe8\x01#"\x82\xc7\xe9\x9e\xb4P\x07\n8\x8a4=\x81\x91=\xf2\x04\x87':
-                    print('PUTTING', abrv + indx, buid)
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 if univabrv is not None:
                     self.layrslab.put(univabrv + indx, buid, db=self.byprop)
@@ -3490,57 +3483,6 @@ class Layer(s_nexus.Pusher):
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
-    async def updateAbrvs(self, props, tagprops):
-        propabrvs = {}
-        for (form, prop) in props:
-            retn = self.propabrv.newBytsToAbrv(s_msgpack.en((form, prop)))
-            if retn is None:
-                continue
-            (old, new) = retn
-            propabrvs[old] = new
-
-        tagpropabrvs = {}
-        for tagprop in tagprops:
-            retn = self.tagpropabrv.newBytsToAbrv(s_msgpack.en(tagprop))
-            if retn is None:
-                continue
-            (old, new) = retn
-            tagpropabrvs[old] = new
-
-        await self.layrinfo.set('abrv:migrations', (propabrvs, tagpropabrvs))
-
-    async def dropIndexes(self):
-
-        indxmap = await self.layrinfo.get('abrv:migrations')
-        if indxmap is None:
-            return
-
-        (propabrvs, tagpropabrvs) = indxmap
-
-        for propabrv in propabrvs:
-            for lkey, buid in self.layrslab.scanByPref(propabrv, db=self.byprop):
-                await asyncio.sleep(0)
-                self.layrslab.delete(lkey, buid, db=self.byprop)
-
-            for lkey, buid in self.layrslab.scanByPref(propabrv, db=self.byarray):
-                await asyncio.sleep(0)
-                self.layrslab.delete(lkey, buid, db=self.byarray)
-
-        for tagpropabrv in tagpropabrvs:
-            for lkey, buid in self.layrslab.scanByPref(tagpropabrv, db=self.bytagprop):
-                await asyncio.sleep(0)
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
-
-    async def verifyIndexes(self, props, tagprops):
-
-        scanconf = {'include': props, 'autofix': 'index'}
-        async for mesg in self.verifyAllProps(scanconf=scanconf):
-            pass
-
-        scanconf = {'include': tagprops, 'autofix': 'index'}
-        async for mesg in self.verifyAllTagProps(scanconf=scanconf):
-            pass
-
     async def setModelVers(self, vers, *args):
         await self._push('layer:set:modelvers', vers, *args)
 
@@ -3548,9 +3490,6 @@ class Layer(s_nexus.Pusher):
     async def _setModelVers(self, vers, *args):
         if vers == (0, 2, 7):
             self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNum(self, STOR_TYPE_HUGENUM)
-        elif vers == (0, 2, 8):
-            #await self.verifyIndexes(*args)
-            pass
 
         await self.layrinfo.set('model:version', vers)
 
