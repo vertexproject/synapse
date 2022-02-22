@@ -16,12 +16,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-def prep_certdir(dirn):
-    s_common.gendir(dirn, 'certs', 'cas')
-    s_common.gendir(dirn, 'certs', 'hosts')
-    s_common.gendir(dirn, 'certs', 'users')
-
-_supported_versions = '>=0.1.0,<=0.2.0'
+_schema_versions = '>=0.1.0,<=0.2.0'
 
 DEFAULT_DOCKER_LOGGING = {'driver': 'json-file',
                           'options': {'max-file': '1',
@@ -140,7 +135,7 @@ async def _main(argv, outp):
 
     definition = s_common.yamlload(opts.definition)
     reqValidInfra(definition)
-    s_version.reqVersion(definition.get('version').split('.'), _supported_versions)
+    s_version.reqVersion(definition.get('version').split('.'), _schema_versions)
 
     output_path = s_common.genpath(opts.output)
     os.makedirs(output_path)
@@ -227,7 +222,6 @@ async def _main(argv, outp):
         svcname = svcinfo.get('name')
         svcroot = s_common.gendir(output_path, svcname)
         svcstorage = s_common.gendir(svcroot, 'storage')
-        prep_certdir(svcstorage)
 
         svcfull = f'{svcname}.{ahanetwork}'
         svcuser = f'{svcname}@{ahanetwork}'
