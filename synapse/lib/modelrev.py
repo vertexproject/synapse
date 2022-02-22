@@ -362,8 +362,6 @@ class ModelRev:
                 except s_exc.NoSuchAbrv:
                     continue
 
-                abrvlen = indxby.abrvlen
-
                 for key, buid in layr.layrslab.scanByPref(indxby.abrv, db=indxby.db):
 
                     if stortype == s_layer.STOR_TYPE_HUGENUM and len(key) == 28:
@@ -434,21 +432,21 @@ class ModelRev:
                 tptyp = self.core.model.tagprops[prop]
                 stortype = tptyp.type.stortype
 
-                indxby = s_layer.IndxByTagProp(layr, form, tag, prop)
-                indxbynoform = s_layer.IndxByTagProp(layr, None, tag, prop)
-                abrvlen = indxby.abrvlen
+                indxbyftp = s_layer.IndxByTagProp(layr, form, tag, prop)
+                indxbytp = s_layer.IndxByTagProp(layr, None, tag, prop)
+                abrvlen = indxbyftp.abrvlen
 
-                for key, buid in layr.layrslab.scanByPref(indxby.abrv, db=indxby.db):
+                for key, buid in layr.layrslab.scanByPref(indxbyftp.abrv, db=indxbyftp.db):
 
                     if stortype == s_layer.STOR_TYPE_HUGENUM and len(key) == 28:
                         continue
 
                     indx = key[abrvlen:]
-                    valu = indxby.getNodeValu(buid)
+                    valu = indxbyftp.getNodeValu(buid)
 
                     if valu is None:
                         delindx.append((key, buid))
-                        delindx.append((indxbynoform.abrv + indx, buid))
+                        delindx.append((indxbytp.abrv + indx, buid))
                         continue
 
                     try:
@@ -462,7 +460,7 @@ class ModelRev:
                         continue
 
                     delindx.append((key, buid))
-                    delindx.append((indxbynoform.abrv + indx, buid))
+                    delindx.append((indxbytp.abrv + indx, buid))
 
                     edits = []
                     if newval == valu:
@@ -483,9 +481,9 @@ class ModelRev:
         for layr in layers:
             await layr.setModelVers((0, 2, 7))
 
-        hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
-
         (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
+
+        hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
 
         cnt = 0
         layrmap = {layr.iden: layr for layr in layers}
@@ -524,7 +522,7 @@ class ModelRev:
                     await layrmap[layriden].storNodeEdits([(buid, form, ())], meta)
                     edits['delpropindx'].clear()
                     edits['delproparrayindx'].clear()
-                    meta.pop('migr')
+                    del(meta['migr'])
 
         for form in forms:
 
@@ -590,14 +588,13 @@ class ModelRev:
                             nodeedits[vlay]['delpropindx'].append((layrabrv[vlay] + indx, buid))
                             cnt += 1
 
-                iden = s_common.ehex(buid)
-                newiden = s_common.ehex(newbuid)
-
                 if buid == newbuid:
                     await save(buid, newbuid)
                     cnt = 0
                     continue
 
+                iden = s_common.ehex(buid)
+                newiden = s_common.ehex(newbuid)
                 nodedel = None
 
                 # Move props, tags, and tagprops for each sode to the new buid
