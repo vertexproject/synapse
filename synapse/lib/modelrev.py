@@ -315,7 +315,7 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
-    async def updateHugeNumProps(self, props, layers):
+    async def updateHugeNumProps(self, props, layers, skip=()):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
 
@@ -329,6 +329,8 @@ class ModelRev:
 
             if form:
                 form = form.name
+                if form in skip:
+                    continue
 
             pname = ptyp.name
             stortype = ptyp.type.stortype
@@ -486,6 +488,8 @@ class ModelRev:
         (forms, props, tagprops) = self.getElementsByStortype(s_layer.STOR_TYPE_HUGENUM)
 
         hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
+        def arrayindx(valu):
+            return set([hugestorv1.indx(aval)[0] for aval in valu])
 
         cnt = 0
         layrmap = {layr.iden: layr for layr in layers}
@@ -546,13 +550,6 @@ class ModelRev:
             if stortype & s_layer.STOR_FLAG_ARRAY:
                 isarray = True
                 realtype = stortype & 0x7fff
-                if realtype == s_layer.STOR_TYPE_HUGENUM:
-                    realstor = hugestorv1
-                else:
-                    realstor = layers[0].stortypes[realtype]
-
-                def arrayindx(valu):
-                    return set([realstor.indx(aval)[0] for aval in valu])
 
             async for buid, sodes in self.core._liftByProp(formname, None, layers):
 
@@ -575,24 +572,24 @@ class ModelRev:
                 newbuid = s_common.buid((formname, hnorm))
 
                 if isarray:
-                    if realtype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
-                        continue
-
                     if realtype == s_layer.STOR_TYPE_HUGENUM:
                         for indx in arrayindx(valu):
                             for vlay in valulayrs:
                                 nodeedits[vlay]['delproparrayindx'].append((layrabrv[vlay] + indx, buid))
                                 cnt += 1
 
-                else:
-                    if stortype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
+                    elif newbuid == buid:
                         continue
 
+                else:
                     if stortype == s_layer.STOR_TYPE_HUGENUM:
                         indx = hugestorv1.indx(valu)[0]
                         for vlay in valulayrs:
                             nodeedits[vlay]['delpropindx'].append((layrabrv[vlay] + indx, buid))
                             cnt += 1
+
+                    elif newbuid == buid:
+                        continue
 
                 if buid == newbuid:
                     await save(buid, newbuid)
@@ -634,6 +631,18 @@ class ModelRev:
                                     continue
                             else:
                                 newval = pval
+
+                        if ptyp & s_layer.STOR_FLAG_ARRAY:
+                            realtype = stortype & 0x7fff
+                            if realtype == s_layer.STOR_TYPE_HUGENUM:
+                                abrv = layrmap[layriden].getPropAbrv(formname, prop)
+                                for indx in arrayindx(pval):
+                                    nodeedits[layriden]['delproparrayindx'].append((abrv + indx, buid))
+
+                        elif ptyp == s_layer.STOR_TYPE_HUGENUM:
+                            indx = hugestorv1.indx(pval)[0]
+                            abrv = layrmap[layriden].getPropAbrv(formname, prop)
+                            nodeedits[layriden]['delpropindx'].append((abrv + indx, buid))
 
                         nodeedits[layriden]['adds'].append(
                             (s_layer.EDIT_PROP_SET, (prop, newval, None, ptyp), ()),
@@ -740,7 +749,7 @@ class ModelRev:
                 cnt = 0
 
         # Update props and tagprops for nodes where the buid remains the same
-        await self.updateHugeNumProps(props, layers)
+        await self.updateHugeNumProps(props, layers, skip=forms)
         await self.updateHugeNumTagProps(tagprops, layers)
 
     async def revCoreLayers(self):
