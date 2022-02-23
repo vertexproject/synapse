@@ -347,6 +347,9 @@ class ModelRevTest(s_tests.SynTest):
                     self.len(7, nodes)
 
                     with self.raises(s_exc.BadTypeValu):
+                        nodes = await core01.nodes('crypto:currency:transaction:value=foo')
+
+                    with self.raises(s_exc.BadTypeValu):
                         nodes = await core01.nodes('crypto:currency:transaction:value=170141183460469231731688')
 
                     with self.raises(s_exc.BadTypeValu):

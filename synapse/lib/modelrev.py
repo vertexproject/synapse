@@ -315,9 +315,11 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
-    async def updateProps(self, props, layers):
+    async def updateHugeNumProps(self, props, layers):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
+
+        This will also remove old hugenum byprop and byarray index values.
         '''
         hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
 
@@ -406,9 +408,11 @@ class ModelRev:
                 if nodeedits or delindx or delarrayindx:
                     await save()
 
-    async def updateTagProps(self, tagprops, layers):
+    async def updateHugeNumTagProps(self, tagprops, layers):
         '''
         Lift and re-norm prop values for the specified tagprops in the specified layers.
+
+        This will also remove old hugenum bytagprop index values.
         '''
         for layr in layers:
 
@@ -736,8 +740,8 @@ class ModelRev:
                 cnt = 0
 
         # Update props and tagprops for nodes where the buid remains the same
-        await self.updateProps(props, layers)
-        await self.updateTagProps(tagprops, layers)
+        await self.updateHugeNumProps(props, layers)
+        await self.updateHugeNumTagProps(tagprops, layers)
 
     async def revCoreLayers(self):
 
