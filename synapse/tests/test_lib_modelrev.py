@@ -221,6 +221,16 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].props['item'], ('_test:huge', '0.00000000000001'))
             self.eq(nodes[2].props['item'], hugearray)
 
+            nodes = await core.nodes('''
+                econ:acquired=('47fdbfaac48fac622b65d6dc19f582d8',
+                    ('_test:hugearraycomp', (
+                        ('bd7f5abb84db51d9845b238f62a6684d', '0.00000000000001'),
+                        ('20a84f63e2820ff8b2caed85ba096360', '0.00000000000006')
+                    ))
+                )
+            ''', opts=opts)
+            self.len(1, nodes)
+
             nodes = await core.nodes("._huge:univarraycomp")
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1][0], ('bd7f5abb84db51d9845b238f62a6684d', '0.000000000000001'))
