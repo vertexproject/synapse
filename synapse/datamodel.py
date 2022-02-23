@@ -420,6 +420,7 @@ class Model:
     def __init__(self, vers=s_modelrev.maxvers):
 
         self.vers = vers
+        self.callbacks = []
 
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
@@ -557,6 +558,12 @@ class Model:
                 ('parent', ('$self', {}), {'ro': True, 'doc': 'The taxonomy parent.', }),
             ),
         })
+
+    def setModelVers(self, vers):
+        self.vers = vers
+        callbacks = self.callbacks
+        self.callbacks = []
+        [func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())

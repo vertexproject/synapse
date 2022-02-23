@@ -699,17 +699,23 @@ class HugeNum(Type):
             'range=': self._storLiftRange,
         })
 
-        if modl.vers < (0, 2, 7):
+        self.setNormVers()
+
+    def setNormVers(self):
+        if self.modl.vers < (0, 2, 7):
             self.norm = self.normv1
+            self.modl.callbacks.append((self.setNormVers, (), {}))
         else:
             self.norm = self.normv2
 
     def normv1(self, valu):
-        if self.modl.vers >= (0, 2, 7):
-            self.norm = self.normv2
-            return self.norm(valu)
 
-        huge = s_common.hugenumv1(valu)
+        try:
+            huge = s_common.hugenumv1(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e)) from None
+
         if huge > hugemaxv1:
             mesg = f'Value ({valu}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)

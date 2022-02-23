@@ -3489,7 +3489,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPushAuto('model:update')
     async def updateModel(self, vers):
         await self.cellinfo.set('cortex:model:version', vers)
-        self.model.vers = vers
+        self.model.setModelVers(vers)
 
     async def _loadView(self, node):
 
