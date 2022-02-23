@@ -9,6 +9,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
+minvers = (0, 2, 6)
 maxvers = (0, 2, 8)
 
 class ModelRev:
@@ -314,7 +315,7 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
-    async def updateProps(self, props, layers, skip=None):
+    async def updateProps(self, props, layers, skip=()):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
         '''
@@ -326,8 +327,8 @@ class ModelRev:
 
             if form:
                 form = form.name
-            if skip is not None and (form and form in skip):
-                continue
+                if form in skip:
+                    continue
 
             pname = ptyp.name
             stortype = ptyp.type.stortype
@@ -340,8 +341,8 @@ class ModelRev:
                 else:
                     realstor = layers[0].stortypes[realtype]
 
-            def arrayindx(valu):
-                return set([realstor.indx(aval)[0] for aval in valu])
+                def arrayindx(valu):
+                    return set([realstor.indx(aval)[0] for aval in valu])
 
             for layr in layers:
 
@@ -360,6 +361,7 @@ class ModelRev:
                 try:
                     indxby = s_layer.IndxByProp(layr, form, pname)
                 except s_exc.NoSuchAbrv:
+                    # Skip props which aren't present in the layer
                     continue
 
                 for key, buid in layr.layrslab.scanByPref(indxby.abrv, db=indxby.db):
@@ -381,14 +383,12 @@ class ModelRev:
                         continue
 
                     if isarray:
-                        if realtype != s_layer.STOR_TYPE_HUGENUM and newval == propvalu:
-                            continue
-
                         if realtype == s_layer.STOR_TYPE_HUGENUM:
                             for indx in arrayindx(propvalu):
                                 delarrayindx.append((indxby.abrv + indx, buid))
 
-                        delindx.append((key, buid))
+                        elif newval == propvalu:
+                            continue
                     else:
                         if stortype != s_layer.STOR_TYPE_HUGENUM and newval == propvalu:
                             continue
@@ -500,40 +500,44 @@ class ModelRev:
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
-        async def save(buid, newbuid):
+        for formname in forms:
 
-            for layriden, edits in nodeedits.items():
-                if edits['adds']:
-                    await layrmap[layriden].storNodeEdits([(newbuid, form, edits['adds'])], meta)
-                    edits['adds'].clear()
+            async def save(buid, newbuid):
 
-                if edits['dels']:
-                    await layrmap[layriden].storNodeEdits([(buid, form, edits['dels'])], meta)
-                    edits['dels'].clear()
+                for layriden, edits in nodeedits.items():
 
-                if edits['n2edges']:
-                    await layrmap[layriden].storNodeEdits(edits['n2edges'], meta)
-                    edits['n2edges'].clear()
+                    layr = layrmap[layriden]
 
-                if edits['delpropindx'] or edits['delproparrayindx']:
-                    meta['migr'] = {'delpropindx': edits['delpropindx'],
-                                    'delproparrayindx': edits['delproparrayindx']}
+                    if edits['adds']:
+                        await layr.storNodeEdits([(newbuid, formname, edits['adds'])], meta)
+                        edits['adds'].clear()
 
-                    await layrmap[layriden].storNodeEdits([(buid, form, ())], meta)
-                    edits['delpropindx'].clear()
-                    edits['delproparrayindx'].clear()
-                    del(meta['migr'])
+                    if edits['dels']:
+                        await layr.storNodeEdits([(buid, formname, edits['dels'])], meta)
+                        edits['dels'].clear()
 
-        for form in forms:
+                    if edits['n2edges']:
+                        await layr.storNodeEdits(edits['n2edges'], meta)
+                        edits['n2edges'].clear()
+
+                    if edits['delpropindx'] or edits['delproparrayindx']:
+                        meta['migr'] = {'delpropindx': edits['delpropindx'],
+                                        'delproparrayindx': edits['delproparrayindx']}
+
+                        await layr.storNodeEdits([(buid, formname, ())], meta)
+                        edits['delpropindx'].clear()
+                        edits['delproparrayindx'].clear()
+                        del(meta['migr'])
 
             layrabrv = {}
             for layr in layers:
                 try:
-                    layrabrv[layr.iden] = layr.getPropAbrv(form, None)
+                    layrabrv[layr.iden] = layr.getPropAbrv(formname, None)
                 except s_exc.NoSuchAbrv:
                     continue
 
-            ftyp = self.core.model.type(form)
+            form = self.core.model.forms[formname]
+            ftyp = form.type
             stortype = ftyp.stortype
 
             isarray = False
@@ -548,7 +552,7 @@ class ModelRev:
             def arrayindx(valu):
                 return set([realstor.indx(aval)[0] for aval in valu])
 
-            async for buid, sodes in self.core._liftByProp(form, None, layers):
+            async for buid, sodes in self.core._liftByProp(formname, None, layers):
 
                 # Find the sode with the node value to recompute the buid
                 valulayrs = []
@@ -563,10 +567,10 @@ class ModelRev:
                     hnorm = ftyp.norm(valu)[0]
                 except s_exc.BadTypeValu as e:
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'Bad form value {form}={valu!r} : {oldm}')
+                    logger.warning(f'Bad form value {formname}={valu!r} : {oldm}')
                     continue
 
-                newbuid = s_common.buid((form, hnorm))
+                newbuid = s_common.buid((formname, hnorm))
 
                 if isarray:
                     if realtype != s_layer.STOR_TYPE_HUGENUM and newbuid == buid:
@@ -618,14 +622,13 @@ class ModelRev:
                                 continue
 
                         else:
-                            fullprop = ':'.join((form, prop))
-                            if fullprop in props:
-                                fp = self.core.model.props[fullprop]
+                            fp = form.props[prop]
+                            if fp.full in props:
                                 try:
                                     newval = fp.type.norm(pval)[0]
                                 except s_exc.BadTypeValu as e:
                                     oldm = e.errinfo.get('mesg')
-                                    logger.warning(f'Bad prop value {fullprop}={pval!r} : {oldm}')
+                                    logger.warning(f'Bad prop value {fp.full}={pval!r} : {oldm}')
                                     continue
                             else:
                                 newval = pval

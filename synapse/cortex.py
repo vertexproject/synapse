@@ -1170,8 +1170,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         modlvers = self.cellinfo.get('cortex:model:version')
         if modlvers is None:
-            modlvers = (0, 2, 6)
-            await self.cellinfo.set('cortex:model:version', (0, 2, 6))
+            modlvers = s_modelrev.minvers
+            await self.cellinfo.set('cortex:model:version', modlvers)
 
         self.model = s_datamodel.Model(vers=modlvers)
 

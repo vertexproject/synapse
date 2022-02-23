@@ -2626,13 +2626,13 @@ class Layer(s_nexus.Pusher):
         return flatedits
 
     async def doMigrOps(self, migr):
-        for (key, buid) in migr.get('delpropindx', []):
+        for (key, buid) in migr.get('delpropindx', ()):
             self.layrslab.delete(key, buid, db=self.byprop)
 
-        for (key, buid) in migr.get('deltagpropindx', []):
+        for (key, buid) in migr.get('deltagpropindx', ()):
             self.layrslab.delete(key, buid, db=self.bytagprop)
 
-        for (key, buid) in migr.get('delproparrayindx', []):
+        for (key, buid) in migr.get('delproparrayindx', ()):
             self.layrslab.delete(key, buid, db=self.byarray)
 
     def mayDelBuid(self, buid, sode):
