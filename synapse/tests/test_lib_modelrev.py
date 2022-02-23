@@ -323,9 +323,13 @@ class ModelRevTest(s_tests.SynTest):
 
                 async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
 
+                    self.eq(core00.model.vers, (0, 2, 8))
+
                     conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
 
                 async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                    self.eq(core01.model.vers, (0, 2, 6))
 
                     nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
                     self.len(7, nodes)
@@ -350,7 +354,10 @@ class ModelRevTest(s_tests.SynTest):
 
                 async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
                     async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
                         await core01.sync()
+
+                        self.eq(core01.model.vers, (0, 2, 8))
 
                         nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
                         self.len(3, nodes)

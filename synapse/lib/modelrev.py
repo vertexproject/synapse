@@ -315,7 +315,7 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
-    async def updateProps(self, props, layers, skip=()):
+    async def updateProps(self, props, layers):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
         '''
@@ -327,8 +327,6 @@ class ModelRev:
 
             if form:
                 form = form.name
-                if form in skip:
-                    continue
 
             pname = ptyp.name
             stortype = ptyp.type.stortype
@@ -549,8 +547,8 @@ class ModelRev:
                 else:
                     realstor = layers[0].stortypes[realtype]
 
-            def arrayindx(valu):
-                return set([realstor.indx(aval)[0] for aval in valu])
+                def arrayindx(valu):
+                    return set([realstor.indx(aval)[0] for aval in valu])
 
             async for buid, sodes in self.core._liftByProp(formname, None, layers):
 
