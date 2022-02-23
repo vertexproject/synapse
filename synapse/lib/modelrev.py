@@ -552,9 +552,9 @@ class ModelRev:
                 valulayrs = []
                 valu = None
                 for layriden, sode in sodes:
-                    valu = sode.get('valu')
-                    if valu:
-                        valu = valu[0]
+                    sodevalu = sode.get('valu')
+                    if sodevalu:
+                        valu = sodevalu[0]
                         valulayrs.append(layriden)
 
                 try:
