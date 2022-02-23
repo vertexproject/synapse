@@ -315,7 +315,7 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
-    async def updateHugeNumProps(self, props, layers, skip=()):
+    async def updateHugeNumProps(self, props, layers):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
 
@@ -331,8 +331,6 @@ class ModelRev:
 
             if form:
                 form = form.name
-                if form in skip:
-                    continue
 
             pname = ptyp.name
             stortype = ptyp.type.stortype
@@ -740,7 +738,7 @@ class ModelRev:
                 cnt = 0
 
         # Update props and tagprops for nodes where the buid remains the same
-        await self.updateHugeNumProps(props, layers, skip=forms)
+        await self.updateHugeNumProps(props, layers)
         await self.updateHugeNumTagProps(tagprops, layers)
 
     async def revCoreLayers(self):
