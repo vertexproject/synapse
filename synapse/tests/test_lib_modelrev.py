@@ -337,11 +337,17 @@ class ModelRevTest(s_tests.SynTest):
                     nodes = await core01.nodes('crypto:currency:transaction:value>0.00000000000000000001')
                     self.len(0, nodes)
 
+                    nodes = await core01.nodes('crypto:currency:transaction:value>-1')
+                    self.len(7, nodes)
+
                     nodes = await core01.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
                     self.len(7, nodes)
 
                     nodes = await core01.nodes('crypto:currency:transaction:value<0.00000000000000000002')
                     self.len(0, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value<1')
+                    self.len(7, nodes)
 
                     nodes = await core01.nodes('crypto:currency:transaction:value=0')
                     self.len(7, nodes)
