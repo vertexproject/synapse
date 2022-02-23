@@ -315,7 +315,7 @@ class ModelRev:
 
         return (forms, props, tagprops)
 
-    async def updateHugeNumProps(self, props, layers):
+    async def _updateProps20220202(self, props, layers):
         '''
         Lift and re-norm prop values for the specified props in the specified layers.
 
@@ -403,7 +403,7 @@ class ModelRev:
                 if nodeedits or delindx or delarrayindx:
                     await save()
 
-    async def updateHugeNumTagProps(self, tagprops, layers):
+    async def _updateTagProps20220202(self, tagprops, layers):
         '''
         Lift and re-norm prop values for the specified tagprops in the specified layers.
 
@@ -738,8 +738,8 @@ class ModelRev:
                 cnt = 0
 
         # Update props and tagprops for nodes where the buid remains the same
-        await self.updateHugeNumProps(props, layers)
-        await self.updateHugeNumTagProps(tagprops, layers)
+        await self._updateProps20220202(props, layers)
+        await self._updateTagProps20220202(tagprops, layers)
 
     async def revCoreLayers(self):
 
