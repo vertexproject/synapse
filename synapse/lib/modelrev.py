@@ -322,6 +322,8 @@ class ModelRev:
         This will also remove old hugenum byprop and byarray index values.
         '''
         hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
+        def arrayindx(valu):
+            return set([hugestorv1.indx(aval)[0] for aval in valu])
 
         for prop in props:
             ptyp = self.core.model.props[prop]
@@ -334,17 +336,13 @@ class ModelRev:
 
             pname = ptyp.name
             stortype = ptyp.type.stortype
-            isarray = False
+
             if stortype & s_layer.STOR_FLAG_ARRAY:
                 isarray = True
                 realtype = stortype & 0x7fff
-                if realtype == s_layer.STOR_TYPE_HUGENUM:
-                    realstor = hugestorv1
-                else:
-                    realstor = layers[0].stortypes[realtype]
-
-                def arrayindx(valu):
-                    return set([realstor.indx(aval)[0] for aval in valu])
+            else:
+                isarray = False
+                realtype = stortype
 
             for layr in layers:
 
@@ -384,18 +382,15 @@ class ModelRev:
                         logger.warning(f'Bad prop value {prop}={propvalu!r} : {oldm}')
                         continue
 
-                    if isarray:
-                        if realtype == s_layer.STOR_TYPE_HUGENUM:
+                    if realtype == s_layer.STOR_TYPE_HUGENUM:
+                        if isarray:
                             for indx in arrayindx(propvalu):
                                 delarrayindx.append((indxby.abrv + indx, buid))
+                        else:
+                            delindx.append((key, buid))
 
-                        elif newval == propvalu:
-                            continue
-                    else:
-                        if stortype != s_layer.STOR_TYPE_HUGENUM and newval == propvalu:
-                            continue
-
-                        delindx.append((key, buid))
+                    elif newval == propvalu:
+                        continue
 
                     edits = []
                     if newval == propvalu:
@@ -546,10 +541,12 @@ class ModelRev:
             ftyp = form.type
             stortype = ftyp.stortype
 
-            isarray = False
             if stortype & s_layer.STOR_FLAG_ARRAY:
                 isarray = True
                 realtype = stortype & 0x7fff
+            else:
+                isarray = False
+                realtype = stortype
 
             async for buid, sodes in self.core._liftByProp(formname, None, layers):
 
@@ -571,29 +568,24 @@ class ModelRev:
 
                 newbuid = s_common.buid((formname, hnorm))
 
-                if isarray:
-                    if realtype == s_layer.STOR_TYPE_HUGENUM:
+                if realtype == s_layer.STOR_TYPE_HUGENUM:
+                    if isarray:
                         for indx in arrayindx(valu):
                             for vlay in valulayrs:
                                 nodeedits[vlay]['delproparrayindx'].append((layrabrv[vlay] + indx, buid))
                                 cnt += 1
-
-                    elif newbuid == buid:
-                        continue
-
-                else:
-                    if stortype == s_layer.STOR_TYPE_HUGENUM:
+                    else:
                         indx = hugestorv1.indx(valu)[0]
                         for vlay in valulayrs:
                             nodeedits[vlay]['delpropindx'].append((layrabrv[vlay] + indx, buid))
                             cnt += 1
 
-                    elif newbuid == buid:
+                    if buid == newbuid:
+                        await save(buid, newbuid)
+                        cnt = 0
                         continue
 
-                if buid == newbuid:
-                    await save(buid, newbuid)
-                    cnt = 0
+                elif buid == newbuid:
                     continue
 
                 iden = s_common.ehex(buid)
@@ -633,8 +625,7 @@ class ModelRev:
                                 newval = pval
 
                         if ptyp & s_layer.STOR_FLAG_ARRAY:
-                            realtype = stortype & 0x7fff
-                            if realtype == s_layer.STOR_TYPE_HUGENUM:
+                            if ptyp & 0x7fff == s_layer.STOR_TYPE_HUGENUM:
                                 abrv = layrmap[layriden].getPropAbrv(formname, prop)
                                 for indx in arrayindx(pval):
                                     nodeedits[layriden]['delproparrayindx'].append((abrv + indx, buid))
