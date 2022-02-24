@@ -1,5 +1,6 @@
 import os
 import copy
+import json
 import time
 import asyncio
 import logging
@@ -852,19 +853,29 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            iden = await core.callStorm('''
-                $que = $lib.queue.add(foo)
+            with self.getStructuredAsyncLoggerStream('synapse.storm.log',
+                                                     'Coming at you live') as stream:
+                iden = await core.callStorm('''
+                    $que = $lib.queue.add(foo)
 
-                $ddef = $lib.dmon.add(${
-                    $lib.print(hi)
-                    $lib.warn(omg)
-                    $que = $lib.queue.get(foo)
-                    $que.put(done)
-                })
+                    $ddef = $lib.dmon.add(${
+                        $lib.print(hi)
+                        $lib.warn(omg)
+                        $s = $lib.str.format('Coming at you live from {i}', i=$_iden)
+                        $lib.log.error($s, ({"iden": $_iden}))
+                        $que = $lib.queue.get(foo)
+                        $que.put(done)
+                    })
 
-                $que.get()
-                return($ddef.iden)
-            ''')
+                    $que.get()
+                    return($ddef.iden)
+                ''')
+                self.true(await stream.wait(6))
+
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg.get('message'), f'Coming at you live from {iden}')
+            self.eq(mesg.get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}
             logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)

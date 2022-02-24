@@ -359,8 +359,12 @@ class Trigger:
             'user': self.user.iden,
         }
 
-        if vars is not None:
-            opts['vars'] = vars
+        if vars is None:
+            vars = {}
+        else:
+            vars = vars.copy()
+        vars['_iden'] = self.iden
+        opts['vars'] = vars
 
         self.startcount += 1
 

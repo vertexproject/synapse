@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -232,6 +233,18 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:int=77 ]')
             self.len(1, await core.nodes('test:int#withiden'))
 
+            # iden embedded in vars
+            q = '+test:str~=log $s=$lib.str.format("test trigger {i}", i=$_iden) $lib.log.error($s, ({"iden": $_iden}))'
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
+            await view.addTrigger(tdef)
+            with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
+                await core.nodes('[ test:str=logit ]')
+                self.true(await stream.wait(6))
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')
+            self.eq(mesg['iden'], tdef.get('iden'))
+
             # Attempting to add trigger with existing iden raises
             with self.raises(s_exc.DupIden):
                 tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
@@ -267,7 +280,7 @@ class TrigTest(s_t_utils.SynTest):
 
             # Trigger list
             triglist = await view.listTriggers()
-            self.len(11, triglist)
+            self.len(12, triglist)
 
             # Delete not a trigger
             await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
