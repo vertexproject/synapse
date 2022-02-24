@@ -282,7 +282,7 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, nodes)
 
             nodes = await core.nodes('crypto:currency:transaction:value=0')
-            self.len(1, nodes)
+            self.len(0, nodes)
 
             q = '''
             crypto:currency:transaction:value*range=(
@@ -391,4 +391,4 @@ class ModelRevTest(s_tests.SynTest):
                         self.len(2, nodes)
 
                         nodes = await core01.nodes('crypto:currency:transaction:value=0')
-                        self.len(1, nodes)
+                        self.len(0, nodes)
