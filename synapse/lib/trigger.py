@@ -335,7 +335,6 @@ class Trigger:
 
     async def _execute(self, node, vars=None, view=None):
 
-        opts = {}
         locked = self.user.info.get('locked')
         if locked:
             if not self.lockwarned:
@@ -354,17 +353,17 @@ class Trigger:
         if view is None:
             view = self.view.iden
 
-        opts = {
-            'view': view,
-            'user': self.user.iden,
-        }
-
         if vars is None:
             vars = {}
         else:
             vars = vars.copy()
         vars['auto'] = {'iden': self.iden, 'type': 'trigger'}
-        opts['vars'] = vars
+
+        opts = {
+            'vars': vars,
+            'view': view,
+            'user': self.user.iden,
+        }
 
         self.startcount += 1
 
