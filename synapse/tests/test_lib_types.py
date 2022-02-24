@@ -27,10 +27,10 @@ class TypesTest(s_t_utils.SynTest):
         huge = model.type('hugenum')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('730750818665451459101842')
+            huge.norm('730750818665451459101843')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('-730750818665451459101842')
+            huge.norm('-730750818665451459101843')
 
         with self.raises(s_exc.BadTypeValu):
             huge.norm(None)
