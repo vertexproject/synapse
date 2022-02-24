@@ -745,9 +745,10 @@ def setlogging(mlogger, defval=None, structlog=None):
 
     return ret
 
+syndir_default = '~/.syn'
 syndir = os.getenv('SYN_DIR')
 if syndir is None:
-    syndir = '~/.syn'
+    syndir = syndir_default
 
 def envbool(name, defval='false'):
     '''
