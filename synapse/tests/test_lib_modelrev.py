@@ -291,6 +291,10 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
+            nodes = await core.nodes('_test:huge=40E-15')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['huge:array'], ('1.23', '0.000000000000001', '0'))
+
             nodes = await core.nodes('_test:huge=90E-15')
             self.len(1, nodes)
 
@@ -308,9 +312,10 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(errors[1][0], 'SpurTagPropKeyForIndex')
 
             errors = [e async for e in layers[1].verify()]
-            self.len(2, errors)
-            self.eq(errors[0][0], 'NoPropForTagPropIndex')
+            self.len(3, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
+            self.eq(errors[2][0], 'NoPropForTagPropIndex')
 
     async def test_modelrev_0_2_6_mirror(self):
 
