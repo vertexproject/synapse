@@ -856,7 +856,7 @@ class Agenda(s_base.Base):
             starttime = self._getNowTick()
             success = False
             try:
-                opts = {'user': user.iden, 'view': appt.view, 'vars': {'_iden': appt.iden}}
+                opts = {'user': user.iden, 'view': appt.view, 'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}}}
                 async for node in self.core.eval(appt.query, opts=opts):
                     count += 1
             except asyncio.CancelledError:

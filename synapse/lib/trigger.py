@@ -363,7 +363,7 @@ class Trigger:
             vars = {}
         else:
             vars = vars.copy()
-        vars['_iden'] = self.iden
+        vars['auto'] = {'iden': self.iden, 'type': 'trigger'}
         opts['vars'] = vars
 
         self.startcount += 1

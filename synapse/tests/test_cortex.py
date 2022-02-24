@@ -854,15 +854,15 @@ class CortexTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             with self.getStructuredAsyncLoggerStream('synapse.storm.log',
-                                                     'Coming at you live') as stream:
+                                                     'Running dmon') as stream:
                 iden = await core.callStorm('''
                     $que = $lib.queue.add(foo)
 
                     $ddef = $lib.dmon.add(${
                         $lib.print(hi)
                         $lib.warn(omg)
-                        $s = $lib.str.format('Coming at you live from {i}', i=$_iden)
-                        $lib.log.error($s, ({"iden": $_iden}))
+                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $lib.log.info($s, ({"iden": $auto.iden}))
                         $que = $lib.queue.get(foo)
                         $que.put(done)
                     })
@@ -874,7 +874,7 @@ class CortexTest(s_t_utils.SynTest):
 
             buf = stream.getvalue()
             mesg = json.loads(buf.split('\n')[0])
-            self.eq(mesg.get('message'), f'Coming at you live from {iden}')
+            self.eq(mesg.get('message'), f'Running dmon {iden}')
             self.eq(mesg.get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}

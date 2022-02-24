@@ -234,7 +234,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int#withiden'))
 
             # iden embedded in vars
-            q = '+test:str~=log $s=$lib.str.format("test trigger {i}", i=$_iden) $lib.log.error($s, ({"iden": $_iden}))'
+            q = '+test:str~=log $s=$lib.str.format("test {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden}))'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:

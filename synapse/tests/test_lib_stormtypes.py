@@ -3942,16 +3942,16 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("cron m3 {i}", i=$_iden) $lib.log.error($s, ({"iden": $_iden})) }'
+                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
                 text = f'cron.add --minute 17 {q}'
                 async with getCronJob(text) as guid:
-                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'cron m3')  as stream:
+                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
                         self.true(await stream.wait(6))
                     buf = stream.getvalue()
                     mesg = json.loads(buf.split('\n')[0])
-                    self.eq(mesg['message'], f'cron me {guid}')
+                    self.eq(mesg['message'], f'm3 cron {guid}')
                     self.eq(mesg['iden'], guid)
 
                 ##################
