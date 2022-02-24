@@ -6,6 +6,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
+import synapse.lib.certdir as s_certdir
 
 import synapse.tests.utils as s_t_utils
 
@@ -223,3 +224,36 @@ class TestUtils(s_t_utils.SynTest):
 
             buid = s_common.buid(42)
             self.ne(b'\00\00\00\00\00\00', buid[:6])
+
+    def test_utils_certdir(self):
+        oldcertdirn = s_certdir.getCertDirn()
+        oldcertdir = s_certdir.getCertDir()
+        self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
+
+        with self.getTestDir() as dirn:
+            path = s_common.genpath(dirn, 'haha')
+
+            # Pacth the singleton related functionality
+            with self.getTestCertDir(path) as certdir:
+
+                # The singleton functionality now refers to the patched objects
+                self.eq(certdir.pathrefs, {path: 1})
+                self.true(certdir is s_certdir.getCertDir())
+                self.false(oldcertdir is s_certdir.getCertDir())
+
+                self.eq(path, s_certdir.getCertDirn())
+                self.ne(oldcertdirn, s_certdir.getCertDirn())
+
+                # Adding / deleting paths does not affect the old singleton
+                newpath = s_common.genpath(dirn, 'hehe')
+                s_certdir.addCertPath(newpath)
+                self.eq(certdir.pathrefs, {path: 1, newpath: 1})
+                self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
+
+                s_certdir.delCertPath(newpath)
+                self.eq(certdir.pathrefs, {path: 1})
+                self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
+
+        # Patch is removed and singleton behavior is restored
+        self.true(oldcertdir is s_certdir.getCertDir())
+        self.eq(oldcertdirn, s_certdir.getCertDirn())

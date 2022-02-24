@@ -1683,6 +1683,15 @@ class SynTest(unittest.TestCase):
             with self.setSynDir(dirn):
                 yield dirn
 
+    @contextlib.contextmanager
+    def getTestCertDir(self, dirn):
+        with mock.patch('synapse.lib.certdir.defdir', dirn):
+            # Use the default behavior of creating the certdir from defdir
+            # which was just patched
+            certdir = s_certdir.CertDir()
+            with mock.patch('synapse.lib.certdir.certdir', certdir):
+                yield certdir
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y
