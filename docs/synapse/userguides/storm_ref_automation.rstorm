@@ -135,6 +135,17 @@ The "one-time" nature of triggers may result in a small number of edge cases whe
 
 Finally, users should be aware that in some cases proper trigger execution may depend on the timing and order of events with respect to creating nodes, setting properties, creating nodes from secondary properties ("derivative nodes"), etc. The detailed technical aspects of Synapse write operations are beyond the scope of this discussion, but as always it is good practice to test triggers (or other automation) before putting them into practice to ensure they perform as intended.
 
+**Variables:**
+
+Triggers automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the Trigger.
+
+  ``$auto.type``
+    The type of automation. For a Trigger this value will be ``dmon``.
+
+
 **Syntax:**
 
 Triggers are created, modified, viewed, enabled, disabled, and deleted using the Storm ``trigger.*``  commands. See the :ref:`storm-trigger` command in the :ref:`storm-ref-cmd` document for details.
@@ -218,6 +229,17 @@ As such, cron is most appropriate for automating things such as non-urgent tasks
 
 .. NOTE::
   When scheduling jobs, cron interprets all times as UTC.
+
+**Variables:**
+
+Cron jobs automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the Cron job.
+
+  ``$auto.type``
+    The type of automation. For a Cron job this value will be ``cron``.
+
 
 **Syntax:**
 
@@ -335,6 +357,20 @@ Dmons
 -----
 
 A :ref:`gloss-dmon` is a long-running or recurring query or process that runs continuously in the background, similar to a traditional Linux or Unix daemon.
+
+**Variables:**
+
+Dmons will have the storm variable Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the Dmon.
+
+  ``$auto.type``
+    The type of automation. For a Dmon this value will be ``dmon``.
+
+.. NOTE::
+  If the variable ``$auto`` was captured during the creation of the Dmon, the variable will **not** be mapped in.
+
 
 **Syntax:**
 
