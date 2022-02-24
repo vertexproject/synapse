@@ -851,6 +851,7 @@ class StorTypeHugeNum(StorType):
 class StorTypeHugeNumV1(StorType):
 
     def __init__(self, layr, stortype):
+        s_common.deprecated('StorTypeHugeNumV1')
         StorType.__init__(self, layr, STOR_TYPE_HUGENUM)
         self.lifters.update({
             '=': self._liftHugeEq,

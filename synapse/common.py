@@ -162,6 +162,7 @@ def hugenumv1(valu):
     '''
     Return a decimal.Decimal with original hugenum precision.
     '''
+    deprecated('hugenumv1')
     return decimal.Decimal(valu, context=hugectxv1)
 
 hugectx = decimal.Context(prec=48)

@@ -708,6 +708,7 @@ class HugeNum(Type):
             self.norm = self.normv2
 
     def normv1(self, valu):
+        s_common.deprecated('normv1')
 
         try:
             huge = s_common.hugenumv1(valu)
