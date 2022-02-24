@@ -526,8 +526,8 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 7307508186654514591018424163 with a fractional '
-                       'precision of 20 decimal digits.'}
+        info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
+                       'precision of 24 decimal digits.'}
         item = s_types.HugeNum(self, 'hugenum', info, {})
         self.addBaseType(item)
 

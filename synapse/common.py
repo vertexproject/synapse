@@ -183,7 +183,7 @@ def hugesub(x, y):
     '''
     return hugectx.subtract(x, y)
 
-hugeexp = decimal.Decimal('1E-20')
+hugeexp = decimal.Decimal('1E-24')
 def hugeround(x):
     '''
     Round a decimal.Decimal with proper precision for synapse hugenums.

@@ -875,7 +875,7 @@ class LayerTest(s_t_utils.SynTest):
         stor = s_layer.StorTypeHugeNum(self, None)
 
         vals = ['-99999.9', '-0.00000000000000000001', '-42.1', '0', '0.000001', '42.1',
-                '99999.9', '7307508186654514591018424163', '-7307508186654514591018424163']
+                '99999.9', '730750818665451459101842', '-730750818665451459101842']
 
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))

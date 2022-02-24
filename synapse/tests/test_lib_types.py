@@ -27,10 +27,10 @@ class TypesTest(s_t_utils.SynTest):
         huge = model.type('hugenum')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('7307508186654514591018424164')
+            huge.norm('730750818665451459101842')
 
         with self.raises(s_exc.BadTypeValu):
-            huge.norm('-7307508186654514591018424164')
+            huge.norm('-730750818665451459101842')
 
         with self.raises(s_exc.BadTypeValu):
             huge.norm(None)
@@ -38,25 +38,25 @@ class TypesTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             huge.norm('foo')
 
-        self.eq('0.00000000000000000001', huge.norm('1E-20')[0])
-        self.eq('0.00000000000000000001', huge.norm('1.0E-20')[0])
-        self.eq('0.00000000000000000001', huge.norm('0.00000000000000000001')[0])
+        self.eq('0.000000000000000000000001', huge.norm('1E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('1.0E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('0.000000000000000000000001')[0])
 
-        self.eq('0', huge.norm('1E-21')[0])
-        self.eq('0', huge.norm('5E-21')[0])
-        self.eq('0.00000000000000000001', huge.norm('6E-21')[0])
-        self.eq('1.00000000000000000002', huge.norm('1.000000000000000000015')[0])
+        self.eq('0', huge.norm('1E-25')[0])
+        self.eq('0', huge.norm('5E-25')[0])
+        self.eq('0.000000000000000000000001', huge.norm('6E-25')[0])
+        self.eq('1.000000000000000000000002', huge.norm('1.0000000000000000000000015')[0])
 
-        bign = '7307508186654514591018424162.00000000000000000002'
+        bign = '730750818665451459101841.000000000000000000000002'
         self.eq(bign, huge.norm(bign)[0])
 
-        big2 = '7307508186654514591018424162.000000000000000000015'
+        big2 = '730750818665451459101841.0000000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
-        bign = '-7307508186654514591018424162.00000000000000000002'
+        bign = '-730750818665451459101841.000000000000000000000002'
         self.eq(bign, huge.norm(bign)[0])
 
-        big2 = '-7307508186654514591018424162.000000000000000000015'
+        big2 = '-730750818665451459101841.0000000000000000000000015'
         self.eq(bign, huge.norm(big2)[0])
 
     def test_taxonomy(self):

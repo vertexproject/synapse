@@ -163,20 +163,20 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ crypto:currency:transaction=*
-                    :value = '1e-20'
+                    :value = '1e-24'
                 ]''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('value'), '0.00000000000000000001')
+            self.eq(nodes[0].get('value'), '0.000000000000000000000001')
 
             nodes = await core.nodes('''
                 [ crypto:currency:transaction=*
-                    :value = 0.00000000000000000002
+                    :value = 0.000000000000000000000002
                 ]''')
-            self.len(1, await core.nodes('crypto:currency:transaction:value=1e-20'))
-            self.len(1, await core.nodes('crypto:currency:transaction:value=0.00000000000000000001'))
+            self.len(1, await core.nodes('crypto:currency:transaction:value=1e-24'))
+            self.len(1, await core.nodes('crypto:currency:transaction:value=0.000000000000000000000001'))
 
-            huge = '7307508186654514591018424162.00000000000000000002'
-            huge2 = '7307508186654514591018424162.000000000000000000015'
+            huge = '730750818665451459101841.00000000000000000002'
+            huge2 = '730750818665451459101841.000000000000000000015'
 
             self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge} ]'))
             self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge2} ]'))

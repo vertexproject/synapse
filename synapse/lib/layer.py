@@ -803,7 +803,7 @@ class StorTypeHugeNum(StorType):
         self.fullbyts = b'\xff' * 20
 
     def getHugeIndx(self, norm):
-        scaled = s_common.hugenum(norm).scaleb(20)
+        scaled = s_common.hugenum(norm).scaleb(24)
         byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(20, byteorder='big')
         return byts
 
@@ -812,7 +812,7 @@ class StorTypeHugeNum(StorType):
 
     def decodeIndx(self, bytz):
         huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
-        valu = s_common.hugesub(huge, self.offset).scaleb(-20)
+        valu = s_common.hugesub(huge, self.offset).scaleb(-24)
         return '{:f}'.format(valu.normalize(s_common.hugectx))
 
     async def _liftHugeEq(self, liftby, valu):
