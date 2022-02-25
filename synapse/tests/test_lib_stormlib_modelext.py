@@ -2,7 +2,7 @@ import synapse.tests.utils as s_test
 
 import synapse.exc as s_exc
 
-class SynTest(s_test.SynTest):
+class StormtypesModelextTest(s_test.SynTest):
 
     async def test_lib_stormlib_modelext(self):
         async with self.getTestCore() as core:
@@ -27,6 +27,10 @@ class SynTest(s_test.SynTest):
             self.eq(nodes[0].get('tick'), 1609459200000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
+
+            with self.raises(s_exc.DupPropName):
+                q = '''$lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $lib.dict())'''
+                await core.callStorm(q)
 
             await core.callStorm('_visi:int=10 | delnode')
             await core.callStorm('''
