@@ -2,6 +2,7 @@ import os
 import ssl
 import shutil
 import socket
+import logging
 import collections
 
 from OpenSSL import crypto  # type: ignore
@@ -9,9 +10,10 @@ from OpenSSL import crypto  # type: ignore
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
 if defdir is None:
-    defdir = '~/.syn/certs'
+    defdir = defdir_default
 
 def iterFqdnUp(fqdn):
     levs = fqdn.split('.')
@@ -19,6 +21,8 @@ def iterFqdnUp(fqdn):
         yield '.'.join(levs[i:])
 
 TEN_YEARS = 10 * 365 * 24 * 60 * 60
+
+logger = logging.getLogger(__name__)
 
 class CertDir:
     '''
@@ -35,8 +39,8 @@ class CertDir:
         path (str): Optional path which can override the default path directory.
 
     Notes:
-        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to
-          override.
+        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the environment variable
+          SYN_CERT_DIR to override.
         * All certificate generation methods create 4096 bit RSA keypairs.
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
@@ -1098,7 +1102,13 @@ class CertDir:
         return path
 
 certdir = CertDir()
-def getCertDir():
+def getCertDir() -> CertDir:
+    '''
+    Get the singleton CertDir instance.
+
+    Returns:
+        CertDir: A certdir object.
+    '''
     return certdir
 
 def addCertPath(path):
@@ -1106,3 +1116,12 @@ def addCertPath(path):
 
 def delCertPath(path):
     return certdir.delCertPath(path)
+
+def getCertDirn() -> str:
+    '''
+    Get the expanded default path used by the singleton CertDir instance.
+
+    Returns:
+        str: The path string.
+    '''
+    return s_common.genpath(defdir)
