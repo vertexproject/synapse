@@ -2631,12 +2631,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
 
-    @s_nexus.Pusher.onPushAuto('model:prop:add')
     async def addFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+        _form = self.model.form(form)
+        if _form is None:
+            raise s_exc.NoSuchForm(mesg='Form {form} does not exist.', name=form)
+        if _form.prop(prop):
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
+                                     form=form, prop=prop)
+        await self._push('model:prop:add', form, prop, tdef, info)
 
+    @s_nexus.Pusher.onPush('model:prop:add')
+    async def _addFormProp(self, form, prop, tdef, info):
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
