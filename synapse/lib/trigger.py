@@ -120,7 +120,9 @@ class Triggers:
             [await trig.execute(node, view=view) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv, view=None):
-        vars = {'propname': prop.name, 'propfull': prop.full}
+        vars = {'propname': prop.name, 'propfull': prop.full,
+                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
+                }
         with self._recursion_check():
             [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
@@ -128,7 +130,9 @@ class Triggers:
 
     async def runTagAdd(self, node, tag, view=None):
 
-        vars = {'tag': tag}
+        vars = {'tag': tag,
+                'auto': {'opts': {'tag': tag}},
+                }
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -151,7 +155,9 @@ class Triggers:
 
     async def runTagDel(self, node, tag, view=None):
 
-        vars = {'tag': tag}
+        vars = {'tag': tag,
+                'auto': {'opts': {'tag': tag}},
+                }
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
@@ -357,7 +363,12 @@ class Trigger:
             vars = {}
         else:
             vars = vars.copy()
-        vars['auto'] = {'iden': self.iden, 'type': 'trigger'}
+
+        autovars = vars.setdefault('auto', {})
+        autovars.update({'iden': self.iden, 'type': 'trigger'})
+        optvars = autovars.setdefault('opts', {})
+        optvars['form'] = node.ndef[0]
+        optvars['valu'] = node.ndef[1]
 
         opts = {
             'vars': vars,

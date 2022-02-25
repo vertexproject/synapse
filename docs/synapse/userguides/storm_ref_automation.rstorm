@@ -143,7 +143,25 @@ Triggers automatically have the Storm variable ``$auto`` populated when they run
     The identifier of the Trigger.
 
   ``$auto.type``
-    The type of automation. For a Trigger this value will be ``dmon``.
+    The type of automation. For a Trigger this value will be ``trigger``.
+
+  ``$auto.opts``
+    Dictionary containing trigger specific runtime information. This includes the following keys:
+
+        ``$auto.opts.form``
+            The form of the triggering node.
+
+        ``$auto.opts.propfull``
+            The full name of the property that was set on the node. Only present on ``prop:set`` triggers.
+
+        ``$auto.opts.propname``
+            The relative name of the property that was set on the node. Does not include a leading ``:``. Only present on ``prop:set`` triggers.
+
+        ``$auto.opts.tag``
+            The tag which caused the trigger to fire. Only present on ``tag:add`` and ``tag:del`` triggers.
+
+        ``$auto.opts.valu``
+            The value of the triggering node.
 
 
 **Syntax:**
