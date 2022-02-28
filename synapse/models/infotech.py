@@ -1296,7 +1296,11 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The exit code for the process.',
                     }),
                     ('user', ('inet:user', {}), {
+                        'deprecated': True,
                         'doc': 'The user name of the process owner.',
+                    }),
+                    ('account', ('it:account', {}), {
+                        'doc': 'The account of the process owner.',
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',

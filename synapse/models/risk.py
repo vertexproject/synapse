@@ -254,6 +254,9 @@ class RiskModule(s_module.CoreModule):
                     ('response:cost', ('econ:price', {}), {
                         'doc': 'The economic cost of the response and mitigation efforts.',
                     }),
+                    ('theft:price', ('econ:price', {}), {
+                        'doc': 'The total value of the theft of monitary assets.',
+                    }),
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.',
                     }),

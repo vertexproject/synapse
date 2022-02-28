@@ -161,6 +161,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :loss:econ = 1337
                     :loss:life = 0
                     :loss:bytes = 1024
+                    :theft:price = 919
                     :ransom:paid = 1
                     :ransom:price = 99
                     :response:cost = 1010
@@ -180,6 +181,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('1337', nodes[0].get('loss:econ'))
             self.eq(0, nodes[0].get('loss:life'))
             self.eq(1024, nodes[0].get('loss:bytes'))
+            self.eq('919', nodes[0].get('theft:price'))
             self.eq('1', nodes[0].get('ransom:paid'))
             self.eq('99', nodes[0].get('ransom:price'))
             self.eq('1010', nodes[0].get('response:cost'))
