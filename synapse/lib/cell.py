@@ -55,13 +55,15 @@ _inagural_users_schema = {
     'definitions': {
         'permission': {
             'type': 'array',
-            'prefixItems': [
+            'items': [
                 {'type': 'boolean'},
                 {'type': 'array',
                  'items': {'type': 'string'},
                  'minItems': 1,
                  },
-            ]
+            ],
+            'minItems': 2,
+            'maxItems': 2,
         },
         'role': {
             'type': 'object',
@@ -71,7 +73,9 @@ _inagural_users_schema = {
                     'type': 'array',
                     'items': {'$ref': '#/definitions/permission'},
                 }
-            }
+            },
+            'required': ['name', ],
+            'additionalProperties': False,
         },
         'user': {
             'type': 'object',
@@ -85,8 +89,10 @@ _inagural_users_schema = {
                 'permissions': {
                     'type': 'array',
                     'items': {'$ref': '#/definitions/permission'},
-                }
-            }
+                },
+            },
+            'required': ['name', ],
+            'additionalProperties': False,
         }
     },
     'type': 'object',
@@ -98,8 +104,9 @@ _inagural_users_schema = {
         'users': {
             'type': 'array',
             'items': {'$ref': '#/definitions/user'}
-        }
-    }
+        },
+    },
+    'additionalProperties': False,
 }
 
 reqValidInauguralUsers = s_config.getJsValidator(_inagural_users_schema)
@@ -901,6 +908,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
+        iusers = self.conf.get('_inaugural')
+        if iusers:
+            logger.info('Verifiying inaugural users')
+            reqValidInauguralUsers(iusers)
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
