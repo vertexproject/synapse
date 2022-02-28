@@ -189,6 +189,10 @@ class LibMacro(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name)
         storm = await s_stormtypes.tostr(storm)
 
+        if len(name) >= 492:
+            raise s_exc.BadArg(mesg='Macro name cannot exceed 491 characters.',
+                               valu=name)
+
         # validation
         await self.runt.getStormQuery(storm)
 
