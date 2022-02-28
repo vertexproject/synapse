@@ -152,8 +152,8 @@ class PsModelTest(s_t_utils.SynTest):
 
                 self.eq(node.get('birth:place:loc'), 'us.va.reston')
                 self.eq(node.get('death:place:loc'), 'us.va.reston')
-                self.eq(node.get('birth:place:name'), 'asdf')
-                self.eq(node.get('death:place:name'), 'asdf')
+                self.eq(node.get('birth:place:name'), 'reston, va, usa, earth, sol, milkyway')
+                self.eq(node.get('death:place:name'), 'reston, va, usa, earth, sol, milkyway')
                 self.len(1, await core.nodes('ps:contact :birth:place -> geo:place'))
                 self.len(1, await core.nodes('ps:contact :death:place -> geo:place'))
 
