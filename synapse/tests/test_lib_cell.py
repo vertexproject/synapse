@@ -1287,3 +1287,41 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=bkupdirn5) as core:
                 nodes = await core.nodes('test:str=ssl')
                 self.len(1, nodes)
+
+    async def test_inaugural_users(self):
+
+        conf = {
+            '_inaugural': {
+                'users': [
+                    {
+                        'name': 'foo@bar.mynet.com',
+                        'roles': [
+                            'user'
+                        ],
+                        'perms': [
+                            [False, ['thing', 'del']],
+                            [True, ['thing', ]],
+                        ]
+                    },
+                    {
+                        'name': 'sally@bar.mynet.com',
+                        'admin': True,
+                    }
+                ],
+                'roles': [
+                    {
+                        'name': 'user',
+                        'perms': [
+                            [True, ['foo', 'bar']],
+                            [True, ['foo', 'duck']],
+                            [False, ['newp', ]]
+                        ]
+                    }
+                ]
+            }
+        }
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
+                udef = await cell.getUserDefByName('foo@bar.mynet.com')
+                print(udef)
+                self.true(udef.get('name'), 'foo@bar.mynet.com')

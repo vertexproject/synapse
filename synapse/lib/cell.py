@@ -51,6 +51,59 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 Base classes for the synapse "cell" microservice architecture.
 '''
 
+_inagural_users_schema = {
+    'definitions': {
+        'permission': {
+            'type': 'array',
+            'prefixItems': [
+                {'type': 'boolean'},
+                {'type': 'array',
+                 'items': {'type': 'string'},
+                 'minItems': 1,
+                 },
+            ]
+        },
+        'role': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string', },
+                'permissions': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/permission'},
+                }
+            }
+        },
+        'user': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'admin': {'type': 'boolean', 'default': False, },
+                'roles': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                },
+                'permissions': {
+                    'type': 'array',
+                    'items': {'$ref': '#/definitions/permission'},
+                }
+            }
+        }
+    },
+    'type': 'object',
+    'properties': {
+        'roles': {
+            'type': 'array',
+            'items': {'$ref': '#/definitions/role'}
+        },
+        'users': {
+            'type': 'array',
+            'items': {'$ref': '#/definitions/user'}
+        }
+    }
+}
+
+reqValidInauguralUsers = s_config.getJsValidator(_inagural_users_schema)
+
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -810,6 +863,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 }
             },
             'required': ('urlinfo', ),
+        },
+        '_inaugural': {
+            'description': 'TBD',
+            'type': 'object',
+            'hideconf': True,
         },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
