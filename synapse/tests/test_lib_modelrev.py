@@ -208,9 +208,50 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
 
             nodes = await core.nodes("edge:has -> _test:huge")
-            self.len(2, nodes)
+            self.len(3, nodes)
             self.eq(nodes[0].ndef, ('_test:huge', '0.00000000000009'))
-            self.eq(nodes[1].ndef, ('_test:huge', '0.000000000000009'))
+            self.eq(nodes[1].ndef, ('_test:huge', '0.00000000000009'))
+            self.eq(nodes[2].ndef, ('_test:huge', '0.000000000000009'))
+
+            nodes = await core.nodes("edge:has=((_test:huge, 0.00000000000009), (_test:huge, 0.00000000000009)) -> edge:has")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("edge:has=((_test:huge, 0.00000000000009), (_test:huge, 0.00000000000009)) -> edge:has -> edge:has")
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1],
+                (('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                    )
+                 ),
+                 ('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                ))
+            ))
+            self.eq(node.props['n1'],
+                ('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                    )
+                 )
+            )
+            self.eq(node.props['n2'],
+                ('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                    )
+                 )
+            )
 
             hugearray = ('_test:hugearraycomp',
                             (('bd7f5abb84db51d9845b238f62a6684d', '0.000000000000001'),
@@ -316,6 +357,9 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(errors[0][0], 'NoValuForPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
             self.eq(errors[2][0], 'NoPropForTagPropIndex')
+
+            nodes = await core.nodes('meta:seen:node=(_test:huge, "0.00000000000004") :node -> *')
+            self.len(1, nodes)
 
     async def test_modelrev_0_2_6_mirror(self):
 
