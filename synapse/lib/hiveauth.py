@@ -409,11 +409,13 @@ class Auth(s_nexus.Pusher):
 
         await self._addUserNode(node)
 
-    async def addRole(self, name):
+    async def addRole(self, name, iden=None):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
-        iden = s_common.guid()
+        if iden is None:
+            iden = s_common.guid()
+
         await self._push('role:add', iden, name)
 
         return self.role(iden)
