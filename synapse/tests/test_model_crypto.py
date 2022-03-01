@@ -65,11 +65,11 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
 
-            payors = await core.nodes('[ crypto:currency:payor=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payors = await core.nodes('[ crypto:payment:input=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.eq(payors[0].get('value'), '30')
             self.eq(payors[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
-            payees = await core.nodes('[ crypto:currency:payee=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payees = await core.nodes('[ crypto:payment:output=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.eq(payees[0].get('value'), '30')
             self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
@@ -87,8 +87,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :status:message=success
                         :to = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :from = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :payors = ({payor},)
-                        :payees = ({payee},)
+                        :inputs = ({payor},)
+                        :outputs = ({payee},)
                         :fee = 0.0001
                         :value = 30
                         :time = 20211031
@@ -111,8 +111,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('status:message'), 'success')
             self.eq(node.get('to'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('from'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
-            self.eq(node.get('payors'), (payor,))
-            self.eq(node.get('payees'), (payee,))
+            self.eq(node.get('inputs'), (payor,))
+            self.eq(node.get('outputs'), (payee,))
             self.eq(node.get('fee'), '0.0001')
             self.eq(node.get('value'), '30')
             self.eq(node.get('time'), 1635638400000)
