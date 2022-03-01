@@ -75,19 +75,17 @@ def ether_eip55(body: str):
     return "0x" + checksummed_buffer
 
 def eth_check(match: regex.Match):
-    text = match.groupdict().get('valu')
-    if text.find('0x') != -1:
-        prefix, body = text.split('x')  # type: str, str
-    else:
-        prefix, body = text.split('X')  # type: str, str
-    # Checksum if we're mixed case or not
-    if not body.isupper() and not body.islower():
+    text = match.groupdict().get('valu')  # type: str
+    if text.startswith(('0x', '0X')):
+        body = text[2:]
+        # Checksum if we're mixed case or not
+        if not body.isupper() and not body.islower():
 
-        ret = ether_eip55(body)
-        if ret is None or ret != text:
-            return None, {}
+            ret = ether_eip55(body)
+            if ret is None or ret != text:
+                return None, {}
 
-        return ('eth', text), {}
+            return ('eth', text), {}
     # any valid 0x<40 character> hex string is possibly a ETH address.
     return ('eth', text.lower()), {}
 
