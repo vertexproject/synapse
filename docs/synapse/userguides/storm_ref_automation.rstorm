@@ -124,7 +124,9 @@ Triggers execute **immediately** when their associated event occurs in a Cortex.
 .. WARNING::
   Triggers execute **inline** with the process (typically a Storm query) that causes them to fire. That is, if a process (or an analyst) creates a node as part of a longer Storm query and creation of that node causes a trigger to fire, the trigger’s Storm will execute immediately and in full before returning "back" to the main query to complete any additional Storm operations. This includes execution of any additional code that may be called by the trigger itself, such as a macro. Conceptually, it is as though all of the trigger’s Storm code and any additional Storm that it calls were inserted into the middle of the original Storm query that fired the trigger.
   
-  This inline execution can impact a Cortex’s performance, depending on the Storm executed by the trigger and the number of nodes causing the trigger to fire. For example, let’s say you are using CSVTool (see :ref:`syn-tools-csvtool`) to load 3,000 indicators and tag them as "malicious". Your Cortex includes a trigger that fires when a "malicious" tag is applied to any node, calling a Storm query that contacts five third-party services to enrich those indicators, resulting in the creation of dozens of additional nodes for each indicator enriched. This tag-and-enrich process is executed inline for each of the 3,000 nodes created by the CSVTool ingest.
+  This inline execution can impact your query's performance, depending on the Storm executed by the trigger and the number of nodes causing the trigger to fire. The`` --async`` option can be used when creating a trigger to specify that the trigger should run in the background vs. inline. This will cause the trigger event to be stored in a persistent queue, which will then be consumed automatically by the Cortex.
+
+  For example, let’s say you are using CSVTool (see :ref:`syn-tools-csvtool`) to load 3,000 indicators and tag them as "malicious". Your Cortex includes a trigger that fires when a "malicious" tag is applied to any node, calling a Storm query that contacts five third-party services to enrich those indicators, resulting in the creation of dozens of additional nodes for each indicator enriched. This tag-and-enrich process is executed inline for each of the 3,000 nodes created by the CSVTool ingest. If the trigger was created as an async trigger, the CSVTool may complete before the enrichment is done, but the enrichment will eventually complete in the background.
 
 Conversely, triggers **only** execute when the specified event occurs. The events used to fire triggers typically will only ever occur once - the node ``inet:fqdn=woot.com`` will only ever be added to a Cortex once; applying the tag ``#my.tag`` to a ``hash:md5`` node will only occur one time (barring deleting and later re-adding the node or tag). The only exception is the ``prop:set`` event, which will fire when the specified property is first set (often on node creation) as well as any time the property is modified (i.e., "set" again).
 
@@ -134,6 +136,35 @@ The "one-time" nature of triggers may result in a small number of edge cases whe
 - If a trigger depends on a resource (process, service, etc.) that is not available when it fires, the trigger will simply fail; it will not "try again".
 
 Finally, users should be aware that in some cases proper trigger execution may depend on the timing and order of events with respect to creating nodes, setting properties, creating nodes from secondary properties ("derivative nodes"), etc. The detailed technical aspects of Synapse write operations are beyond the scope of this discussion, but as always it is good practice to test triggers (or other automation) before putting them into practice to ensure they perform as intended.
+
+**Variables:**
+
+Triggers automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the Trigger.
+
+  ``$auto.type``
+    The type of automation. For a Trigger this value will be ``trigger``.
+
+  ``$auto.opts``
+    Dictionary containing trigger specific runtime information. This includes the following keys:
+
+        ``$auto.opts.form``
+            The form of the triggering node.
+
+        ``$auto.opts.propfull``
+            The full name of the property that was set on the node. Only present on ``prop:set`` triggers.
+
+        ``$auto.opts.propname``
+            The relative name of the property that was set on the node. Does not include a leading ``:``. Only present on ``prop:set`` triggers.
+
+        ``$auto.opts.tag``
+            The tag which caused the trigger to fire. Only present on ``tag:add`` and ``tag:del`` triggers.
+
+        ``$auto.opts.valu``
+            The value of the triggering node.
+
 
 **Syntax:**
 
@@ -218,6 +249,17 @@ As such, cron is most appropriate for automating things such as non-urgent tasks
 
 .. NOTE::
   When scheduling jobs, cron interprets all times as UTC.
+
+**Variables:**
+
+Cron jobs automatically have the Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the Cron job.
+
+  ``$auto.type``
+    The type of automation. For a Cron job this value will be ``cron``.
+
 
 **Syntax:**
 
@@ -335,6 +377,20 @@ Dmons
 -----
 
 A :ref:`gloss-dmon` is a long-running or recurring query or process that runs continuously in the background, similar to a traditional Linux or Unix daemon.
+
+**Variables:**
+
+Dmons will have the storm variable Storm variable ``$auto`` populated when they run. The ``$auto`` variable is a dictionary which contains the following keys:
+
+  ``$auto.iden``
+    The identifier of the Dmon.
+
+  ``$auto.type``
+    The type of automation. For a Dmon this value will be ``dmon``.
+
+.. NOTE::
+  If the variable ``$auto`` was captured during the creation of the Dmon, the variable will **not** be mapped in.
+
 
 **Syntax:**
 
