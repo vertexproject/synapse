@@ -2144,26 +2144,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.inaugural:
             idata = self.conf.get('_inaugural')
             if idata:
+
                 for rnfo in idata.get('roles', ()):
                     name = rnfo.get('name')
                     logger.debug(f'Adding inaugural role {name}')
                     iden = s_common.guid((self.iden, 'auth', 'role', name))
                     role = await auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
+
                     for rule in rnfo.get('rules', ()):
                         await role.addRule(rule)
+
                 for unfo in idata.get('users', ()):
                     name = unfo.get('name')
                     email = unfo.get('email')
                     iden = s_common.guid((self.iden, 'auth', 'user', name))
                     logger.debug(f'Adding inaugural user {name}')
                     user = await auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
+
                     if unfo.get('admin'):
                         await user.setAdmin(True)
+
                     for rolename in unfo.get('roles', ()):
                         role = await auth.reqRoleByName(rolename)
                         await user.grant(role.iden)
+
                     for rule in unfo.get('rules', ()):
                         await user.addRule(rule)
+
                 logger.debug('Done adding inaugural users.')
 
     @contextlib.asynccontextmanager
