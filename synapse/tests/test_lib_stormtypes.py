@@ -1920,6 +1920,13 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('storm:auth:user', msgs)
             self.stormIsInPrint("'name': 'root'", msgs)
 
+            await core.stormlist('auth.user.add visi')
+
+            visi = await core.auth.getUserByName('visi')
+            opts = {'user': visi.iden}
+            self.true(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.true))', opts=opts))
+            self.false(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.false))', opts=opts))
+
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -4542,6 +4549,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.false(await core.callStorm('''
                 return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            self.true(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar, default=$lib.true))
             '''))
 
             await core.callStorm('''

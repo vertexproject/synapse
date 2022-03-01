@@ -4210,6 +4210,7 @@ class LibUser(Lib):
                   'args': (
                       {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
@@ -4239,13 +4240,13 @@ class LibUser(Lib):
     async def _libUserName(self):
         return self.runt.user.name
 
-    async def _libUserAllowed(self, permname, gateiden=None):
+    async def _libUserAllowed(self, permname, gateiden=None, default=False):
         permname = await toprim(permname)
         gateiden = await tostr(gateiden, noneok=True)
+        default = await tobool(default)
 
-        perm = tuple(permname.split('.'))
-        todo = s_common.todo('isUserAllowed', self.runt.user.iden, perm, gateiden=gateiden)
-        return bool(await self.runt.dyncall('cortex', todo))
+        perm = permname.split('.')
+        return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
 
 @registry.registerLib
 class LibGlobals(Lib):
@@ -6932,6 +6933,7 @@ class User(Prim):
                   'args': (
                       {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the rule is allowed, False otherwise.', }}},
         {'name': 'grant', 'desc': 'Grant a Role to the User.',
@@ -7104,9 +7106,14 @@ class User(Prim):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
-    async def _methUserAllowed(self, permname, gateiden=None):
+    async def _methUserAllowed(self, permname, gateiden=None, default=False):
+        permname = await tostr(permname)
+        gateiden = await tostr(gateiden)
+        default = await tobool(default)
+
         perm = tuple(permname.split('.'))
-        return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
+        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        return user.allowed(perm, gateiden=gateiden, default=default)
 
     async def _methUserGrant(self, iden):
         self.runt.confirm(('auth', 'user', 'grant'))
