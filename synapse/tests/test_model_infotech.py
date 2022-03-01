@@ -808,6 +808,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'host': host,
                     'time': tick,
                     'user': user,
+                    'account': '*',
                     'path': raw_path,
                     'src:exe': src_path,
                     'src:proc': src_proc,
@@ -823,6 +824,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path'), norm_path)
                 self.eq(node.get('src:exe'), src_path)
                 self.eq(node.get('src:proc'), src_proc)
+
+                self.nn(node.get('account'))
+                self.len(1, await core.nodes('it:exec:proc -> it:account'))
 
                 nodes = await core.nodes('it:cmd')
                 self.len(1, nodes)
