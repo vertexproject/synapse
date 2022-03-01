@@ -120,7 +120,9 @@ class Triggers:
             [await trig.execute(node, view=view) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv, view=None):
-        vars = {'propname': prop.name, 'propfull': prop.full}
+        vars = {'propname': prop.name, 'propfull': prop.full,
+                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
+                }
         with self._recursion_check():
             [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
@@ -128,7 +130,9 @@ class Triggers:
 
     async def runTagAdd(self, node, tag, view=None):
 
-        vars = {'tag': tag}
+        vars = {'tag': tag,
+                'auto': {'opts': {'tag': tag}},
+                }
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -151,7 +155,9 @@ class Triggers:
 
     async def runTagDel(self, node, tag, view=None):
 
-        vars = {'tag': tag}
+        vars = {'tag': tag,
+                'auto': {'opts': {'tag': tag}},
+                }
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
@@ -335,7 +341,6 @@ class Trigger:
 
     async def _execute(self, node, vars=None, view=None):
 
-        opts = {}
         locked = self.user.info.get('locked')
         if locked:
             if not self.lockwarned:
@@ -354,13 +359,22 @@ class Trigger:
         if view is None:
             view = self.view.iden
 
+        if vars is None:
+            vars = {}
+        else:
+            vars = vars.copy()
+
+        autovars = vars.setdefault('auto', {})
+        autovars.update({'iden': self.iden, 'type': 'trigger'})
+        optvars = autovars.setdefault('opts', {})
+        optvars['form'] = node.ndef[0]
+        optvars['valu'] = node.ndef[1]
+
         opts = {
+            'vars': vars,
             'view': view,
             'user': self.user.iden,
         }
-
-        if vars is not None:
-            opts['vars'] = vars
 
         self.startcount += 1
 
