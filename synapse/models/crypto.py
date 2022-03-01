@@ -34,6 +34,12 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:contract', ('guid', {}), {
                     'doc': 'A smart contract.',
                 }),
+                ('crypto:currency:payor', ('guid', {}), {
+                    'doc': 'A payment made into a transaction.',
+                }),
+                ('crypto:currency:payee', ('guid', {}), {
+                    'doc': 'A payment received from a transaction.',
+                }),
                 ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
                     'doc': 'A token managed by a smart contract.',
                 }),
@@ -110,6 +116,18 @@ class CryptoModule(s_module.CoreModule):
 
             'forms': (
 
+                ('crypto:currency:payor', {}, (
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which paid into the transaction.'}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the currency paid into the transaction.'}),
+                )),
+                ('crypto:currency:payee', {}, (
+                    ('address', ('crypto:currency:address', {}), {
+                        'doc': 'The address which received payment from the transaction.'}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The value of the currency recieved from the transaction.'}),
+                )),
                 ('crypto:currency:transaction', {}, (
                     ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
                         'doc': 'The unique transaction hash for the transaction.'}),
@@ -134,7 +152,10 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The destination address of the transaction.'}),
                     ('from', ('crypto:currency:address', {}), {
                         'doc': 'The source address of the transaction.'}),
-
+                    ('payors', ('array', {'type': 'crypto:currency:payor', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of payors who paid into the transaction.'}),
+                    ('payees', ('array', {'type': 'crypto:currency:payee', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of payess who recieved payment from the transaction.'}),
                     ('fee', ('econ:price', {}), {
                         'doc': 'The total fee paid to execute the transaction.'}),
                     ('value', ('econ:price', {}), {

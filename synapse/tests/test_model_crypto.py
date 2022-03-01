@@ -64,7 +64,19 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'input': hashlib.sha256(b'asdf').hexdigest(),
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
-            nodes = await core.nodes('''
+
+            payors = await core.nodes('[ crypto:currency:payor=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            self.eq(payors[0].get('value'), '30')
+            self.eq(payors[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+
+            payees = await core.nodes('[ crypto:currency:payee=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            self.eq(payees[0].get('value'), '30')
+            self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+
+            payor = payors[0].ndef[1]
+            payee = payees[0].ndef[1]
+
+            nodes = await core.nodes(f'''
                 [
                     crypto:currency:transaction=*
                         :hash=0x01020304
@@ -75,6 +87,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :status:message=success
                         :to = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :from = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :payors = ({payor},)
+                        :payees = ({payee},)
                         :fee = 0.0001
                         :value = 30
                         :time = 20211031
@@ -97,6 +111,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('status:message'), 'success')
             self.eq(node.get('to'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('from'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.eq(node.get('payors'), (payor,))
+            self.eq(node.get('payees'), (payee,))
             self.eq(node.get('fee'), '0.0001')
             self.eq(node.get('value'), '30')
             self.eq(node.get('time'), 1635638400000)
