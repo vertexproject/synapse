@@ -51,68 +51,6 @@ SLAB_MAP_SIZE = 128 * s_const.mebibyte
 Base classes for the synapse "cell" microservice architecture.
 '''
 
-_inagural_users_schema = {
-    'definitions': {
-        'rule': {
-            'type': 'array',
-            'items': [
-                {'type': 'boolean'},
-                {'type': 'array', 'items': {'type': 'string'}, },
-            ],
-            'minItems': 2,
-            'maxItems': 2,
-        },
-        'role': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string',
-                         'pattern': '^(?!all$).+$',
-                         },
-                'rules': {
-                    'type': 'array',
-                    'items': {'$ref': '#/definitions/rule'},
-                }
-            },
-            'required': ['name', ],
-            'additionalProperties': False,
-        },
-        'user': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string',
-                         'pattern': '^(?!root$).+$',
-                         },
-                'admin': {'type': 'boolean', 'default': False, },
-                'email': {'type': 'string', },
-                'roles': {
-                    'type': 'array',
-                    'items': {'type': 'string'},
-                },
-                'rules': {
-                    'type': 'array',
-                    'items': {'$ref': '#/definitions/rule'},
-                },
-            },
-            'required': ['name', ],
-            'additionalProperties': False,
-        }
-    },
-    'type': 'object',
-    'properties': {
-        'roles': {
-            'type': 'array',
-            'items': {'$ref': '#/definitions/role'}
-        },
-        'users': {
-            'type': 'array',
-            'items': {'$ref': '#/definitions/user'}
-        },
-    },
-    'additionalProperties': False,
-}
-
-reqValidInauguralUsers = s_config.getJsValidator(_inagural_users_schema)
-
 def adminapi(log=False):
     '''
     Decorator for CellApi (and subclasses) for requiring a method to be called only by an admin user.
@@ -874,9 +812,63 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'required': ('urlinfo', ),
         },
         'inaugural': {
-            'description': 'TBD',
+            'defs': {
+                'rule': {
+                    'type': 'array',
+                    'items': [
+                        {'type': 'boolean'},
+                        {'type': 'array', 'items': {'type': 'string'}, },
+                    ],
+                    'minItems': 2,
+                    'maxItems': 2,
+                },
+                'role': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string',
+                                 'pattern': '^(?!all$).+$',
+                                 },
+                        'rules': {
+                            'type': 'array',
+                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
+                        }
+                    },
+                    'required': ['name', ],
+                    'additionalProperties': False,
+                },
+                'user': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string',
+                                 'pattern': '^(?!root$).+$',
+                                 },
+                        'admin': {'type': 'boolean', 'default': False, },
+                        'email': {'type': 'string', },
+                        'roles': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        },
+                        'rules': {
+                            'type': 'array',
+                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
+                        },
+                    },
+                    'required': ['name', ],
+                    'additionalProperties': False,
+                }
+            },
+            'description': 'Data used to drive configuration of the Cell upon first startup.',
             'type': 'object',
-            'hidecmdl': True,
+            'properties': {
+                'roles': {
+                    'type': 'array',
+                    'items': {'$ref': '#/properties/inaugural/defs/role'}
+                },
+                'users': {
+                    'type': 'array',
+                    'items': {'$ref': '#/properties/inaugural/defs/user'}
+                }
+            },
         },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
@@ -918,12 +910,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not os.path.isfile(path):
 
             self.inaugural = True
-
-            # Validate our _inaugural config PRIOR to any
-            # action which creates the cell.guild file.
-            iusers = self.conf.get('inaugural')
-            if iusers:
-                reqValidInauguralUsers(iusers)
 
             guid = conf.get('cell:guid')
             if guid is None:
@@ -2142,10 +2128,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initInauguralConfig(self):
         if self.inaugural:
-            idata = self.conf.get('inaugural')
-            if idata is not None:
+            icfg = self.conf.get('inaugural')
+            if icfg is not None:
 
-                for rnfo in idata.get('roles', ()):
+                for rnfo in icfg.get('roles', ()):
                     name = rnfo.get('name')
                     logger.debug(f'Adding inaugural role {name}')
                     iden = s_common.guid((self.iden, 'auth', 'role', name))
@@ -2154,7 +2140,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     for rule in rnfo.get('rules', ()):
                         await role.addRule(rule)
 
-                for unfo in idata.get('users', ()):
+                for unfo in icfg.get('users', ()):
                     name = unfo.get('name')
                     email = unfo.get('email')
                     iden = s_common.guid((self.iden, 'auth', 'user', name))
@@ -2170,8 +2156,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                     for rule in unfo.get('rules', ()):
                         await user.addRule(rule)
-
-                logger.debug('Done adding inaugural users.')
 
     @contextlib.asynccontextmanager
     async def getLocalProxy(self, share='*', user='root'):

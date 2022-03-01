@@ -1351,7 +1351,7 @@ class CellTest(s_t_utils.SynTest):
                     ]
                 }
             }
-            with self.raises(s_exc.SchemaViolation):
+            with self.raises(s_exc.BadConfValu):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
                     pass
 
@@ -1367,7 +1367,7 @@ class CellTest(s_t_utils.SynTest):
                     ]
                 }
             }
-            with self.raises(s_exc.SchemaViolation):
+            with self.raises(s_exc.BadConfValu):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
                     pass
 
