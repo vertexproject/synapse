@@ -76,7 +76,6 @@ def ether_eip55(body: str):
 
 def eth_check(match: regex.Match):
     text = match.groupdict().get('valu')
-    logger.info(f'{text=}')
     if text.find('0x') != -1:
         prefix, body = text.split('x')  # type: str, str
     else:
