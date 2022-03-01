@@ -76,7 +76,11 @@ def ether_eip55(body: str):
 
 def eth_check(match: regex.Match):
     text = match.groupdict().get('valu')
-    prefix, body = text.split('x')  # type: str, str
+    logger.info(f'{text=}')
+    if text.find('0x') != -1:
+        prefix, body = text.split('x')  # type: str, str
+    else:
+        prefix, body = text.split('X')  # type: str, str
     # Checksum if we're mixed case or not
     if not body.isupper() and not body.islower():
 
