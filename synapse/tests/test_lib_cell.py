@@ -15,6 +15,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.link as s_link
 import synapse.lib.version as s_version
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
@@ -1298,7 +1299,7 @@ class CellTest(s_t_utils.SynTest):
                         'roles': [
                             'user'
                         ],
-                        'permissions': [
+                        'rules': [
                             [False, ['thing', 'del']],
                             [True, ['thing', ]],
                         ],
@@ -1311,7 +1312,7 @@ class CellTest(s_t_utils.SynTest):
                 'roles': [
                     {
                         'name': 'user',
-                        'permissions': [
+                        'rules': [
                             [True, ['foo', 'bar']],
                             [True, ['foo', 'duck']],
                             [False, ['newp', ]],
@@ -1320,8 +1321,48 @@ class CellTest(s_t_utils.SynTest):
                 ]
             }
         }
+
         with self.getTestDir() as dirn:
             async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
-                udef = await cell.getUserDefByName('foo@bar.mynet.com')
-                print(udef)
-                # self.true(udef.get('name'), 'foo@bar.mynet.com')
+                iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
+                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+                self.eq(user.name, 'foo@bar.mynet.com')
+                self.false(user.isAdmin())
+                self.true(user.allowed(('thing', 'cool')))
+                self.false(user.allowed(('thing', 'del')))
+                self.true(user.allowed(('thing', 'duck', 'stuff')))
+                self.false(user.allowed(('newp', 'secret')))
+
+                iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
+                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+                self.eq(user.name, 'sally@bar.mynet.com')
+                self.true(user.isAdmin())
+
+        with self.getTestDir() as dirn:
+            conf = {
+                '_inaugural': {
+                    'users': [
+                        {'name': 'root',
+                         'admin': False,
+                         }
+                    ]
+                }
+            }
+            with self.raises(s_exc.SchemaViolation):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    self.fail('Should never execute - root user test.')
+
+            with self.getTestDir() as dirn:
+                conf = {
+                    '_inaugural': {
+                        'roles': [
+                            {'name': 'all',
+                             'rules': [
+                                 [True, ['floop', 'bloop']],
+                             ]}
+                        ]
+                    }
+                }
+                with self.raises(s_exc.SchemaViolation):
+                    async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                        self.fail('Should never execute - all role test.')

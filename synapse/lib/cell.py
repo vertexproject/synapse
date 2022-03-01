@@ -53,14 +53,11 @@ Base classes for the synapse "cell" microservice architecture.
 
 _inagural_users_schema = {
     'definitions': {
-        'permission': {
+        'rule': {
             'type': 'array',
             'items': [
                 {'type': 'boolean'},
-                {'type': 'array',
-                 'items': {'type': 'string'},
-                 'minItems': 1,
-                 },
+                {'type': 'array', 'items': {'type': 'string'}, },
             ],
             'minItems': 2,
             'maxItems': 2,
@@ -68,10 +65,12 @@ _inagural_users_schema = {
         'role': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string', },
-                'permissions': {
+                'name': {'type': 'string',
+                         'pattern': '^(?!all$).+$',
+                         },
+                'rules': {
                     'type': 'array',
-                    'items': {'$ref': '#/definitions/permission'},
+                    'items': {'$ref': '#/definitions/rule'},
                 }
             },
             'required': ['name', ],
@@ -80,15 +79,17 @@ _inagural_users_schema = {
         'user': {
             'type': 'object',
             'properties': {
-                'name': {'type': 'string'},
+                'name': {'type': 'string',
+                         'pattern': '^(?!root$).+$',
+                         },
                 'admin': {'type': 'boolean', 'default': False, },
                 'roles': {
                     'type': 'array',
                     'items': {'type': 'string'},
                 },
-                'permissions': {
+                'rules': {
                     'type': 'array',
-                    'items': {'$ref': '#/definitions/permission'},
+                    'items': {'$ref': '#/definitions/rule'},
                 },
             },
             'required': ['name', ],
@@ -908,10 +909,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
-        iusers = self.conf.get('_inaugural')
-        if iusers:
-            logger.info('Verifiying inaugural users')
-            reqValidInauguralUsers(iusers)
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -920,6 +917,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not os.path.isfile(path):
 
             self.inaugural = True
+
+            # Validate our _inaugural config PRIOR to any
+            # action which creates the cell.guild file.
+            iusers = self.conf.get('_inaugural')
+            if iusers:
+                reqValidInauguralUsers(iusers)
 
             guid = conf.get('cell:guid')
             if guid is None:
@@ -1028,6 +1031,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceStorage()
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
+
+        # We can now do nexus-safe operations
+        await self._initAuguralCellAuth()
+
         # phase 4 - service logic
         await self.initServiceRuntime()
         # phase 5 - service networking
@@ -2131,6 +2138,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(auth.fini)
         return auth
+
+    async def _initAuguralCellAuth(self):
+        auth = self.auth  # type: s_hiveauth.Auth
+        if self.inaugural:
+            idata = self.conf.get('_inaugural')
+            if idata:
+                for rnfo in idata.get('roles', ()):
+                    name = rnfo.get('name')
+                    logger.debug(f'Adding inaugural role {name}')
+                    iden = s_common.guid((self.iden, 'auth', 'role', name))
+                    role = await auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
+                    for rule in rnfo.get('rules', ()):
+                        await role.addRule(rule)
+                for unfo in idata.get('users', ()):
+                    name = unfo.get('name')
+                    email = unfo.get('email')
+                    iden = s_common.guid((self.iden, 'auth', 'user', name))
+                    logger.debug(f'Adding inaugural user {name}')
+                    user = await auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
+                    if unfo.get('admin'):
+                        await user.setAdmin(True)
+                    for rolename in unfo.get('roles', ()):
+                        role = await auth.reqRoleByName(rolename)
+                        await user.grant(role.iden)
+                    for rule in unfo.get('rules', ()):
+                        await user.addRule(rule)
+                logger.debug('Done adding inaugural users.')
 
     @contextlib.asynccontextmanager
     async def getLocalProxy(self, share='*', user='root'):
