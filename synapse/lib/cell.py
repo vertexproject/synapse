@@ -1033,7 +1033,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initNexusSubsystem()
 
         # We can now do nexus-safe operations
-        await self._initAuguralCellAuth()
+        await self._initInauguralCellAuth()
 
         # phase 4 - service logic
         await self.initServiceRuntime()
@@ -2139,7 +2139,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(auth.fini)
         return auth
 
-    async def _initAuguralCellAuth(self):
+    async def _initInauguralCellAuth(self):
         auth = self.auth  # type: s_hiveauth.Auth
         if self.inaugural:
             idata = self.conf.get('_inaugural')
