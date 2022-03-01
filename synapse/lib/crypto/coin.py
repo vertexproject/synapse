@@ -85,7 +85,6 @@ def eth_check(match: regex.Match):
             return None, {}
 
         return ('eth', text), {}
-
     # any valid 0x<40 character> hex string is possibly a ETH address.
     return ('eth', text.lower()), {}
 
