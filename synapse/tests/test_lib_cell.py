@@ -1292,10 +1292,11 @@ class CellTest(s_t_utils.SynTest):
     async def test_inaugural_users(self):
 
         conf = {
-            '_inaugural': {
+            'inaugural': {
                 'users': [
                     {
                         'name': 'foo@bar.mynet.com',
+                        'email': 'foo@barcorp.com',
                         'roles': [
                             'user'
                         ],
@@ -1327,6 +1328,7 @@ class CellTest(s_t_utils.SynTest):
                 iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
                 user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
                 self.eq(user.name, 'foo@bar.mynet.com')
+                self.eq(user.pack().get('email'), 'foo@barcorp.com')
                 self.false(user.isAdmin())
                 self.true(user.allowed(('thing', 'cool')))
                 self.false(user.allowed(('thing', 'del')))
@@ -1341,7 +1343,7 @@ class CellTest(s_t_utils.SynTest):
         # Cannot use root
         with self.getTestDir() as dirn:
             conf = {
-                '_inaugural': {
+                'inaugural': {
                     'users': [
                         {'name': 'root',
                          'admin': False,
@@ -1356,7 +1358,7 @@ class CellTest(s_t_utils.SynTest):
         # Cannot use all
         with self.getTestDir() as dirn:
             conf = {
-                '_inaugural': {
+                'inaugural': {
                     'roles': [
                         {'name': 'all',
                          'rules': [
@@ -1372,7 +1374,7 @@ class CellTest(s_t_utils.SynTest):
         # Colliding with aha:admin will fail
         with self.getTestDir() as dirn:
             conf = {
-                '_inaugural': {
+                'inaugural': {
                     'users': [
                         {'name': 'bob@foo.bar.com'}
                     ]

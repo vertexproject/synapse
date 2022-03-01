@@ -83,6 +83,7 @@ _inagural_users_schema = {
                          'pattern': '^(?!root$).+$',
                          },
                 'admin': {'type': 'boolean', 'default': False, },
+                'email': {'type': 'string', },
                 'roles': {
                     'type': 'array',
                     'items': {'type': 'string'},
@@ -872,10 +873,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             },
             'required': ('urlinfo', ),
         },
-        '_inaugural': {
+        'inaugural': {
             'description': 'TBD',
             'type': 'object',
-            'hideconf': True,
+            'hidecmdl': True,
         },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
@@ -920,7 +921,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             # Validate our _inaugural config PRIOR to any
             # action which creates the cell.guild file.
-            iusers = self.conf.get('_inaugural')
+            iusers = self.conf.get('inaugural')
             if iusers:
                 reqValidInauguralUsers(iusers)
 
@@ -1033,7 +1034,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initNexusSubsystem()
 
         # We can now do nexus-safe operations
-        await self._initInauguralCellAuth()
+        await self._initInauguralConfig()
 
         # phase 4 - service logic
         await self.initServiceRuntime()
@@ -2139,17 +2140,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(auth.fini)
         return auth
 
-    async def _initInauguralCellAuth(self):
-        auth = self.auth  # type: s_hiveauth.Auth
+    async def _initInauguralConfig(self):
         if self.inaugural:
-            idata = self.conf.get('_inaugural')
-            if idata:
+            idata = self.conf.get('inaugural')
+            if idata is not None:
 
                 for rnfo in idata.get('roles', ()):
                     name = rnfo.get('name')
                     logger.debug(f'Adding inaugural role {name}')
                     iden = s_common.guid((self.iden, 'auth', 'role', name))
-                    role = await auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
+                    role = await self.auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
 
                     for rule in rnfo.get('rules', ()):
                         await role.addRule(rule)
@@ -2159,13 +2159,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     email = unfo.get('email')
                     iden = s_common.guid((self.iden, 'auth', 'user', name))
                     logger.debug(f'Adding inaugural user {name}')
-                    user = await auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
+                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
 
                     if unfo.get('admin'):
                         await user.setAdmin(True)
 
                     for rolename in unfo.get('roles', ()):
-                        role = await auth.reqRoleByName(rolename)
+                        role = await self.auth.reqRoleByName(rolename)
                         await user.grant(role.iden)
 
                     for rule in unfo.get('rules', ()):
