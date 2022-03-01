@@ -1521,10 +1521,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file (executable) that received the connection.'
                         }),
                         ('dst:txcount', ('int', {}), {
-                            'doc': 'The number of packets sent by the destination host / process / file.'
+                            'doc': 'The number of packets sent by the destination host.'
                         }),
                         ('dst:txbytes', ('int', {}), {
-                            'doc': 'The number of bytes sent by the destination host / process / file.'
+                            'doc': 'The number of bytes sent by the destination host.'
                         }),
                         ('dst:handshake', ('str', {}), {
                             'disp': {'hint': 'text'},
@@ -1555,10 +1555,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file (executable) that created the connection.'
                         }),
                         ('src:txcount', ('int', {}), {
-                            'doc': 'The number of packets sent by the source host / process / file.'
+                            'doc': 'The number of packets sent by the source host.'
                         }),
                         ('src:txbytes', ('int', {}), {
-                            'doc': 'The number of bytes sent by the source host / process / file.'
+                            'doc': 'The number of bytes sent by the source host.'
                         }),
                         ('tot:txcount', ('int', {}), {
                             'doc': 'The number of packets sent in both directions.'
