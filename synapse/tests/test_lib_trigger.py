@@ -1,4 +1,5 @@
 import os
+import json
 import asyncio
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -146,9 +147,14 @@ class TrigTest(s_t_utils.SynTest):
             view = core.view
 
             # node:add case
-            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:guid="*" +#nodeadd]'}
+            q = '''$s=$lib.str.format("f={f} v={v}", f=$auto.opts.form, v=$auto.opts.valu) $lib.log.info($s)
+                    [ test:guid="*" +#nodeadd]'''
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
-            await core.nodes('[ test:str=foo ]')
+            with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
+                await core.nodes('[ test:str=foo ]')
+                self.true(await stream.wait(6))
+            self.eq(stream.getvalue().strip(), 'f=test:str v=foo')
             self.len(1, await core.nodes('test:guid#nodeadd'))
 
             # node:del case
@@ -164,10 +170,15 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:guid#tagadd'))
 
             # tag:add globbing and storm var
-            tdef = {'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'a.*.c'}
+            tdef = {'cond': 'tag:add',
+                    'storm': '$lib.log.info($auto.opts.tag) [ +#count test:str=$tag ]',
+                    'tag': 'a.*.c'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#a.b ]')
-            await core.nodes('[ test:str=foo +#a.b.c ]')
+            with self.getAsyncLoggerStream('synapse.storm.log', 'a.b.c') as stream:
+                await core.nodes('[ test:str=foo +#a.b.c ]')
+                self.true(await stream.wait(6))
+            self.true(stream.getvalue().strip().startswith('a.b.c\n'))
             await core.nodes('[ test:str=foo +#a.b.ccc ]')
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=a.b.c'))
@@ -201,10 +212,18 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=5'))
 
             # Prop set
-            tdef = {'cond': 'prop:set', 'storm': '[ test:guid="*" +#propset ]', 'prop': 'test:type10:intprop'}
+            q = '''$s=$lib.str.format("pf={f} pn={n}", f=$auto.opts.propfull, n=$auto.opts.propname) $lib.log.info($s)
+            [ test:guid="*" +#propset ]'''
+            tdef = {'cond': 'prop:set',
+                    'storm': q,
+                    'prop': 'test:type10:intprop'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:type10=1 ]')
-            await core.nodes('[ test:type10=1 :intprop=25 ]')
+            with self.getAsyncLoggerStream('synapse.storm.log', 'pf=') as stream:
+                await core.nodes('[ test:type10=1 :intprop=25 ]')
+                self.true(await stream.wait(6))
+            buf = stream.getvalue().strip()
+            self.eq(buf, 'pf=test:type10:intprop pn=intprop')
             self.len(1, await core.nodes('test:guid#propset'))
 
             # Test re-setting doesn't fire
@@ -231,6 +250,18 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(await view.getTrigger(iden))
             await core.nodes('[ test:int=77 ]')
             self.len(1, await core.nodes('test:int#withiden'))
+
+            # iden embedded in vars
+            q = '+test:str~=log $s=$lib.str.format("test {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden}))'
+            tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
+            await view.addTrigger(tdef)
+            with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
+                await core.nodes('[ test:str=logit ]')
+                self.true(await stream.wait(6))
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[-2])
+            self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')
+            self.eq(mesg['iden'], tdef.get('iden'))
 
             # Attempting to add trigger with existing iden raises
             with self.raises(s_exc.DupIden):
@@ -267,7 +298,7 @@ class TrigTest(s_t_utils.SynTest):
 
             # Trigger list
             triglist = await view.listTriggers()
-            self.len(11, triglist)
+            self.len(12, triglist)
 
             # Delete not a trigger
             await self.asyncraises(s_exc.NoSuchIden, view.delTrigger('foo'))
