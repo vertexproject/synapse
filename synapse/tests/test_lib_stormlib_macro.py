@@ -53,6 +53,17 @@ class MacroTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.macro.set(hehe, ${ inet:ipv6 })', opts=asvisi)
 
+            # Maximum size a macro name can currently be.
+            name = 'v' * 491
+            q = '$lib.macro.set($name, ${ help }) return ( $lib.macro.get($name) )'
+            mdef = await core.callStorm(q, opts={'vars': {'name': name}})
+            self.eq(mdef.get('storm'), 'help')
+
+            with self.raises(s_exc.BadArg):
+                badname = 'v' * 492
+                q = '$lib.macro.set($name, ${ help })'
+                await core.nodes(q, opts={'vars': {'name': badname}})
+
             msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 -:asn=30 }')
             self.stormIsInPrint('Set macro: hehe', msgs)
 
