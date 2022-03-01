@@ -1338,6 +1338,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(user.name, 'sally@bar.mynet.com')
                 self.true(user.isAdmin())
 
+        # Cannot use root
         with self.getTestDir() as dirn:
             conf = {
                 '_inaugural': {
@@ -1350,19 +1351,34 @@ class CellTest(s_t_utils.SynTest):
             }
             with self.raises(s_exc.SchemaViolation):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
-                    self.fail('Should never execute - root user test.')
+                    pass
 
-            with self.getTestDir() as dirn:
-                conf = {
-                    '_inaugural': {
-                        'roles': [
-                            {'name': 'all',
-                             'rules': [
-                                 [True, ['floop', 'bloop']],
-                             ]}
-                        ]
-                    }
+        # Cannot use all
+        with self.getTestDir() as dirn:
+            conf = {
+                '_inaugural': {
+                    'roles': [
+                        {'name': 'all',
+                         'rules': [
+                             [True, ['floop', 'bloop']],
+                         ]}
+                    ]
                 }
-                with self.raises(s_exc.SchemaViolation):
-                    async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
-                        self.fail('Should never execute - all role test.')
+            }
+            with self.raises(s_exc.SchemaViolation):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
+
+        # Colliding with aha:admin will fail
+        with self.getTestDir() as dirn:
+            conf = {
+                '_inaugural': {
+                    'users': [
+                        {'name': 'bob@foo.bar.com'}
+                    ]
+                },
+                'aha:admin': 'bob@foo.bar.com',
+            }
+            with self.raises(s_exc.DupUserName):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
