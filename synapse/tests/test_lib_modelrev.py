@@ -345,6 +345,24 @@ class ModelRevTest(s_tests.SynTest):
 
             self.eq(1005, await core.callStorm('_test:huge=90E-15 return($node.data.list().size())'))
 
+            nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))')
+            self.len(1, nodes)
+
+            self.len(1010, nodes[0].props)
+            self.len(1005, nodes[0].tags)
+            self.len(503, nodes[0].tagprops)
+
+            self.eq(1005, await core.callStorm('''
+                meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))
+                return($node.data.list().size())
+            '''))
+
+            nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15)) -(test)> it:dev:str')
+            self.len(1005, nodes)
+
+            nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15)) <(test)- it:dev:str')
+            self.len(1005, nodes)
+
             nodes = await core.nodes('_test:huge=30E-24 -> meta:seen -(test)> *')
             self.len(1, nodes)
 

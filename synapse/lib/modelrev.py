@@ -836,7 +836,7 @@ class ModelRev:
                             )),
                         )
                         nodeedits[layr.iden].append(
-                            (newbuid, formname, (
+                            (buid, formname, (
                                 (s_layer.EDIT_NODEDATA_DEL, (name, None), ()),
                             )),
                         )
