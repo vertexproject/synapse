@@ -20,7 +20,7 @@ class CryptoLib(s_stormtypes.Lib):
         }},
     )
 
-    _storm_lib_path = ('crypto',)
+    _storm_lib_path = ('crypto', 'coin')
 
     def getObjLocals(self):
         return {
