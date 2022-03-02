@@ -343,7 +343,7 @@ class ModelRev:
                     nodepropprops.add(name)
 
         for tname, tprop in self.core.model.tagprops.items():
-            if self.typeHasStortype(tprop.type, stortype):
+            if self.typeHasStortype(tprop.type, stortype) or self.typeHasNodeprops(tprop.type):
                 tagprops.add(tname)
 
             elif self.typeHasNdefs(tprop.type):
@@ -353,10 +353,8 @@ class ModelRev:
 
     async def _updateNodeProps20220202(self, nodepropprops, uprops, layers):
 
-        layrmap = {layr.iden: layr for layr in layers}
-
         nodeedits = {layr.iden: [] for layr in layers}
-
+        layrmap = {layr.iden: layr for layr in layers}
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         cnt = 0
@@ -579,21 +577,49 @@ class ModelRev:
             if nodeedits or delindx:
                 await save()
 
-    async def _updateNdefs20220202(self, props, tagprops, ndefprops, nodepropprops, layers, ndform, oldvalu, newvalu):
-        layrmap = {layr.iden: layr for layr in layers}
+    async def _updateNdefs20220202(self, props, tagprops, ndefprops, ndeftagprops, layers, ndform, oldvalu, newvalu):
 
         cnt = 0
+        layrmap = {layr.iden: layr for layr in layers}
         nodeedits = {layr.iden: [] for layr in layers}
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
-        uprops = set.union(props, ndefprops)
+        oldbuid = s_common.buid((ndform, oldvalu))
 
         async def save():
             for layriden, edits in nodeedits.items():
                 layr = layrmap[layriden]
                 await layr.storNodeEdits(edits, meta)
                 edits.clear()
+
+        for layr in layers:
+            for form, tag, prop in layr.getTagProps():
+                if form is None or prop not in ndeftagprops:
+                    continue
+
+                tptyp = self.core.model.tagprops[prop]
+                stortype = tptyp.type.stortype
+                indxbyftp = s_layer.IndxByTagProp(layr, form, tag, prop)
+
+                for _, buid in indxbyftp.keyBuidsByDups(oldbuid):
+
+                    sode = layr._getStorNode(buid)
+                    if sode is None: # pragma: no cover
+                        continue
+                    nodeedits[layr.iden].append(
+                        (buid, form, (
+                            (s_layer.EDIT_TAGPROP_SET, (tag, prop, (ndform, newvalu), None, stortype), ()),
+                        )),
+                    )
+                    cnt += 1
+                    if cnt >= 1000:
+                        await save()
+                        cnt = 0
+        await save()
+
+        uprops = set.union(props, ndefprops)
+        cmprvals = (('=', (ndform, oldvalu), s_layer.STOR_TYPE_MSGP),)
 
         for prop in ndefprops:
             ptyp = self.core.model.props[prop]
@@ -605,8 +631,6 @@ class ModelRev:
                 formname = form.name
                 ftyp = form.type
                 formstor = ftyp.stortype
-
-            cmprvals = (('=', (ndform, oldvalu), s_layer.STOR_TYPE_MSGP),)
 
             async for buid, sodes in self.core._liftByPropValu(formname, pname, cmprvals, layers):
 
@@ -642,10 +666,6 @@ class ModelRev:
                             )
                     await save()
                     continue
-
-                # Update nodes which have this node as an ndef prop
-                if valu != norm:
-                    await self._updateNdefs20220202(props, tagprops, ndefprops, nodepropprops, layers, formname, valu, norm)
 
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)
@@ -813,6 +833,10 @@ class ModelRev:
                 await save()
                 cnt = 0
 
+                # Update nodes which have this node as an ndef prop
+                if valu != norm:
+                    await self._updateNdefs20220202(props, tagprops, ndefprops, ndeftagprops, layers, formname, valu, norm)
+
     async def revModel20220202(self, layers):
 
         await self.core.updateModel((0, 2, 7))
@@ -930,10 +954,6 @@ class ModelRev:
                 iden = s_common.ehex(buid)
                 newiden = s_common.ehex(newbuid)
                 nodedels = []
-
-                # Update nodes which have this node as an ndef prop
-                if valu != hnorm:
-                    await self._updateNdefs20220202(props, tagprops, ndefprops, nodepropprops, layers, formname, valu, hnorm)
 
                 # Move props, tags, and tagprops for each sode to the new buid
                 for layriden, sode in sodes:
@@ -1081,6 +1101,10 @@ class ModelRev:
 
                 await save(buid, newbuid)
                 cnt = 0
+
+                # Update nodes which have this node as an ndef prop
+                if valu != hnorm:
+                    await self._updateNdefs20220202(props, tagprops, ndefprops, ndeftagprops, layers, formname, valu, hnorm)
 
         uprops = set.union(props, ndefprops)
 

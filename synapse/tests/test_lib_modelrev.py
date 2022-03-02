@@ -345,6 +345,23 @@ class ModelRevTest(s_tests.SynTest):
 
             self.eq(1005, await core.callStorm('_test:huge=90E-15 return($node.data.list().size())'))
 
+            nodes = await core.nodes('_test:huge=30E-24 -> meta:seen -(test)> *')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('_test:huge=30E-24 -> meta:seen <(test)- *')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:str=4000')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops['tag']['cool:nodeprop'],
+                    ('crypto:smart:token:tokenid', '0.0000000000000000000002'))
+
+            nodes = await core.nodes('it:dev:str=3000')
+            self.len(1, nodes)
+            print(nodes[0])
+            self.eq(nodes[0].tagprops['tag']['cool:ndef'],
+                    ('_test:huge', '0.0000000000000000000002'))
+
             layers = list(core.layers.values())
 
             errors = [e async for e in layers[0].verify()]
@@ -360,6 +377,13 @@ class ModelRevTest(s_tests.SynTest):
 
             nodes = await core.nodes('meta:seen:node=(_test:huge, "0.00000000000004") :node -> *')
             self.len(1, nodes)
+
+            seen = '(c7c58a20a132a8587cd18d60c9ffc091, (_test:huge, 0.00000000000000000000003))'
+            nodes = await core.nodes(f'meta:seen={seen}')
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('_ndef'),
+                    ('meta:seen', ('c7c58a20a132a8587cd18d60c9ffc091',
+                                  ('_test:huge', '0.00000000000000000000003'))))
 
     async def test_modelrev_0_2_6_mirror(self):
 
