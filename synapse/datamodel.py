@@ -14,6 +14,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
+import synapse.lib.modelrev as s_modelrev
 
 logger = logging.getLogger(__name__)
 
@@ -416,7 +417,10 @@ class Model:
     '''
     The data model used by a Cortex hypergraph.
     '''
-    def __init__(self):
+    def __init__(self, vers=s_modelrev.maxvers):
+
+        self.vers = vers
+        self.callbacks = []
 
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
@@ -522,8 +526,8 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 170141183460469231731687 with a fractional '
-                       'precision of 15 decimal digits.'}
+        info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
+                       'precision of 24 decimal digits.'}
         item = s_types.HugeNum(self, 'hugenum', info, {})
         self.addBaseType(item)
 
@@ -554,6 +558,12 @@ class Model:
                 ('parent', ('$self', {}), {'ro': True, 'doc': 'The taxonomy parent.', }),
             ),
         })
+
+    def setModelVers(self, vers):
+        self.vers = vers
+        callbacks = self.callbacks
+        self.callbacks = []
+        [func(*args, **kwargs) for (func, args, kwargs) in callbacks]
 
     def getPropsByType(self, name):
         props = self.propsbytype.get(name, ())

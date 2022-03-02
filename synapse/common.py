@@ -157,12 +157,39 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
-hugectx = decimal.Context(prec=15)
+hugectxv1 = decimal.Context(prec=15)
+def hugenumv1(valu):
+    '''
+    Return a decimal.Decimal with original hugenum precision.
+    '''
+    deprecated('hugenumv1')
+    return decimal.Decimal(valu, context=hugectxv1)
+
+hugectx = decimal.Context(prec=48)
 def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
     '''
     return decimal.Decimal(valu, context=hugectx)
+
+def hugeadd(x, y):
+    '''
+    Add two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.add(x, y)
+
+def hugesub(x, y):
+    '''
+    Subtract two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.subtract(x, y)
+
+hugeexp = decimal.Decimal('1E-24')
+def hugeround(x):
+    '''
+    Round a decimal.Decimal with proper precision for synapse hugenums.
+    '''
+    return hugectx.quantize(x, hugeexp)
 
 def vertup(vstr):
     '''

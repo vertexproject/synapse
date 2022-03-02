@@ -1092,6 +1092,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if self.inaugural:
             await self.cellinfo.set('cortex:version', s_version.version)
+            await self.cellinfo.set('cortex:model:version', s_modelrev.maxvers)
 
         corevers = self.cellinfo.get('cortex:version')
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
@@ -1167,7 +1168,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self._initCortexHttpApi()
 
-        self.model = s_datamodel.Model()
+        modlvers = self.cellinfo.get('cortex:model:version')
+        if modlvers is None:
+            modlvers = s_modelrev.minvers
+            await self.cellinfo.set('cortex:model:version', modlvers)
+
+        self.model = s_datamodel.Model(vers=modlvers)
 
         # Perform module loading
         await self._loadCoreMods()
@@ -3488,6 +3494,11 @@ class Cortex(s_cell.Cell):  # type: ignore
         mrev = s_modelrev.ModelRev(self)
         await mrev.revCoreLayers()
 
+    @s_nexus.Pusher.onPushAuto('model:update')
+    async def updateModel(self, vers):
+        await self.cellinfo.set('cortex:model:version', vers)
+        self.model.setModelVers(vers)
+
     async def _loadView(self, node):
 
         view = await self.viewctor(self, node)
@@ -3811,7 +3822,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
-        await layr.setModelVers(s_modelrev.maxvers)
+        await layr._setModelVers(s_modelrev.maxvers)
 
         if self.isactive:
             await layr.initLayerActive()

@@ -1,4 +1,6 @@
+import os
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_tests
@@ -125,3 +127,367 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].ndef[1], 'cve-2013-9999')
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
+
+    async def test_modelrev_0_2_7(self):
+
+        async with self.getRegrCore('model-0.2.7') as core:
+
+            nodes = await core.nodes('_test:huge=0.000000000000009')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], '0.000000000000009')
+
+            nodes = await core.nodes("crypto:smart:token=(ad17516393ea1857ea660c290112bcca, '0.000000000000002')")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1][1], '0.000000000000002')
+            self.eq(nodes[0].props["tokenid"], '0.000000000000002')
+
+            nodes = await core.nodes("crypto:smart:token:tokenid='0.000000000000002'")
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com')
+            self.len(0, nodes)
+
+            opts = {'view': '9477410524e02fcd91608decd6314574'}
+
+            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].props["tokenid"], '0.000000000000002')
+
+            nodes = await core.nodes("crypto:smart:token -(hnum)> *")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("crypto:smart:token <(*)- *")
+            self.len(1, nodes)
+
+            nodes = await core.nodes('_test:huge <(layer2)- *', opts=opts)
+            self.len(10, nodes)
+
+            nodes = await core.nodes('_test:huge -(layer2)> *', opts=opts)
+            self.len(12, nodes)
+
+            nodes = await core.nodes('inet:fqdn=huge.com <(layer2)- *', opts=opts)
+            self.len(3, nodes)
+
+            nodes = await core.nodes('yield $lib.lift.byNodeData(layer2)', opts=opts)
+            self.len(2, nodes)
+            self.eq(nodes[0].ndef, ('_test:huge', '0.000000000000009'))
+            self.eq(nodes[1].ndef, ('crypto:smart:token',
+                                   ('ad17516393ea1857ea660c290112bcca', '0.000000000000002')))
+            self.eq(nodes[1].props["tokenid"], '0.000000000000002')
+
+            nodes = await core.nodes('yield $lib.lift.byNodeData(layer2)')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('yield $lib.lift.byNodeData(compdata)')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('''
+                _test:hugearraycomp=(
+                    (bd7f5abb84db51d9845b238f62a6684d, 0.000000000000001),
+                    (20a84f63e2820ff8b2caed85ba096360, 0.000000000000006)
+                )
+            ''')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('''
+                _test:hugearraycomp=(
+                    ('11b51985e9e5a3eadcb9ddeb3e05f4b7', 0.00000000000001),
+                    ('0c640aab86c6e1ab5283b9410e54019a', 0.00000000000006)
+                )
+            ''')
+            self.len(1, nodes)
+
+            nodes = await core.nodes("crypto:smart:token=('36758b150b708675b2fec5a7768bcc25', '70E-15')")
+            self.len(1, nodes)
+            self.eq(nodes[0].props["tokenid"], '0.00000000000007')
+
+            nodes = await core.nodes("crypto:smart:token=('36758b150b708675b2fec5a7768bcc25', '0.00000000000007')")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("crypto:smart:token=('36758b150b708675b2fec5a7768bcc25', '0.000000000000070')")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("edge:has -> _test:huge")
+            self.len(3, nodes)
+            self.eq(nodes[0].ndef, ('_test:huge', '0.00000000000009'))
+            self.eq(nodes[1].ndef, ('_test:huge', '0.00000000000009'))
+            self.eq(nodes[2].ndef, ('_test:huge', '0.000000000000009'))
+
+            nodes = await core.nodes("edge:has=((_test:huge, 0.00000000000009), (_test:huge, 0.00000000000009)) -> edge:has")
+            self.len(1, nodes)
+
+            nodes = await core.nodes("edge:has=((_test:huge, 0.00000000000009), (_test:huge, 0.00000000000009)) -> edge:has -> edge:has")
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1],
+                (('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                    )
+                 ),
+                 ('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                ))
+            ))
+            self.eq(node.props['n1'],
+                ('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                    )
+                 )
+            )
+            self.eq(node.props['n2'],
+                ('edge:has',
+                    (('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009'))),
+                     ('edge:has',
+                        (('_test:huge', '0.00000000000009'), ('_test:huge', '0.00000000000009')))
+                    )
+                 )
+            )
+
+            hugearray = ('_test:hugearraycomp',
+                            (('bd7f5abb84db51d9845b238f62a6684d', '0.000000000000001'),
+                             ('20a84f63e2820ff8b2caed85ba096360', '0.000000000000006')))
+
+            nodes = await core.nodes("econ:acquired")
+            self.len(4, nodes)
+            self.eq(nodes[0].props['item'], ('_test:huge', '0.00000000000001'))
+            self.eq(nodes[2].props['item'], hugearray)
+
+            nodes = await core.nodes('''
+                econ:acquired=('47fdbfaac48fac622b65d6dc19f582d8',
+                    ('_test:hugearraycomp', (
+                        ('bd7f5abb84db51d9845b238f62a6684d', '0.00000000000001'),
+                        ('20a84f63e2820ff8b2caed85ba096360', '0.00000000000006')
+                    ))
+                )
+            ''', opts=opts)
+            self.len(1, nodes)
+
+            nodes = await core.nodes("._huge:univarraycomp")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1][0], ('bd7f5abb84db51d9845b238f62a6684d', '0.000000000000001'))
+            self.eq(nodes[0].ndef[1][1], ('20a84f63e2820ff8b2caed85ba096360', '0.000000000000006'))
+
+            nodes = await core.nodes("inet:web:chprofile")
+            self.len(2, nodes)
+            self.eq(nodes[0].props['pv'], ('crypto:smart:token:tokenid', '0.00000000000004'))
+            self.eq(nodes[1].props['pv'], ('crypto:smart:token:tokenid', '1.23'))
+
+            nodes = await core.nodes("_test:hugerange")
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('_test:hugerange', ('0.00000000000005', '0.00000000000008')))
+
+            nodes = await core.nodes('inet:fqdn:_huge')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['_huge'], '0.000000000000009')
+
+            nodes = await core.nodes('crypto:currency:transaction:value=0.000000000000003')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['value'], '0.000000000000003')
+
+            nodes = await core.nodes("inet:fqdn:_huge:array*[=0.000000000000001]")
+            self.len(1, nodes)
+            self.eq(nodes[0].props['_huge:array'], ('0.000000000000001', '0.000000000000002'))
+
+            nodes = await core.nodes("#test:cool:huge=0.000000000000005", opts=opts)
+            self.len(3, nodes)
+
+            nodes = await core.nodes("#test:cool:huge=0.000000000000005")
+            self.len(2, nodes)
+
+            nodes = await core.nodes("#test:cool:comp")
+            self.len(2, nodes)
+            self.eq(nodes[0].tagprops['test']['cool:comp'],
+                    ('3ae73f6cb7befaccb5ed79ca91e66bb0', '0.000000000000012'))
+            self.eq(nodes[1].tagprops['test']['cool:comp'],
+                    ('e7dd87edb04dc9d541ede108c8887b99', '0.000000000000012'))
+
+            nodes = await core.nodes('crypto:currency:transaction:value>=0.000000000000001')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value>0.00000000000000000001')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value<0.00000000000000000002')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value=0')
+            self.len(0, nodes)
+
+            q = '''
+            crypto:currency:transaction:value*range=(
+            0.00000000000000000002, 0.00000000000000000003
+            )'''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
+
+            nodes = await core.nodes('_test:huge=40E-15')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['huge:array'], ('1.23', '0.000000000000001', '0'))
+
+            nodes = await core.nodes('_test:huge=90E-15')
+            self.len(1, nodes)
+
+            self.len(1006, nodes[0].props)
+            self.len(1005, nodes[0].tags)
+            self.len(1005, nodes[0].tagprops)
+
+            self.eq(1005, await core.callStorm('_test:huge=90E-15 return($node.data.list().size())'))
+
+            nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))')
+            self.len(1, nodes)
+
+            self.len(1012, nodes[0].props)
+            self.len(1005, nodes[0].tags)
+            self.len(503, nodes[0].tagprops)
+            self.eq(nodes[0].props.get('_huge:array'), ('1.23', '0.000000000000001', '0'))
+
+            self.eq(1005, await core.callStorm('''
+                meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))
+                return($node.data.list().size())
+            '''))
+
+            nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15)) -(test)> it:dev:str')
+            self.len(1005, nodes)
+
+            nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15)) <(test)- it:dev:str')
+            self.len(1005, nodes)
+
+            nodes = await core.nodes('_test:huge=30E-24 -> meta:seen -(test)> *')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('_test:huge=30E-24 -> meta:seen <(test)- *')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:dev:str=4000')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops['tag']['cool:nodeprop'],
+                    ('crypto:smart:token:tokenid', '0.0000000000000000000002'))
+
+            nodes = await core.nodes('it:dev:str=3000')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops['tag']['cool:ndef'],
+                    ('_test:huge', '0.0000000000000000000002'))
+
+            layers = list(core.layers.values())
+
+            errors = [e async for e in layers[0].verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'SpurTagPropKeyForIndex')
+            self.eq(errors[1][0], 'SpurTagPropKeyForIndex')
+
+            errors = [e async for e in layers[1].verify()]
+            self.len(3, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoPropForTagPropIndex')
+            self.eq(errors[2][0], 'NoPropForTagPropIndex')
+
+            nodes = await core.nodes('meta:seen:node=(_test:huge, "0.00000000000004") :node -> *')
+            self.len(1, nodes)
+
+            seen = '(c7c58a20a132a8587cd18d60c9ffc091, (_test:huge, 0.00000000000000000000003))'
+            nodes = await core.nodes(f'meta:seen={seen}')
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('_ndef'),
+                    ('meta:seen', ('c7c58a20a132a8587cd18d60c9ffc091',
+                                  ('_test:huge', '0.00000000000000000000003'))))
+
+            nodes = await core.nodes('''
+                meta:seen:_ndef:array=((_test:huge, 0.00000000000004),
+                                       (inet:fqdn, vertex.link),
+                                       (_test:huge, 0.00000000000009))
+            ''')
+            self.len(1, nodes)
+
+    async def test_modelrev_0_2_6_mirror(self):
+
+        regr = os.getenv('SYN_REGRESSION_REPO')
+        if regr is None:
+            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+
+        regr = s_common.genpath(regr)
+
+        if not os.path.isdir(regr):
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
+
+        dirn = os.path.join(regr, 'cortexes', 'model-0.2.7')
+
+        with self.getTestDir(copyfrom=dirn) as regrdir00:
+
+            with self.getTestDir(copyfrom=dirn) as regrdir01:
+
+                conf00 = {'nexslog:en': True}
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+
+                    self.eq(core00.model.vers, (0, 2, 8))
+
+                    conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+
+                async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                    self.eq(core01.model.vers, (0, 2, 6))
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
+                    self.len(7, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value>0.00000000000000000001')
+                    self.len(0, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value>-1')
+                    self.len(7, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
+                    self.len(7, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value<0.00000000000000000002')
+                    self.len(0, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value<1')
+                    self.len(7, nodes)
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value=0')
+                    self.len(7, nodes)
+
+                    with self.raises(s_exc.BadTypeValu):
+                        nodes = await core01.nodes('crypto:currency:transaction:value=foo')
+
+                    with self.raises(s_exc.BadTypeValu):
+                        nodes = await core01.nodes('crypto:currency:transaction:value=170141183460469231731688')
+
+                    with self.raises(s_exc.BadTypeValu):
+                        nodes = await core01.nodes('crypto:currency:transaction:value=-170141183460469231731688')
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+                    async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                        await core01.sync()
+
+                        self.eq(core01.model.vers, (0, 2, 8))
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
+                        self.len(3, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value>0.00000000000000000001')
+                        self.len(5, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
+                        self.len(3, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value<0.00000000000000000002')
+                        self.len(2, nodes)
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value=0')
+                        self.len(0, nodes)

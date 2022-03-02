@@ -5,6 +5,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.time as s_time
 import synapse.lib.const as s_const
+import synapse.lib.types as s_types
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -19,6 +20,44 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
+
+    def test_hugenum(self):
+
+        model = s_datamodel.Model()
+        huge = model.type('hugenum')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('-730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm(None)
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('foo')
+
+        self.eq('0.000000000000000000000001', huge.norm('1E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('1.0E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('0.000000000000000000000001')[0])
+
+        self.eq('0', huge.norm('1E-25')[0])
+        self.eq('0', huge.norm('5E-25')[0])
+        self.eq('0.000000000000000000000001', huge.norm('6E-25')[0])
+        self.eq('1.000000000000000000000002', huge.norm('1.0000000000000000000000015')[0])
+
+        bign = '730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
+        bign = '-730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '-730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
 
     def test_taxonomy(self):
 
