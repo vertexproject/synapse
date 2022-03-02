@@ -8,13 +8,32 @@ Synapse Changelog
 v2.85.0 - TBD
 =============
 
+Automatic Migrations
+--------------------
+- Migrate hugenum values stored in the Cortex to the updated precision value.
+  In a configuration where there are Cortex Mirrors deployed, the mirrors
+  **must** be upgraded **prior** the upstream Cortexes. See
+  :ref:`devops-general-migrations` for more information about automatic
+  migrations.
+
 Features and Enhancements
 -------------------------
 
-- Several updates for the ``geo``, ``inet``, ``it``, ``ps`` and ``risk``
-  models.
+- Several updates for the ``crypto``, ``geo``, ``inet``, ``it``, ``ps`` and
+  ``risk`` models.
   (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+  (`#2573 <https://github.com/vertexproject/synapse/pull/2573>`_)
   (`#2574 <https://github.com/vertexproject/synapse/pull/2574>`_)
+
+  ``crypto:payment:input``
+    Add a new form to record payments made into a transaction.
+
+  ``crypto:payment:output``
+    Add a new form to record payments receieved from a transaction.
+
+  ``crypto:currency:transaction``
+    Add ``inputs`` and ``outputs`` array secondary properties to record inputs
+    and outputs for a given transaction.
 
   ``geo:name``
     Add a new form representing an unstructured place name or address.
@@ -44,6 +63,12 @@ Features and Enhancements
   the Storm runtime when those automations are run. This information is
   populated in a dictionary variable named ``$auto``.
   (`#2565 <https://github.com/vertexproject/synapse/pull/2565>`_)
+- Extend the number of decimal places the ``hugenum`` type can store to 24
+  places, with a new maximum value of 730750818665451459101842.
+  (`#2543 <https://github.com/vertexproject/synapse/pull/2543>`_)
+- Add ``$lib.crypto.coin.etherum.eip55()`` to convert a Ethereum address to a
+  checksummed address.
+  (`#2577 <https://github.com/vertexproject/synapse/pull/2577>`_)
 - Add a ``default`` argument to the  ``$lib.user.allowed()`` and ``allowed()``
   method on ``storm:user`` StormType.
   (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
