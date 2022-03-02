@@ -1,7 +1,7 @@
 from unittest import mock
 import synapse.tests.utils as s_test
 
-class CryptocoinTest(s_test.SynTest):
+class CryptoCoinTest(s_test.SynTest):
 
     async def test_storm_cryptocoin(self):
 

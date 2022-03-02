@@ -5,7 +5,7 @@ import synapse.lib.crypto.coin as s_coin
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
-class CryptoLib(s_stormtypes.Lib):
+class CryptoCoinLib(s_stormtypes.Lib):
     '''
     A Storm library which implements helpers for cryptocurrencies.
     '''
