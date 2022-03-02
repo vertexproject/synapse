@@ -403,7 +403,7 @@ class ModelRev:
                                     newvalu = realprop.type.norm(valu[0])[0]
                                 except s_exc.BadTypeValu as e:
                                     oldm = e.errinfo.get('mesg')
-                                    logger.warning(f'Bad prop value {realprop}={propvalu!r} : {oldm}')
+                                    logger.warning(f'Bad prop value {realprop}={valu!r} : {oldm}')
                                     continue
 
                                 nodeedits[layr.iden].append(
@@ -577,8 +577,10 @@ class ModelRev:
             if nodeedits or delindx:
                 await save()
 
-    async def _updateNdefs20220202(self, props, tagprops, ndefprops, ndeftagprops, layers, ndform, oldvalu, newvalu):
-
+    async def updateNdefTagProps(self, ndeftagprops, layers, ndform, oldvalu, newvalu):
+        '''
+        Update tagprops with type ndef to the new value for a node.
+        '''
         cnt = 0
         layrmap = {layr.iden: layr for layr in layers}
         nodeedits = {layr.iden: [] for layr in layers}
@@ -618,8 +620,25 @@ class ModelRev:
                         cnt = 0
         await save()
 
+    async def updateNdefs(self, props, tagprops, ndefprops, ndeftagprops, layers, ndform, oldvalu, newvalu):
+        '''
+        Update nodes containing a ndef values to the new value for a node.
+        '''
+        await self.updateNdefTagProps(ndeftagprops, layers, ndform, oldvalu, newvalu)
+
+        cnt = 0
         uprops = set.union(props, ndefprops)
+        layrmap = {layr.iden: layr for layr in layers}
+        nodeedits = {layr.iden: [] for layr in layers}
         cmprvals = (('=', (ndform, oldvalu), s_layer.STOR_TYPE_MSGP),)
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        async def save():
+            for layriden, edits in nodeedits.items():
+                layr = layrmap[layriden]
+                await layr.storNodeEdits(edits, meta)
+                edits.clear()
 
         for prop in ndefprops:
             ptyp = self.core.model.props[prop]
@@ -835,7 +854,7 @@ class ModelRev:
 
                 # Update nodes which have this node as an ndef prop
                 if valu != norm:
-                    await self._updateNdefs20220202(props, tagprops, ndefprops, ndeftagprops, layers, formname, valu, norm)
+                    await self.updateNdefs(props, tagprops, ndefprops, ndeftagprops, layers, formname, valu, norm)
 
     async def revModel20220202(self, layers):
 
@@ -1104,7 +1123,7 @@ class ModelRev:
 
                 # Update nodes which have this node as an ndef prop
                 if valu != hnorm:
-                    await self._updateNdefs20220202(props, tagprops, ndefprops, ndeftagprops, layers, formname, valu, hnorm)
+                    await self.updateNdefs(props, tagprops, ndefprops, ndeftagprops, layers, formname, valu, hnorm)
 
         uprops = set.union(props, ndefprops)
 
