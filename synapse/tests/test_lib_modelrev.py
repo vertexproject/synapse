@@ -348,7 +348,7 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))')
             self.len(1, nodes)
 
-            self.len(1010, nodes[0].props)
+            self.len(1011, nodes[0].props)
             self.len(1005, nodes[0].tags)
             self.len(503, nodes[0].tagprops)
 
@@ -376,7 +376,6 @@ class ModelRevTest(s_tests.SynTest):
 
             nodes = await core.nodes('it:dev:str=3000')
             self.len(1, nodes)
-            print(nodes[0])
             self.eq(nodes[0].tagprops['tag']['cool:ndef'],
                     ('_test:huge', '0.0000000000000000000002'))
 
@@ -402,6 +401,13 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].props.get('_ndef'),
                     ('meta:seen', ('c7c58a20a132a8587cd18d60c9ffc091',
                                   ('_test:huge', '0.00000000000000000000003'))))
+
+            nodes = await core.nodes('''
+                meta:seen:_ndef:array=((_test:huge, 0.00000000000004),
+                                       (inet:fqdn, vertex.link),
+                                       (_test:huge, 0.00000000000009))
+            ''')
+            self.len(1, nodes)
 
     async def test_modelrev_0_2_6_mirror(self):
 
