@@ -399,8 +399,9 @@ class ModelRev:
                         if props:
                             valu = props.get(realname)
                             if valu:
+                                valu = valu[0]
                                 try:
-                                    newvalu = realprop.type.norm(valu[0])[0]
+                                    newvalu = realprop.type.norm(valu)[0]
                                 except s_exc.BadTypeValu as e:
                                     oldm = e.errinfo.get('mesg')
                                     logger.warning(f'Bad prop value {realprop}={valu!r} : {oldm}')
@@ -634,6 +635,9 @@ class ModelRev:
         layrmap = {layr.iden: layr for layr in layers}
         cmprvals = (('=', (ndform, oldvalu), s_layer.STOR_TYPE_MSGP),)
         hugestorv1 = s_layer.StorTypeHugeNumV1(layers[0], s_layer.STOR_TYPE_HUGENUM)
+
+        def arrayindx(valu):
+            return set([hugestorv1.indx(aval)[0] for aval in valu])
 
         nodeedits = {}
         for layr in layers:

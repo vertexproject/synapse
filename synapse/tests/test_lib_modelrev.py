@@ -278,8 +278,9 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].ndef[1][1], ('20a84f63e2820ff8b2caed85ba096360', '0.000000000000006'))
 
             nodes = await core.nodes("inet:web:chprofile")
-            self.len(1, nodes)
+            self.len(2, nodes)
             self.eq(nodes[0].props['pv'], ('crypto:smart:token:tokenid', '0.00000000000004'))
+            self.eq(nodes[1].props['pv'], ('crypto:smart:token:tokenid', '1.23'))
 
             nodes = await core.nodes("_test:hugerange")
             self.len(1, nodes)
@@ -348,9 +349,10 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))')
             self.len(1, nodes)
 
-            self.len(1011, nodes[0].props)
+            self.len(1012, nodes[0].props)
             self.len(1005, nodes[0].tags)
             self.len(503, nodes[0].tagprops)
+            self.eq(nodes[0].props.get('_huge:array'), ('1.23', '0.000000000000001', '0'))
 
             self.eq(1005, await core.callStorm('''
                 meta:seen=(73cf0755574a721bc879ec7a1c348daf, (_test:huge, 40E-15))
