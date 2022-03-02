@@ -7,7 +7,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class CryptoLib(s_stormtypes.Lib):
     '''
-    A Storm library which implements helpers for hexadecimal encoded strings.
+    A Storm library which implements helpers for cryptocurrencies.
     '''
     _storm_locals = (
         {'name': 'ether_eip55', 'desc': 'Convert an Ethereum address to a checksummed address.',
