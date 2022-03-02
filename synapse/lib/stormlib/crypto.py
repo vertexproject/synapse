@@ -33,11 +33,7 @@ class CryptoLib(s_stormtypes.Lib):
         if addr.startswith('0x'):
             addr = addr[2:]
 
-        try:
-            csum = s_coin.ether_eip55(addr)
-            if csum is not None:
-                return (True, csum)
-            return (False, None)
-
-        except s_exc.BadArg as e:
-            return (False, s_common.excinfo(e))
+        csum = s_coin.ether_eip55(addr)
+        if csum is not None:
+            return (True, csum)
+        return (False, None)
