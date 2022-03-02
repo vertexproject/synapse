@@ -11,7 +11,7 @@ class CryptoCoinLib(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'ether_eip55', 'desc': 'Convert an Ethereum address to a checksummed address.',
-         'type': {'type': 'function', '_funcname': 'eip55',
+         'type': {'type': 'function', '_funcname': 'ether_eip55',
                   'args': (
                       {'name': 'addr', 'type': 'str', 'desc': 'The Ethereum address to be converted.'},
                   ),
