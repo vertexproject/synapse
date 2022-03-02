@@ -761,7 +761,6 @@ workflows:
             branches:
               only:
                 - master
-                - hugenum-fix
 
       - gh-release/dorelease:
           requires:
