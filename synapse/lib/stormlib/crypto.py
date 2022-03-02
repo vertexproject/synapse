@@ -1,0 +1,43 @@
+import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.crypto.coin as s_coin
+import synapse.lib.stormtypes as s_stormtypes
+
+@s_stormtypes.registry.registerLib
+class CryptoLib(s_stormtypes.Lib):
+    '''
+    A Storm library which implements helpers for hexadecimal encoded strings.
+    '''
+    _storm_locals = (
+        {'name': 'ether_eip55', 'desc': 'Convert an Ethereum address to a checksummed address.',
+         'type': {'type': 'function', '_funcname': 'eip55',
+                  'args': (
+                      {'name': 'addr', 'type': 'str', 'desc': 'The Ethereum address to be converted.'},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'A list of (<bool>, <addr>) for status and checksummed address.', },
+        }},
+    )
+
+    _storm_lib_path = ('crypto',)
+
+    def getObjLocals(self):
+        return {
+            'ether_eip55': self.ether_eip55,
+        }
+
+    async def ether_eip55(self, addr):
+        addr = await s_stormtypes.tostr(addr)
+        addr = addr.lower()
+        if addr.startswith('0x'):
+            addr = addr[2:]
+
+        try:
+            csum = s_coin.ether_eip55(addr)
+            if csum is not None:
+                return (True, csum)
+            return (False, None)
+
+        except s_exc.BadArg as e:
+            return (False, s_common.excinfo(e))
