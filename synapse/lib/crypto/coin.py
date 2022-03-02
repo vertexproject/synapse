@@ -75,8 +75,8 @@ def ether_eip55(body: str):
     return "0x" + checksummed_buffer
 
 def eth_check(match: regex.Match):
-    text = match.groupdict().get('valu')
-    prefix, body = text.split('x')  # type: str, str
+    text = match.groupdict().get('valu')  # type: str
+    body = text[2:]
     # Checksum if we're mixed case or not
     if not body.isupper() and not body.islower():
 

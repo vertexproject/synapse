@@ -77,7 +77,7 @@ def getJsValidator(schema):
         try:
             return func(*args, **kwargs)
         except JsonSchemaException as e:
-            raise s_exc.SchemaViolation(mesg=e.message, name=e.name)
+            raise s_exc.SchemaViolation(mesg=e.message, name=e.name) from e
 
     _JsValidators[key] = wrap
     return wrap
