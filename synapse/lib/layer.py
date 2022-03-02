@@ -448,7 +448,7 @@ class StorType:
         indxby = IndxByProp(self.layr, form, prop)
         for indx in self.indx(valu):
             if not indxby.hasIndxBuid(indx, buid):
-                yield ('NoPropIndex', {'prop': 'prop', 'valu': valu})
+                yield ('NoPropIndex', {'prop': prop, 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu):
         try:
@@ -796,14 +796,80 @@ class StorTypeHugeNum(StorType):
             'range=': self._liftHugeRange,
         })
 
-        self.one = s_common.hugenum(1)
-        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffff)
+        self.one = s_common.hugeexp
+        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffffffffffff)
+
+        self.zerobyts = b'\x00' * 20
+        self.fullbyts = b'\xff' * 20
+
+    def getHugeIndx(self, norm):
+        scaled = s_common.hugenum(norm).scaleb(24)
+        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(20, byteorder='big')
+        return byts
+
+    def indx(self, norm):
+        return (self.getHugeIndx(norm),)
+
+    def decodeIndx(self, bytz):
+        huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
+        valu = s_common.hugesub(huge, self.offset).scaleb(-24)
+        return '{:f}'.format(valu.normalize(s_common.hugectx))
+
+    async def _liftHugeEq(self, liftby, valu):
+        byts = self.getHugeIndx(valu)
+        for item in liftby.keyBuidsByDups(byts):
+            yield item
+
+    async def _liftHugeGt(self, liftby, valu):
+        valu = s_common.hugenum(valu)
+        async for item in self._liftHugeGe(liftby, s_common.hugeadd(valu, self.one)):
+            yield item
+
+    async def _liftHugeLt(self, liftby, valu):
+        valu = s_common.hugenum(valu)
+        async for item in self._liftHugeLe(liftby, s_common.hugesub(valu, self.one)):
+            yield item
+
+    async def _liftHugeGe(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu)
+        pkeymax = self.fullbyts
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeLe(self, liftby, valu):
+        pkeymin = self.zerobyts
+        pkeymax = self.getHugeIndx(valu)
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+    async def _liftHugeRange(self, liftby, valu):
+        pkeymin = self.getHugeIndx(valu[0])
+        pkeymax = self.getHugeIndx(valu[1])
+        for item in liftby.keyBuidsByRange(pkeymin, pkeymax):
+            yield item
+
+class StorTypeHugeNumV1(StorType):
+
+    def __init__(self, layr, stortype):
+        s_common.deprecated('StorTypeHugeNumV1')
+        StorType.__init__(self, layr, STOR_TYPE_HUGENUM)
+        self.lifters.update({
+            '=': self._liftHugeEq,
+            '<': self._liftHugeLt,
+            '>': self._liftHugeGt,
+            '<=': self._liftHugeLe,
+            '>=': self._liftHugeGe,
+            'range=': self._liftHugeRange,
+        })
+
+        self.one = s_common.hugenumv1(1)
+        self.offset = s_common.hugenumv1(0x7fffffffffffffffffffffffffffffff)
 
         self.zerobyts = b'\x00' * 16
         self.fullbyts = b'\xff' * 16
 
     def getHugeIndx(self, norm):
-        scaled = s_common.hugenum(norm).scaleb(15)
+        scaled = s_common.hugenumv1(norm).scaleb(15)
         byts = int(scaled + self.offset).to_bytes(16, byteorder='big')
         return byts
 
@@ -819,12 +885,12 @@ class StorTypeHugeNum(StorType):
             yield item
 
     async def _liftHugeGt(self, liftby, valu):
-        valu = s_common.hugenum(valu)
+        valu = s_common.hugenumv1(valu)
         async for item in self._liftHugeGe(liftby, valu + self.one):
             yield item
 
     async def _liftHugeLt(self, liftby, valu):
-        valu = s_common.hugenum(valu)
+        valu = s_common.hugenumv1(valu)
         async for item in self._liftHugeLe(liftby, valu - self.one):
             yield item
 
@@ -1206,6 +1272,9 @@ class Layer(s_nexus.Pusher):
             StorTypeFloat(self, STOR_TYPE_FLOAT64, 8),
             StorTypeHugeNum(self, STOR_TYPE_HUGENUM),
         ]
+
+        if self.core.model.vers < (0, 2, 7):
+            self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNumV1(self, STOR_TYPE_HUGENUM)
 
         await self._initLayerStorage()
 
@@ -2394,6 +2463,10 @@ class Layer(s_nexus.Pusher):
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
+
+            if kind & 0x8000:
+                kind = STOR_TYPE_MSGP
+
             async for lkey, buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 sode = self._getStorNode(buid)
                 if sode is None: # pragma: no cover
@@ -2535,6 +2608,10 @@ class Layer(s_nexus.Pusher):
             if changes:
                 edited = True
 
+        migr = meta.get('migr')
+        if migr:
+            await self.doMigrOps(migr)
+
         flatedits = list(results.values())
 
         if edited:
@@ -2548,6 +2625,16 @@ class Layer(s_nexus.Pusher):
         await asyncio.sleep(0)
 
         return flatedits
+
+    async def doMigrOps(self, migr):
+        for (key, buid) in migr.get('delpropindx', ()):
+            self.layrslab.delete(key, buid, db=self.byprop)
+
+        for (key, buid) in migr.get('deltagpropindx', ()):
+            self.layrslab.delete(key, buid, db=self.bytagprop)
+
+        for (key, buid) in migr.get('delproparrayindx', ()):
+            self.layrslab.delete(key, buid, db=self.byarray)
 
     def mayDelBuid(self, buid, sode):
 
@@ -3398,6 +3485,13 @@ class Layer(s_nexus.Pusher):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
     async def setModelVers(self, vers):
+        await self._push('layer:set:modelvers', vers)
+
+    @s_nexus.Pusher.onPush('layer:set:modelvers')
+    async def _setModelVers(self, vers):
+        if vers == (0, 2, 7):
+            self.stortypes[STOR_TYPE_HUGENUM] = StorTypeHugeNum(self, STOR_TYPE_HUGENUM)
+
         await self.layrinfo.set('model:version', vers)
 
     async def getStorNodes(self):
