@@ -4,6 +4,7 @@
 Synapse Changelog
 *****************
 
+
 v2.85.1 - 2022-03-03
 ====================
 
@@ -13,6 +14,10 @@ Bugfixes
   users with view read permissions to add automatically detected and
   validated nodes but make no further edits.
   (`#2579 <https://github.com/vertexproject/synapse/pull/2579>`_)
+- Log errors encountered in the Layer mirror loop which don't have a
+  local caller waiting on the change.
+  (`#2580 <https://github.com/vertexproject/synapse/pull/2580>`_)
+
 
 v2.85.0 - 2022-03-03
 ====================
