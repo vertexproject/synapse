@@ -8,14 +8,6 @@ Synapse Changelog
 v2.85.0 - TBD
 =============
 
-Automatic Migrations
---------------------
-- Migrate hugenum values stored in the Cortex to the updated precision value.
-  In a configuration where there are Cortex Mirrors deployed, the mirrors
-  **must** be upgraded **prior** the upstream Cortexes. See
-  :ref:`devops-general-migrations` for more information about automatic
-  migrations.
-
 Features and Enhancements
 -------------------------
 
@@ -63,9 +55,6 @@ Features and Enhancements
   the Storm runtime when those automations are run. This information is
   populated in a dictionary variable named ``$auto``.
   (`#2565 <https://github.com/vertexproject/synapse/pull/2565>`_)
-- Extend the number of decimal places the ``hugenum`` type can store to 24
-  places, with a new maximum value of 730750818665451459101842.
-  (`#2543 <https://github.com/vertexproject/synapse/pull/2543>`_)
 - Add ``$lib.crypto.coin.ethereum.eip55()`` to convert an Ethereum address to a
   checksummed address.
   (`#2577 <https://github.com/vertexproject/synapse/pull/2577>`_)
