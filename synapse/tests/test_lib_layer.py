@@ -874,11 +874,10 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_stortype_hugenum(self):
         stor = s_layer.StorTypeHugeNum(self, None)
 
-        vals = ['-99999.9', '-0.00000000000000000001', '-42.1', '0', '0.000001', '42.1',
-                '99999.9', '730750818665451459101842', '-730750818665451459101842']
+        vals = [-99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, 2**63 + 1.1]
 
         for valu, indx in ((v, stor.indx(v)) for v in vals):
-            self.eq(valu, stor.decodeIndx(indx[0]))
+            self.eqish(valu, stor.decodeIndx(indx[0]), places=3)
 
     async def test_layer_stortype_ival(self):
         stor = s_layer.StorTypeIval(self)

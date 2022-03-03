@@ -177,27 +177,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq('LoLoL', node.get('nft:meta:description'))
             self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
 
-            nodes = await core.nodes('''
-                [ crypto:currency:transaction=*
-                    :value = '1e-24'
-                ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('value'), '0.000000000000000000000001')
-
-            nodes = await core.nodes('''
-                [ crypto:currency:transaction=*
-                    :value = 0.000000000000000000000002
-                ]''')
-            self.len(1, await core.nodes('crypto:currency:transaction:value=1e-24'))
-            self.len(1, await core.nodes('crypto:currency:transaction:value=0.000000000000000000000001'))
-
-            huge = '730750818665451459101841.00000000000000000002'
-            huge2 = '730750818665451459101841.000000000000000000015'
-
-            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge} ]'))
-            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge2} ]'))
-            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
-
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             lm = core.model.type('hash:lm')
