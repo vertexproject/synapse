@@ -1323,11 +1323,14 @@ class Layer(s_nexus.Pusher):
                     except asyncio.CancelledError:  # pragma: no cover
                         raise
 
+                    except s_exc.LinkShutDown:
+                        raise
+
                     except Exception as e:
                         if futu is not None:
                             futu.set_exception(e)
                             continue
-                        logger.exception(f'Error consuming mirror nodeedit at offset {offs} for {self}')
+                        logger.error(f'Error consuming mirror nodeedit at offset {offs} for (layer: {self.iden}): {e}')
 
             except asyncio.CancelledError as e:  # pragma: no cover
                 raise
