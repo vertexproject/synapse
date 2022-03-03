@@ -66,7 +66,7 @@ Features and Enhancements
 - Extend the number of decimal places the ``hugenum`` type can store to 24
   places, with a new maximum value of 730750818665451459101842.
   (`#2543 <https://github.com/vertexproject/synapse/pull/2543>`_)
-- Add ``$lib.crypto.coin.etherum.eip55()`` to convert a Ethereum address to a
+- Add ``$lib.crypto.coin.ethereum.eip55()`` to convert an Ethereum address to a
   checksummed address.
   (`#2577 <https://github.com/vertexproject/synapse/pull/2577>`_)
 - Add a ``default`` argument to the  ``$lib.user.allowed()`` and ``allowed()``
