@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+v2.85.1 - 2022-03-03
+====================
+
+Bugfixes
+--------
+- Fix a permission enforcement issue in autoadd mode that allowed
+  users with view read permissions to add scraped nodes but make no
+  further edits.
 
 v2.85.0 - 2022-03-03
 ====================

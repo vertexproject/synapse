@@ -212,6 +212,10 @@ class AstTest(s_test.SynTest):
     async def test_ast_autoadd(self):
 
         async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            with self.raises(s_exc.AuthDeny):
+                opts = {'mode': 'autoadd', 'user': visi.iden}
+                nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
             opts = {'mode': 'autoadd'}
             nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
             self.len(3, nodes)
