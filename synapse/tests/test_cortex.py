@@ -252,6 +252,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
 
+                await layr01.storNodeEdits((), {})
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:

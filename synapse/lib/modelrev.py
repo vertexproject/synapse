@@ -1213,7 +1213,14 @@ class ModelRev:
 
             logger.warning(f'beginning model migration -> {revvers}')
 
+            mirrors = [lyr for lyr in todo if lyr.ismirror]
+            for lyr in mirrors:
+                lyr.ismirror = False
+
             await revmeth(todo)
+
+            for lyr in mirrors:
+                lyr.ismirror = True
 
             await self.core.updateModel(revvers)
             [await lyr.setModelVers(revvers) for lyr in todo]
