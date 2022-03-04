@@ -12,13 +12,13 @@ import synapse.lib.stormtypes as s_stormtypes
 logger = logging.getLogger(__name__)
 
 def runJsSchema(schema, item, use_default=True):
-    # This is a target function for s_coro.forked
+    # This is a target function for s_coro.spawn
     func = s_config.getJsValidator(schema, use_default=use_default)
     resp = func(item)
     return resp
 
 def compileJsSchema(schema, use_default=True):
-    # This is a target function for s_coro.forked
+    # This is a target function for s_coro.spawn
     _ = s_config.getJsValidator(schema, use_default=use_default)
     return True
 
