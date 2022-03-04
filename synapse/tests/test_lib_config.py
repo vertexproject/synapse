@@ -1,11 +1,10 @@
-import os
+import copy
 import regex
 import argparse
 
 import yaml
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 
@@ -299,3 +298,17 @@ class ConfTest(s_test.SynTest):
             conf.setConfFromEnvs()
         self.eq(conf.get('key:string'), 'We all float down here')
         self.eq(conf.get('key:integer'), 8675309)
+
+    def test_jsvalidator(self):
+
+        schema = copy.deepcopy(s_test.test_schema)
+
+        validator = s_config.getJsValidator(schema)
+        item = validator({'key:number': 123})
+        self.eq(item['key:number'], 123)
+        self.eq(item['key:string'], 'Default string!')
+
+        validator = s_config.getJsValidator(schema, use_default=False)
+        item = validator({'key:number': 123})
+        self.eq(item['key:number'], 123)
+        self.notin('key:string', item)
