@@ -127,6 +127,8 @@ class LayerApi(s_cell.CellApi):
     async def saveNodeEdits(self, edits, meta):
         '''
         Save node edits to the layer and return a tuple of (nexsoffs, changes).
+
+        Note: nexsoffs will be None if there are no changes.
         '''
         meta['link:user'] = self.user.iden
         return await self.layr.saveNodeEdits(edits, meta)
@@ -2477,7 +2479,11 @@ class Layer(s_nexus.Pusher):
         return saveoff, changes, retn
 
     async def saveNodeEdits(self, edits, meta):
+        '''
+        Save node edits to the layer and return a tuple of (nexsoffs, changes).
 
+        Note: nexsoffs will be None if there are no changes.
+        '''
         if self.ismirror:
 
             if self.core.isactive:
@@ -2488,7 +2494,7 @@ class Layer(s_nexus.Pusher):
                     moff, changes = await proxy.saveNodeEdits(edits, meta)
                     if any(c[2] for c in changes):
                         return await futu
-                    return
+                    return None, ()
 
             proxy = await self.core.nexsroot.client.proxy()
             indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
