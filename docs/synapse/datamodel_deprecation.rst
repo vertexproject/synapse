@@ -133,3 +133,7 @@ Properties
         - This property has been superseded by the `it:prod:hardware:make` property, which is typed as `ou:name`.
     - `:model`
         - This property has been superseded by the `it:prod:hardware:model` property, which is typed as string.
+
+- `it:exec:proc`
+    - `:user`
+        - Please use the `:account` `it:exec:proc` property to link processes to users.
