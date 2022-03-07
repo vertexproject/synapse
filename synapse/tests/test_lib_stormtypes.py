@@ -1920,6 +1920,13 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('storm:auth:user', msgs)
             self.stormIsInPrint("'name': 'root'", msgs)
 
+            await core.stormlist('auth.user.add visi')
+
+            visi = await core.auth.getUserByName('visi')
+            opts = {'user': visi.iden}
+            self.true(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.true))', opts=opts))
+            self.false(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.false))', opts=opts))
+
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -3942,11 +3949,17 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                async with getCronJob("cron.add --minute 17 {$lib.queue.get(foo).put(m3)}") as guid:
-
-                    unixtime += 7 * MINSECS
-
-                    self.eq('m3', await getNextFoo())
+                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
+                text = f'cron.add --minute 17 {q}'
+                async with getCronJob(text) as guid:
+                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
+                        unixtime += 7 * MINSECS
+                        self.eq('m3', await getNextFoo())
+                        self.true(await stream.wait(6))
+                    buf = stream.getvalue()
+                    mesg = json.loads(buf.split('\n')[0])
+                    self.eq(mesg['message'], f'm3 cron {guid}')
+                    self.eq(mesg['iden'], guid)
 
                 ##################
 
@@ -4536,6 +4549,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.false(await core.callStorm('''
                 return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            self.true(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar, default=$lib.true))
             '''))
 
             await core.callStorm('''

@@ -216,6 +216,7 @@ class Lookup(Query):
         async def getnode(form, valu):
             try:
                 if self.autoadd:
+                    runt.layerConfirm(('node', 'add', form))
                     return await runt.snap.addNode(form, valu)
                 else:
                     norm, info = runt.model.form(form).type.norm(valu)
@@ -235,16 +236,22 @@ class Lookup(Query):
             if not tokns:
                 return
 
+            buidset = set()
+
             # scrape logic first...
             for tokn in tokns:
                 for form, valu in s_scrape.scrape(tokn, first=True):
                     node = await getnode(form, valu)
                     if node is not None:
+                        buidset.add(node.buid)
                         yield node, runt.initPath(node)
 
             if view.core.stormiface_search:
                 todo = s_common.todo('search', tokns)
                 async for (prio, buid) in view.mergeStormIface('search', todo):
+                    if buid in buidset:
+                        await asyncio.sleep(0)
+                        continue
                     node = await runt.snap.getNodeByBuid(buid)
                     if node is not None:
                         yield node, runt.initPath(node)

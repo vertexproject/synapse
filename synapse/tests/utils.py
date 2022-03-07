@@ -1683,6 +1683,25 @@ class SynTest(unittest.TestCase):
             with self.setSynDir(dirn):
                 yield dirn
 
+    @contextlib.contextmanager
+    def getTestCertDir(self, dirn):
+        '''
+        Patch the synapse.lib.certdir.certdir singleton and supporting functions
+        with a CertDir instance backed by the provided directory.
+
+        Args:
+            dirn (str): The directory used to back the new CertDir singleton.
+
+        Returns:
+            s_certdir.CertDir: The patched CertDir object that is the current singleton.
+        '''
+        with mock.patch('synapse.lib.certdir.defdir', dirn):
+            # Use the default behavior of creating the certdir from defdir
+            # which was just patched
+            certdir = s_certdir.CertDir()
+            with mock.patch('synapse.lib.certdir.certdir', certdir):
+                yield certdir
+
     def eq(self, x, y, msg=None):
         '''
         Assert X is equal to Y

@@ -1549,6 +1549,8 @@ class StormDmon(s_base.Base):
 
             text = self.ddef.get('storm')
             opts = self.ddef.get('stormopts', {})
+            vars = opts.setdefault('vars', {})
+            vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
 
             viewiden = opts.get('view')
             view = self.core.getView(viewiden)
