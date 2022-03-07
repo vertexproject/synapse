@@ -2084,7 +2084,6 @@ class Layer(s_nexus.Pusher):
         for lkey, buid in self.layrslab.scanByPref(ftpabrv, db=self.bytagprop):
 
             if len(lkey) == 28:
-                print('HIT4')
                 continue
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
@@ -2102,7 +2101,6 @@ class Layer(s_nexus.Pusher):
 
             pval = props.get(prop)
             if pval is None:
-                print('HIT7')
                 self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 sode.clear()
                 continue
