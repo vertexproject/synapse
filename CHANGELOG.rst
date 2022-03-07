@@ -5,6 +5,108 @@ Synapse Changelog
 *****************
 
 
+v2.85.1 - 2022-03-03
+====================
+
+Bugfixes
+--------
+- Fix a permission enforcement issue in autoadd mode that allowed
+  users with view read permissions to add automatically detected and
+  validated nodes but make no further edits.
+  (`#2579 <https://github.com/vertexproject/synapse/pull/2579>`_)
+- Log errors encountered in the Layer mirror loop which don't have a
+  local caller waiting on the change.
+  (`#2580 <https://github.com/vertexproject/synapse/pull/2580>`_)
+
+
+v2.85.0 - 2022-03-03
+====================
+
+Features and Enhancements
+-------------------------
+
+- Several updates for the ``crypto``, ``geo``, ``inet``, ``it``, ``ps`` and
+  ``risk`` models.
+  (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+  (`#2573 <https://github.com/vertexproject/synapse/pull/2573>`_)
+  (`#2574 <https://github.com/vertexproject/synapse/pull/2574>`_)
+
+  ``crypto:payment:input``
+    Add a new form to record payments made into a transaction.
+
+  ``crypto:payment:output``
+    Add a new form to record payments receieved from a transaction.
+
+  ``crypto:currency:transaction``
+    Add ``inputs`` and ``outputs`` array secondary properties to record inputs
+    and outputs for a given transaction.
+
+  ``geo:name``
+    Add a new form representing an unstructured place name or address.
+
+  ``geo:place``
+    Add a ``names`` secondary property which is an array of ``geo:name``
+    values.
+
+  ``inet:flow``
+    Add ``dst:txcount``, ``src:txcount``, ``tot:txcount`` and ``tot:txbytes``
+    secondary properties.
+
+  ``it:exec:proc``
+    Add an ``account`` secondary property as a ``it:account`` type. Mark the
+    ``user`` secondary property as deprecated.
+
+  ``ps:contact``
+    Add ``birth:place``, ``birth:place:loc``, ``birth:place:name``,
+    ``death:place``, ``death:place:loc`` and ``death:place:name`` secondary
+    properties.
+
+  ``risk:compromise``
+    Add a ``theft:price`` secondary property to represent value of stolen
+    assets.
+
+- Embed Cron, StormDmon, and Trigger iden values and automation types into
+  the Storm runtime when those automations are run. This information is
+  populated in a dictionary variable named ``$auto``.
+  (`#2565 <https://github.com/vertexproject/synapse/pull/2565>`_)
+- Add ``$lib.crypto.coin.ethereum.eip55()`` to convert an Ethereum address to a
+  checksummed address.
+  (`#2577 <https://github.com/vertexproject/synapse/pull/2577>`_)
+- Add a ``default`` argument to the  ``$lib.user.allowed()`` and ``allowed()``
+  method on ``storm:user`` StormType.
+  (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+- Add a ``inaugural`` configuration key to the base ``Cell`` class. This can
+  currently be used to bootstrap roles, permissions, and users in a Cell upon
+  the first time it is started.
+  (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+- De-duplicate nodes when running the Storm ``lookup`` mode to lift nodes.
+  (`#2567 <https://github.com/vertexproject/synapse/pull/2567>`_)
+- Add a test helper that can be used to isolate the
+  ``synapse.lib.certdir.certdir`` singleton behavior via context manager.
+  (`#2564 <https://github.com/vertexproject/synapse/pull/2564>`_)
+
+Bugfixes
+--------
+- Calls to ``addFormProp()`` APIs when the property name already exists now
+  raise a ``DupPropName`` exception.
+  (`#2566 <https://github.com/vertexproject/synapse/pull/2566>`_)
+- Do not allow Storm ``macro``'s to be created that have names greater than
+  492 characters in length.
+  (`#2569 <https://github.com/vertexproject/synapse/pull/2569>`_)
+- Fix a bug in the scrape logic for Ethereum where the regular expression
+  matched on ``0X`` prefixed strings but the validation logic did not account
+  for that uppercase character.
+  (`#2575 <https://github.com/vertexproject/synapse/pull/2575>`_)
+
+Documentation
+-------------
+- Add documentation for the ``$auto`` variable embedded into the Cron,
+  StormDmon, and Trigger automations. Add documentation for variables
+  representing the form, node value, properties and tags which are responsible
+  for Triggers running.
+  (`#2565 <https://github.com/vertexproject/synapse/pull/2565>`_)
+
+
 v2.84.0 - 2022-02-22
 ====================
 

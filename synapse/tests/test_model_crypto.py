@@ -64,7 +64,19 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'input': hashlib.sha256(b'asdf').hexdigest(),
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
-            nodes = await core.nodes('''
+
+            payors = await core.nodes('[ crypto:payment:input=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            self.eq(payors[0].get('value'), '30')
+            self.eq(payors[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+
+            payees = await core.nodes('[ crypto:payment:output=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            self.eq(payees[0].get('value'), '30')
+            self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+
+            payor = payors[0].ndef[1]
+            payee = payees[0].ndef[1]
+
+            nodes = await core.nodes(f'''
                 [
                     crypto:currency:transaction=*
                         :hash=0x01020304
@@ -75,6 +87,8 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :status:message=success
                         :to = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :from = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :inputs = ({payor},)
+                        :outputs = ({payee},)
                         :fee = 0.0001
                         :value = 30
                         :time = 20211031
@@ -97,6 +111,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('status:message'), 'success')
             self.eq(node.get('to'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('from'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+            self.eq(node.get('inputs'), (payor,))
+            self.eq(node.get('outputs'), (payee,))
             self.eq(node.get('fee'), '0.0001')
             self.eq(node.get('value'), '30')
             self.eq(node.get('time'), 1635638400000)
@@ -160,27 +176,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq('WootWoot', node.get('nft:meta:name'))
             self.eq('LoLoL', node.get('nft:meta:description'))
             self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
-
-            nodes = await core.nodes('''
-                [ crypto:currency:transaction=*
-                    :value = '1e-24'
-                ]''')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('value'), '0.000000000000000000000001')
-
-            nodes = await core.nodes('''
-                [ crypto:currency:transaction=*
-                    :value = 0.000000000000000000000002
-                ]''')
-            self.len(1, await core.nodes('crypto:currency:transaction:value=1e-24'))
-            self.len(1, await core.nodes('crypto:currency:transaction:value=0.000000000000000000000001'))
-
-            huge = '730750818665451459101841.00000000000000000002'
-            huge2 = '730750818665451459101841.000000000000000000015'
-
-            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge} ]'))
-            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge2} ]'))
-            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
 
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

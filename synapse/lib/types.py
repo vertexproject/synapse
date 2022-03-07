@@ -675,9 +675,12 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
-hugemax = 730750818665451459101842
-hugemaxv1 = 170141183460469231731687
+hugemax = 170141183460469231731687
 class HugeNum(Type):
+
+    _opt_defs = (
+        ('norm', True),
+    )
 
     stortype = s_layer.STOR_TYPE_HUGENUM
 
@@ -698,42 +701,9 @@ class HugeNum(Type):
             'range=': self._storLiftRange,
         })
 
-        self.setNormVers()
+    def norm(self, valu):
 
-    def setNormVers(self):
-        if self.modl.vers < (0, 2, 7):
-            self.norm = self.normv1
-            self.modl.callbacks.append((self.setNormVers, (), {}))
-        else:
-            self.norm = self.normv2
-
-    def normv1(self, valu):
-        s_common.deprecated('normv1')
-
-        try:
-            huge = s_common.hugenumv1(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e)) from None
-
-        if huge > hugemaxv1:
-            mesg = f'Value ({valu}) is too large for hugenum.'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
-        if abs(huge) > hugemaxv1:
-            mesg = f'Value ({valu}) is too small for hugenum.'
-            raise s_exc.BadTypeValu(mesg=mesg)
-
-        return huge.to_eng_string(), {}
-
-    def normv2(self, valu):
-
-        try:
-            huge = s_common.hugenum(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e)) from None
-
+        huge = s_common.hugenum(valu)
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
@@ -742,9 +712,9 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        huge = s_common.hugeround(huge).normalize(s_common.hugectx)
-
-        return '{:f}'.format(huge), {}
+        if self.opts.get('norm'):
+            huge.normalize(), {}
+        return huge.to_eng_string(), {}
 
     def _ctorCmprEq(self, text):
         base = s_common.hugenum(text)

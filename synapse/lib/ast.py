@@ -216,6 +216,7 @@ class Lookup(Query):
         async def getnode(form, valu):
             try:
                 if self.autoadd:
+                    runt.layerConfirm(('node', 'add', form))
                     return await runt.snap.addNode(form, valu)
                 else:
                     norm, info = runt.model.form(form).type.norm(valu)
