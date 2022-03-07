@@ -2488,7 +2488,7 @@ class Layer(s_nexus.Pusher):
                     moff, changes = await proxy.saveNodeEdits(edits, meta)
                     if any(c[2] for c in changes):
                         return await futu
-                    return
+                    return None, ()
 
             proxy = await self.core.nexsroot.client.proxy()
             indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
