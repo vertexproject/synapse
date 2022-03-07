@@ -26,7 +26,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 7)
+            self.eq(layr.layrvers, 8)
 
     async def test_layer_verify(self):
 

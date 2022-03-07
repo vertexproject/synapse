@@ -2002,6 +2002,58 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
+    async def _v7ToV8Prop(self, prop):
+
+        byts = self.layrslab.get(buid, db=self.bybuidv3)
+        if byts is None:
+            return
+
+        sode = s_msgpack.un(byts)
+        tagprops = sode.get('tagprops')
+        if tagprops is None:
+            return
+        edited_sode = False
+        # do this in a partially-covered / replay safe way
+        for tpkey, tpval in list(tagprops.items()):
+            if isinstance(tpkey, tuple):
+                tagprops.pop(tpkey)
+                edited_sode = True
+                tag, prop = tpkey
+
+                if tagprops.get(tag) is None:
+                    tagprops[tag] = {}
+                if prop in tagprops[tag]:
+                    continue
+                tagprops[tag][prop] = tpval
+
+        if edited_sode:
+            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+
+    async def _layrV7toV8(self):
+
+        logger.warning(f'Updating hugenum index values: {self.dirn}')
+
+        for name, prop in self.core.model.props.items():
+            stortype = prop.type.stortype
+            if stortype & STOR_FLAG_ARRAY:
+                realtype = stortype & 0x7fff
+
+            if realtype == STOR_TYPE_HUGENUM:
+                await self._v7toV8Prop(prop)
+
+        for name, prop in self.core.model.tagprops.items():
+            stortype = prop.type.stortype
+            if stortype & STOR_FLAG_ARRAY:
+                realtype = stortype & 0x7fff
+
+            if realtype == STOR_TYPE_HUGENUM:
+                await self._v7toV8TagProp(prop)
+
+        self.meta.set('version', 8)
+        self.layrvers = 8
+
+        logger.warning('...complete!')
+
     async def _initLayerStorage(self):
 
         slabopts = {
@@ -2030,7 +2082,7 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
-            self.meta.set('version', 7)
+            self.meta.set('version', 8)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
@@ -2079,8 +2131,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 7:
             await self._layrV5toV7()
 
-        if self.layrvers != 7:
-            mesg = f'Got layer version {self.layrvers}.  Expected 7.  Accidental downgrade?'
+        if self.layrvers < 8:
+            await self._layrV7toV8()
+
+        if self.layrvers != 8:
+            mesg = f'Got layer version {self.layrvers}.  Expected 8.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
