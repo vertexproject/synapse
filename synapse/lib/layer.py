@@ -2035,6 +2035,7 @@ class Layer(s_nexus.Pusher):
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
             if byts is None:
+                self.layrslab.delete(lkey, buid, db=self.byprop)
                 continue
 
             sode.update(s_msgpack.un(byts))
@@ -2085,6 +2086,7 @@ class Layer(s_nexus.Pusher):
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
             if byts is None:
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 continue
 
             sode.update(s_msgpack.un(byts))
