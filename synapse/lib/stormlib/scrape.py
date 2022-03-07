@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @s_stormtypes.registry.registerLib
 class LibScrape(s_stormtypes.Lib):
     '''
-    A Storm Library for providing helpers for scraping data from text.
+    A Storm Library for providing helpers for scraping nodes from text.
     '''
     _storm_locals = (
         {'name': 'context', 'desc': '''
