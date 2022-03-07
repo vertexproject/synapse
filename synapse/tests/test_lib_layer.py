@@ -1586,7 +1586,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_v8(self):
         async with self.getRegrCore('2.85.1-hugenum-indx') as core:
-
+            self.eq(1,2)
             nodes = await core.nodes('inet:fqdn:_huge=1.23')
             self.len(1, nodes)
 
