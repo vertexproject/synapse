@@ -1587,12 +1587,59 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_v8(self):
         async with self.getRegrCore('2.85.1-hugenum-indx') as core:
 
-#            nodes = await core.nodes('inet:ipv4=1.2.3.4')
-#            # Our malformed node was migrated properly.
-#            self.len(1, nodes)
-#            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-#            self.eq(nodes[0].get('asn'), 20)
-#            self.eq(nodes[0].getTag('foo'), (None, None))
+            nodes = await core.nodes('inet:fqdn:_huge=1.23')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array=(1.23, 2.34)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array*[=1.23]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array*[=2.34]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn._univhuge=2.34')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('._univhuge=2.34')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray=(3.45, 4.56)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray*[=3.45]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray*[=4.56]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('._hugearray=(3.45, 4.56)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('._hugearray*[=3.45]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('._hugearray*[=4.56]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn#bar:cool:huge=1.23')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('#bar:cool:huge=1.23')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array = (1.23, 10E-21)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray = (3.45, 10E-21)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array*[=10E-21]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray*[=10E-21]')
+            self.len(1, nodes)
 
             self.checkLayrvers(core)
 

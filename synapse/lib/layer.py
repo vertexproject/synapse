@@ -2018,7 +2018,7 @@ class Layer(s_nexus.Pusher):
             return
 
         isarray = False
-        if prop.type.stortype & s_layer.STOR_FLAG_ARRAY:
+        if prop.type.stortype & STOR_FLAG_ARRAY:
             isarray = True
             araystor = self.stortypes[STOR_TYPE_MSGP]
 
@@ -2030,7 +2030,7 @@ class Layer(s_nexus.Pusher):
 
         for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
 
-            if isarray is False and len(key) == 28:
+            if isarray is False and len(lkey) == 28:
                 continue
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
@@ -2048,15 +2048,17 @@ class Layer(s_nexus.Pusher):
             if isarray:
                 newval = prop.type.norm(valu)[0]
                 if valu != newval:
-                    indx = araystor.indx(newval)
-                    self.layrslab.put(abrv + indx, buid, db=self.byprop)
-                    self.layrslab.delete(lkey, buid, db=self.byprop)
+
+                    nkey = abrv + araystor.indx(newval)[0]
+                    if nkey != lkey:
+                        self.layrslab.put(nkey, buid, db=self.byprop)
+                        self.layrslab.delete(lkey, buid, db=self.byprop)
 
                 for aval in valu:
-                    indx = hugestor.indx(valu)
+                    indx = hugestor.indx(aval)[0]
                     self.layrslab.put(abrv + indx, buid, db=self.byarray)
             else:
-                indx = hugestor.indx(valu)
+                indx = hugestor.indx(valu)[0]
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 self.layrslab.delete(lkey, buid, db=self.byprop)
 
@@ -2071,14 +2073,14 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        abrvlen = ftpabrv.abrvlen
+        abrvlen = len(ftpabrv)
 
         hugestor = self.stortypes[STOR_TYPE_HUGENUM]
         sode = collections.defaultdict(dict)
 
         for lkey, buid in self.layrslab.scanByPref(ftpabrv, db=self.bytagprop):
 
-            if len(key) == 28:
+            if len(lkey) == 28:
                 continue
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
@@ -2100,7 +2102,7 @@ class Layer(s_nexus.Pusher):
                 continue
 
             valu, _ = pval
-            indx = hugestor.indx(valu)
+            indx = hugestor.indx(valu)[0]
             self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
             self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
 
@@ -2125,10 +2127,9 @@ class Layer(s_nexus.Pusher):
         tagprops = set()
         for name, prop in self.core.model.tagprops.items():
             if prop.type.stortype == STOR_TYPE_HUGENUM:
-                tagprops.append(prop)
+                tagprops.add(prop.name)
 
         for form, tag, prop in self.getTagProps():
-
             if form is None or prop not in tagprops:
                 continue
 
