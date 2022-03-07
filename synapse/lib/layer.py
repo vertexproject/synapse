@@ -448,7 +448,7 @@ class StorType:
         indxby = IndxByProp(self.layr, form, prop)
         for indx in self.indx(valu):
             if not indxby.hasIndxBuid(indx, buid):
-                yield ('NoPropIndex', {'prop': 'prop', 'valu': valu})
+                yield ('NoPropIndex', {'prop': prop, 'valu': valu})
 
     async def indxByProp(self, form, prop, cmpr, valu):
         try:
@@ -796,22 +796,24 @@ class StorTypeHugeNum(StorType):
             'range=': self._liftHugeRange,
         })
 
-        self.one = s_common.hugenum(1)
-        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffff)
+        self.one = s_common.hugeexp
+        self.offset = s_common.hugenum(0x7fffffffffffffffffffffffffffffffffffffff)
 
-        self.zerobyts = b'\x00' * 16
-        self.fullbyts = b'\xff' * 16
+        self.zerobyts = b'\x00' * 20
+        self.fullbyts = b'\xff' * 20
 
     def getHugeIndx(self, norm):
-        scaled = s_common.hugenum(norm).scaleb(15)
-        byts = int(scaled + self.offset).to_bytes(16, byteorder='big')
+        scaled = s_common.hugenum(norm).scaleb(24)
+        byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(20, byteorder='big')
         return byts
 
     def indx(self, norm):
         return (self.getHugeIndx(norm),)
 
     def decodeIndx(self, bytz):
-        return float(((int.from_bytes(bytz, 'big')) - self.offset) / 10 ** 15)
+        huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
+        valu = s_common.hugesub(huge, self.offset).scaleb(-24)
+        return '{:f}'.format(valu.normalize(s_common.hugectx))
 
     async def _liftHugeEq(self, liftby, valu):
         byts = self.getHugeIndx(valu)
@@ -820,12 +822,12 @@ class StorTypeHugeNum(StorType):
 
     async def _liftHugeGt(self, liftby, valu):
         valu = s_common.hugenum(valu)
-        async for item in self._liftHugeGe(liftby, valu + self.one):
+        async for item in self._liftHugeGe(liftby, s_common.hugeadd(valu, self.one)):
             yield item
 
     async def _liftHugeLt(self, liftby, valu):
         valu = s_common.hugenum(valu)
-        async for item in self._liftHugeLe(liftby, valu - self.one):
+        async for item in self._liftHugeLe(liftby, s_common.hugesub(valu, self.one)):
             yield item
 
     async def _liftHugeGe(self, liftby, valu):
@@ -2002,32 +2004,111 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
-    async def _v7ToV8Prop(self, prop):
+    async def _v7toV8Prop(self, prop):
 
-        byts = self.layrslab.get(buid, db=self.bybuidv3)
-        if byts is None:
+        propname = prop.name
+        form = prop.form
+        if form:
+            form = form.name
+
+        try:
+            abrv = self.getPropAbrv(form, propname)
+
+        except s_exc.NoSuchAbrv:
             return
 
-        sode = s_msgpack.un(byts)
-        tagprops = sode.get('tagprops')
-        if tagprops is None:
+        isarray = False
+        if prop.type.stortype & s_layer.STOR_FLAG_ARRAY:
+            isarray = True
+            araystor = self.stortypes[STOR_TYPE_MSGP]
+
+            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
+                self.layrslab.delete(lkey, buid, db=self.byarray)
+
+        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
+        sode = collections.defaultdict(dict)
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+
+            if isarray is False and len(key) == 28:
+                continue
+
+            byts = self.layrslab.get(buid, db=self.bybuidv3)
+            if byts is None:
+                continue
+
+            sode.update(s_msgpack.un(byts))
+            pval = sode['props'].get(propname)
+            if pval is None:
+                self.layrslab.delete(lkey, buid, db=self.byprop)
+                sode.clear()
+                continue
+
+            valu, _ = pval
+            if isarray:
+                newval = prop.type.norm(valu)[0]
+                if valu != newval:
+                    indx = araystor.indx(newval)
+                    self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                    self.layrslab.delete(lkey, buid, db=self.byprop)
+
+                for aval in valu:
+                    indx = hugestor.indx(valu)
+                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+            else:
+                indx = hugestor.indx(valu)
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                self.layrslab.delete(lkey, buid, db=self.byprop)
+
+            sode.clear()
+
+    async def _v7toV8TagProp(self, form, tag, prop):
+
+        try:
+            ftpabrv = self.getTagPropAbrv(form, tag, prop)
+            tpabrv = self.getTagPropAbrv(None, tag, prop)
+
+        except s_exc.NoSuchAbrv:
             return
-        edited_sode = False
-        # do this in a partially-covered / replay safe way
-        for tpkey, tpval in list(tagprops.items()):
-            if isinstance(tpkey, tuple):
-                tagprops.pop(tpkey)
-                edited_sode = True
-                tag, prop = tpkey
 
-                if tagprops.get(tag) is None:
-                    tagprops[tag] = {}
-                if prop in tagprops[tag]:
-                    continue
-                tagprops[tag][prop] = tpval
+        abrvlen = ftpabrv.abrvlen
 
-        if edited_sode:
-            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
+        sode = collections.defaultdict(dict)
+
+        for lkey, buid in self.layrslab.scanByPref(ftpabrv, db=self.bytagprop):
+
+            if len(key) == 28:
+                continue
+
+            byts = self.layrslab.get(buid, db=self.bybuidv3)
+            if byts is None:
+                continue
+
+            sode.update(s_msgpack.un(byts))
+
+            props = sode['tagprops'].get(tag)
+            if not props:
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                sode.clear()
+                continue
+
+            pval = props.get(prop)
+            if pval is None:
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                sode.clear()
+                continue
+
+            valu, _ = pval
+            indx = hugestor.indx(valu)
+            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
+            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
+
+            oldindx = lkey[abrvlen:]
+            self.layrslab.delete(lkey, buid, db=self.bytagprop)
+            self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
+
+            sode.clear()
 
     async def _layrV7toV8(self):
 
@@ -2036,18 +2117,22 @@ class Layer(s_nexus.Pusher):
         for name, prop in self.core.model.props.items():
             stortype = prop.type.stortype
             if stortype & STOR_FLAG_ARRAY:
-                realtype = stortype & 0x7fff
+                stortype = stortype & 0x7fff
 
-            if realtype == STOR_TYPE_HUGENUM:
+            if stortype == STOR_TYPE_HUGENUM:
                 await self._v7toV8Prop(prop)
 
+        tagprops = set()
         for name, prop in self.core.model.tagprops.items():
-            stortype = prop.type.stortype
-            if stortype & STOR_FLAG_ARRAY:
-                realtype = stortype & 0x7fff
+            if prop.type.stortype == STOR_TYPE_HUGENUM:
+                tagprops.append(prop)
 
-            if realtype == STOR_TYPE_HUGENUM:
-                await self._v7toV8TagProp(prop)
+        for form, tag, prop in self.getTagProps():
+
+            if form is None or prop not in tagprops:
+                continue
+
+            await self._v7toV8TagProp(form, tag, prop)
 
         self.meta.set('version', 8)
         self.layrvers = 8
@@ -2454,6 +2539,10 @@ class Layer(s_nexus.Pusher):
     # NOTE: form vs prop valu lifting is differentiated to allow merge sort
     async def liftByFormValu(self, form, cmprvals):
         for cmpr, valu, kind in cmprvals:
+
+            if kind & 0x8000:
+                kind = STOR_TYPE_MSGP
+
             async for lkey, buid in self.stortypes[kind].indxByForm(form, cmpr, valu):
                 sode = self._getStorNode(buid)
                 if sode is None: # pragma: no cover
