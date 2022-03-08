@@ -3556,6 +3556,10 @@ class Layer(s_nexus.Pusher):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
     async def setModelVers(self, vers):
+        await self._push('layer:set:modelvers', vers)
+
+    @s_nexus.Pusher.onPush('layer:set:modelvers')
+    async def _setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
     async def getStorNodes(self):

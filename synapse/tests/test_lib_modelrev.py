@@ -125,3 +125,52 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].ndef[1], 'cve-2013-9999')
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
+
+    async def test_modelrev_0_2_7(self):
+
+        async with self.getRegrCore('model-0.2.7') as core:
+
+            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com')
+            self.len(0, nodes)
+
+            opts = {'view': '9477410524e02fcd91608decd6314574'}
+
+            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].props["tokenid"], '0.000000000000002')
+
+            nodes = await core.nodes('crypto:currency:transaction:value=0.000000000000003')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['value'], '0.000000000000003')
+
+            nodes = await core.nodes("inet:fqdn:_huge:array*[=0.000000000000001]")
+            self.len(1, nodes)
+            self.eq(nodes[0].props['_huge:array'], ('0.000000000000001', '0.000000000000002'))
+
+            nodes = await core.nodes("#test:cool:huge=0.000000000000005", opts=opts)
+            self.len(3, nodes)
+
+            nodes = await core.nodes("#test:cool:huge=0.000000000000005")
+            self.len(2, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value>=0.000000000000001')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value>0.00000000000000000001')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
+            self.len(3, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value<0.00000000000000000002')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:value=0')
+            self.len(0, nodes)
+
+            q = '''
+            crypto:currency:transaction:value*range=(
+            0.00000000000000000002, 0.00000000000000000003
+            )'''
+            nodes = await core.nodes(q)
+            self.len(2, nodes)
