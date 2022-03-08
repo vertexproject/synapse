@@ -128,55 +128,6 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
 
-    async def test_modelrev_0_2_7(self):
-
-        async with self.getRegrCore('model-0.2.7') as core:
-
-            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com')
-            self.len(0, nodes)
-
-            opts = {'view': '9477410524e02fcd91608decd6314574'}
-
-            nodes = await core.nodes('crypto:smart:token:nft:url=http://layer.com', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].props["tokenid"], '0.000000000000002')
-
-            nodes = await core.nodes('crypto:currency:transaction:value=0.000000000000003')
-            self.len(1, nodes)
-            self.eq(nodes[0].props['value'], '0.000000000000003')
-
-            nodes = await core.nodes("inet:fqdn:_huge:array*[=0.000000000000001]")
-            self.len(1, nodes)
-            self.eq(nodes[0].props['_huge:array'], ('0.000000000000001', '0.000000000000002'))
-
-            nodes = await core.nodes("#test:cool:huge=0.000000000000005", opts=opts)
-            self.len(3, nodes)
-
-            nodes = await core.nodes("#test:cool:huge=0.000000000000005")
-            self.len(2, nodes)
-
-            nodes = await core.nodes('crypto:currency:transaction:value>=0.000000000000001')
-            self.len(3, nodes)
-
-            nodes = await core.nodes('crypto:currency:transaction:value>0.00000000000000000001')
-            self.len(5, nodes)
-
-            nodes = await core.nodes('crypto:currency:transaction:value<=0.00000000000000000002')
-            self.len(3, nodes)
-
-            nodes = await core.nodes('crypto:currency:transaction:value<0.00000000000000000002')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('crypto:currency:transaction:value=0')
-            self.len(0, nodes)
-
-            q = '''
-            crypto:currency:transaction:value*range=(
-            0.00000000000000000002, 0.00000000000000000003
-            )'''
-            nodes = await core.nodes(q)
-            self.len(2, nodes)
-
     async def test_modelrev_0_2_7_mirror(self):
 
         regr = os.getenv('SYN_REGRESSION_REPO')
@@ -188,7 +139,7 @@ class ModelRevTest(s_tests.SynTest):
         if not os.path.isdir(regr):
             raise Exception('SYN_REGRESSION_REPO is not a dir')
 
-        dirn = os.path.join(regr, 'cortexes', 'model-0.2.7')
+        dirn = os.path.join(regr, 'cortexes', '2.85.1-hugenum-indx')
 
         with self.getTestDir(copyfrom=dirn) as regrdir00:
 
@@ -206,11 +157,13 @@ class ModelRevTest(s_tests.SynTest):
 
                     self.eq(await core01.getLayer().getModelVers(), (0, 2, 6))
 
-                    nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
-                    self.len(3, nodes)
-                    self.eq(nodes[0].props.get('value'), '1E-15')
-                    self.eq(nodes[1].props.get('value'), '2E-15')
-                    self.eq(nodes[2].props.get('value'), '3E-15')
+                    nodes = await core01.nodes('inet:fqdn=baz.com')
+                    self.len(1, nodes)
+                    node = nodes[0]
+                    self.eq(node.props.get('_huge'), '10E-21')
+                    self.eq(node.props.get('._univhuge'), '10E-21')
+                    self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
+                    self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
 
                 async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
                     async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
@@ -219,8 +172,10 @@ class ModelRevTest(s_tests.SynTest):
 
                         self.eq(await core01.getLayer().getModelVers(), (0, 2, 7))
 
-                        nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
-                        self.len(3, nodes)
-                        self.eq(nodes[0].props.get('value'), '0.000000000000001')
-                        self.eq(nodes[1].props.get('value'), '0.000000000000002')
-                        self.eq(nodes[2].props.get('value'), '0.000000000000003')
+                        nodes = await core01.nodes('inet:fqdn=baz.com')
+                        self.len(1, nodes)
+                        node = nodes[0]
+                        self.eq(node.props.get('_huge'), '0.00000000000000000001')
+                        self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
+                        self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+                        self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))

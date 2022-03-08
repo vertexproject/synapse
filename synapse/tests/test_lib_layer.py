@@ -1645,6 +1645,14 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
 
+            nodes = await core.nodes('inet:fqdn:_huge=0.00000000000000000001')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.props.get('_huge'), '0.00000000000000000001')
+            self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
+            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+
             self.checkLayrvers(core)
 
     async def test_layer_logedits_default(self):
