@@ -242,7 +242,7 @@ class ImapServer(s_stormtypes.StormType):
             The actual behavior of these commands are mailbox configuration dependent.
 
             Examples:
-                Mark a single messsage as deleted and expunge::
+                Mark a single message as deleted and expunge::
 
                     ($ok, $valu) = $server.delete("8182")
 
