@@ -1,4 +1,6 @@
+import os
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_tests
@@ -174,3 +176,51 @@ class ModelRevTest(s_tests.SynTest):
             )'''
             nodes = await core.nodes(q)
             self.len(2, nodes)
+
+    async def test_modelrev_0_2_7_mirror(self):
+
+        regr = os.getenv('SYN_REGRESSION_REPO')
+        if regr is None:
+            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+
+        regr = s_common.genpath(regr)
+
+        if not os.path.isdir(regr):
+            raise Exception('SYN_REGRESSION_REPO is not a dir')
+
+        dirn = os.path.join(regr, 'cortexes', 'model-0.2.7')
+
+        with self.getTestDir(copyfrom=dirn) as regrdir00:
+
+            with self.getTestDir(copyfrom=dirn) as regrdir01:
+
+                conf00 = {'nexslog:en': True}
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+
+                    self.eq(await core00.getLayer().getModelVers(), (0, 2, 7))
+
+                    conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+
+                async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                    self.eq(await core01.getLayer().getModelVers(), (0, 2, 6))
+
+                    nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
+                    self.len(3, nodes)
+                    self.eq(nodes[0].props.get('value'), '1E-15')
+                    self.eq(nodes[1].props.get('value'), '2E-15')
+                    self.eq(nodes[2].props.get('value'), '3E-15')
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+                    async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                        await core01.sync()
+
+                        self.eq(await core01.getLayer().getModelVers(), (0, 2, 7))
+
+                        nodes = await core01.nodes('crypto:currency:transaction:value>=0.000000000000001')
+                        self.len(3, nodes)
+                        self.eq(nodes[0].props.get('value'), '0.000000000000001')
+                        self.eq(nodes[1].props.get('value'), '0.000000000000002')
+                        self.eq(nodes[2].props.get('value'), '0.000000000000003')
