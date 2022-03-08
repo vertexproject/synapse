@@ -3812,7 +3812,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
-        await layr.setModelVers(s_modelrev.maxvers)
+        await layr._setModelVers(s_modelrev.maxvers)
 
         if self.isactive:
             await layr.initLayerActive()

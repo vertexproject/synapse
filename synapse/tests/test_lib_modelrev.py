@@ -1,4 +1,6 @@
+import os
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_tests
@@ -125,3 +127,46 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].ndef[1], 'cve-2013-9999')
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
+
+    async def test_modelrev_0_2_7_mirror(self):
+
+        vers = '2.85.1-hugenum-indx'
+
+        with self.getRegrDir('cortexes', vers) as regrdir00:
+
+            with self.getRegrDir('cortexes', vers) as regrdir01:
+
+                conf00 = {'nexslog:en': True}
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+
+                    self.eq(await core00.getLayer().getModelVers(), (0, 2, 7))
+
+                    conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+
+                async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                    self.eq(await core01.getLayer().getModelVers(), (0, 2, 6))
+
+                    nodes = await core01.nodes('inet:fqdn=baz.com')
+                    self.len(1, nodes)
+                    node = nodes[0]
+                    self.eq(node.props.get('_huge'), '10E-21')
+                    self.eq(node.props.get('._univhuge'), '10E-21')
+                    self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
+                    self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+                    async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                        await core01.sync()
+
+                        self.eq(await core01.getLayer().getModelVers(), (0, 2, 7))
+
+                        nodes = await core01.nodes('inet:fqdn=baz.com')
+                        self.len(1, nodes)
+                        node = nodes[0]
+                        self.eq(node.props.get('_huge'), '0.00000000000000000001')
+                        self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
+                        self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+                        self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
