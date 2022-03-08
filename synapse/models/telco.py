@@ -313,11 +313,12 @@ class TelcoModule(s_module.CoreModule):
                     }),
                 )),
                 ('tel:mob:cell', {}, (
-                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.'}),
+                    ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
                     ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.'}),
                     ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.'}),
-                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.'}),
-                    ('cid', ('int', {}), {'doc': 'The Cell ID.'}),
+                    ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
+                                          'ro': True, }),
+                    ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
                     ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
 

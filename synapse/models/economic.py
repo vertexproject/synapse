@@ -141,9 +141,9 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:acquired', {}, (
                     ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase event which acquired an item.'}),
+                        'doc': 'The purchase event which acquired an item.', 'ro': True, }),
                     ('item', ('ndef', {}), {
-                        'doc': 'A reference to the item that was acquired.'}),
+                        'doc': 'A reference to the item that was acquired.', 'ro': True, }),
                     ('item:form', ('str', {}), {
                         'doc': 'The form of item purchased.'}),
                 )),
