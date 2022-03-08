@@ -5549,6 +5549,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
                 await core.delTagProp('added')
 
+                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
+                await core.nodes('[ _hehe:array=(1,2,3) ]')
+                self.len(1, await core.nodes('_hehe:array=(1,2,3)'))
+
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:
 
