@@ -2049,7 +2049,12 @@ class Layer(s_nexus.Pusher):
 
             valu, _ = pval
             if isarray:
-                newval = prop.type.norm(valu)[0]
+                try:
+                    newval = prop.type.norm(valu)[0]
+                except s_exc.BadTypeValu:
+                    logger.warning(f'Invalid value {valu} for prop {propname} for buid {buid}')
+                    continue
+
                 if valu != newval:
 
                     nkey = abrv + araystor.indx(newval)[0]
@@ -2061,7 +2066,12 @@ class Layer(s_nexus.Pusher):
                     indx = hugestor.indx(aval)[0]
                     self.layrslab.put(abrv + indx, buid, db=self.byarray)
             else:
-                indx = hugestor.indx(valu)[0]
+                try:
+                    indx = hugestor.indx(valu)[0]
+                except Exception:
+                    logger.warning(f'Invalid value {valu} for prop {propname} for buid {buid}')
+                    continue
+
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 self.layrslab.delete(lkey, buid, db=self.byprop)
 
@@ -2106,7 +2116,11 @@ class Layer(s_nexus.Pusher):
                 continue
 
             valu, _ = pval
-            indx = hugestor.indx(valu)[0]
+            try:
+                indx = hugestor.indx(valu)[0]
+            except Exception:
+                logger.warning(f'Invalid value {valu} for tagprop {tag}:{prop} for buid {buid}')
+                continue
             self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
             self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
 
@@ -3556,6 +3570,10 @@ class Layer(s_nexus.Pusher):
         return self.layrinfo.get('model:version', (-1, -1, -1))
 
     async def setModelVers(self, vers):
+        await self._push('layer:set:modelvers', vers)
+
+    @s_nexus.Pusher.onPush('layer:set:modelvers')
+    async def _setModelVers(self, vers):
         await self.layrinfo.set('model:version', vers)
 
     async def getStorNodes(self):
