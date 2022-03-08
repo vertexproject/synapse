@@ -231,9 +231,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:currency:address', {}, (
                     ('coin', ('crypto:currency:coin', {}), {
-                        'doc': 'The crypto coin to which the address belongs.'}),
+                        'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
                     ('iden', ('str', {}), {
-                        'doc': 'The coin specific address identifier.'}),
+                        'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the address.'}),
                     ('contact', ('ps:contact', {}), {
