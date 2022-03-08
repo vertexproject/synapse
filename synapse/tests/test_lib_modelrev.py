@@ -130,20 +130,11 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_modelrev_0_2_7_mirror(self):
 
-        regr = os.getenv('SYN_REGRESSION_REPO')
-        if regr is None:
-            raise unittest.SkipTest('SYN_REGRESSION_REPO is not set')
+        vers = '2.85.1-hugenum-indx'
 
-        regr = s_common.genpath(regr)
+        with self.getRegrDir('cortexes', vers) as regrdir00:
 
-        if not os.path.isdir(regr):
-            raise Exception('SYN_REGRESSION_REPO is not a dir')
-
-        dirn = os.path.join(regr, 'cortexes', '2.85.1-hugenum-indx')
-
-        with self.getTestDir(copyfrom=dirn) as regrdir00:
-
-            with self.getTestDir(copyfrom=dirn) as regrdir01:
+            with self.getRegrDir('cortexes', vers) as regrdir01:
 
                 conf00 = {'nexslog:en': True}
 
