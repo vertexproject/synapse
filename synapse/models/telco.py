@@ -314,8 +314,8 @@ class TelcoModule(s_module.CoreModule):
                 )),
                 ('tel:mob:cell', {}, (
                     ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
-                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.'}),
-                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.'}),
+                    ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
+                    ('carrier:mnc', ('tel:mob:mnc', {}), {'doc': 'Mobile Network Code.', 'ro': True, }),
                     ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
                                           'ro': True, }),
                     ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
