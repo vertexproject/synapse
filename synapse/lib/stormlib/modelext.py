@@ -66,7 +66,7 @@ class LibModelExt(Lib):
         {'name': 'delTagProp', 'desc': 'Remove an extended tag property definition from the model.',
          'type': {'type': 'function', '_funcname': 'delTagProp',
                   'args': (
-                      {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag propert to remove.', },
+                      {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag property to remove.', },
                   ),
                   'returns': {'type': 'null', }}},
     )
