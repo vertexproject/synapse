@@ -153,12 +153,12 @@ class NexusTest(s_t_utils.SynTest):
 
                 nexsindx = await core00.getNexsIndx()
                 layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-                self.eq(nexsindx, layrindx)
+                self.gt(nexsindx, layrindx)
 
                 retn = await core00.nexsroot.nexslog.get(0)
                 self.nn(retn)
                 self.eq([0], core00.nexsroot.nexslog._ranges)
-                await self.agenlen(54, core00.nexsroot.nexslog.iter(0))
+                await self.agenlen(59, core00.nexsroot.nexslog.iter(0))
 
     async def test_nexus_setindex(self):
 
