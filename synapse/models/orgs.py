@@ -294,10 +294,10 @@ class OuModule(s_module.CoreModule):
                 )),
                 ('ou:id:number', {}, (
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id',
+                        'doc': 'The type of org id', 'ro': True,
                     }),
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The type of org id',
+                        'doc': 'The type of org id', 'ro': True,
                     }),
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.',
@@ -337,10 +337,10 @@ class OuModule(s_module.CoreModule):
                 )),
                 ('ou:hasgoal', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org which has the goal.',
+                        'doc': 'The org which has the goal.', 'ro': True,
                     }),
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal which the org has.',
+                        'doc': 'The goal which the org has.', 'ro': True,
                     }),
                     ('stated', ('bool', {}), {
                         'doc': 'Set to true/false if the goal is known to be self stated.',
