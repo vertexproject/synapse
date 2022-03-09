@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.86.0 - TBD
+v2.86.0 - 2022-03-09
 ====================
 
 Automatic Migrations
@@ -16,7 +16,6 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-
 - Extend the number of decimal places the ``hugenum`` type can store to 24
   places, with a new maximum value of 730750818665451459101842.
   (`#2584 <https://github.com/vertexproject/synapse/pull/2584>`_)
