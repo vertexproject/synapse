@@ -10,9 +10,9 @@ v2.86.0 - TBD
 
 Automatic Migrations
 --------------------
-- Migrate secondary properties in Cortex nodes are based on the ``hugenum``
-  type to account for updated ranges. See :ref:`devops-general-migrations`
-  for more information about automatic migrations.
+- Migrate secondary properties in Cortex nodes which use ``hugenum`` type to
+  account for updated ranges. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
 
 Features and Enhancements
 -------------------------
@@ -66,7 +66,7 @@ Bugfixes
     - ``tel:mob:cell:lac``
 
 - Fix an issue where Layers configured with writeback mirrors did not properly
-  handle results which did have any changes.
+  handle results which did not have any changes.
   (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
 
 Documentation
