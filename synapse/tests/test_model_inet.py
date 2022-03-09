@@ -18,6 +18,21 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="#foo bar" ]')
 
+    async def test_inet_jarm(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:ssl:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
+            self.len(1, nodes)
+            self.eq('tcp://1.2.3.4:443', nodes[0].get('server'))
+            self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('jarmhash'))
+            self.eq(('tcp://1.2.3.4:443', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1'), nodes[0].ndef[1])
+
+            nodes = await core.nodes('inet:ssl:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
+            self.len(1, nodes)
+            self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].ndef[1])
+            self.eq('07d14d16d21d21d07c42d41d00041d', nodes[0].get('ciphers'))
+            self.eq('24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('extensions'))
+
     async def test_ipv4_lift_range(self):
 
         async with self.getTestCore() as core:

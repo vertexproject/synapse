@@ -990,7 +990,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A Universal Resource Locator (URL).',
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
-
                 ),
 
                 'types': (
@@ -1076,6 +1075,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An SSL certificate file served by a server.',
                         'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
                     }),
+
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
@@ -1234,6 +1234,12 @@ class InetModule(s_module.CoreModule):
                     }),
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
                         'doc': 'A url/link embedded in an email message.',
+                    }),
+                    ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+                        'doc': 'A TLS JARM fingerprint hash.',
+                    }),
+                    ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
+                        'doc': 'A JARM hash sample taken from a server.',
                     }),
                 ),
 
@@ -2701,6 +2707,23 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:wifi:ssid', {}, ()),
+
+                    ('inet:ssl:jarmhash', {}, (
+                        ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
+                            'ro': True,
+                            'doc': 'The encoded cipher and TLS version of the server.'}),
+                        ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
+                            'ro': True,
+                            'doc': 'The truncated SHA256 of the TLS server extensions.'}),
+                    )),
+                    ('inet:ssl:jarmsample', {}, (
+                        ('jarmhash', ('inet:ssl:jarmhash', {}), {
+                            'ro': True,
+                            'doc': 'The JARM hash computed from the server responses.'}),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that was sampled to compute the JARM hash.'}),
+                    )),
 
                 ),
             }),
