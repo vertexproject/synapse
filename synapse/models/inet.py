@@ -990,6 +990,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A Universal Resource Locator (URL).',
                         'ex': 'http://www.woot.com/files/index.html'
                     }),
+
                 ),
 
                 'types': (
@@ -1075,7 +1076,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An SSL certificate file served by a server.',
                         'ex': '(1.2.3.4:443, guid:d41d8cd98f00b204e9800998ecf8427e)',
                     }),
-
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
