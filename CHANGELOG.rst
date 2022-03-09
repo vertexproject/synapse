@@ -5,6 +5,77 @@ Synapse Changelog
 *****************
 
 
+v2.86.0 - TBD
+====================
+
+Automatic Migrations
+--------------------
+- Migrate secondary properties in Cortex nodes which use ``hugenum`` type to
+  account for updated ranges. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+
+- Extend the number of decimal places the ``hugenum`` type can store to 24
+  places, with a new maximum value of 730750818665451459101842.
+  (`#2584 <https://github.com/vertexproject/synapse/pull/2584>`_)
+  (`#2586 <https://github.com/vertexproject/synapse/pull/2586>`_)
+- Update ``fastjsonschema`` to version ``2.15.3``.
+  (`#2581 <https://github.com/vertexproject/synapse/pull/2581>`_)
+
+Bugfixes
+--------
+- Add missing read-only flags to secondary properties of Comp type forms which
+  were computed from the primary property of the node. This includes the
+  following:
+  (`#2587 <https://github.com/vertexproject/synapse/pull/2587>`_)
+
+    - ``crypto:currency:address:coin``
+    - ``crypto:currency:address:iden``
+    - ``crypto:currency:block:coin``
+    - ``crypto:currency:block:offset``
+    - ``crypto:currency:client:coinaddr``
+    - ``crypto:currency:client:inetaddr``
+    - ``crypto:currency:smart:token:contract``
+    - ``crypto:currency:smart:token:tokenid``
+    - ``crypto:x509:revoked:crl``
+    - ``crypto:x509:revoked:cert``
+    - ``crypto:x509:signedfile:cert``
+    - ``crypto:x509:signedfile:file``
+    - ``econ:acquired:item``
+    - ``econ:acquired:purchase``
+    - ``inet:dns:query:client``
+    - ``inet:dns:query:name``
+    - ``inet:dns:query:type``
+    - ``inet:whois:contact:type``
+    - ``inet:wifi:ap:bssid``
+    - ``inet:wifi:ap:ssid``
+    - ``mat:itemimage:file``
+    - ``mat:itemimage:item``
+    - ``mat:specimage:file``
+    - ``mat:specimage:spec``
+    - ``ou:id:number:type``
+    - ``ou:id:number:value``
+    - ``ou:hasgoal:goal``
+    - ``ou:hasgoal:org``
+    - ``tel:mob:cell:carrier``
+    - ``tel:mob:cell:carrier:mcc``
+    - ``tel:mob:cell:carrier:mnc``
+    - ``tel:mob:cell:cid``
+    - ``tel:mob:cell:lac``
+
+- Fix an issue where Layers configured with writeback mirrors did not properly
+  handle results which did not have any changes.
+  (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
+
+Documentation
+-------------
+- Fix spelling issues in documentation and API docstrings.
+  (`#2582 <https://github.com/vertexproject/synapse/pull/2582>`_)
+  (`#2585 <https://github.com/vertexproject/synapse/pull/2585>`_)
+
+
 v2.85.1 - 2022-03-03
 ====================
 
