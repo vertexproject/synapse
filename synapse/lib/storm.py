@@ -3757,7 +3757,7 @@ class TeeCmd(Cmd):
                           help='Emit inbound nodes after processing storm queries.')
 
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
-                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not guaranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')

@@ -7,7 +7,7 @@ stormcmds = (
             Examples:
 
                 // Add a user named "visi" with the email address "visi@vertex.link"
-                auth.user.add visi --email visi@verex.link
+                auth.user.add visi --email visi@vertex.link
         ''',
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
@@ -52,7 +52,7 @@ stormcmds = (
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the user.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permssion on.', 'default': None}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
         ),
         'storm': '''
             $user = $lib.auth.users.byname($cmdopts.name)
@@ -81,7 +81,7 @@ stormcmds = (
         'cmdargs': (
             ('name', {'type': 'str', 'help': 'The name of the role.'}),
             ('rule', {'type': 'str', 'help': 'The rule string.'}),
-            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permssion on.', 'default': None}),
+            ('--gate', {'type': 'str', 'help': 'The auth gate id to grant permission on.', 'default': None}),
         ),
         'storm': '''
             $role = $lib.auth.roles.byname($cmdopts.name)

@@ -208,12 +208,12 @@ class DnsModule(s_module.CoreModule):
                 )),
 
                 ('inet:dns:query', {}, (
-                    ('client', ('inet:client', {}), {}),
-                    ('name', ('inet:dns:name', {}), {}),
+                    ('client', ('inet:client', {}), {'ro': True, }),
+                    ('name', ('inet:dns:name', {}), {'ro': True, }),
                     ('name:ipv4', ('inet:ipv4', {}), {}),
                     ('name:ipv6', ('inet:ipv6', {}), {}),
                     ('name:fqdn', ('inet:fqdn', {}), {}),
-                    ('type', ('int', {}), {}),
+                    ('type', ('int', {}), {'ro': True, }),
                 )),
 
                 ('inet:dns:request', {}, (

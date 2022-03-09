@@ -2444,7 +2444,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date of the whois record.'
                         }),
                         ('type', ('str', {'lower': True}), {
-                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'
+                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
+                            'ro': True,
                         }),
                         ('id', ('str', {'lower': True}), {
                             'doc': 'The ID associated with the contact.'
@@ -2679,10 +2680,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:wifi:ap', {}, (
 
                         ('ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The SSID for the wireless access point.'}),
+                            'doc': 'The SSID for the wireless access point.', 'ro': True, }),
 
                         ('bssid', ('inet:mac', {}), {
-                            'doc': 'The MAC address for the wireless access point.'}),
+                            'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
