@@ -64,16 +64,11 @@ class CertDir:
 
     def addCertPath(self, *path):
 
-        fullpath = s_common.gendir(*path)
+        fullpath = s_common.genpath(*path)
         self.pathrefs[fullpath] += 1
 
         if self.pathrefs[fullpath] == 1:
-
             self.certdirs.append(fullpath)
-
-            s_common.gendir(fullpath, 'cas')
-            s_common.gendir(fullpath, 'hosts')
-            s_common.gendir(fullpath, 'users')
 
     def delCertPath(self, *path):
         fullpath = s_common.gendir(*path)
