@@ -695,6 +695,8 @@ class CertDir:
         if os.path.isfile(newpath):
             raise s_exc.FileExists(mesg=f'File {newpath} already exists', path=path)
 
+        s_common.gendir(os.path.dirname(newpath))
+
         shutil.copy(path, newpath)
         if outp is not None:
             outp.printf('copied %s to %s' % (path, newpath))
