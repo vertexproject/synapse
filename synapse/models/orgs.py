@@ -134,6 +134,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
+                ('ou:conflict', ('guid', {}), {
+                    'doc': 'Represents an instance where multiple campaigns have mutually exclusive goals.',
+                }),
+                ('ou:support', ('guid', {}), {
+                    'doc': 'Represents an instance where an org gave material support to a campaign.',
+                }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
                 }),
@@ -394,6 +400,35 @@ class OuModule(s_module.CoreModule):
 
                     ('goal:pop', ('int', {}), {}),
                     ('result:pop', ('int', {}), {}),
+
+                    ('supports', ('ou:campaign', {}),
+                    ('conflict', ('ou:conflict', {}),
+                )),
+                ('ou:conflict', {}, (
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the conflict.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the conflict.',
+                        'disp': {'hint': 'text'},
+                    }),
+                    ('type', ('ou:conflict:type', {}), {}),
+                    ('period', ('ival', {}), {}),
+                    #('result:treaty', ('ou:contract', {}), {}),
+                )),
+                ('ou:support', {}), (
+                    ('org', ('ou:org', {}), {}),
+                    ('campaign', ('ou:campaign', {}), {}),
+
+                    ('type', ('ou:support:type', {}), {}),
+
+                    ('personnel', ('int', {}), {}),
+
+                    ('money', ('econ:price', {}), {}),
+                    ('currency', ('econ:currency', {}), {}),
+
+                    ('item:spec', ('mat:spec', {}), {}),
+                    ('item:count', ('int', {}), {}),
                 )),
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (

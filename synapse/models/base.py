@@ -18,7 +18,11 @@ class BaseModule(s_module.CoreModule):
                 ('meta:timeline', ('guid', {}), {
                     'doc': 'A curated timeline of analytically relevant events.'}),
 
-                ('meta:event', ('guid', {}), {
+                ('meta:timeline:event', ('guid', {}), {
+                    'doc': 'An analytically relevant event in a curated timeline.'}),
+
+                ('meta:timeline:eventtype', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
                     'doc': 'An analytically relevant event in a curated timeline.'}),
 
                 ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
@@ -64,10 +68,8 @@ class BaseModule(s_module.CoreModule):
                 # ('ou:sop:template' # the definition of phases of a killchain / lifecycle?
                 # ('ou:sop:observed' # an instance of
 
-                ('meta:playbook', {}, (
-                    # goal?
-                )),
-                ('meta:play'
+                #('meta:playbook', {}, ( # goal?)),
+                #('meta:play'
 
                 ('meta:timeline', {}, (
                     ('title', ('str', {}), {
@@ -76,8 +78,7 @@ class BaseModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A prose summary of the timeline.'}),
                 )),
-                #('chron:timeline?
-                ('meta:event', {}, (
+                ('meta:timeline:event', {}, (
                     ('timeline', ('meta:timeline', {}), {
                         'doc': 'The timeline containing the event.'}),
                     ('title', ('str', {}), {
@@ -87,14 +88,9 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A prose summary of the event.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time that the event occurred.'}),
-                    ('phase', ('meta:lifecycle', {}), {}),
-                    ('type', ('meta:eventtype', {}), {}),
-                    ('node', ('ndef', {}), {}),
-                    ('data', ('json', {}), {}),
-                    # TODO way to formalize recommended -(refs)> convention
+                    ('type', ('meta:timeline:eventtype', {}), {}),
                 )),
-                # taxonomy
-                ('meta:eventtype', {}, ()),
+                ('meta:timeline:eventtype', {}, ()),
 
                 ('meta:seen', {}, (
 

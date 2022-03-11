@@ -24,30 +24,28 @@ class LegalModule(s_module.CoreModule):
                         'doc': 'The geopolitical jurisdiction of the law.',
                     }),
 
-                    #('us', 'usc.18.1030.c.2.b.ii')
-
-                    #('section', ('legal:section', {}), {
-                        #'doc': 'The designation within the global taxonomy for this law.',
-                        #'ex': 'us.title18',
-                    #}),
-                    #('proposed', ('time', {}), {}),
-                    #('struckdown', ('time', {}), {}),
-
-                    #('timeline'
                     ('status', ('str', {'enum': ('proposed', 'enacted', 'withdrawn', 'struckdown')}), {}),
 
                     ('enacted', ('time', {}), {}),
-                    ('govbody', ('ps:contact', {}), {}),
+                    ('proposed', ('time', {}), {}),
+                    ('struckdown', ('time', {}), {}),
+
+                    ('govbody', ('ou:org', {}),
 
                     ('url', ('inet:url', {}), {}),
                     ('file', ('file:bytes', {}), {}),
                 )),
-                ('legal:code', 
+                ('legal:code', #('us', 'usc.18.1030.c.2.b.ii')
+                    #('section', ('legal:section', {}), {
+                        #'doc': 'The designation within the global taxonomy for this law.',
+                        #'ex': 'us.title18',
+                    #}),
+
                 ('legal:case', {}, (
                     ('name', ('legal:citation', {}),
                     ('names', ('array', {'type': 'legal:citation'}), {}),
 
-                    #('type', ('legal:casetype', {}),
+                    ('type', ('legal:casetype', {}),
                     #('eu:ecli', ('legal:eu:ecli', {}), {}),
 
                     ('venue', ('ps:contact', {}), {
@@ -60,7 +58,7 @@ class LegalModule(s_module.CoreModule):
                         'doc': 'Defendant contact information as provided in the case documents.',
                     }),
 
-                    #('timeline'?
+                    ('timeline', ('meta:timeline', {}), {}),
 
                     # may need these to be nodes for rico style cases...
                     #('sentence:pay:price', ...
@@ -69,7 +67,7 @@ class LegalModule(s_module.CoreModule):
 
                     # how to handle appeals?
                 )),
-                ('legal:section', (), {}),
+                #('legal:section', (), {}),
                 ('legal:charge', {}, (
                     ('name', ('str', {'onespace': True, 'lower': True, 'strip': True}), {
                         'ex': 'voter intimidation',
@@ -80,15 +78,15 @@ class LegalModule(s_module.CoreModule):
                     
                     #('law', ('legal:case', {}), {}),
                     #('sections', ('array', 
-                    ('citations', ('array', {'type': 'legal:citation'}), {}),
+                    #('citations', ('array', {'type': 'legal:citation'}), {}),
 
                     ('guilty', ('bool', {}), {}),
                 )),
                 ('legal:indictment', 
+                    ('name', ('str', {'onespace': True, 'lower': True, 'strip': True}), {}),
                     ('issued', ('time', {}), {}),
-                    ('url', ('inet:url', {}), {}),
                     ('file', ('file:bytes', {}), {}),
-                    #('charges', ('array', {'type': 'legal:charge'}), {}),
+                    ('url', ('inet:url', {}), {}),
                 ),
             ),
         }
