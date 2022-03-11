@@ -157,12 +157,31 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
-hugectx = decimal.Context(prec=15)
+hugectx = decimal.Context(prec=48)
 def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
     '''
     return decimal.Decimal(valu, context=hugectx)
+
+def hugeadd(x, y):
+    '''
+    Add two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.add(x, y)
+
+def hugesub(x, y):
+    '''
+    Subtract two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.subtract(x, y)
+
+hugeexp = decimal.Decimal('1E-24')
+def hugeround(x):
+    '''
+    Round a decimal.Decimal with proper precision for synapse hugenums.
+    '''
+    return hugectx.quantize(x, hugeexp)
 
 def vertup(vstr):
     '''
@@ -745,9 +764,10 @@ def setlogging(mlogger, defval=None, structlog=None):
 
     return ret
 
+syndir_default = '~/.syn'
 syndir = os.getenv('SYN_DIR')
 if syndir is None:
-    syndir = '~/.syn'
+    syndir = syndir_default
 
 def envbool(name, defval='false'):
     '''

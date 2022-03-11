@@ -5,6 +5,282 @@ Synapse Changelog
 *****************
 
 
+v2.86.0 - 2022-03-09
+====================
+
+Automatic Migrations
+--------------------
+- Migrate secondary properties in Cortex nodes which use ``hugenum`` type to
+  account for updated ranges. See :ref:`devops-general-migrations` for more
+  information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Extend the number of decimal places the ``hugenum`` type can store to 24
+  places, with a new maximum value of 730750818665451459101842.
+  (`#2584 <https://github.com/vertexproject/synapse/pull/2584>`_)
+  (`#2586 <https://github.com/vertexproject/synapse/pull/2586>`_)
+- Update ``fastjsonschema`` to version ``2.15.3``.
+  (`#2581 <https://github.com/vertexproject/synapse/pull/2581>`_)
+
+Bugfixes
+--------
+- Add missing read-only flags to secondary properties of Comp type forms which
+  were computed from the primary property of the node. This includes the
+  following:
+  (`#2587 <https://github.com/vertexproject/synapse/pull/2587>`_)
+
+    - ``crypto:currency:address:coin``
+    - ``crypto:currency:address:iden``
+    - ``crypto:currency:block:coin``
+    - ``crypto:currency:block:offset``
+    - ``crypto:currency:client:coinaddr``
+    - ``crypto:currency:client:inetaddr``
+    - ``crypto:currency:smart:token:contract``
+    - ``crypto:currency:smart:token:tokenid``
+    - ``crypto:x509:revoked:crl``
+    - ``crypto:x509:revoked:cert``
+    - ``crypto:x509:signedfile:cert``
+    - ``crypto:x509:signedfile:file``
+    - ``econ:acquired:item``
+    - ``econ:acquired:purchase``
+    - ``inet:dns:query:client``
+    - ``inet:dns:query:name``
+    - ``inet:dns:query:type``
+    - ``inet:whois:contact:type``
+    - ``inet:wifi:ap:bssid``
+    - ``inet:wifi:ap:ssid``
+    - ``mat:itemimage:file``
+    - ``mat:itemimage:item``
+    - ``mat:specimage:file``
+    - ``mat:specimage:spec``
+    - ``ou:id:number:type``
+    - ``ou:id:number:value``
+    - ``ou:hasgoal:goal``
+    - ``ou:hasgoal:org``
+    - ``tel:mob:cell:carrier``
+    - ``tel:mob:cell:carrier:mcc``
+    - ``tel:mob:cell:carrier:mnc``
+    - ``tel:mob:cell:cid``
+    - ``tel:mob:cell:lac``
+
+- Fix an issue where Layers configured with writeback mirrors did not properly
+  handle results which did not have any changes.
+  (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
+
+Documentation
+-------------
+- Fix spelling issues in documentation and API docstrings.
+  (`#2582 <https://github.com/vertexproject/synapse/pull/2582>`_)
+  (`#2585 <https://github.com/vertexproject/synapse/pull/2585>`_)
+
+
+v2.85.1 - 2022-03-03
+====================
+
+Bugfixes
+--------
+- Fix a permission enforcement issue in autoadd mode that allowed
+  users with view read permissions to add automatically detected and
+  validated nodes but make no further edits.
+  (`#2579 <https://github.com/vertexproject/synapse/pull/2579>`_)
+- Log errors encountered in the Layer mirror loop which don't have a
+  local caller waiting on the change.
+  (`#2580 <https://github.com/vertexproject/synapse/pull/2580>`_)
+
+
+v2.85.0 - 2022-03-03
+====================
+
+Features and Enhancements
+-------------------------
+
+- Several updates for the ``crypto``, ``geo``, ``inet``, ``it``, ``ps`` and
+  ``risk`` models.
+  (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+  (`#2573 <https://github.com/vertexproject/synapse/pull/2573>`_)
+  (`#2574 <https://github.com/vertexproject/synapse/pull/2574>`_)
+
+  ``crypto:payment:input``
+    Add a new form to record payments made into a transaction.
+
+  ``crypto:payment:output``
+    Add a new form to record payments receieved from a transaction.
+
+  ``crypto:currency:transaction``
+    Add ``inputs`` and ``outputs`` array secondary properties to record inputs
+    and outputs for a given transaction.
+
+  ``geo:name``
+    Add a new form representing an unstructured place name or address.
+
+  ``geo:place``
+    Add a ``names`` secondary property which is an array of ``geo:name``
+    values.
+
+  ``inet:flow``
+    Add ``dst:txcount``, ``src:txcount``, ``tot:txcount`` and ``tot:txbytes``
+    secondary properties.
+
+  ``it:exec:proc``
+    Add an ``account`` secondary property as a ``it:account`` type. Mark the
+    ``user`` secondary property as deprecated.
+
+  ``ps:contact``
+    Add ``birth:place``, ``birth:place:loc``, ``birth:place:name``,
+    ``death:place``, ``death:place:loc`` and ``death:place:name`` secondary
+    properties.
+
+  ``risk:compromise``
+    Add a ``theft:price`` secondary property to represent value of stolen
+    assets.
+
+- Embed Cron, StormDmon, and Trigger iden values and automation types into
+  the Storm runtime when those automations are run. This information is
+  populated in a dictionary variable named ``$auto``.
+  (`#2565 <https://github.com/vertexproject/synapse/pull/2565>`_)
+- Add ``$lib.crypto.coin.ethereum.eip55()`` to convert an Ethereum address to a
+  checksummed address.
+  (`#2577 <https://github.com/vertexproject/synapse/pull/2577>`_)
+- Add a ``default`` argument to the  ``$lib.user.allowed()`` and ``allowed()``
+  method on ``storm:user`` StormType.
+  (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+- Add a ``inaugural`` configuration key to the base ``Cell`` class. This can
+  currently be used to bootstrap roles, permissions, and users in a Cell upon
+  the first time it is started.
+  (`#2570 <https://github.com/vertexproject/synapse/pull/2570>`_)
+- De-duplicate nodes when running the Storm ``lookup`` mode to lift nodes.
+  (`#2567 <https://github.com/vertexproject/synapse/pull/2567>`_)
+- Add a test helper that can be used to isolate the
+  ``synapse.lib.certdir.certdir`` singleton behavior via context manager.
+  (`#2564 <https://github.com/vertexproject/synapse/pull/2564>`_)
+
+Bugfixes
+--------
+- Calls to ``addFormProp()`` APIs when the property name already exists now
+  raise a ``DupPropName`` exception.
+  (`#2566 <https://github.com/vertexproject/synapse/pull/2566>`_)
+- Do not allow Storm ``macro``'s to be created that have names greater than
+  492 characters in length.
+  (`#2569 <https://github.com/vertexproject/synapse/pull/2569>`_)
+- Fix a bug in the scrape logic for Ethereum where the regular expression
+  matched on ``0X`` prefixed strings but the validation logic did not account
+  for that uppercase character.
+  (`#2575 <https://github.com/vertexproject/synapse/pull/2575>`_)
+
+Documentation
+-------------
+- Add documentation for the ``$auto`` variable embedded into the Cron,
+  StormDmon, and Trigger automations. Add documentation for variables
+  representing the form, node value, properties and tags which are responsible
+  for Triggers running.
+  (`#2565 <https://github.com/vertexproject/synapse/pull/2565>`_)
+
+
+v2.84.0 - 2022-02-22
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.time.toUTC()`` to adjust a local epoch milliseconds time to
+  UTC.
+  (`#2550 <https://github.com/vertexproject/synapse/pull/2550>`_)
+- Add a optional ``timeout`` argument to ``$lib.service.wait()``. The function
+  now returns ``$lib.true`` if the service is available, or ``$lib.false`` if
+  the service does not become available during the timeout window.
+  (`#2561 <https://github.com/vertexproject/synapse/pull/2561>`_)
+- Update the ``Layer.verify()`` routines to add verification of tagprop and
+  array indexes in layers.  These routines are in a beta status and are
+  subject to change.
+  (`#2560 <https://github.com/vertexproject/synapse/pull/2560>`_)
+- Update the Cortex's connection to a remote Axon to use a Telepath Client.
+  (`#2559 <https://github.com/vertexproject/synapse/pull/2559>`_)
+
+
+v2.83.0 - 2022-02-17
+====================
+
+Features and Enhancements
+-------------------------
+- Add ``:ip:proto`` and ``:ip:tcp:flags`` properties to the ``inet:flow``
+  form.
+  (`#2554 <https://github.com/vertexproject/synapse/pull/2554>`_)
+- Add ``$lib.log.debug()``, ``$lib.log.info()``, ``$lib.log.warning()``, and
+  ``$lib.log.error()`` Stormtypes APIs. These allow a user to send log
+  messages to the Cortex logging output directly.
+- Update the ``synapse.tools.genpkg`` tool to support using files with the
+  ``.storm`` extension. This is enabled by adding the following option to a
+  Storm package definition.
+  (`#2555 <https://github.com/vertexproject/synapse/pull/2555>`_)
+
+  ::
+
+    genopts:
+      dotstorm: true
+
+
+- Add form and prop values to ``BadTypeValu`` exceptions when raised during
+  node edit generation.
+  (`#2552 <https://github.com/vertexproject/synapse/pull/2552>`_)
+
+Bugfixes
+--------
+- Correct a race condition in the ``CoreApi.syncLayersEvents`` and
+  ``CoreApi.syncIndexEvents`` APIs.
+  (`#2553 <https://github.com/vertexproject/synapse/pull/2553>`_)
+
+Documentation
+-------------
+- Remove outdated documentation related to making ``CoreModule`` classes.
+  (`#2556 <https://github.com/vertexproject/synapse/pull/2556>`_)
+
+
+v2.82.1 - 2022-02-11
+====================
+
+Bugfixes
+--------
+- Re-order node edit validation to only check read-only status of properties
+  if the value would change.
+  (`#2547 <https://github.com/vertexproject/synapse/pull/2547>`_)
+- Raise the correct exception when parsing invalid time values, like
+  ``0000-00-00``.
+  (`#2548 <https://github.com/vertexproject/synapse/pull/2548>`_)
+- Disable node caching for ``StormDmon`` runtimes to avoid potential
+  cache coherency issues.
+  (`#2549 <https://github.com/vertexproject/synapse/pull/2549>`_)
+
+
+v2.82.0 - 2022-02-10
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``addNode()`` API to the Stormtypes ``storm:view`` object. This
+  allows the programmatic creation of a node with properties being set in
+  a transactional fashion.
+  (`#2540 <https://github.com/vertexproject/synapse/pull/2540>`_)
+- Add support to Storm for creating JSON style list and dictionary objects.
+  (`#2544 <https://github.com/vertexproject/synapse/pull/2544>`_)
+- The ``AhaCell`` now bootstraps TLS CA certificates for the configured
+  ``aha:network`` value, a host certificate for the ``aha:name`` value,
+  and a user certificate for the ``aha:admin`` value.
+  (`#2542 <https://github.com/vertexproject/synapse/pull/2542>`_)
+- Add ``mesg`` arguments to all exceptions raised in ``synapse.lib.certdir``.
+  (`#2546 <https://github.com/vertexproject/synapse/pull/2546>`_)
+
+Documentation
+-------------
+- Fix some missing and incorrect docstrings for Stormtypes.
+  (`#2545 <https://github.com/vertexproject/synapse/pull/2545>`_)
+
+Deprecations
+------------
+- Telepath APIs and Storm commands related to ``splices`` have been marked as
+  deprecated.
+  (`#2541 <https://github.com/vertexproject/synapse/pull/2541>`_)
+
+
 v2.81.0 - 2022-01-31
 ====================
 

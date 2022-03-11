@@ -40,13 +40,13 @@ class MatModule(s_module.CoreModule):
                 )),
 
                 ('mat:itemimage', {}, (
-                    ('item', ('mat:item', {}), {'doc': 'The item contained within the image file.'}),
-                    ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the item.'}),
+                    ('item', ('mat:item', {}), {'doc': 'The item contained within the image file.', 'ro': True, }),
+                    ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the item.', 'ro': True, }),
                 )),
 
                 ('mat:specimage', {}, (
-                    ('spec', ('mat:spec', {}), {'doc': 'The spec contained within the image file.'}),
-                    ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the spec.'}),
+                    ('spec', ('mat:spec', {}), {'doc': 'The spec contained within the image file.', 'ro': True, }),
+                    ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the spec.', 'ro': True, }),
                 )),
             ),
         }

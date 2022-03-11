@@ -158,6 +158,16 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
+    def exprlist(self, kids, meta):
+        kids = [self._convert_child(k) for k in kids]
+        return s_ast.ExprList(kids=kids)
+
+    @lark.v_args(meta=True)
+    def exprdict(self, kids, meta):
+        kids = [self._convert_child(k) for k in kids]
+        return s_ast.ExprDict(kids=kids)
+
+    @lark.v_args(meta=True)
     def trycatch(self, kids, meta):
         kids = self._convert_children(kids)
         return s_ast.TryCatch(kids=kids)

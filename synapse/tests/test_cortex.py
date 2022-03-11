@@ -1,5 +1,6 @@
 import os
 import copy
+import json
 import time
 import asyncio
 import logging
@@ -251,6 +252,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
 
+                layr = core01.getLayer(layr01iden)
+                await layr.storNodeEdits((), {})
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:
@@ -350,6 +354,66 @@ class CortexTest(s_t_utils.SynTest):
             mods = await core.getStormIfaces('lookup')
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
+
+    async def test_cortex_lookup_dedup(self):
+        pkgdef = {
+            'name': 'foobar',
+            'modules': [
+                {'name': 'foobar',
+                 'interfaces': ['search'],
+                 'storm': '''
+                    function getBuid(form, valu) {
+                        *$form?=$valu
+                        return($lib.hex.decode($node.iden()))
+                    }
+                    function search(tokens) {
+                        $score = (0)
+                        for $tok in $tokens {
+                            $buid = $getBuid("inet:email", $tok)
+                            if $buid { emit ($score, $buid) }
+                            $buid = $getBuid("test:str", $tok)
+                            if $buid { emit ($score, $buid) }
+                            $score = ($score + 10)
+                        }
+                    }
+                 '''
+                 },
+            ]
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:email=foo@bar.com ]')
+
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            buid = nodes[0].buid
+            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
+
+            # scrape results are not deduplicated
+            nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
+
+            await core.loadStormPkg(pkgdef)
+            self.len(1, await core.getStormIfaces('search'))
+
+            todo = s_common.todo('search', ('foo@bar.com',))
+            vals = [r async for r in core.view.mergeStormIface('search', todo)]
+            self.eq(((0, buid),), vals)
+
+            # search iface results are deduplicated against scrape results
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
+
+            await core.nodes('[ test:str=foo@bar.com ]')
+
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email', 'test:str'], [n.ndef[0] for n in nodes])
+
+            await core.nodes('[ test:str=hello ]')
+
+            # search iface results are not deduplicated against themselves
+            nodes = await core.nodes('hello hello', opts={'mode': 'lookup'})
+            self.eq(['test:str', 'test:str'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
         async with self.getTestCore() as core:
@@ -852,19 +916,29 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            iden = await core.callStorm('''
-                $que = $lib.queue.add(foo)
+            with self.getStructuredAsyncLoggerStream('synapse.storm.log',
+                                                     'Running dmon') as stream:
+                iden = await core.callStorm('''
+                    $que = $lib.queue.add(foo)
 
-                $ddef = $lib.dmon.add(${
-                    $lib.print(hi)
-                    $lib.warn(omg)
-                    $que = $lib.queue.get(foo)
-                    $que.put(done)
-                })
+                    $ddef = $lib.dmon.add(${
+                        $lib.print(hi)
+                        $lib.warn(omg)
+                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $lib.log.info($s, ({"iden": $auto.iden}))
+                        $que = $lib.queue.get(foo)
+                        $que.put(done)
+                    })
 
-                $que.get()
-                return($ddef.iden)
-            ''')
+                    $que.get()
+                    return($ddef.iden)
+                ''')
+                self.true(await stream.wait(6))
+
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg.get('message'), f'Running dmon {iden}')
+            self.eq(mesg.get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}
             logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
@@ -3750,6 +3824,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(500, slab.mapasync)
 
     async def test_feed_syn_nodes(self):
+
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core0:
 
@@ -5068,7 +5143,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await core.getPropNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:newp', 'newp'))
@@ -5079,7 +5154,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await prox.getPropNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchProp, prox.getPropNorm('test:newp', 'newp'))
@@ -5091,7 +5166,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await core.getTypeNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:newp', 'newp'))
@@ -5102,7 +5177,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await prox.getTypeNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchType, prox.getTypeNorm('test:newp', 'newp'))
@@ -5459,6 +5534,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(core.model.prop('_hehe:haha:visi'))
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))
+
+                vdef2 = await core.view.fork()
+                opts = {'view': vdef2.get('iden')}
+
+                await core.addTagProp('added', ('time', {}), {})
+
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar ]')
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:added="2049" ]', opts=opts)
+
+                with self.raises(s_exc.CantDelProp):
+                    await core.delTagProp('added')
+
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
+                await core.delTagProp('added')
+
+                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
+                await core.nodes('[ _hehe:array=(1,2,3) ]')
+                self.len(1, await core.nodes('_hehe:array=(1,2,3)'))
 
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:

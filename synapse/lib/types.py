@@ -437,16 +437,14 @@ class Array(Type):
         adds = []
         norms = []
 
+        form = self.modl.form(self.arraytype.name)
+
         for item in valu:
             norm, info = self.arraytype.norm(item)
             adds.extend(info.get('adds', ()))
+            if form is not None:
+                adds.append((form.name, norm, info))
             norms.append(norm)
-
-        form = self.modl.form(self.arraytype.name)
-        if form is not None:
-            adds.extend([(form.name, n) for n in norms])
-
-        adds = list(set(adds))
 
         if self.isuniq:
 
@@ -516,6 +514,11 @@ class Comp(Type):
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
+
+            typeform = self.modl.form(_type.name)
+            if typeform is not None:
+                adds.append((typeform.name, norm, info))
+
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
@@ -672,12 +675,8 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
-hugemax = 170141183460469231731687
+hugemax = 730750818665451459101842
 class HugeNum(Type):
-
-    _opt_defs = (
-        ('norm', True),
-    )
 
     stortype = s_layer.STOR_TYPE_HUGENUM
 
@@ -700,6 +699,12 @@ class HugeNum(Type):
 
     def norm(self, valu):
 
+        try:
+            huge = s_common.hugenum(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e)) from None
+
         huge = s_common.hugenum(valu)
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
@@ -709,9 +714,8 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if self.opts.get('norm'):
-            huge.normalize(), {}
-        return huge.to_eng_string(), {}
+        huge = s_common.hugeround(huge).normalize(s_common.hugectx)
+        return '{:f}'.format(huge), {}
 
     def _ctorCmprEq(self, text):
         base = s_common.hugenum(text)
@@ -1273,10 +1277,10 @@ class Ndef(Type):
         if form is None:
             raise s_exc.NoSuchForm(name=self.name, form=formname)
 
-        formnorm, info = form.type.norm(formvalu)
+        formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
 
-        adds = (norm,)
+        adds = ((form.name, formnorm, forminfo),)
         subs = {'form': form.name}
 
         return norm, {'adds': adds, 'subs': subs}
@@ -1403,7 +1407,7 @@ class Data(Type):
             s_common.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)
-        except s_exc.MustBeJsonSafe as e:
+        except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}

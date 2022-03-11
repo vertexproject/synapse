@@ -1549,6 +1549,8 @@ class StormDmon(s_base.Base):
 
             text = self.ddef.get('storm')
             opts = self.ddef.get('stormopts', {})
+            vars = opts.setdefault('vars', {})
+            vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
 
             viewiden = opts.get('view')
             view = self.core.getView(viewiden)
@@ -1562,6 +1564,7 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+                    snap.cachebuids = False
 
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
@@ -3225,12 +3228,13 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newparts = (await s_stormtypes.tostr(self.opts.newtag)).split('.')
+        newname, newinfo = await snap.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))
         runt.layerConfirm(('node', 'tag', 'add', *newparts))
 
-        newt = await snap.addNode('syn:tag', self.opts.newtag)
+        newt = await snap.addNode('syn:tag', newname, norminfo=newinfo)
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
@@ -3245,7 +3249,7 @@ class MoveTagCmd(Cmd):
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow)
-            newtag = await snap.addTagNode(isnow)
+            newtag = await snap.addNode('syn:tag', isnow)
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -3753,7 +3757,7 @@ class TeeCmd(Cmd):
                           help='Emit inbound nodes after processing storm queries.')
 
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
-                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not guaranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
@@ -4048,6 +4052,7 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.list')
         maxtime = None
         if self.opts.maxtimestamp:
             maxtime = self.opts.maxtimestamp
@@ -4280,6 +4285,7 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.undo')
         if self.opts.force:
             if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'

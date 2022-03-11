@@ -53,6 +53,7 @@ class StormTypesRegistry:
         'any',
         'int',
         'null',
+        'time',
         'prim',
         'undef',
         'integer',
@@ -680,12 +681,20 @@ class LibService(Lib):
             ''',
          'type': {'type': 'function', '_funcname': '_libSvcList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Service definitions.', }}},
-        {'name': 'wait', 'desc': 'Wait for a given service to be ready.',
+        {'name': 'wait', 'desc': '''
+        Wait for a given service to be ready.
+
+        Notes:
+            If a timeout value is not specified, this will block a Storm query until the service is available.
+        ''',
          'type': {'type': 'function', '_funcname': '_libSvcWait',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name, or iden, of the service to wait for.', },
+                      {'name': 'timeout', 'type': 'int', 'desc': 'Number of seconds to wait for the service.',
+                       'default': None, }
                   ),
-                  'returns': {'type': 'null', 'desc': 'Returns null when the service is available.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'Returns true if the service is available, false on a '
+                                                         'timeout waiting for the service to be ready.', }}},
     )
     _storm_lib_path = ('service',)
 
@@ -753,13 +762,29 @@ class LibService(Lib):
 
         return retn
 
-    async def _libSvcWait(self, name):
+    async def _libSvcWait(self, name, timeout=None):
+        name = await tostr(name)
+        timeout = await toint(timeout, noneok=True)
         ssvc = self.runt.snap.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg, name=name)
         await self._checkSvcGetPerm(ssvc)
-        await ssvc.ready.wait()
+
+        # Short circuit asyncio.wait_for logic by checking the ready event
+        # value. If we call wait_for with a timeout=0 we'll almost always
+        # raise a TimeoutError unless the future previously had the option
+        # to complete.
+        if timeout == 0:
+            return ssvc.ready.is_set()
+
+        fut = ssvc.ready.wait()
+        try:
+            await asyncio.wait_for(fut, timeout=timeout)
+        except asyncio.TimeoutError:
+            return False
+        else:
+            return True
 
 @registry.registerLib
 class LibTags(Lib):
@@ -2138,12 +2163,22 @@ class LibTime(Lib):
                       {'name': 'tick', 'desc': 'A time value.', 'type': 'time', },
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
+        {'name': 'toUTC', 'desc': '''
+        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        ''',
+         'type': {'type': 'function', '_funcname': 'toUTC',
+                  'args': (
+                      {'name': 'tick', 'desc': 'A time value.', 'type': 'time'},
+                      {'name': 'timezone', 'desc': 'A timezone name. See python pytz docs for options.', 'type': 'str'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'An ($ok, $valu) tuple.', }}},
     )
     _storm_lib_path = ('time',)
 
     def getObjLocals(self):
         return {
             'now': self._now,
+            'toUTC': self.toUTC,
             'fromunix': self._fromunix,
             'parse': self._parse,
             'format': self._format,
@@ -2162,6 +2197,19 @@ class LibTime(Lib):
             'dayofmonth': self.dayofmonth,
             'monthofyear': self.monthofyear,
         }
+
+    async def toUTC(self, tick, timezone):
+
+        tick = await toprim(tick)
+        timezone = await tostr(timezone)
+
+        timetype = self.runt.snap.core.model.type('time')
+
+        norm, info = timetype.norm(tick)
+        try:
+            return (True, s_time.toUTC(norm, timezone))
+        except s_exc.BadArg as e:
+            return (False, s_common.excinfo(e))
 
     def _now(self):
         return s_common.now()
@@ -4162,6 +4210,7 @@ class LibUser(Lib):
                   'args': (
                       {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user has the requested permission, false otherwise.', }}},
@@ -4191,13 +4240,13 @@ class LibUser(Lib):
     async def _libUserName(self):
         return self.runt.user.name
 
-    async def _libUserAllowed(self, permname, gateiden=None):
+    async def _libUserAllowed(self, permname, gateiden=None, default=False):
         permname = await toprim(permname)
         gateiden = await tostr(gateiden, noneok=True)
+        default = await tobool(default)
 
-        perm = tuple(permname.split('.'))
-        todo = s_common.todo('isUserAllowed', self.runt.user.iden, perm, gateiden=gateiden)
-        return bool(await self.runt.dyncall('cortex', todo))
+        perm = permname.split('.')
+        return self.runt.user.allowed(perm, gateiden=gateiden, default=default)
 
 @registry.registerLib
 class LibGlobals(Lib):
@@ -5798,6 +5847,7 @@ class View(Prim):
 
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
+
                 * The view must not already have a parent
                 * The view must not have more than 1 layer
          ''',
@@ -5841,6 +5891,14 @@ class View(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
+        {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation fails, no changes are made.''',
+         'type': {'type': 'function', '_funcname': 'addNode',
+                  'args': (
+                      {'name': 'form', 'type': 'str', 'desc': 'The form name.'},
+                      {'name': 'valu', 'type': 'prim', 'desc': 'The primary property value.'},
+                      {'name': 'props', 'type': 'dict', 'desc': 'An optional dictionary of props.', 'default': None},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'The node which may have been just constructed.', }}},
         {'name': 'addNodeEdits', 'desc': 'Add NodeEdits to the view.',
          'type': {'type': 'function', '_funcname': '_methAddNodeEdits',
                   'args': (
@@ -5888,11 +5946,29 @@ class View(Prim):
             'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
+            'addNode': self.addNode,
             'getEdges': self._methGetEdges,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
         }
+
+    async def addNode(self, form, valu, props=None):
+        form = await tostr(form)
+        valu = await toprim(valu)
+        props = await toprim(props)
+
+        viewiden = self.valu.get('iden')
+
+        view = self.runt.snap.core.getView(viewiden)
+
+        self.runt.layerConfirm(('node', 'add', form))
+
+        for propname in props.keys():
+            fullname = f'{form}:{propname}'
+            self.runt.layerConfirm(('node', 'prop', 'set', fullname))
+
+        return await self.runt.snap.addNode(form, valu, props=props)
 
     async def _methAddNodeEdits(self, edits):
         useriden = self.runt.user.iden
@@ -6857,6 +6933,7 @@ class User(Prim):
                   'args': (
                       {'name': 'permname', 'type': 'str', 'desc': 'The permission string to check.', },
                       {'name': 'gateiden', 'type': 'str', 'desc': 'The authgate iden.', 'default': None, },
+                      {'name': 'default', 'type': 'boolean', 'desc': 'The default value.', 'default': False, },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the rule is allowed, False otherwise.', }}},
         {'name': 'grant', 'desc': 'Grant a Role to the User.',
@@ -7029,9 +7106,14 @@ class User(Prim):
         udef = await self.runt.snap.core.getUserDef(self.valu)
         return [Role(self.runt, rdef['iden']) for rdef in udef.get('roles')]
 
-    async def _methUserAllowed(self, permname, gateiden=None):
+    async def _methUserAllowed(self, permname, gateiden=None, default=False):
+        permname = await tostr(permname)
+        gateiden = await tostr(gateiden)
+        default = await tobool(default)
+
         perm = tuple(permname.split('.'))
-        return await self.runt.snap.core.isUserAllowed(self.valu, perm, gateiden=gateiden)
+        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        return user.allowed(perm, gateiden=gateiden, default=default)
 
     async def _methUserGrant(self, iden):
         self.runt.confirm(('auth', 'user', 'grant'))

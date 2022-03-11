@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.81.0'
+VERSION = '2.86.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -94,7 +94,7 @@ setup(
         'lark-parser==0.11.2',
         'Pygments>=2.7.4,<2.8.0',
         'packaging>=20.0,<22.0',
-        'fastjsonschema>=2.14.3,<2.15',
+        'fastjsonschema>=2.15.3,<2.16',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
         'base58>=2.1.0,<2.2.0',
@@ -107,6 +107,7 @@ setup(
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
+        'pytz>=2021.3,<2022',
     ],
 
     extras_require={

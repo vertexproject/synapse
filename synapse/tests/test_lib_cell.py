@@ -15,6 +15,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.link as s_link
 import synapse.lib.version as s_version
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
@@ -1287,3 +1288,99 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=bkupdirn5) as core:
                 nodes = await core.nodes('test:str=ssl')
                 self.len(1, nodes)
+
+    async def test_inaugural_users(self):
+
+        conf = {
+            'inaugural': {
+                'users': [
+                    {
+                        'name': 'foo@bar.mynet.com',
+                        'email': 'foo@barcorp.com',
+                        'roles': [
+                            'user'
+                        ],
+                        'rules': [
+                            [False, ['thing', 'del']],
+                            [True, ['thing', ]],
+                        ],
+                    },
+                    {
+                        'name': 'sally@bar.mynet.com',
+                        'admin': True,
+                    },
+                ],
+                'roles': [
+                    {
+                        'name': 'user',
+                        'rules': [
+                            [True, ['foo', 'bar']],
+                            [True, ['foo', 'duck']],
+                            [False, ['newp', ]],
+                        ]
+                    },
+                ]
+            }
+        }
+
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
+                iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
+                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+                self.eq(user.name, 'foo@bar.mynet.com')
+                self.eq(user.pack().get('email'), 'foo@barcorp.com')
+                self.false(user.isAdmin())
+                self.true(user.allowed(('thing', 'cool')))
+                self.false(user.allowed(('thing', 'del')))
+                self.true(user.allowed(('thing', 'duck', 'stuff')))
+                self.false(user.allowed(('newp', 'secret')))
+
+                iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
+                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+                self.eq(user.name, 'sally@bar.mynet.com')
+                self.true(user.isAdmin())
+
+        # Cannot use root
+        with self.getTestDir() as dirn:
+            conf = {
+                'inaugural': {
+                    'users': [
+                        {'name': 'root',
+                         'admin': False,
+                         }
+                    ]
+                }
+            }
+            with self.raises(s_exc.BadConfValu):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
+
+        # Cannot use all
+        with self.getTestDir() as dirn:
+            conf = {
+                'inaugural': {
+                    'roles': [
+                        {'name': 'all',
+                         'rules': [
+                             [True, ['floop', 'bloop']],
+                         ]}
+                    ]
+                }
+            }
+            with self.raises(s_exc.BadConfValu):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
+
+        # Colliding with aha:admin will fail
+        with self.getTestDir() as dirn:
+            conf = {
+                'inaugural': {
+                    'users': [
+                        {'name': 'bob@foo.bar.com'}
+                    ]
+                },
+                'aha:admin': 'bob@foo.bar.com',
+            }
+            with self.raises(s_exc.DupUserName):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass

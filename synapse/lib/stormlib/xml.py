@@ -9,6 +9,9 @@ import xml.etree.ElementTree as xml_et
 
 @s_stormtypes.registry.registerType
 class XmlElement(s_stormtypes.Prim):
+    '''
+    A Storm object for dealing with elements in an XML tree.
+    '''
     _storm_typename = 'xml:element'
     _storm_locals = (
         {'name': 'name', 'desc': 'The element tag name.', 'type': 'str'},

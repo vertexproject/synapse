@@ -36,6 +36,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
@@ -49,6 +50,7 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
+import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
@@ -67,6 +69,7 @@ import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
+import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
@@ -1537,7 +1540,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return retn
 
-    async def isTagValid(self, tagname):
+    def isTagValid(self, tagname):
         '''
         Check if a tag name is valid according to tag model regular expressions.
 
@@ -2629,12 +2632,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
 
-    @s_nexus.Pusher.onPushAuto('model:prop:add')
     async def addFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+        _form = self.model.form(form)
+        if _form is None:
+            raise s_exc.NoSuchForm(mesg='Form {form} does not exist.', name=form)
+        if _form.prop(prop):
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
+                                     form=form, prop=prop)
+        await self._push('model:prop:add', form, prop, tdef, info)
 
+    @s_nexus.Pusher.onPush('model:prop:add')
+    async def _addFormProp(self, form, prop, tdef, info):
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
@@ -2913,11 +2924,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 newlayer(bool):  whether to emit a new layer item first
             wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
         '''
-        topoffs = await self.getNexsIndx()  # The latest offset when this function started
         catchingup = True                   # whether we've caught up to topoffs
         layrsadded = {}                     # layriden -> True.  Captures all the layers added while catching up
         todo = set()                        # outstanding futures of active live streaming from layers
         layrgenrs = {}                      # layriden -> genr.  maps active layers to that layer's async generator
+
+        # The offset to start from once the catch-up phase is complete
+        topoffs = max(layr.nodeeditlog.index() for layr in self.layers.values())
 
         if offsdict is None:
             offsdict = {}
@@ -3144,22 +3157,18 @@ class Cortex(s_cell.Cell):  # type: ignore
             self.axready.set()
             return
 
-        async def teleloop():
-            self.axready.clear()
-            while not self.isfini:
-                try:
-                    self.axon = await s_telepath.openurl(turl)
-                    self.axon.onfini(teleloop)
-                    self.dynitems['axon'] = self.axon
-                    self.axready.set()
-                    return
-                except asyncio.CancelledError:  # TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception as e:
-                    logger.warning('remote axon error: %r' % (e,))
-                await self.waitfini(1)
+        async def onlink(proxy: s_telepath.Proxy):
+            logger.debug(f'Connected to remote axon {s_urlhelp.sanitizeUrl(turl)}')
 
-        self.schedCoro(teleloop())
+            async def fini():
+                self.axready.clear()
+
+            proxy.onfini(fini)
+            self.axready.set()
+
+        self.axon = await s_telepath.Client.anit(turl, onlink=onlink)
+        self.dynitems['axon'] = self.axon
+        self.onfini(self.axon)
 
     async def _initStormCmds(self):
         '''
@@ -3803,7 +3812,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
-        await layr.setModelVers(s_modelrev.maxvers)
+        await layr._setModelVers(s_modelrev.maxvers)
 
         if self.isactive:
             await layr.initLayerActive()
@@ -3811,6 +3820,16 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layr.initLayerPassive()
 
         return await layr.pack()
+
+    def _checkMaxNodes(self, delta=1):
+
+        if self.maxnodes is None:
+            return
+
+        remain = self.maxnodes - self.nodecount
+        if remain < delta:
+            mesg = f'Cortex is at node:count limit: {self.maxnodes}'
+            raise s_exc.HitLimit(mesg=mesg)
 
     async def _initLayr(self, layrinfo, nexsoffs=None):
         '''

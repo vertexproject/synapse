@@ -118,7 +118,7 @@ stormcmds = [
     },
     {
         'name': 'model.deprecated.check',
-        'descr': 'Check for lock status and the existance of deprecated model elements',
+        'descr': 'Check for lock status and the existence of deprecated model elements',
         'storm': '''
             init {
 
@@ -138,7 +138,7 @@ stormcmds = [
 
                 }
 
-                $lib.print("Checking for existance of deprecated model elements:")
+                $lib.print("Checking for existence of deprecated model elements:")
                 for ($name, $locked) in $locks {
 
                     $lib.print("{name}...", name=$name)

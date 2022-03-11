@@ -18,6 +18,21 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="#foo bar" ]')
 
+    async def test_inet_jarm(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:ssl:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
+            self.len(1, nodes)
+            self.eq('tcp://1.2.3.4:443', nodes[0].get('server'))
+            self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('jarmhash'))
+            self.eq(('tcp://1.2.3.4:443', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1'), nodes[0].ndef[1])
+
+            nodes = await core.nodes('inet:ssl:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
+            self.len(1, nodes)
+            self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].ndef[1])
+            self.eq('07d14d16d21d21d07c42d41d00041d', nodes[0].get('ciphers'))
+            self.eq('24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('extensions'))
+
     async def test_ipv4_lift_range(self):
 
         async with self.getTestCore() as core:
@@ -337,18 +352,24 @@ class InetModelTest(s_t_utils.SynTest):
             'src:host': 32 * 'b',
             'src:proc': 32 * 'c',
             'src:exe': 64 * 'd',
+            'src:txcount': 30,
             'src:txbytes': 1,
             'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 64 * '0',
+            'dst:txcount': 33,
             'dst:txbytes': 2,
+            'tot:txcount': 63,
+            'tot:txbytes': 3,
             'dst:handshake': 'OHai!',
             'src:softnames': ('hehe', 'haha'),
             'dst:softnames': ('foobar', 'bazfaz'),
             'src:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
             'dst:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
+            'ip:proto': 6,
+            'ip:tcp:flags': 0x20,
         }
         expected_props = {
             'time': 0,
@@ -361,6 +382,7 @@ class InetModelTest(s_t_utils.SynTest):
             'src:host': 32 * 'b',
             'src:proc': 32 * 'c',
             'src:exe': 'sha256:' + 64 * 'd',
+            'src:txcount': 30,
             'src:txbytes': 1,
             'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
@@ -370,12 +392,17 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 'sha256:' + 64 * '0',
+            'dst:txcount': 33,
             'dst:txbytes': 2,
+            'tot:txcount': 63,
+            'tot:txbytes': 3,
             'dst:handshake': 'OHai!',
             'src:softnames': ('haha', 'hehe'),
             'dst:softnames': ('bazfaz', 'foobar'),
             'src:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
             'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
+            'ip:proto': 6,
+            'ip:tcp:flags': 0x20,
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
@@ -1427,7 +1454,10 @@ class InetModelTest(s_t_utils.SynTest):
                               'site': 'vertex.link',
                               'site:host': 'vertex',
                               'site:domain': 'link', },
-                     'adds': []}
+                     'adds': (
+                        ('inet:fqdn', 'vertex.link', {'subs': {'domain': 'link', 'host': 'vertex'}}),
+                        ('inet:user', 'person1', {}),
+                    )}
             self.eq(t.norm(('VerTex.linK', 'PerSon1')), (enorm, edata))
 
             # Form Tests

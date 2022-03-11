@@ -20,6 +20,44 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    def test_hugenum(self):
+
+        model = s_datamodel.Model()
+        huge = model.type('hugenum')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('-730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm(None)
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('foo')
+
+        self.eq('0.000000000000000000000001', huge.norm('1E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('1.0E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('0.000000000000000000000001')[0])
+
+        self.eq('0', huge.norm('1E-25')[0])
+        self.eq('0', huge.norm('5E-25')[0])
+        self.eq('0.000000000000000000000001', huge.norm('6E-25')[0])
+        self.eq('1.000000000000000000000002', huge.norm('1.0000000000000000000000015')[0])
+
+        bign = '730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
+        bign = '-730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '-730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
     def test_taxonomy(self):
 
         model = s_datamodel.Model()
@@ -682,7 +720,7 @@ class TypesTest(s_t_utils.SynTest):
 
         norm, info = t.norm(('test:str', 'Foobar!'))
         self.eq(norm, ('test:str', 'Foobar!'))
-        self.eq(info, {'adds': (('test:str', 'Foobar!'),),
+        self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
                        'subs': {'form': 'test:str'}})
 
         rval = t.repr(('test:str', 'Foobar!'))
@@ -874,6 +912,9 @@ class TypesTest(s_t_utils.SynTest):
 
         model = s_datamodel.Model()
         ttime = model.types.get('time')
+
+        with self.raises(s_exc.BadTypeValu):
+            ttime.norm('0000-00-00')
 
         self.gt(s_common.now(), ttime.norm('-1hour')[0])
 

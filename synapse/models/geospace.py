@@ -316,7 +316,9 @@ class GeoModule(s_module.CoreModule):
                     ('geo:json', ('data', {'schema': geojsonschema}), {
                         'doc': 'GeoJSON structured JSON data.',
                     }),
-
+                    ('geo:name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                        'doc': 'An unstructured place name or address.',
+                    }),
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
@@ -348,6 +350,8 @@ class GeoModule(s_module.CoreModule):
 
                 'forms': (
 
+                    ('geo:name', {}, ()),
+
                     ('geo:nloc', {}, (
 
                         ('ndef', ('ndef', {}), {'ro': True,
@@ -374,6 +378,9 @@ class GeoModule(s_module.CoreModule):
 
                         ('name', ('str', {'lower': 1, 'onespace': 1}), {
                             'doc': 'The name of the place.'}),
+
+                        ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of alternative place names.'}),
 
                         ('parent', ('geo:place', {}), {
                             'doc': 'A parent place, possibly from reverse geocoding.'}),

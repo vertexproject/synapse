@@ -8,13 +8,10 @@ import yaml
 import fastjsonschema
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
-import synapse.lib.const as s_const
-import synapse.lib.output as s_output
 import synapse.lib.hashitem as s_hashitem
 
-from fastjsonschema.exceptions import JsonSchemaException
+from fastjsonschema.exceptions import JsonSchemaValueException
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +48,13 @@ def getJsSchema(confbase, confdefs):
     props.update(confbase)
     return schema
 
-def getJsValidator(schema):
+def getJsValidator(schema, use_default=True):
     '''
     Get a fastjsonschema callable.
 
     Args:
         schema (dict): A JSON Schema object.
+        use_default (bool): Whether to insert "default" key arguments into the validated data structure.
 
     Returns:
         callable: A callable function that can be used to validate data against the json schema.
@@ -66,18 +64,18 @@ def getJsValidator(schema):
 
     # It is faster to hash and cache the functions here than it is to
     # generate new functions each time we have the same schema.
-    key = s_hashitem.hashitem(schema)
+    key = s_hashitem.hashitem((schema, use_default))
     func = _JsValidators.get(key)
     if func:
         return func
 
-    func = fastjsonschema.compile(schema)
+    func = fastjsonschema.compile(schema, use_default=use_default)
 
     def wrap(*args, **kwargs):
         try:
             return func(*args, **kwargs)
-        except JsonSchemaException as e:
-            raise s_exc.SchemaViolation(mesg=e.message, name=e.name)
+        except JsonSchemaValueException as e:
+            raise s_exc.SchemaViolation(mesg=e.message, name=e.name) from e
 
     _JsValidators[key] = wrap
     return wrap

@@ -31,4 +31,4 @@ Ecosystem. A few important UI features include:
 
 For additional information on the UI, visit the `User Interface Documentation`_!
 
-.. _User Interface Documentation: https://optic.docs.vertex.link/en/latest/index.html
+.. _User Interface Documentation: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html

@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 6)
+maxvers = (0, 2, 7)
 
 class ModelRev:
 
@@ -19,6 +19,7 @@ class ModelRev:
             ((0, 2, 3), self.revModel20210528),
             ((0, 2, 5), self.revModel20210801),
             ((0, 2, 6), self.revModel20211112),
+            ((0, 2, 7), self.revModel20220307),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -245,6 +246,107 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+    async def _normHugeProp(self, layers, prop):
+
+        proptype = prop.type
+        propname = prop.name
+        formname = prop.form.name
+        stortype = prop.type.stortype
+
+        for layr in layers:
+
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, propvalu in layr.iterPropRows(formname, propname):
+
+                try:
+                    newval = proptype.norm(propvalu)[0]
+                except s_exc.BadTypeValu as e:
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Bad prop value {propname}={propvalu!r} : {oldm}')
+                    continue
+
+                if newval == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_SET, (propname, newval, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normHugeTagProps(self, layr, tagprops):
+
+        nodeedits = []
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        async def save():
+            await layr.storNodeEdits(nodeedits, meta)
+            nodeedits.clear()
+
+        for form, tag, prop in layr.getTagProps():
+            if form is None or prop not in tagprops:
+                continue
+
+            tptyp = self.core.model.tagprops[prop]
+            stortype = tptyp.type.stortype
+
+            async for buid, propvalu in layr.iterTagPropRows(tag, prop, form):
+
+                try:
+                    newval = tptyp.type.norm(propvalu)[0]
+                except s_exc.BadTypeValu as e:
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Bad prop value {tag}:{prop}={propvalu!r} : {oldm}')
+                    continue
+
+                if newval == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, form, (
+                        (s_layer.EDIT_TAGPROP_SET, (tag, prop, newval, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def revModel20220307(self, layers):
+
+        for name, prop in self.core.model.props.items():
+            if prop.form is None:
+                continue
+
+            stortype = prop.type.stortype
+            if stortype & s_layer.STOR_FLAG_ARRAY:
+                stortype = stortype & 0x7fff
+
+            if stortype == s_layer.STOR_TYPE_HUGENUM:
+                await self._normHugeProp(layers, prop)
+
+        tagprops = set()
+        for name, prop in self.core.model.tagprops.items():
+            if prop.type.stortype == s_layer.STOR_TYPE_HUGENUM:
+                tagprops.add(prop.name)
+
+        for layr in layers:
+            await self._normHugeTagProps(layr, tagprops)
+
     async def revCoreLayers(self):
 
         version = self.revs[-1][0] if self.revs else maxvers
@@ -280,7 +382,7 @@ class ModelRev:
 
         for revvers, revmeth in self.revs:
 
-            todo = [lyr for lyr in layers if await lyr.getModelVers() < revvers]
+            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
             if not todo:
                 continue
 

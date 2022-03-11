@@ -67,6 +67,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thishost as s_thishost
+import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -265,8 +266,8 @@ testmodel = {
         )),
 
         ('test:compcomp', {}, (
-            ('comp1', ('test:comp', {}), {}),
-            ('comp2', ('test:comp', {}), {}),
+            ('comp1', ('test:comp', {}), {'ro': True}),
+            ('comp2', ('test:comp', {}), {'ro': True}),
         )),
 
         ('test:complexcomp', {}, (
@@ -330,8 +331,8 @@ testmodel = {
         )),
 
         ('test:pivcomp', {}, (
-            ('targ', ('test:pivtarg', {}), {}),
-            ('lulz', ('test:str', {}), {}),
+            ('targ', ('test:pivtarg', {}), {'ro': True}),
+            ('lulz', ('test:str', {}), {'ro': True}),
             ('tick', ('time', {}), {}),
             ('size', ('test:int', {}), {}),
             ('width', ('test:int', {}), {}),
@@ -1450,6 +1451,56 @@ class SynTest(unittest.TestCase):
             slogger.removeHandler(handler)
             slogger.setLevel(level)
 
+    @contextlib.contextmanager
+    def getStructuredAsyncLoggerStream(self, logname, mesg=''):
+        '''
+        Async version of getLoggerStream which uses structured logging.
+
+        Args:
+            logname (str): Name of the logger to get.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message
+            containing the string is written to the log.
+
+        Notes:
+            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
+            This requires the user to await the Event specific calls as needed.
+            The messages written to the stream will be JSON lines.
+
+        Examples:
+            Do an action and wait for a specific log message to be written::
+
+                with self.getStructuredAsyncLoggerStream('synapse.foo.bar',
+                                                         '"some JSON string"') as stream:
+                    # Do something that triggers a log message
+                    await doSomething()
+                    # Wait for the mesg to be written to the stream
+                    await stream.wait(timeout=10)
+
+                data = stream.getvalue()
+                raw_mesgs = [m for m in data.split('\n') if m]
+                msgs = [json.loads(m) for m in raw_mesgs]
+                # Do something with messages
+
+        Returns:
+            AsyncStreamEvent: An AsyncStreamEvent object.
+        '''
+        stream = AsyncStreamEvent()
+        stream.setMesg(mesg)
+        handler = logging.StreamHandler(stream)
+        slogger = logging.getLogger(logname)
+        formatter = s_structlog.JsonFormatter()
+        handler.setFormatter(formatter)
+        slogger.addHandler(handler)
+        level = slogger.level
+        slogger.setLevel('DEBUG')
+        try:
+            yield stream
+        except Exception:  # pragma: no cover
+            raise
+        finally:
+            slogger.removeHandler(handler)
+            slogger.setLevel(level)
+
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
         '''
@@ -1631,6 +1682,25 @@ class SynTest(unittest.TestCase):
         with self.getTestDir() as dirn:
             with self.setSynDir(dirn):
                 yield dirn
+
+    @contextlib.contextmanager
+    def getTestCertDir(self, dirn):
+        '''
+        Patch the synapse.lib.certdir.certdir singleton and supporting functions
+        with a CertDir instance backed by the provided directory.
+
+        Args:
+            dirn (str): The directory used to back the new CertDir singleton.
+
+        Returns:
+            s_certdir.CertDir: The patched CertDir object that is the current singleton.
+        '''
+        with mock.patch('synapse.lib.certdir.defdir', dirn):
+            # Use the default behavior of creating the certdir from defdir
+            # which was just patched
+            certdir = s_certdir.CertDir()
+            with mock.patch('synapse.lib.certdir.certdir', certdir):
+                yield certdir
 
     def eq(self, x, y, msg=None):
         '''

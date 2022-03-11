@@ -811,6 +811,65 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             },
             'required': ('urlinfo', ),
         },
+        'inaugural': {
+            'defs': {
+                'rule': {
+                    'type': 'array',
+                    'items': [
+                        {'type': 'boolean'},
+                        {'type': 'array', 'items': {'type': 'string'}, },
+                    ],
+                    'minItems': 2,
+                    'maxItems': 2,
+                },
+                'role': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string',
+                                 'pattern': '^(?!all$).+$',
+                                 },
+                        'rules': {
+                            'type': 'array',
+                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
+                        }
+                    },
+                    'required': ['name', ],
+                    'additionalProperties': False,
+                },
+                'user': {
+                    'type': 'object',
+                    'properties': {
+                        'name': {'type': 'string',
+                                 'pattern': '^(?!root$).+$',
+                                 },
+                        'admin': {'type': 'boolean', 'default': False, },
+                        'email': {'type': 'string', },
+                        'roles': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        },
+                        'rules': {
+                            'type': 'array',
+                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
+                        },
+                    },
+                    'required': ['name', ],
+                    'additionalProperties': False,
+                }
+            },
+            'description': 'Data used to drive configuration of the Cell upon first startup.',
+            'type': 'object',
+            'properties': {
+                'roles': {
+                    'type': 'array',
+                    'items': {'$ref': '#/properties/inaugural/defs/role'}
+                },
+                'users': {
+                    'type': 'array',
+                    'items': {'$ref': '#/properties/inaugural/defs/user'}
+                }
+            },
+        },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
             'type': 'object',
@@ -959,6 +1018,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceStorage()
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
+
+        # We can now do nexus-safe operations
+        await self._initInauguralConfig()
+
         # phase 4 - service logic
         await self.initServiceRuntime()
         # phase 5 - service networking
@@ -2062,6 +2125,37 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.onfini(auth.fini)
         return auth
+
+    async def _initInauguralConfig(self):
+        if self.inaugural:
+            icfg = self.conf.get('inaugural')
+            if icfg is not None:
+
+                for rnfo in icfg.get('roles', ()):
+                    name = rnfo.get('name')
+                    logger.debug(f'Adding inaugural role {name}')
+                    iden = s_common.guid((self.iden, 'auth', 'role', name))
+                    role = await self.auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
+
+                    for rule in rnfo.get('rules', ()):
+                        await role.addRule(rule)
+
+                for unfo in icfg.get('users', ()):
+                    name = unfo.get('name')
+                    email = unfo.get('email')
+                    iden = s_common.guid((self.iden, 'auth', 'user', name))
+                    logger.debug(f'Adding inaugural user {name}')
+                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
+
+                    if unfo.get('admin'):
+                        await user.setAdmin(True)
+
+                    for rolename in unfo.get('roles', ()):
+                        role = await self.auth.reqRoleByName(rolename)
+                        await user.grant(role.iden)
+
+                    for rule in unfo.get('rules', ()):
+                        await user.addRule(rule)
 
     @contextlib.asynccontextmanager
     async def getLocalProxy(self, share='*', user='root'):

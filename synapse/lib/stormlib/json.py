@@ -11,15 +11,15 @@ import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
-def runJsSchema(schema, item):
-    # This is a target function for s_coro.forked
-    func = s_config.getJsValidator(schema)
+def runJsSchema(schema, item, use_default=True):
+    # This is a target function for s_coro.spawn
+    func = s_config.getJsValidator(schema, use_default=use_default)
     resp = func(item)
     return resp
 
-def compileJsSchema(schema):
-    # This is a target function for s_coro.forked
-    _ = s_config.getJsValidator(schema)
+def compileJsSchema(schema, use_default=True):
+    # This is a target function for s_coro.spawn
+    _ = s_config.getJsValidator(schema, use_default=use_default)
     return True
 
 @s_stormtypes.registry.registerType
@@ -46,10 +46,11 @@ class JsonSchema(s_stormtypes.StormType):
     )
     _ismutable = False
 
-    def __init__(self, runt, schema):
+    def __init__(self, runt, schema, use_default=True):
         s_stormtypes.StormType.__init__(self, None)
         self.runt = runt
         self.schema = schema
+        self.use_default = use_default
         self.locls.update(self.getObjLocals())
 
     async def stormrepr(self):
@@ -68,7 +69,7 @@ class JsonSchema(s_stormtypes.StormType):
         item = await s_stormtypes.toprim(item)
 
         try:
-            result = await s_coro.spawn((runJsSchema, (self.schema, item), {}))
+            result = await s_coro.spawn((runJsSchema, (self.schema, item), {'use_default': self.use_default}))
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -94,8 +95,11 @@ class JsonLib(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
         {'name': 'schema', 'desc': 'Get a JS schema validation object.',
          'type': {'type': 'function', '_funcname': '_jsonSchema',
-                  'args': ({'name': 'schema', 'type': 'dict',
-                            'desc': 'The JsonSchema to use.'},),
+                  'args': (
+                      {'name': 'schema', 'type': 'dict', 'desc': 'The JsonSchema to use.'},
+                      {'name': 'use_default', 'type': 'boolean', 'default': True,
+                       'desc': 'Whether to insert default schema values into the validated data structure.'},
+                  ),
                   'returns': {'type': 'storm:json:schema',
                               'desc': 'A validation object that can be used to validate data structures.'}}},
     )
@@ -124,13 +128,14 @@ class JsonLib(s_stormtypes.Lib):
             mesg = f'Text is not valid JSON: {text}'
             raise s_exc.BadJsonText(mesg=mesg)
 
-    async def _jsonSchema(self, schema):
+    async def _jsonSchema(self, schema, use_default=True):
         schema = await s_stormtypes.toprim(schema)
+        use_default = await s_stormtypes.tobool(use_default)
         # We have to ensure that we have a valid schema for making the object.
         try:
-            await s_coro.spawn((compileJsSchema, (schema,), {}))
+            await s_coro.spawn((compileJsSchema, (schema,), {'use_default': use_default}))
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
             raise s_exc.StormRuntimeError(mesg=f'Unable to compile Json Schema: {str(e)}', schema=schema) from e
-        return JsonSchema(self.runt, schema)
+        return JsonSchema(self.runt, schema, use_default=use_default)

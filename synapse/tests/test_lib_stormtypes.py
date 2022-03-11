@@ -15,6 +15,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
 import synapse.lib.httpapi as s_httpapi
@@ -1919,6 +1920,13 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('storm:auth:user', msgs)
             self.stormIsInPrint("'name': 'root'", msgs)
 
+            await core.stormlist('auth.user.add visi')
+
+            visi = await core.auth.getUserByName('visi')
+            opts = {'user': visi.iden}
+            self.true(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.true))', opts=opts))
+            self.false(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.false))', opts=opts))
+
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
@@ -2216,6 +2224,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(303, await core.callStorm('return($lib.time.dayofyear(20211031020304))'))
             self.eq(30, await core.callStorm('return($lib.time.dayofmonth(20211031020304))'))
             self.eq(9, await core.callStorm('return($lib.time.monthofyear(20211031020304))'))
+
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, EST))')
+            self.eq(valu, (True, tick + (s_time.onehour * 5)))
+
+            valu = await core.callStorm('return($lib.time.toUTC(2020, VISI))')
+            self.false(valu[0])
+            self.eq(valu[1]['err'], 'BadArg')
 
     async def test_storm_lib_time_ticker(self):
 
@@ -3390,6 +3406,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(counts.get('test:int'), 1003)
             self.eq(counts.get('test:guid'), 1)
 
+            opts = {'vars': {'props': {'asn': 'asdf'}}}
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            opts = {'vars': {'props': {'asn': '1234'}}}
+            nodes = await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
+            self.eq(1234, nodes[0].get('asn'))
+
     async def test_storm_view_deporder(self):
 
         async with self.getTestCore() as core:
@@ -3925,11 +3949,17 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                async with getCronJob("cron.add --minute 17 {$lib.queue.get(foo).put(m3)}") as guid:
-
-                    unixtime += 7 * MINSECS
-
-                    self.eq('m3', await getNextFoo())
+                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
+                text = f'cron.add --minute 17 {q}'
+                async with getCronJob(text) as guid:
+                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
+                        unixtime += 7 * MINSECS
+                        self.eq('m3', await getNextFoo())
+                        self.true(await stream.wait(6))
+                    buf = stream.getvalue()
+                    mesg = json.loads(buf.split('\n')[0])
+                    self.eq(mesg['message'], f'm3 cron {guid}')
+                    self.eq(mesg['iden'], guid)
 
                 ##################
 
@@ -4519,6 +4549,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.false(await core.callStorm('''
                 return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            self.true(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar, default=$lib.true))
             '''))
 
             await core.callStorm('''
