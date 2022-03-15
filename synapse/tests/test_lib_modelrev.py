@@ -140,7 +140,7 @@ class ModelRevTest(s_tests.SynTest):
 
                 async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
 
-                    self.eq(await core00.getLayer().getModelVers(), (0, 2, 7))
+                    self.true(await core00.getLayer().getModelVers() >= (0, 2, 7))
 
                     conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
 
@@ -161,7 +161,7 @@ class ModelRevTest(s_tests.SynTest):
 
                         await core01.sync()
 
-                        self.eq(await core01.getLayer().getModelVers(), (0, 2, 7))
+                        self.true(await core01.getLayer().getModelVers() >= (0, 2, 7))
 
                         nodes = await core01.nodes('inet:fqdn=baz.com')
                         self.len(1, nodes)
