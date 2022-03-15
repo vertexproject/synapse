@@ -1416,7 +1416,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # Minimum values
                 hist.add('bot', tick=0)
                 with self.raises(OverflowError):
-                    hist.add('eot', tick=-1)
+                    hist.add('bot', tick=-1)
 
                 # Maximum value we can store
                 hist.add('eot', tick=(2 * 9223372036854775807) + 1)
