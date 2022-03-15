@@ -670,8 +670,8 @@ class Axon(s_cell.Cell):
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V1, {'cell': self})
 
-    def _addSyncItem(self, item):
-        self.axonhist.add(item)
+    def _addSyncItem(self, item, tick=None):
+        self.axonhist.add(item, tick=tick)
         self.axonseqn.add(item)
 
     async def history(self, tick, tock=None):
