@@ -44,8 +44,9 @@ class Hist:
         self.slab = slab
         self.db = slab.initdb(name, dupsort=True)
 
-    def add(self, item):
-        tick = s_common.now()
+    def add(self, item, tick=None):
+        if tick is None:
+            tick = s_common.now()
         lkey = tick.to_bytes(8, 'big')
         self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
 
