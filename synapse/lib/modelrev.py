@@ -366,7 +366,12 @@ class ModelRev:
 
                 prop = self.core.model.prop((formname, propname))
                 async for buid, propvalu in layr.iterPropRows(formname, propname):
-                    norm = prop.type.norm(propvalu)[0]
+                    try:
+                        norm = prop.type.norm(propvalu)[0]
+                    except s_exc.BadTypeValu as e:
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'error re-norming {formname}:{propname}={propvalu} : {oldm}')
+                        continue
 
                     if norm == propvalu:
                         continue
