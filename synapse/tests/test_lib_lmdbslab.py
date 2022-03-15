@@ -1375,6 +1375,62 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 slab.delete(b'\x00\x01', b'hehe', db=bar)
                 self.raises(StopIteration, next, scan)
 
+    async def test_lmdbslab_hist(self):
+        with self.getTestDir() as dirn:
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path, map_size=1000000) as slab:
+                now = s_common.now()
+                hist = s_lmdbslab.Hist(slab, 'history')
+                hist.add('foo')
+                await asyncio.sleep(0.1)
+                hist.add('bar')
+                then = s_common.now()
+
+                items = []
+                for item in hist.carve(now, then):
+                    items.append(item)
+                self.len(2, items)
+                self.eq([item[1] for item in items], ['foo', 'bar'])
+
+                # Carve from an arbitrary point forward to the end
+                tick = items[1][0]
+                await asyncio.sleep(0.1)
+                hist.add('baz')
+                items = []
+                for item in hist.carve(tick):
+                    items.append(item)
+                self.len(2, items)
+                self.eq([item[1] for item in items], ['bar', 'baz'])
+
+                # Add a item at given tick and carve it
+                hist.add('timewarp', tick=now - 10)
+
+                items = []
+                for item in hist.carve(now - 15, then):
+                    items.append(item)
+                self.len(3, items)
+                self.eq([item[1] for item in items], ['timewarp', 'foo', 'bar'])
+
+                # boundary conditions
+
+                # Minimum values
+                hist.add('bot', tick=0)
+                with self.raises(OverflowError):
+                    hist.add('bot', tick=-1)
+
+                # Maximum value we can store
+                hist.add('eot', tick=(2 * 9223372036854775807) + 1)
+                with self.raises(OverflowError):
+                    hist.add('eot', tick=(2 * 9223372036854775807) + 2)
+
+                # Tablescan
+                items = []
+                for item in hist.carve(0):
+                    items.append(item[1])
+                self.len(6, items)
+                self.eq(items, ['bot', 'timewarp', 'foo', 'bar', 'baz', 'eot'])
+
+
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 
     async def test_lmdbslabmemlock(self):
