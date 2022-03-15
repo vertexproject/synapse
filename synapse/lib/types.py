@@ -657,7 +657,7 @@ class Hex(Type):
             valu = valu[2:]
 
         return (
-            ('^=', valu.lower(), self.stortype),
+            ('^=', valu, self.stortype),
         )
 
     def _normPyStr(self, valu):
