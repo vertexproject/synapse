@@ -129,11 +129,10 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The value of the currency recieved from the transaction.'}),
                 )),
                 ('crypto:currency:transaction', {}, (
-                    ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
+                    ('hash', ('hex', {}), {
                         'doc': 'The unique transaction hash for the transaction.'}),
                     ('desc', ('str', {}), {
                         'doc': 'An analyst specified description of the transaction.'}),
-
                     ('block', ('crypto:currency:block', {}), {
                         'doc': 'The block which records the transaction.'}),
                     ('block:coin', ('crypto:currency:coin', {}), {
@@ -182,7 +181,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
                     ('offset', ('int', {}), {
                         'doc': 'The index of this block.', 'ro': True, }),
-                    ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
+                    ('hash', ('hex', {}), {
                         'doc': 'The unique hash for the block.'}),
                     ('minedby', ('crypto:currency:address', {}), {
                         'doc': 'The address which mined the block.'}),

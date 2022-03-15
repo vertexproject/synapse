@@ -641,6 +641,7 @@ class Hex(Type):
 
         if type(valu) == str:
             if valu.endswith('*'):
+                valu = s_chop.hexstr(valu)
                 return (
                     ('^=', valu[:-1].lower(), self.stortype),
                 )
@@ -648,6 +649,7 @@ class Hex(Type):
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
+        valu = s_chop.hexstr(valu)
         return (
             ('^=', valu.lower(), self.stortype),
         )

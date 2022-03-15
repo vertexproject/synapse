@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 7)
+maxvers = (0, 2, 8)
 
 class ModelRev:
 
@@ -20,6 +20,7 @@ class ModelRev:
             ((0, 2, 5), self.revModel20210801),
             ((0, 2, 6), self.revModel20211112),
             ((0, 2, 7), self.revModel20220307),
+            ((0, 2, 8), self.revModel20220315),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -346,6 +347,49 @@ class ModelRev:
 
         for layr in layers:
             await self._normHugeTagProps(layr, tagprops)
+
+    async def revModel20220315(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for formname, propname in (
+                    ('geo:place', 'name'),
+                    ('crypto:currency:block', 'hash'),
+                    ('crypto:currency:transaction', 'hash')):
+
+                prop = self.core.model.prop((formname, propname))
+                async for buid, propvalu in layr.iterPropRows(formname, propname):
+                    norm = prop.type.norm(propvalu)[0]
+
+                    if norm == propvalu:
+                        continue
+
+                    nodeedits.append((buid, formname, (
+                        (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype)),
+                    )))
+
+                    if len(nodeedits) >= 1000:
+                        await save()
+
+                if nodeedits:
+                    await save()
+
+        query = '''
+            for $view in $lib.views.list(deporder=$lib.true) {
+                geo:place:name
+                [ geo:name=:name ]
+            }
+        '''
+        async for item in self.core.storm(query):
+            if item[0] in ('warn', 'err'):
+                logger.warning(f'error adding geo:name nodes: {item!r}')
 
     async def revCoreLayers(self):
 
