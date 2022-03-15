@@ -101,7 +101,7 @@ setup(
         'python-bitcoinlib==0.11.0',
         'pycryptodome>=3.11.0,<3.15.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
-        'scalecodec>=1.0.2,<1.0.29',  # synapse.vendor.substrateinterface req
+        'scalecodec>=1.0.2,<1.0.35',  # synapse.vendor.substrateinterface req
         'cbor2>=5.4.1,<5.4.3',
         'bech32==1.2.0',
         'oauthlib>=3.1.1,<4.0.0',
