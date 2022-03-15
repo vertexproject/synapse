@@ -92,7 +92,7 @@ setup(
         'aiosmtplib>=1.1.6,<2.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark-parser==0.11.2',
-        'Pygments>=2.7.4,<2.8.0',
+        'Pygments>=2.7.4,<2.11.2',
         'packaging>=20.0,<22.0',
         'fastjsonschema>=2.15.3,<2.16',
         'stix2-validator>=3.0.0,<4.0.0',
