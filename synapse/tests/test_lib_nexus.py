@@ -158,7 +158,7 @@ class NexusTest(s_t_utils.SynTest):
                 retn = await core00.nexsroot.nexslog.get(0)
                 self.nn(retn)
                 self.eq([0], core00.nexsroot.nexslog._ranges)
-                await self.agenlen(59, core00.nexsroot.nexslog.iter(0))
+                await self.agenlen(60, core00.nexsroot.nexslog.iter(0))
 
     async def test_nexus_setindex(self):
 
