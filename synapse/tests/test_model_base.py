@@ -5,6 +5,19 @@ import synapse.tests.utils as s_t_utils
 
 class BaseTest(s_t_utils.SynTest):
 
+    async def test_model_base_note(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
+            self.len(2, nodes)
+            self.len(1, await core.nodes('meta:note'))
+            self.len(1, await core.nodes('meta:note:created<=now'))
+            self.len(1, await core.nodes('meta:note:creator=$lib.user.iden'))
+            self.len(1, await core.nodes('meta:note:text="foo bar baz"'))
+            self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
+            self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
+            self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
+
     async def test_model_base_node(self):
 
         async with self.getTestCore() as core:
