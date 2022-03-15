@@ -18,6 +18,9 @@ class BaseModule(s_module.CoreModule):
                 ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
+                ('meta:note', ('guid', {}), {
+                    'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
+
                 ('graph:cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
                            'single node in the model.'}),
@@ -61,6 +64,18 @@ class BaseModule(s_module.CoreModule):
                     ('node', ('ndef', {}), {'ro': True,
                         'doc': 'The node which was observed by or received from the source.'}),
 
+                )),
+
+                ('meta:note', {}, (
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The analyst authored note text.'}),
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact information of the author.'}),
+                    ('creator', ('syn:user', {}), {
+                        'doc': 'The synapse user who authored the note.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the note was created.'}),
                 )),
 
                 ('graph:cluster', {}, (
