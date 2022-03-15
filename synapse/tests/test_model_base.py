@@ -18,6 +18,12 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
             self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
 
+            # Notes are always unique when made by note.add
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
+            self.len(2, await core.nodes('meta:note'))
+            self.ne(nodes[0].ndef, nodes[1].ndef)
+            self.eq(nodes[0].get('text'), nodes[1].get('text'))
+
     async def test_model_base_node(self):
 
         async with self.getTestCore() as core:
