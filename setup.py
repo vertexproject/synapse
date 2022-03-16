@@ -81,7 +81,7 @@ setup(
         'pyOpenSSL>=21.0.0,<22.0.0',
         'cryptography>=36.0.0,<39.0.0',
         'msgpack>=1.0.2,<1.1.0',
-        'xxhash>=1.4.4,<2.1.0',
+        'xxhash>=1.4.4,<3.1.0',
         'lmdb>=1.2.1,<1.4.0',
         'tornado>=6.1.0,<7.0.0',
         'regex>=2021.7.1',
@@ -92,16 +92,16 @@ setup(
         'aiosmtplib>=1.1.6,<2.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark-parser==0.11.2',
-        'Pygments>=2.7.4,<2.8.0',
+        'Pygments>=2.7.4,<2.11.2',
         'packaging>=20.0,<22.0',
         'fastjsonschema>=2.15.3,<2.16',
         'stix2-validator>=3.0.0,<4.0.0',
         'vcrpy>=4.1.1,<4.2.0',
         'base58>=2.1.0,<2.2.0',
         'python-bitcoinlib==0.11.0',
-        'pycryptodome>=3.11.0,<3.14.0',
+        'pycryptodome>=3.11.0,<3.15.0',
         'typing-extensions>=3.7.4,<5.0.0',  # synapse.vendor.xrpl req
-        'scalecodec>=1.0.2,<1.0.29',  # synapse.vendor.substrateinterface req
+        'scalecodec>=1.0.2,<1.0.35',  # synapse.vendor.substrateinterface req
         'cbor2>=5.4.1,<5.4.3',
         'bech32==1.2.0',
         'oauthlib>=3.1.1,<4.0.0',
