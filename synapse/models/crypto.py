@@ -117,7 +117,7 @@ class CryptoModule(s_module.CoreModule):
             'forms': (
 
                 ('crypto:payment:input', {}, (
-                    ('transaction' ('crypto:currency:transaction', {}), {
+                    ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction the payment was input to.'}),
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which paid into the transaction.'}),
@@ -125,7 +125,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The value of the currency paid into the transaction.'}),
                 )),
                 ('crypto:payment:output', {}, (
-                    ('transaction' ('crypto:currency:transaction', {}), {
+                    ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction the payment was output from.'}),
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which received payment from the transaction.'}),
