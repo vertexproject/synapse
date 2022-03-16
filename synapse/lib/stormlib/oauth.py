@@ -21,7 +21,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
                 'type': 'function', '_funcname': '_methClient',
                 'args': (
                     {'name': 'ckey', 'type': 'str',
-                     'desc': 'The OAuthV1 Consumer Key to store and use for sigining requests.'},
+                     'desc': 'The OAuthV1 Consumer Key to store and use for signing requests.'},
                     {'name': 'csecret', 'type': 'str',
                      'desc': 'The OAuthV1 Consumer Secret used to sign requests.'},
                     {'name': 'atoken', 'type': 'str',

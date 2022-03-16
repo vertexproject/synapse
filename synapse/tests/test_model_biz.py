@@ -149,7 +149,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('type'), 'woot.woot.')
             self.eq(nodes[0].get('summary'), 'WootWithWootSauce')
             self.eq(nodes[0].get('price:retail'), '29.99')
-            self.eq(nodes[0].get('price:bottom'), '3.20')
+            self.eq(nodes[0].get('price:bottom'), '3.2')
 
             self.nn(nodes[0].get('bundles'))
 

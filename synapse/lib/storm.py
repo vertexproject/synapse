@@ -1386,6 +1386,21 @@ stormcmds = (
 
         ''',
     },
+    {
+        'name': 'note.add',
+        'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
+        'cmdargs': (
+            ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
+        ),
+        'storm': '''
+            function addNoteNode(text) {
+                [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                return($node)
+            }
+            init { $note = $addNoteNode($cmdopts.text) }
+            [ <(about)+ { yield $note } ]
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
@@ -3757,7 +3772,7 @@ class TeeCmd(Cmd):
                           help='Emit inbound nodes after processing storm queries.')
 
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
-                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not guaranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')

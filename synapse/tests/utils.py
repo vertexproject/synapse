@@ -266,8 +266,8 @@ testmodel = {
         )),
 
         ('test:compcomp', {}, (
-            ('comp1', ('test:comp', {}), {}),
-            ('comp2', ('test:comp', {}), {}),
+            ('comp1', ('test:comp', {}), {'ro': True}),
+            ('comp2', ('test:comp', {}), {'ro': True}),
         )),
 
         ('test:complexcomp', {}, (
@@ -331,8 +331,8 @@ testmodel = {
         )),
 
         ('test:pivcomp', {}, (
-            ('targ', ('test:pivtarg', {}), {}),
-            ('lulz', ('test:str', {}), {}),
+            ('targ', ('test:pivtarg', {}), {'ro': True}),
+            ('lulz', ('test:str', {}), {'ro': True}),
             ('tick', ('time', {}), {}),
             ('size', ('test:int', {}), {}),
             ('width', ('test:int', {}), {}),

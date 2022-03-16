@@ -252,6 +252,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
 
+                layr = core01.getLayer(layr01iden)
+                await layr.storNodeEdits((), {})
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:
@@ -5545,6 +5548,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
                 await core.delTagProp('added')
+
+                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
+                await core.nodes('[ _hehe:array=(1,2,3) ]')
+                self.len(1, await core.nodes('_hehe:array=(1,2,3)'))
 
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:

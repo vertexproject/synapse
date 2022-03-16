@@ -1235,6 +1235,12 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
                         'doc': 'A url/link embedded in an email message.',
                     }),
+                    ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+                        'doc': 'A TLS JARM fingerprint hash.',
+                    }),
+                    ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
+                        'doc': 'A JARM hash sample taken from a server.',
+                    }),
                 ),
 
                 'interfaces': (
@@ -2438,7 +2444,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date of the whois record.'
                         }),
                         ('type', ('str', {'lower': True}), {
-                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'
+                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
+                            'ro': True,
                         }),
                         ('id', ('str', {'lower': True}), {
                             'doc': 'The ID associated with the contact.'
@@ -2673,10 +2680,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:wifi:ap', {}, (
 
                         ('ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The SSID for the wireless access point.'}),
+                            'doc': 'The SSID for the wireless access point.', 'ro': True, }),
 
                         ('bssid', ('inet:mac', {}), {
-                            'doc': 'The MAC address for the wireless access point.'}),
+                            'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
@@ -2701,6 +2708,23 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:wifi:ssid', {}, ()),
+
+                    ('inet:ssl:jarmhash', {}, (
+                        ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
+                            'ro': True,
+                            'doc': 'The encoded cipher and TLS version of the server.'}),
+                        ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
+                            'ro': True,
+                            'doc': 'The truncated SHA256 of the TLS server extensions.'}),
+                    )),
+                    ('inet:ssl:jarmsample', {}, (
+                        ('jarmhash', ('inet:ssl:jarmhash', {}), {
+                            'ro': True,
+                            'doc': 'The JARM hash computed from the server responses.'}),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that was sampled to compute the JARM hash.'}),
+                    )),
 
                 ),
             }),

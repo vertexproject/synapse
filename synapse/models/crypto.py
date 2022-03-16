@@ -179,9 +179,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:currency:block', {}, (
                     ('coin', ('crypto:currency:coin', {}), {
-                        'doc': 'The coin/blockchain this block resides on.'}),
+                        'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
                     ('offset', ('int', {}), {
-                        'doc': 'The index of this block.'}),
+                        'doc': 'The index of this block.', 'ro': True, }),
                     ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
                         'doc': 'The unique hash for the block.'}),
                     ('minedby', ('crypto:currency:address', {}), {
@@ -207,9 +207,9 @@ class CryptoModule(s_module.CoreModule):
                 )),
                 ('crypto:smart:token', {}, (
                     ('contract', ('crypto:smart:contract', {}), {
-                            'doc': 'The smart contract which defines and manages the token.'}),
+                            'doc': 'The smart contract which defines and manages the token.', 'ro': True, }),
                     ('tokenid', ('hugenum', {}), {
-                            'doc': 'The token ID.'}),
+                            'doc': 'The token ID.', 'ro': True, }),
                     ('owner', ('crypto:currency:address', {}), {
                             'doc': 'The address which currently owns the token.'}),
                     ('nft:url', ('inet:url', {}), {
@@ -231,9 +231,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:currency:address', {}, (
                     ('coin', ('crypto:currency:coin', {}), {
-                        'doc': 'The crypto coin to which the address belongs.'}),
+                        'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
                     ('iden', ('str', {}), {
-                        'doc': 'The coin specific address identifier.'}),
+                        'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the address.'}),
                     ('contact', ('ps:contact', {}), {
@@ -242,9 +242,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:currency:client', {}, (
                     ('inetaddr', ('inet:client', {}), {
-                        'doc': 'The Internet client address observed using the crypto currency address.'}),
+                        'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
                     ('coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address observed in use the the Internet client.'}),
+                        'doc': 'The crypto currency address observed in use the the Internet client.', 'ro': True, }),
                 )),
 
                 ('hash:md5', {}, ()),
@@ -269,9 +269,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:signedfile', {}, (
                     ('cert', ('crypto:x509:cert', {}), {
-                        'doc': 'The certificate for the key which signed the file.'}),
+                        'doc': 'The certificate for the key which signed the file.', 'ro': True, }),
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file which was signed by the certificates key.'}),
+                        'doc': 'The file which was signed by the certificates key.', 'ro': True, }),
                 )),
 
                 ('crypto:x509:crl', {}, (
@@ -283,9 +283,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:revoked', {}, (
                     ('crl', ('crypto:x509:crl', {}), {
-                        'doc': 'The CRL which revoked the certificate.'}),
+                        'doc': 'The CRL which revoked the certificate.', 'ro': True, }),
                     ('cert', ('crypto:x509:cert', {}), {
-                        'doc': 'The certificate revoked by the CRL.'}),
+                        'doc': 'The certificate revoked by the CRL.', 'ro': True, }),
                 )),
 
                 ('crypto:x509:cert', {}, (
