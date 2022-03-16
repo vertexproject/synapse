@@ -63,6 +63,54 @@ for $view in $views {
 }
 '''
 
+storm_geoplace_to_geoname = '''
+for $view in $lib.view.list(deporder=$lib.true) {
+    view.exec $view.iden {
+        geo:place:name
+        [ geo:name=:name ]
+    }
+}
+'''
+
+storm_crypto_txin = '''$views = $lib.view.list(deporder=$lib.true)
+        for $view in $views {
+            view.exec $view.iden {
+
+                function addInputXacts() {
+                    crypto:payment:input -:transaction
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    [ :transaction=$xact ]
+                    fini { return() }
+                }
+
+                function addOutputXacts() {
+                    crypto:payment:output -:transaction
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    [ :transaction=$xact ]
+                    fini { return() }
+                }
+
+                function wipeInputsArray() {
+                    crypto:currency:transaction:inputs
+                    [ -:inputs ]
+                    fini { return() }
+                }
+
+                function wipeOutputsArray() {
+                    crypto:currency:transaction:outputs
+                    [ -:outputs ]
+                    fini { return() }
+                }
+
+                $addInputXacts()
+                $addOutputXacts()
+                $wipeInputsArray()
+                $wipeOutputsArray()
+            }
+        }
+        | model.deprecated.lock crypto:currency:transaction:inputs
+        | model.deprecated.lock crypto:currency:transaction:outputs
+'''
 
 hotfixes = (
     ((1, 0, 0), {
@@ -76,6 +124,14 @@ hotfixes = (
     ((3, 0, 0), {
         'desc': 'Populate it:sec:cpe:v2_2 properties from existing CPE where the property is not set.',
         'query': storm_missing_cpe22,
+    }),
+    ((4, 0, 0), {
+        'desc': 'Make geo:name nodes from geo:name values.',
+        'query': storm_geoplace_to_geoname,
+    }),
+    ((5, 0, 0), {
+        'desc': 'Update crypto:currency:transaction ',
+        'query': storm_crypto_txin,
     }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'
@@ -155,7 +211,7 @@ class CellLib(s_stormtypes.Lib):
             assert desc is not None
             assert vars is not None
 
-            await self.runt.printf(f'Applying fix {vers} for [{desc}]')
+            await self.runt.printf(f'Applying hotfix {vers} for [{desc}]')
             try:
                 query = await self.runt.getStormQuery(text)
                 async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
@@ -164,11 +220,11 @@ class CellLib(s_stormtypes.Lib):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                logger.exception(f'Error applying stormfix {vers}')
+                logger.exception(f'Error applying storm hotfix {vers}')
                 raise
             else:
                 await self.runt.snap.core.setStormVar(runtime_fixes_key, vers)
-                await self.runt.printf(f'Applied fix {vers}')
+                await self.runt.printf(f'Applied hotfix {vers}')
             curv = vers
 
         return curv

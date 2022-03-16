@@ -1058,6 +1058,11 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'string',
             ],
         },
+        'storm:hotfixes': {
+            'default': True,
+            'description': 'Run Storm hotfixes during Cortex startup.',
+            'type': 'boolean',
+        },
         'storm:interface:search': {
             'default': True,
             'description': 'Enable Storm search interfaces for lookup mode.',
@@ -1326,6 +1331,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self._initCoreMods()
         await self._initStormSvcs()
 
+        if self.isactive:
+            await self._runHotfixes()
+
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use
         self.dmon.share('cortex', self)
@@ -1348,6 +1356,21 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for layer in self.layers.values():
             await layer.initLayerPassive()
+
+    async def _runHotfixes(self):
+        dohotfixes = self.conf.reqConfValu('storm:hotfixes')
+        if not dohotfixes:
+            return
+        text = '$lib.cell.hotFixesApply()'
+        async for item in self.storm(text):
+            if item[0] in ('print', ):
+                logger.debug(f'Hotfix message: {item[0].get("mesg")}')
+                continue
+            if item[0] in ('warn', ):
+                logger.warning(f'Hotfix message: {item[0].get("mesg")}')
+                continue
+            if item[0] in ('err', ):
+                logger.warning(f'Hotfix error: {item}')
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
