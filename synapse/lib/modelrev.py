@@ -387,14 +387,58 @@ class ModelRev:
                     await save()
 
         query = '''
-            for $view in $lib.views.list(deporder=$lib.true) {
+        for $view in $lib.views.list(deporder=$lib.true) {
+            view.exec $view.iden {
                 geo:place:name
                 [ geo:name=:name ]
             }
+        }
         '''
         async for item in self.core.storm(query):
             if item[0] in ('warn', 'err'):
                 logger.warning(f'error adding geo:name nodes: {item!r}')
+
+        query = '''
+        $views = $lib.view.list(deporder=$lib.true)
+        for $view in $views {
+            view.exec $view.iden {
+
+                function addInputXacts() {
+                    crypto:payment:input -:transaction
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    [ :transaction=$xact ]
+                    fini { return() }
+                }
+
+                function addOutputXacts() {
+                    crypto:payment:output -:transaction
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    [ :transaction=$xact ]
+                    fini { return() }
+                }
+
+                function wipeInputsArray() {
+                    crypto:currenty:transaction:inputs
+                    [ -:inputs ]
+                    fini { return() }
+                }
+
+                function wipeOutputsArray() {
+                    crypto:currenty:transaction:outputs
+                    [ -:outputs ]
+                    fini { return() }
+                }
+
+                $addInputXacts()
+                $addOutputXacts()
+                $wipeInputsArray()
+                $wipeOutputsArray()
+            }
+        }
+        '''
+        async for item in self.core.storm(query):
+            if item[0] in ('warn', 'err'):
+                logger.warning(f'error updating crypto payment transactions: {item!r}')
 
     async def revCoreLayers(self):
 

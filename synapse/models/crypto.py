@@ -117,12 +117,16 @@ class CryptoModule(s_module.CoreModule):
             'forms': (
 
                 ('crypto:payment:input', {}, (
+                    ('transaction' ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction the payment was input to.'}),
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which paid into the transaction.'}),
                     ('value', ('econ:price', {}), {
                         'doc': 'The value of the currency paid into the transaction.'}),
                 )),
                 ('crypto:payment:output', {}, (
+                    ('transaction' ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction the payment was output from.'}),
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which received payment from the transaction.'}),
                     ('value', ('econ:price', {}), {
@@ -152,9 +156,11 @@ class CryptoModule(s_module.CoreModule):
                     ('from', ('crypto:currency:address', {}), {
                         'doc': 'The source address of the transaction.'}),
                     ('inputs', ('array', {'type': 'crypto:payment:input', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of payment inputs to the transaction.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use crypto:payment:input:transaction.'}),
                     ('outputs', ('array', {'type': 'crypto:payment:output', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of payment outputs from the transaction.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use crypto:payment:output:transaction.'}),
                     ('fee', ('econ:price', {}), {
                         'doc': 'The total fee paid to execute the transaction.'}),
                     ('value', ('econ:price', {}), {
