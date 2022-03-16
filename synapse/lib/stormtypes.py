@@ -619,8 +619,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.disableStormDmon(iden)
-        return True
+        return await self.runt.snap.core.disableStormDmon(iden)
 
     async def _libDmonStart(self, iden):
         iden = await tostr(iden)
@@ -632,8 +631,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.enableStormDmon(iden)
-        return True
+        return await self.runt.snap.core.enableStormDmon(iden)
 
 @registry.registerLib
 class LibService(Lib):
