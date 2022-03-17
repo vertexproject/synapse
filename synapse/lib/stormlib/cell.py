@@ -135,7 +135,7 @@ hotfixes = (
         'query': storm_geoplace_to_geoname,
     }),
     ((4, 2, 0), {
-        'desc': 'Update crypto:currency:transaction ',
+        'desc': 'Update crypto:currency:transaction :input and :output property use.',
         'query': storm_crypto_txin,
     }),
 )
