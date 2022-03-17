@@ -1376,6 +1376,9 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         fut = self.schedCoro(hotfixes())
         await fut
+        # Let synapse.lib.task.Task's clean up before returning.
+        for _ in range(3):
+            await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
