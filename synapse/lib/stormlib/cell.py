@@ -77,16 +77,20 @@ storm_crypto_txin = '''$views = $lib.view.list(deporder=$lib.true)
             view.exec $view.iden {
 
                 function addInputXacts() {
-                    crypto:payment:input -:transaction
+                    crypto:payment:input -:transaction $xact = $lib.null
                     { -> crypto:currency:transaction $xact=$node.value() }
-                    [ :transaction=$xact ]
+                    if $xact {
+                        [ :transaction=$xact ]
+                    }
                     fini { return() }
                 }
 
                 function addOutputXacts() {
-                    crypto:payment:output -:transaction
+                    crypto:payment:output -:transaction $xact = $lib.null
                     { -> crypto:currency:transaction $xact=$node.value() }
-                    [ :transaction=$xact ]
+                    if $xact {
+                        [ :transaction=$xact ]
+                    }
                     fini { return() }
                 }
 
@@ -125,11 +129,11 @@ hotfixes = (
         'desc': 'Populate it:sec:cpe:v2_2 properties from existing CPE where the property is not set.',
         'query': storm_missing_cpe22,
     }),
-    ((4, 0, 0), {
-        'desc': 'Make geo:name nodes from geo:name values.',
+    ((4, 1, 0), {
+        'desc': 'Make geo:name nodes from geo:place:name values.',
         'query': storm_geoplace_to_geoname,
     }),
-    ((5, 0, 0), {
+    ((4, 2, 0), {
         'desc': 'Update crypto:currency:transaction ',
         'query': storm_crypto_txin,
     }),

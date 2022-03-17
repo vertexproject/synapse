@@ -1935,3 +1935,22 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.checkLayrvers(core)
+
+    async def test_migr_geoname_crypto(self):
+        # Test geo:place:name re-norming
+        # Test crypto:currency:block:hash re-norming
+        # Test crypto:currency:transaction:hash re-norming
+        async with self.getRegrCore('2.87.0-geo-crypto') as core:
+            # for node in await core.nodes('.created'):
+            #     print(node)
+
+            nodes = await core.nodes('geo:place:name')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:currency:block:hash')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:currency:transaction:hash')
+            self.len(1, nodes)
+
+            print(nodes[0])

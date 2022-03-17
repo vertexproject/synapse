@@ -364,7 +364,7 @@ class ModelRev:
                     ('crypto:currency:block', 'hash'),
                     ('crypto:currency:transaction', 'hash')):
 
-                prop = self.core.model.prop((formname, propname))
+                prop = self.core.model.prop(f'{formname}:{propname}')
                 async for buid, propvalu in layr.iterPropRows(formname, propname):
                     try:
                         norm = prop.type.norm(propvalu)[0]
@@ -376,11 +376,13 @@ class ModelRev:
                     if norm == propvalu:
                         continue
 
-                    nodeedits.append((buid, formname, (
-                        (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype)),
-                    )))
+                    nodeedits.append(
+                        (buid, formname, (
+                            (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
 
-                    if len(nodeedits) >= 1000:
+                    if len(nodeedits) >= 1000:  # pragma: no cover
                         await save()
 
                 if nodeedits:
