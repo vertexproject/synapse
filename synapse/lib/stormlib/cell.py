@@ -72,48 +72,49 @@ for $view in $lib.view.list(deporder=$lib.true) {
 }
 '''
 
-storm_crypto_txin = '''$views = $lib.view.list(deporder=$lib.true)
-        for $view in $views {
-            view.exec $view.iden {
+storm_crypto_txin = '''
+$views = $lib.view.list(deporder=$lib.true)
+    for $view in $views {
+        view.exec $view.iden {
 
-                function addInputXacts() {
-                    crypto:payment:input -:transaction $xact = $lib.null
-                    { -> crypto:currency:transaction $xact=$node.value() }
-                    if $xact {
-                        [ :transaction=$xact ]
-                    }
-                    fini { return() }
+            function addInputXacts() {
+                crypto:payment:input -:transaction $xact = $lib.null
+                { -> crypto:currency:transaction $xact=$node.value() }
+                if $xact {
+                    [ :transaction=$xact ]
                 }
-
-                function addOutputXacts() {
-                    crypto:payment:output -:transaction $xact = $lib.null
-                    { -> crypto:currency:transaction $xact=$node.value() }
-                    if $xact {
-                        [ :transaction=$xact ]
-                    }
-                    fini { return() }
-                }
-
-                function wipeInputsArray() {
-                    crypto:currency:transaction:inputs
-                    [ -:inputs ]
-                    fini { return() }
-                }
-
-                function wipeOutputsArray() {
-                    crypto:currency:transaction:outputs
-                    [ -:outputs ]
-                    fini { return() }
-                }
-
-                $addInputXacts()
-                $addOutputXacts()
-                $wipeInputsArray()
-                $wipeOutputsArray()
+                fini { return() }
             }
+
+            function addOutputXacts() {
+                crypto:payment:output -:transaction $xact = $lib.null
+                { -> crypto:currency:transaction $xact=$node.value() }
+                if $xact {
+                    [ :transaction=$xact ]
+                }
+                fini { return() }
+            }
+
+            function wipeInputsArray() {
+                crypto:currency:transaction:inputs
+                [ -:inputs ]
+                fini { return() }
+            }
+
+            function wipeOutputsArray() {
+                crypto:currency:transaction:outputs
+                [ -:outputs ]
+                fini { return() }
+            }
+
+            $addInputXacts()
+            $addOutputXacts()
+            $wipeInputsArray()
+            $wipeOutputsArray()
         }
-        | model.deprecated.lock crypto:currency:transaction:inputs
-        | model.deprecated.lock crypto:currency:transaction:outputs
+    }
+    | model.deprecated.lock crypto:currency:transaction:inputs
+    | model.deprecated.lock crypto:currency:transaction:outputs
 '''
 
 hotfixes = (
