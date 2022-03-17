@@ -1358,19 +1358,24 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layer.initLayerPassive()
 
     async def _runHotfixes(self):
-        dohotfixes = self.conf.reqConfValu('storm:hotfixes')
-        if not dohotfixes:
+        if not self.conf.reqConfValu('storm:hotfixes'):
             return
-        text = '$lib.cell.hotFixesApply()'
-        async for item in self.storm(text):
-            if item[0] in ('print', ):
-                logger.debug(f'Hotfix message: {item[0].get("mesg")}')
-                continue
-            if item[0] in ('warn', ):
-                logger.warning(f'Hotfix message: {item[0].get("mesg")}')
-                continue
-            if item[0] in ('err', ):
-                logger.warning(f'Hotfix error: {item}')
+
+        # Run the hotfixes in their own asyncio task.
+        async def hotfixes():
+            text = '$lib.cell.hotFixesApply()'
+            async for item in self.storm(text):
+                if item[0] in ('print', ):
+                    logger.debug(f'Hotfix message: {item[0].get("mesg")}')
+                    continue
+                if item[0] in ('warn', ):
+                    logger.warning(f'Hotfix message: {item[0].get("mesg")}')
+                    continue
+                if item[0] in ('err', ):
+                    logger.warning(f'Hotfix error: {item}')
+
+        fut = self.schedCoro(hotfixes())
+        await fut
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
