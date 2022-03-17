@@ -1372,7 +1372,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                     logger.warning(f'Hotfix message: {item[0].get("mesg")}')
                     continue
                 if item[0] in ('err', ):
-                    logger.warning(f'Hotfix error: {item}')
+                    logger.error(f'Hotfix error: {item}')
 
         fut = self.schedCoro(hotfixes())
         await fut
