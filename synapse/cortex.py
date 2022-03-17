@@ -1366,10 +1366,10 @@ class Cortex(s_cell.Cell):  # type: ignore
             text = '$lib.cell.hotFixesApply()'
             async for item in self.storm(text):
                 if item[0] in ('print', ):
-                    logger.debug(f'Hotfix message: {item[0].get("mesg")}')
+                    logger.debug(f'Hotfix message: {item[1].get("mesg")}')
                     continue
                 if item[0] in ('warn', ):
-                    logger.warning(f'Hotfix message: {item[0].get("mesg")}')
+                    logger.warning(f'Hotfix message: {item[1].get("mesg")}')
                     continue
                 if item[0] in ('err', ):
                     logger.error(f'Hotfix error: {item}')
