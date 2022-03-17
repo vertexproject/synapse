@@ -187,17 +187,7 @@ class StormCellTest(s_test.SynTest):
         # Test crypto:currency:transaction model update
         async with self.getRegrCore('2.87.0-geo-crypto', conf={'storm:hotfixes': False}) as core:
 
-            # nodes = await core.nodes('.created')
-            # for node in nodes:
-            #     print(node)
-
             msgs = await core.stormlist('$lib.cell.hotFixesApply()')
-            # for m in msgs:
-            #     print(m)
-
-            # nodes = await core.nodes('.created')
-            # for node in nodes:
-            #     print(node)
 
             self.stormIsInPrint('Applying hotfix (4, 1, 0) ', msgs)
             self.stormIsInPrint('Applying hotfix (4, 2, 0) ', msgs)

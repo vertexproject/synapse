@@ -1941,8 +1941,6 @@ class LayerTest(s_t_utils.SynTest):
         # Test crypto:currency:block:hash re-norming
         # Test crypto:currency:transaction:hash re-norming
         async with self.getRegrCore('2.87.0-geo-crypto') as core:
-            # for node in await core.nodes('.created'):
-            #     print(node)
 
             nodes = await core.nodes('geo:place:name="big hollywood sign"')
             self.len(1, nodes)
