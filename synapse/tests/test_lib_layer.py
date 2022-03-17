@@ -1944,13 +1944,15 @@ class LayerTest(s_t_utils.SynTest):
             # for node in await core.nodes('.created'):
             #     print(node)
 
-            nodes = await core.nodes('geo:place:name')
+            nodes = await core.nodes('geo:place:name="big hollywood sign"')
             self.len(1, nodes)
 
             nodes = await core.nodes('crypto:currency:block:hash')
             self.len(1, nodes)
+            valu = nodes[0].get('hash')  # type: str
+            self.false(valu.startswith('0x'))
 
             nodes = await core.nodes('crypto:currency:transaction:hash')
             self.len(1, nodes)
-
-            print(nodes[0])
+            valu = nodes[0].get('hash')  # type: str
+            self.false(valu.startswith('0x'))
