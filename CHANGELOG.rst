@@ -15,7 +15,7 @@ Features and Enhancements
   (`#2592 <https://github.com/vertexproject/synapse/pull/2592>`_)
 
   ``inet:ssl:jarmhash``
-    Add a form to record JARM hashs.
+    Add a form to record JARM hashes.
 
   ``inet:ssl:jarmsample``
     Add a form to record JARM hashes being present on a server.
