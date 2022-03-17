@@ -10,8 +10,7 @@ v2.87.0 - TBD
 
 Features and Enhancements
 -------------------------
-- Several updates for the ``crypto``, ``geo``, ``inet``, ``meta``, ``ps`` and
-  ``risk`` models.
+- Several updates for the ``inet`` and ``meta`` models.
   (`#2589 <https://github.com/vertexproject/synapse/pull/2589>`_)
   (`#2592 <https://github.com/vertexproject/synapse/pull/2592>`_)
 
