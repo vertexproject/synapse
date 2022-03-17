@@ -4,9 +4,9 @@
 Synapse Changelog
 *****************
 
+
 v2.87.0 - TBD
 =============
-
 
 Features and Enhancements
 -------------------------
