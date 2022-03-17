@@ -4,6 +4,50 @@
 Synapse Changelog
 *****************
 
+v2.87.0 - TBD
+=============
+
+
+Features and Enhancements
+-------------------------
+- Several updates for the ``crypto``, ``geo``, ``inet``, ``meta``, ``ps`` and
+  ``risk`` models.
+  (`#2589 <https://github.com/vertexproject/synapse/pull/2589>`_)
+  (`#2592 <https://github.com/vertexproject/synapse/pull/2592>`_)
+
+  ``inet:ssl:jarmhash``
+    Add a form to record JARM hashs.
+
+  ``inet:ssl:jarmsample``
+    Add a form to record JARM hashes being present on a server.
+
+  ``meta:note``
+    Add a form for recording free text notes.
+
+- Update the Synapse docker containers to be built from a Ubuntu based image,
+  instead of a Debian based image.
+  (`#2596 <https://github.com/vertexproject/synapse/pull/2596>`_)
+- Add a Storm ``note.add`` command that creates a ``meta:note`` node to record
+  free text, and links that node to the input nodes using a ``about`` light
+  edge.
+  (`#2592 <https://github.com/vertexproject/synapse/pull/2592>`_)
+- Support non-writeable or non-existing directories with Synapse ``certdir``
+  directories.
+  (`#2590 <https://github.com/vertexproject/synapse/pull/2590>`_)
+- Add an optional ``tick`` argument to the
+  ``synapse.lib.lmdbslab.Hist.add()`` function. This is exposed internally
+  for Axon implementations to use.
+  (`#2593 <https://github.com/vertexproject/synapse/pull/2593>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``pycryptome``, ``pygments``, ``scalecodec`` and ``xxhash`` modules.
+  (`#2598 <https://github.com/vertexproject/synapse/pull/2598>`_)
+
+Bugfixes
+--------
+- Fix an issue where the StormDmon stop/start status was not properly being
+  updated in the runtime object, despite being properly updated in the Hive.
+  (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
+
 
 v2.86.0 - 2022-03-09
 ====================
