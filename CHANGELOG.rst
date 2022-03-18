@@ -27,10 +27,10 @@ Features and Enhancements
   instead of a Debian based image.
   (`#2596 <https://github.com/vertexproject/synapse/pull/2596>`_)
 - Add a Storm ``note.add`` command that creates a ``meta:note`` node to record
-  free text, and links that node to the input nodes using a ``about`` light
+  freeform text, and links that node to the input nodes using a ``about`` light
   edge.
   (`#2592 <https://github.com/vertexproject/synapse/pull/2592>`_)
-- Support non-writeable or non-existing directories with Synapse ``certdir``
+- Support non-writeable or non-existing directories within Synapse ``certdir``
   directories.
   (`#2590 <https://github.com/vertexproject/synapse/pull/2590>`_)
 - Add an optional ``tick`` argument to the
