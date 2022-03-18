@@ -531,13 +531,14 @@ class LibDmon(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.', },
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': 'True if the Dmon is stopped; False if the iden does not exist.', }}},
+                              'desc': '$lib.true unless the dmon does not exist or was already stopped.', }}},
         {'name': 'start', 'desc': 'Start a storm dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStart',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.', },
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'Returns True.', }}},
+                  'returns': {'type': 'boolean',
+                              'desc': '$lib.true unless the dmon does not exist or was already started.', }}},
     )
     _storm_lib_path = ('dmon',)
 
@@ -619,8 +620,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.disableStormDmon(iden)
-        return True
+        return await self.runt.snap.core.disableStormDmon(iden)
 
     async def _libDmonStart(self, iden):
         iden = await tostr(iden)
@@ -632,8 +632,7 @@ class LibDmon(Lib):
         viewiden = ddef['stormopts']['view']
         self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
-        await self.runt.snap.core.enableStormDmon(iden)
-        return True
+        return await self.runt.snap.core.enableStormDmon(iden)
 
 @registry.registerLib
 class LibService(Lib):

@@ -4172,35 +4172,41 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
-        ddef = self.stormdmonhive.get(iden)
-        if ddef is None:
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
             return False
 
-        curv = ddef.get('enabled')
+        if dmon.enabled:
+            return False
 
-        ddef['enabled'] = True
-        await self.stormdmonhive.set(iden, ddef)
+        dmon.enabled = True
+        dmon.ddef['enabled'] = True
 
-        if self.isactive and not curv:
-            dmon = self.stormdmons.getDmon(iden)
+        await self.stormdmonhive.set(iden, dmon.ddef)
+
+        if self.isactive:
             await dmon.run()
+
         return True
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:disable')
     async def disableStormDmon(self, iden):
 
-        ddef = self.stormdmonhive.get(iden)
-        if ddef is None:
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
             return False
 
-        curv = ddef.get('enabled')
+        if not dmon.enabled:
+            return False
 
-        ddef['enabled'] = False
-        await self.stormdmonhive.set(iden, ddef)
+        dmon.enabled = False
+        dmon.ddef['enabled'] = False
 
-        if self.isactive and curv:
-            dmon = self.stormdmons.getDmon(iden)
+        await self.stormdmonhive.set(iden, dmon.ddef)
+
+        if self.isactive:
             await dmon.stop()
+
         return True
 
     @s_nexus.Pusher.onPush('storm:dmon:add')
