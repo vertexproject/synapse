@@ -67,7 +67,7 @@ class StormCellTest(s_test.SynTest):
             ret = await cortex.callStorm(q)
             return ret
 
-        async with self.getRegrCore('2.47.0-autoadds-fix', conf={'storm:hotfixes': False}) as core:  # type: s_cortex.Cortex
+        async with self.getRegrCore('2.47.0-autoadds-fix') as core:  # type: s_cortex.Cortex
 
             user = await core.auth.addUser('user', passwd='user')
 
@@ -131,7 +131,7 @@ class StormCellTest(s_test.SynTest):
 
     async def test_stormfix_cryptocoin(self):
 
-        async with self.getRegrCore('2.68.0-cryptocoin-fix', conf={'storm:hotfixes': False}) as core:  # type: s_cortex.Cortex
+        async with self.getRegrCore('2.68.0-cryptocoin-fix') as core:  # type: s_cortex.Cortex
 
             self.len(0, await core.nodes('crypto:currency:coin'))
 
@@ -181,46 +181,3 @@ class StormCellTest(s_test.SynTest):
             self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
             self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
             self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
-
-    async def test_stormfix_geoname_crypto(self):
-        # Test geo:place:name -> geo:name nodes
-        # Test crypto:currency:transaction model update
-        async with self.getRegrCore('2.87.0-geo-crypto', conf={'storm:hotfixes': False}) as core:
-
-            nodes = await core.nodes('geo:name')
-            self.len(0, nodes)
-
-            msgs = await core.stormlist('$lib.cell.hotFixesApply()')
-
-            self.stormIsInPrint('Applying hotfix (4, 1, 0) ', msgs)
-            self.stormIsInPrint('Applying hotfix (4, 2, 0) ', msgs)
-
-            nodes = await core.nodes('geo:name')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], 'big hollywood sign')
-
-            self.len(0, await core.nodes('crypto:currency:transaction:inputs'))
-            self.len(0, await core.nodes('crypto:currency:transaction:outputs'))
-
-            nodes = await core.nodes('crypto:payment:input=(i1,) -> crypto:currency:transaction')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:input=(i2,) -> crypto:currency:transaction')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:input=(i2,) -> crypto:currency:transaction +crypto:currency:transaction=(t2,)')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:input=(i2,) -> crypto:currency:transaction +crypto:currency:transaction=(t3,)')
-            self.len(0, nodes)
-            nodes = await core.nodes('crypto:payment:input=(i3,) -> crypto:currency:transaction')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:output=(o1,) -> crypto:currency:transaction')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:output=(o2,) -> crypto:currency:transaction')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:output=(o2,) -> crypto:currency:transaction +crypto:currency:transaction=(t2,)')
-            self.len(1, nodes)
-            nodes = await core.nodes('crypto:payment:output=(o2,) -> crypto:currency:transaction +crypto:currency:transaction=(t3,)')
-            self.len(0, nodes)
-            nodes = await core.nodes('crypto:payment:output=(o3,) -> crypto:currency:transaction')
-            self.len(1, nodes)
-            self.len(0, await core.nodes('crypto:payment:input=(i4,) -> crypto:currency:transaction'))
-            self.len(0, await core.nodes('crypto:payment:output=(o4,) -> crypto:currency:transaction'))
