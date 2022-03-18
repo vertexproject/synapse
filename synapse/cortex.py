@@ -2587,7 +2587,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         base = '.' + name
         if base in self.model.props:
-            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {name}',
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {base}',
                                     prop=name)
         await self._push('model:univ:add', name, tdef, info)
 
