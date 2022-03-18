@@ -5,8 +5,8 @@ Synapse Changelog
 *****************
 
 
-v2.87.0 - TBD
-=============
+v2.87.0 - 2022-03-18
+====================
 
 Features and Enhancements
 -------------------------
@@ -46,6 +46,9 @@ Bugfixes
 - Fix an issue where the StormDmon stop/start status was not properly being
   updated in the runtime object, despite being properly updated in the Hive.
   (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
+- Calls to ``addUnivProp()`` APIs when the universal property name already
+  exists now raise a ``DupPropName`` exception.
+  (`#2601 <https://github.com/vertexproject/synapse/pull/2601>`_)
 
 
 v2.86.0 - 2022-03-09
