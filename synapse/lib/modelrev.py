@@ -468,9 +468,7 @@ class ModelRev:
                 if mesgtype == 'err':
                     logger.error(f'Storm error: {mesginfo}')
 
-        await self.core._enableMigrationMode()
         await self.core.schedCoro(_runStorm())
-        await self.core._disableMigrationMode()
 
     async def revCoreLayers(self):
 
@@ -505,6 +503,7 @@ class ModelRev:
         if not layers:
             return
 
+        await self.core._enableMigrationMode()
         for revvers, revmeth in self.revs:
 
             todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
@@ -517,4 +516,5 @@ class ModelRev:
 
             [await lyr.setModelVers(revvers) for lyr in todo]
 
+        await self.core._disableMigrationMode()
         logger.warning('...model migrations complete!')
