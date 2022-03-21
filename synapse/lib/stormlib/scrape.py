@@ -62,12 +62,12 @@ class LibScrape(s_stormtypes.Lib):
 
         Notes:
             The pattern must have a named regular expression match for the key ``valu`` using the
-            named group syntax. For example ``(somekey\\s)(?<valu>[a-z0-9]+)\\s``.
+            named group syntax. For example ``(somekey\\s)(?P<valu>[a-z0-9]+)\\s``.
 
         Examples:
             A scrape implementation with a regex that matches name keys in text::
 
-                $re="(Name\\:\\s)(?<valu>[a-z0-9]+)\\s"
+                $re="(Name\\:\\s)(?P<valu>[a-z0-9]+)\\s"
                 $form="ps:name"
 
                 function scrape(text, form) {
