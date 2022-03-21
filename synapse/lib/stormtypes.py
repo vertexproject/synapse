@@ -844,7 +844,8 @@ class LibBase(Lib):
             Get the length of a item.
 
             This could represent the size of a string, or the number of keys in
-            a dictionary, or the number of elements in an array.''',
+            a dictionary, or the number of elements in an array. It may also be used
+            to iterate an emitter or yield function and count the total.''',
          'type': {'type': 'function', '_funcname': '_len',
                   'args': (
                       {'name': 'item', 'desc': 'The item to get the length of.', 'type': 'prim', },
@@ -1277,6 +1278,14 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _len(self, item):
+
+        if isinstance(item, (types.GeneratorType, types.AsyncGeneratorType)):
+            size = 0
+            async for _ in s_coro.agen(item):
+                size += 1
+                await asyncio.sleep(0)
+            return size
+
         try:
             return len(item)
         except TypeError:
