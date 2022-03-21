@@ -138,6 +138,7 @@ FANGS = {
     'fxps': 'ftps',
     '[at]': '@',
     '[@]': '@',
+    '\\.': '.',
 }
 
 def genFangRegex(fangs, flags=regex.IGNORECASE):
