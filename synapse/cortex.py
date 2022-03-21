@@ -2582,13 +2582,20 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
-    @s_nexus.Pusher.onPushAuto('model:univ:add')
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
+        base = '.' + name
+        if base in self.model.props:
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {base}',
+                                    prop=name)
+        await self._push('model:univ:add', name, tdef, info)
+
+    @s_nexus.Pusher.onPush('model:univ:add')
+    async def _addUnivProp(self, name, tdef, info):
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
