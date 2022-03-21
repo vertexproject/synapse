@@ -141,7 +141,6 @@ FANGS = {
     '\\.': '.',
 }
 
-
 def genFangRegex(fangs, flags=regex.IGNORECASE):
     # Fangs must be matches of equal or smaller length in order for the
     # contextScrape API to function.
