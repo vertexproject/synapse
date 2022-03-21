@@ -1318,10 +1318,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         # do any post-nexus initialization here...
         await self._initJsonStor()
-        await self._initCoreMods()
 
         if self.isactive:
             await self._checkNexsIndx()
+
+        await self._initCoreMods()
+
+        if self.isactive:
             await self._checkLayerModels()
 
         await self._initStormSvcs()
