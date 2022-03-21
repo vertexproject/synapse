@@ -281,6 +281,10 @@ class TypesTest(s_t_utils.SynTest):
                 nodes = await snap.nodes('test:hex4=022020*')
                 self.len(0, nodes)
 
+            self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
+            self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
+            self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
+
     def test_int(self):
 
         model = s_datamodel.Model()

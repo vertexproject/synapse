@@ -368,7 +368,7 @@ class ModelRev:
                 async for buid, propvalu in layr.iterPropRows(formname, propname):
                     try:
                         norm = prop.type.norm(propvalu)[0]
-                    except s_exc.BadTypeValu as e:
+                    except s_exc.BadTypeValu as e: # pragma: no cover
                         oldm = e.errinfo.get('mesg')
                         logger.warning(f'error re-norming {formname}:{propname}={propvalu} : {oldm}')
                         continue
@@ -462,10 +462,10 @@ class ModelRev:
                 if mesgtype == 'print':
                     logger.debug(f'Storm message: {mesginfo.get("mesg")}')
                     continue
-                if mesgtype == 'warn':
+                if mesgtype == 'warn': # pragma: no cover
                     logger.warning(f'Storm warning: {mesginfo.get("mesg")}')
                     continue
-                if mesgtype == 'err':
+                if mesgtype == 'err': # pragma: no cover
                     logger.error(f'Storm error: {mesginfo}')
 
         await self.core.schedCoro(_runStorm())

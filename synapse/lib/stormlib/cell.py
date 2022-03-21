@@ -161,9 +161,9 @@ class CellLib(s_stormtypes.Lib):
                 async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
                     async for item in runt.execute():
                         pass
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 logger.exception(f'Error applying storm hotfix {vers}')
                 raise
             else:
