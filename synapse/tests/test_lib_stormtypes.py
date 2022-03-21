@@ -695,6 +695,11 @@ class StormTypesTest(s_test.SynTest):
             stormnode = s_stormtypes.Node(nodes[0])
             self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
 
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': iden}
+            await core.nodes('[ ou:org=* ou:org=* ]', opts=opts)
+            self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
