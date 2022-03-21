@@ -466,12 +466,10 @@ class ModelRev:
                     logger.warning(f'Storm warning: {item[1].get("mesg")}')
                     continue
                 if item[0] in ('err',):
-                    # Should this raise?
-                        logger.error(f'Storm error: {item}')
+                    glogger.error(f'Storm error: {item}')
 
         await self.core._enableMigrationMode()
-        fut = self.core.schedCoro(_runStorm())
-        await fut
+        await self.core.schedCoro(_runStorm())
         await self.core._disableMigrationMode()
 
     async def revCoreLayers(self):
