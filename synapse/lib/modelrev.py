@@ -458,15 +458,15 @@ class ModelRev:
             None
         '''
         async def _runStorm():
-            async for item in self.core.storm(text, opts=opts):
-                if item[0] in ('print',):
-                    logger.debug(f'Storm message: {item[1].get("mesg")}')
+            async for mesgtype, mesginfo in self.core.storm(text, opts=opts):
+                if mesgtype == 'print':
+                    logger.debug(f'Storm message: {mesginfo.get("mesg")}')
                     continue
-                if item[0] in ('warn',):
-                    logger.warning(f'Storm warning: {item[1].get("mesg")}')
+                if mesgtype == 'warn':
+                    logger.warning(f'Storm warning: {mesginfo.get("mesg")}')
                     continue
-                if item[0] in ('err',):
-                    glogger.error(f'Storm error: {item}')
+                if mesgtype == 'err':
+                    logger.error(f'Storm error: {mesginfo}')
 
         await self.core._enableMigrationMode()
         await self.core.schedCoro(_runStorm())
