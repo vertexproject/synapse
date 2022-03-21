@@ -388,6 +388,90 @@ class ModelRev:
                 if nodeedits:
                     await save()
 
+        storm_geoplace_to_geoname = '''
+        for $view in $lib.view.list(deporder=$lib.true) {
+            view.exec $view.iden {
+                geo:place:name
+                [ geo:name=:name ]
+            }
+        }
+        '''
+
+        storm_crypto_txin = '''
+        $views = $lib.view.list(deporder=$lib.true)
+            for $view in $views {
+                view.exec $view.iden {
+
+                    function addInputXacts() {
+                        crypto:payment:input -:transaction $xact = $lib.null
+                        { -> crypto:currency:transaction $xact=$node.value() }
+                        if $xact {
+                            [ :transaction=$xact ]
+                        }
+                        fini { return() }
+                    }
+
+                    function addOutputXacts() {
+                        crypto:payment:output -:transaction $xact = $lib.null
+                        { -> crypto:currency:transaction $xact=$node.value() }
+                        if $xact {
+                            [ :transaction=$xact ]
+                        }
+                        fini { return() }
+                    }
+
+                    function wipeInputsArray() {
+                        crypto:currency:transaction:inputs
+                        [ -:inputs ]
+                        fini { return() }
+                    }
+
+                    function wipeOutputsArray() {
+                        crypto:currency:transaction:outputs
+                        [ -:outputs ]
+                        fini { return() }
+                    }
+
+                    $addInputXacts()
+                    $addOutputXacts()
+                    $wipeInputsArray()
+                    $wipeOutputsArray()
+                }
+            }
+            | model.deprecated.lock crypto:currency:transaction:inputs
+            | model.deprecated.lock crypto:currency:transaction:outputs
+        '''
+        logger.debug('Making geo:name nodes from geo:place:name values.')
+        await self.runStorm(storm_geoplace_to_geoname)
+        logger.debug('Update crypto:currency:transaction :input and :output property use.')
+        await self.runStorm(storm_crypto_txin)
+
+    async def runStorm(self, text, opts=None):
+        '''
+        Run storm code in a schedcoro and log the output messages.
+
+        Args:
+            text (str): Storm query to execute.
+            opts: Storm opts.
+
+        Returns:
+            None
+        '''
+        async def _runStorm():
+            async for item in self.core.storm(text, opts=opts):
+                if item[0] in ('print',):
+                    logger.debug(f'Storm message: {item[1].get("mesg")}')
+                    continue
+                if item[0] in ('warn',):
+                    logger.warning(f'Storm warning: {item[1].get("mesg")}')
+                    continue
+                if item[0] in ('err',):
+                    glogger.error(f'Storm error: {item}')
+
+        await self.core._enableMigrationMode()
+        await self.core.schedCoro(_runStorm())
+        await self.core._disableMigrationMode()
+
     async def revCoreLayers(self):
 
         version = self.revs[-1][0] if self.revs else maxvers
