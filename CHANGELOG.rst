@@ -48,6 +48,9 @@ Features and Enhancements
 - Add support for ``$lib.len()`` to count the length of emitter or generator
   functions.
   (`#2606 <https://github.com/vertexproject/synapse/pull/2606>`_)
+- Add support for scrape APIs to handle text that has been defanged with
+  ``\\.`` characters.
+  (`#2605 <https://github.com/vertexproject/synapse/pull/2605>`_)
 - Expand Synapse requirements to include updated versions of the ``pygments``
   library.
   (`#2602 <https://github.com/vertexproject/synapse/pull/2602>`_)
