@@ -376,7 +376,7 @@ class GeoModule(s_module.CoreModule):
 
                     ('geo:place', {}, (
 
-                        ('name', ('str', {'lower': 1, 'onespace': 1}), {
+                        ('name', ('geo:name', {}), {
                             'doc': 'The name of the place.'}),
 
                         ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {

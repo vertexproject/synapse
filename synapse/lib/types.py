@@ -640,16 +640,24 @@ class Hex(Type):
     def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
+            valu = valu.strip().lower()
+            if valu.startswith('0x'):
+                valu = valu[2:]
+
             if valu.endswith('*'):
                 return (
-                    ('^=', valu[:-1].lower(), self.stortype),
+                    ('^=', valu[:-1], self.stortype),
                 )
 
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
+        valu = valu.strip().lower()
+        if valu.startswith('0x'):
+            valu = valu[2:]
+
         return (
-            ('^=', valu.lower(), self.stortype),
+            ('^=', valu, self.stortype),
         )
 
     def _normPyStr(self, valu):

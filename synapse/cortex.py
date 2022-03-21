@@ -1321,9 +1321,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if self.isactive:
             await self._checkNexsIndx()
-            await self._checkLayerModels()
 
         await self._initCoreMods()
+
+        if self.isactive:
+            await self._checkLayerModels()
+
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"

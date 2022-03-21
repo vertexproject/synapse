@@ -117,23 +117,26 @@ class CryptoModule(s_module.CoreModule):
             'forms': (
 
                 ('crypto:payment:input', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction the payment was input to.'}),
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which paid into the transaction.'}),
                     ('value', ('econ:price', {}), {
                         'doc': 'The value of the currency paid into the transaction.'}),
                 )),
                 ('crypto:payment:output', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction the payment was output from.'}),
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which received payment from the transaction.'}),
                     ('value', ('econ:price', {}), {
                         'doc': 'The value of the currency recieved from the transaction.'}),
                 )),
                 ('crypto:currency:transaction', {}, (
-                    ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
+                    ('hash', ('hex', {}), {
                         'doc': 'The unique transaction hash for the transaction.'}),
                     ('desc', ('str', {}), {
                         'doc': 'An analyst specified description of the transaction.'}),
-
                     ('block', ('crypto:currency:block', {}), {
                         'doc': 'The block which records the transaction.'}),
                     ('block:coin', ('crypto:currency:coin', {}), {
@@ -153,9 +156,11 @@ class CryptoModule(s_module.CoreModule):
                     ('from', ('crypto:currency:address', {}), {
                         'doc': 'The source address of the transaction.'}),
                     ('inputs', ('array', {'type': 'crypto:payment:input', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of payment inputs to the transaction.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use crypto:payment:input:transaction.'}),
                     ('outputs', ('array', {'type': 'crypto:payment:output', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of payment outputs from the transaction.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use crypto:payment:output:transaction.'}),
                     ('fee', ('econ:price', {}), {
                         'doc': 'The total fee paid to execute the transaction.'}),
                     ('value', ('econ:price', {}), {
@@ -182,7 +187,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin/blockchain this block resides on.', 'ro': True, }),
                     ('offset', ('int', {}), {
                         'doc': 'The index of this block.', 'ro': True, }),
-                    ('hash', ('str', {'lower': True, 'regex': '^0x[0-9a-f]+$'}), {
+                    ('hash', ('hex', {}), {
                         'doc': 'The unique hash for the block.'}),
                     ('minedby', ('crypto:currency:address', {}), {
                         'doc': 'The address which mined the block.'}),

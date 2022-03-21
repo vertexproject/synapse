@@ -101,7 +101,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             ''', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('hash'), '0x01020304')
+            self.eq(node.get('hash'), '01020304')
             self.eq(node.get('desc'), 'Woot Woot')
             self.eq(node.get('block'), ('btc', 998877))
             self.eq(node.get('block:coin'), 'btc')
@@ -133,7 +133,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('coin'), 'btc')
             self.eq(node.get('offset'), 12345)
-            self.eq(node.get('hash'), '0x01020304')
+            self.eq(node.get('hash'), '01020304')
             self.eq(node.get('time'), 1638230400000)
 
             nodes = await core.nodes('''

@@ -1935,3 +1935,58 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.checkLayrvers(core)
+
+    async def test_migr_geoname_crypto(self):
+        # Test geo:place:name re-norming
+        # Test crypto:currency:block:hash re-norming
+        # Test crypto:currency:transaction:hash re-norming
+        async with self.getRegrCore('2.87.0-geo-crypto') as core:
+
+            # Layer migrations
+            nodes = await core.nodes('geo:place:name="big hollywood sign"')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:currency:block:hash')
+            self.len(1, nodes)
+            valu = nodes[0].get('hash')  # type: str
+            self.false(valu.startswith('0x'))
+
+            nodes = await core.nodes('crypto:currency:transaction:hash')
+            self.len(1, nodes)
+            valu = nodes[0].get('hash')  # type: str
+            self.false(valu.startswith('0x'))
+
+            # storm migrations
+            nodes = await core.nodes('geo:name')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'big hollywood sign')
+
+            self.len(0, await core.nodes('crypto:currency:transaction:inputs'))
+            self.len(0, await core.nodes('crypto:currency:transaction:outputs'))
+
+            nodes = await core.nodes('crypto:payment:input=(i1,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes('crypto:payment:input=(i2,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:input=(i2,) -> crypto:currency:transaction +crypto:currency:transaction=(t2,)')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:input=(i2,) -> crypto:currency:transaction +crypto:currency:transaction=(t3,)')
+            self.len(0, nodes)
+            nodes = await core.nodes('crypto:payment:input=(i3,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes('crypto:payment:output=(o1,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes('crypto:payment:output=(o2,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:output=(o2,) -> crypto:currency:transaction +crypto:currency:transaction=(t2,)')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:output=(o2,) -> crypto:currency:transaction +crypto:currency:transaction=(t3,)')
+            self.len(0, nodes)
+            nodes = await core.nodes('crypto:payment:output=(o3,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            self.len(0, await core.nodes('crypto:payment:input=(i4,) -> crypto:currency:transaction'))
+            self.len(0, await core.nodes('crypto:payment:output=(o4,) -> crypto:currency:transaction'))

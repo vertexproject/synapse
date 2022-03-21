@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 7)
+maxvers = (0, 2, 8)
 
 class ModelRev:
 
@@ -20,6 +20,7 @@ class ModelRev:
             ((0, 2, 5), self.revModel20210801),
             ((0, 2, 6), self.revModel20211112),
             ((0, 2, 7), self.revModel20220307),
+            ((0, 2, 8), self.revModel20220315),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -347,6 +348,128 @@ class ModelRev:
         for layr in layers:
             await self._normHugeTagProps(layr, tagprops)
 
+    async def revModel20220315(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for formname, propname in (
+                    ('geo:place', 'name'),
+                    ('crypto:currency:block', 'hash'),
+                    ('crypto:currency:transaction', 'hash')):
+
+                prop = self.core.model.prop(f'{formname}:{propname}')
+                async for buid, propvalu in layr.iterPropRows(formname, propname):
+                    try:
+                        norm = prop.type.norm(propvalu)[0]
+                    except s_exc.BadTypeValu as e: # pragma: no cover
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'error re-norming {formname}:{propname}={propvalu} : {oldm}')
+                        continue
+
+                    if norm == propvalu:
+                        continue
+
+                    nodeedits.append(
+                        (buid, formname, (
+                            (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+                if nodeedits:
+                    await save()
+
+        storm_geoplace_to_geoname = '''
+        for $view in $lib.view.list(deporder=$lib.true) {
+            view.exec $view.iden {
+                geo:place:name
+                [ geo:name=:name ]
+            }
+        }
+        '''
+
+        storm_crypto_txin = '''
+        $views = $lib.view.list(deporder=$lib.true)
+            for $view in $views {
+                view.exec $view.iden {
+
+                    function addInputXacts() {
+                        crypto:payment:input -:transaction $xact = $lib.null
+                        { -> crypto:currency:transaction $xact=$node.value() }
+                        if $xact {
+                            [ :transaction=$xact ]
+                        }
+                        fini { return() }
+                    }
+
+                    function addOutputXacts() {
+                        crypto:payment:output -:transaction $xact = $lib.null
+                        { -> crypto:currency:transaction $xact=$node.value() }
+                        if $xact {
+                            [ :transaction=$xact ]
+                        }
+                        fini { return() }
+                    }
+
+                    function wipeInputsArray() {
+                        crypto:currency:transaction:inputs
+                        [ -:inputs ]
+                        fini { return() }
+                    }
+
+                    function wipeOutputsArray() {
+                        crypto:currency:transaction:outputs
+                        [ -:outputs ]
+                        fini { return() }
+                    }
+
+                    $addInputXacts()
+                    $addOutputXacts()
+                    $wipeInputsArray()
+                    $wipeOutputsArray()
+                }
+            }
+            | model.deprecated.lock crypto:currency:transaction:inputs
+            | model.deprecated.lock crypto:currency:transaction:outputs
+        '''
+        logger.debug('Making geo:name nodes from geo:place:name values.')
+        await self.runStorm(storm_geoplace_to_geoname)
+        logger.debug('Update crypto:currency:transaction :input and :output property use.')
+        await self.runStorm(storm_crypto_txin)
+
+    async def runStorm(self, text, opts=None):
+        '''
+        Run storm code in a schedcoro and log the output messages.
+
+        Args:
+            text (str): Storm query to execute.
+            opts: Storm opts.
+
+        Returns:
+            None
+        '''
+        async def _runStorm():
+            async for mesgtype, mesginfo in self.core.storm(text, opts=opts):
+                if mesgtype == 'print':
+                    logger.debug(f'Storm message: {mesginfo.get("mesg")}')
+                    continue
+                if mesgtype == 'warn': # pragma: no cover
+                    logger.warning(f'Storm warning: {mesginfo.get("mesg")}')
+                    continue
+                if mesgtype == 'err': # pragma: no cover
+                    logger.error(f'Storm error: {mesginfo}')
+
+        await self.core.schedCoro(_runStorm())
+
     async def revCoreLayers(self):
 
         version = self.revs[-1][0] if self.revs else maxvers
@@ -380,6 +503,7 @@ class ModelRev:
         if not layers:
             return
 
+        await self.core._enableMigrationMode()
         for revvers, revmeth in self.revs:
 
             todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
@@ -392,4 +516,5 @@ class ModelRev:
 
             [await lyr.setModelVers(revvers) for lyr in todo]
 
+        await self.core._disableMigrationMode()
         logger.warning('...model migrations complete!')
