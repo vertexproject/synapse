@@ -469,8 +469,10 @@ class ModelRev:
                     # Should this raise?
                         logger.error(f'Storm error: {item}')
 
+        await self.core._enableMigrationMode()
         fut = self.core.schedCoro(_runStorm())
         await fut
+        await self.core._disableMigrationMode()
 
     async def revCoreLayers(self):
 
