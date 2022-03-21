@@ -530,6 +530,10 @@ class ScrapeTest(s_t_utils.SynTest):
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = '10\\.0\\.0\\.1'
+        refanged = '10.0.0.1'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
         defanged = 'www(.)spam(.)net'
         refanged = 'www.spam.net'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
