@@ -1205,21 +1205,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
 
-        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})
-        # TODO: 3.0.0 conversion will truncate this hive key
-        for name, locked in self.deprlocks.items():
-
-            form = self.model.form(name)
-            if form is not None:
-                form.locked = locked
-
-            prop = self.model.prop(name)
-            if prop is not None:
-                prop.locked = locked
-
-            _type = self.model.type(name)
-            if _type is not None:
-                _type.locked = locked
+        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
+        await self._initDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -3056,6 +3043,30 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.inaugural:
             await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
+
+    async def _initDeprLocks(self):
+        if self.inaugural:
+            locks = (
+                # 2.87.0 - lock out incorrect crypto model
+                ('crypto:currency:transaction:inputs', True),
+                ('crypto:currency:transaction:outputs', True),
+            )
+            for k, v in locks:
+                await self._hndlsetDeprLock(k, v)
+        # TODO: 3.0.0 conversion will truncate this hive key
+        for name, locked in self.deprlocks.items():
+
+            form = self.model.form(name)
+            if form is not None:
+                form.locked = locked
+
+            prop = self.model.prop(name)
+            if prop is not None:
+                prop.locked = locked
+
+            _type = self.model.type(name)
+            if _type is not None:
+                _type.locked = locked
 
     async def _initJsonStor(self):
 
