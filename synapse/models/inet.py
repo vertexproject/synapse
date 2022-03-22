@@ -1162,6 +1162,15 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
                     }),
+
+                    ('inet:web:instance', ('guid', {}), {
+                        'doc': 'An instance of a web service such as slack or discord.'
+                    }),
+
+                    ('inet:web:channel', ('guid', {}), {
+                        'doc': 'A channel within a web service or instance such as slack or discord.'
+                    }),
+
                     ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[\w]+$'}), {
                         'doc': 'A hashtag used in a web post.',
                     }),
@@ -2422,10 +2431,82 @@ class InetModule(s_module.CoreModule):
                         ('place', ('geo:place', {}), {
                             'doc': 'The place that the post was reportedly sent from.',
                         }),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the post was reportedly sent from. Used for entity resolution.',
+                        }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The place that the post was reportedly sent from.',
                         }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel where the post was made.',
+                        }),
+                    )),
 
+                    ('inet:web:instance', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://app.slack.com/client/T2XK1223Y',
+                            'doc': 'The primary URL used to identify the instance.',
+                        }),
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'T2XK1223Y',
+                            'doc': 'The operator specified ID of this instance.',
+                        }),
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'vertex synapse',
+                            'doc': 'The visible name of the instance.',
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the instance was created.',
+                        }),
+                        ('creator', ('inet:web:acct', {}), {
+                            'doc': 'The account which created the instance.',
+                        }),
+                        ('owner', ('ou:org', {}), {
+                            'doc': 'The organization which created the instance.',
+                        }),
+                        ('owner:fqdn', ('inet:fqdn', {}), {
+                            'ex': 'vertex.link',
+                            'doc': 'The FQDN of the organization which created the instance. Used for entity resolution.',
+                        }),
+                        ('owner:name', ('ou:name', {}), {
+                            'ex': 'the vertex project, llc.',
+                            'doc': 'The name of the organization which created the instance. Used for entity resolution.',
+                        }),
+                        ('operator', ('ou:org', {}), {
+                            'doc': 'The organization which operates the instance.',
+                        }),
+                        ('operator:name', ('ou:name', {}), {
+                            'ex': 'slack',
+                            'doc': 'The name of the organization which operates the instance. Used for entity resolution.',
+                        }),
+                        ('operator:fqdn', ('inet:fqdn', {}), {
+                            'ex': 'slack.com',
+                            'doc': 'The FQDN of the organization which operates the instance. Used for entity resolution.',
+                        }),
+                    )),
+
+                    ('inet:web:channel', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://app.slack.com/client/T2XK1223Y/C2XHHNDS7',
+                            'doc': 'The primary URL used to identify the channel.',
+                        }),
+                        ('instance', ('inet:web:instance', {}), {
+                            'doc': 'The instance which contains the channel.',
+                        }),
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'general',
+                            'doc': 'The visible name of the channel.',
+                        }),
+                        ('topic', ('str', {'strip': True}), {
+                            'ex': 'Synapse Discussion - Feel free to invite others!',
+                            'doc': 'The visible topic of the channel.',
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the channel was created.',
+                        }),
+                        ('creator', ('inet:web:acct', {}), {
+                            'doc': 'The account which created the channel.',
+                        }),
                     )),
 
                     ('inet:web:hashtag', {}, ()),
