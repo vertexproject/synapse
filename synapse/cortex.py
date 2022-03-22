@@ -1205,8 +1205,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
 
-        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
-        # TODO: 3.0.0 conversion will truncate this hive key
         await self._initDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
@@ -3046,6 +3044,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.onfini(self.stormvars)
 
     async def _initDeprLocks(self):
+        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
+        # TODO: 3.0.0 conversion will truncate this hive key
+
         if self.inaugural:
             locks = (
                 # 2.87.0 - lock out incorrect crypto model
