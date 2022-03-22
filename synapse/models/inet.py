@@ -2372,6 +2372,9 @@ class InetModule(s_module.CoreModule):
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
                         }),
+                        ('instance', ('inet:web:instance', {}), {
+                            'doc': 'The instance where the message was sent.',
+                        }),
                     )),
 
                     ('inet:web:post', {}, (
