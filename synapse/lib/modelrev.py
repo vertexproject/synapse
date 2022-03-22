@@ -388,14 +388,24 @@ class ModelRev:
                 if nodeedits:
                     await save()
 
-        storm_geoplace_to_geoname = '''
-        for $view in $lib.view.list(deporder=$lib.true) {
-            view.exec $view.iden {
-                geo:place:name
-                [ geo:name=:name ]
-            }
-        }
-        '''
+            # Make geo:place nodes from now normed geo:place:name properties
+            formname = 'geo:name'
+            prop = self.core.model.prop(f'geo:place:name')
+
+            async for buid, propvalu in layr.iterPropRows('geo:place', 'name'):
+
+                new_buid = s_common.buid((formname, propvalu))
+
+                nodeedit = (new_buid, formname, (
+                    (s_layer.EDIT_NODE_ADD, (propvalu, prop.type.stortype), ()),
+                ))
+                nodeedits.append(nodeedit)
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
 
         storm_crypto_txin = '''
         $views = $lib.view.list(deporder=$lib.true)
@@ -445,8 +455,6 @@ class ModelRev:
         | model.deprecated.lock crypto:currency:transaction:outputs
         '''
 
-        logger.debug('Making geo:name nodes from geo:place:name values.')
-        await self.runStorm(storm_geoplace_to_geoname)
         logger.debug('Update crypto:currency:transaction :input and :output property use.')
         await self.runStorm(storm_crypto_txin)
         logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
