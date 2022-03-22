@@ -2372,6 +2372,12 @@ class InetModule(s_module.CoreModule):
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
                         }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the message was reportedly sent from.',
+                        }),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the message was reportedly sent from. Used for entity resolution.',
+                        }),
                         ('instance', ('inet:web:instance', {}), {
                             'doc': 'The instance where the message was sent.',
                         }),
