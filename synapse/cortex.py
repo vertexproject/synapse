@@ -1206,6 +1206,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.svchive = await svchive.dict()
 
         self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
+        # TODO: 3.0.0 conversion will truncate this hive key
         await self._initDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
@@ -3053,7 +3054,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             )
             for k, v in locks:
                 await self._hndlsetDeprLock(k, v)
-        # TODO: 3.0.0 conversion will truncate this hive key
+
         for name, locked in self.deprlocks.items():
 
             form = self.model.form(name)
