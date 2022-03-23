@@ -85,6 +85,10 @@ Features and Enhancements
 - Add a ``nomerge`` option to View objects that can be set to prevent merging
   a long lived fork.
   (`#2614 <https://github.com/vertexproject/synapse/pull/2614>`_)
+- Add ``liftByProp()`` and ``liftByTag()`` methods to the Stormtypes
+  ``storm:layer`` objects. These allow lifting of nodes based on data stored
+  in a specific layer.
+  (`#2613 <https://github.com/vertexproject/synapse/pull/2613>`_)
 - Expand Synapse requirements to include updated versions of the ``pygments``
   library.
   (`#2602 <https://github.com/vertexproject/synapse/pull/2602>`_)
