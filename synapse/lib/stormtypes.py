@@ -5485,6 +5485,51 @@ class Layer(Prim):
                       {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
+        {'name': 'liftByProp', 'desc': '''
+            Lift and yield nodes with the property and optional value set within the layer.
+
+            Example:
+                Yield all nodes with the property ``ou:org:name`` set in the top layer::
+
+                    yield $lib.layer.get().liftByProp(ou:org:name)
+
+                Yield all nodes with the property ``ou:org:name=woot`` in the top layer::
+
+                    yield $lib.layer.get().liftByProp(ou:org:name, woot)
+
+                Yield all nodes with the property ``ou:org:name^=woot`` in the top layer::
+
+                    yield $lib.layer.get().liftByProp(ou:org:name, woot, "^=")
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'liftByProp',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The full property name to lift by.'},
+                      {'name': 'propvalu', 'type': 'obj', 'desc': 'The value for the property.', 'default': None},
+                      {'name': 'propcmpr', 'type': 'str', 'desc': 'The comparison operation to use on the value.', 'default': '='},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                              'desc': 'Yields nodes.', }}},
+        {'name': 'liftByTag', 'desc': '''
+            Lift and yield nodes with the tag set within the layer.
+
+            Example:
+                Yield all nodes with the tag #foo set in the layer::
+
+                    yield $lib.layer.get().liftByTag(foo)
+
+                Yield all inet:fqdn with the tag #foo set in the layer::
+
+                    yield $lib.layer.get().liftByTag(foo, inet:fqdn)
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'liftByTag',
+                  'args': (
+                      {'name': 'tagname', 'type': 'str', 'desc': 'The tag name to lift by.'},
+                      {'name': 'formname', 'type': 'str', 'desc': 'The optional form to lift.', 'default': None},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'storm:node',
+                              'desc': 'Yields nodes.', }}},
     )
     _storm_typename = 'storm:layer'
     _ismutable = False
@@ -5526,6 +5571,8 @@ class Layer(Prim):
             'delPush': self._delPush,
             'addPull': self._addPull,
             'delPull': self._delPull,
+            'liftByTag': self.liftByTag,
+            'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getFormCounts': self._methGetFormcount,
@@ -5533,6 +5580,57 @@ class Layer(Prim):
             'getStorNodes': self.getStorNodes,
             'getMirrorStatus': self.getMirrorStatus,
         }
+
+    async def liftByTag(self, tagname, formname=None):
+        tagname = await tostr(tagname)
+        formname = await tostr(formname, noneok=True)
+
+        if formname is not None and self.runt.snap.core.model.form(formname) is None:
+            mesg = f'The form {formname} does not exist.'
+            raise s_exc.NoSuchForm(mesg=mesg)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+
+        await self.runt.reqUserCanReadLayer(iden)
+        async for _, buid, sode in layr.liftByTag(tagname, form=formname):
+            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+
+    async def liftByProp(self, propname, propvalu=None, propcmpr='='):
+
+        propname = await tostr(propname)
+        propvalu = await toprim(propvalu)
+        propcmpr = await tostr(propcmpr)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+
+        await self.runt.reqUserCanReadLayer(iden)
+
+        prop = self.runt.snap.core.model.prop(propname)
+        if prop is None:
+            mesg = f'The property {propname} does not exist.'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        if prop.isform:
+            liftform = prop.name
+            liftprop = None
+        elif prop.isuniv:
+            liftform = None
+            liftprop = prop.name
+        else:
+            liftform = prop.form.name
+            liftprop = prop.name
+
+        if propvalu is None:
+            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
+                yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+            return
+
+        norm, info = prop.type.norm(propvalu)
+        cmprvals = prop.type.getStorCmprs(propcmpr, norm)
+        async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     async def getMirrorStatus(self):
         iden = self.valu.get('iden')
