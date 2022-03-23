@@ -986,6 +986,72 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('diff', opts=altview))
 
+    async def test_storm_merge_opts(self):
+
+        async with self.getTestCore() as core:
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            altview = {'view': viewiden}
+            await core.nodes('[ ou:org=(org1,) :name=hehe ]')
+
+            q = '''
+            [ ou:org=(org1,)
+                :url=https://vertex.link
+                :name=haha
+                :desc=cool
+                :founded=2021
+                .seen=2022
+                +#one
+                +#two
+                +#three
+                +#haha.four
+                +#haha.five
+            ]
+            '''
+            await core.nodes(q, opts=altview)
+
+            self.len(0, await core.nodes('syn:tag'))
+            self.len(6, await core.nodes('syn:tag', opts=altview))
+
+            await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two'])
+            self.len(2, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --only-tags --exclude-tags three haha.four --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'haha', 'haha.five'])
+            self.len(4, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
+            self.eq(nodes[0].props.get('name'), 'haha')
+            self.eq(nodes[0].props.get('desc'), 'cool')
+            self.none(nodes[0].props.get('url'))
+            self.none(nodes[0].props.get('founded'))
+            self.none(nodes[0].props.get('.seen'))
+            self.len(6, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.eq(nodes[0].props.get('founded'), 1609459200000)
+            self.none(nodes[0].props.get('url'))
+            self.none(nodes[0].props.get('.seen'))
+
+            await core.nodes('diff | merge --include-props ".seen" --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.nn(nodes[0].props.get('.seen'))
+            self.none(nodes[0].props.get('url'))
+
+            await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
+            await core.nodes('diff | merge --only-tags --apply', opts=altview)
+
+            self.len(0, await core.nodes('ou:org=(org2,)'))
+
+            sodes = await core.callStorm('ou:org=(org2,) return($node.getStorNodes())', opts=altview)
+            self.nn(sodes[0]['tags']['six'])
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:

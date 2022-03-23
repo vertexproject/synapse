@@ -2822,8 +2822,55 @@ class MergeCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
         pars.add_argument('--no-tags', default=False, action='store_true', help='Do not merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--only-tags', default=False, action='store_true', help='Only merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--include-tags', default=[], nargs='*', help='Only merge specific tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--exclude-tags', default=[], nargs='*', help='Exclude specific tags/tagprops or syn:tag nodes from merge.')
+        pars.add_argument('--include-props', default=[], nargs='*', help='Only merge specific props.')
+        pars.add_argument('--exclude-props', default=[], nargs='*', help='Exclude specific props from merge.')
         pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
         return pars
+
+    def _getTagFilter(self):
+        if self.opts.include_tags:
+
+            def tagfilter(tag):
+                if tag in self.opts.include_tags:
+                    return False
+                return True
+
+            return tagfilter
+
+        if self.opts.exclude_tags:
+
+            def tagfilter(tag):
+                if tag in self.opts.exclude_tags:
+                    return True
+                return False
+
+            return tagfilter
+
+        return None
+
+    def _getPropFilter(self):
+        if self.opts.include_props:
+
+            def propfilter(prop):
+                if prop in self.opts.include_props:
+                    return False
+                return True
+
+            return propfilter
+
+        if self.opts.exclude_props:
+
+            def propfilter(prop):
+                if prop in self.opts.exclude_props:
+                    return True
+                return False
+
+            return propfilter
+
+        return None
 
     async def execStormCmd(self, runt, genr):
 
@@ -2832,6 +2879,10 @@ class MergeCmd(Cmd):
             raise s_exc.CantMergeView(mesg=mesg)
 
         notags = self.opts.no_tags
+        onlytags = self.opts.only_tags
+
+        tagfilter = self._getTagFilter()
+        propfilter = self._getPropFilter()
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
@@ -2854,7 +2905,8 @@ class MergeCmd(Cmd):
             nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
-            sode = (await node.getStorNodes())[0]
+            sodes = await node.getStorNodes()
+            sode = sodes[0]
 
             adds = []
             subs = []
@@ -2878,37 +2930,62 @@ class MergeCmd(Cmd):
 
             # check all node perms first
             form = sode.get('form')
+            if form == 'syn:tag':
+                if notags:
+                    continue
+            else:
+                # avoid merging a tag if the node won't exist below us
+                if onlytags:
+                    for undr in sodes[1:]:
+                        if undr.get('valu') is not None:
+                            break
+                    else:
+                        continue
 
-            if form == 'syn:tag' and notags:
-                continue
+            if not onlytags or form == 'syn:tag':
+                valu = sode.get('valu')
+                if valu is not None:
 
-            valu = sode.get('valu')
-            if valu is not None:
-                if not self.opts.apply:
-                    valurepr = node.form.type.repr(valu[0])
-                    await runt.printf(f'{nodeiden} {form} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'del', form), gateiden=layr0)
-                    runt.confirm(('node', 'add', form), gateiden=layr1)
+                    if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
+                        continue
 
-                    adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                    if not self.opts.apply:
+                        valurepr = node.form.type.repr(valu[0])
+                        await runt.printf(f'{nodeiden} {form} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'del', form), gateiden=layr0)
+                        runt.confirm(('node', 'add', form), gateiden=layr1)
 
-            for name, (valu, stortype) in sode.get('props', {}).items():
-                full = node.form.prop(name).full
-                if not self.opts.apply:
-                    valurepr = node.form.prop(name).type.repr(valu)
-                    await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-                    runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+                        adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                        subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
-                    adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                for name, (valu, stortype) in sode.get('props', {}).items():
+
+                    full = node.form.prop(name).full
+                    if propfilter:
+                        if name[0] == '.':
+                            if propfilter(name):
+                                continue
+                        else:
+                            if propfilter(full):
+                                continue
+
+                    if not self.opts.apply:
+                        valurepr = node.form.prop(name).type.repr(valu)
+                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+                        runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+
+                        adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
             if not notags:
-
                 for tag, valu in sode.get('tags', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.apply:
                         valurepr = ''
@@ -2924,6 +3001,10 @@ class MergeCmd(Cmd):
                         subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
                 for tag, tagdict in sode.get('tagprops', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
                     for prop, (valu, stortype) in tagdict.items():
                         tagperm = tuple(tag.split('.'))
                         if not self.opts.apply:
@@ -2936,33 +3017,35 @@ class MergeCmd(Cmd):
                             adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
                             subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
-            layr = runt.snap.view.layers[0]
-            async for name, valu in layr.iterNodeData(node.buid):
-                if not self.opts.apply:
-                    valurepr = repr(valu)
-                    await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-                    runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+            if not onlytags or form == 'syn:tag':
 
-                    adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                    subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
-                    if len(adds) >= 1000:
-                        await sync()
+                layr = runt.snap.view.layers[0]
+                async for name, valu in layr.iterNodeData(node.buid):
+                    if not self.opts.apply:
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                        runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-            async for edge in layr.iterNodeEdgesN1(node.buid):
-                verb = edge[0]
-                if not self.opts.apply:
-                    name, dest = edge
-                    await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
-                else:
-                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-                    runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+                        adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                        subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                        if len(adds) >= 1000:
+                            await sync()
 
-                    adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                    subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                    if len(adds) >= 1000:
-                        await sync()
+                async for edge in layr.iterNodeEdgesN1(node.buid):
+                    verb = edge[0]
+                    if not self.opts.apply:
+                        name, dest = edge
+                        await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                    else:
+                        runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+
+                        adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                        subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                        if len(adds) >= 1000:
+                            await sync()
 
             await sync()
 
