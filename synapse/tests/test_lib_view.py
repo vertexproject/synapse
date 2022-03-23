@@ -18,7 +18,10 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.CantMergeView):
                 await core.nodes('$lib.view.get().merge()', opts=opts)
 
-            self.len(1, core.nodes('ou:org'))
+            await core.nodes('$lib.view.get().set(nomerge, $lib.false)', opts=opts)
+            await core.nodes('$lib.view.get().merge()', opts=opts)
+
+            self.len(1, await core.nodes('ou:org'))
 
     async def test_view_set_parent(self):
 
