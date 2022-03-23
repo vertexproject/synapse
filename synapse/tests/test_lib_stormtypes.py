@@ -5453,3 +5453,53 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadCast):
                 await core.nodes('ou:industry $node.delEdge(foo, bar)')
+
+    async def test_storm_layer_lift(self):
+
+        async with self.getTestCore() as core:
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('[ ou:org=* :name=foobar +#hehe ]')
+
+            opts = {'view': viewiden}
+            nodeiden = await core.callStorm('[ ou:org=* :name=foobar +#hehe ] return($node.iden())', opts=opts)
+
+            self.len(2, await core.nodes('ou:org +:name=foobar +#hehe', opts=opts))
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foobar)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foo, "^=")', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(".created")', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe, ou:org)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('yield $lib.layer.get().liftByProp(newp)', opts=opts)
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('yield $lib.layer.get().liftByTag(newp, newp)', opts=opts)
+
+            # Comparators are validated
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foo, "^#$%@")', opts=opts)
+
+            # Type safety still matters
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('yield $lib.layer.get().liftByProp(ou:org, not_a_guid)', opts=opts)
