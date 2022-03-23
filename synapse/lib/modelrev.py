@@ -388,56 +388,67 @@ class ModelRev:
                 if nodeedits:
                     await save()
 
+        layridens = [layr.iden for layr in layers]
+
         storm_geoplace_to_geoname = '''
+        $layers = $lib.set()
+        $layers.adds($layridens)
         for $view in $lib.view.list(deporder=$lib.true) {
+            $lib.warn($view.layers.0.iden)
+            $lib.warn($layers)
+            if (not $layers.has($view.layers.0.iden)) { continue }
             view.exec $view.iden {
-                geo:place:name
+                yield $lib.layer.get().liftByProp(geo:place:name)
                 [ geo:name=:name ]
             }
         }
         '''
 
         storm_crypto_txin = '''
-        $views = $lib.view.list(deporder=$lib.true)
-            for $view in $views {
-                view.exec $view.iden {
+        $layers = $lib.set()
+        $layers.adds($layridens)
+        for $view in $lib.view.list(deporder=$lib.true) {
+            if (not $layers.has($view.layers.0.iden)) { continue }
+            view.exec $view.iden {
 
-                    function addInputXacts() {
-                        crypto:payment:input -:transaction $xact = $lib.null
-                        { -> crypto:currency:transaction $xact=$node.value() }
-                        if $xact {
-                            [ :transaction=$xact ]
-                        }
-                        fini { return() }
+                function addInputXacts() {
+                    yield $lib.layer.get().liftByProp(crypto:payment:input)
+                    -:transaction $xact = $lib.null
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    if $xact {
+                        [ :transaction=$xact ]
                     }
-
-                    function addOutputXacts() {
-                        crypto:payment:output -:transaction $xact = $lib.null
-                        { -> crypto:currency:transaction $xact=$node.value() }
-                        if $xact {
-                            [ :transaction=$xact ]
-                        }
-                        fini { return() }
-                    }
-
-                    function wipeInputsArray() {
-                        crypto:currency:transaction:inputs
-                        [ -:inputs ]
-                        fini { return() }
-                    }
-
-                    function wipeOutputsArray() {
-                        crypto:currency:transaction:outputs
-                        [ -:outputs ]
-                        fini { return() }
-                    }
-
-                    $addInputXacts()
-                    $addOutputXacts()
-                    $wipeInputsArray()
-                    $wipeOutputsArray()
+                    fini { return() }
                 }
+
+                function addOutputXacts() {
+                    yield $lib.layer.get().liftByProp(crypto:payment:output)
+                    -:transaction $xact = $lib.null
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    if $xact {
+                        [ :transaction=$xact ]
+                    }
+                    fini { return() }
+                }
+
+                function wipeInputsArray() {
+                    yield $lib.layer.get().liftByProp(crypto:currency:transaction:inputs)
+                    [ -:inputs ]
+                    fini { return() }
+                }
+
+                function wipeOutputsArray() {
+                    yield $lib.layer.get().liftByProp(crypto:currency:transaction:outputs)
+                    [ -:outputs ]
+                    fini { return() }
+                }
+
+                $addInputXacts()
+                $addOutputXacts()
+                $wipeInputsArray()
+                $wipeOutputsArray()
             }
+        }
         '''
 
         storm_crypto_lockout = '''
@@ -446,9 +457,10 @@ class ModelRev:
         '''
 
         logger.debug('Making geo:name nodes from geo:place:name values.')
-        await self.runStorm(storm_geoplace_to_geoname)
+        opts = {'vars': {'layridens': layridens}}
+        await self.runStorm(storm_geoplace_to_geoname, opts=opts)
         logger.debug('Update crypto:currency:transaction :input and :output property use.')
-        await self.runStorm(storm_crypto_txin)
+        await self.runStorm(storm_crypto_txin, opts=opts)
         logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
         await self.runStorm(storm_crypto_lockout)
 
