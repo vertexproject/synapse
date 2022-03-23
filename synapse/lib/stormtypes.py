@@ -5489,15 +5489,17 @@ class Layer(Prim):
             Lift and yield nodes with the property and optional value set within the layer.
 
             Example:
+                Yield all nodes with the property ``ou:org:name`` set in the top layer::
 
-                // yield all nodes with the property ou:org:name set in the top layer.
-                yield $lib.layer.get().liftByProp(ou:org:name)
+                    yield $lib.layer.get().liftByProp(ou:org:name)
 
-                // yield all nodes with the property ou:org:name=woot in the top layer.
-                yield $lib.layer.get().liftByProp(ou:org:name, woot)
+                Yield all nodes with the property ``ou:org:name=woot`` in the top layer::
 
-                // yield all nodes with the property ou:org:name^=woot in the top layer.
-                yield $lib.layer.get().liftByProp(ou:org:name, woot, "^=")
+                    yield $lib.layer.get().liftByProp(ou:org:name, woot)
+
+                Yield all nodes with the property ``ou:org:name^=woot`` in the top layer::
+
+                    yield $lib.layer.get().liftByProp(ou:org:name, woot, "^=")
 
             ''',
          'type': {'type': 'function', '_funcname': 'liftByProp',
@@ -5512,12 +5514,13 @@ class Layer(Prim):
             Lift and yield nodes with the tag set within the layer.
 
             Example:
+                Yield all nodes with the tag #foo set in the layer::
 
-                // yield all nodes with the tag #foo set in the layer.
-                yield $lib.layer.get().liftByTag(foo)
+                    yield $lib.layer.get().liftByTag(foo)
 
-                // yield all inet:fqdn with the tag #foo set in the layer.
-                yield $lib.layer.get().liftByTag(foo, inet:fqdn)
+                Yield all inet:fqdn with the tag #foo set in the layer::
+
+                    yield $lib.layer.get().liftByTag(foo, inet:fqdn)
 
             ''',
          'type': {'type': 'function', '_funcname': 'liftByTag',
