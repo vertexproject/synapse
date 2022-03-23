@@ -7,6 +7,19 @@ from synapse.tests.utils import alist
 
 class ViewTest(s_t_utils.SynTest):
 
+    async def test_view_nomerge(self):
+        async with self.getTestCore() as core:
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': view}
+
+            await core.nodes('[ ou:org=* ]', opts=opts)
+            await core.nodes('$lib.view.get().set(nomerge, $lib.true)', opts=opts)
+
+            with self.raises(s_exc.CantMergeView):
+                await core.nodes('$lib.view.get().merge()', opts=opts)
+
+            self.len(1, core.nodes('ou:org'))
+
     async def test_view_set_parent(self):
 
         async with self.getTestCore() as core:
