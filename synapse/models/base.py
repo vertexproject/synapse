@@ -26,14 +26,14 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:timeline:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
-                    'doc': 'A taxonomy of timeline types for a meta:timeline nodes.'}),
+                    'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
 
                 ('meta:event', ('guid', {}), {
                     'doc': 'An analytically relevant event in a curated timeline.'}),
 
                 ('meta:event:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
-                    'doc': 'A taxonomy of event types for a meta:event nodes.'}),
+                    'doc': 'A taxonomy of event types for meta:event nodes.'}),
 
                 ('graph:cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
@@ -118,7 +118,7 @@ class BaseModule(s_module.CoreModule):
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the event.'}),
                     ('type', ('meta:event:taxonomy', {}), {
-                        'doc': 'Time type of event.'}),
+                        'doc': 'Type of event.'}),
                 )),
 
                 ('meta:event:taxonomy', {}, ()),
