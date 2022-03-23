@@ -22,8 +22,10 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Several updates for the ``crypto``, ``geospace``, ``meta`` models.
+- Several updates for the ``crypto``, ``geospace``, ``inet``, and ``meta``
+  models.
   (`#2594 <https://github.com/vertexproject/synapse/pull/2594>`_)
+  (`#2608 <https://github.com/vertexproject/synapse/pull/2608>`_)
   (`#2611 <https://github.com/vertexproject/synapse/pull/2611>`_)
 
   ``crypto:payment:input``
@@ -45,6 +47,9 @@ Features and Enhancements
 
   ``geo:place``
     Change the type of the ``:name`` secondary property to ``geo:name``.
+
+  ``inet:web:instance``
+    Add a new form to track an instance of a web service.
 
   ``meta:event``
     Add a new form to denote an analytically relevant event in a curated
