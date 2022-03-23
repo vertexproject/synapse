@@ -2806,6 +2806,10 @@ class MergeCmd(Cmd):
 
     NOTE: This command requires the current view to be a fork.
 
+    NOTE: The arguments for including/excluding tags can accept tag glob
+          expressions for specifying tags. For more information on tag glob
+          expressions, check the Synapse documentation for $node.globtags().
+
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
@@ -2815,6 +2819,15 @@ class MergeCmd(Cmd):
         // Print out what the merge command *would* do but dont.
 
         #cno.mal.redtree | merge
+
+        // Merge ou:org nodes, but only merge tags one level below the rep.vt
+        // and rep.whoxy tags.
+
+        ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
+
+        // Merge ou:org nodes, but exclude any tags in the cno tag tree.
+
+        ou:org | merge --exclude-tags cno.** --apply
 
     '''
     name = 'merge'
@@ -2828,9 +2841,12 @@ class MergeCmd(Cmd):
         pars.add_argument('--only-tags', default=False, action='store_true',
                           help='Only merge tags/tagprops or syn:tag nodes.')
         pars.add_argument('--include-tags', default=[], nargs='*',
-                          help='Include specific tags/tagprops or syn:tag nodes when merging, others are ignored.')
+                          help='Include specific tags/tagprops or syn:tag nodes when '
+                               'merging, others are ignored. Tag glob expressions may '
+                               'be used to specify the tags.')
         pars.add_argument('--exclude-tags', default=[], nargs='*',
-                          help='Exclude specific tags/tagprops or syn:tag nodes from merge.')
+                          help='Exclude specific tags/tagprops or syn:tag nodes from merge.'
+                               'Tag glob expressions may be used to specify the tags.')
         pars.add_argument('--include-props', default=[], nargs='*',
                           help='Include specific props when merging, others are ignored.')
         pars.add_argument('--exclude-props', default=[], nargs='*',
