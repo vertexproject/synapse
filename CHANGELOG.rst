@@ -48,8 +48,18 @@ Features and Enhancements
   ``geo:place``
     Change the type of the ``:name`` secondary property to ``geo:name``.
 
+  ``inet:web:channel``
+    Add a a new form to denote a channel within a web service or instance.
+
   ``inet:web:instance``
-    Add a new form to track an instance of a web service.
+    Add a new form to track an instance of a web service, such as a channel
+    based messaging platform.
+
+  ``inet:web:mesg``
+    Add ``:channel``, ``:place``, and ``:place:name`` secondary properties.
+
+  ``inet:web:post``
+    Add ``:channel`` and ``:place:name`` secondary properties.
 
   ``meta:event``
     Add a new form to denote an analytically relevant event in a curated
