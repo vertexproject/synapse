@@ -2820,14 +2820,14 @@ class MergeCmd(Cmd):
 
         #cno.mal.redtree | merge
 
-        // Merge ou:org nodes, but only merge tags one level below the rep.vt
-        // and rep.whoxy tags.
+        // Merge ou:org nodes, but when merging tags, only merge tags one level
+        // below the rep.vt and rep.whoxy tags.
 
         ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
 
-        // Merge ou:org nodes, but exclude any tags in the cno tag tree.
+        // Only merge tags, and exclude any tags in the cno tag tree.
 
-        ou:org | merge --exclude-tags cno.** --apply
+        ou:org | merge --only-tags --exclude-tags cno.** --apply
 
     '''
     name = 'merge'
