@@ -5,6 +5,101 @@ Synapse Changelog
 *****************
 
 
+v2.88.0 - 2022-03-23
+====================
+
+Automatic Migrations
+--------------------
+- Re-normalize the ``geo:place:name``, ``crypto:currency:block:hash``, and
+  ``crypto:currency:transaction:hash`` values to account for their modeling
+  changes. Migrate ``crypto:currency:transaction:input`` and
+  ``crypto:currency:transaction:output`` values to the secondary properties
+  on the respective ``crypto:payment:input`` and ``crypto:payment:output``
+  nodes to account for the modeling changes. Make ``geo:name`` nodes for
+  ``geo:place:name`` secondary properties to account for the modeling changes.
+  See :ref:`devops-general-migrations` for more information about automatic
+  migrations.
+
+Features and Enhancements
+-------------------------
+- Several updates for the ``crypto``, ``geospace``, ``inet``, and ``meta``
+  models.
+  (`#2594 <https://github.com/vertexproject/synapse/pull/2594>`_)
+  (`#2608 <https://github.com/vertexproject/synapse/pull/2608>`_)
+  (`#2611 <https://github.com/vertexproject/synapse/pull/2611>`_)
+  (`#2616 <https://github.com/vertexproject/synapse/pull/2616>`_)
+
+  ``crypto:payment:input``
+    Add a secondary property ``:transaction`` to denote the transaction
+    for the payment.
+
+  ``crypto:payment:output``
+    Add a secondary property ``:transaction`` to denote the transaction
+    for the payment.
+
+  ``crypto:currency:block``
+    Change the type of the ``:hash`` property from a ``0x`` prefixed ``str``
+    to a ``hex`` type.
+
+  ``crypto:currency:transaction``
+    Change the type of the ``:hash`` property from a ``0x`` prefixed ``str``
+    to a ``hex`` type.
+    Deprecate the ``:inputs`` and ``:outputs`` secondary properties.
+
+  ``geo:place``
+    Change the type of the ``:name`` secondary property to ``geo:name``.
+
+  ``inet:web:channel``
+    Add a a new form to denote a channel within a web service or instance.
+
+  ``inet:web:instance``
+    Add a new form to track an instance of a web service, such as a channel
+    based messaging platform.
+
+  ``inet:web:mesg``
+    Add ``:channel``, ``:place``, and ``:place:name`` secondary properties.
+
+  ``inet:web:post``
+    Add ``:channel`` and ``:place:name`` secondary properties.
+
+  ``meta:event``
+    Add a new form to denote an analytically relevant event in a curated
+    timeline.
+
+  ``meta:event:taxonomy``
+    Add a new form to represent a taxonomy of ``meta:event:type`` values.
+
+  ``meta:timeline``
+    Add a new form to denote a curated timeline of analytically relevant
+    events.
+
+  ``meta:timeline:taxonomy``
+    Add a new form to represent a taxonomy of ``meta:timeline:type`` values.
+
+- Add support for ``$lib.len()`` to count the length of emitter or generator
+  functions.
+  (`#2603 <https://github.com/vertexproject/synapse/pull/2603g>`_)
+- Add support for scrape APIs to handle text that has been defanged with
+  ``\\.`` characters.
+  (`#2605 <https://github.com/vertexproject/synapse/pull/2605>`_)
+- Add a ``nomerge`` option to View objects that can be set to prevent merging
+  a long lived fork.
+  (`#2614 <https://github.com/vertexproject/synapse/pull/2614>`_)
+- Add ``liftByProp()`` and ``liftByTag()`` methods to the Stormtypes
+  ``storm:layer`` objects. These allow lifting of nodes based on data stored
+  in a specific layer.
+  (`#2613 <https://github.com/vertexproject/synapse/pull/2613>`_)
+- Expand Synapse requirements to include updated versions of the ``pygments``
+  library.
+  (`#2602 <https://github.com/vertexproject/synapse/pull/2602>`_)
+
+Improved Documentation
+----------------------
+- Fix the example regular expressions used in the ``$lib.scrape.genMatches()``
+  Storm library API examples.
+  (`#2606 <https://github.com/vertexproject/synapse/pull/2606>`_)
+
+
 v2.87.0 - 2022-03-18
 ====================
 
@@ -45,7 +140,7 @@ Bugfixes
 --------
 - Fix an issue where the StormDmon stop/start status was not properly being
   updated in the runtime object, despite being properly updated in the Hive.
-  (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
+  (`#2598 <https://github.com/vertexproject/synapse/pull/2598>`_)
 - Calls to ``addUnivProp()`` APIs when the universal property name already
   exists now raise a ``DupPropName`` exception.
   (`#2601 <https://github.com/vertexproject/synapse/pull/2601>`_)
@@ -114,8 +209,8 @@ Bugfixes
   handle results which did not have any changes.
   (`#2583 <https://github.com/vertexproject/synapse/pull/2583>`_)
 
-Documentation
--------------
+Improved Documentation
+----------------------
 - Fix spelling issues in documentation and API docstrings.
   (`#2582 <https://github.com/vertexproject/synapse/pull/2582>`_)
   (`#2585 <https://github.com/vertexproject/synapse/pull/2585>`_)
@@ -214,8 +309,8 @@ Bugfixes
   for that uppercase character.
   (`#2575 <https://github.com/vertexproject/synapse/pull/2575>`_)
 
-Documentation
--------------
+Improved Documentation
+----------------------
 - Add documentation for the ``$auto`` variable embedded into the Cron,
   StormDmon, and Trigger automations. Add documentation for variables
   representing the form, node value, properties and tags which are responsible
@@ -275,8 +370,8 @@ Bugfixes
   ``CoreApi.syncIndexEvents`` APIs.
   (`#2553 <https://github.com/vertexproject/synapse/pull/2553>`_)
 
-Documentation
--------------
+Improved Documentation
+----------------------
 - Remove outdated documentation related to making ``CoreModule`` classes.
   (`#2556 <https://github.com/vertexproject/synapse/pull/2556>`_)
 
@@ -315,8 +410,8 @@ Features and Enhancements
 - Add ``mesg`` arguments to all exceptions raised in ``synapse.lib.certdir``.
   (`#2546 <https://github.com/vertexproject/synapse/pull/2546>`_)
 
-Documentation
--------------
+Improved Documentation
+----------------------
 - Fix some missing and incorrect docstrings for Stormtypes.
   (`#2545 <https://github.com/vertexproject/synapse/pull/2545>`_)
 
