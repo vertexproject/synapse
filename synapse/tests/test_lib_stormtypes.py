@@ -5495,3 +5495,11 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('yield $lib.layer.get().liftByTag(newp, newp)', opts=opts)
+
+            # Comparators are validated
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foo, "^#$%@")', opts=opts)
+
+            # Type safety still matters
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('yield $lib.layer.get().liftByProp(ou:org, not_a_guid)', opts=opts)
