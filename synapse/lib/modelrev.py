@@ -394,8 +394,6 @@ class ModelRev:
         $layers = $lib.set()
         $layers.adds($layridens)
         for $view in $lib.view.list(deporder=$lib.true) {
-            $lib.warn($view.layers.0.iden)
-            $lib.warn($layers)
             if (not $layers.has($view.layers.0.iden)) { continue }
             view.exec $view.iden {
                 yield $lib.layer.get().liftByProp(geo:place:name)
