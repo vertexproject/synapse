@@ -753,10 +753,10 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) than has not been forked.')
+            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has not been forked.')
 
         if self.info.get('nomerge'):
-            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) than has nomerge set.')
+            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has nomerge set.')
 
         if self.trigqueue.size and not force:
             raise s_exc.CantMergeView(mesg=f'There are still {self.trigqueue.size} triggers waiting to complete.', canforce=True)
