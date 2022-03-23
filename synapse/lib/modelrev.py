@@ -438,13 +438,19 @@ class ModelRev:
                     $wipeOutputsArray()
                 }
             }
-            | model.deprecated.lock crypto:currency:transaction:inputs
-            | model.deprecated.lock crypto:currency:transaction:outputs
         '''
+
+        storm_crypto_lockout = '''
+        model.deprecated.lock crypto:currency:transaction:inputs
+        | model.deprecated.lock crypto:currency:transaction:outputs
+        '''
+
         logger.debug('Making geo:name nodes from geo:place:name values.')
         await self.runStorm(storm_geoplace_to_geoname)
         logger.debug('Update crypto:currency:transaction :input and :output property use.')
         await self.runStorm(storm_crypto_txin)
+        logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
+        await self.runStorm(storm_crypto_lockout)
 
     async def runStorm(self, text, opts=None):
         '''

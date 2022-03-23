@@ -65,11 +65,11 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
 
-            payors = await core.nodes('[ crypto:payment:input=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payors = await core.nodes('[ crypto:payment:input=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.eq(payors[0].get('value'), '30')
             self.eq(payors[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
-            payees = await core.nodes('[ crypto:payment:output=* :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            payees = await core.nodes('[ crypto:payment:output=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
             self.eq(payees[0].get('value'), '30')
             self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
 
@@ -78,7 +78,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes(f'''
                 [
-                    crypto:currency:transaction=*
+                    crypto:currency:transaction=(t1,)
                         :hash=0x01020304
                         :desc="Woot Woot"
                         :block=(BTC, 998877)
@@ -87,8 +87,6 @@ class CryptoModelTest(s_t_utils.SynTest):
                         :status:message=success
                         :to = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :from = (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :inputs = ({payor},)
-                        :outputs = ({payee},)
                         :fee = 0.0001
                         :value = 30
                         :time = 20211031
@@ -111,8 +109,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('status:message'), 'success')
             self.eq(node.get('to'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.eq(node.get('from'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
-            self.eq(node.get('inputs'), (payor,))
-            self.eq(node.get('outputs'), (payee,))
             self.eq(node.get('fee'), '0.0001')
             self.eq(node.get('value'), '30')
             self.eq(node.get('time'), 1635638400000)
@@ -121,6 +117,15 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('eth:gasprice'), '0.001')
             self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
             self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
+
+            with self.raises(s_exc.IsDeprLocked):
+                await node.set('inputs', (payor,))
+            with self.raises(s_exc.IsDeprLocked):
+                await node.set('outputs', (payee,))
+
+            q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
+            nodes = await core.nodes(q)
+            self.eq({n.ndef[1] for n in nodes}, {payor, payee})
 
             nodes = await core.nodes('''
                 [
