@@ -6100,12 +6100,6 @@ class View(Prim):
         force = await tobool(force)
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
-
-        view = self.runt.snap.core.getView(viewiden)
-        if view is None:
-            mesg = f'View iden not found: {viewiden}.'
-            raise s_exc.NoSuchView(mesg=mesg)
-
         todo = s_common.todo('merge', useriden=useriden, force=force)
         await self.runt.dyncall(viewiden, todo)
 

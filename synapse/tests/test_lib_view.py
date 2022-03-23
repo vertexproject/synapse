@@ -23,6 +23,10 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('ou:org'))
 
+            # mop up some coverage issues
+            with self.raises(s_exc.BadOptValu):
+                await core.view.setViewInfo('hehe', 10)
+
     async def test_view_set_parent(self):
 
         async with self.getTestCore() as core:
