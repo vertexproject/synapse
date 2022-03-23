@@ -2499,6 +2499,9 @@ class InetModule(s_module.CoreModule):
                             'ex': 'https://app.slack.com/client/T2XK1223Y/C2XHHNDS7',
                             'doc': 'The primary URL used to identify the channel.',
                         }),
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'C2XHHNDS7',
+                            'doc': 'The operator specified ID of this channel.'}),
                         ('instance', ('inet:web:instance', {}), {
                             'doc': 'The instance which contains the channel.',
                         }),
