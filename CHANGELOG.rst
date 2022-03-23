@@ -22,8 +22,9 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Several updates for the ``crypto`` and ``geospace`` models.
+- Several updates for the ``crypto``, ``geospace``, ``meta`` models.
   (`#2594 <https://github.com/vertexproject/synapse/pull/2594>`_)
+  (`#2611 <https://github.com/vertexproject/synapse/pull/2611>`_)
 
   ``crypto:payment:input``
     Add a secondary property ``:transaction`` to denote the transaction
@@ -45,12 +46,29 @@ Features and Enhancements
   ``geo:place``
     Change the type of the ``:name`` secondary property to ``geo:name``.
 
+  ``meta:event``
+    Add a new form to denote an analytically relevant event in a curated
+    timeline.
+
+  ``meta:event:taxonomy``
+    Add a new form to represent a taxonomy of ``meta:event:type`` values.
+
+  ``meta:timeline``
+    Add a new form to denote a curated timeline of analytically relevant
+    events.
+
+  ``meta:timeline:taxonomy``
+    Add a new form to represent a taxonomy of ``meta:timeline:type`` values.
+
 - Add support for ``$lib.len()`` to count the length of emitter or generator
   functions.
   (`#2603 <https://github.com/vertexproject/synapse/pull/2603g>`_)
 - Add support for scrape APIs to handle text that has been defanged with
   ``\\.`` characters.
   (`#2605 <https://github.com/vertexproject/synapse/pull/2605>`_)
+- Add a ``nomerge`` option to View objects that can be set to prevent merging
+  a long lived fork.
+  (`#2614 <https://github.com/vertexproject/synapse/pull/2614>`_)
 - Expand Synapse requirements to include updated versions of the ``pygments``
   library.
   (`#2602 <https://github.com/vertexproject/synapse/pull/2602>`_)
