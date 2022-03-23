@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.88.0 - 2022-03-21
+v2.88.0 - 2022-03-23
 ====================
 
 Automatic Migrations
