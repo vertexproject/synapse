@@ -1059,6 +1059,11 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(org2,) return($node.getStorNodes())', opts=altview)
             self.nn(sodes[0]['tags']['six'])
 
+            await core.nodes('[ ou:org=(org3,) +#glob.tags +#more.glob.tags +#more.gob.tags ]', opts=altview)
+            await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
+            nodes = await core.nodes('ou:org=(org3,)')
+            self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:

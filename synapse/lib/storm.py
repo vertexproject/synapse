@@ -16,6 +16,7 @@ import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
@@ -2840,18 +2841,24 @@ class MergeCmd(Cmd):
 
     def _getTagFilter(self):
         if self.opts.include_tags:
+            globs = s_cache.TagGlobs()
+            for name in self.opts.include_tags:
+                globs.add(name, True)
 
             def tagfilter(tag):
-                if tag in self.opts.include_tags:
+                if globs.get(tag):
                     return False
                 return True
 
             return tagfilter
 
         if self.opts.exclude_tags:
+            globs = s_cache.TagGlobs()
+            for name in self.opts.exclude_tags:
+                globs.add(name, True)
 
             def tagfilter(tag):
-                if tag in self.opts.exclude_tags:
+                if globs.get(tag):
                     return True
                 return False
 
