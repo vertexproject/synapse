@@ -29,17 +29,17 @@ Features and Enhancements
     Add a secondary property ``:transaction`` to denote the transaction
     for the payment.
 
-  ``crypto:payment:input``
+  ``crypto:payment:output``
     Add a secondary property ``:transaction`` to denote the transaction
     for the payment.
 
   ``crypto:currency:block``
     Change the type of the ``:hash`` property from a ``0x`` prefixed ``str``
-    to a ``hash`` type.
+    to a ``hex`` type.
 
   ``crypto:currency:transaction``
     Change the type of the ``:hash`` property from a ``0x`` prefixed ``str``
-    to a ``hash`` type.
+    to a ``hex`` type.
     Deprecate the ``:inputs`` and ``:outputs`` secondary properties.
 
   ``geo:place``
@@ -47,7 +47,7 @@ Features and Enhancements
 
 - Add support for ``$lib.len()`` to count the length of emitter or generator
   functions.
-  (`#2606 <https://github.com/vertexproject/synapse/pull/2606>`_)
+  (`#2603 <https://github.com/vertexproject/synapse/pull/2603g>`_)
 - Add support for scrape APIs to handle text that has been defanged with
   ``\\.`` characters.
   (`#2605 <https://github.com/vertexproject/synapse/pull/2605>`_)
