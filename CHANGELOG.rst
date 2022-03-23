@@ -27,6 +27,7 @@ Features and Enhancements
   (`#2594 <https://github.com/vertexproject/synapse/pull/2594>`_)
   (`#2608 <https://github.com/vertexproject/synapse/pull/2608>`_)
   (`#2611 <https://github.com/vertexproject/synapse/pull/2611>`_)
+  (`#2616 <https://github.com/vertexproject/synapse/pull/2616>`_)
 
   ``crypto:payment:input``
     Add a secondary property ``:transaction`` to denote the transaction
