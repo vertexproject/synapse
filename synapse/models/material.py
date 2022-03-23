@@ -10,6 +10,10 @@ class MatModule(s_module.CoreModule):
             'types': (
                 ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
                 ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
+                ('item:type', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of virtual or physical item types.',
+                })
                 ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
                 ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
                 # TODO add base types for mass / volume

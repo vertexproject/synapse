@@ -33,6 +33,12 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
+                ('ou:conflict', ('guid', {}), {
+                    'doc': 'A conflict between multiple campaigns with mutually exclusive goals.',
+                }),
+                ('ou:support', ('guid', {}), {
+                    'doc': 'Material support or resources given to facilitate a campaign.',
+                }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
@@ -480,6 +486,40 @@ class OuModule(s_module.CoreModule):
                     ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of positions which report to this position.',
                     }),
+                )),
+                ('ou:conflict', {}, (
+                    ('title', ('str', {'strip': True}), {}),
+                    ('period', ('ival', {}), {}),
+                )),
+                ('ou:support', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization giving the support.'}),
+                    ('org:name', ('ou:org', {}), {
+                        'doc': 'The name of the organization giving the support. Used for entity resolution.'}),
+                    ('org:fqdn', ('ou:org', {}), {
+                        'doc': 'The FQDN of the organization giving the support. Used for entity resolution.'}),
+                    ('campaign', ('ou:campaign', {}), {
+                        'doc': 'The campaign that is being given the support.'}),
+                    ('payment', ('econ:acct:payment', {}), {
+                        'doc': 'A payment of monetary support.'}),
+                    ('payment:price', ('econ:price', {}), {
+                        'doc': 'The amount of currency given.'}),
+                    ('payment:currency', ('econ:currency', {}), {
+                        'doc': 'The currency the amount is paid in.'}),
+                    ('personnel:count', ('int', {}), {
+                        'doc': 'The number of personnel with the given title being given.'}),
+                    ('personnel:title', ('ou:jobtitle', {}), {
+                        'doc': 'The job title of the personnel being given.'}),
+                    ('item:type', ('mat:taxonomy', {}), {
+                        'doc': 'The type of material items being given.'}),
+                    ('item:count', ('int', {}), {
+                        'doc': 'The number of material items being given.'}),
+                    ('time:announced', ('time', {}), {
+                        'doc': 'The time the support was publicly announced.'}),
+                    ('time:delivered', ('time', {}), {
+                        'doc': 'The time the support was delivered.'}),
+                    ('delivered', ('bool', {}), {
+                        'doc': 'Set to true if the org delivered the resources.'}),
                 )),
                 ('ou:name', {}, ()),
                 ('ou:conttype', {}, ()),
