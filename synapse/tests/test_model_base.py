@@ -5,6 +5,25 @@ import synapse.tests.utils as s_t_utils
 
 class BaseTest(s_t_utils.SynTest):
 
+    async def test_model_base_timeline(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ meta:timeline=* :title=Woot :summary=4LOLZ :type=lol.cats ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('''
+                [ meta:event=* :title=Zip :duration=1:30:00
+                    :summary=Zop :time=20220321 :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
+            self.len(1, nodes)
+            nodes = await core.nodes('''[ meta:event=* :title=Hehe :duration=2:00
+                    :summary=Haha :time=20220322 :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
+            self.len(1, nodes)
+
+            self.len(2, await core.nodes('meta:timeline +:title=Woot +:summary=4LOLZ +:type=lol.cats -> meta:event'))
+            self.len(1, await core.nodes('meta:timeline -> meta:timeline:taxonomy'))
+            self.len(2, await core.nodes('meta:event -> meta:event:taxonomy'))
+            self.len(1, await core.nodes('meta:event +:title=Hehe +:summary=Haha +:time=20220322 +:duration=120 +:type=hehe.haha +:timeline'))
+
     async def test_model_base_note(self):
 
         async with self.getTestCore() as core:
