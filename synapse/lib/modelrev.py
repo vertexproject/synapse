@@ -407,9 +407,13 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+        layr_idens = [layr.iden for layr in layers]
+
         storm_crypto_txin = '''
+        $layer_set = $lib.set($view_idens)
         $views = $lib.view.list(deporder=$lib.true)
-            for $view in $views {
+        for $view in $views {
+            if $layer_set.has($view.layers.0.iden) {
                 view.exec $view.iden {
 
                     function addInputXacts() {
@@ -448,6 +452,7 @@ class ModelRev:
                     $wipeOutputsArray()
                 }
             }
+        }
         '''
 
         storm_crypto_lockout = '''
@@ -456,7 +461,7 @@ class ModelRev:
         '''
 
         logger.debug('Update crypto:currency:transaction :input and :output property use.')
-        await self.runStorm(storm_crypto_txin)
+        await self.runStorm(storm_crypto_txin, opts={'vars': {'layer_idens': layr_idens}})
         logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
         await self.runStorm(storm_crypto_lockout)
 
