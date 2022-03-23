@@ -28,6 +28,7 @@ reqValidVdef = s_config.getJsValidator({
         'name': {'type': 'string'},
         'parent': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'nomerge': {'type': 'boolean'},
         'layers': {
             'type': 'array',
             'items': {'type': 'string', 'pattern': s_config.re_iden}
@@ -564,7 +565,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc', 'parent'):
+        if name not in ('name', 'desc', 'parent', 'nomerge'):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
@@ -752,7 +753,10 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         fromlayr = self.layers[0]
         if self.parent is None:
-            raise s_exc.CantMergeView(mesg=f'Cannot merge a view {self.iden} than has not been forked')
+            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has not been forked.')
+
+        if self.info.get('nomerge'):
+            raise s_exc.CantMergeView(mesg=f'Cannot merge view ({self.iden}) that has nomerge set.')
 
         if self.trigqueue.size and not force:
             raise s_exc.CantMergeView(mesg=f'There are still {self.trigqueue.size} triggers waiting to complete.', canforce=True)

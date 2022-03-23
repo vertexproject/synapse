@@ -5853,6 +5853,9 @@ class View(Prim):
                 parent (str)
                     The parent View iden.
 
+                nomerge (bool)
+                    Setting to $lib.true will prevent the layer from being merged.
+
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
 
@@ -6035,6 +6038,8 @@ class View(Prim):
             valu = await tostr(valu)
         elif name == 'parent':
             valu = await tostr(valu)
+        elif name == 'nomerge':
+            valu = await tobool(valu)
         else:
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
