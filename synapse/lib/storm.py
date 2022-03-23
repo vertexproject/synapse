@@ -2820,14 +2820,22 @@ class MergeCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
-        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not merge tags/tagprops or syn:tag nodes.')
-        pars.add_argument('--only-tags', default=False, action='store_true', help='Only merge tags/tagprops or syn:tag nodes.')
-        pars.add_argument('--include-tags', default=[], nargs='*', help='Only merge specific tags/tagprops or syn:tag nodes.')
-        pars.add_argument('--exclude-tags', default=[], nargs='*', help='Exclude specific tags/tagprops or syn:tag nodes from merge.')
-        pars.add_argument('--include-props', default=[], nargs='*', help='Only merge specific props.')
-        pars.add_argument('--exclude-props', default=[], nargs='*', help='Exclude specific props from merge.')
-        pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
+        pars.add_argument('--apply', default=False, action='store_true',
+                          help='Execute the merge changes.')
+        pars.add_argument('--no-tags', default=False, action='store_true',
+                          help='Do not merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--only-tags', default=False, action='store_true',
+                          help='Only merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--include-tags', default=[], nargs='*',
+                          help='Include specific tags/tagprops or syn:tag nodes when merging, others are ignored.')
+        pars.add_argument('--exclude-tags', default=[], nargs='*',
+                          help='Exclude specific tags/tagprops or syn:tag nodes from merge.')
+        pars.add_argument('--include-props', default=[], nargs='*',
+                          help='Include specific props when merging, others are ignored.')
+        pars.add_argument('--exclude-props', default=[], nargs='*',
+                          help='Exclude specific props from merge.')
+        pars.add_argument('--diff', default=False, action='store_true',
+                          help='Enumerate all changes in the current layer.')
         return pars
 
     def _getTagFilter(self):

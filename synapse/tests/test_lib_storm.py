@@ -990,8 +990,10 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
-
             altview = {'view': viewiden}
+
+            await core.addTagProp('score', ('int', {}), {})
+
             await core.nodes('[ ou:org=(org1,) :name=hehe ]')
 
             q = '''
@@ -1001,9 +1003,9 @@ class StormTest(s_t_utils.SynTest):
                 :desc=cool
                 :founded=2021
                 .seen=2022
-                +#one
-                +#two
-                +#three
+                +#one:score=1
+                +#two:score=2
+                +#three:score=3
                 +#haha.four
                 +#haha.five
             ]
@@ -1016,11 +1018,15 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
             nodes = await core.nodes('ou:org')
             self.sorteq(list(nodes[0].tags.keys()), ['one', 'two'])
+            self.eq(nodes[0].tagprops['one']['score'], 1)
+            self.eq(nodes[0].tagprops['two']['score'], 2)
+            self.none(nodes[0].tagprops.get('three'))
             self.len(2, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --only-tags --exclude-tags three haha.four --apply', opts=altview)
             nodes = await core.nodes('ou:org')
             self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'haha', 'haha.five'])
+            self.none(nodes[0].tagprops.get('three'))
             self.len(4, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
@@ -1031,6 +1037,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0].props.get('url'))
             self.none(nodes[0].props.get('founded'))
             self.none(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].tagprops['three']['score'], 3)
             self.len(6, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
