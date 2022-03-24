@@ -120,6 +120,7 @@ setup(
             'sphinx>=4.2.0,<5.0.0',
             'sphinx-rtd-theme>=1.0.0,<2.0.0',
             'sphinx-notfound-page==0.8',
+            'jinja2<3.1.0',
         ],
         'dev': [
             'pytest>=6.2.5,<7.0.0',
