@@ -417,7 +417,7 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
-    def _larkToSynExc(self, e: lark.exceptions.LarkError):
+    def _larkToSynExc(self, e):
         '''
         Convert lark exception to synapse BadSyntax exception
         '''

@@ -1,6 +1,5 @@
 import lark  # type: ignore
 
-
 import synapse.exc as s_exc
 
 import synapse.lib.parser as s_parser
@@ -1182,15 +1181,17 @@ class GrammarTest(s_t_utils.SynTest):
         self.true(errinfo.get('mesg').startswith("Unexpected end-of-input."))
 
         query = '''function itworks() {
-    $lib.print('it works')
-    return ( $lib.true )
-}
+                $lib.print('it works')
+                return ( $lib.true )
+            }
 
-$itworks()
+            $itworks()
 
-function foo(baz=$lib.true, faz) { return ( $lib.true ) }
+            function foo(baz=$lib.true, faz) {
+                return ( $lib.true )
+            }
 
-$foo()'''
+            $foo()'''
         parser = s_parser.Parser(query)
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
