@@ -1,4 +1,5 @@
 import ast
+
 import lark  # type: ignore
 import regex  # type: ignore
 
@@ -257,15 +258,15 @@ class AstConverter(lark.Transformer):
             if isinstance(kid, s_ast.CallKwarg):
                 name = kid.kids[0].valu
                 if name in kwnames:
-                    mesg = f"Duplicate keyword argument '{name}' in function call"
-                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+                    mesg = f"Duplicate keyword argument '{name}' in function call at line {meta.line} col {meta.column}"
+                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
 
                 kwnames.add(name)
                 kwargkids.append(kid)
             else:
                 if kwargkids:
-                    mesg = 'Positional argument follows keyword argument in function call'
-                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+                    mesg = f'Positional argument follows keyword argument in function call at line {meta.line} col {meta.column}'
+                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
                 argkids.append(kid)
 
         args = s_ast.CallArgs(kids=argkids)
@@ -314,12 +315,12 @@ class AstConverter(lark.Transformer):
                 name = kid.valu
                 # Make sure no positional follows a kwarg
                 if kwfound:
-                    mesg = f"Positional parameter '{name}' follows keyword parameter in definition"
-                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+                    mesg = f"Positional parameter '{name}' follows keyword parameter in definition at line {meta.line} col {meta.column}"
+                    raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
 
             if name in names:
-                mesg = f"Duplicate parameter '{name}' in function definition"
-                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos)
+                mesg = f"Duplicate parameter '{name}' in function definition at line {meta.line} col {meta.column}"
+                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
 
             names.add(name)
 
@@ -416,19 +417,25 @@ class Parser:
         self.text = text.strip()
         self.size = len(self.text)
 
-    def _larkToSynExc(self, e):
+    def _larkToSynExc(self, e: lark.exceptions.LarkError):
         '''
         Convert lark exception to synapse BadSyntax exception
         '''
-        mesg = regex.split('[\n!]', str(e))[0]
+        mesg = regex.split('[\n]', str(e))[0]
         at = len(self.text)
+        line = None
+        column = None
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
             expected = sorted(terminalEnglishMap[t] for t in e.allowed)
             mesg += f'.  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
+            line = e.line
+            column = e.column
         elif isinstance(e, lark.exceptions.UnexpectedEOF):
             expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
             mesg += ' ' + ', '.join(expected)
+            line = e.line
+            column = e.column
         elif isinstance(e, lark.exceptions.VisitError):
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
@@ -437,7 +444,7 @@ class Parser:
             origexc.errinfo['text'] = self.text
             return s_exc.BadSyntax(**origexc.errinfo)
 
-        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg)
+        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column)
 
     def eval(self):
         try:

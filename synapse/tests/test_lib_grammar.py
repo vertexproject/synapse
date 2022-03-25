@@ -1,5 +1,3 @@
-import unittest
-
 import lark  # type: ignore
 
 
@@ -1158,14 +1156,123 @@ class GrammarTest(s_t_utils.SynTest):
     def test_parse_cmd_string(self):
         self.eq(('newp', 9), s_parser.parse_cmd_string('help newp', 5))
 
-    def test_syntax_error(self):
+    async def test_syntax_error(self):
+
         query = 'test:str )'
         parser = s_parser.Parser(query)
-        self.raises(s_exc.BadSyntax, parser.query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+
+        self.eq(errinfo.get('at'), 9)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 10)
+        self.true(errinfo.get('mesg').startswith("No terminal defined for ')' at line 1 col 10."))
 
         query = 'test:str {'
         parser = s_parser.Parser(query)
-        self.raises(s_exc.BadSyntax, parser.query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+        # pprint(errinfo)
+        # EOF has no line / col infomration
+        self.eq(errinfo.get('at'), 10)
+        self.eq(errinfo.get('line'), -1)
+        self.eq(errinfo.get('column'), -1)
+        self.true(errinfo.get('mesg').startswith("Unexpected end-of-input."))
+
+        query = '''function itworks() {
+    $lib.print('it works')
+    return ( $lib.true )
+}
+
+$itworks()
+
+function foo(baz=$lib.true, faz) { return ( $lib.true ) }
+
+$foo()'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 100)
+        self.eq(errinfo.get('line'), 8)
+        self.eq(errinfo.get('column'), 13)
+        self.eq(errinfo.get('mesg'),
+                "Positional parameter 'faz' follows keyword parameter in definition at line 8 col 13")
+
+        query = '''
+
+        { inet:cidr4#rep.some.body
+        $lib.print('weee')
+        tee { -> :network } }
+        '''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 71)
+        self.eq(errinfo.get('line'), 3)
+        self.eq(errinfo.get('column'), 18)
+        self.true(errinfo.get('mesg').startswith("No terminal defined for ':' at line 3 col 18."))
+
+        query = 'inet:ipv4 | tee { -> foo '
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 21)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 22)
+        self.true(errinfo.get('mesg').startswith("No terminal defined for 'f' at line 1 col 22."))
+
+        query = '''// comment
+
+        #rep.blah.newp +inet:ipv4 --> * <--'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 55)
+        self.eq(errinfo.get('line'), -1)
+        self.eq(errinfo.get('column'), -1)
+        self.true(errinfo.get('mesg').startswith("Unexpected end-of-input."))
+
+        query = '''// comment
+
+                #rep.blah.newp +inet:ipv4 --> * <-- | help'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 64)
+        self.eq(errinfo.get('line'), 3)
+        self.eq(errinfo.get('column'), 53)
+        self.true(errinfo.get('mesg').startswith("No terminal defined for '|' at line 3 col 53"))
+
+        query = '''$str = $lib.cast(str,(1234))
+         if (!$str ~= '3.+0'  ) {
+           $lib.print($str)
+         }'''
+
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 42)
+        self.eq(errinfo.get('line'), 2)
+        self.eq(errinfo.get('column'), 14)
+        self.true(errinfo.get('mesg').startswith("No terminal defined for '!' at line 2 col 14."))
+
+        query = '''$str = $lib.cast(str, (1234))  if (!$str ~= '3.+0'  ) { $lib.print($str) }'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 35)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 36)
+        self.true(errinfo.get('mesg').startswith("No terminal defined for '!' at line 1 col 36."))
 
     async def test_quotes(self):
 
