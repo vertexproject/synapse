@@ -1109,9 +1109,11 @@ def getCertDir() -> CertDir:
     return certdir
 
 def addCertPath(path):
+    logger.info(f'Adding {path} to global certdir')
     return certdir.addCertPath(path)
 
 def delCertPath(path):
+    logger.info(f'Deleing {path} to global certdir')
     return certdir.delCertPath(path)
 
 def getCertDirn() -> str:

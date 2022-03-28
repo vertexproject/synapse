@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import logging
@@ -225,7 +226,9 @@ class TestUtils(s_t_utils.SynTest):
             buid = s_common.buid(42)
             self.ne(b'\00\00\00\00\00\00', buid[:6])
 
-    def test_utils_certdir(self):
+    async def test_utils_certdir(self):
+        # Give anything else that could be running in the ioloop waiting to teardown
+        # await asyncio.sleep(0.1)
         oldcertdirn = s_certdir.getCertDirn()
         oldcertdir = s_certdir.getCertDir()
         self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
@@ -233,7 +236,7 @@ class TestUtils(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             path = s_common.genpath(dirn, 'haha')
 
-            # Pacth the singleton related functionality
+            # Patch the singleton related functionality
             with self.getTestCertDir(path) as certdir:
 
                 # The singleton functionality now refers to the patched objects
