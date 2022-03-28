@@ -1037,6 +1037,7 @@ class Axon(s_cell.Cell):
 
         Notes:
             The dictionaries in the fields list may contain the following values::
+
                 {
                     'name': <str> - Name of the field.
                     'sha256': <str> - SHA256 hash of the file to submit for this field.

@@ -418,14 +418,17 @@ def reqdir(*paths):
 
 def getDirSize(*paths):
     '''
-    Returns:
-        Tuple of total real and total apparent size of all normal files and directories underneath *paths plus *paths
-        itself
-
-        Equivalent to `du -B 1 -s` and `du -bs`
+    Get the size of a directory.
 
     Args:
-        *paths ([str,...]): A list of path elements
+        *paths (str): A list of path elements.
+
+    Notes:
+        This is equivalent to ``du -B 1 -s`` and ``du -bs``.
+
+    Returns:
+        tuple: Tuple of total real and total apparent size of all normal files and directories underneath
+        ``*paths`` plus ``*paths`` itself.
     '''
     def getsize(path):
         try:
@@ -782,7 +785,6 @@ def envbool(name, defval='false'):
 
     Returns:
         boolean: True if the envar is set, false if it is set to a false value.
-
     '''
     return os.getenv(name, defval).lower() not in ('0', 'false')
 
@@ -1053,12 +1055,12 @@ class aclosing(contextlib.AbstractAsyncContextManager):
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
-    Code like this:
+    Code like this::
 
         async with aclosing(<module>.fetch(<arguments>)) as agen:
             <block>
 
-    is equivalent to this:
+    is equivalent to this::
 
         agen = <module>.fetch(<arguments>)
         try:

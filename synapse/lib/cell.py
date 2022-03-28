@@ -726,7 +726,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'string',
         },
         'mirror': {
-            'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
+            'description': 'A telepath URL for our upstream mirror (we must be a backup!). The devops guide for a '
+                           'Cell implementation will document if the Cell supports deployment in a mirrored '
+                           'configuration.',
             'type': 'string',
         },
         'auth:passwd': {

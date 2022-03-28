@@ -88,15 +88,17 @@ class Cpe23Str(s_types.Str):
     '''
     CPE 2.3 Formatted String
 
-    https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
+    ::
 
-    (Section 6.2)
+        https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
 
-    cpe:2.3: part : vendor : product : version : update : edition :
-        language : sw_edition : target_sw : target_hw : other
+        (Section 6.2)
 
-    * = "any"
-    - = N/A
+        cpe:2.3: part : vendor : product : version : update : edition :
+            language : sw_edition : target_sw : target_hw : other
+
+        * = "any"
+        - = N/A
     '''
     def __init__(self, modl, name, info, opts):
         opts['lower'] = True
