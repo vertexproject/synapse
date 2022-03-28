@@ -226,9 +226,7 @@ class TestUtils(s_t_utils.SynTest):
             buid = s_common.buid(42)
             self.ne(b'\00\00\00\00\00\00', buid[:6])
 
-    async def test_utils_certdir(self):
-        # Give anything else that could be running in the ioloop waiting to teardown
-        # await asyncio.sleep(0.1)
+    def test_utils_certdir(self):
         oldcertdirn = s_certdir.getCertDirn()
         oldcertdir = s_certdir.getCertDir()
         self.eq(oldcertdir.pathrefs, {oldcertdirn: 1})
