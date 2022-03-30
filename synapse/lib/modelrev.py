@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 6)
+maxvers = (0, 2, 8)
 
 class ModelRev:
 
@@ -19,6 +19,8 @@ class ModelRev:
             ((0, 2, 3), self.revModel20210528),
             ((0, 2, 5), self.revModel20210801),
             ((0, 2, 6), self.revModel20211112),
+            ((0, 2, 7), self.revModel20220307),
+            ((0, 2, 8), self.revModel20220315),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -245,6 +247,245 @@ class ModelRev:
             if nodeedits:
                 await save()
 
+    async def _normHugeProp(self, layers, prop):
+
+        proptype = prop.type
+        propname = prop.name
+        formname = prop.form.name
+        stortype = prop.type.stortype
+
+        for layr in layers:
+
+            nodeedits = []
+            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            async for buid, propvalu in layr.iterPropRows(formname, propname):
+
+                try:
+                    newval = proptype.norm(propvalu)[0]
+                except s_exc.BadTypeValu as e:
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Bad prop value {propname}={propvalu!r} : {oldm}')
+                    continue
+
+                if newval == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_SET, (propname, newval, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def _normHugeTagProps(self, layr, tagprops):
+
+        nodeedits = []
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        async def save():
+            await layr.storNodeEdits(nodeedits, meta)
+            nodeedits.clear()
+
+        for form, tag, prop in layr.getTagProps():
+            if form is None or prop not in tagprops:
+                continue
+
+            tptyp = self.core.model.tagprops[prop]
+            stortype = tptyp.type.stortype
+
+            async for buid, propvalu in layr.iterTagPropRows(tag, prop, form):
+
+                try:
+                    newval = tptyp.type.norm(propvalu)[0]
+                except s_exc.BadTypeValu as e:
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'Bad prop value {tag}:{prop}={propvalu!r} : {oldm}')
+                    continue
+
+                if newval == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, form, (
+                        (s_layer.EDIT_TAGPROP_SET, (tag, prop, newval, None, stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def revModel20220307(self, layers):
+
+        for name, prop in self.core.model.props.items():
+            if prop.form is None:
+                continue
+
+            stortype = prop.type.stortype
+            if stortype & s_layer.STOR_FLAG_ARRAY:
+                stortype = stortype & 0x7fff
+
+            if stortype == s_layer.STOR_TYPE_HUGENUM:
+                await self._normHugeProp(layers, prop)
+
+        tagprops = set()
+        for name, prop in self.core.model.tagprops.items():
+            if prop.type.stortype == s_layer.STOR_TYPE_HUGENUM:
+                tagprops.add(prop.name)
+
+        for layr in layers:
+            await self._normHugeTagProps(layr, tagprops)
+
+    async def revModel20220315(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            for formname, propname in (
+                    ('geo:place', 'name'),
+                    ('crypto:currency:block', 'hash'),
+                    ('crypto:currency:transaction', 'hash')):
+
+                prop = self.core.model.prop(f'{formname}:{propname}')
+                async for buid, propvalu in layr.iterPropRows(formname, propname):
+                    try:
+                        norm = prop.type.norm(propvalu)[0]
+                    except s_exc.BadTypeValu as e: # pragma: no cover
+                        oldm = e.errinfo.get('mesg')
+                        logger.warning(f'error re-norming {formname}:{propname}={propvalu} : {oldm}')
+                        continue
+
+                    if norm == propvalu:
+                        continue
+
+                    nodeedits.append(
+                        (buid, formname, (
+                            (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype), ()),
+                        )),
+                    )
+
+                    if len(nodeedits) >= 1000:  # pragma: no cover
+                        await save()
+
+                if nodeedits:
+                    await save()
+
+        layridens = [layr.iden for layr in layers]
+
+        storm_geoplace_to_geoname = '''
+        $layers = $lib.set()
+        $layers.adds($layridens)
+        for $view in $lib.view.list(deporder=$lib.true) {
+            if (not $layers.has($view.layers.0.iden)) { continue }
+            view.exec $view.iden {
+                yield $lib.layer.get().liftByProp(geo:place:name)
+                [ geo:name=:name ]
+            }
+        }
+        '''
+
+        storm_crypto_txin = '''
+        $layers = $lib.set()
+        $layers.adds($layridens)
+        for $view in $lib.view.list(deporder=$lib.true) {
+            if (not $layers.has($view.layers.0.iden)) { continue }
+            view.exec $view.iden {
+
+                function addInputXacts() {
+                    yield $lib.layer.get().liftByProp(crypto:payment:input)
+                    -:transaction $xact = $lib.null
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    if $xact {
+                        [ :transaction=$xact ]
+                    }
+                    fini { return() }
+                }
+
+                function addOutputXacts() {
+                    yield $lib.layer.get().liftByProp(crypto:payment:output)
+                    -:transaction $xact = $lib.null
+                    { -> crypto:currency:transaction $xact=$node.value() }
+                    if $xact {
+                        [ :transaction=$xact ]
+                    }
+                    fini { return() }
+                }
+
+                function wipeInputsArray() {
+                    yield $lib.layer.get().liftByProp(crypto:currency:transaction:inputs)
+                    [ -:inputs ]
+                    fini { return() }
+                }
+
+                function wipeOutputsArray() {
+                    yield $lib.layer.get().liftByProp(crypto:currency:transaction:outputs)
+                    [ -:outputs ]
+                    fini { return() }
+                }
+
+                $addInputXacts()
+                $addOutputXacts()
+                $wipeInputsArray()
+                $wipeOutputsArray()
+            }
+        }
+        '''
+
+        storm_crypto_lockout = '''
+        model.deprecated.lock crypto:currency:transaction:inputs
+        | model.deprecated.lock crypto:currency:transaction:outputs
+        '''
+
+        logger.debug('Making geo:name nodes from geo:place:name values.')
+        opts = {'vars': {'layridens': layridens}}
+        await self.runStorm(storm_geoplace_to_geoname, opts=opts)
+        logger.debug('Update crypto:currency:transaction :input and :output property use.')
+        await self.runStorm(storm_crypto_txin, opts=opts)
+        logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
+        await self.runStorm(storm_crypto_lockout)
+
+    async def runStorm(self, text, opts=None):
+        '''
+        Run storm code in a schedcoro and log the output messages.
+
+        Args:
+            text (str): Storm query to execute.
+            opts: Storm opts.
+
+        Returns:
+            None
+        '''
+        async def _runStorm():
+            async for mesgtype, mesginfo in self.core.storm(text, opts=opts):
+                if mesgtype == 'print':
+                    logger.debug(f'Storm message: {mesginfo.get("mesg")}')
+                    continue
+                if mesgtype == 'warn': # pragma: no cover
+                    logger.warning(f'Storm warning: {mesginfo.get("mesg")}')
+                    continue
+                if mesgtype == 'err': # pragma: no cover
+                    logger.error(f'Storm error: {mesginfo}')
+
+        await self.core.schedCoro(_runStorm())
+
     async def revCoreLayers(self):
 
         version = self.revs[-1][0] if self.revs else maxvers
@@ -278,9 +519,10 @@ class ModelRev:
         if not layers:
             return
 
+        await self.core._enableMigrationMode()
         for revvers, revmeth in self.revs:
 
-            todo = [lyr for lyr in layers if await lyr.getModelVers() < revvers]
+            todo = [lyr for lyr in layers if not lyr.ismirror and await lyr.getModelVers() < revvers]
             if not todo:
                 continue
 
@@ -290,4 +532,5 @@ class ModelRev:
 
             [await lyr.setModelVers(revvers) for lyr in todo]
 
+        await self.core._disableMigrationMode()
         logger.warning('...model migrations complete!')

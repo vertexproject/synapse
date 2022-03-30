@@ -64,9 +64,21 @@ class CryptoModelTest(s_t_utils.SynTest):
                 'input': hashlib.sha256(b'asdf').hexdigest(),
                 'output': hashlib.sha256(b'qwer').hexdigest(),
             }}
-            nodes = await core.nodes('''
+
+            payors = await core.nodes('[ crypto:payment:input=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            self.eq(payors[0].get('value'), '30')
+            self.eq(payors[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+
+            payees = await core.nodes('[ crypto:payment:output=* :transaction=(t1,) :address=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2) :value=30 ]')
+            self.eq(payees[0].get('value'), '30')
+            self.eq(payees[0].get('address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
+
+            payor = payors[0].ndef[1]
+            payee = payees[0].ndef[1]
+
+            nodes = await core.nodes(f'''
                 [
-                    crypto:currency:transaction=*
+                    crypto:currency:transaction=(t1,)
                         :hash=0x01020304
                         :desc="Woot Woot"
                         :block=(BTC, 998877)
@@ -87,7 +99,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             ''', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('hash'), '0x01020304')
+            self.eq(node.get('hash'), '01020304')
             self.eq(node.get('desc'), 'Woot Woot')
             self.eq(node.get('block'), ('btc', 998877))
             self.eq(node.get('block:coin'), 'btc')
@@ -106,6 +118,15 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
             self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
 
+            with self.raises(s_exc.IsDeprLocked):
+                await node.set('inputs', (payor,))
+            with self.raises(s_exc.IsDeprLocked):
+                await node.set('outputs', (payee,))
+
+            q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
+            nodes = await core.nodes(q)
+            self.eq({n.ndef[1] for n in nodes}, {payor, payee})
+
             nodes = await core.nodes('''
                 [
                     crypto:currency:block=(btc, 12345)
@@ -117,7 +138,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('coin'), 'btc')
             self.eq(node.get('offset'), 12345)
-            self.eq(node.get('hash'), '0x01020304')
+            self.eq(node.get('hash'), '01020304')
             self.eq(node.get('time'), 1638230400000)
 
             nodes = await core.nodes('''
@@ -160,6 +181,27 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq('WootWoot', node.get('nft:meta:name'))
             self.eq('LoLoL', node.get('nft:meta:description'))
             self.eq('https://vertex.link/favicon.ico', node.get('nft:meta:image'))
+
+            nodes = await core.nodes('''
+                [ crypto:currency:transaction=*
+                    :value = '1e-24'
+                ]''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('value'), '0.000000000000000000000001')
+
+            nodes = await core.nodes('''
+                [ crypto:currency:transaction=*
+                    :value = 0.000000000000000000000002
+                ]''')
+            self.len(1, await core.nodes('crypto:currency:transaction:value=1e-24'))
+            self.len(1, await core.nodes('crypto:currency:transaction:value=0.000000000000000000000001'))
+
+            huge = '730750818665451459101841.00000000000000000002'
+            huge2 = '730750818665451459101841.000000000000000000015'
+
+            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge} ]'))
+            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge2} ]'))
+            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
 
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

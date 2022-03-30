@@ -4,7 +4,7 @@
 # synapse and its dependencies pre-installed.  It does not start any
 # services.
 
-FROM vertexproject/synapse-base-image3:py38
+FROM vertexproject/vtx-base-image:py38
 
 ENV SYN_LOG_LEVEL="WARNING"
 

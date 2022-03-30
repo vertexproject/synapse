@@ -317,6 +317,24 @@ class PsModule(s_module.CoreModule):
                     ('web:group', ('inet:web:group', {}), {
                         'doc': 'A web group representing this contact.',
                     }),
+                    ('birth:place', ('geo:place', {}), {
+                        'doc': 'A fully resolved place of birth for this contact.',
+                    }),
+                    ('birth:place:loc', ('loc', {}), {
+                        'doc': 'The loc of the place of birth of this contact.',
+                    }),
+                    ('birth:place:name', ('geo:name', {}), {
+                        'doc': 'The name of the place of birth of this contact.',
+                    }),
+                    ('death:place', ('geo:place', {}), {
+                        'doc': 'A fully resolved place of death for this contact.',
+                    }),
+                    ('death:place:loc', ('loc', {}), {
+                        'doc': 'The loc of the place of death of this contact.',
+                    }),
+                    ('death:place:name', ('geo:name', {}), {
+                        'doc': 'The name of the place of death of this contact.',
+                    }),
                     ('dob', ('time', {}), {
                         'doc': 'The date of birth for this contact.',
                     }),

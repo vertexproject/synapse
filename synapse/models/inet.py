@@ -1162,6 +1162,15 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:post', ('guid', {}), {
                         'doc': 'A post made by a web account.'
                     }),
+
+                    ('inet:web:instance', ('guid', {}), {
+                        'doc': 'An instance of a web service such as slack or discord.'
+                    }),
+
+                    ('inet:web:channel', ('guid', {}), {
+                        'doc': 'A channel within a web service or instance such as slack or discord.'
+                    }),
+
                     ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[\w]+$'}), {
                         'doc': 'A hashtag used in a web post.',
                     }),
@@ -1234,6 +1243,12 @@ class InetModule(s_module.CoreModule):
                     }),
                     ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
                         'doc': 'A url/link embedded in an email message.',
+                    }),
+                    ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
+                        'doc': 'A TLS JARM fingerprint hash.',
+                    }),
+                    ('inet:ssl:jarmsample', ('comp', {'fields': (('server', 'inet:server'), ('jarmhash', 'inet:ssl:jarmhash'))}), {
+                        'doc': 'A JARM hash sample taken from a server.',
                     }),
                 ),
 
@@ -1520,8 +1535,11 @@ class InetModule(s_module.CoreModule):
                         ('dst:exe', ('file:bytes', {}), {
                             'doc': 'The file (executable) that received the connection.'
                         }),
+                        ('dst:txcount', ('int', {}), {
+                            'doc': 'The number of packets sent by the destination host.'
+                        }),
                         ('dst:txbytes', ('int', {}), {
-                            'doc': 'The number of bytes sent by the destination host / process / file.'
+                            'doc': 'The number of bytes sent by the destination host.'
                         }),
                         ('dst:handshake', ('str', {}), {
                             'disp': {'hint': 'text'},
@@ -1551,8 +1569,17 @@ class InetModule(s_module.CoreModule):
                         ('src:exe', ('file:bytes', {}), {
                             'doc': 'The file (executable) that created the connection.'
                         }),
+                        ('src:txcount', ('int', {}), {
+                            'doc': 'The number of packets sent by the source host.'
+                        }),
                         ('src:txbytes', ('int', {}), {
-                            'doc': 'The number of bytes sent by the source host / process / file.'
+                            'doc': 'The number of bytes sent by the source host.'
+                        }),
+                        ('tot:txcount', ('int', {}), {
+                            'doc': 'The number of packets sent in both directions.'
+                        }),
+                        ('tot:txbytes', ('int', {}), {
+                            'doc': 'The number of bytes sent in both directions.'
                         }),
                         ('src:handshake', ('str', {}), {
                             'disp': {'hint': 'text'},
@@ -2345,6 +2372,15 @@ class InetModule(s_module.CoreModule):
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
                         }),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place that the message was reportedly sent from.',
+                        }),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the message was reportedly sent from. Used for entity resolution.',
+                        }),
+                        ('instance', ('inet:web:instance', {}), {
+                            'doc': 'The instance where the message was sent.',
+                        }),
                     )),
 
                     ('inet:web:post', {}, (
@@ -2404,10 +2440,85 @@ class InetModule(s_module.CoreModule):
                         ('place', ('geo:place', {}), {
                             'doc': 'The place that the post was reportedly sent from.',
                         }),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The name of the place that the post was reportedly sent from. Used for entity resolution.',
+                        }),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The place that the post was reportedly sent from.',
                         }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel where the post was made.',
+                        }),
+                    )),
 
+                    ('inet:web:instance', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://app.slack.com/client/T2XK1223Y',
+                            'doc': 'The primary URL used to identify the instance.',
+                        }),
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'T2XK1223Y',
+                            'doc': 'The operator specified ID of this instance.',
+                        }),
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'vertex synapse',
+                            'doc': 'The visible name of the instance.',
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the instance was created.',
+                        }),
+                        ('creator', ('inet:web:acct', {}), {
+                            'doc': 'The account which created the instance.',
+                        }),
+                        ('owner', ('ou:org', {}), {
+                            'doc': 'The organization which created the instance.',
+                        }),
+                        ('owner:fqdn', ('inet:fqdn', {}), {
+                            'ex': 'vertex.link',
+                            'doc': 'The FQDN of the organization which created the instance. Used for entity resolution.',
+                        }),
+                        ('owner:name', ('ou:name', {}), {
+                            'ex': 'the vertex project, llc.',
+                            'doc': 'The name of the organization which created the instance. Used for entity resolution.',
+                        }),
+                        ('operator', ('ou:org', {}), {
+                            'doc': 'The organization which operates the instance.',
+                        }),
+                        ('operator:name', ('ou:name', {}), {
+                            'ex': 'slack',
+                            'doc': 'The name of the organization which operates the instance. Used for entity resolution.',
+                        }),
+                        ('operator:fqdn', ('inet:fqdn', {}), {
+                            'ex': 'slack.com',
+                            'doc': 'The FQDN of the organization which operates the instance. Used for entity resolution.',
+                        }),
+                    )),
+
+                    ('inet:web:channel', {}, (
+                        ('url', ('inet:url', {}), {
+                            'ex': 'https://app.slack.com/client/T2XK1223Y/C2XHHNDS7',
+                            'doc': 'The primary URL used to identify the channel.',
+                        }),
+                        ('id', ('str', {'strip': True}), {
+                            'ex': 'C2XHHNDS7',
+                            'doc': 'The operator specified ID of this channel.'}),
+                        ('instance', ('inet:web:instance', {}), {
+                            'doc': 'The instance which contains the channel.',
+                        }),
+                        ('name', ('str', {'strip': True}), {
+                            'ex': 'general',
+                            'doc': 'The visible name of the channel.',
+                        }),
+                        ('topic', ('str', {'strip': True}), {
+                            'ex': 'Synapse Discussion - Feel free to invite others!',
+                            'doc': 'The visible topic of the channel.',
+                        }),
+                        ('created', ('time', {}), {
+                            'doc': 'The time the channel was created.',
+                        }),
+                        ('creator', ('inet:web:acct', {}), {
+                            'doc': 'The account which created the channel.',
+                        }),
                     )),
 
                     ('inet:web:hashtag', {}, ()),
@@ -2426,7 +2537,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date of the whois record.'
                         }),
                         ('type', ('str', {'lower': True}), {
-                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).'
+                            'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
+                            'ro': True,
                         }),
                         ('id', ('str', {'lower': True}), {
                             'doc': 'The ID associated with the contact.'
@@ -2661,10 +2773,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:wifi:ap', {}, (
 
                         ('ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The SSID for the wireless access point.'}),
+                            'doc': 'The SSID for the wireless access point.', 'ro': True, }),
 
                         ('bssid', ('inet:mac', {}), {
-                            'doc': 'The MAC address for the wireless access point.'}),
+                            'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the wireless access point.'}),
@@ -2689,6 +2801,23 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:wifi:ssid', {}, ()),
+
+                    ('inet:ssl:jarmhash', {}, (
+                        ('ciphers', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{30}$'}), {
+                            'ro': True,
+                            'doc': 'The encoded cipher and TLS version of the server.'}),
+                        ('extensions', ('str', {'lower': True, 'strip': True, 'regex': '^[0-9a-f]{32}$'}), {
+                            'ro': True,
+                            'doc': 'The truncated SHA256 of the TLS server extensions.'}),
+                    )),
+                    ('inet:ssl:jarmsample', {}, (
+                        ('jarmhash', ('inet:ssl:jarmhash', {}), {
+                            'ro': True,
+                            'doc': 'The JARM hash computed from the server responses.'}),
+                        ('server', ('inet:server', {}), {
+                            'ro': True,
+                            'doc': 'The server that was sampled to compute the JARM hash.'}),
+                    )),
 
                 ),
             }),

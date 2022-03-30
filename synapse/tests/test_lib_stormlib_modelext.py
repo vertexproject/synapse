@@ -32,6 +32,10 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '''$lib.model.ext.addFormProp(_visi:int, tick, (time, $lib.dict()), $lib.dict())'''
                 await core.callStorm(q)
 
+            with self.raises(s_exc.DupPropName):
+                q = '''$lib.model.ext.addUnivProp(_woot, (time, $lib.dict()), $lib.dict())'''
+                await core.callStorm(q)
+
             await core.callStorm('_visi:int=10 | delnode')
             await core.callStorm('''
                 $lib.model.ext.delTagProp(score)

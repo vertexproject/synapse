@@ -69,6 +69,7 @@ import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
+import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
 import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
@@ -1204,21 +1205,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
 
-        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})
-        # TODO: 3.0.0 conversion will truncate this hive key
-        for name, locked in self.deprlocks.items():
-
-            form = self.model.form(name)
-            if form is not None:
-                form.locked = locked
-
-            prop = self.model.prop(name)
-            if prop is not None:
-                prop.locked = locked
-
-            _type = self.model.type(name)
-            if _type is not None:
-                _type.locked = locked
+        await self._initDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1320,9 +1307,12 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if self.isactive:
             await self._checkNexsIndx()
-            await self._checkLayerModels()
 
         await self._initCoreMods()
+
+        if self.isactive:
+            await self._checkLayerModels()
+
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -2578,13 +2568,20 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
-    @s_nexus.Pusher.onPushAuto('model:univ:add')
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
+        base = '.' + name
+        if base in self.model.props:
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {base}',
+                                    prop=name)
+        await self._push('model:univ:add', name, tdef, info)
+
+    @s_nexus.Pusher.onPush('model:univ:add')
+    async def _addUnivProp(self, name, tdef, info):
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
@@ -3045,6 +3042,33 @@ class Cortex(s_cell.Cell):  # type: ignore
         if self.inaugural:
             await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
+
+    async def _initDeprLocks(self):
+        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
+        # TODO: 3.0.0 conversion will truncate this hive key
+
+        if self.inaugural:
+            locks = (
+                # 2.87.0 - lock out incorrect crypto model
+                ('crypto:currency:transaction:inputs', True),
+                ('crypto:currency:transaction:outputs', True),
+            )
+            for k, v in locks:
+                await self._hndlsetDeprLock(k, v)
+
+        for name, locked in self.deprlocks.items():
+
+            form = self.model.form(name)
+            if form is not None:
+                form.locked = locked
+
+            prop = self.model.prop(name)
+            if prop is not None:
+                prop.locked = locked
+
+            _type = self.model.type(name)
+            if _type is not None:
+                _type.locked = locked
 
     async def _initJsonStor(self):
 
@@ -3811,7 +3835,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
-        await layr.setModelVers(s_modelrev.maxvers)
+        await layr._setModelVers(s_modelrev.maxvers)
 
         if self.isactive:
             await layr.initLayerActive()
@@ -4140,35 +4164,41 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
-        ddef = self.stormdmonhive.get(iden)
-        if ddef is None:
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
             return False
 
-        curv = ddef.get('enabled')
+        if dmon.enabled:
+            return False
 
-        ddef['enabled'] = True
-        await self.stormdmonhive.set(iden, ddef)
+        dmon.enabled = True
+        dmon.ddef['enabled'] = True
 
-        if self.isactive and not curv:
-            dmon = self.stormdmons.getDmon(iden)
+        await self.stormdmonhive.set(iden, dmon.ddef)
+
+        if self.isactive:
             await dmon.run()
+
         return True
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:disable')
     async def disableStormDmon(self, iden):
 
-        ddef = self.stormdmonhive.get(iden)
-        if ddef is None:
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
             return False
 
-        curv = ddef.get('enabled')
+        if not dmon.enabled:
+            return False
 
-        ddef['enabled'] = False
-        await self.stormdmonhive.set(iden, ddef)
+        dmon.enabled = False
+        dmon.ddef['enabled'] = False
 
-        if self.isactive and curv:
-            dmon = self.stormdmons.getDmon(iden)
+        await self.stormdmonhive.set(iden, dmon.ddef)
+
+        if self.isactive:
             await dmon.stop()
+
         return True
 
     @s_nexus.Pusher.onPush('storm:dmon:add')

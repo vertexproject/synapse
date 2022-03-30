@@ -20,6 +20,44 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    def test_hugenum(self):
+
+        model = s_datamodel.Model()
+        huge = model.type('hugenum')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('-730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm(None)
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('foo')
+
+        self.eq('0.000000000000000000000001', huge.norm('1E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('1.0E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('0.000000000000000000000001')[0])
+
+        self.eq('0', huge.norm('1E-25')[0])
+        self.eq('0', huge.norm('5E-25')[0])
+        self.eq('0.000000000000000000000001', huge.norm('6E-25')[0])
+        self.eq('1.000000000000000000000002', huge.norm('1.0000000000000000000000015')[0])
+
+        bign = '730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
+        bign = '-730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '-730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
     def test_taxonomy(self):
 
         model = s_datamodel.Model()
@@ -242,6 +280,10 @@ class TypesTest(s_t_utils.SynTest):
                 # but you'll get no results
                 nodes = await snap.nodes('test:hex4=022020*')
                 self.len(0, nodes)
+
+            self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
+            self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
+            self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
 
     def test_int(self):
 
@@ -926,7 +968,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes = await core.nodes('test:str:tick*range=("-3000 days", now)')
+            nodes = await core.nodes('test:str:tick*range=("-4200 days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
 
             opts = {'vars': {'tick': tick, 'tock': tock}}

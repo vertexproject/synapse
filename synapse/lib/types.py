@@ -640,16 +640,24 @@ class Hex(Type):
     def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
+            valu = valu.strip().lower()
+            if valu.startswith('0x'):
+                valu = valu[2:]
+
             if valu.endswith('*'):
                 return (
-                    ('^=', valu[:-1].lower(), self.stortype),
+                    ('^=', valu[:-1], self.stortype),
                 )
 
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
+        valu = valu.strip().lower()
+        if valu.startswith('0x'):
+            valu = valu[2:]
+
         return (
-            ('^=', valu.lower(), self.stortype),
+            ('^=', valu, self.stortype),
         )
 
     def _normPyStr(self, valu):
@@ -675,12 +683,8 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
-hugemax = 170141183460469231731687
+hugemax = 730750818665451459101842
 class HugeNum(Type):
-
-    _opt_defs = (
-        ('norm', True),
-    )
 
     stortype = s_layer.STOR_TYPE_HUGENUM
 
@@ -703,6 +707,12 @@ class HugeNum(Type):
 
     def norm(self, valu):
 
+        try:
+            huge = s_common.hugenum(valu)
+        except Exception as e:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg=str(e)) from None
+
         huge = s_common.hugenum(valu)
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
@@ -712,9 +722,8 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if self.opts.get('norm'):
-            huge.normalize(), {}
-        return huge.to_eng_string(), {}
+        huge = s_common.hugeround(huge).normalize(s_common.hugectx)
+        return '{:f}'.format(huge), {}
 
     def _ctorCmprEq(self, text):
         base = s_common.hugenum(text)

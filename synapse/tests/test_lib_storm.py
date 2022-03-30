@@ -612,9 +612,13 @@ class StormTest(s_t_utils.SynTest):
 
             self.true(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.none(core.stormdmons.getDmon(ddef0['iden']).task)
+            self.false(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
             self.true(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
+            self.true(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
             self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
             self.false(await core.callStorm(f'return($lib.dmon.stop(newp))'))
@@ -981,6 +985,84 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org#haha'))
 
             self.len(0, await core.nodes('diff', opts=altview))
+
+    async def test_storm_merge_opts(self):
+
+        async with self.getTestCore() as core:
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            altview = {'view': viewiden}
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[ ou:org=(org1,) :name=hehe ]')
+
+            q = '''
+            [ ou:org=(org1,)
+                :url=https://vertex.link
+                :name=haha
+                :desc=cool
+                :founded=2021
+                .seen=2022
+                +#one:score=1
+                +#two:score=2
+                +#three:score=3
+                +#haha.four
+                +#haha.five
+            ]
+            '''
+            await core.nodes(q, opts=altview)
+
+            self.len(0, await core.nodes('syn:tag'))
+            self.len(6, await core.nodes('syn:tag', opts=altview))
+
+            await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two'])
+            self.eq(nodes[0].tagprops['one']['score'], 1)
+            self.eq(nodes[0].tagprops['two']['score'], 2)
+            self.none(nodes[0].tagprops.get('three'))
+            self.len(2, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --only-tags --exclude-tags three haha.four --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'haha', 'haha.five'])
+            self.none(nodes[0].tagprops.get('three'))
+            self.len(4, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
+            self.eq(nodes[0].props.get('name'), 'haha')
+            self.eq(nodes[0].props.get('desc'), 'cool')
+            self.none(nodes[0].props.get('url'))
+            self.none(nodes[0].props.get('founded'))
+            self.none(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].tagprops['three']['score'], 3)
+            self.len(6, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.eq(nodes[0].props.get('founded'), 1609459200000)
+            self.none(nodes[0].props.get('url'))
+            self.none(nodes[0].props.get('.seen'))
+
+            await core.nodes('diff | merge --include-props ".seen" --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.nn(nodes[0].props.get('.seen'))
+            self.none(nodes[0].props.get('url'))
+
+            await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
+            await core.nodes('diff | merge --only-tags --apply', opts=altview)
+
+            self.len(0, await core.nodes('ou:org=(org2,)'))
+
+            sodes = await core.callStorm('ou:org=(org2,) return($node.getStorNodes())', opts=altview)
+            self.nn(sodes[0]['tags']['six'])
+
+            await core.nodes('[ ou:org=(org3,) +#glob.tags +#more.glob.tags +#more.gob.tags ]', opts=altview)
+            await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
+            nodes = await core.nodes('ou:org=(org3,)')
+            self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
 
     async def test_storm_embeds(self):
 

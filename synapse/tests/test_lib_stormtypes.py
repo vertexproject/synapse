@@ -695,6 +695,11 @@ class StormTypesTest(s_test.SynTest):
             stormnode = s_stormtypes.Node(nodes[0])
             self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
 
+            iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': iden}
+            await core.nodes('[ ou:org=* ou:org=* ]', opts=opts)
+            self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
+
     async def test_storm_lib_ps(self):
 
         async with self.getTestCore() as core:
@@ -1919,6 +1924,13 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.print($lib.auth.users.list().0)')
             self.stormIsInPrint('storm:auth:user', msgs)
             self.stormIsInPrint("'name': 'root'", msgs)
+
+            await core.stormlist('auth.user.add visi')
+
+            visi = await core.auth.getUserByName('visi')
+            opts = {'user': visi.iden}
+            self.true(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.true))', opts=opts))
+            self.false(await core.callStorm('return($lib.user.allowed(foo.bar, default=$lib.false))', opts=opts))
 
     async def test_persistent_vars(self):
         with self.getTestDir() as dirn:
@@ -3942,11 +3954,17 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                async with getCronJob("cron.add --minute 17 {$lib.queue.get(foo).put(m3)}") as guid:
-
-                    unixtime += 7 * MINSECS
-
-                    self.eq('m3', await getNextFoo())
+                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
+                text = f'cron.add --minute 17 {q}'
+                async with getCronJob(text) as guid:
+                    with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
+                        unixtime += 7 * MINSECS
+                        self.eq('m3', await getNextFoo())
+                        self.true(await stream.wait(6))
+                    buf = stream.getvalue()
+                    mesg = json.loads(buf.split('\n')[0])
+                    self.eq(mesg['message'], f'm3 cron {guid}')
+                    self.eq(mesg['iden'], guid)
 
                 ##################
 
@@ -4536,6 +4554,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.false(await core.callStorm('''
                 return($lib.auth.users.byname(visi).allowed(foo.bar))
+            '''))
+
+            self.true(await core.callStorm('''
+                return($lib.auth.users.byname(visi).allowed(foo.bar, default=$lib.true))
             '''))
 
             await core.callStorm('''
@@ -5431,3 +5453,53 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadCast):
                 await core.nodes('ou:industry $node.delEdge(foo, bar)')
+
+    async def test_storm_layer_lift(self):
+
+        async with self.getTestCore() as core:
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('[ ou:org=* :name=foobar +#hehe ]')
+
+            opts = {'view': viewiden}
+            nodeiden = await core.callStorm('[ ou:org=* :name=foobar +#hehe ] return($node.iden())', opts=opts)
+
+            self.len(2, await core.nodes('ou:org +:name=foobar +#hehe', opts=opts))
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foobar)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foo, "^=")', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByProp(".created")', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe, ou:org)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), nodeiden)
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('yield $lib.layer.get().liftByProp(newp)', opts=opts)
+
+            with self.raises(s_exc.NoSuchForm):
+                await core.nodes('yield $lib.layer.get().liftByTag(newp, newp)', opts=opts)
+
+            # Comparators are validated
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('yield $lib.layer.get().liftByProp(ou:org:name, foo, "^#$%@")', opts=opts)
+
+            # Type safety still matters
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('yield $lib.layer.get().liftByProp(ou:org, not_a_guid)', opts=opts)

@@ -16,6 +16,7 @@ import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
@@ -1386,6 +1387,21 @@ stormcmds = (
 
         ''',
     },
+    {
+        'name': 'note.add',
+        'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
+        'cmdargs': (
+            ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
+        ),
+        'storm': '''
+            function addNoteNode(text) {
+                [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                return($node)
+            }
+            init { $note = $addNoteNode($cmdopts.text) }
+            [ <(about)+ { yield $note } ]
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
@@ -1549,6 +1565,8 @@ class StormDmon(s_base.Base):
 
             text = self.ddef.get('storm')
             opts = self.ddef.get('stormopts', {})
+            vars = opts.setdefault('vars', {})
+            vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
 
             viewiden = opts.get('view')
             view = self.core.getView(viewiden)
@@ -2788,6 +2806,10 @@ class MergeCmd(Cmd):
 
     NOTE: This command requires the current view to be a fork.
 
+    NOTE: The arguments for including/excluding tags can accept tag glob
+          expressions for specifying tags. For more information on tag glob
+          expressions, check the Synapse documentation for $node.globtags().
+
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
@@ -2798,15 +2820,88 @@ class MergeCmd(Cmd):
 
         #cno.mal.redtree | merge
 
+        // Merge ou:org nodes, but when merging tags, only merge tags one level
+        // below the rep.vt and rep.whoxy tags.
+
+        ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
+
+        // Only merge tags, and exclude any tags in the cno tag tree.
+
+        ou:org | merge --only-tags --exclude-tags cno.** --apply
+
     '''
     name = 'merge'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
-        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not merge tags/tagprops or syn:tag nodes.')
-        pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
+        pars.add_argument('--apply', default=False, action='store_true',
+                          help='Execute the merge changes.')
+        pars.add_argument('--no-tags', default=False, action='store_true',
+                          help='Do not merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--only-tags', default=False, action='store_true',
+                          help='Only merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--include-tags', default=[], nargs='*',
+                          help='Include specific tags/tagprops or syn:tag nodes when '
+                               'merging, others are ignored. Tag glob expressions may '
+                               'be used to specify the tags.')
+        pars.add_argument('--exclude-tags', default=[], nargs='*',
+                          help='Exclude specific tags/tagprops or syn:tag nodes from merge.'
+                               'Tag glob expressions may be used to specify the tags.')
+        pars.add_argument('--include-props', default=[], nargs='*',
+                          help='Include specific props when merging, others are ignored.')
+        pars.add_argument('--exclude-props', default=[], nargs='*',
+                          help='Exclude specific props from merge.')
+        pars.add_argument('--diff', default=False, action='store_true',
+                          help='Enumerate all changes in the current layer.')
         return pars
+
+    def _getTagFilter(self):
+        if self.opts.include_tags:
+            globs = s_cache.TagGlobs()
+            for name in self.opts.include_tags:
+                globs.add(name, True)
+
+            def tagfilter(tag):
+                if globs.get(tag):
+                    return False
+                return True
+
+            return tagfilter
+
+        if self.opts.exclude_tags:
+            globs = s_cache.TagGlobs()
+            for name in self.opts.exclude_tags:
+                globs.add(name, True)
+
+            def tagfilter(tag):
+                if globs.get(tag):
+                    return True
+                return False
+
+            return tagfilter
+
+        return None
+
+    def _getPropFilter(self):
+        if self.opts.include_props:
+
+            def propfilter(prop):
+                if prop in self.opts.include_props:
+                    return False
+                return True
+
+            return propfilter
+
+        if self.opts.exclude_props:
+
+            def propfilter(prop):
+                if prop in self.opts.exclude_props:
+                    return True
+                return False
+
+            return propfilter
+
+        return None
 
     async def execStormCmd(self, runt, genr):
 
@@ -2815,6 +2910,10 @@ class MergeCmd(Cmd):
             raise s_exc.CantMergeView(mesg=mesg)
 
         notags = self.opts.no_tags
+        onlytags = self.opts.only_tags
+
+        tagfilter = self._getTagFilter()
+        propfilter = self._getPropFilter()
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
@@ -2837,7 +2936,8 @@ class MergeCmd(Cmd):
             nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
-            sode = (await node.getStorNodes())[0]
+            sodes = await node.getStorNodes()
+            sode = sodes[0]
 
             adds = []
             subs = []
@@ -2861,37 +2961,62 @@ class MergeCmd(Cmd):
 
             # check all node perms first
             form = sode.get('form')
+            if form == 'syn:tag':
+                if notags:
+                    continue
+            else:
+                # avoid merging a tag if the node won't exist below us
+                if onlytags:
+                    for undr in sodes[1:]:
+                        if undr.get('valu') is not None:
+                            break
+                    else:
+                        continue
 
-            if form == 'syn:tag' and notags:
-                continue
+            if not onlytags or form == 'syn:tag':
+                valu = sode.get('valu')
+                if valu is not None:
 
-            valu = sode.get('valu')
-            if valu is not None:
-                if not self.opts.apply:
-                    valurepr = node.form.type.repr(valu[0])
-                    await runt.printf(f'{nodeiden} {form} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'del', form), gateiden=layr0)
-                    runt.confirm(('node', 'add', form), gateiden=layr1)
+                    if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
+                        continue
 
-                    adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                    if not self.opts.apply:
+                        valurepr = node.form.type.repr(valu[0])
+                        await runt.printf(f'{nodeiden} {form} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'del', form), gateiden=layr0)
+                        runt.confirm(('node', 'add', form), gateiden=layr1)
 
-            for name, (valu, stortype) in sode.get('props', {}).items():
-                full = node.form.prop(name).full
-                if not self.opts.apply:
-                    valurepr = node.form.prop(name).type.repr(valu)
-                    await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-                    runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+                        adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                        subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
-                    adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                for name, (valu, stortype) in sode.get('props', {}).items():
+
+                    full = node.form.prop(name).full
+                    if propfilter:
+                        if name[0] == '.':
+                            if propfilter(name):
+                                continue
+                        else:
+                            if propfilter(full):
+                                continue
+
+                    if not self.opts.apply:
+                        valurepr = node.form.prop(name).type.repr(valu)
+                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+                        runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+
+                        adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
             if not notags:
-
                 for tag, valu in sode.get('tags', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.apply:
                         valurepr = ''
@@ -2907,6 +3032,10 @@ class MergeCmd(Cmd):
                         subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
                 for tag, tagdict in sode.get('tagprops', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
                     for prop, (valu, stortype) in tagdict.items():
                         tagperm = tuple(tag.split('.'))
                         if not self.opts.apply:
@@ -2919,33 +3048,35 @@ class MergeCmd(Cmd):
                             adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
                             subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
-            layr = runt.snap.view.layers[0]
-            async for name, valu in layr.iterNodeData(node.buid):
-                if not self.opts.apply:
-                    valurepr = repr(valu)
-                    await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-                    runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+            if not onlytags or form == 'syn:tag':
 
-                    adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                    subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
-                    if len(adds) >= 1000:
-                        await sync()
+                layr = runt.snap.view.layers[0]
+                async for name, valu in layr.iterNodeData(node.buid):
+                    if not self.opts.apply:
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                        runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-            async for edge in layr.iterNodeEdgesN1(node.buid):
-                verb = edge[0]
-                if not self.opts.apply:
-                    name, dest = edge
-                    await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
-                else:
-                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-                    runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+                        adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                        subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                        if len(adds) >= 1000:
+                            await sync()
 
-                    adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                    subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                    if len(adds) >= 1000:
-                        await sync()
+                async for edge in layr.iterNodeEdgesN1(node.buid):
+                    verb = edge[0]
+                    if not self.opts.apply:
+                        name, dest = edge
+                        await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                    else:
+                        runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+
+                        adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                        subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                        if len(adds) >= 1000:
+                            await sync()
 
             await sync()
 
@@ -3755,7 +3886,7 @@ class TeeCmd(Cmd):
                           help='Emit inbound nodes after processing storm queries.')
 
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
-                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not guaranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')

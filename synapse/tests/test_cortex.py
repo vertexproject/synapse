@@ -1,5 +1,6 @@
 import os
 import copy
+import json
 import time
 import asyncio
 import logging
@@ -251,6 +252,9 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
 
+                layr = core01.getLayer(layr01iden)
+                await layr.storNodeEdits((), {})
+
     async def test_cortex_must_upgrade(self):
 
         with self.getTestDir() as dirn:
@@ -350,6 +354,66 @@ class CortexTest(s_t_utils.SynTest):
             mods = await core.getStormIfaces('lookup')
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
+
+    async def test_cortex_lookup_dedup(self):
+        pkgdef = {
+            'name': 'foobar',
+            'modules': [
+                {'name': 'foobar',
+                 'interfaces': ['search'],
+                 'storm': '''
+                    function getBuid(form, valu) {
+                        *$form?=$valu
+                        return($lib.hex.decode($node.iden()))
+                    }
+                    function search(tokens) {
+                        $score = (0)
+                        for $tok in $tokens {
+                            $buid = $getBuid("inet:email", $tok)
+                            if $buid { emit ($score, $buid) }
+                            $buid = $getBuid("test:str", $tok)
+                            if $buid { emit ($score, $buid) }
+                            $score = ($score + 10)
+                        }
+                    }
+                 '''
+                 },
+            ]
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:email=foo@bar.com ]')
+
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            buid = nodes[0].buid
+            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
+
+            # scrape results are not deduplicated
+            nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
+
+            await core.loadStormPkg(pkgdef)
+            self.len(1, await core.getStormIfaces('search'))
+
+            todo = s_common.todo('search', ('foo@bar.com',))
+            vals = [r async for r in core.view.mergeStormIface('search', todo)]
+            self.eq(((0, buid),), vals)
+
+            # search iface results are deduplicated against scrape results
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
+
+            await core.nodes('[ test:str=foo@bar.com ]')
+
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email', 'test:str'], [n.ndef[0] for n in nodes])
+
+            await core.nodes('[ test:str=hello ]')
+
+            # search iface results are not deduplicated against themselves
+            nodes = await core.nodes('hello hello', opts={'mode': 'lookup'})
+            self.eq(['test:str', 'test:str'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
         async with self.getTestCore() as core:
@@ -852,19 +916,29 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            iden = await core.callStorm('''
-                $que = $lib.queue.add(foo)
+            with self.getStructuredAsyncLoggerStream('synapse.storm.log',
+                                                     'Running dmon') as stream:
+                iden = await core.callStorm('''
+                    $que = $lib.queue.add(foo)
 
-                $ddef = $lib.dmon.add(${
-                    $lib.print(hi)
-                    $lib.warn(omg)
-                    $que = $lib.queue.get(foo)
-                    $que.put(done)
-                })
+                    $ddef = $lib.dmon.add(${
+                        $lib.print(hi)
+                        $lib.warn(omg)
+                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $lib.log.info($s, ({"iden": $auto.iden}))
+                        $que = $lib.queue.get(foo)
+                        $que.put(done)
+                    })
 
-                $que.get()
-                return($ddef.iden)
-            ''')
+                    $que.get()
+                    return($ddef.iden)
+                ''')
+                self.true(await stream.wait(6))
+
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg.get('message'), f'Running dmon {iden}')
+            self.eq(mesg.get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}
             logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
@@ -5474,6 +5548,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
                 await core.delTagProp('added')
+
+                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
+                await core.nodes('[ _hehe:array=(1,2,3) ]')
+                self.len(1, await core.nodes('_hehe:array=(1,2,3)'))
 
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:

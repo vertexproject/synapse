@@ -18,6 +18,73 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="#foo bar" ]')
 
+            nodes = await core.nodes('''
+                [ inet:web:instance=(foo,)
+                    :url=https://app.slack.com/client/T2XK1223Y
+                    :id=T2XK1223Y
+                    :name="vertex synapse"
+                    :created=20220202
+                    :creator=synapsechat.slack.com/visi
+                    :owner={[ ou:org=* :name=vertex ]}
+                    :owner:fqdn=vertex.link
+                    :owner:name=vertex
+                    :operator={[ ou:org=* :name=slack ]}
+                    :operator:fqdn=slack.com
+                    :operator:name=slack
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('url'), 'https://app.slack.com/client/T2XK1223Y')
+            self.eq(node.get('id'), 'T2XK1223Y')
+            self.eq(node.get('name'), 'vertex synapse')
+            self.eq(node.get('created'), 1643760000000)
+            self.eq(node.get('creator'), ('synapsechat.slack.com', 'visi'))
+            self.nn(node.get('owner'))
+            self.eq(node.get('owner:fqdn'), 'vertex.link')
+            self.eq(node.get('owner:name'), 'vertex')
+            self.nn(node.get('operator'))
+            self.eq(node.get('operator:fqdn'), 'slack.com')
+            self.eq(node.get('operator:name'), 'slack')
+
+            nodes = await core.nodes('''
+                [ inet:web:channel=(bar,)
+                    :url=https://app.slack.com/client/T2XK1223Y/C2XHHNDS7
+                    :id=C2XHHNDS7
+                    :name=general
+                    :instance={ inet:web:instance:url=https://app.slack.com/client/T2XK1223Y }
+                    :created=20220202
+                    :creator=synapsechat.slack.com/visi
+                    :topic="Synapse Discussion - Feel free to invite others!"
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('url'), 'https://app.slack.com/client/T2XK1223Y/C2XHHNDS7')
+            self.eq(node.get('id'), 'C2XHHNDS7')
+            self.eq(node.get('name'), 'general')
+            self.eq(node.get('topic'), 'Synapse Discussion - Feel free to invite others!')
+            self.eq(node.get('created'), 1643760000000)
+            self.eq(node.get('creator'), ('synapsechat.slack.com', 'visi'))
+            self.nn(node.get('instance'))
+
+            opts = {'vars': {'mesg': (('synapsechat.slack.com', 'visi'), ('synapsechat.slack.com', 'whippit'), 1643760000000)}}
+            self.len(1, await core.nodes('[ inet:web:mesg=$mesg :instance=(foo,) ] -> inet:web:instance +:name="vertex synapse"', opts=opts))
+            self.len(1, await core.nodes('[ inet:web:post=* :channel=(bar,) ] -> inet:web:channel +:name=general -> inet:web:instance'))
+
+    async def test_inet_jarm(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:ssl:jarmsample=(1.2.3.4:443, 07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1) ]')
+            self.len(1, nodes)
+            self.eq('tcp://1.2.3.4:443', nodes[0].get('server'))
+            self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('jarmhash'))
+            self.eq(('tcp://1.2.3.4:443', '07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1'), nodes[0].ndef[1])
+
+            nodes = await core.nodes('inet:ssl:jarmhash=07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1')
+            self.len(1, nodes)
+            self.eq('07d14d16d21d21d07c42d41d00041d24a458a375eef0c576d23a7bab9a9fb1', nodes[0].ndef[1])
+            self.eq('07d14d16d21d21d07c42d41d00041d', nodes[0].get('ciphers'))
+            self.eq('24a458a375eef0c576d23a7bab9a9fb1', nodes[0].get('extensions'))
+
     async def test_ipv4_lift_range(self):
 
         async with self.getTestCore() as core:
@@ -337,13 +404,17 @@ class InetModelTest(s_t_utils.SynTest):
             'src:host': 32 * 'b',
             'src:proc': 32 * 'c',
             'src:exe': 64 * 'd',
+            'src:txcount': 30,
             'src:txbytes': 1,
             'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 64 * '0',
+            'dst:txcount': 33,
             'dst:txbytes': 2,
+            'tot:txcount': 63,
+            'tot:txbytes': 3,
             'dst:handshake': 'OHai!',
             'src:softnames': ('hehe', 'haha'),
             'dst:softnames': ('foobar', 'bazfaz'),
@@ -363,6 +434,7 @@ class InetModelTest(s_t_utils.SynTest):
             'src:host': 32 * 'b',
             'src:proc': 32 * 'c',
             'src:exe': 'sha256:' + 64 * 'd',
+            'src:txcount': 30,
             'src:txbytes': 1,
             'src:handshake': 'Hello There',
             'dst': 'tcp://1.2.3.4:80',
@@ -372,7 +444,10 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:host': 32 * 'e',
             'dst:proc': 32 * 'f',
             'dst:exe': 'sha256:' + 64 * '0',
+            'dst:txcount': 33,
             'dst:txbytes': 2,
+            'tot:txcount': 63,
+            'tot:txbytes': 3,
             'dst:handshake': 'OHai!',
             'src:softnames': ('haha', 'hehe'),
             'dst:softnames': ('bazfaz', 'foobar'),

@@ -64,16 +64,11 @@ class CertDir:
 
     def addCertPath(self, *path):
 
-        fullpath = s_common.gendir(*path)
+        fullpath = s_common.genpath(*path)
         self.pathrefs[fullpath] += 1
 
         if self.pathrefs[fullpath] == 1:
-
             self.certdirs.append(fullpath)
-
-            s_common.gendir(fullpath, 'cas')
-            s_common.gendir(fullpath, 'hosts')
-            s_common.gendir(fullpath, 'users')
 
     def delCertPath(self, *path):
         fullpath = s_common.gendir(*path)
@@ -699,6 +694,8 @@ class CertDir:
         newpath = s_common.genpath(self.certdirs[0], mode, fname)
         if os.path.isfile(newpath):
             raise s_exc.FileExists(mesg=f'File {newpath} already exists', path=path)
+
+        s_common.gendir(os.path.dirname(newpath))
 
         shutil.copy(path, newpath)
         if outp is not None:

@@ -155,20 +155,20 @@ class CellLib(s_stormtypes.Lib):
             assert desc is not None
             assert vars is not None
 
-            await self.runt.printf(f'Applying fix {vers} for [{desc}]')
+            await self.runt.printf(f'Applying hotfix {vers} for [{desc}]')
             try:
                 query = await self.runt.getStormQuery(text)
                 async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
                     async for item in runt.execute():
                         pass
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
-            except Exception as e:
-                logger.exception(f'Error applying stormfix {vers}')
+            except Exception as e: # pragma: no cover
+                logger.exception(f'Error applying storm hotfix {vers}')
                 raise
             else:
                 await self.runt.snap.core.setStormVar(runtime_fixes_key, vers)
-                await self.runt.printf(f'Applied fix {vers}')
+                await self.runt.printf(f'Applied hotfix {vers}')
             curv = vers
 
         return curv

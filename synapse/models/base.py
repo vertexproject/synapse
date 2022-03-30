@@ -18,6 +18,23 @@ class BaseModule(s_module.CoreModule):
                 ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
+                ('meta:note', ('guid', {}), {
+                    'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
+
+                ('meta:timeline', ('guid', {}), {
+                    'doc': 'A curated timeline of analytically relevant events.'}),
+
+                ('meta:timeline:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
+
+                ('meta:event', ('guid', {}), {
+                    'doc': 'An analytically relevant event in a curated timeline.'}),
+
+                ('meta:event:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'A taxonomy of event types for meta:event nodes.'}),
+
                 ('graph:cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
                            'single node in the model.'}),
@@ -62,6 +79,49 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'The node which was observed by or received from the source.'}),
 
                 )),
+
+                ('meta:note', {}, (
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The analyst authored note text.'}),
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact information of the author.'}),
+                    ('creator', ('syn:user', {}), {
+                        'doc': 'The synapse user who authored the note.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the note was created.'}),
+                )),
+
+                ('meta:timeline', {}, (
+                    ('title', ('str', {}), {
+                        'ex': 'The history of the Vertex Project',
+                        'doc': 'A title for the timeline.'}),
+                    ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A prose summary of the timeline.'}),
+                    ('type', ('meta:timeline:taxonomy', {}), {
+                        'doc': 'The type of timeline.'}),
+                )),
+
+                ('meta:timeline:taxonomy', {}, ()),
+
+                ('meta:event', {}, (
+                    ('timeline', ('meta:timeline', {}), {
+                        'doc': 'The timeline containing the event.'}),
+                    ('title', ('str', {}), {
+                        'doc': 'A title for the event.'}),
+                    ('summary', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A prose summary of the event.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the event occurred.'}),
+                    ('duration', ('duration', {}), {
+                        'doc': 'The duration of the event.'}),
+                    ('type', ('meta:event:taxonomy', {}), {
+                        'doc': 'Type of event.'}),
+                )),
+
+                ('meta:event:taxonomy', {}, ()),
 
                 ('graph:cluster', {}, (
                     ('name', ('str', {'lower': True}), {
