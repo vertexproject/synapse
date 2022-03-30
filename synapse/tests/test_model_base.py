@@ -228,3 +228,13 @@ class BaseTest(s_t_utils.SynTest):
                 # Gather up all the nodes in the cluster
                 nodes = await snap.eval(f'graph:cluster={guid} -+> edge:refs -+> * | uniq').list()
                 self.len(5, nodes)
+
+    async def test_model_base_ruleset(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ meta:ruleset=* :name=" My  Rules" :desc="My cool ruleset" ]')
+            self.len(1, nodes)
+
+            self.eq(nodes[0].get('name'), 'my rules')
+            self.eq(nodes[0].get('desc'), 'My cool ruleset')
