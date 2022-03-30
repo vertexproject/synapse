@@ -1173,7 +1173,7 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        # pprint(errinfo)
+
         # EOF has no line / col infomration
         self.eq(errinfo.get('at'), 10)
         self.eq(errinfo.get('line'), -1)
