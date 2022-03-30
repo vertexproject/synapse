@@ -206,7 +206,6 @@ class ItModule(s_module.CoreModule):
         self.model.form('it:dev:regkey').onAdd(self._onFormMakeDevStr)
         self.model.prop('it:prod:softver:arch').onSet(self._onPropSoftverArch)
         self.model.prop('it:prod:softver:vers').onSet(self._onPropSoftverVers)
-        self.model.prop('it:prod:softver:software').onSet(self._onPropSoftverSoft)
 
     def bruteVersionStr(self, valu):
         '''
@@ -244,17 +243,6 @@ class ItModule(s_module.CoreModule):
     async def _onFormMakeDevStr(self, node):
         pprop = node.ndef[1]
         await node.snap.addNode('it:dev:str', pprop)
-
-    async def _onPropSoftverSoft(self, node, oldv):
-        # Check to see if name is available and set it if possible
-        prop = node.get('software')
-        if prop:
-            opts = {'vars': {'soft': prop}}
-            nodes = await node.snap.nodes('it:prod:soft=$soft', opts=opts)
-            if nodes:
-                name = nodes[0].get('name')
-                if name:
-                    await node.set('software:name', name)
 
     async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
@@ -382,7 +370,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Windows registry key/value pair.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
-                    'doc': 'A arbitrary, unversioned software product.',
+                    'doc': 'A software product.',
+                }),
+                ('it:prod:softname', ('str', {'strip': True, 'onespace': True, 'lower': True}), {
+                    'doc': 'A software product name.',
                 }),
                 ('it:prod:hardware', ('guid', {}), {
                     'doc': 'A specification for a piece of IT hardware.',
@@ -589,6 +580,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
+                    }),
+                    ('os:name', ('it:prod:softname', {}), {
+                        'doc': 'A software product name for the host operating system. Used for entity resolution.',
                     }),
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'The hardware specification for this host.',
@@ -922,10 +916,10 @@ class ItModule(s_module.CoreModule):
                     ('software', ('it:prod:soft', {}), {
                         'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.',
                     }),
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('it:prod:softname', {}), {
                         'doc': 'The primary name for the ATT&CK software.',
                     }),
-                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Associated names for the ATT&CK software.',
                     }),
                     ('desc', ('str', {'strip': True}), {
@@ -1116,12 +1110,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software associated with this version instance.',
                     }),
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name of the software at a particular version.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:prod:softver:name.',
                     }),
-                    ('name', ('it:dev:str', {}), {
-                        'doc': 'Name of the software.',
+                    ('name', ('it:prod:softname', {}), {
+                        'doc': 'Name of the software version.',
                     }),
-                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software version.',
                     }),
                     ('desc', ('str', {}), {

@@ -18,6 +18,10 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
+                ('risk:alerttype', ('taxonomy', {}), {
+                    'doc': 'An attack type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
@@ -180,9 +184,9 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The vulnerable host.'
                     })
                 )),
-
+                ('risk:alerttype', {}, ()),
                 ('risk:alert', {}, (
-                    ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('type', ('risk:alerttype', {}), {
                         'doc': 'An alert type.',
                     }),
                     ('name', ('str', {}), {
