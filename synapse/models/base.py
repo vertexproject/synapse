@@ -35,6 +35,9 @@ class BaseModule(s_module.CoreModule):
                     'interfaces': ('taxonomy',),
                     'doc': 'A taxonomy of event types for meta:event nodes.'}),
 
+                ('meta:ruleset', ('guid', {}), {
+                    'doc': 'A set of rules linked with -(has)> edges.'}),
+
                 ('graph:cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
                            'single node in the model.'}),
@@ -122,6 +125,14 @@ class BaseModule(s_module.CoreModule):
                 )),
 
                 ('meta:event:taxonomy', {}, ()),
+
+                ('meta:ruleset', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the ruleset.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the ruleset.'}),
+                )),
 
                 ('graph:cluster', {}, (
                     ('name', ('str', {'lower': True}), {
