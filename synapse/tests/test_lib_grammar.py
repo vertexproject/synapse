@@ -1196,11 +1196,11 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 100)
+        self.eq(errinfo.get('at'), 160)
         self.eq(errinfo.get('line'), 8)
-        self.eq(errinfo.get('column'), 13)
+        self.eq(errinfo.get('column'), 25)
         self.eq(errinfo.get('mesg'),
-                "Positional parameter 'faz' follows keyword parameter in definition at line 8 col 13")
+                "Positional parameter 'faz' follows keyword parameter in definition at line 8 col 25")
 
         query = '''
 
