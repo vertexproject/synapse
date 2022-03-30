@@ -744,6 +744,8 @@ class TeleTest(s_t_utils.SynTest):
                              'addr': sockpath})
 
     async def test_ipv6(self):
+        if s_common.envbool('CIRCLECI'):
+            self.skip('ipv6 listener is not supported in circleci')
 
         foo = Foo()
 
@@ -752,15 +754,8 @@ class TeleTest(s_t_utils.SynTest):
             dmon.share('foo', foo)
             try:
                 addr = await dmon.listen('tcp://[::1]:0/')
-            except asyncio.CancelledError:
+            except (asyncio.CancelledError, OSError):
                 raise
-            except OSError:
-                if os.getenv('CIRCLECI', False):
-                    # Circleci container tests do not support IPV6 (but osx does)
-                    # https://circleci.com/docs/2.0/faq/#can-i-use-ipv6-in-my-tests
-                    self.skip('ipv6 is not supported in circleci')
-                else:
-                    raise
             host, port = addr[0], addr[1]
 
             async with await s_telepath.openurl(f'tcp://{host}/foo',
