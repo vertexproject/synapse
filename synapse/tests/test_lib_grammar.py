@@ -1202,6 +1202,39 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('mesg'),
                 "Positional parameter 'faz' follows keyword parameter in definition at line 8 col 25")
 
+        query = '''function foo(bar, baz, bar) { return ( $lib.true ) }'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 12)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 13)
+        self.eq(errinfo.get('mesg'),
+                "Duplicate parameter 'bar' in function definition at line 1 col 13")
+
+        query = '''$lib.foo(bar=(1), baz=(2), bar=(3))'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 1)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 2)
+        self.eq(errinfo.get('mesg'),
+                "Duplicate keyword argument 'bar' in function call at line 1 col 2")
+
+        query = '''$lib.foo(bar=(1), (2), (3))'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 1)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 2)
+        self.eq(errinfo.get('mesg'),
+                "Positional argument follows keyword argument in function call at line 1 col 2")
+
         query = '''
 
         { inet:cidr4#rep.some.body
