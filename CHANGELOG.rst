@@ -14,14 +14,15 @@ Features and Enhancements
   (`#2621 <https://github.com/vertexproject/synapse/pull/2621>`_)
 
   ``meta:ruleset``
-    Add a new form to denote the collection of a set of notes representing
-    rules, which should be linked together an a ``has`` light edge.
+    Add a new form to denote the collection of a set of nodes representing
+    rules, which should be linked together with a ``has`` light edge.
 
 - Add additional filter options for the Storm ``merge`` command.
   (`#2615 <https://github.com/vertexproject/synapse/pull/2615>`_)
 - Update the ``BadSyntaxError`` exception thrown when parsing Storm queries to
-  include additional line and column. Fix an issue where a ``!`` character
-  being present in the exception text could truncate the output.
+  additionally include additional line and column when available. Fix an issue
+  where a ``!`` character being present in the exception text could truncate
+  the output.
   (`#2618 <https://github.com/vertexproject/synapse/pull/2618>`_)
 
 
