@@ -10,7 +10,7 @@ v2.89.0 - 2022-03-31
 
 Features and Enhancements
 -------------------------
-- Update for the ``meta`` model.
+- Update the ``meta`` model.
   (`#2621 <https://github.com/vertexproject/synapse/pull/2621>`_)
 
   ``meta:ruleset``
