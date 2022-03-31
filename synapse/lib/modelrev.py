@@ -601,7 +601,7 @@ class ModelRev:
             'formname': formname,
             'propfull': propfull,
             'propname': self.core.model.prop(propfull).name,
-        }
+        }}
 
         storm = '''
         $layers = $lib.set()
@@ -628,7 +628,7 @@ class ModelRev:
             'formname': formname,
             'propfull': propfull,
             'propname': self.core.model.prop(propfull).name,
-        }
+        }}
 
         storm = '''
         $layers = $lib.set()
