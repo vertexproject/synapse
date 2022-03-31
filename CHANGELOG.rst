@@ -5,6 +5,27 @@ Synapse Changelog
 *****************
 
 
+v2.89.0 - 2022-03-31
+====================
+
+Features and Enhancements
+-------------------------
+- Update the ``meta`` model.
+  (`#2621 <https://github.com/vertexproject/synapse/pull/2621>`_)
+
+  ``meta:ruleset``
+    Add a new form to denote the collection of a set of nodes representing
+    rules, which should be linked together with a ``has`` light edge.
+
+- Add additional filter options for the Storm ``merge`` command.
+  (`#2615 <https://github.com/vertexproject/synapse/pull/2615>`_)
+- Update the ``BadSyntaxError`` exception thrown when parsing Storm queries to
+  additionally include line and column when available. Fix an issue
+  where a ``!`` character being present in the exception text could truncate
+  the output.
+  (`#2618 <https://github.com/vertexproject/synapse/pull/2618>`_)
+
+
 v2.88.0 - 2022-03-23
 ====================
 
@@ -78,7 +99,7 @@ Features and Enhancements
 
 - Add support for ``$lib.len()`` to count the length of emitter or generator
   functions.
-  (`#2603 <https://github.com/vertexproject/synapse/pull/2603g>`_)
+  (`#2603 <https://github.com/vertexproject/synapse/pull/2603>`_)
 - Add support for scrape APIs to handle text that has been defanged with
   ``\\.`` characters.
   (`#2605 <https://github.com/vertexproject/synapse/pull/2605>`_)
