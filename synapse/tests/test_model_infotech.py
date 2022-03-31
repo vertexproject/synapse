@@ -480,7 +480,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('arch'), 'amd64')
                 self.eq(node.get('released'), 1522745062000)
                 self.eq(node.get('software'), prod0)
-                self.eq(node.get('software:name'), 'balloon maker')
                 self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
                 self.eq(node.get('vers:norm'), 'v1.0.1-beta+exp.sha.5114f85')
                 self.eq(node.get('semver'), 0x000010000000001)
