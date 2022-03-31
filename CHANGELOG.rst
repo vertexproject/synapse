@@ -20,7 +20,7 @@ Features and Enhancements
 - Add additional filter options for the Storm ``merge`` command.
   (`#2615 <https://github.com/vertexproject/synapse/pull/2615>`_)
 - Update the ``BadSyntaxError`` exception thrown when parsing Storm queries to
-  additionally include additional line and column when available. Fix an issue
+  additionally include line and column when available. Fix an issue
   where a ``!`` character being present in the exception text could truncate
   the output.
   (`#2618 <https://github.com/vertexproject/synapse/pull/2618>`_)
