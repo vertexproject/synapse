@@ -136,7 +136,7 @@ class BaseModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the ruleset.'}),
                     ('author', ('ps:contact', {}), {
-                        'doc': 'The contact information of the rulset author.'}),
+                        'doc': 'The contact information of the ruleset author.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time the ruleset was initially created.'}),
                     ('updated', ('time', {}), {
