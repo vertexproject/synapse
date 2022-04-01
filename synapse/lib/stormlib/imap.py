@@ -7,7 +7,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 async def run_imap_coro(coro):
     '''
-    Raises or returns data
+    Raises or returns data.
     '''
     try:
         status, data = await coro
@@ -324,11 +324,9 @@ class ImapServer(s_stormtypes.StormType):
         return True, uids
 
     async def fetch(self, uid):
-        '''
-        IMAP fetch accepts a message set (e.g. "1", "1:*", "1,2,3"),
-        however this method forces fetching a single uid
-        to prevent retrieving a very large blob of data.
-        '''
+        # IMAP fetch accepts a message set (e.g. "1", "1:*", "1,2,3"),
+        # however this method forces fetching a single uid
+        # to prevent retrieving a very large blob of data.
         uid = await s_stormtypes.toint(uid)
 
         await self.runt.snap.core.getAxon()
