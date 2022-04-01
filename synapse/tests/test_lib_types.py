@@ -1328,10 +1328,14 @@ class TypesTest(s_t_utils.SynTest):
 
             await core.addFormProp('test:int', '_hehe', ('array', {'type': 'str'}), {})
 
-            nodes = await core.nodes('[ test:int=1 :_hehe=("foo", "bar") ]')
+            baz = 'baz' * 100
+
+            nodes = await core.nodes(f'[ test:int=1 :_hehe=("foo", "bar", "{baz}") ]')
             self.len(1, nodes)
             self.len(1, await core.nodes('test:int:_hehe*[~=foo]'))
+            self.len(1, await core.nodes('test:int:_hehe*[~=baz]'))
 
-            nodes = await core.nodes('[ test:int=2 :_hehe=("foo", "bar") ]')
+            nodes = await core.nodes(f'[ test:int=2 :_hehe=("foo", "bar", "{baz}") ]')
             self.len(1, nodes)
             self.len(2, await core.nodes('test:int:_hehe*[~=foo]'))
+            self.len(2, await core.nodes('test:int:_hehe*[~=baz]'))

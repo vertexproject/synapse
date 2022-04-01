@@ -508,7 +508,7 @@ class StorType:
 
                 if isarray:
                     for sval in storvalu:
-                        if self.indx(sval) == indx:
+                        if self.indx(sval)[0] == indx:
                             storvalu = sval
                             break
                     else:
