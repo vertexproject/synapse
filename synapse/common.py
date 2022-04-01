@@ -740,6 +740,7 @@ def setlogging(mlogger, defval=None, structlog=None):
     Args:
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
+        structlog (bool): Enabled structured (jsonl) logging output.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
