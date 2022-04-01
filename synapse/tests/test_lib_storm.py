@@ -524,6 +524,11 @@ class StormTest(s_t_utils.SynTest):
             await core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
+            await core.nodes('$lib.import(foo.baz, reqvers="==0.0.1")', opts=opts)
+            await core.nodes('$lib.import(foo.baz, reqvers=">=0.0.1")', opts=opts)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.import(foo.baz, reqvers=">=0.0.2")', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.import(foo.bar)', opts=opts)

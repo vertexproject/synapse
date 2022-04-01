@@ -1070,12 +1070,14 @@ class LibBase(Lib):
                        'default': False},
                   ),
                   'returns': {'name': 'Yields', 'type': 'any', 'desc': 'Yields the sorted output.', }}},
-        {'name': 'import', 'desc': 'Import a Storm Package.',
+        {'name': 'import', 'desc': 'Import a Storm module.',
          'type': {'type': 'function', '_funcname': '_libBaseImport',
                   'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the package to import.', },
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the module to import.', },
                       {'name': 'debug', 'type': 'boolean', 'default': False,
                        'desc': 'Enable debugging in the module.'},
+                      {'name': 'reqvers', 'type': 'str', 'default': None,
+                       'desc': 'Version requirement for the imported module.', },
                   ),
                   'returns': {'type': 'storm:lib',
                               'desc': 'A ``storm:lib`` instance representing the imported package.', }}},
@@ -1156,15 +1158,16 @@ class LibBase(Lib):
             'trycast': self.trycast,
         }
 
-    async def _libBaseImport(self, name, debug=False):
+    async def _libBaseImport(self, name, debug=False, reqvers=None):
 
         name = await tostr(name)
         debug = await tobool(debug)
+        reqvers = await tostr(reqvers, noneok=True)
 
-        mdef = await self.runt.snap.core.getStormMod(name)
+        mdef = await self.runt.snap.core.getStormMod(name, reqvers=reqvers)
         if mdef is None:
-            mesg = f'No storm module named {name}.'
-            raise s_exc.NoSuchName(mesg=mesg, name=name)
+            mesg = f'No storm module named {name} matching version requirement {reqvers}'
+            raise s_exc.NoSuchName(mesg=mesg, name=name, reqvers=reqvers)
 
         text = mdef.get('storm')
         modconf = mdef.get('modconf')

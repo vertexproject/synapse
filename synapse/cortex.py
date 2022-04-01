@@ -2098,8 +2098,24 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getStormMods(self):
         return self.stormmods
 
-    async def getStormMod(self, name):
-        return self.stormmods.get(name)
+    async def getStormMod(self, name, reqvers=None):
+
+        if reqvers is None:
+            return self.stormmods.get(name)
+
+        for pdef in self.stormpkgs.values():
+            pkgvers = pdef.get('version')
+            if pkgvers is None:
+                continue
+
+            pkgvers = '%d.%d.%d' % tuple(pkgvers)
+
+            for mdef in pdef.get('modules', ()):
+                modname = mdef.get('name')
+                if name == modname and s_version.matches(pkgvers, reqvers):
+                    return mdef
+
+        return
 
     def getDataModel(self):
         return self.model
