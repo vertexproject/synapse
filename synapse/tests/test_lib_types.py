@@ -1339,3 +1339,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.len(2, await core.nodes('test:int:_hehe*[~=foo]'))
             self.len(2, await core.nodes('test:int:_hehe*[~=baz]'))
+
+            buid = nodes[0].buid
+
+            core.getLayer()._testAddPropArrayIndx(buid, 'test:int', '_hehe', ('newp' * 100,))
+            self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
