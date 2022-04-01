@@ -521,6 +521,8 @@ class StormTest(s_t_utils.SynTest):
                 )
             }
 
+            await core.loadStormPkg({'name': 'emptypkg'})
+
             await core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
