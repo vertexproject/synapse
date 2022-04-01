@@ -491,16 +491,28 @@ class StorType:
     async def _liftRegx(self, liftby, valu):
 
         regx = regex.compile(valu)
-        lastbuid = None
+
+        abrvlen = liftby.abrvlen
+        isarray = isinstance(liftby, IndxByPropArray)
 
         for lkey, buid in liftby.keyBuidsByPref():
-            if buid == lastbuid:
-                continue
 
             await asyncio.sleep(0)
 
-            lastbuid = buid
-            storvalu = liftby.getNodeValu(buid)
+            indx = lkey[abrvlen:]
+            storvalu = self.decodeIndx(indx)
+
+            if storvalu == s_common.novalu:
+
+                storvalu = liftby.getNodeValu(buid)
+
+                if isarray:
+                    for sval in storvalu:
+                        if self.indx(sval) == indx:
+                            storvalu = sval
+                            break
+                    else:
+                        continue
 
             def regexin(regx, storvalu):
                 if isinstance(storvalu, str):

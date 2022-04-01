@@ -1325,3 +1325,13 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:witharray:fqdns*[~=ehe]')
             self.len(1, nodes)
+
+            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'str'}), {})
+
+            nodes = await core.nodes('[ test:int=1 :_hehe=("foo", "bar") ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('test:int:_hehe*[~=foo]'))
+
+            nodes = await core.nodes('[ test:int=2 :_hehe=("foo", "bar") ]')
+            self.len(1, nodes)
+            self.len(2, await core.nodes('test:int:_hehe*[~=foo]'))
