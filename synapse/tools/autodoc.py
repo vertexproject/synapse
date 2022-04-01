@@ -545,6 +545,9 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`', doc_title=None)
         if conf.get('hideconf'):
             continue
 
+        if conf.get('hidedocs'):
+            continue
+
         nodesc = f'No description available for ``{name}``.'
         hname = name
         if ':' in name:

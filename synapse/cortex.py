@@ -989,6 +989,8 @@ class Cortex(s_cell.Cell):  # type: ignore
     # For the cortex, nexslog:en defaults to True
     confbase = copy.deepcopy(s_cell.Cell.confbase)
     confbase['nexslog:en']['default'] = True  # type: ignore
+    confbase['mirror']['hidedocs'] = False  # type: ignore
+    confbase['mirror']['hidecmdl'] = False  # type: ignore
 
     confdefs = {
         'axon': {

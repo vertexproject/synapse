@@ -38,10 +38,6 @@ Depending on deployment requirements, a combination of methods can be used for l
     location. Any orchestration tooling should consider the requirements for cell directory data to be persistent,
     unless stated otherwise.
 
-.. warning::
-    The base Cell implements the ``mirror`` configuration option and supporting logic, but not all Synapse Cells may
-    implement their functionality in a mirroring fashion. See the specific documentation for a given Synapse Cell to
-    see if it supports being deployed with the ``mirror`` set.
 
 Config File
 ***********
