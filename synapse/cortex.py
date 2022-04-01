@@ -2108,7 +2108,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             if pkgvers is None:
                 continue
 
-            pkgvers = '%d.%d.%d' % tuple(pkgvers)
+            if isinstance(pkgvers, tuple):
+                pkgvers = '%d.%d.%d' % pkgvers
 
             for mdef in pdef.get('modules', ()):
                 modname = mdef.get('name')

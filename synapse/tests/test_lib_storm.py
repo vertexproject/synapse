@@ -522,6 +522,7 @@ class StormTest(s_t_utils.SynTest):
             }
 
             await core.loadStormPkg({'name': 'emptypkg'})
+            await core.addStormPkg({'name': 'strversion', 'version': (0, 0, 1)})
 
             await core.loadStormPkg(pkg0)
 
