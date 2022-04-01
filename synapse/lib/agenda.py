@@ -601,9 +601,6 @@ class Agenda(s_base.Base):
             cdef (dict):  Dictionary containing the Cron definition.
 
         Notes:
-            For values in reqs that are lists and incvals if a list, all combinations of all values (the product) are
-            used.
-
             The cron definition may contain the following keys:
 
                 creator (str)
@@ -626,6 +623,8 @@ class Agenda(s_base.Base):
                 incvals (Union[None, int, Iterable[int])
                     count of units of incunit or explicit day of week or day of month.
                     Not allowed for incunit == None, required for others (1 would be a typical value)
+
+            If the values for req and incvals are both lists, all combinations of all values (the product) are used.
 
         Returns:
             Packed appointment definition
