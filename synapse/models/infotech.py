@@ -1756,6 +1756,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Contact info for the author of the YARA rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the YARA rule was initially created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the YARA rule was most recently modified.'}),
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
                 )),

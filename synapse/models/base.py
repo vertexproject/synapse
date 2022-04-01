@@ -38,6 +38,9 @@ class BaseModule(s_module.CoreModule):
                 ('meta:ruleset', ('guid', {}), {
                     'doc': 'A set of rules linked with -(has)> edges.'}),
 
+                ('meta:rule', ('guid', {}), {
+                    'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
+
                 ('graph:cluster', ('guid', {}), {
                     'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
                            'single node in the model.'}),
@@ -132,6 +135,29 @@ class BaseModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the ruleset.'}),
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact information of the ruleset author.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the ruleset was initially created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the ruleset was most recently modified.'}),
+                )),
+
+                ('meta:rule', {}, (
+                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        'doc': 'A name for the rule.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the rule.'}),
+                    ('text', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'The text of the rule logic.'}),
+                    ('author', ('ps:contact', {}), {
+                        'doc': 'The contact information of the rule author.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the rule was initially created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the rule was most recently modified.'}),
                 )),
 
                 ('graph:cluster', {}, (
