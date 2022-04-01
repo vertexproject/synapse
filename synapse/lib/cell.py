@@ -728,6 +728,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
             'type': 'string',
+            'hidedocs': True,
+            'hidecmdl': True,
         },
         'auth:passwd': {
             'description': 'Set to <passwd> (local only) to bootstrap the root user password.',

@@ -598,22 +598,33 @@ class Agenda(s_base.Base):
         Persistently adds an appointment
 
         Args:
-            cdef (dict):  May contain the following keys:
-                creator (str):  iden of the creating user
-                iden (str): Iden of the appointment
-                storm (str): storm query to run
-                reqs (Union[None, Dict[TimeUnit, Union[int, Tuple[int]], List[...]):
-                    one or more dicts of the fixed aspects of the appointment.  dict value may be a single or multiple.
-                    May be an empty dict or None.
-                incunit (Union[None, TimeUnit]):
-                    the unit that changes for recurring, or None for non-recurring.  It is an error for this value to
-                    match a key in reqdict.
-                incvals (Union[None, int, Iterable[int]): count of units of incunit or explicit day of week or day of
-                    month.  Not allowed for incunit == None, required for others (1 would be a typical value)
+            cdef (dict):  Dictionary containing the Cron definition.
 
         Notes:
-            For values in reqs that are lists and incvals if a list, all combinations of all values (the product) are
-            used
+            The cron definition may contain the following keys:
+
+                creator (str)
+                    Iden of the creating user.
+
+                iden (str)
+                    Iden of the appointment.
+
+                storm (str)
+                    The Storm query to run.
+
+                reqs (Union[None, Dict[TimeUnit, Union[int, Tuple[int]], List[...])
+                    One or more dicts of the fixed aspects of the appointment.  dict value may be a single or multiple.
+                    May be an empty dict or None.
+
+                incunit (Union[None, TimeUnit])
+                    The unit that changes for recurring, or None for non-recurring.  It is an error for this value to
+                    match a key in reqdict.
+
+                incvals (Union[None, int, Iterable[int])
+                    Count of units of incunit or explicit day of week or day of month.
+                    Not allowed for incunit == None, required for others (1 would be a typical value)
+
+            If the values for req and incvals are both lists, all combinations of all values (the product) are used.
 
         Returns:
             Packed appointment definition
