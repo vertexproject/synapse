@@ -2100,23 +2100,22 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def getStormMod(self, name, reqvers=None):
 
-        if reqvers is None:
-            return self.stormmods.get(name)
+        mdef = self.stormmods.get(name)
+        if mdef is None or reqvers is None:
+            return mdef
 
-        for pdef in self.stormpkgs.values():
-            pkgvers = pdef.get('version')
-            if pkgvers is None:
-                continue
+        pkgvers = mdef.get('pkgvers')
+        if pkgvers is None:
+            mesg = f'getStormMod: requested storm module {name}{reqvers}' \
+                    'has no version information to check.'
+            logger.warning(mesg)
+            return
 
-            if isinstance(pkgvers, tuple):
-                pkgvers = '%d.%d.%d' % pkgvers
+        if isinstance(pkgvers, tuple):
+            pkgvers = '%d.%d.%d' % pkgvers
 
-            for mdef in pdef.get('modules', ()):
-                modname = mdef.get('name')
-                if name == modname and s_version.matches(pkgvers, reqvers):
-                    return mdef
-
-        return
+        if s_version.matches(pkgvers, reqvers):
+            return mdef
 
     def getDataModel(self):
         return self.model
@@ -2244,12 +2243,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         # now actually load...
         self.stormpkgs[name] = pkgdef
 
+        pkgvers = pkgdef.get('version')
+
         # copy the mods dict and smash the ref so
         # updates are atomic and dont effect running
         # storm queries.
         stormmods = self.stormmods.copy()
         for mdef in mods:
+            mdef = mdef.copy()
             modname = mdef.get('name')
+            mdef['pkgvers'] = pkgvers
             stormmods[modname] = mdef
 
         self.stormmods = stormmods

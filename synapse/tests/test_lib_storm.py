@@ -521,14 +521,28 @@ class StormTest(s_t_utils.SynTest):
                 )
             }
 
-            await core.loadStormPkg({'name': 'emptypkg'})
-            await core.addStormPkg({'name': 'strversion', 'version': (0, 0, 1)})
+            emptypkg = {
+                'name': 'emptypkg',
+                'modules': ({'name': 'emptymod'},),
+            }
+
+            strverpkg = {
+                'name': 'strvers',
+                'version': (0, 0, 1),
+                'modules': ({'name': 'strvers', 'storm': ''},),
+            }
+            await core.loadStormPkg(emptypkg)
+            await core.addStormPkg(strverpkg)
 
             await core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
             await core.nodes('$lib.import(foo.baz, reqvers="==0.0.1")', opts=opts)
             await core.nodes('$lib.import(foo.baz, reqvers=">=0.0.1")', opts=opts)
+            await core.nodes('$lib.import(strvers, reqvers="==0.0.1")', opts=opts)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.import(emptymod, reqvers=">=0.0.1")', opts=opts)
 
             with self.raises(s_exc.NoSuchName):
                 await core.nodes('$lib.import(foo.baz, reqvers=">=0.0.2")', opts=opts)
