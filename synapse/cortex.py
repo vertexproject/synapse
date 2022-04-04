@@ -2106,7 +2106,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         pkgvers = mdef.get('pkgvers')
         if pkgvers is None:
-            mesg = f'getStormMod: requested storm module {name}{reqvers}' \
+            mesg = f'getStormMod: requested storm module {name}@{reqvers}' \
                     'has no version information to check.'
             logger.warning(mesg)
             return
