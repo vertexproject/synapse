@@ -220,6 +220,7 @@ def run_confdocs(_):
     ctors = ('synapse.axon.Axon',
              'synapse.cortex.Cortex',
              'synapse.lib.aha.AhaCell',
+             'synapse.lib.jsonstor.JsonStorCell',
              'synapse.cryotank.CryoCell',
              )
     for ctor in ctors:

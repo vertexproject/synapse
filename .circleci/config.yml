@@ -329,26 +329,31 @@ commands:
             docker logs test03
             docker logs test04
             docker logs test05
+            docker logs test06
             dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
             dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
             dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
             dstatus04=`docker inspect test04 --format '{{.State.Health.Status}}'`
-            dstatus04=`docker inspect test05 --format '{{.State.Health.Status}}'`
+            dstatus05=`docker inspect test05 --format '{{.State.Health.Status}}'`
+            dstatus06=`docker inspect test06 --format '{{.State.Health.Status}}'`
             docker stop test01
             docker stop test02
             docker stop test03
             docker stop test04
             docker stop test05
+            docker stop test06
             docker rm test01
             docker rm test02
             docker rm test03
             docker rm test04
             docker rm test05
+            docker rm test06
             if [ $dstatus01 != "healthy" ]; then exit 1; fi
             if [ $dstatus02 != "healthy" ]; then exit 1; fi
             if [ $dstatus03 != "healthy" ]; then exit 1; fi
             if [ $dstatus04 != "healthy" ]; then exit 1; fi
             if [ $dstatus05 != "healthy" ]; then exit 1; fi
+            if [ $dstatus06 != "healthy" ]; then exit 1; fi
             exit 0
 
   do_docker_login:
@@ -383,6 +388,7 @@ commands:
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
             docker build -t vertexproject/synapse-stemcell:${CIRCLE_TAG} -f docker/images/stemcell/Dockerfile .
+            docker build -t vertexproject/synapse-jsonstor:${CIRCLE_TAG} -f docker/images/jsonstor/Dockerfile .
       - run:
           name: smoke test image
           command: |
@@ -397,6 +403,7 @@ commands:
             docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_TAG}
             docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_TAG}
+            docker run -d --name test06 vertexproject/synapse-jsonstor:${CIRCLE_TAG}
       - check_docker_smoketests
       - run:
           name: tag and push container
@@ -408,6 +415,7 @@ commands:
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
             docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
             docker push vertexproject/synapse-stemcell:${CIRCLE_TAG}
+            docker push vertexproject/synapse-jsonstor:${CIRCLE_TAG}
 
   deploy_docker_2xx:
     description: "Build current release tag to docker as v2.x.x"
@@ -433,6 +441,7 @@ commands:
             docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
             docker build -t vertexproject/synapse-stemcell:v2.x.x -f docker/images/stemcell/Dockerfile .
+            docker build -t vertexproject/synapse-jsonstor:v2.x.x -f docker/images/jsonstor/Dockerfile .
       - run:
           name: smoke test image
           command: |
@@ -447,6 +456,7 @@ commands:
             docker run -d --name test03 vertexproject/synapse-cortex:v2.x.x
             docker run -d --name test04 vertexproject/synapse-cryotank:v2.x.x
             docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:v2.x.x
+            docker run -d --name test06 vertexproject/synapse-jsonstor:v2.x.x
       - check_docker_smoketests
       - run:
           name: tag and push container
@@ -458,6 +468,7 @@ commands:
             docker push vertexproject/synapse-cortex:v2.x.x
             docker push vertexproject/synapse-cryotank:v2.x.x
             docker push vertexproject/synapse-stemcell:v2.x.x
+            docker push vertexproject/synapse-jsonstor:v2.x.x
 
   deploy_docker_branches:
     description: "Deploy current branch images to docker"
@@ -483,6 +494,7 @@ commands:
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
             docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/cryotank/Dockerfile .
             docker build -t vertexproject/synapse-stemcell:${CIRCLE_BRANCH} -f docker/images/stemcell/Dockerfile .
+            docker build -t vertexproject/synapse-jsonstor:${CIRCLE_BRANCH} -f docker/images/jsonstor/Dockerfile .
       - run:
           name: smoke test image
           command: |
@@ -497,6 +509,7 @@ commands:
             docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
             docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_BRANCH}
+            docker run -d --name test06 vertexproject/synapse-jsonstor:${CIRCLE_BRANCH}
       - check_docker_smoketests
       - run:
           name: tag and push container
@@ -508,6 +521,7 @@ commands:
             docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-stemcell:${CIRCLE_BRANCH}
+            docker push vertexproject/synapse-jsonstor:${CIRCLE_BRANCH}
 
 jobs:
 

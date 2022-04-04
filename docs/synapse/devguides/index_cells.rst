@@ -14,4 +14,5 @@ updated and expanded over time.
     devops_axon
     devops_cryotank
     devops_aha
+    devops_jsonstor
     devops_docker
