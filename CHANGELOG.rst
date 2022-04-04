@@ -5,6 +5,43 @@ Synapse Changelog
 *****************
 
 
+v2.90.0 - 2022-04-04
+====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``meta`` and ``infotech`` models.
+  (`#2624 <https://github.com/vertexproject/synapse/pull/2624>`_)
+
+  ``meta:rule``
+    Add a new form for generic rules, which should be linked to
+    the nodes they match with a ``matches`` light edge.
+
+  ``meta:ruleset``
+    Add ``:author``, ``:created``, and ``:updated`` secondary properties.
+
+  ``it:app:yara:rule``
+    Add ``:created`` and ``:updated`` secondary properties.
+
+- Add a new Docker image ``vertexproject/synapse-jsonstor``.
+  (`#2627 <https://github.com/vertexproject/synapse/pull/2627>`_)
+
+- Allow passing a version requirement string to ``$lib.import()``.
+  (`#2626 <https://github.com/vertexproject/synapse/pull/2626>`_)
+
+Bugfixes
+--------
+- Fix an issue where using a regex lift on an array property could
+  incorrectly yield the same node multiple times.
+  (`#2625 <https://github.com/vertexproject/synapse/pull/2625>`_)
+
+Improved Documentation
+----------------------
+- Update documentation regarding mirroring to be clearer about
+  whether a given cell supports it.
+  (`#2619 <https://github.com/vertexproject/synapse/pull/2619>`_)
+
+
 v2.89.0 - 2022-03-31
 ====================
 
