@@ -1629,6 +1629,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def iterBackupArchive(self, name, user):
 
         success = False
+        loglevel = logging.WARNING
 
         path = self._reqBackDirn(name)
         cellguid = os.path.join(path, 'cell.guid')
@@ -1659,8 +1660,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         except (asyncio.CancelledError, Exception) as e:
 
-            if not isinstance(e, asyncio.CancelledError):
-                logger.exception('Error during backup streaming.')
+            # We want to log all exceptions here, an asyncio.CancelledError
+            # could be the result of a remote link terminating due to the
+            # backup stream being completed, prior to this function
+            # finishing.
+            logger.exception('Error during backup streaming.')
 
             if proc:
                 proc.terminate()
@@ -1670,16 +1674,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         else:
             success = True
+            loglevel = logging.DEBUG
             self.backlastuploaddt = datetime.datetime.now()
 
         finally:
             phrase = 'successfully' if success else 'with failure'
-            logger.debug(f'iterBackupArchive completed {phrase} for {name}')
+            logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
         success = False
+        loglevel = logging.WARNING
 
         if name is None:
             name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
@@ -1721,8 +1727,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         except (asyncio.CancelledError, Exception) as e:
 
-            if not isinstance(e, asyncio.CancelledError):
-                logger.exception('Error during backup streaming.')
+            # We want to log all exceptions here, an asyncio.CancelledError
+            # could be the result of a remote link terminating due to the
+            # backup stream being completed, prior to this function
+            # finishing.
+            logger.exception('Error during backup streaming.')
 
             if proc:
                 proc.terminate()
@@ -1732,6 +1741,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         else:
             success = True
+            loglevel = logging.DEBUG
             self.backlastuploaddt = datetime.datetime.now()
 
         finally:
@@ -1741,7 +1751,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'Removed {path}')
 
             phrase = 'successfully' if success else 'with failure'
-            logger.debug(f'iterNewBackupArchive completed {phrase} for {name}')
+            logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
