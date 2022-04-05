@@ -5907,6 +5907,87 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
 
+    async def test_cortex_syncevents_truncate(self):
+
+        async def iterone(genr, timeout=2):
+            try:
+                return True, await asyncio.wait_for(genr.__anext__(), timeout=timeout)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                return False, s_common.excinfo(e)
+
+        async with self.getTestCoreAndProxy() as (core, proxy):
+
+            baseoffs = await core.getNexsIndx()
+            baselayr = core.getLayer()
+            offsdict = {baselayr.iden: baseoffs}
+
+            mdef = {'forms': ['test:str']}
+            syncidxgenr = core.syncIndexEvents(mdef, offsdict=offsdict, wait=True)
+            synclyrgenr = core.syncLayersEvents(offsdict=offsdict, wait=True)
+
+            await core.nodes('[ test:str=foo ]')
+
+            # truncate while catching up
+
+            await core.nodes('[ test:str=bar ]')
+
+            ok, retidx = await iterone(syncidxgenr)
+            self.true(ok)
+            ok, retlyr = await iterone(synclyrgenr)
+            self.true(ok)
+            self.eq(retidx[0], retlyr[0])
+            lastoffs = retidx[0]
+
+            await baselayr.truncate()
+
+            ok, ret = await iterone(syncidxgenr)
+            self.eq([False, 'IsFini'], [ok, ret['err']])
+            ok, ret = await iterone(synclyrgenr)
+            self.eq([False, 'IsFini'], [ok, ret['err']])
+
+            # truncate while waiting for new edits
+            # as indicated by layer windows (which persist through truncate)
+
+            offsdict = {baselayr.iden: lastoffs + 1}
+            syncidxgenr = core.syncIndexEvents(mdef, offsdict=offsdict, wait=True)
+            synclyrgenr = core.syncLayersEvents(offsdict=offsdict, wait=True)
+
+            await core.nodes('[ test:str=bam ]')
+
+            ok, retidx = await iterone(syncidxgenr)  # fixme: these should be a truncate event first
+            self.true(ok)
+            ok, retlyr = await iterone(synclyrgenr)
+            self.true(ok)
+            self.eq(retidx[0], retlyr[0])
+            lastoffs = retidx[0]
+
+            self.len(0, baselayr.windows)
+
+            idxtask = core.schedCoro(iterone(syncidxgenr, timeout=30))
+            lyrtask = core.schedCoro(iterone(synclyrgenr, timeout=30))
+
+            async def waitwinds():
+                while len(baselayr.windows) < 2:
+                    await asyncio.sleep(0)
+            await asyncio.wait_for(waitwinds(), timeout=5)
+
+            await baselayr.truncate()
+
+            self.false(await s_coro.waittask(idxtask, timeout=2))  # fixme: should get truncate event
+            self.false(await s_coro.waittask(lyrtask, timeout=2))
+
+            await core.nodes('[ test:str=cool ]')
+
+            self.true(await s_coro.waittask(idxtask, timeout=2))
+            self.true(await s_coro.waittask(lyrtask, timeout=2))
+
+            ok, ret = await idxtask
+            self.true(ok)
+            ok, ret = await lyrtask
+            self.true(ok)
+
     async def test_cortex_synclayersevents(self):
         async with self.getTestCoreAndProxy() as (core, proxy):
             baseoffs = await core.getNexsIndx()
