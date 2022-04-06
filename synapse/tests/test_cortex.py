@@ -5917,6 +5917,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             except Exception as e:
                 return False, s_common.excinfo(e)
 
+        def getSyncEdit(syncevnt):
+            # return etyp and the edit tuple from the first edit in the event
+            if syncevnt[2] == s_cortex.SYNC_NODEEDIT:
+                return syncevnt[3][2:4]
+            if syncevnt[2] == s_cortex.SYNC_NODEEDITS:
+                return syncevnt[3][0][2][0][:2]
+            self.fail(f'Unexpected sync type {syncevnt[2]}')
+
         async with self.getTestCoreAndProxy() as (core, proxy):
 
             baseoffs = await core.getNexsIndx()
@@ -5930,17 +5938,19 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo ]')
 
             # truncate while catching up
+            # results in genrs closing
 
             await core.nodes('[ test:str=bar ]')
 
             ok, retidx = await iterone(syncidxgenr)
-            self.true(ok)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('foo', 1))], [ok, getSyncEdit(retidx)])
             ok, retlyr = await iterone(synclyrgenr)
-            self.true(ok)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('foo', 1))], [ok, getSyncEdit(retlyr)])
+
             self.eq(retidx[0], retlyr[0])
             lastoffs = retidx[0]
 
-            await baselayr.truncate()
+            await baselayr.truncate({})
 
             ok, ret = await iterone(syncidxgenr)
             self.eq([False, 'IsFini'], [ok, ret['err']])
@@ -5956,10 +5966,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await core.nodes('[ test:str=bam ]')
 
-            ok, retidx = await iterone(syncidxgenr)  # fixme: these should be a truncate event first
-            self.true(ok)
+            ok, retidx = await iterone(syncidxgenr)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('bar', 1))], [ok, getSyncEdit(retidx)])
             ok, retlyr = await iterone(synclyrgenr)
-            self.true(ok)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('bar', 1))], [ok, getSyncEdit(retlyr)])
+
+            ok, retidx = await iterone(syncidxgenr)
+            self.eq([True, (s_layer.EDIT_TRUNCATE, ())], [ok, getSyncEdit(retidx)])
+            ok, retlyr = await iterone(synclyrgenr)
+            self.eq([True, (s_layer.EDIT_TRUNCATE, ())], [ok, getSyncEdit(retlyr)])
+
+            ok, retidx = await iterone(syncidxgenr)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('bam', 1))], [ok, getSyncEdit(retidx)])
+            ok, retlyr = await iterone(synclyrgenr)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('bam', 1))], [ok, getSyncEdit(retlyr)])
+
             self.eq(retidx[0], retlyr[0])
             lastoffs = retidx[0]
 
@@ -5971,22 +5992,34 @@ class CortexBasicTest(s_t_utils.SynTest):
             async def waitwinds():
                 while len(baselayr.windows) < 2:
                     await asyncio.sleep(0)
-            await asyncio.wait_for(waitwinds(), timeout=5)
 
-            await baselayr.truncate()
+            await asyncio.wait_for(waitwinds(), timeout=15)
 
-            self.false(await s_coro.waittask(idxtask, timeout=2))  # fixme: should get truncate event
-            self.false(await s_coro.waittask(lyrtask, timeout=2))
+            await baselayr.truncate({})
+
+            ok, retidx = await idxtask
+            self.eq([True, (s_layer.EDIT_TRUNCATE, ())], [ok, getSyncEdit(retidx)])
+            ok, retlyr = await lyrtask
+            self.eq([True, (s_layer.EDIT_TRUNCATE, ())], [ok, getSyncEdit(retlyr)])
 
             await core.nodes('[ test:str=cool ]')
 
-            self.true(await s_coro.waittask(idxtask, timeout=2))
-            self.true(await s_coro.waittask(lyrtask, timeout=2))
+            ok, retidx = await iterone(syncidxgenr)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('cool', 1))], [ok, getSyncEdit(retidx)])
+            ok, retlyr = await iterone(synclyrgenr)
+            self.eq([True, (s_layer.EDIT_NODE_ADD, ('cool', 1))], [ok, getSyncEdit(retlyr)])
 
-            ok, ret = await idxtask
-            self.true(ok)
-            ok, ret = await lyrtask
-            self.true(ok)
+            # truncate and delete edits
+            # will miss the last edit
+
+            await core.nodes('[ test:str=newp ]')
+
+            await baselayr.truncate({}, deledits=True)
+
+            ok, retidx = await idxtask
+            self.eq([True, (s_layer.EDIT_TRUNCATE, ())], [ok, getSyncEdit(retidx)])
+            ok, retlyr = await lyrtask
+            self.eq([True, (s_layer.EDIT_TRUNCATE, ())], [ok, getSyncEdit(retlyr)])
 
     async def test_cortex_synclayersevents(self):
         async with self.getTestCoreAndProxy() as (core, proxy):

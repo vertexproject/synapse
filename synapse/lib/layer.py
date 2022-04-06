@@ -248,7 +248,8 @@ EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>), ())
 EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
 
-EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, (), ())
+EDIT_PROGRESS = 100    # (<etyp>, (), ())  used by syncIndexEvents and not persisted in log
+EDIT_TRUNCATE = 200    # (<etyp>, (), ())
 
 class IndxBy:
     '''
@@ -1768,19 +1769,33 @@ class Layer(s_nexus.Pusher):
         ret['totalsize'] = await self.getLayerSize()
         return ret
 
-    @s_nexus.Pusher.onPushAuto('layer:truncate')
-    async def truncate(self):
+    @s_nexus.Pusher.onPushAuto('layer:truncate', passitem=True)
+    async def truncate(self, meta, deledits=False, nexsitem=None):
         '''
-        Nuke all the contents in the layer, leaving an empty layer
+        Nuke all the contents in the layer *except* the nodeedit log unless deledits=True
         '''
         self.dirty.clear()
         self.buidcache.clear()
 
         await self.layrslab.trash()
-        await self.nodeeditslab.trash()
         await self.dataslab.trash()
 
+        if deledits:
+            await self.nodeeditslab.trash()
+        else:
+            await self.nodeeditslab.fini()
+
         await self._initLayerStorage()
+
+        if not self.logedits:
+            return
+
+        nexsindx = nexsitem[0] if nexsitem is not None else None
+        logitem = (((None, None, ((EDIT_TRUNCATE, (), ()),)),), meta)
+        loglast = self.nodeeditlog.last()
+        if loglast is None or loglast[1] != logitem:
+            offs = self.nodeeditlog.add(logitem, indx=nexsindx)
+            [(await wind.put((offs, *logitem))) for wind in tuple(self.windows)]
 
     async def clone(self, newdirn):
         '''
@@ -3751,6 +3766,7 @@ class Layer(s_nexus.Pusher):
             for buid, form, edit in editses:
                 for etyp, vals, meta in edit:
                     if ((form in formm and etyp in (EDIT_NODE_ADD, EDIT_NODE_DEL))
+                            or (form is None and etyp == EDIT_TRUNCATE)
                             or (etyp in (EDIT_PROP_SET, EDIT_PROP_DEL)
                                 and (vals[0] in propm or f'{form}:{vals[0]}' in propm))
                             or (etyp in (EDIT_TAG_SET, EDIT_TAG_DEL) and vals[0] in tagm)

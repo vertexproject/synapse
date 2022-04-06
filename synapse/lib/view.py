@@ -715,7 +715,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for nodeedits in fromlayr.iterLayerNodeEdits():
                 await self.parent.storNodeEdits([nodeedits], meta)
 
-        await fromlayr.truncate()
+        await fromlayr.truncate(meta)
 
     def _confirm(self, user, perms):
         layriden = self.layers[0].iden
