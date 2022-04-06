@@ -1679,7 +1679,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         finally:
             phrase = 'successfully' if success else 'with failure'
-            logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
+            logger.log(loglevel, f'iterBackupArchive completed {phrase} for {name}')
             raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
