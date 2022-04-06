@@ -369,6 +369,50 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x00', layr.getTagPropAbrv('visi', 'foo'))
             self.eq(b'\x00\x00\x00\x00\x00\x00\x00\x01', layr.setTagPropAbrv('whip', None))
 
+    async def test_layer_upstream_truncate(self):
+
+        async with self.getTestCore() as core00:
+
+            await core00.nodes('[ test:str=foo ]')
+
+            scmd = '$view=$lib.view.get() $fork=$view.fork() return(($fork.iden, $fork.layers.0.iden))'
+            viewiden, layriden = await core00.callStorm(scmd)
+            forkview = core00.getView(iden=viewiden)
+            forklayr = core00.getLayer(iden=layriden)
+
+            await core00.nodes('[ test:str=bar ]', opts={'view': forkview.iden})
+
+            async with self.getTestCore() as core01:
+
+                conf = {'upstream': core00.getLocalUrl(f'*/layer/{forklayr.iden}')}
+                ldef = await core01.addLayer(ldef=conf)
+                downlayr = core01.getLayer(ldef.get('iden'))
+                vdef = await core01.addView({'layers': (downlayr.iden,)})
+                downview = core01.getView(vdef['iden'])
+
+                forkoffs = await forklayr.getEditIndx()
+                evnt = await downlayr.waitUpstreamOffs(forklayr.iden, forkoffs)
+                await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                nodes = await core01.nodes('test:str', opts={'view': downview.iden})
+                self.eq([('test:str', 'bar')], [n.ndef for n in nodes])
+
+                # merge without --delete
+                await core00.nodes('view.merge $viden', opts={'vars': {'viden': forkview.iden}})
+                self.len(2, await core00.nodes('test:str', opts={'view': forkview.iden}))
+
+                downoffs = await downlayr.getEditIndx()
+                forkoffs = await forklayr.getEditIndx()
+                evnt = await downlayr.waitUpstreamOffs(forklayr.iden, forkoffs)
+                await asyncio.wait_for(evnt.wait(), timeout=2.0)
+
+                # downstream does not execute truncate
+                nodes = await core01.nodes('test:str', opts={'view': downview.iden})
+                self.eq([('test:str', 'bar')], [n.ndef for n in nodes])
+
+                # truncate edit not persisted downstream
+                self.len(0, list(downlayr.nodeeditlog.iter(downoffs)))
+
     async def test_layer_upstream(self):
 
         with self.getTestDir() as dirn:
@@ -1298,6 +1342,41 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, flatedits)
 
             self.len(2, await core0.nodes('.created'))
+
+    async def test_layer_stornodeedits_noop(self):
+        # test edit types that should be a noop if executed
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            await layr.truncate({})
+
+            offs, (truncedits, meta) = layr.nodeeditlog.last()
+
+            self.eq([], await layr.storNodeEdits(truncedits, {}))
+
+            # truncate edit not stored
+            self.eq(offs, await layr.getEditOffs())
+
+            # tuck a truncate inside a standard nodeedit
+            await core.nodes('[ test:str=foo ]')
+
+            offs, (nodeedits, meta) = layr.nodeeditlog.last()
+
+            await core.nodes('test:str=foo | delnode')
+
+            truncedit = truncedits[0][2][0]
+            buid, form, edits = nodeedits[0]
+            fakeedits = ((buid, form, (truncedit, *edits)),)
+
+            self.len(1, await layr.storNodeEdits(fakeedits, {}))
+
+            self.len(1, await core.nodes('test:str=foo'))
+
+            offs, (nodeedits, meta) = layr.nodeeditlog.last()
+
+            self.false(any(edit[0] == s_layer.EDIT_TRUNCATE for edit in nodeedits[0][2]))
 
     async def test_layer_syncindexevents(self):
 

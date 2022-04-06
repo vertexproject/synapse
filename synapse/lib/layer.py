@@ -247,9 +247,9 @@ EDIT_NODEDATA_SET = 8  # (<etyp>, (<name>, <valu>, <oldv>), ())
 EDIT_NODEDATA_DEL = 9  # (<etyp>, (<name>, <oldv>), ())
 EDIT_EDGE_ADD = 10     # (<etyp>, (<verb>, <destnodeiden>), ())
 EDIT_EDGE_DEL = 11     # (<etyp>, (<verb>, <destnodeiden>), ())
+EDIT_TRUNCATE = 12     # (<etyp>, (), ())
 
-EDIT_PROGRESS = 100    # (<etyp>, (), ())  used by syncIndexEvents and not persisted in log
-EDIT_TRUNCATE = 200    # (<etyp>, (), ())
+EDIT_PROGRESS = 100    # (<etyp>, (), ()) used by syncIndexEvents and not persisted in log
 
 class IndxBy:
     '''
@@ -1239,6 +1239,7 @@ class Layer(s_nexus.Pusher):
             self._editNodeDataDel,
             self._editNodeEdgeAdd,
             self._editNodeEdgeDel,
+            self._editTruncate,
         ]
 
         self.canrev = True
@@ -2712,6 +2713,9 @@ class Layer(s_nexus.Pusher):
 
             buid, form, edits = nodeedits.popleft()
 
+            if buid is None:
+                continue
+
             sode = self._genStorNode(buid)
 
             changes = []
@@ -3189,6 +3193,10 @@ class Layer(s_nexus.Pusher):
         return (
             (EDIT_EDGE_DEL, (verb, n2iden), ()),
         )
+
+    def _editTruncate(self, buid, form, edit, sode, meta):
+        # Truncate edits are not acted on
+        return ()
 
     async def getEdgeVerbs(self):
 

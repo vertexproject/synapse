@@ -5907,6 +5907,69 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('haha', await proxy.popStormVar('hehe'))
                 self.eq('hoho', await proxy.popStormVar('lolz', default='hoho'))
 
+    async def test_cortex_pushpull_truncate(self):
+
+        async with self.getTestCore() as core:
+
+            scmd = '$view = $lib.view.get().fork() return(($view.iden, $view.layers.0.iden))'
+            view00, layr00 = await core.callStorm(scmd)
+            view01, layr01 = await core.callStorm(scmd, opts={'view': view00})
+            view11, layr11 = await core.callStorm(scmd)
+            view21, layr21 = await core.callStorm(scmd)
+
+            idens = {
+                'view00': view00,
+                'layr00': layr00,
+                'view01': view01,
+                'layr01': layr01,
+                'view11': view11,
+                'layr11': layr11,
+                'view21': view21,
+                'layr21': layr21,
+            }
+            opts = {'vars': {**idens}}
+
+            # view01 -push-> view11
+            opts['vars']['url'] = core.getLocalUrl(f'*/layer/{layr11}')
+            await core.nodes('$lib.layer.get($layr01).addPush($url)', opts=opts)
+
+            # view01 <-pull- view21
+            opts['vars']['url'] = core.getLocalUrl(f'*/layer/{layr01}')
+            await core.nodes('$lib.layer.get($layr21).addPull($url)', opts=opts)
+
+            # upstream write
+            noffs = await core.getNexsIndx() - 1
+            await core.nodes('[ test:str=foo ]', opts={'view': view01})
+            self.true(await core.waitNexsOffs(noffs + 5, timeout=5))  # 3 edits + 2 stormvar:set
+
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view11}))
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view21}))
+
+            # upstream merge no delete
+            # noop on push/pull
+            noffs = await core.getNexsIndx() - 1
+            offs11 = await core.getLayer(layr11).getEditOffs()
+            offs21 = await core.getLayer(layr21).getEditOffs()
+            await core.nodes('view.merge $view01', opts=opts)
+
+            waitoffs = noffs + 6  # 1 merge edit + 1 layr:truncate + 2 truncate edit + 2 stormvar:set
+            self.true(await core.waitNexsOffs(waitoffs, timeout=5))
+
+            self.eq(offs11, await core.getLayer(layr11).getEditOffs())
+            self.eq(offs21, await core.getLayer(layr21).getEditOffs())
+
+            await self.agenlen(0, core.getLayer(layr01).getStorNodes())
+            await self.agenlen(1, core.getLayer(layr11).getStorNodes())
+            await self.agenlen(1, core.getLayer(layr21).getStorNodes())
+
+            # sanity check
+            noffs = await core.getNexsIndx() - 1
+            await core.nodes('[ test:str=bar ]', opts={'view': view01})
+            self.true(await core.waitNexsOffs(noffs + 5, timeout=5))  # 3 edits + 2 stormvar:set
+
+            self.len(1, await core.nodes('test:str=bar', opts={'view': view11}))
+            self.len(1, await core.nodes('test:str=bar', opts={'view': view21}))
+
     async def test_cortex_syncevents_truncate(self):
 
         async def iterone(genr, timeout=2):
