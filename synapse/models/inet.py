@@ -743,7 +743,7 @@ class Url(s_types.Str):
         subs['params'] = parampart
 
         # Optional User/Password
-        parts = valu.split('@', 1)
+        parts = valu.rsplit('@', 1)
         if len(parts) == 2:
             authparts, valu = parts
 

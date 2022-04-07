@@ -1373,6 +1373,54 @@ class InetModelTest(s_t_utils.SynTest):
         }})
         self.eq(t.norm(url), expected)
 
+        # Userinfo user with @ in it
+        url = f'lando://visi@vertex.link@{host_port}:40000/auth/gateway'
+        expected = (f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {'subs': {
+            'proto': 'lando', 'path': '/auth/gateway',
+            'user': 'visi@vertex.link',
+            'base': f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway',
+            'port': 40000,
+            'params': '',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
+        # Userinfo password with @
+        url = f'balthazar://root:foo@@@bar@{host_port}:1234/'
+        expected = (f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {'subs': {
+            'proto': 'balthazar', 'path': '/',
+            'user': 'root', 'passwd': 'foo@@@bar',
+            'base': f'balthazar://root:foo@@@bar@{repr_host_port}:1234/',
+            'port': 1234,
+            'params': '',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
+        # rfc3986 compliant Userinfo with @ properly encoded
+        url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
+        expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
+            'proto': 'calrissian', 'path': '',
+            'user': 'visi%40vertex.link', 'passwd': 'surround%40',
+            'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
+            'port': 44343,
+            'params': '',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
+        # unencoded query params are handled nicely
+        url = f'https://visi@vertex.link:neato@burrito@{host}/?q=@foobarbaz'
+        expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
+            'proto': 'https', 'path': '/',
+            'user': 'visi@vertex.link', 'passwd': 'neato@burrito',
+            'base': f'https://visi@vertex.link:neato@burrito@{repr_host}/',
+            'port': 443,
+            'params': '?q=@foobarbaz',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
         # URL with no port, but default port valu.
         # Port should be in subs, but not normed URL.
         url = f'https://user:password@{host}/a/b/c/?foo=bar&baz=faz'
