@@ -18,8 +18,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
-                ('risk:alerttype', ('taxonomy', {}), {
+                ('risk:alert:taxonomy', ('taxonomy', {}), {
                     'doc': 'An attack type taxonomy.',
+                    'ex': 'cno.recon.portscan',
                     'interfaces': ('taxonomy',),
                 }),
                 ('risk:compromise', ('guid', {}), {
@@ -184,9 +185,9 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The vulnerable host.'
                     })
                 )),
-                ('risk:alerttype', {}, ()),
+                ('risk:alert:taxonom', {}, ()),
                 ('risk:alert', {}, (
-                    ('type', ('risk:alerttype', {}), {
+                    ('type', ('risk:alert:taxonomy', {}), {
                         'doc': 'An alert type.',
                     }),
                     ('name', ('str', {}), {
