@@ -233,7 +233,7 @@ class TestUtils(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             path = s_common.genpath(dirn, 'haha')
 
-            # Pacth the singleton related functionality
+            # Patch the singleton related functionality
             with self.getTestCertDir(path) as certdir:
 
                 # The singleton functionality now refers to the patched objects

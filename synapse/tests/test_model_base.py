@@ -228,3 +228,42 @@ class BaseTest(s_t_utils.SynTest):
                 # Gather up all the nodes in the cluster
                 nodes = await snap.eval(f'graph:cluster={guid} -+> edge:refs -+> * | uniq').list()
                 self.len(5, nodes)
+
+    async def test_model_base_rules(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ meta:ruleset=*
+                    :created=20200202 :updated=20220401 :author=*
+                    :name=" My  Rules" :desc="My cool ruleset" ]
+            ''')
+            self.len(1, nodes)
+
+            self.nn(nodes[0].get('author'))
+            self.eq(nodes[0].get('created'), 1580601600000)
+            self.eq(nodes[0].get('updated'), 1648771200000)
+            self.eq(nodes[0].get('name'), 'my rules')
+            self.eq(nodes[0].get('desc'), 'My cool ruleset')
+
+            nodes = await core.nodes('''
+                [ meta:rule=*
+                    :created=20200202 :updated=20220401 :author=*
+                    :name=" My  Rule" :desc="My cool rule"
+                    :text="while TRUE { BAD }"
+                    <(has)+ { meta:ruleset }
+                    +(matches)> { [inet:ipv4=123.123.123] }
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.nn(nodes[0].get('author'))
+            self.eq(nodes[0].get('created'), 1580601600000)
+            self.eq(nodes[0].get('updated'), 1648771200000)
+            self.eq(nodes[0].get('name'), 'my rule')
+            self.eq(nodes[0].get('desc'), 'My cool rule')
+            self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
+
+            self.len(1, await core.nodes('meta:rule -> ps:contact'))
+            self.len(1, await core.nodes('meta:ruleset -> ps:contact'))
+            self.len(1, await core.nodes('meta:ruleset -(has)> meta:rule -(matches)> *'))

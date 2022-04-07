@@ -81,6 +81,14 @@ Starting a Cell
 The examples provided below are intended for Cell implementations outside of the Synapse level components,
 which have their own servers in the ``synapse.servers`` module.
 
+As Cell Server
+**************
+
+The generic Cell server can also be used for starting the Cell by specifying the constructor as an argument::
+
+    python -m synapse.servers.cell path.to.MyCell /path/to/dirn
+
+
 As Main Module
 **************
 
@@ -92,13 +100,6 @@ Cell implementations may define the following as the main application entrypoint
 The cell can then be started with::
 
     python -m path.to.main /path/to/dirn
-
-As Cell Server
-**************
-
-The generic Cell server can also be used for starting the Cell by specifying the constructor as an argument::
-
-    python -m synapse.servers.cell path.to.MyCell /path/to/dirn
 
 .. _devops-cell-logging:
 

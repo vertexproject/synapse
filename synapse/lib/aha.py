@@ -1,5 +1,5 @@
 import os
-import asyncio
+import copy
 import logging
 
 import synapse.exc as s_exc
@@ -110,6 +110,9 @@ class AhaApi(s_cell.CellApi):
 class AhaCell(s_cell.Cell):
 
     cellapi = AhaApi
+    confbase = copy.deepcopy(s_cell.Cell.confbase)
+    confbase['mirror']['hidedocs'] = False  # type: ignore
+    confbase['mirror']['hidecmdl'] = False  # type: ignore
     confdefs = {
         'aha:urls': {
             'description': 'A list of all available AHA server URLs.',

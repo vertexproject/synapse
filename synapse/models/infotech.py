@@ -88,15 +88,17 @@ class Cpe23Str(s_types.Str):
     '''
     CPE 2.3 Formatted String
 
-    https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
+    ::
 
-    (Section 6.2)
+        https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
 
-    cpe:2.3: part : vendor : product : version : update : edition :
-        language : sw_edition : target_sw : target_hw : other
+        (Section 6.2)
 
-    * = "any"
-    - = N/A
+        cpe:2.3: part : vendor : product : version : update : edition :
+            language : sw_edition : target_sw : target_hw : other
+
+        * = "any"
+        - = N/A
     '''
     def __init__(self, modl, name, info, opts):
         opts['lower'] = True
@@ -1751,6 +1753,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Contact info for the author of the YARA rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the YARA rule was initially created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the YARA rule was most recently modified.'}),
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
                 )),

@@ -1045,11 +1045,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             rule = s_common.guid()
             opts = {'vars': {'rule': rule}}
 
-            nodes = await core.nodes('[ it:app:yara:rule=$rule :enabled=true :text=gronk :author=* :name=foo :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''
+                [ it:app:yara:rule=$rule
+                    :created=20200202 :updated=20220401
+                    :enabled=true :text=gronk :author=* :name=foo :version=1.2.3 ]
+            ''', opts=opts)
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
             self.eq(True, nodes[0].get('enabled'))
+            self.eq(1580601600000, nodes[0].get('created'))
+            self.eq(1648771200000, nodes[0].get('updated'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
