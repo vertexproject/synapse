@@ -185,7 +185,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The vulnerable host.'
                     })
                 )),
-                ('risk:alert:taxonom', {}, ()),
+                ('risk:alert:taxonomy', {}, ()),
                 ('risk:alert', {}, (
                     ('type', ('risk:alert:taxonomy', {}), {
                         'doc': 'An alert type.',
