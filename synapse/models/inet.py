@@ -2718,7 +2718,7 @@ class InetModule(s_module.CoreModule):
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',
                         }),
-                        ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
+                        ('country', ('iso:3166:cc', {}), {
                             'doc': 'The two-letter ISO 3166 country code.'
                         }),
                         ('status', ('str', {'lower': True}), {
