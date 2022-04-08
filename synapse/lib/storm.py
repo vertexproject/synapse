@@ -902,9 +902,10 @@ stormcmds = (
 
             if $cmdopts.delete {
                 $layriden = $view.pack().layers.index(0).iden
-
                 $lib.view.del($view.iden)
                 $lib.layer.del($layriden)
+            } else {
+                $view.wipeLayer()
             }
             $lib.print("View merged: {iden}", iden=$cmdopts.iden)
         ''',

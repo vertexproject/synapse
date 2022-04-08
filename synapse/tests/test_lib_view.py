@@ -461,7 +461,86 @@ class ViewTest(s_t_utils.SynTest):
             self.eq(0, layr.dataslab.stat(db=layr.nodedata)['entries'])
             self.eq(0, layr.dataslab.stat(db=layr.dataname)['entries'])
 
+            # only the write layer gets deletes
+
+            scmd = '$fork=$lib.view.get().fork() return(($fork.iden, $fork.layers.0.iden))'
+            forkviden, forkliden = await core.callStorm(scmd)
+
+            await core.nodes('[ test:str=chicken :hehe=finger ]')
+            await core.nodes('test:str=chicken [ :hehe=patty ]', opts={'view': forkviden})
+            await core.nodes('[ test:str=turkey ]', opts={'view': forkviden})
+
+            await core.nodes('$lib.view.get().wipeLayer()', opts={'view': forkviden})
+
+            self.len(1, await core.nodes('test:str=chicken +:hehe=finger'))
+            self.len(1, await core.nodes('test:str=chicken +:hehe=finger', opts={'view': forkviden}))
+            self.len(0, await core.nodes('test:str=turkey', opts={'view': forkviden}))
+
+            await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
+
             # requires node perms
+
             user = await core.addUser('redox')
             opts = {'user': user['iden']}
             await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.view.get().wipeLayer()', opts=opts))
+
+            # can wipe push/pull/mirror layers
+
+            self.len(1, await core.nodes('test:str=chicken'))
+
+            async with self.getTestCore() as core2:
+
+                opts = {
+                    'vars': {
+                        'baseiden': layr.iden,
+                        'baseurl': core.getLocalUrl('*/layer'),
+                        'syncurl': core2.getLocalUrl('*/layer'),
+                    },
+                }
+
+                puller_view, puller_layr = await core2.callStorm('''
+                    $lyr = $lib.layer.add()
+                    $view = $lib.view.add(($lyr.iden,))
+                    $lyr.addPull($lib.str.concat($baseurl, "/", $baseiden))
+                    return(($view.iden, $lyr.iden))
+                ''', opts=opts)
+
+                pushee_view, pushee_layr = await core2.callStorm('''
+                    $lyr = $lib.layer.add()
+                    $view = $lib.view.add(($lyr.iden,))
+                    return(($view.iden, $lyr.iden))
+                ''', opts=opts)
+
+                opts['user'] = None
+                opts['vars']['pushiden'] = pushee_layr
+                await core.nodes('$lib.layer.get().addPush($lib.str.concat($syncurl, "/", $pushiden))', opts=opts)
+
+                mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
+                mirror_view, mirror_layr = await core2.callStorm('''
+                    $ldef = $lib.dict(mirror=$lib.str.concat($baseurl, "/", $baseiden))
+                    $lyr = $lib.layer.add(ldef=$ldef)
+                    $view = $lib.view.add(($lyr.iden,))
+                    return(($view.iden, $lyr.iden))
+                ''', opts=opts)
+
+                self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(0, timeout=2))
+                self.len(1, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
+                puller_offs = await core2.getLayer(iden=puller_layr).getEditOffs()
+
+                self.true(await core2.getLayer(iden=pushee_layr).waitEditOffs(0, timeout=2))
+                self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
+                pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
+
+                self.true(await core2.getLayer(iden=mirror_layr).waitEditOffs(mirror_catchup, timeout=2))
+                self.len(1, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
+
+                await core2.nodes('$lib.view.get().wipeLayer()', opts={'view': mirror_view})
+
+                self.len(0, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
+                self.len(0, await core.nodes('test:str=chicken'))
+
+                self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(puller_offs + 1, timeout=2))
+                self.len(0, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
+
+                self.true(await core2.getLayer(iden=pushee_layr).waitEditOffs(pushee_offs + 1, timeout=2))
+                self.len(0, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
