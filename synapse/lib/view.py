@@ -715,7 +715,22 @@ class View(s_nexus.Pusher):  # type: ignore
             async for nodeedits in fromlayr.iterLayerNodeEdits():
                 await self.parent.storNodeEdits([nodeedits], meta)
 
-        await fromlayr.truncate()
+    async def wipeLayer(self, useriden=None):
+        '''
+        Delete the data in the write layer by generating del nodeedits.
+        Triggers will be run.
+        '''
+
+        if useriden is None:
+            user = await self.core.auth.getUserByName('root')
+        else:
+            user = await self.core.auth.reqUser(useriden)
+
+        async with await self.snap(user=user) as snap:
+            meta = await snap.getSnapMeta()
+            async for nodeedit in self.layers[0].iterWipeNodeEdits():
+                await snap.getNodeByBuid(nodeedit[0])  # to load into livenodes for callbacks
+                await snap.saveNodeEdits([nodeedit], meta)
 
     def _confirm(self, user, perms):
         layriden = self.layers[0].iden

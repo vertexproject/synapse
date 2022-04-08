@@ -1,6 +1,7 @@
 import collections
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -203,6 +204,7 @@ class ViewTest(s_t_utils.SynTest):
 
             # Merge the child back into the parent
             await view2.merge()
+            await view2.wipeLayer()
 
             # The parent counts includes all the nodes that were merged
             self.eq(1005, (await core.view.getFormCounts()).get('test:int'))
@@ -394,3 +396,72 @@ class ViewTest(s_t_utils.SynTest):
             ''', opts={'vars': {'viewiden': view}})
 
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
+
+    async def test_lib_view_wipeLayer(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            opts = {
+                'vars': {
+                    'arrayguid': s_common.guid('arrayguid'),
+                },
+            }
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('trigger.add node:del --query { $lib.globals.set(trig, $lib.true) } --form test:str')
+
+            await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
+            await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
+            await core.nodes('''
+                [ test:str=bar
+                    :bar=(test:str, foo)
+                    :baz="test:str:hehe=hifoo"
+                    :tick=2020
+                    :hehe=hibar
+                    .seen=2021
+                    +#test
+                    +#test.foo:score=100
+                    <(seen)+ { test:str=foo }
+                    +(seen)> { test:arrayprop=$arrayguid }
+                ]
+                $node.data.set(bardata, ({"hi": "there"}))
+            ''', opts=opts)
+
+            nodecnt = await core.count('.created')
+
+            offs = await layr.getEditOffs()
+
+            await core.nodes('$lib.view.get().wipeLayer()')
+
+            self.len(nodecnt, layr.nodeeditlog.iter(offs + 1)) # one del nodeedit for each node
+
+            self.len(0, await core.nodes('.created'))
+
+            self.true(await core.callStorm('return($lib.globals.get(trig))'))
+
+            self.eq({
+                'meta:source': 0,
+                'syn:tag': 0,
+                'test:arrayprop': 0,
+                'test:str': 0,
+            }, await layr.getFormCounts())
+
+            self.eq(0, layr.layrslab.stat(db=layr.bybuidv3)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.byverb)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.edgesn1)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.edgesn2)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.bytag)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.byprop)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.byarray)['entries'])
+            self.eq(0, layr.layrslab.stat(db=layr.bytagprop)['entries'])
+
+            self.eq(0, layr.dataslab.stat(db=layr.nodedata)['entries'])
+            self.eq(0, layr.dataslab.stat(db=layr.dataname)['entries'])
+
+            # requires node perms
+            user = await core.addUser('redox')
+            opts = {'user': user['iden']}
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.view.get().wipeLayer()', opts=opts))

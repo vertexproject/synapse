@@ -1772,6 +1772,7 @@ class Layer(s_nexus.Pusher):
     async def truncate(self):
         '''
         Nuke all the contents in the layer, leaving an empty layer
+        NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
         self.dirty.clear()
         self.buidcache.clear()
@@ -1781,6 +1782,38 @@ class Layer(s_nexus.Pusher):
         await self.dataslab.trash()
 
         await self._initLayerStorage()
+
+    # async def wipe(self, meta): ...
+
+    async def iterWipeNodeEdits(self):
+
+        await self._saveDirtySodes()
+
+        async for buid, sode in self.getStorNodes():
+
+            edits = []
+
+            async for verb, n2iden in self.iterNodeEdgesN1(buid):
+                edits.append((EDIT_EDGE_DEL, (verb, n2iden), ()))
+
+            async for prop, valu in self.iterNodeData(buid):
+                edits.append((EDIT_NODEDATA_DEL, (prop, valu), ()))
+
+            for tag, propdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in propdict.items():
+                    edits.append((EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+
+            for tag, tagv in sode.get('tags', {}).items():
+                edits.append((EDIT_TAG_DEL, (tag, tagv), ()))
+
+            for prop, (valu, stortype) in sode.get('props', {}).items():
+                edits.append((EDIT_PROP_DEL, (prop, valu, stortype), ()))
+
+            valu = sode.get('valu')
+            if valu is not None:
+                edits.append((EDIT_NODE_DEL, valu, ()))
+
+            yield (buid, sode.get('form'), edits)
 
     async def clone(self, newdirn):
         '''
