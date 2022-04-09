@@ -18,6 +18,7 @@ import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
+windre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
@@ -715,16 +716,42 @@ class Url(s_types.Str):
         hostparts = ''
         pathpart = ''
         parampart = ''
+        isUnc = False
 
         # Protocol
-        try:
-            proto, valu = valu.split('://', 1)
-            proto = proto.lower()
-            subs['proto'] = proto
-        except Exception:
+        for splitter in ('://///', ':////'):
+            try:
+                proto, valu = orig.split(splitter, 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                isUnc = True
+                break
+            except Exception:
+                continue
+
+        if not proto:
+            try:
+                proto, valu = orig.split('://', 1)
+                proto = proto.lower()
+            except Exception:
+                pass
+
+        if not proto:
+            for splitter in (':/', ':'):
+                try:
+                    proto, valu = orig.split(splitter, 1)
+                    proto = proto.lower()
+                    assert proto == 'file'
+                    valu = '/' + valu
+                    break
+                except Exception:
+                    pass
+
+        if not proto:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol') from None
 
+        subs['proto'] = proto
         # Query params first
         queryrem = ''
         if '?' in valu:
@@ -733,10 +760,15 @@ class Url(s_types.Str):
 
         # Resource Path
         parts = valu.split('/', 1)
+        subs['path'] = ''
         if len(parts) == 2:
             valu, pathpart = parts
-            pathpart = f'/{pathpart}'
-        subs['path'] = pathpart
+            if proto == 'file' and windre.match(pathpart):
+                subs['path'] = pathpart
+                pathpart = f'/{pathpart}'
+            else:
+                pathpart = f'/{pathpart}'
+                subs['path'] = pathpart
 
         if queryrem:
             parampart = f'?{queryrem}'
@@ -796,10 +828,6 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
-        # Raise exception if there was no FQDN, IPv4, or IPv6
-        if host is None:
-            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='No valid host')
-
         # Optional Port
         if port is not None:
             port = self.modl.type('inet:port').norm(port)[0]
@@ -814,9 +842,13 @@ class Url(s_types.Str):
         if authparts:
             hostparts = f'{authparts}@'
 
-        hostparts = f'{hostparts}{host}'
-        if port is not None:
-            hostparts = f'{hostparts}:{port}'
+        if isUnc:
+            hostparts += '//'
+
+        if host is not None:
+            hostparts = f'{hostparts}{host}'
+            if port is not None:
+                hostparts = f'{hostparts}:{port}'
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base

@@ -1270,7 +1270,6 @@ class InetModelTest(s_t_utils.SynTest):
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
@@ -1307,6 +1306,162 @@ class InetModelTest(s_t_utils.SynTest):
             q = 'inet:url +inet:url=""'
             nodes = await core.nodes(q)
             self.len(0, nodes)
+
+    async def test_url_file(self):
+
+        async with self.getTestCore() as core:
+
+            t = core.model.type('inet:url')
+
+            url = 'file:///home/foo/Documents/html/index.html'
+            expected = (url, {'subs': {
+                'base': url,
+                'path': '/home/foo/Documents/html/index.html',
+                'proto': 'file',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:///c:/path/to/my/file.jpg'
+            expected = (url, {'subs': {
+                'base': url,
+                'path': 'c:/path/to/my/file.jpg',
+                'params': '',
+                'proto': 'file'
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://localhost/c:/Users/BarUser/stuff/moar/stuff.txt'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': 'c:/Users/BarUser/stuff/moar/stuff.txt',
+                'params': '',
+                'fqdn': 'localhost',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://localhost/home/visi/synapse/README.rst'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': '/home/visi/synapse/README.rst',
+                'params': '',
+                'fqdn': 'localhost',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/C:/invisig0th/code/synapse/README.rst'
+            expected = ('file:///C:/invisig0th/code/synapse/README.rst', {'subs': {
+                'proto': 'file',
+                'path': 'C:/invisig0th/code/synapse/README.rst',
+                'params': '',
+                'base': 'file:///C:/invisig0th/code/synapse/README.rst'
+            }})
+            self.eq(t.norm(url), expected)
+
+            # technically incorrect, but seen often enough that we should handle it.
+            url = 'file://somehost/path/to/foo.txt'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/path/to/foo.txt',
+                'fqdn': 'somehost',
+                'base': url
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/c:/foo/bar/baz/single/slash.txt'
+            expected = ('file:///c:/foo/bar/baz/single/slash.txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar/baz/single/slash.txt',
+                'base': 'file:///c:/foo/bar/baz/single/slash.txt',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:c:/foo/bar/baz/txt'
+            expected = ('file:///c:/foo/bar/baz/txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar/baz/txt',
+                'base': 'file:///c:/foo/bar/baz/txt',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/home/visi/synapse/synapse/lib/'
+            expected = ('file:///home/visi/synapse/synapse/lib/', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/home/visi/synapse/synapse/lib/',
+                'base': 'file:///home/visi/synapse/synapse/lib/',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://foo.vertex.link/home/bar/baz/biz.html'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': '/home/bar/baz/biz.html',
+                'params': '',
+                'fqdn': 'foo.vertex.link',
+                'base': 'file://foo.vertex.link/home/bar/baz/biz.html',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'fqdn': 'somehost.vertex.link',
+                'base': 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'visi@vertex.link',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2
+            url = 'file://visi@vertex.link:password@somehost.vertex.link:9876/c:/invisig0th/code/synapse/'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'visi@vertex.link',
+                'passwd': 'password',
+                'fqdn': 'somehost.vertex.link',
+                'params': '',
+                'port': 9876,
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2.2
+            url = 'FILE:c|/synapse/synapse/lib/stormtypes.py'
+            expected = ('file:///c|/synapse/synapse/lib/stormtypes.py', {'subs': {
+                'path': 'c|/synapse/synapse/lib/stormtypes.py',
+                'proto': 'file',
+                'params': '',
+                'base': 'file:///c|/synapse/synapse/lib/stormtypes.py',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:////host.vertex.link/SharedDir/Unc/FilePath'
+            expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/SharedDir/Unc/FilePath',
+                'fqdn': 'host.vertex.link',
+                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://///host.vertex.link/SharedDir/Firefox/Unc/File/Path'
+            expected = ('file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'base': 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path',
+                'path': '/SharedDir/Firefox/Unc/File/Path',
+                'fqdn': 'host.vertex.link',
+            }})
+            self.eq(t.norm(url), expected)
 
     async def test_url_fqdn(self):
 
