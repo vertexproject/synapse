@@ -1269,7 +1269,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Type Tests ======================================================
             t = core.model.type(formname)
-
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
