@@ -850,6 +850,11 @@ class Url(s_types.Str):
             if port is not None:
                 hostparts = f'{hostparts}:{port}'
 
+        if proto != 'file':
+            if not subs.get('fqdn') and not subs.get('ipv4') and not subs.get('ipv6'):
+                raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                        mesg='Missing address/url') from None
+
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
         norm = f'{base}{parampart}'
