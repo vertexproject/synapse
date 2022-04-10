@@ -27,15 +27,19 @@ Help for a specific Storm command can be displayed with ``storm <command> --help
 This section details the usage and syntax for built-in Storm commands. Many of the commands below, such as ``count``, ``limit``, ``max`` / ``min``, or ``delnode``, directly support analyst tasks within Storm. Other commands, such as those used to manage daemons, queues, packages, or services, may be primarily of interest to Synapse administrators or developers.
 
 - `help`_
+- `auth`_
 - `background`_
 - `count`_
 - `cron`_
 - `delnode`_
+- `diff`_
+- `divert`_
 - `dmon`_
 - `edges`_
 - `feed`_
 - `graph`_
 - `iden`_
+- `intersect`_
 - `layer`_
 - `lift`_
 - `limit`_
@@ -45,11 +49,15 @@ This section details the usage and syntax for built-in Storm commands. Many of t
 - `min`_
 - `model`_
 - `movetag`_
+- `nodes`_
+- `note`_
+- `once`_
 - `parallel`_
 - `pkg`_
 - `ps`_
 - `queue`_
 - `reindex`_
+- `runas`_
 - `scrape`_
 - `service`_
 - `sleep`_
@@ -60,7 +68,9 @@ This section details the usage and syntax for built-in Storm commands. Many of t
 - `tree`_
 - `trigger`_
 - `uniq`_
+- `version`_
 - `view`_
+- `wget`_
 
 See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
 
@@ -93,6 +103,70 @@ The ``help`` command (``storm help``) displays the list of available built-in co
 
 
 .. storm-cli:: help --help
+
+.. _storm-auth:
+
+auth
+----
+
+Storm includes ``auth.*`` commands that allow you create users and roles and manage their associated permissions (rules).
+
+- `auth.role.add`_
+- `auth.role.addrule`_
+- `auth.user.add`_
+- `auth.user.addrule`_
+
+Help for individual ``auth.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. NOTE::
+
+  For a list of Cortex permissions, see :ref:`cortex-perms` in the :ref:`devopsguide`.
+
+.. _storm-auth-role-add:
+
+auth.role.add
++++++++++++++
+
+The ``auth.role.add`` command creates a role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.add --help
+
+.. _storm-auth-role-addrule:
+
+auth.role.addrule
++++++++++++++++++
+
+The ``auth.role.addrule`` command adds a rule (permission) to a role.
+
+**Syntax:**
+
+.. storm-cli:: auth.role.addrule --help
+
+.. _storm-auth-user-add:
+
+auth.user.add
++++++++++++++
+
+The ``auth.user.add`` command creates a user.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.add --help
+
+.. _storm-auth-user-addrule:
+
+auth.user.addrule
++++++++++++++++++
+
+The ``auth.user.addrule`` command adds a rule (permission) to a user.
+
+**Syntax:**
+
+.. storm-cli:: auth.user.addrule --help
 
 .. _storm-background:
 
@@ -148,7 +222,7 @@ cron
 .. NOTE::
   See the :ref:`storm-ref-automation` guide for additional background on cron jobs (as well as triggers and macros), including examples.
 
-Storm includes ``cron.*`` commands that allow you to create scheduled :ref:`gloss-cron` jobs. Within Synapse, jobs are Storm queries that execute within a Cortex on a recurring or non-recurring (``cron.at``) basis.
+Storm includes ``cron.*`` commands that allow you to create and manage scheduled :ref:`gloss-cron` jobs. Within Synapse, jobs are Storm queries that execute within a Cortex on a recurring or non-recurring (``cron.at``) basis.
 
 - `cron.add`_
 - `cron.at`_
@@ -156,6 +230,7 @@ Storm includes ``cron.*`` commands that allow you to create scheduled :ref:`glos
 - `cron.list`_
 - `cron.stat`_
 - `cron.mod`_
+- `cron.move`_
 - `cron.disable`_
 - `cron.enable`_
 - `cron.del`_
@@ -255,6 +330,16 @@ The ``cron.mod`` command modifies the Storm query associated with a specific cro
 
 .. storm-cli:: cron.mod --help
 
+.. _storm-cron-move:
+
+cron.move
++++++++++
+
+The ``cron.move`` command moves a cron job from one :ref:`gloss-view` to another.
+
+**Syntax:**
+
+.. storm-cli:: cron.move --help
 
 .. _storm-cron-disable:
 
@@ -337,6 +422,30 @@ The ``delnode`` command deletes a node or set of nodes from a Cortex.
   - However, the opposite is also true - since ``delnode`` does not check for references to edge nodes when deleting nodes, it is possible to leave "orphaned" edge nodes with a missing ``n1`` or ``n2``.
 
 - The ``--force`` parameter will forcibly delete the nodes input to the command, regardless of any sanity-checking errors or other conditions. **This parameter should be used with extreme caution as it may result in broken references within the Cortex.**
+
+.. _storm-diff:
+
+diff
+----
+
+The ``diff`` command generates a list of nodes with changes (i.e., newly created or modified nodes) present in the top :ref:`gloss-layer` of the current :ref:`gloss-view`. The ``diff`` command may be useful before performing a :ref:`storm-merge` operation.
+
+**Syntax:**
+
+.. storm-cli:: diff --help
+
+
+.. _storm-divert:
+
+divert
+------
+
+The ``divert`` command allows Storm to either consume a generator or yield its results based on a conditional.
+
+**Syntax:**
+
+.. storm-cli:: divert --help
+
 
 .. _storm-dmon:
 
@@ -456,6 +565,18 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 
   - ``storm --debug inet:fqdn=woot.com``
 
+.. _storm-intersect:
+
+intersect
+---------
+
+The ``intersect`` command returns the intersection of the results from performing a pivot operation on multiple inbound nodes. In other words, ``intersect`` will return the subset of pivot results that are **common** to each of the inbound nodes.
+
+**Syntax:**
+
+
+.. storm-cli:: intersect --help
+
 .. _storm-layer:
 
 layer
@@ -468,6 +589,12 @@ Storm includes ``layer.*`` commands that allow you to work with layers (see :ref
 - `layer.get`_
 - `layer.list`_
 - `layer.del`_
+- `layer.pull.add`_
+- `layer.pull.list`_
+- `layer.pull.del`_
+- `layer.push.add`_
+- `layer.push.list`_
+- `layer.push.del`_
 
 Help for individual ``layer.*`` commands can be displayed using:
 
@@ -533,8 +660,80 @@ The ``layer.del`` command deletes a layer from a Cortex.
 
 **Syntax**
 
-
 .. storm-cli:: layer.del --help
+
+
+.. _storm-layer-pull-add:
+
+layer.pull.add
+++++++++++++++
+
+The ``layer.pull.add`` command adds a pull configuration to a layer.
+
+**Syntax**
+
+.. storm-cli:: layer.pull.add --help
+
+
+.. _storm-layer-pull-list:
+
+layer.pull.list
++++++++++++++++
+
+The ``layer.pull.list`` command lists the pull configurations for a layer.
+
+**Syntax**
+
+.. storm-cli:: layer.pull.list --help
+
+
+.. _storm-layer-pull-del:
+
+layer.pull.del
+++++++++++++++
+
+The ``layer.pull.del`` command deletes a pull configuration from a layer.
+
+**Syntax**
+
+.. storm-cli:: layer.pull.del --help
+
+
+.. _storm-layer-push-add:
+
+layer.push.add
+++++++++++++++
+
+The ``layer.push.add`` command adds a push configuration to a layer.
+
+**Syntax**
+
+.. storm-cli:: layer.push.add --help
+
+
+.. _storm-layer-push-list:
+
+layer.push.list
++++++++++++++++
+
+The ``layer.push.list`` command lists the push configurations for a layer.
+
+**Syntax**
+
+.. storm-cli:: layer.push.list --help
+
+
+.. _storm-layer-push-del:
+
+layer.push.del
+++++++++++++++
+
+The ``layer.push.del`` command deletes a push configuration from a layer.
+
+**Syntax**
+
+.. storm-cli:: layer.push.del --help
+
 
 .. _storm-lift:
 
@@ -913,6 +1112,74 @@ See also the :ref:`storm-tag` command.
 .. WARNING::
   ``movetag`` should be used with caution as when used incorrectly it can result in "deleted" (inadvertently moved / removed) or orphaned (inadvertently retained) tags. For example, in the second example query above, all ``aka.fireeye.malware`` tags are renamed ``rep.feye.mal``, but the tag ``aka.fireeye`` still exists and is still applied to all of the original nodes. In other words, the result of the above command will be that nodes previously tagged ``aka.fireeye.malware`` will now be tagged both ``rep.feye.mal`` **and** ``aka.fireeye``. Users may wish to test the command on sample data first to understand its effects before applying it in a live Cortex.
 
+
+.. _storm-nodes:
+
+nodes
+-----
+
+Storm includes ``nodes.*`` commands that allow you to work with nodes and ``.nodes`` files.
+
+- `nodes.import`_
+
+Help for individual ``nodes.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. _storm-nodes-import:
+
+nodes.import
+++++++++++++
+
+The ``nodes.import`` command will import a Synapse ``.nodes`` file (i.e., a file containing a set / subgraph of nodes, light edges, and / or tags exported from a Cortex) from a specified URL.
+
+**Syntax:**
+
+.. storm-cli:: nodes.import --help
+
+
+.. _storm-note:
+
+note
+----
+
+Storm includes ``note.*`` commands that allow you to work with free form text notes (``meta:note`` nodes).
+
+- `note.add`_
+
+Help for individual ``note.*`` commands can be displayed using:
+
+  ``<command> --help``
+
+.. _storm-note-add:
+
+note.add
+++++++++
+
+The ``note.add`` command will create a ``meta:note`` node containing the specified text and link it to the inbound node(s) via an ``-(about)>`` light edge (i.e., ``meta:note=<guid> -(about)> <node(s)>``).
+
+**Syntax:**
+
+.. storm-cli:: note.add --help
+
+**Usage Notes:**
+
+.. NOTE::
+  Synapse's data and analytical models are meant to represent a broad range of data and information in a structured (and therefore **queryable**) way. As free form notes are counter to this structured approach, we recommend using ``meta:note`` nodes as an exception rather than a regular practice.
+
+
+.. _storm-once:
+
+once
+----
+
+The ``once`` command is used to ensure a given node is processed by the associated Storm command only once, even if the same command is executed in a different, independent Storm query. The ``once`` command uses :ref:`gloss-node-data` to keep track of the associated Storm command's execution, so ``once`` is specific to the :ref:`gloss-view` in which it is executed. The  single-execution feature of ``once`` can be overriden with the ``--asof`` parameter.
+
+**Syntax:**
+
+.. storm-cli:: once --help
+
+
 .. _storm-pkg:
 
 pkg
@@ -923,6 +1190,8 @@ Storm includes ``pkg.*`` commands that allow you to work with Storm packages (se
 - `pkg.list`_
 - `pkg.load`_
 - `pkg.del`_
+- `pkg.docs`_
+- `pkg.perms.list`_
 
 Help for individual ``pkg.*`` commands can be displayed using:
 
@@ -964,8 +1233,32 @@ The ``pkg.del`` command removes a Storm package from the Cortex.
 
 **Syntax:**
 
-
 .. storm-cli:: pkg.del --help
+
+
+.. _storm-pkg-docs:
+
+pkg.docs
+++++++++
+
+The ``pkg.docs`` command displays the documentation for a Storm package.
+
+**Syntax:**
+
+.. storm-cli:: pkg.docs --help
+
+
+.. _storm-pkg-perms-list:
+
+pkg.perms.list
+++++++++++++++
+
+The ``pkg.perms.list`` command lists the permissions declared by a Storm package.
+
+**Syntax:**
+
+
+.. storm-cli:: pkg.perms.list --help
 
 
 .. _storm-ps:
@@ -1087,6 +1380,21 @@ The ``reindex`` command reindexes a given node property. This is an administrati
 
 
 .. storm-cli:: reindex --help
+
+
+.. _storm-runas:
+
+runas
+-----
+
+The ``runas`` command allows you to execute a Storm query as a specified user.
+
+.. NOTE::
+  The ``runas`` commmand requires **admin** permisisons.
+
+**Syntax:**
+
+.. storm-cli:: runas --help
 
 
 .. _storm-scrape:
@@ -1504,6 +1812,17 @@ The ``uniq`` command removes duplicate results from a Storm query. Results are u
 .. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn [+#aka.threatconnect.thr.fancybear ]
 .. storm-cli:: inet:fqdn#aka.threatconnect.thr.fancybear -> inet:dns:a -> inet:ipv4 | uniq
 
+.. _storm-version:
+
+version
+-------
+
+The ``version`` command displays the current version of Synapse and associated metadata.
+
+**Syntax:**
+
+.. storm-cli:: version --help
+
 
 .. _storm-view:
 
@@ -1628,3 +1947,14 @@ The ``view.del`` command permanently deletes a view from the Cortex.
 
 .. storm-cli:: view.del --help
 
+
+.. _storm-wget:
+
+wget
+----
+
+The ``wget`` command retrieves content from one or more specified URLs. The command creates and yields ``inet:urlfile`` nodes and the retrieved content (``file:bytes``) is stored in the :ref:`gloss-axon`.
+
+**Syntax:**
+
+.. storm-cli:: wget --help
