@@ -1313,6 +1313,20 @@ class InetModelTest(s_t_utils.SynTest):
 
             t = core.model.type('inet:url')
 
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:////')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://///')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:')
+
+            url = 'file:///'
+            expected = (url, {'subs': {
+                'base': url,
+                'path': '/',
+                'proto': 'file',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
             url = 'file:///home/foo/Documents/html/index.html'
             expected = (url, {'subs': {
                 'base': url,
@@ -1418,6 +1432,45 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+            url = 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'ipv4': 117901063,
+                'base': 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'neato@password',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # these two are not allowed by the rfc, but are easy enough to handle
+            url = 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
+            expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'password',
+                'ipv4': 27400963,
+                'port': 12345,
+                'params': '',
+                'base': 'file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
+            expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'password',
+                'ipv4': 27400963,
+                'port': 12345,
+                'params': '',
+                'base': 'file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+            }})
+            self.eq(t.norm(url), expected)
+
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2
             url = 'file://visi@vertex.link:password@somehost.vertex.link:9876/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
@@ -1453,6 +1506,8 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+            # Firefox's non-standard representation that appears every so often
+            # supported because the RFC supports it
             url = 'file://///host.vertex.link/SharedDir/Firefox/Unc/File/Path'
             expected = ('file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {'subs': {
                 'proto': 'file',
