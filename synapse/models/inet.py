@@ -18,7 +18,7 @@ import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
-windre = regex.compile(r'^\w[:|]')
+drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
@@ -784,7 +784,15 @@ class Url(s_types.Str):
         subs['path'] = ''
         if len(parts) == 2:
             valu, pathpart = parts
-            if proto == 'file' and windre.match(pathpart):
+            # Ordering here matters due to the differences between how windows and linux filepaths are encoded
+            # *nix paths: file://<host>/some/chosen/path
+            # for windows path: file://<host>/c:/some/chosen/path
+            # the split above will rip out the starting slash on *nix, so we need it back before making the path
+            # sub, but for windows we need to only when constructing the full url (and not the path sub)
+            if proto == 'file' and drivre.match(pathpart):
+                # make the path sub before adding in the slash separator so we don't end up with "/c:/foo/bar"
+                # as part of the subs
+                # per the rfc, only do this for things that start with a drive letter
                 subs['path'] = pathpart
                 pathpart = f'/{pathpart}'
             else:
