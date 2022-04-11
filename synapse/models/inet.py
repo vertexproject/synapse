@@ -716,7 +716,7 @@ class Url(s_types.Str):
         hostparts = ''
         pathpart = ''
         parampart = ''
-        isUnc = False
+        isUNC = False
 
         # Protocol
         for splitter in ('://///', ':////'):
@@ -724,7 +724,7 @@ class Url(s_types.Str):
                 proto, valu = orig.split(splitter, 1)
                 proto = proto.lower()
                 assert proto == 'file'
-                isUnc = True
+                isUNC = True
                 break
             except Exception:
                 continue
@@ -842,7 +842,7 @@ class Url(s_types.Str):
         if authparts:
             hostparts = f'{authparts}@'
 
-        if isUnc:
+        if isUNC:
             hostparts += '//'
 
         if host is not None:

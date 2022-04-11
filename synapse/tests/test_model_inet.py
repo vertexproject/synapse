@@ -1360,7 +1360,6 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
-            # technically incorrect, but seen often enough that we should handle it.
             url = 'file://somehost/path/to/foo.txt'
             expected = (url, {'subs': {
                 'proto': 'file',
@@ -1443,6 +1442,7 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+            # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.3.2
             url = 'file:////host.vertex.link/SharedDir/Unc/FilePath'
             expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
                 'proto': 'file',
