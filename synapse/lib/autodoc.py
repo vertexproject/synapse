@@ -74,7 +74,7 @@ stormtype_doc_schema = {
         'locals': {
             'type': 'array',
             'items': {'$ref': '#/definitions/stormtypeDoc'},
-            'description': 'A list of attributes or functions to document.',
+            'description': 'A list of attributes, functions, getters and setters to document.',
         },
         'additionalProperties': False,
     },
@@ -216,9 +216,10 @@ def getRtypeStr(rtype, known_types, types_prefix, suffix):
         rtype = f'``{rtype}``'
     return rtype
 
-def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None):
+def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None, isstor=False):
     # Allow someone to plumb in name=Yields as a return type.
     lines = ['']
+    whitespace = '   '
     if known_types is None:
         known_types = set()
 
@@ -241,7 +242,7 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None):
         lines.append(f'{name}:')
         # Now switch on the type.
 
-        parts = ['   ']
+        parts = [whitespace]
         if desc:
             parts.append(desc)
 
@@ -259,6 +260,9 @@ def getReturnLines(rtype, known_types=None, types_prefix=None, suffix=None):
         else:
             raise AssertionError(f'unknown return type: {rettype}')
         line = ' '.join(parts)
+        lines.append(line)
+    if isstor:
+        line = f'{whitespace} When this is used to set the value, it does not have a return type.'
         lines.append(line)
     return lines
 
@@ -307,7 +311,7 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
 
         page.addLines(*lines)
 
-        locls = info.get('locals')
+        locls = info.get('locals', ())
         locls = sorted(locls, key=lambda x: x.get('name'))
 
         for locl in locls:
@@ -323,17 +327,38 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
-                assert rname == 'function', f'Unknown type: loclname={loclname} rname={rname}'
+
+                if isinstance(rname, dict):
+                    raise AssertionError(f'type as dict not supported loclname={loclname} rname={rname}')
+
+                isstor = False
+                isfunc = False
+                isgtor = False
+                isctor = False
+
+                if rname == 'ctor' or 'ctor' in rname:
+                    isctor = True
+                if rname == 'function' or 'function' in rname:
+                    isfunc = True
+                if rname == 'gtor' or 'gtor' in rname:
+                    isgtor = True
+                if rname == 'stor' or 'stor' in rname:
+                    isstor = True
+
+                # FIXME rewrite this assertion.
+                # assert rname == 'function', f'Unknown type: loclname={loclname} rname={rname}'
 
                 lines = prepareRstLines(desc)
                 arglines = getArgLines(rtype)
                 lines.extend(arglines)
 
                 retlines = getReturnLines(rtype, known_types=known_types, types_prefix=types_prefix,
-                                          suffix=types_suffix)
+                                          suffix=types_suffix, isstor=isstor)
                 lines.extend(retlines)
 
-                callsig = genCallsig(rtype)
+                callsig = ''
+                if isfunc:
+                    callsig = genCallsig(rtype)
                 header = f'{name}{callsig}'
                 header = header.replace('*', r'\*')
 

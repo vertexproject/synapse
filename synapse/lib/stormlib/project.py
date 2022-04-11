@@ -130,7 +130,8 @@ class ProjectTicketComment(s_stormtypes.Prim):
     '''
     _storm_locals = (
         {'name': 'text', 'desc': 'The comment text.',
-         'type': 'str'},
+         'type': {'type': 'stor', '_storfunc': '_setCommentText',
+                  'returns': {'type': 'str', }}},
         {'name': 'del', 'desc': 'Delete the comment.',
          'type': {'type': 'function', '_funcname': '_delTicketComment',
                   'returns': {'type': 'boolean', 'desc': 'True if the ProjectTicketComment was deleted'}}},
@@ -265,11 +266,20 @@ class ProjectTicket(s_stormtypes.Prim):
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the ticket',
-         'type': 'str'},
+        'type': {'type': 'stor', '_storfunc': '_setName',
+                          'returns': {'type': 'str', }}},
         {'name': 'desc', 'desc': 'A description of the ticket',
-         'type': 'str'},
+                 'type': {'type': 'stor', '_storfunc': '_setDesc',
+                          'returns': {'type': 'str', }}},
         {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
-         'type': 'int'},
+         'type': {'type': 'stor', '_storfunc': '_setPriority',
+                          'returns': {'type': 'int', }}},
+        # {'name': 'desc', 'desc': 'A description of the ticket',
+        #  'type': {'type': 'stor', '_storfunc': '_setDesc',
+        #           'returns': {'type': 'str', }}},
+        {'name': 'status', 'desc': '''Setter for the status of the ticket.''',
+         'type': {'type': 'stor', '_storfunc': '_setStatus',
+                  'returns': {'type': 'int', }}},
         {'name': 'comments', 'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
          'type': 'storm:project:ticket:comments'},
     )
@@ -298,6 +308,7 @@ class ProjectTicket(s_stormtypes.Prim):
         return {
             'name': self.node.get('name'),
             'desc': self.node.get('desc'),
+            'status': self.node.get('status'),
             'priority': self.node.get('priority'),
         }
 

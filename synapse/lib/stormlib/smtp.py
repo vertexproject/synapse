@@ -40,16 +40,31 @@ class SmtpMessage(s_stormtypes.StormType):
     _storm_locals = (
 
         {'name': 'text',
-         'type': 'str',
-         'desc': 'The text body of the email message.'},
+         'desc': 'The text body of the email message.',
+         'type': {
+             'type': ['gtor', 'stor'],
+             '_storfunc': '_setEmailText',
+             '_gtorfunc': '_getEmailText',
+             'returns': {'type': 'str'},
+         }},
 
         {'name': 'html',
-         'type': 'str',
-         'desc': 'The HTML body of the email message.'},
+         'desc': 'The HTML body of the email message.',
+         'type': {
+             'type': ['gtor', 'stor'],
+             '_storfunc': '_setEmailHtml',
+             '_gtorfunc': '_getEmailHtml',
+             'returns': {'type': 'str'},
+         }},
 
         {'name': 'sender',
-         'type': 'str',
-         'desc': 'The inet:email to use in the MAIL FROM request.'},
+         'desc': 'The inet:email to use in the MAIL FROM request.',
+         'type': {
+             'type': ['gtor', 'stor'],
+             '_storfunc': '_setSenderEmail',
+             '_gtorfunc': '_getSenderEmail',
+             'returns': {'type': 'str'},
+         }},
 
         {'name': 'recipients',
          'type': 'list',
@@ -99,13 +114,17 @@ class SmtpMessage(s_stormtypes.StormType):
             'recipients': self.recipients,
         })
 
-        self.gtors['text'] = self._getEmailText
-        self.gtors['html'] = self._getEmailHtml
-        self.stors['text'] = self._setEmailText
-        self.stors['html'] = self._setEmailHtml
+        self.gtors.update({
+            'text': self._getEmailText,
+            'html': self._getEmailText,
+            'sender': self._getSenderEmail,
+        })
 
-        self.stors['sender'] = self._setSenderEmail
-        self.gtors['sender'] = self._getSenderEmail
+        self.stors.update({
+            'text': self._setEmailText,
+            'html': self._setEmailText,
+            'sender': self._setSenderEmail,
+        })
 
     async def _setSenderEmail(self, valu):
         # TODO handle inet:email and ps:contact Nodes
