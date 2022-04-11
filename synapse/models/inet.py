@@ -850,11 +850,11 @@ class Url(s_types.Str):
                 subs['port'] = self.modl.type('inet:port').norm(defport)[0]
 
         # Set up Normed URL
-        if authparts:
-            hostparts = f'{authparts}@'
-
         if isUNC:
             hostparts += '//'
+
+        if authparts:
+            hostparts = f'{authparts}@'
 
         if host is not None:
             hostparts = f'{hostparts}{host}'
