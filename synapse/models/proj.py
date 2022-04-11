@@ -61,7 +61,7 @@ class ProjectModule(s_module.CoreModule):
                 'forms': (
 
                     ('proj:project', {}, (
-                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The project name.'}),
 
                         ('desc', ('str', {}), {
@@ -76,7 +76,7 @@ class ProjectModule(s_module.CoreModule):
                     )),
 
                     ('proj:sprint', {}, (
-                        ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                        ('name', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The name of the sprint.'}),
 
                         ('status', ('str', {'enums': 'planned,current,completed'}), {
@@ -111,7 +111,7 @@ class ProjectModule(s_module.CoreModule):
                     )),
 
                     ('proj:epic', {}, (
-                        ('name', ('str', {'strip': True, 'onespace': True}), {}),
+                        ('name', ('str', {'onespace': True}), {}),
                         ('project', ('proj:project', {}), {}),
                         ('creator', ('syn:user', {}), {}),
                         ('created', ('time', {}), {}),
@@ -146,7 +146,7 @@ class ProjectModule(s_module.CoreModule):
                         ('updated', ('time', {'max': True}), {
                             'doc': 'The last time the ticket was updated.'}),
 
-                        ('name', ('str', {'strip': True, 'onespace': True}), {
+                        ('name', ('str', {'onespace': True}), {
                             'doc': 'The name of the ticket.'}),
 
                         ('desc', ('str', {}), {

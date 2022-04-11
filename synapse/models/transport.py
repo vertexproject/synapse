@@ -62,7 +62,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'Contact info representing the person or org that operates the aircraft.'}),
                 )),
                 ('transport:air:port', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the airport'}),
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the IATA airport code is assigned.'}),
@@ -144,7 +144,7 @@ class TransportModule(s_module.CoreModule):
                 ('transport:sea:vessel', {}, (
                     ('imo', ('transport:sea:imo', {}), {
                         'doc': 'The International Maritime Organization number for the vessel.'}),
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the vessel'}),
                     ('length', ('geo:dist', {}), {
                         'doc': 'The official overall vessel length'}),

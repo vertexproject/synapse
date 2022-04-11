@@ -130,7 +130,7 @@ class BaseModule(s_module.CoreModule):
                 ('meta:event:taxonomy', {}, ()),
 
                 ('meta:ruleset', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the ruleset.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -144,7 +144,7 @@ class BaseModule(s_module.CoreModule):
                 )),
 
                 ('meta:rule', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the rule.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
