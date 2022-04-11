@@ -663,11 +663,11 @@ See :ref:`data-node` in the :ref:`data-model-terms` document for additional deta
 Node Data
 ---------
 
-Node data is a named set of structured metadata stored on a node in Synapse. Node data may be used for a
-variety of purposes. For example, node data may be used to cache data returned by a third-party API along
-with the timestamp when the data was retrieved. If the same API is queried again for the same node within a 
-specific time period, Synapse can return the cached data instead of re-querying the API (helping to prevent 
-using up any API query limits by re-querying the same data).
+Node data is a named set of structured metadata that may optionally be stored on a node in Synapse. Node data
+may be used for a variety of purposes. For example, a :ref:`gloss-power-up` may use node data to cache results returned by
+a third-party API along with the timestamp when the data was retrieved. If the same API is queried again for 
+the same node within a specific time period, the Power-Up can use the cached node data instead of re-querying
+the API (helping to prevent using up any API query limits by re-querying the same data).
 
 Node data can be accessed using the storm:node:data_ type.
 
