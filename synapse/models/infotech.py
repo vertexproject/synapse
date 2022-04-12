@@ -625,7 +625,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:domain', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the domain.',
                     }),
                     ('desc', ('str', {}), {
@@ -636,7 +636,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:network', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the network.',
                     }),
                     ('desc', ('str', {}), {
@@ -692,7 +692,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:group', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the group.',
                     }),
                     ('desc', ('str', {}), {
@@ -993,7 +993,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
                     ('type', ('it:prod:hardwaretype', {}), {
                         'doc': 'The type of hardware.'}),
@@ -1004,9 +1004,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
                     ('make', ('ou:name', {}), {
                         'doc': 'The name of the organization which manufactures this hardware.'}),
-                    ('model', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model name or number for this hardware specification.'}),
-                    ('version', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('version', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'Version string associated with this hardware specification.'}),
                     ('released', ('time', {}), {
                         'doc': 'The initial release date for this hardware.'}),

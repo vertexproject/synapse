@@ -316,13 +316,13 @@ class GeoModule(s_module.CoreModule):
                     ('geo:json', ('data', {'schema': geojsonschema}), {
                         'doc': 'GeoJSON structured JSON data.',
                     }),
-                    ('geo:name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('geo:name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'An unstructured place name or address.',
                     }),
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
-                    ('geo:address', ('str', {'lower': 1, 'onespace': 1, 'strip': True}), {
+                    ('geo:address', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A street/mailing address string.',
                     }),
                     ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,

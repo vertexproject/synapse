@@ -592,6 +592,10 @@ Queries = [
     'inet:ipv4 -(seen)> foo:bar:baz',
     'inet:ipv4 -(seen)> (foo:bar:baz, hehe:haha:hoho)^=lol',
     'inet:ipv4 -(($foo, $bar))> ($baz,$faz)=lol',
+    '$x=(["foo", "bar"])',
+    '$x=(["foo", "bar",])',
+    '$x=({"foo": "bar", "baz": 10})',
+    '$x=({"foo": "bar", "baz": 10, })',
 ]
 
 # Generated with print_parse_list below
@@ -1094,6 +1098,10 @@ _ParseResults = [
     'Query: [LiftProp: [Const: inet:ipv4], N1Walk: [Const: seen, Const: foo:bar:baz]]',
     'Query: [LiftProp: [Const: inet:ipv4], N1Walk: [Const: seen, List: [Const: foo:bar:baz, Const: hehe:haha:hoho], Const: ^=, Const: lol]]',
     'Query: [LiftProp: [Const: inet:ipv4], N1Walk: [List: [VarValue: [Const: foo], VarValue: [Const: bar]], List: [VarValue: [Const: baz], VarValue: [Const: faz]], Const: =, Const: lol]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprList: [Const: foo, Const: bar]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprList: [Const: foo, Const: bar]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprDict: [Const: foo, Const: bar, Const: baz, Const: 10]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprDict: [Const: foo, Const: bar, Const: baz, Const: 10]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
