@@ -329,7 +329,7 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
                 rname = rtype.get('type')
 
                 if isinstance(rname, dict):
-                    raise AssertionError(f'type as dict not supported loclname={loclname} rname={rname}')
+                    raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
 
                 isstor = False
                 isfunc = False
@@ -344,9 +344,6 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
                     isgtor = True
                 if rname == 'stor' or 'stor' in rname:
                     isstor = True
-
-                # FIXME rewrite this assertion.
-                # assert rname == 'function', f'Unknown type: loclname={loclname} rname={rname}'
 
                 lines = prepareRstLines(desc)
                 arglines = getArgLines(rtype)
