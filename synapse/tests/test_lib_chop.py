@@ -43,10 +43,14 @@ class ChopTest(s_t_utils.SynTest):
             (' asdf  asdf    asdf \t \t asdf asdf   ', 'asdf asdf asdf asdf asdf'),
             (' ', ''),
             ('foo   bar baz', 'foo bar baz'),
+            ('\t \t asdf   asdf   ', 'asdf asdf'),
+            ('\n\t asdf  \n asdf   ', 'asdf asdf'),
         ]
         for iv, ev in tvs:
             rv = s_chop.onespace(iv)
             self.eq(rv, ev)
+            # No leading space is left after onespace is applied
+            self.eq(ev, ev.lstrip())
 
     def test_chop_printables(self):
         tvs = [
