@@ -13,7 +13,9 @@ class ProjectEpic(s_stormtypes.Prim):
     Implements the Storm API for a ProjectEpic
     '''
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the Epic', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Epic. This can be used to set the name as well.',
+         'type': {'type': 'stor', '_storfunc': '_setEpicName',
+                          'returns': {'type': 'str', }}},
     )
     _storm_typename = 'storm:project:epic'
 
@@ -262,26 +264,35 @@ class ProjectTicketComments(s_stormtypes.Prim):
 @s_stormtypes.registry.registerType
 class ProjectTicket(s_stormtypes.Prim):
     '''
-    Implements the Storm API for a ProjectTicket
+    Implements the Storm API for a ProjectTicket.
     '''
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the ticket',
-        'type': {'type': 'stor', '_storfunc': '_setName',
-                          'returns': {'type': 'str', }}},
         {'name': 'desc', 'desc': 'A description of the ticket',
-                 'type': {'type': 'stor', '_storfunc': '_setDesc',
-                          'returns': {'type': 'str', }}},
-        {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
-         'type': {'type': 'stor', '_storfunc': '_setPriority',
-                          'returns': {'type': 'int', }}},
-        # {'name': 'desc', 'desc': 'A description of the ticket',
-        #  'type': {'type': 'stor', '_storfunc': '_setDesc',
-        #           'returns': {'type': 'str', }}},
-        {'name': 'status', 'desc': '''Setter for the status of the ticket.''',
+         'type': {'type': 'stor', '_storfunc': '_setDesc',
+                  'returns': {'type': ['str', 'null'], }}},
+        {'name': 'epic', 'desc': 'The epic associated with the ticket',
+         'type': {'type': 'stor', '_storfunc': '_setEpic',
+                  'returns': {'type': ['str', 'null'], }}},
+        {'name': 'name', 'desc': 'The name of the ticket.',
+         'type': {'type': 'stor', '_storfunc': '_setName',
+                          'returns': {'type': ['str', 'null'], }}},
+        {'name': 'status', 'desc': '''The status of the ticket.''',
          'type': {'type': 'stor', '_storfunc': '_setStatus',
-                  'returns': {'type': 'int', }}},
-        {'name': 'comments', 'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
-         'type': 'storm:project:ticket:comments'},
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'sprint', 'desc': '''The sprint the ticket is in.''',
+         'type': {'type': 'stor', '_storfunc': '_setSprint',
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'assignee', 'desc': '''The user the ticket is assigned to.''',
+         'type': {'type': 'stor', '_storfunc': '_setAssignee',
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'priority',
+         'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
+         'type': {'type': 'stor', '_storfunc': '_setPriority',
+                          'returns': {'type': ['int', 'null'], }}},
+        {'name': 'comments',
+         'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorTicketComments',
+                  'returns': {'type': 'storm:project:ticket:comments', }}},
     )
 
     _storm_typename = 'storm:project:ticket'
@@ -295,9 +306,9 @@ class ProjectTicket(s_stormtypes.Prim):
             'comments': self._ctorTicketComments,
         })
         self.stors.update({
-            'name': self._setName,
             'desc': self._setDesc,
             'epic': self._setEpic,
+            'name': self._setName,
             'status': self._setStatus,
             'sprint': self._setSprint,
             'assignee': self._setAssignee,
@@ -306,9 +317,12 @@ class ProjectTicket(s_stormtypes.Prim):
 
     def getObjLocals(self):
         return {
-            'name': self.node.get('name'),
             'desc': self.node.get('desc'),
+            'epic': self.node.get('epic'),
+            'name': self.node.get('name'),
             'status': self.node.get('status'),
+            'sprint': self.node.get('sprint'),
+            'assignee': self.node.get('assignee'),
             'priority': self.node.get('priority'),
         }
 
