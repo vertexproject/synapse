@@ -37,9 +37,6 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('$foo=foo $bar=bar return(({$foo: $bar, "baz": 10}))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
-            retn = await core.callStorm('return(({"foo": "bar", "baz": 10,}))')
-            self.eq(retn, {'foo': 'bar', 'baz': 10})
-
             retn = await core.callStorm('''
                 $list = (["foo"])
                 $list.append(bar)
