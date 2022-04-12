@@ -7246,7 +7246,7 @@ class User(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'name', 'desc': '''
-        A users name.
+        A users name. This can also be used to set a users name.
 
         Example:
                 Change a users name::
@@ -7256,7 +7256,7 @@ class User(Prim):
          'type': {'type': 'stor', '_storfunc': '_storUserName',
                   'returns': {'type': 'str', }}},
         {'name': 'email', 'desc': '''
-        A users email.
+        A users email. This can also be used to set the users email.
 
         Example:
                 Change a users email address::
@@ -7264,7 +7264,7 @@ class User(Prim):
                     $user=$lib.auth.users.byname(bob) $user.email="robert@bobcorp.net"
         ''',
          'type': {'type': ['stor'], '_storfunc': '_methUserSetEmail',
-                  'returns': {'type': 'str', }}},
+                  'returns': {'type': ['str', 'null'], }}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -7457,7 +7457,7 @@ class Role(Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'name', 'desc': '''
-            A roles name.
+            A roles name. This can also be used to set the role name.
 
             Example:
                     Change a roles name::

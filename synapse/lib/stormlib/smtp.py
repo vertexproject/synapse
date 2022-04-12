@@ -40,7 +40,7 @@ class SmtpMessage(s_stormtypes.StormType):
     _storm_locals = (
 
         {'name': 'text',
-         'desc': 'The text body of the email message.',
+         'desc': 'The text body of the email message. This can also be used to set the body of the message.',
          'type': {
              'type': ['gtor', 'stor'],
              '_storfunc': '_setEmailText',
@@ -49,7 +49,7 @@ class SmtpMessage(s_stormtypes.StormType):
          }},
 
         {'name': 'html',
-         'desc': 'The HTML body of the email message.',
+         'desc': 'The HTML body of the email message. This can also be used to set an HTML body in the message.',
          'type': {
              'type': ['gtor', 'stor'],
              '_storfunc': '_setEmailHtml',
@@ -58,7 +58,7 @@ class SmtpMessage(s_stormtypes.StormType):
          }},
 
         {'name': 'sender',
-         'desc': 'The inet:email to use in the MAIL FROM request.',
+         'desc': 'The inet:email to use in the MAIL FROM request. This can also be used to set the sender for the message.',
          'type': {
              'type': ['gtor', 'stor'],
              '_storfunc': '_setSenderEmail',
