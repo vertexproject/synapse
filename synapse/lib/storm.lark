@@ -238,7 +238,7 @@ _toknvalu: _argvalu | WORDTOKN
 _listvalu: _basevalu | LISTTOKN
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
-looklist: (_WS? _lookvalu)*
+looklist: (_lookvalu _WS?)*
 
 valulist: "(" [_WS? _listvalu _WS? ((",")|("," _WS? _listvalu)+ [_WS? ","])] _WS? ")"
 tagvalu: tagname
