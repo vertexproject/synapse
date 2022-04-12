@@ -37,6 +37,9 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('$foo=foo $bar=bar return(({$foo: $bar, "baz": 10}))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10,}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
             retn = await core.callStorm('''
                 $list = (["foo"])
                 $list.append(bar)
@@ -50,6 +53,36 @@ class StormTest(s_t_utils.SynTest):
                 return($dict)
             ''')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('return(([]))')
+            self.eq(retn, ())
+
+            retn = await core.callStorm('return((["foo",]))')
+            self.eq(retn, ('foo',))
+
+            retn = await core.callStorm('return((["foo" , ]))')
+            self.eq(retn, ('foo',))
+
+            retn = await core.callStorm('return(({}))')
+            self.eq(retn, {})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10,}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10 , }))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return((["foo" "foo"]))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return((["foo", "foo", ,]))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar" "baz": 10}))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar", "baz": 10, ,}))')
 
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:

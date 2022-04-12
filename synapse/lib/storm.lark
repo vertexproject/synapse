@@ -226,8 +226,8 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" _WSCOMM? (_exprvalu _WSCOMM? ":" _WSCOMM? _exprvalu _WSCOMM? ("," _WSCOMM? _exprvalu _WSCOMM? ":" _WSCOMM? _exprvalu _WSCOMM?)* )* "}"
-exprlist: "[" _WSCOMM? (_exprvalu _WSCOMM? ("," _WSCOMM? _exprvalu _WSCOMM?)* )* "]"
+exprdict: "{" _WSCOMM? (_exprvalu _WSCOMM? ":" _WSCOMM? _exprvalu _WSCOMM? ("," _WSCOMM? _exprvalu _WSCOMM? ":" _WSCOMM? _exprvalu _WSCOMM?)* ("," _WSCOMM?)? )? "}"
+exprlist: "[" _WSCOMM? (_exprvalu _WSCOMM? ("," _WSCOMM? _exprvalu _WSCOMM?)* ("," _WSCOMM?)? )? "]"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
