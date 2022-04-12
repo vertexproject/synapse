@@ -316,8 +316,9 @@ source or system.
 Filter
 ------
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation
-downselects a subset of nodes following a lift operation. Compare with :ref:`gloss-lift` and :ref:`gloss-pivot`.
+Within Synapse, one of the primary methods for interacting with data in a :ref:`gloss-cortex`. A filter operation
+downselects a subset of nodes from a set of results. Compare with :ref:`gloss-lift`, :ref:`gloss-pivot`, and
+:ref:`gloss-traverse`.
 
 See :ref:`storm-ref-filter` for additional detail.
 
@@ -576,8 +577,9 @@ See :ref:`gloss-tag-leaf`.
 Lift
 ----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read
-operation that selects a set of nodes from the Cortex. Compare with :ref:`gloss-filter` and :ref:`gloss-pivot`.
+Within Synapse, one of the primary methods for interacting with data in a :ref:`gloss-cortex`. A lift is a read
+operation that selects a set of nodes from the Cortex. Compare with :ref:`gloss-pivot`, :ref:`gloss-filter`, and
+:ref:`gloss-traverse`.
 
 See :ref:`storm-ref-lift` for additional detail.
 
@@ -656,6 +658,19 @@ is a form; ``inet:fqdn=woot.com`` is a node.
 
 See :ref:`data-node` in the :ref:`data-model-terms` document for additional detail.
 
+.. _gloss-node-data:
+
+Node Data
+---------
+
+Node data is a named set of structured metadata that may optionally be stored on a node in Synapse. Node data
+may be used for a variety of purposes. For example, a :ref:`gloss-power-up` may use node data to cache results returned by
+a third-party API along with the timestamp when the data was retrieved. If the same API is queried again for 
+the same node within a specific time period, the Power-Up can use the cached node data instead of re-querying
+the API (helping to prevent using up any API query limits by re-querying the same data).
+
+Node data can be accessed using the storm:node:data_ type.
+
 .. _gloss-node-def:
 
 Node Definition
@@ -711,10 +726,9 @@ implement the service.
 Pivot
 -----
 
-Within Synapse, one of the three primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot operation
-allows navigation of the hypergraph following a lift operation. A pivot moves from a set of nodes with one or more
-properties with specified value(s) to a set of nodes with a property having the same value(s).  Compare with
-:ref:`gloss-lift` and :ref:`gloss-filter`.
+Within Synapse, one of the primary methods for interacting with data in a :ref:`gloss-cortex`. A pivot moves from
+a set of nodes with one or more properties with specified value(s) to a set of nodes with a property having the
+same value(s). Compare with :ref:`gloss-lift`, :ref:`gloss-filter`, and :ref:`gloss-traverse`.
 
 See :ref:`storm-ref-pivot` for additional detail.
 
@@ -723,7 +737,9 @@ See :ref:`storm-ref-pivot` for additional detail.
 Power-Up
 --------
 
-Power-Ups provide specific add-on capabilities to Synapse via Storm Packages (:ref:`gloss-package`) and Services (:ref:`gloss-service`). For example, Power-Ups may provide connectivity to external databases or third-party data sources, or enable functionality such as the ability to manage YARA rules, scans, and matches.
+Power-Ups provide specific add-on capabilities to Synapse via Storm Packages (:ref:`gloss-package`) and Services
+(:ref:`gloss-service`). For example, Power-Ups may provide connectivity to external databases or third-party data
+sources, or enable functionality such as the ability to manage YARA rules, scans, and matches.
 
 .. _gloss-primary-prop:
 
@@ -993,9 +1009,11 @@ Telepath is a lightweight remote procedure call (RPC) protocol used in Synapse. 
 Traverse
 --------
 
-In a :ref:`gloss-graph` or :ref:`gloss-directed-graph`, traversal refers to navigating the data in the graph by
-pathing along the edges between nodes. In a :ref:`gloss-hypergraph`, because there are no edges, navigation between
-nodes is commonly performed using a :ref:`gloss-pivot`.
+Within Synapse, one of the primary methods for interacting with data in a :ref:`gloss-cortex`. Traversal refers
+to navigating the data by crossing ("walking") a lighweight (light) edge (:ref:`gloss-edge-light`) betweeen 
+nodes. Compare with :ref:`gloss-lift`, :ref:`gloss-pivot`, and :ref:`gloss-filter`.
+
+See :ref:`walk-light-edge` for additional detail.
 
 .. _gloss-trigger:
 
@@ -1110,3 +1128,6 @@ In multi-layer systems, a view consists of the set of layers that should be visi
 order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer
 is writeable by that view's users, with subsequent (lower) layers read-only. Explicit actions can push upper-layer
 writes downward (merge) into lower layers.
+
+
+.. _storm:node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#storm-node-data
