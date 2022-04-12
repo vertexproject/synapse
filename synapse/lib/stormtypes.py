@@ -219,7 +219,7 @@ class StormTypesRegistry:
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args')
-        assert args is None, f'stors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
+        assert args is None, f'ctors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
         # Assert the callsig for a stor has one argument
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
@@ -231,7 +231,7 @@ class StormTypesRegistry:
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args')
-        assert args is None, f'stors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
+        assert args is None, f'gtors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
         # Assert the callsig for a stor has one argument
         callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
