@@ -81,6 +81,8 @@ The following permissions exist for controlling access to Cell operations.
 *task.get*
     Get information about a running task.
 
+.. _cortex-perms:
+
 Cortex Permissions
 ==================
 
