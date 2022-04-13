@@ -716,7 +716,7 @@ class Slab(s_base.Base):
         try:
             self.lenv = lmdb.open(str(path), **opts)
         except lmdb.LockError as e:
-            mesg = f'Unable to obtain lmdblock on {path}. Another process may have this file locked. {e}'
+            mesg = f'Unable to obtain lock on {path}. Another process may have this file locked. {e}'
             raise s_exc.LmdbLock(mesg=mesg, path=path) from None
 
         self.allslabs[path] = self
