@@ -715,7 +715,11 @@ class Slab(s_base.Base):
 
         try:
             self.lenv = lmdb.open(str(path), **opts)
-        except lmdb.LockError as e:
+        except lmdb.LockError as e:  # pragma: no cover
+            # This is difficult to test since it requires two processes to open the slab with
+            # the same pid. In practice this typically represents two docker containers running
+            # from different process namespaces, whose process pids are the same, opening the
+            # same lmdb database.
             mesg = f'Unable to obtain lock on {path}. Another process may have this file locked. {e}'
             raise s_exc.LmdbLock(mesg=mesg, path=path) from None
 
