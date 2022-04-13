@@ -713,7 +713,12 @@ class Slab(s_base.Base):
 
         self._saveOptsFile()
 
-        self.lenv = lmdb.open(str(path), **opts)
+        try:
+            self.lenv = lmdb.open(str(path), **opts)
+        except lmdb.LockError as e:
+            mesg = f'Unable to obtain lmdblock on {path}. Another process may have this file locked. {e}'
+            raise s_exc.LmdbLock(mesg=mesg, path=path) from None
+
         self.allslabs[path] = self
 
         self.scans = set()

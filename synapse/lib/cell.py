@@ -2362,7 +2362,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
-        cell = await cls.anit(opts.dirn, conf=conf)
+        try:
+            cell = await cls.anit(opts.dirn, conf=conf)
+        except:
+            logger.exception(f'Error starting cell at {opts.dirn}')
+            raise
 
         try:
 
