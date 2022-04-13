@@ -29,8 +29,8 @@ _morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartn
     | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
 
 // Edit block: zero or more edit operations inside a single set of square brackets
-_editblock: "[" _WS? _editopers _WS? "]"
-_editopers: _editoper (_WS _editoper)*
+_editblock: "[" _editopers "]"
+_editopers: _WSCOMM? _editoper (_WSCOMM _editoper)* _WSCOMM?
 
 // A single edit operation
 _editoper: editnodeadd
@@ -187,7 +187,7 @@ _funcarg: (VARTOKN | kwarg)
 funcargs: "(" _WS? (_funcarg (_WS? "," _WS? _funcarg)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
-stormcmd: CMDNAME [_WS stormcmdargs]
+stormcmd: STORMCMD [_WS stormcmdargs]
 stormcmdargs: _cmdargv (("=" | _WS) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
 _cmdargv: argvquery | CMDOPT | _toknvalu
@@ -215,7 +215,7 @@ CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
 _safe_cmpr: BYNAME | CMPR
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | reqdollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -286,7 +286,7 @@ FILTPREFIX: "+" | "-"
 // Condition used for filters
 // TODO:  unify cond and dollarexpr
 _cond: notcond | "(" _WS? _condexpr _WS? ")"
-    | hasrelpropcond | relpropcond
+    | relpropcond | hasrelpropcond
     | abspropcond | hasabspropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
@@ -295,8 +295,8 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
 
 notcond: "not" _WS _cond
 
-hasrelpropcond: relprop | univprop
 relpropcond: relpropvalue _WS? _cmpr _WS? _valu
+hasrelpropcond: relpropvalue
 relpropvalue:   relprop | univprop
 
 abspropcond:  ABSPROPNOUNIV _WS? _cmpr _WS? _valu
@@ -354,7 +354,9 @@ RELNAME: /\:\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]+)*/
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // The name of a storm command
+STORMCMD: CMDNAMEEND | CMDNAME (_WSCOMM | "|" | "}")
 CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+\b/
+CMDNAMEEND: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+$\b/
 
 // The entry point for a $(...) expression.  The initial dollar sign is now optional
 dollarexpr: "$"? _exprcommon

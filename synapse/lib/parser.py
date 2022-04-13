@@ -404,7 +404,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'],
-                       propagate_positions=True)
+                       propagate_positions=True, parser='lalr', debug=True)
 
 class Parser:
     '''
@@ -504,16 +504,20 @@ def parseQuery(text, mode='storm'):
         look.autoadd = True
         return look
 
+    lark.tree.pydot__tree_to_png( LarkParser.parse(text, start='query'), 'test.png')
     return Parser(text).query()
 
 def parseEval(text):
+    lark.tree.pydot__tree_to_png( LarkParser.parse(text, start='query'), 'test.png')
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
-    return await s_coro.forked(parseQuery, args[0], mode=args[1])
+    return parseQuery(args[0], mode=args[1])
+#    return await s_coro.forked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
-    return await s_coro.forked(parseEval, text)
+    return parseEval(text)
+#    return await s_coro.forked(parseEval, text)
 
 evalcache = s_cache.FixedCache(_forkedParseEval, size=100)
 querycache = s_cache.FixedCache(_forkedParseQuery, size=100)
