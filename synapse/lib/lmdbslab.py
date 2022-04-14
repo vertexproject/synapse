@@ -721,7 +721,7 @@ class Slab(s_base.Base):
             # containers running from different process namespaces, whose process pids are
             # the same, opening the same lmdb database. That isn't a supported configuration
             # and we just need to catch that error.
-            mesg = f'Unable to obtain lock on {path}. Another process with may have this file locked. {e}'
+            mesg = f'Unable to obtain lock on {path}. Another process may have this file locked. {e}'
             raise s_exc.LmdbLock(mesg=mesg, path=path) from None
 
         self.allslabs[path] = self
