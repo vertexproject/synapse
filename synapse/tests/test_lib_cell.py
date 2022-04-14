@@ -844,6 +844,17 @@ class CellTest(s_t_utils.SynTest):
                 self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
                 self.isin('...cell API (https): disabled', buf)
 
+    async def test_initargv_failure(self):
+        if not os.path.exists('/dev/null'):
+            self.skip('Test requires /dev/null to exist.')
+
+        with self.getAsyncLoggerStream('synapse.lib.cell',
+                                       'Error starting cell at /dev/null') as stream:
+            with self.raises(FileExistsError):
+                async with await s_cell.Cell.initFromArgv(['/dev/null']):
+                    pass
+            self.true(await stream.wait(timeout=6))
+
     async def test_cell_backup(self):
 
         async with self.getTestCore() as core:
