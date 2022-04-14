@@ -15,18 +15,11 @@
 // because it makes storm syntax errors harder to decipher.
 
 // Entry point for an unadorned storm query
-query: [_WSCOMM? "|"] _WSCOMM? (_querystartnon | _querystartedit | _querystartcommand)? _WSCOMM?
+query: [_WSCOMM? "|"] _WSCOMM? _querystart? _WSCOMM?
 lookup: _WS? looklist _WS? [ "|" query ]
 
-// A query that starts with a command
-_querystartcommand: stormcmd [ _WSCOMM? "|" _WSCOMM? (_querystartcommand |  _querystartnon | _querystartedit) ]
-// A query that starts with non-edit non-command
-_querystartnon: _oper _morenons?
-// A query that starts with an edit
-_querystartedit: _editblock _morenons?
-// The common bits that continue a query after _querystartnon or _querystart edit
-_morenons: ( _WSCOMM? "|" _WSCOMM? | _WSCOMM) (_querystartcommand | _querystartnon)
-    | ( _WSCOMM? "|" _WSCOMM? | _WSCOMM?) _querystartedit
+_querystart: _querystart (_WSCOMM? "|" _WSCOMM? | _WSCOMM) (stormcmd | _oper | _editblock)
+    | stormcmd | _oper | _editblock
 
 // Edit block: zero or more edit operations inside a single set of square brackets
 _editblock: "[" _editopers "]"
@@ -76,10 +69,10 @@ emit: _EMIT _WS _valu
 vareval: _varvalu
 
 // A variable assignment
-setvar: _varname _WS? "=" _WS? _valu
+setvar: "$" VARTOKN _WSCOMM? "=" _WSCOMM? _valu
 setitem: _varvalu "." (VARTOKN | "$" varvalue) _WS? "=" _WS? _valu
 
-forloop: "for" _WS (_varname | varlist) _WS? "in" _WS? _valu _WS? baresubquery
+forloop: "for" _WS ("$" VARTOKN | varlist) _WS? "in" _WS? _valu _WS? baresubquery
 whileloop: "while" _WS _valu _WS? baresubquery
 subquery: [YIELD _WS?] baresubquery
 argvquery: "{" query "}"
@@ -99,7 +92,7 @@ ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? bare
 ifclause: _WS _valu _WSCOMM? baresubquery
 
 // A bare variable list
-varlist: "(" [_WS? _varname (_WS? "," _WS? _varname)*] _WS? ["," _WS?] ")"
+varlist: "(" [_WS? "$" VARTOKN (_WS? "," _WS? "$" VARTOKN)*] _WS? ["," _WS?] ")"
 
 // A variable list assignment
 opervarlist: varlist _WS? "=" _WS? _valu
@@ -136,18 +129,13 @@ _LEFTPIVOT:  "<-"
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop
 
-_N1WALKINIT: "-("
-_N1WALKFINI: ")>"
-_N2WALKINIT: "<("
-_N2WALKFINI: ")-"
-
 WILDCARD: "*"
 
 // A wild card, full prop, list, or $varvalu
 _wildprops: WILDCARD | PROPS | valulist | _varvalu
 
-n1walk: _N1WALKINIT _valu _N1WALKFINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
-n2walk: _N2WALKINIT _valu _N2WALKFINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
+n1walk: _EDGEN1INIT _valu _EDGEN1FINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
+n2walk: _EDGEN2INIT _valu _EDGEN2FINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
 
 _WALKNPIVON1: "-->"
 _WALKNPIVON2: "<--"
@@ -155,20 +143,18 @@ _WALKNPIVON2: "<--"
 n1walknpivo: _WALKNPIVON1 _WS? "*"
 n2walknpivo: _WALKNPIVON2 _WS? "*"
 
+_EDGEN1INIT: "-("
 _EDGEADDN1INIT: "+("
-_EDGEADDN1FINI: ")>"
-_EDGEDELN1INIT: "-("
-_EDGEDELN1FINI: ")>"
+_EDGEN1FINI: ")>"
 
-_EDGEADDN2INIT: "<("
+_EDGEN2INIT: "<("
 _EDGEADDN2FINI: ")+"
-_EDGEDELN2INIT: "<("
-_EDGEDELN2FINI: ")-"
+_EDGEN2FINI: ")-"
 
-edgeaddn1: _EDGEADDN1INIT _valu _EDGEADDN1FINI _WS? baresubquery
-edgedeln1: _EDGEDELN1INIT _valu _EDGEDELN1FINI _WS? baresubquery
-edgeaddn2: _EDGEADDN2INIT _valu _EDGEADDN2FINI _WS? baresubquery
-edgedeln2: _EDGEDELN2INIT _valu _EDGEDELN2FINI _WS? baresubquery
+edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI _WS? baresubquery
+edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI _WS? baresubquery
+edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI _WS? baresubquery
+edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI _WS? baresubquery
 
 liftformtag: PROPNAME tagname [_WS? _cmpr _valu]
 _DEREF:  "*"
@@ -188,7 +174,7 @@ funcargs: "(" _WS? (_funcarg (_WS? "," _WS? _funcarg)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
 stormcmd: CMDNAME [ _WSCOMM stormcmdargs ]
-stormcmdargs: (_cmdargv (("=" | _WSCOMM) _cmdargv)?)+
+stormcmdargs: _cmdargv (("=" | _WSCOMM) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
 _cmdargv: argvquery | CMDOPT | _toknvalu
 
@@ -210,7 +196,7 @@ _TAGSEGNOVAR: /\w+/
 _cmpr: _by_cmpr | CMPR
 _by_cmpr: "*" BYNAME
 BYNAME: /[^=\s]+=/
-CMPR: /(?!<-)[@?!<>^~=][@!<>^~=]*/
+CMPR: "=" | "<" | "<=" | ">" | ">=" | "!=" | "@=" | "^=" | "~="
 
 _safe_cmpr: BYNAME | CMPR
 
@@ -269,8 +255,7 @@ _varvalu: "$" _varvaluatom
 
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
-_varname: "$" VARTOKN
-VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
+VARTOKN: /\w+/
 
 // Similar fashion to variables in tag matching
 varderef: _varvaluatom "." DEREFMATCHNOSEP
@@ -286,7 +271,7 @@ FILTPREFIX: "+" | "-"
 // Condition used for filters
 // TODO:  unify cond and dollarexpr
 _cond: notcond | "(" _WS? _condexpr _WS? ")"
-    | relpropcond | hasrelpropcond
+    | hasrelpropcond | relpropcond
     | abspropcond | hasabspropcond
     | tagpropcond | hastagpropcond
     | tagcond | tagvalucond
@@ -295,8 +280,8 @@ _cond: notcond | "(" _WS? _condexpr _WS? ")"
 
 notcond: "not" _WS _cond
 
-relpropcond: relpropvalue _WS? _cmpr _WS? _valu
 hasrelpropcond: relpropvalue
+relpropcond: relpropvalue _WS? _cmpr _WS? _valu
 relpropvalue:   relprop | univprop
 
 abspropcond:  ABSPROPNOUNIV _WS? _cmpr _WS? _valu
