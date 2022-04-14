@@ -32,6 +32,23 @@ class ProjModelTest(s_test.SynTest):
             tick = await core.callStorm('return($lib.projects.get($proj).tickets.add(baz))', opts=opts)
             self.nn(tick)
 
+            # Defaults are set for several ticket values we stash into locls.
+            opts = {'user': visi.iden, 'vars': {'proj': proj, 'tick': tick}}
+            self.eq('baz', await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.name )',
+                                             opts=opts))
+            self.eq('', await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.desc )',
+                                             opts=opts))
+            self.eq(0, await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.status )',
+                                             opts=opts))
+            self.eq(0, await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.priority )',
+                                            opts=opts))
+            self.none(await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.epic )',
+                                             opts=opts))
+            self.none(await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.assignee )',
+                                             opts=opts))
+            self.none(await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.sprint )',
+                                            opts=opts))
+
             opts = {'user': visi.iden, 'vars': {'proj': proj, 'tick': tick}}
             scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.add(hello))'
             with self.raises(s_exc.AuthDeny):
@@ -106,12 +123,15 @@ class ProjModelTest(s_test.SynTest):
             self.len(0, await core.nodes('proj:ticket:assignee', opts=opts))
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = visi', opts=opts)
             self.len(1, await core.nodes('proj:ticket:assignee', opts=opts))
+            self.eq(visi.iden, await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.assignee )',
+                                                    opts=opts))
 
             with self.raises(s_exc.NoSuchUser):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).assignee = newp', opts=opts)
             # now as assignee visi should be able to update status
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).status = "in sprint"', opts=opts)
 
+            # Sprint setting on a ticket
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
             await visi.addRule((True, ('project', 'ticket', 'set', 'sprint')), gateiden=proj)
@@ -120,6 +140,10 @@ class ProjModelTest(s_test.SynTest):
             self.len(0, await core.nodes('proj:ticket:sprint', opts=opts))
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = giter', opts=opts)
             self.len(1, await core.nodes('proj:ticket:sprint', opts=opts))
+
+            self.eq(sprint, await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.sprint )',
+                                           opts=opts))
+
             with self.raises(s_exc.NoSuchName):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).sprint = newp', opts=opts)
 
@@ -166,6 +190,8 @@ class ProjModelTest(s_test.SynTest):
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).epic = $lib.null', opts=aslow)
             self.len(0, await core.nodes('proj:ticket:project=$proj +:epic', opts=aslow))
             await core.callStorm('$lib.projects.get($proj).tickets.get($tick).epic = bar', opts=aslow)
+            self.eq(epic, await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.epic )',
+                                               opts=aslow))
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$lib.projects.get($proj).tickets.get($tick).desc = scoobie', opts=aslow)
@@ -300,6 +326,10 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, await core.nodes('yield $lib.projects.get(proj).sprints.add(spri)'))
             self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.add(tick)'))
             self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.get(tick).comments.add(comm)'))
+
+            # This behavior is counter-intuitive, but works due to .name being set as a constant via locls
+            # name = await core.call/Storm('$p=$lib.projects.get(proj) $p.name=newproj return ( $p.name )')
+            # self.eq(name, 'newproj')
 
     async def test_model_proj_attachment(self):
 

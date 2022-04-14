@@ -236,7 +236,8 @@ def run_stormtypes(_):
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
     args = ['python', '-m', 'synapse.tools.autodoc', '--doc-stormtypes',
             '--savedir', './docs/synapse/autodocs']
-    subprocess.run(args, cwd=synpd)
+    r = subprocess.run(args, cwd=synpd)
+    assert r.returncode == 0, f'Failed to convert stormtypes.'
 
 def convert_ipynb(_):
     import synapse.common as s_common
