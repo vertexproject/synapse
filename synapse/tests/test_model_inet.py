@@ -1273,7 +1273,17 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
-            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')[0]
+            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
+            url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
+            expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/hehe\udcfestuff.asp',
+                'port': 80,
+                'params': '',
+                'fqdn': 'www.googlesites.com',
+                'base': url
+            }})
+            self.eq(valu, expected)
 
             # Form Tests ======================================================
             async with await core.snap() as snap:
@@ -1701,6 +1711,14 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
+            url = await core.nodes('inet:url')
+            self.len(1, url)
+            url = url[0]
+            self.eq(443, url.props['port'])
+            self.eq('', url.props['params'])
+            self.eq('vertex.link', url.props['fqdn'])
+            self.eq('https', url.props['proto'])
+            self.eq('https://vertex.link/a_cool_program.exe', url.props['base'])
 
     async def test_url_mirror(self):
         url0 = 'http://vertex.link'
