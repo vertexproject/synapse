@@ -187,7 +187,7 @@ class StormTypesRegistry:
         rtype = info.get('type')
         funcname = rtype.pop('_funcname')
         locl = getattr(obj, funcname, None)
-        assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
+        assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args', ())
         callsig = getCallSig(locl)
         # Assert the callsigs match
@@ -205,7 +205,7 @@ class StormTypesRegistry:
         rtype = info.get('type')
         funcname = rtype.pop('_storfunc')
         locl = getattr(obj, funcname, None)
-        assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
+        assert locl is not None, f'bad _storfunc=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args')
         assert args is None, f'stors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
@@ -217,7 +217,7 @@ class StormTypesRegistry:
         rtype = info.get('type')
         funcname = rtype.pop('_ctorfunc')
         locl = getattr(obj, funcname, None)
-        assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
+        assert locl is not None, f'bad _ctorfunc=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args')
         assert args is None, f'ctors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)
@@ -229,7 +229,7 @@ class StormTypesRegistry:
         rtype = info.get('type')
         funcname = rtype.pop('_gtorfunc')
         locl = getattr(obj, funcname, None)
-        assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
+        assert locl is not None, f'bad _gtorfunc=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args')
         assert args is None, f'gtors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
         callsig = getCallSig(locl)

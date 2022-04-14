@@ -74,7 +74,7 @@ stormtype_doc_schema = {
         'locals': {
             'type': 'array',
             'items': {'$ref': '#/definitions/stormtypeDoc'},
-            'description': 'A list of attributes, functions, getters and setters to document.',
+            'description': 'A list of attributes, functions, getters, and setters to document.',
         },
         'additionalProperties': False,
     },
