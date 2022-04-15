@@ -261,3 +261,5 @@ class FatalErr(SynErr):
     Raised when a fatal error has occured which an application cannot recover from.
     '''
     pass
+
+class LmdbLock(SynErr): pass

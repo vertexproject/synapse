@@ -2432,7 +2432,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await cls.provAhaSvc(opts, conf)
 
-        cell = await cls.anit(opts.dirn, conf=conf)
+        try:
+            cell = await cls.anit(opts.dirn, conf=conf)
+        except:
+            logger.exception(f'Error starting cell at {opts.dirn}')
+            raise
 
         try:
 
