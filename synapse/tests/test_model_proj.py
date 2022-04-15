@@ -32,7 +32,6 @@ class ProjModelTest(s_test.SynTest):
             tick = await core.callStorm('return($lib.projects.get($proj).tickets.add(baz))', opts=opts)
             self.nn(tick)
 
-            # Defaults are set for several ticket values we stash into locls.
             opts = {'user': visi.iden, 'vars': {'proj': proj, 'tick': tick}}
             self.eq('baz', await core.callStorm('$t=$lib.projects.get($proj).tickets.get($tick) return ( $t.name )',
                                              opts=opts))
@@ -101,6 +100,10 @@ class ProjModelTest(s_test.SynTest):
             await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).status = current', opts=opts)
             await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).desc = cooldesc', opts=opts)
             self.len(1, await core.nodes('proj:sprint:desc'))
+            q = 'return ( $lib.projects.get($proj).sprints.get($sprint).desc )'
+            self.eq('cooldesc', await core.callStorm(q, opts=opts))
+            q = 'return ( $lib.projects.get($proj).sprints.get($sprint).status )'
+            self.eq('current', await core.callStorm(q, opts=opts))
             await core.callStorm('$lib.projects.get($proj).sprints.get($sprint).desc = $lib.null', opts=opts)
             self.len(0, await core.nodes('proj:sprint:desc'))
             self.len(1, await core.nodes('proj:sprint:status=current'))
@@ -300,6 +303,10 @@ class ProjModelTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(scmd, opts=opts)
 
+            scmd = '$comm=$lib.projects.get($proj).tickets.get($tick).comments.add(newp) $comm.del() return($comm.text)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(scmd, opts=opts)
+
             self.len(0, await core.nodes('proj:comment'))
 
             scmd = 'return($lib.projects.get($proj).tickets.get($tick).comments.add(newnew))'
@@ -327,9 +334,8 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.add(tick)'))
             self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.get(tick).comments.add(comm)'))
 
-            # This behavior is counter-intuitive, but works due to .name being set as a constant via locls
-            # name = await core.call/Storm('$p=$lib.projects.get(proj) $p.name=newproj return ( $p.name )')
-            # self.eq(name, 'newproj')
+            name = await core.callStorm('$p=$lib.projects.get(proj) $p.name=newproj return ( $p.name )')
+            self.eq(name, 'newproj')
 
     async def test_model_proj_attachment(self):
 
