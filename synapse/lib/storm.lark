@@ -15,15 +15,15 @@
 // because it makes storm syntax errors harder to decipher.
 
 // Entry point for an unadorned storm query
-query: [_WSCOMM? "|"] _WSCOMM? _querystart? _WSCOMM?
+query: [(_WS | _CCOMMENT | _CPPCOMMENT)? "|"] (_WS | _CCOMMENT | _CPPCOMMENT)? _querystart? (_WS | _CCOMMENT | _CPPCOMMENT)?
 lookup: _WS? looklist _WS? [ "|" query ]
 
-_querystart: _querystart (_WSCOMM? "|" _WSCOMM? | _WSCOMM) (stormcmd | _oper | _editblock)
+_querystart: _querystart ((_WS | _CCOMMENT | _CPPCOMMENT)? "|" (_WS | _CCOMMENT | _CPPCOMMENT)? | (_WS | _CCOMMENT | _CPPCOMMENT)) (stormcmd | _oper | _editblock)
     | stormcmd | _oper | _editblock
 
 // Edit block: zero or more edit operations inside a single set of square brackets
 _editblock: "[" _editopers "]"
-_editopers: _WSCOMM? _editoper (_WSCOMM _editoper)* _WSCOMM?
+_editopers: (_WS | _CCOMMENT | _CPPCOMMENT)? _editoper ((_WS | _CCOMMENT | _CPPCOMMENT) _editoper)* (_WS | _CCOMMENT | _CPPCOMMENT)?
 
 // A single edit operation
 _editoper: editnodeadd
@@ -55,8 +55,8 @@ _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | fo
 BREAK: "break"
 CONTINUE: "continue"
 
-catchblock: "catch" _WSCOMM _valu _WSCOMM? "as" _WSCOMM? VARTOKN _WSCOMM? "{" query "}"
-trycatch: "try" _WSCOMM? "{" query "}" _WSCOMM? catchblock (_WSCOMM? catchblock)?
+catchblock: "catch" (_WS | _CCOMMENT | _CPPCOMMENT) _valu (_WS | _CCOMMENT | _CPPCOMMENT)? "as" (_WS | _CCOMMENT | _CPPCOMMENT)? VARTOKN (_WS | _CCOMMENT | _CPPCOMMENT)? "{" query "}"
+trycatch: "try" (_WS | _CCOMMENT | _CPPCOMMENT)? "{" query "}" (_WS | _CCOMMENT | _CPPCOMMENT)? catchblock ((_WS | _CCOMMENT | _CPPCOMMENT)? catchblock)?
 
 _STOP: "stop"
 stop: _STOP
@@ -69,7 +69,7 @@ emit: _EMIT _WS _valu
 vareval: _varvalu
 
 // A variable assignment
-setvar: "$" VARTOKN _WSCOMM? "=" _WSCOMM? _valu
+setvar: "$" VARTOKN _WS? "=" _WS? _valu
 setitem: _varvalu "." (VARTOKN | "$" varvalue) _WS? "=" _WS? _valu
 
 forloop: "for" _WS ("$" VARTOKN | varlist) _WS? "in" _WS? _valu _WS? baresubquery
@@ -78,18 +78,18 @@ subquery: [YIELD _WS?] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD: "yield"
-switchcase: "switch" _WS _varvalu _WS? "{" (_WSCOMM? (DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) _WSCOMM? ":" _WSCOMM? baresubquery)* _WSCOMM? "}"
+switchcase: "switch" _WS _varvalu _WS? "{" ((_WS | _CCOMMENT | _CPPCOMMENT)? (DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) (_WS | _CCOMMENT | _CPPCOMMENT)? ":" (_WS | _CCOMMENT | _CPPCOMMENT)? baresubquery)* (_WS | _CCOMMENT | _CPPCOMMENT)? "}"
 DEFAULTCASE: "*"
 CASEBARE: /(?!\*)([^:\s"']+)/
 
 yieldvalu: YIELD _WS _argvalu
 
-initblock: "init" _WSCOMM? "{" query "}"
-finiblock: "fini" _WSCOMM? "{" query "}"
+initblock: "init" (_WS | _CCOMMENT | _CPPCOMMENT)? "{" query "}"
+finiblock: "fini" (_WS | _CCOMMENT | _CPPCOMMENT)? "{" query "}"
 
-ifstmt: "if" ifclause (_WSCOMM? "elif" ifclause)* [_WSCOMM? "else" _WSCOMM? baresubquery]
+ifstmt: "if" ifclause ((_WS | _CCOMMENT | _CPPCOMMENT)? "elif" ifclause)* [(_WS | _CCOMMENT | _CPPCOMMENT)? "else" (_WS | _CCOMMENT | _CPPCOMMENT)? baresubquery]
 // The stuff inside an if or elif
-ifclause: _WS _valu _WSCOMM? baresubquery
+ifclause: _WS _valu (_WS | _CCOMMENT | _CPPCOMMENT)? baresubquery
 
 // A bare variable list
 varlist: "(" [_WS? "$" VARTOKN (_WS? "," _WS? "$" VARTOKN)*] _WS? ["," _WS?] ")"
@@ -134,8 +134,8 @@ WILDCARD: "*"
 // A wild card, full prop, list, or $varvalu
 _wildprops: WILDCARD | PROPS | valulist | _varvalu
 
-n1walk: _EDGEN1INIT _valu _EDGEN1FINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
-n2walk: _EDGEN2INIT _valu _EDGEN2FINI _WS? _wildprops [ _WSCOMM? _cmpr _WSCOMM? _valu ]
+n1walk: _EDGEN1INIT _valu _EDGEN1FINI _WS? _wildprops [ (_WS | _CCOMMENT | _CPPCOMMENT)? _cmpr (_WS | _CCOMMENT | _CPPCOMMENT)? _valu ]
+n2walk: _EDGEN2INIT _valu _EDGEN2FINI _WS? _wildprops [ (_WS | _CCOMMENT | _CPPCOMMENT)? _cmpr (_WS | _CCOMMENT | _CPPCOMMENT)? _valu ]
 
 _WALKNPIVON1: "-->"
 _WALKNPIVON2: "<--"
@@ -173,8 +173,8 @@ _funcarg: (VARTOKN | kwarg)
 funcargs: "(" _WS? (_funcarg (_WS? "," _WS? _funcarg)* _WS? )? ")"
 stormfunc: "function" _WS VARTOKN _WS? funcargs _WS? "{" query "}"
 
-stormcmd: CMDNAME [ _WSCOMM stormcmdargs ]
-stormcmdargs: _cmdargv (("=" | _WSCOMM) _cmdargv)*
+stormcmd: CMDNAME [ _WS stormcmdargs ]
+stormcmdargs: _cmdargv (("=" | _WS) _cmdargv)*
 CMDOPT: /-[a-zA-Z0-9_-]+/
 _cmdargv: argvquery | CMDOPT | _toknvalu
 
@@ -212,8 +212,8 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" _WSCOMM? (_exprvalu _WSCOMM? ":" _WSCOMM? _exprvalu _WSCOMM? ("," _WSCOMM? _exprvalu _WSCOMM? ":" _WSCOMM? _exprvalu _WSCOMM?)* ("," _WSCOMM?)? )? "}"
-exprlist: "[" _WSCOMM? (_exprvalu _WSCOMM? ("," _WSCOMM? _exprvalu _WSCOMM?)* ("," _WSCOMM?)? )? "]"
+exprdict: "{" _WS? (_exprvalu _WS? ":" _WS? _exprvalu _WS? ("," _WS? _exprvalu _WS? ":" _WS? _exprvalu _WS?)* ("," _WS?)? )? "}"
+exprlist: "[" _WS? (_exprvalu _WS? ("," _WS? _exprvalu _WS?)* ("," _WS?)? )? "]"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
@@ -262,8 +262,8 @@ varderef: _varvaluatom "." DEREFMATCHNOSEP
 DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: "(" [_WSCOMM? (kwarg | _valu) (_WSCOMM? "," _WSCOMM? (kwarg | _valu))*] _WSCOMM? ["," _WSCOMM?] ")"
-kwarg: VARTOKN _WSCOMM? "=" _WSCOMM? _valu
+_callargs: "(" [(_WS | _CCOMMENT | _CPPCOMMENT)? (kwarg | _valu) ((_WS | _CCOMMENT | _CPPCOMMENT)? "," (_WS | _CCOMMENT | _CPPCOMMENT)? (kwarg | _valu))*] (_WS | _CCOMMENT | _CPPCOMMENT)? ["," (_WS | _CCOMMENT | _CPPCOMMENT)?] ")"
+kwarg: VARTOKN (_WS | _CCOMMENT | _CPPCOMMENT)? "=" (_WS | _CCOMMENT | _CPPCOMMENT)? _valu
 
 filtoper: FILTPREFIX _cond
 FILTPREFIX: "+" | "-"
@@ -293,7 +293,7 @@ hastagpropcond: tagprop
 tagvalucond:  _tagmatch _WS? _cmpr _WS? _valu
 tagcond: _tagmatch
 
-condsubq: "{" query "}" [_WSCOMM? _cmpr _WSCOMM? _valu]
+condsubq: "{" query "}" [(_WS | _CCOMMENT | _CPPCOMMENT)? _cmpr (_WS | _CCOMMENT | _CPPCOMMENT)? _valu]
 arraycond: relprop _ARRAYCONDSTART _WS? _safe_cmpr _WS? _valu _WS? "]"
 _ARRAYCONDSTART: "*["
 
@@ -308,15 +308,12 @@ SINGLEQUOTEDSTRING: /'[^']*'/
 
 _WS: /[\s]/+
 
-// Whitespace or comments
-_WSCOMM: (CCOMMENT | CPPCOMMENT | _WS)+
-
 // C comment: /* */
 // From https://stackoverflow.com/a/36328890/6518334
-CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
+_CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 
 // C++ comment: //
-CPPCOMMENT: /\/\/[^\n]*/
+_CPPCOMMENT: /\/\/[^\n]*/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
@@ -345,7 +342,7 @@ CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|whi
 dollarexpr: "$"? _exprcommon
 // A dollar expression with a required dollar
 reqdollarexpr: "$" _exprcommon
-_exprcommon: "(" _WSCOMM? expror _WSCOMM? ")"
+_exprcommon: "(" (_WS | _CCOMMENT | _CPPCOMMENT)? expror (_WS | _CCOMMENT | _CPPCOMMENT)? ")"
 EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
@@ -359,10 +356,10 @@ OR: "or"
 AND: "and"
 
 // $ expression rules in increasing order of precedence (modeled on Python's order)
-?expror: exprand | expror _WSCOMM OR _WSCOMM exprand
-?exprand: exprnot | exprand _WSCOMM AND _WSCOMM exprnot
-?exprnot: exprcmp | NOT _WSCOMM exprcmp
-?exprcmp: exprsum | exprcmp _WSCOMM? EXPRCMPR _WSCOMM? exprsum
-?exprsum: exprproduct | exprsum _WSCOMM? (EXPRPLUS | EXPRMINUS) _WSCOMM? exprproduct
-?exprproduct: _expratom | exprproduct _WSCOMM? (EXPRTIMES | EXPRDIVIDE) _WSCOMM? _expratom
+?expror: exprand | expror (_WS | _CCOMMENT | _CPPCOMMENT) OR (_WS | _CCOMMENT | _CPPCOMMENT) exprand
+?exprand: exprnot | exprand (_WS | _CCOMMENT | _CPPCOMMENT) AND (_WS | _CCOMMENT | _CPPCOMMENT) exprnot
+?exprnot: exprcmp | NOT (_WS | _CCOMMENT | _CPPCOMMENT) exprcmp
+?exprcmp: exprsum | exprcmp (_WS | _CCOMMENT | _CPPCOMMENT)? EXPRCMPR (_WS | _CCOMMENT | _CPPCOMMENT)? exprsum
+?exprsum: exprproduct | exprsum (_WS | _CCOMMENT | _CPPCOMMENT)? (EXPRPLUS | EXPRMINUS) (_WS | _CCOMMENT | _CPPCOMMENT)? exprproduct
+?exprproduct: _expratom | exprproduct (_WS | _CCOMMENT | _CPPCOMMENT)? (EXPRTIMES | EXPRDIVIDE) (_WS | _CCOMMENT | _CPPCOMMENT)? _expratom
 _expratom: _exprvalu
