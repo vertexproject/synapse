@@ -4497,9 +4497,9 @@ class StormTypesTest(s_test.SynTest):
 
             # Object is dynamic
             q = """
-            $uwer = $lib.auth.users.add(bar)
+            $user = $lib.auth.users.add(bar)
             $lib.print("old name={u}", u= $user.name)
-            $uswer.name=sally
+            $user.name=sally
             $lib.print("new name={u}", u=$user.name)"""
             msgs = await core.stormlist(q)
 
