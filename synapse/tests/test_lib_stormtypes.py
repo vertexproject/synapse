@@ -4495,6 +4495,17 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.auth.users.byname(newp))'))
             self.none(await core.callStorm('return($lib.auth.roles.byname(newp))'))
 
+            # Object is dynamic
+            q = """
+            $uwer = $lib.auth.users.add(bar)
+            $lib.print("old name={u}", u= $user.name)
+            $uswer.name=sally
+            $lib.print("new name={u}", u=$user.name)"""
+            msgs = await core.stormlist(q)
+
+            self.stormIsInPrint('old name=bar', msgs)
+            self.stormIsInPrint('new name=sally', msgs)
+
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('$user = $lib.auth.users.byname(visi) $lib.auth.users.del($user.iden)',
                                      opts=asvisi)
