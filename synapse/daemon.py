@@ -322,6 +322,9 @@ class Daemon(s_base.Base):
         except Exception:
             logger.exception('onTeleShare() error for: %s)', name)
 
+    def unshare(self, name):
+        return self.shared.pop(name)
+
     async def getSessInfo(self):
         return [sess.pack() for sess in self.sessions.values()]
 
@@ -408,6 +411,9 @@ class Daemon(s_base.Base):
 
         await item.fini()
 
+    async def _getSharedItem(self, name):
+        return self.shared.get(name)
+
     async def _onTeleSyn(self, link, mesg):
 
         reply = ('tele:syn', {
@@ -433,7 +439,7 @@ class Daemon(s_base.Base):
                 if rest:
                     path = rest.split('/')
 
-            item = self.shared.get(name)
+            item = await self._getSharedItem(name)
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)

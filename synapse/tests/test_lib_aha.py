@@ -3,12 +3,15 @@ import os
 from unittest import mock
 
 import synapse.exc as s_exc
+import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.output as s_output
 
 import synapse.tools.backup as s_tools_backup
+import synapse.tools.aha.provision as s_tools_provision
 
 import synapse.tests.utils as s_test
 
@@ -418,3 +421,61 @@ class AhaTest(s_test.SynTest):
 
                     async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=aha.do.vertex.link') as proxy:
                         await proxy.getCellInfo()
+
+    async def test_lib_aha_provision(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'aha:name': 'aha.loop.vertex.link',
+                'aha:admin': 'root@loop.vertex.link',
+                'aha:network': 'loop.vertex.link',
+                'dmon:listen': 'ssl://aha.loop.vertex.link:0?ca=loop.vertex.link',
+                'provision:listen': 'tcp://127.0.0.1:0'
+            }
+            async with await self.aha_ctor(dirn, conf=conf) as aha:
+
+                # do this config ex-post-facto due to port binding...
+                host, ahaport = await aha.dmon.listen('ssl://aha.loop.vertex.link:0?ca=loop.vertex.link')
+                aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
+
+                url = aha.getLocalUrl()
+
+                outp = s_output.OutPutStr()
+                await s_tools_provision.main(('--url', aha.getLocalUrl(), 'foobar'), outp=outp)
+                self.isin('one-time use provisioning key: ', str(outp))
+
+                iden = str(outp).split(':')[1].strip()
+
+                addr, port = aha.provdmon.addr
+
+                async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/{iden}') as prov:
+                    self.nn(await prov.getProvInfo())
+                    self.nn(await prov.getCaCert())
+
+                with self.raises(s_exc.NoSuchName):
+                    await s_telepath.openurl(f'tcp://127.0.0.1:{port}/{iden}')
+
+                onetime = await aha.addAhaSvcProv('axon')
+
+                axonpath = s_common.gendir(dirn, 'axon')
+                axonconf = {
+                    'dmon:listen': 'ssl://127.0.0.1:0?hostname=axon.loop.vertex.link&ca=loop.vertex.link',
+                    'aha:provision': f'tcp://127.0.0.1:{port}/{onetime}'
+                }
+                s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
+
+                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'prov.done')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'cas', 'loop.vertex.link.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', 'axon.loop.vertex.link.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', 'axon.loop.vertex.link.key')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.key')))
+
+                    yamlconf = s_common.yamlload(axon.dirn, 'cell.yaml')
+                    self.eq('loop.vertex.link', yamlconf.get('aha:network'))
+                    self.eq('axon.loop.vertex.link', yamlconf.get('aha:name'))
+                    self.eq('root@loop.vertex.link', yamlconf.get('aha:admin'))
+                    self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
+                    self.eq(f'ssl://0.0.0.0:0?hostname=axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))

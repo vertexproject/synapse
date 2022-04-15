@@ -16,6 +16,7 @@ Welcome to the Synapse documentation!
    synapse/quickstart
 
    synapse/userguide
+   synapse/deploymentguide
    synapse/devops
    synapse/devguide
    synapse/glossary

@@ -330,6 +330,12 @@ class CertDir:
         '''
         return self._loadCertPath(self.getCaCertPath(name))
 
+    def getCaCertBytes(self, name):
+        path = self.getCaCertPath(name)
+        if os.path.exists(path):
+            with open(path, 'rb') as fd:
+                return fd.read()
+
     def getCaCerts(self):
         '''
         Return a list of CA certs from the CertDir.
@@ -842,7 +848,7 @@ class CertDir:
         Signs a user CSR with a CA keypair.
 
         Args:
-            cert (OpenSSL.crypto.X509Req): The certificate signing request.
+            xcsr (OpenSSL.crypto.X509Req): The certificate signing request.
             signas (str): The CA keypair name to sign the CSR with.
             outp (synapse.lib.output.Output): The output buffer.
 
@@ -974,6 +980,21 @@ class CertDir:
             fd.truncate(0)
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
 
+    def saveCaCertByts(self, byts):
+        cert = self._loadCertByts(byts)
+        name = cert.get_subject().CN
+        self._saveCertTo(cert, 'cas', f'{name}.crt')
+
+    def saveHostCertByts(self, byts):
+        cert = self._loadCertByts(byts)
+        name = cert.get_subject().CN
+        self._saveCertTo(cert, 'hosts', f'{name}.crt')
+
+    def saveUserCertByts(self, byts):
+        cert = self._loadCertByts(byts)
+        name = cert.get_subject().CN
+        self._saveCertTo(cert, 'users', f'{name}.crt')
+
     def _checkDupFile(self, path):
         if os.path.isfile(path):
             raise s_exc.DupFileName(mesg=f'Duplicate file {path}', path=path)
@@ -1039,7 +1060,10 @@ class CertDir:
     def _loadCertPath(self, path):
         byts = self._getPathBytes(path)
         if byts:
-            return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+            return self._loadCertByts(byts)
+
+    def _loadCertByts(self, byts):
+        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
     def _loadCsrPath(self, path):
         byts = self._getPathBytes(path)

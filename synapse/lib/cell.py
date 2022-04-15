@@ -793,6 +793,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': ['string', 'array'],
             'items': {'type': 'string'},
         },
+        'aha:provision': {
+            'description': 'The telepath URL of the aha provisioning service.',
+            'type': ['string', 'array'],
+            'items': {'type': 'string'},
+        },
         'aha:admin': {
             'description': 'An AHA client certificate CN to register as a local admin user.',
             'type': 'string',
@@ -2326,6 +2331,63 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return pars
 
     @classmethod
+    async def provAhaSvc(cls, opts, conf):
+
+        donepath = s_common.genpath(opts.dirn, 'prov.done')
+        if os.path.isfile(donepath):
+            return
+
+        provurl = conf.get('aha:provision')
+        if provurl is None:
+            return
+
+        certdir = s_certdir.CertDir(path=s_common.gendir(opts.dirn, 'certs'))
+
+        confedit = {}
+        async with await s_telepath.openurl(provurl) as prov:
+
+            certdir.saveCaCertByts(await prov.getCaCert())
+
+            provinfo = await prov.getProvInfo()
+
+            name = provinfo.get('name')
+            urls = provinfo.get('urls')
+            netw = provinfo.get('network')
+            admin = provinfo.get('admin')
+
+            if isinstance(urls, str):
+                urls = (urls,)
+
+            registry = []
+            for url in urls:
+                urldict = s_urlhelp.chopurl(url)
+                urldict['user'] = name
+                registry.append(s_telepath.zipurl(urldict))
+
+            hostname = f'{name}.{netw}'
+            username = f'{name}@{netw}'
+
+            confedit['aha:name'] = hostname
+            confedit['aha:network'] = netw
+            confedit['aha:admin'] = provinfo.get('admin')
+            confedit['aha:registry'] = registry
+            confedit['dmon:listen'] = f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}'
+
+            s_common.yamlmod(confedit, opts.dirn, 'cell.yaml')
+
+            for k, v in confedit.items():
+                conf[k] = v
+
+            hostcsr = certdir.genHostCsr(hostname)
+            certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+
+            usercsr = certdir.genUserCsr(username)
+            certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+
+        with s_common.genfile(opts.dirn, 'prov.done') as fd:
+            pass
+
+    @classmethod
     async def initFromArgv(cls, argv, outp=None):
         '''
         Cell launcher which does automatic argument parsing, environment variable resolution and Cell creation.
@@ -2360,7 +2422,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
 
+        # resolve cell.yaml configs so we have a complete config
+        yamlpath = s_common.genpath(opts.dirn, 'cell.yaml')
+        if os.path.isfile(yamlpath):
+            for k, v in s_common.yamlload(yamlpath).items():
+                conf.setdefault(k, v)
+
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
+
+        await cls.provAhaSvc(opts, conf)
 
         cell = await cls.anit(opts.dirn, conf=conf)
 
