@@ -327,9 +327,8 @@ class ProjModelTest(s_test.SynTest):
             self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.add(tick)'))
             self.len(1, await core.nodes('yield $lib.projects.get(proj).tickets.get(tick).comments.add(comm)'))
 
-            # This behavior is counter-intuitive, but works due to .name being set as a constant via locls
-            # name = await core.call/Storm('$p=$lib.projects.get(proj) $p.name=newproj return ( $p.name )')
-            # self.eq(name, 'newproj')
+            name = await core.callStorm('$p=$lib.projects.get(proj) $p.name=newproj return ( $p.name )')
+            self.eq(name, 'newproj')
 
     async def test_model_proj_attachment(self):
 
