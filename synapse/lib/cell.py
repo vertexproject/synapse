@@ -1,6 +1,7 @@
 import os
 import ssl
 import time
+import fcntl
 import shutil
 import socket
 import asyncio
@@ -920,9 +921,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             with open(path, 'w') as fd:
                 fd.write(guid)
 
-        # read our guid file
-        with open(path, 'r') as fd:
-            self.iden = fd.read().strip()
+        # read & lock our guid file
+        self._cellguidfd = s_common.genfile(path)
+        self.iden = self._cellguidfd.read().strip()
+
+        cmd = fcntl.LOCK_EX | fcntl.LOCK_NB
+        try:
+            fcntl.lockf(self._cellguidfd, cmd)
+        except BlockingIOError:
+            # Raised when the a lock is unable to be obtained on cell.guid file.
+            ctyp = self.getCellType()
+            mesg = f'Cannot start the {ctyp}, another process is already running it.'
+            raise s_exc.FatalErr(mesg=mesg) from None
+
+        def _onFiniCellGuid():
+            fcntl.lockf(self._cellguidfd, fcntl.LOCK_UN)
+            self._cellguidfd.close()
 
         self.donexslog = self.conf.get('nexslog:en')
 
@@ -957,6 +971,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # mutually assured destruction with our nexs root
         self.onfini(root.fini)
         root.onfini(self.fini)
+
+        # Now we can register our own finis
+        self.onfini(_onFiniCellGuid)
 
         self.setNexsRoot(root)
 
