@@ -923,7 +923,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # read & lock our guid file
         self._cellguidfd = s_common.genfile(path)
-        self.iden = self._cellguidfd.read().strip()
+        self.iden = self._cellguidfd.read().decode().strip()
 
         cmd = fcntl.LOCK_EX | fcntl.LOCK_NB
         try:
