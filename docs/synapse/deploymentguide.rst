@@ -156,6 +156,10 @@ Create the following files in ``/srv/synapse/axon/``.
 ``storage/cell.yaml``::
     backup:dir: /vertex/backups
     aha:provision: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    inaugural:
+        users:
+            - name: cortex@loop.vertex.link
+              admin: true
 
 note: Don't forget to replace ``aha.loop.vertex.link`` with your AHA server DNS name.
 note: Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key.
