@@ -106,18 +106,18 @@ your chosen network name!
     dmon:listen: ssl://0.0.0.0:27492?hostname=aha.loop.vertex.link&ca=loop.vertex.link
     provision:listen: tcp://0.0.0.0:27272
 
-Start the container using ``docker-compose`` on the *host*::
-    cd /srv/synapse/aha
+Start the container using ``docker-compose`` on the *host* from the ``/srv/synapse/aha`` directory::
     docker-compose pull
     docker-compose up -d
 
-To view the container logs at any time you may run the following command on the *host*::
-    cd /srv/synapse/aha
+NOTE: For details on learning to use docker-compose see FIXME LINK
+
+To view the container logs at any time you may run the following command on the *host* from the
+``/srv/synapse/aha`` directory::
     docker-compose logs -f
 
-You may also execute a shell inside the container using ``docker-compose`` which will
-be useful for some of the additional provisioning steps::
-    cd /srv/synapse/aha
+You may also execute a shell inside the container using ``docker-compose`` from the ``/srv/synapse/aha``
+directory on the *host*. This will be necessary for some of the additional provisioning steps::
     docker-compose exec aha /bin/bash
 
 Deploy Axon Service
