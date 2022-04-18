@@ -292,9 +292,13 @@ class TypesTest(s_t_utils.SynTest):
 
         # test ranges
         self.nn(t.norm(-2**63))
-        self.raises(s_exc.BadTypeValu, t.norm, (-2**63) - 1)
+        with self.raises(s_exc.BadTypeValu) as cm:
+            t.norm((-2**63) - 1)
+        self.isinstance(cm.exception.get('valu'), str)
         self.nn(t.norm(2**63 - 1))
-        self.raises(s_exc.BadTypeValu, t.norm, 2**63)
+        with self.raises(s_exc.BadTypeValu) as cm:
+            t.norm(2**63)
+        self.isinstance(cm.exception.get('valu'), str)
 
         # test base types that Model snaps in...
         self.eq(t.norm('100')[0], 100)
@@ -400,6 +404,13 @@ class TypesTest(s_t_utils.SynTest):
         self.false(t.cmpr(-math.inf, '>', math.inf))
         self.false(t.cmpr(-math.nan, '<=', math.inf))
         self.true(t.cmpr('inf', '>=', '-0.0'))
+
+        with self.raises(s_exc.BadTypeValu) as cm:
+            t.norm((-2**63) - 1)
+        self.isinstance(cm.exception.get('valu'), str)
+        with self.raises(s_exc.BadTypeValu) as cm:
+            t.norm(2**63)
+        self.isinstance(cm.exception.get('valu'), str)
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('[ test:float=42.0 ]')
