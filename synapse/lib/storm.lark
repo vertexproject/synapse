@@ -199,8 +199,8 @@ BARECMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for
 CMDOPT: /-[a-zA-Z0-9_-]+/
 
 // An unquoted string within a storm command argument list
-WORDTOKN: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
-WORDLAST: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
+WORDTOKN: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\s+|\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
+WORDLAST: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\s+|\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _cmdrargv ("="? _cmdrargv)*
@@ -210,7 +210,7 @@ _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 _tagmatch: "#" (_varvalu | TAGMATCH)
 // A tag name with asterisks or $var as segment after the first segment
 TAGMATCH:  _TAGSEGSTARNOVAR ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
-_TAGSEGSTARNOVAR: /[\w*]+/
+_TAGSEGSTARNOVAR: /\w*\*+\w*/
 
 // A regular tag potentially with $var as any number of segments after the first
 TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
@@ -256,7 +256,7 @@ embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
-NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?![\s]*=)/
+NONQUOTEWORD: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\s+|\/[\/\*])[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?![\s]*=)/
 
 // An unquoted string within a list syntax
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
@@ -281,8 +281,7 @@ funccall: _varvaluatom _callargs
 _callargs: "(" [(kwarg | _valu) ("," (kwarg | _valu))*] ","? ")"
 kwarg: VARTOKN "=" _valu
 
-filtoper: FILTPREFIX _cond
-FILTPREFIX: "+" | "-"
+filtoper: (EXPRPLUS | EXPRMINUS) _cond
 
 // Condition used for filters
 // TODO:  unify cond and dollarexpr
@@ -296,7 +295,7 @@ _cond: notcond | "(" _condexpr ")"
 
 notcond: "not" _cond
 
-hasrelpropcond: relpropvalue
+hasrelpropcond: relprop | univprop
 relpropcond: relpropvalue _cmpr _valu
 relpropvalue:   relprop | univprop
 
@@ -306,8 +305,8 @@ hasabspropcond: ABSPROPNOUNIV
 tagpropcond:  tagprop _cmpr _valu
 hastagpropcond: tagprop
 
-tagvalucond:  _tagmatch _cmpr _valu
-tagcond: _tagmatch
+tagvalucond:  (_tagmatch | "#" TAG) _cmpr _valu
+tagcond: (_tagmatch | "#" TAG)
 
 condsubq: "{" query "}" [ _cmpr _valu]
 arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
