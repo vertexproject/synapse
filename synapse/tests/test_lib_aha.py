@@ -430,13 +430,12 @@ class AhaTest(s_test.SynTest):
                 'aha:name': 'aha.loop.vertex.link',
                 'aha:admin': 'root@loop.vertex.link',
                 'aha:network': 'loop.vertex.link',
-                'dmon:listen': 'ssl://aha.loop.vertex.link:0?ca=loop.vertex.link',
                 'provision:listen': 'tcp://127.0.0.1:0'
             }
             async with await self.aha_ctor(dirn, conf=conf) as aha:
 
                 # do this config ex-post-facto due to port binding...
-                host, ahaport = await aha.dmon.listen('ssl://aha.loop.vertex.link:0?ca=loop.vertex.link')
+                host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
                 aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
 
                 url = aha.getLocalUrl()
@@ -456,7 +455,7 @@ class AhaTest(s_test.SynTest):
                 with self.raises(s_exc.NoSuchName):
                     await s_telepath.openurl(f'tcp://127.0.0.1:{port}/{iden}')
 
-                onetime = await aha.addAhaSvcProv('axon')
+                onetime = await aha.addAhaSvcProv('00.axon')
 
                 axonpath = s_common.gendir(dirn, 'axon')
                 axonconf = {
@@ -468,14 +467,15 @@ class AhaTest(s_test.SynTest):
                 async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'prov.done')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'cas', 'loop.vertex.link.crt')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', 'axon.loop.vertex.link.crt')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', 'axon.loop.vertex.link.key')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.key')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.crt')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.key')))
 
                     yamlconf = s_common.yamlload(axon.dirn, 'cell.yaml')
                     self.eq('loop.vertex.link', yamlconf.get('aha:network'))
-                    self.eq('axon.loop.vertex.link', yamlconf.get('aha:name'))
                     self.eq('root@loop.vertex.link', yamlconf.get('aha:admin'))
+                    self.eq('axon.loop.vertex.link', yamlconf.get('aha:leader'))
+                    self.eq('00.axon.loop.vertex.link', yamlconf.get('aha:name'))
                     self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
-                    self.eq(f'ssl://0.0.0.0:0?hostname=axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
+                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))

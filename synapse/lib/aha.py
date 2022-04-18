@@ -172,10 +172,10 @@ class ProvApi:
 
     async def signUserCsr(self, byts):
 
-        name = self.provinfo.get('name')
+        user = self.provinfo.get('user')
         netw = self.provinfo.get('network')
 
-        username = f'{name}@{netw}'
+        username = f'{user}@{netw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
         if xcsr.get_subject().CN != username:
@@ -495,14 +495,24 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server has no configured aha:network.'
             raise s_exc.BadArg(mesg=mesg)
 
-        username = f'{name}@{netw}'
+        # if the relative name contains a dot, we are a mirror peer.
+        peer = name.find('.') != -1
+        leader = name.rsplit('.', 1)[-1]
+
+        if peer:
+            provinfo.setdefault('leader', f'{leader}.{netw}')
+
+        provinfo['user'] = leader
+
+        username = f'{leader}@{netw}'
         user = await self.auth.getUserByName(username)
         if user is None:
             user = await self.auth.addUser(username)
 
         await user.allow(('aha', 'service', 'get', netw))
         await user.allow(('aha', 'service', 'add', netw, name))
-        # TODO allow svc add for foo if svcname is foo.bar
+        if peer:
+            await user.allow(('aha', 'service', 'add', netw, leader))
 
         return await self._push('aha:svc:prov:add', provinfo)
 

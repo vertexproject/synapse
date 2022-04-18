@@ -2351,9 +2351,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             provinfo = await prov.getProvInfo()
 
             name = provinfo.get('name')
+            user = provinfo.get('user')
             urls = provinfo.get('urls')
             netw = provinfo.get('network')
             admin = provinfo.get('admin')
+            leader = provinfo.get('leader')
 
             if isinstance(urls, str):
                 urls = (urls,)
@@ -2361,17 +2363,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             registry = []
             for url in urls:
                 urldict = s_urlhelp.chopurl(url)
-                urldict['user'] = name
+                urldict['user'] = user
                 registry.append(s_telepath.zipurl(urldict))
 
             hostname = f'{name}.{netw}'
-            username = f'{name}@{netw}'
+            username = f'{user}@{netw}'
 
             confedit['aha:name'] = hostname
             confedit['aha:network'] = netw
             confedit['aha:admin'] = provinfo.get('admin')
             confedit['aha:registry'] = registry
             confedit['dmon:listen'] = f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}'
+            if leader is not None:
+                confedit['aha:leader'] = leader
 
             s_common.yamlmod(confedit, opts.dirn, 'cell.yaml')
 
@@ -2427,6 +2431,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if os.path.isfile(yamlpath):
             for k, v in s_common.yamlload(yamlpath).items():
                 conf.setdefault(k, v)
+
+        conf.reqConfValid()
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
