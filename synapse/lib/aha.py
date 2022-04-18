@@ -123,7 +123,7 @@ class AhaApi(s_cell.CellApi):
     @s_cell.adminapi()
     async def delAhaSvcProv(self, iden):
         '''
-        Provision the given relative service name within the configured network name.
+        Remove a previously added provisioning entry by iden.
         '''
         return await self.cell.delAhaSvcProv(svcname)
 
@@ -199,8 +199,7 @@ class AhaCell(s_cell.Cell):
         },
         'provision:listen': {
             'description': 'A telepath URL for the AHA provisioning listener.',
-            'type': ['string', 'array'],
-            'items': {'type': 'string'},
+            'type': 'string',
         },
     }
 
