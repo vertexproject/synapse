@@ -71,7 +71,7 @@ trycatch: "try" "{" query "}" catchblock*
 
 _STOP: "stop"
 stop: _STOP
-_RETURN: "return"
+_RETURN.3: "return"
 return: _RETURN "("[ _valu ] ")"
 _EMIT: "emit"
 emit: _EMIT _valu
@@ -188,19 +188,21 @@ stormcmd: CMDNAME stormcmdargs | BARECMDNAME
 stormcmdargs: _stormcmdarg+
 
 _stormcmdarg: CMDOPT "=" (argvquery | _argvalu | _wordarg)
-    | CMDOPT | argvquery | _argvalu | _wordarg
+    | _cmdoptarg | argvquery | _argvalu | _wordarg
 
 _wordarg: (WORDTOKN _stormcmdarg) | WORDLAST
+_cmdoptarg: (CMDOPT _stormcmdarg) | CMDOPTLAST
 
 // The name of a storm command
-CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+(?=[\s])(?![\s]*($|[\|\}]))\b/
-BARECMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\b)[a-z][a-z0-9.]+(?=[\s]*($|[\|\}]))\b/
+CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s])(?![\s]*($|[\|\}]))\b/
+BARECMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s]*($|[\|\}]))\b/
 
 CMDOPT: /-[a-zA-Z0-9_-]+/
+CMDOPTLAST.2: /-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
 
 // An unquoted string within a storm command argument list
-WORDTOKN: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\s+|\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
-WORDLAST: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\s+|\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
+WORDTOKN: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
+WORDLAST.2: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _cmdrargv ("="? _cmdrargv)*
