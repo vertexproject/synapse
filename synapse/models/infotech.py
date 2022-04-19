@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+
+import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
@@ -188,6 +190,26 @@ class SemVer(s_types.Int):
         major, minor, patch = s_version.unpackVersion(valu)
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
+
+#                 ('it:sec:cve', ('str', {'lower': True, 'regex': }), {
+#                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
+#                     'ex': 'cve-2012-0158'
+#                 }),
+
+class Cve(s_types.Str):
+
+    def postTypeInit(self):
+        self.opts.update({
+            'lower': True,
+            'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$',
+        })
+        s_types.Str.postTypeInit(self)
+
+    def _normPyStr(self, valu):
+
+        valu = s_chop.replaceUnicodeDashes(valu)
+
+        return s_types.Str._normPyStr(self, valu)
 
 loglevels = (
     (10, 'debug'),
