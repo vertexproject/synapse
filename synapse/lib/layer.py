@@ -1774,6 +1774,8 @@ class Layer(s_nexus.Pusher):
         Nuke all the contents in the layer, leaving an empty layer
         NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
+        s_common.deprecated('truncate')
+
         self.dirty.clear()
         self.buidcache.clear()
 
