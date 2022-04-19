@@ -1035,7 +1035,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''Fini override that ensures locking teardown order.'''
         # we inherit from Pusher to make the Cell a Base subclass
         retn = await s_nexus.Pusher.fini(self)
-        if retn is not None:
+        if retn == 0:
             self._onFiniCellGuid()
         return retn
 
