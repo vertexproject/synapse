@@ -1395,3 +1395,19 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.DupUserName):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
                     pass
+
+    async def test_backup_default(self):
+
+        async with self.getTestCore() as core:
+
+            await core.runBackup('foo')
+            await core.runBackup('bar')
+
+            foopath = s_common.genpath(core.dirn, 'backups', 'foo')
+            barpath = s_common.genpath(core.dirn, 'backups', 'bar')
+
+            self.true(os.path.isdir(foopath))
+            self.true(os.path.isdir(barpath))
+
+            foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
+            self.false(os.path.isdir(foonest))
