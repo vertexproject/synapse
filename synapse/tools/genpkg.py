@@ -213,6 +213,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         pkgdef['optic'].setdefault('files', {})
         loadOpticFiles(pkgdef, opticdir)
 
+    # Tuplify the package.
+    pkgdef = s_common.tuplify(pkgdef)
     return pkgdef
 
 
