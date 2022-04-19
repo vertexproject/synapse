@@ -933,7 +933,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'backup:dir must not be within the service directory'
                 raise s_exc.BadConfValu(mesg=mesg)
 
-        if backdirn is None:
+        else:
             backdirn = s_common.genpath(self.dirn, 'backups')
 
         backdirn = s_common.gendir(backdirn)
