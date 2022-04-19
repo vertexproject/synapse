@@ -4748,6 +4748,17 @@ class StormTypesTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.auth.roles.byname(new0))'))
             self.nn(await core.callStorm('return($lib.auth.roles.byname(new1))'))
 
+            # Objects are dynamic
+            q = """
+            $user = $lib.auth.users.add(bar)
+            $lib.print("old name={u}", u= $user.name)
+            $user.name=sally
+            $lib.print("new name={u}", u=$user.name)"""
+            msgs = await core.stormlist(q)
+
+            self.stormIsInPrint('old name=bar', msgs)
+            self.stormIsInPrint('new name=sally', msgs)
+
     async def test_stormtypes_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
