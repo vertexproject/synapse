@@ -1269,12 +1269,21 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Type Tests ======================================================
             t = core.model.type(formname)
-
-            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')  # No Host
+            self.raises(s_exc.BadTypeValu, t.norm, 'http:///wat')
             self.raises(s_exc.BadTypeValu, t.norm, 'wat')  # No Protocol
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
-            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')[0]
+            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
+            url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
+            expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/hehe\udcfestuff.asp',
+                'port': 80,
+                'params': '',
+                'fqdn': 'www.googlesites.com',
+                'base': url
+            }})
+            self.eq(valu, expected)
 
             # Form Tests ======================================================
             async with await core.snap() as snap:
@@ -1307,6 +1316,217 @@ class InetModelTest(s_t_utils.SynTest):
             q = 'inet:url +inet:url=""'
             nodes = await core.nodes(q)
             self.len(0, nodes)
+
+    async def test_url_file(self):
+
+        async with self.getTestCore() as core:
+
+            t = core.model.type('inet:url')
+
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:////')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://///')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file://')
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:')
+
+            url = 'file:///'
+            expected = (url, {'subs': {
+                'base': url,
+                'path': '/',
+                'proto': 'file',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:///home/foo/Documents/html/index.html'
+            expected = (url, {'subs': {
+                'base': url,
+                'path': '/home/foo/Documents/html/index.html',
+                'proto': 'file',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:///c:/path/to/my/file.jpg'
+            expected = (url, {'subs': {
+                'base': url,
+                'path': 'c:/path/to/my/file.jpg',
+                'params': '',
+                'proto': 'file'
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://localhost/c:/Users/BarUser/stuff/moar/stuff.txt'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': 'c:/Users/BarUser/stuff/moar/stuff.txt',
+                'params': '',
+                'fqdn': 'localhost',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://localhost/home/visi/synapse/README.rst'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': '/home/visi/synapse/README.rst',
+                'params': '',
+                'fqdn': 'localhost',
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/C:/invisig0th/code/synapse/README.rst'
+            expected = ('file:///C:/invisig0th/code/synapse/README.rst', {'subs': {
+                'proto': 'file',
+                'path': 'C:/invisig0th/code/synapse/README.rst',
+                'params': '',
+                'base': 'file:///C:/invisig0th/code/synapse/README.rst'
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://somehost/path/to/foo.txt'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/path/to/foo.txt',
+                'fqdn': 'somehost',
+                'base': url
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/c:/foo/bar/baz/single/slash.txt'
+            expected = ('file:///c:/foo/bar/baz/single/slash.txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar/baz/single/slash.txt',
+                'base': 'file:///c:/foo/bar/baz/single/slash.txt',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:c:/foo/bar/baz/txt'
+            expected = ('file:///c:/foo/bar/baz/txt', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': 'c:/foo/bar/baz/txt',
+                'base': 'file:///c:/foo/bar/baz/txt',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/home/visi/synapse/synapse/lib/'
+            expected = ('file:///home/visi/synapse/synapse/lib/', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/home/visi/synapse/synapse/lib/',
+                'base': 'file:///home/visi/synapse/synapse/lib/',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://foo.vertex.link/home/bar/baz/biz.html'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': '/home/bar/baz/biz.html',
+                'params': '',
+                'fqdn': 'foo.vertex.link',
+                'base': 'file://foo.vertex.link/home/bar/baz/biz.html',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'fqdn': 'somehost.vertex.link',
+                'base': 'file://visi@vertex.link@somehost.vertex.link/c:/invisig0th/code/synapse/',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'visi@vertex.link',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'ipv4': 117901063,
+                'base': 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'neato@password',
+                'params': '',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # these two are not allowed by the rfc, but are easy enough to handle
+            url = 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
+            expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'password',
+                'ipv4': 27400963,
+                'port': 12345,
+                'params': '',
+                'base': 'file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+            }})
+            self.eq(t.norm(url), expected)
+
+            url = 'file:/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
+            expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'password',
+                'ipv4': 27400963,
+                'port': 12345,
+                'params': '',
+                'base': 'file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2
+            url = 'file://visi@vertex.link:password@somehost.vertex.link:9876/c:/invisig0th/code/synapse/'
+            expected = (url, {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'visi@vertex.link',
+                'passwd': 'password',
+                'fqdn': 'somehost.vertex.link',
+                'params': '',
+                'port': 9876,
+                'base': url,
+            }})
+            self.eq(t.norm(url), expected)
+
+            # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2.2
+            url = 'FILE:c|/synapse/synapse/lib/stormtypes.py'
+            expected = ('file:///c|/synapse/synapse/lib/stormtypes.py', {'subs': {
+                'path': 'c|/synapse/synapse/lib/stormtypes.py',
+                'proto': 'file',
+                'params': '',
+                'base': 'file:///c|/synapse/synapse/lib/stormtypes.py',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.3.2
+            url = 'file:////host.vertex.link/SharedDir/Unc/FilePath'
+            expected = ('file:////host.vertex.link/SharedDir/Unc/FilePath', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'path': '/SharedDir/Unc/FilePath',
+                'fqdn': 'host.vertex.link',
+                'base': 'file:////host.vertex.link/SharedDir/Unc/FilePath',
+            }})
+            self.eq(t.norm(url), expected)
+
+            # Firefox's non-standard representation that appears every so often
+            # supported because the RFC supports it
+            url = 'file://///host.vertex.link/SharedDir/Firefox/Unc/File/Path'
+            expected = ('file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path', {'subs': {
+                'proto': 'file',
+                'params': '',
+                'base': 'file:////host.vertex.link/SharedDir/Firefox/Unc/File/Path',
+                'path': '/SharedDir/Firefox/Unc/File/Path',
+                'fqdn': 'host.vertex.link',
+            }})
+            self.eq(t.norm(url), expected)
 
     async def test_url_fqdn(self):
 
@@ -1370,6 +1590,54 @@ class InetModelTest(s_t_utils.SynTest):
             'proto': 'https', 'path': '/a/b/c/', 'user': 'user', 'passwd': 'password', htype: norm_host, 'port': 1234,
             'base': f'https://user:password@{repr_host_port}:1234/a/b/c/',
             'params': ''
+        }})
+        self.eq(t.norm(url), expected)
+
+        # Userinfo user with @ in it
+        url = f'lando://visi@vertex.link@{host_port}:40000/auth/gateway'
+        expected = (f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway', {'subs': {
+            'proto': 'lando', 'path': '/auth/gateway',
+            'user': 'visi@vertex.link',
+            'base': f'lando://visi@vertex.link@{repr_host_port}:40000/auth/gateway',
+            'port': 40000,
+            'params': '',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
+        # Userinfo password with @
+        url = f'balthazar://root:foo@@@bar@{host_port}:1234/'
+        expected = (f'balthazar://root:foo@@@bar@{repr_host_port}:1234/', {'subs': {
+            'proto': 'balthazar', 'path': '/',
+            'user': 'root', 'passwd': 'foo@@@bar',
+            'base': f'balthazar://root:foo@@@bar@{repr_host_port}:1234/',
+            'port': 1234,
+            'params': '',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
+        # rfc3986 compliant Userinfo with @ properly encoded
+        url = f'calrissian://visi%40vertex.link:surround%40@{host_port}:44343'
+        expected = (f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343', {'subs': {
+            'proto': 'calrissian', 'path': '',
+            'user': 'visi%40vertex.link', 'passwd': 'surround%40',
+            'base': f'calrissian://visi%40vertex.link:surround%40@{repr_host_port}:44343',
+            'port': 44343,
+            'params': '',
+            htype: norm_host,
+        }})
+        self.eq(t.norm(url), expected)
+
+        # unencoded query params are handled nicely
+        url = f'https://visi@vertex.link:neato@burrito@{host}/?q=@foobarbaz'
+        expected = (f'https://visi@vertex.link:neato@burrito@{repr_host}/?q=@foobarbaz', {'subs': {
+            'proto': 'https', 'path': '/',
+            'user': 'visi@vertex.link', 'passwd': 'neato@burrito',
+            'base': f'https://visi@vertex.link:neato@burrito@{repr_host}/',
+            'port': 443,
+            'params': '?q=@foobarbaz',
+            htype: norm_host,
         }})
         self.eq(t.norm(url), expected)
 
@@ -1443,6 +1711,14 @@ class InetModelTest(s_t_utils.SynTest):
             async with await core.snap() as snap:
                 node = await snap.addNode(formname, valu)
                 self.checkNode(node, (expected_ndef, expected_props))
+            url = await core.nodes('inet:url')
+            self.len(1, url)
+            url = url[0]
+            self.eq(443, url.props['port'])
+            self.eq('', url.props['params'])
+            self.eq('vertex.link', url.props['fqdn'])
+            self.eq('https', url.props['proto'])
+            self.eq('https://vertex.link/a_cool_program.exe', url.props['base'])
 
     async def test_url_mirror(self):
         url0 = 'http://vertex.link'

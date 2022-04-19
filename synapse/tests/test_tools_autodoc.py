@@ -151,6 +151,10 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('nodedata with the following keys', s)
             self.isin('``testnd`` on ``inet:ipv4``', s)
 
+            # Tuplelized output
+            self.isin('testpkg.baz', s)
+            self.isin("Help on baz opt (default: ('-7days', 'now'))", s)
+
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:
 

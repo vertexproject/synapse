@@ -182,7 +182,7 @@ class RiskModule(s_module.CoreModule):
                 )),
 
                 ('risk:alert', {}, (
-                    ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'An alert type.',
                     }),
                     ('name', ('str', {}), {
@@ -204,7 +204,7 @@ class RiskModule(s_module.CoreModule):
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for the compromise event.',
                     }),
                     ('desc', ('str', {}), {
