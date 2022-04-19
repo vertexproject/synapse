@@ -2030,7 +2030,7 @@ class CortexTest(s_t_utils.SynTest):
             warns = [msg for msg in mesgs if msg[0] == 'warn']
             self.len(1, warns)
             emesg = "BadTypeValu [10] during pivot: value is below min=20"
-            self.eq(warns[0][1], {'name': 'int', 'valu': 10,
+            self.eq(warns[0][1], {'name': 'int', 'valu': '10',
                                   'mesg': emesg})
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
