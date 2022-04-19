@@ -877,14 +877,6 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_backup(self):
 
-        async with self.getTestCore() as core:
-            with self.raises(s_exc.NeedConfValu):
-                await core.runBackup()
-            with self.raises(s_exc.NeedConfValu):
-                await core.getBackups()
-            with self.raises(s_exc.NeedConfValu):
-                await core.delBackup('foo')
-
         with self.getTestDir() as dirn:
             s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
             with self.raises(s_exc.BadConfValu):
@@ -1441,3 +1433,19 @@ class CellTest(s_t_utils.SynTest):
             os.kill(proc.pid, signal.SIGTERM)
             proc.join(timeout=10)
             self.eq(proc.exitcode, 137)
+
+    async def test_cell_backup_default(self):
+
+        async with self.getTestCore() as core:
+
+            await core.runBackup('foo')
+            await core.runBackup('bar')
+
+            foopath = s_common.genpath(core.dirn, 'backups', 'foo')
+            barpath = s_common.genpath(core.dirn, 'backups', 'bar')
+
+            self.true(os.path.isdir(foopath))
+            self.true(os.path.isdir(barpath))
+
+            foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
+            self.false(os.path.isdir(foonest))
