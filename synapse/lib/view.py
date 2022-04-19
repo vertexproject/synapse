@@ -465,6 +465,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             count += 1
 
                     else:
+                        self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
                         async for item in snap.storm(text, opts=opts, user=user):
                             count += 1
 
