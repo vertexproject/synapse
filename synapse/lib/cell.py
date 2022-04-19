@@ -784,7 +784,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidecmdl': True,
         },
         'backup:dir': {
-            'description': 'A directory outside the service directory where backups will be saved.',
+            'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
         },
         'aha:name': {
@@ -951,7 +951,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'backup:dir must not be within the service directory'
                 raise s_exc.BadConfValu(mesg=mesg)
 
-        if backdirn is None:
+        else:
             backdirn = s_common.genpath(self.dirn, 'backups')
 
         backdirn = s_common.gendir(backdirn)

@@ -448,7 +448,6 @@ class StormType:
 
         valu = await self._derefGet(name)
         if valu is not s_common.novalu:
-            self.locls[name] = valu
             return valu
 
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
