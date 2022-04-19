@@ -91,8 +91,9 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
     if skipdirs is None:
         skipdirs = []
 
-    # Always avoid backing up temporary directories
+    # Always avoid backing up temporary and backup directories
     skipdirs.append('**/tmp')
+    skipdirs.append('**/backups')
 
     logger.info(f'Starting backup of [{srcdir}]')
     logger.info(f'Destination dir: [{dstdir}]')
