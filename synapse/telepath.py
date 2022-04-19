@@ -127,7 +127,7 @@ async def getAhaProxy(urlinfo):
         raise s_exc.NoSuchName(mesg=mesg)
 
     if not aha_clients:
-        mesg = f'No aha clients are available to lookup {host}'
+        mesg = f'No aha servers registered to lookup {host}'
         raise s_exc.NotReady(mesg=mesg)
 
     laste = None

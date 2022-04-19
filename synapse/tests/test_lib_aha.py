@@ -302,7 +302,7 @@ class AhaTest(s_test.SynTest):
                 with self.raises(s_exc.NotReady) as cm:
                     await s_telepath.openurl('aha://visi@foo.bar.com')
                 self.eq(cm.exception.get('mesg'),
-                        'No aha clients are available to lookup foo.bar.com')
+                        'No aha servers registered to lookup foo.bar.com')
 
                 fini = await s_telepath.loadTeleEnv(path)
 
