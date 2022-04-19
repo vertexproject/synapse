@@ -191,11 +191,6 @@ class SemVer(s_types.Int):
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
 
-#                 ('it:sec:cve', ('str', {'lower': True, 'regex': }), {
-#                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
-#                     'ex': 'cve-2012-0158'
-#                 }),
-
 class CVE(s_types.Str):
 
     def postTypeInit(self):
