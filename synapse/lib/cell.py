@@ -773,7 +773,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidecmdl': True,
         },
         'backup:dir': {
-            'description': 'A directory outside the service directory where backups will be saved.',
+            'description': 'A directory outside the service directory where backups will be saved. Defaults to ./backups in the service storage directory.',
             'type': 'string',
         },
         'aha:name': {
