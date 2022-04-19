@@ -857,14 +857,6 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_backup(self):
 
-        async with self.getTestCore() as core:
-            with self.raises(s_exc.NeedConfValu):
-                await core.runBackup()
-            with self.raises(s_exc.NeedConfValu):
-                await core.getBackups()
-            with self.raises(s_exc.NeedConfValu):
-                await core.delBackup('foo')
-
         with self.getTestDir() as dirn:
             s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
             with self.raises(s_exc.BadConfValu):
@@ -1396,7 +1388,7 @@ class CellTest(s_t_utils.SynTest):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
                     pass
 
-    async def test_backup_default(self):
+    async def test_cell_backup_default(self):
 
         async with self.getTestCore() as core:
 
