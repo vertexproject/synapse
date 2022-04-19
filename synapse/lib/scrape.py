@@ -43,7 +43,6 @@ inverse_prefixs = {
 }
 
 cve_dashes = ''.join(('-',) + s_chop.unicode_dashes)
-cve_re = fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)'
 
 def fqdn_prefix_check(match: regex.Match):
     mnfo = match.groupdict()
@@ -93,7 +92,7 @@ scrape_types = [  # type: ignore
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
-    ('it:sec:cve', cve_re, {'callback': cve_check}),
+    ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',
