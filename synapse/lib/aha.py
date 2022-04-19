@@ -199,7 +199,8 @@ class AhaCell(s_cell.Cell):
         },
         'provision:listen': {
             'description': 'A telepath URL for the AHA provisioning listener.',
-            'type': 'string',
+            'default': 'tcp://0.0.0.0:27272/',
+            'type': ['string', 'null'],
         },
     }
 

@@ -101,10 +101,7 @@ your chosen network name!
     aha:admin: root@loop.vertex.link
     aha:urls: ssl://aha.loop.vertex.link:27492
 
-    backup:dir: /vertex/backups
-
     dmon:listen: ssl://0.0.0.0:27492?hostname=aha.loop.vertex.link&ca=loop.vertex.link
-    provision:listen: tcp://0.0.0.0:27272
 
 Start the container using ``docker-compose`` on the *host* from the ``/srv/synapse/aha`` directory::
     docker-compose pull
@@ -123,8 +120,10 @@ directory on the *host*. This will be necessary for some of the additional provi
 Deploy Axon Service
 ###################
 
-If you plan to install the commercial ``Synapse-S3`` Axon, you should replace this step with the
-deployment guidance provided _here.
+In the Synapse service archtecture, an Axon provides a place to store arbitrary bytes/files as binary
+blobs and exposes APIs for streaming files in and out regardless of their size.  Given sufficient filesystem
+size, an Axon can be used to efficiently store and retrieve very large files as well as a high number
+(easily billions) of files.
 
 Generate a one-time use API key for provisioning the axon by executing the following command from *inside
 the AHA container*::
@@ -134,9 +133,7 @@ You should see output that looks similar to this::
     one-time use provisioning key: b751e6c3e6fc2dad7a28d67e315e1874
 
 Create the container directory::
-    mkdir -p /srv/synapse/axon/backups
     mkdir -p /srv/synapse/axon/storage
-    chown -R synuser /srv/synapse/axon/backups
     chown -R synuser /srv/synapse/axon/storage
 
 Create the following files in ``/srv/synapse/axon/``.
@@ -151,10 +148,8 @@ Create the following files in ``/srv/synapse/axon/``.
         restart: unless-stopped
         volumes:
         - ./storage:/vertex/storage
-        - ./backups:/vertex/backups
 
 ``storage/cell.yaml``::
-    backup:dir: /vertex/backups
     aha:provision: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
     inaugural:
         users:
@@ -164,14 +159,89 @@ Create the following files in ``/srv/synapse/axon/``.
 note: Don't forget to replace ``aha.loop.vertex.link`` with your AHA server DNS name.
 note: Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key.
 
+Start the container using ``docker-compose`` on the *host* from the ``/srv/synapse/axon`` directory::
+    docker-compose pull
+    docker-compose up -d
+
 Deploy JSONStor Service (optional)
 ##################################
 
 Deploy Cortex Service
 #####################
 
+In order to prepare to have a peer-mirror deployment where we can easily promote any mirror to being
+the leader, we will provision this Cortex using the name ``00.cortex``.  If the service name being provisioned
+includes a ``.`` character, the provisioning logic assumes that the last part (``cortex`` in this case) is the
+name of the leader.
+
+Generate a one-time use API key for provisioning the axon by executing the following command from *inside
+the AHA container*::
+    python -m synapse.tools.aha.provision 00.cortex
+
+You should see output that looks similar to this::
+    one-time use provisioning key: 8c5eeeafdc569b5a0642ee451205efae
+
+Create the container directory::
+    mkdir -p /srv/synapse/00.cortex/backups
+    mkdir -p /srv/synapse/00.cortex/storage
+    chown -R synuser /srv/synapse/00.cortex/backups
+    chown -R synuser /srv/synapse/00.cortex/storage
+
+Create the following files in ``/srv/synapse/00.cortex/``.
+
+``docker-compose.yaml``::
+    version: "3.3"
+    services:
+      00.cortex:
+        user: synuser
+        image: vertexproject/synapse-cortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+        - ./storage:/vertex/storage
+        - ./backups:/vertex/backups
+
+``storage/cell.yaml``::
+    nexslog:en: true
+    backup:dir: /vertex/backups
+    axon: aha://cortex@axon.loop.vertex.link/
+    jsonstor: aha://cortex@jsonstor.loop.vertex.link/
+    aha:provision: tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
+
+The ``nexslog:en: true`` option configures the Cortex to enable change logging that is necessary
+for mirror configurations.  Additionally, the ``axon: aha://cortex@axon.loop.vertex.link`` configures
+the Cortex to use the provisioned Axon to store raw bytes such as files.  Finally, the
+``jsonstor: aha://cortex@jsonstor.loop.vertex.link`` configures the Cortex to use the provisioned
+JSONStor service to store user specified or Power-Up cached data.
+
+Start the container using ``docker-compose`` on the *host* from the ``/srv/synapse/axon`` directory::
+    docker-compose pull
+    docker-compose up -d
+
 Deploy Cortex Mirror (optional)
 ###############################
+
+To deploy a Cortex mirror, we must start with a backup snapshot of an existing Cortex that has already
+been initialized. For instructions on generating a backup, see the docs _here.
+
+Create the container backup directory::
+    mkdir -p /srv/synapse/01.cortex/backups
+    chown -R synuser /srv/synapse/01.cortex/backups
+
+Move the backup to the ``/srv/synapse/01.cortex`` directory on the *host* then extract and rename the folder::
+    mv cortex-202204180202.tgz /srv/synapse/01.cortex
+    cd /srv/synapse/01.cortex
+    tar -vzxf cortex-202204180202.tgz
+    mv cortex-202204180202 storage
+    chown -R synuser 
+
+Change permissions 
+
+Then edit the ``storage/cell.yaml`` file to set the following options ( leaving all other options as-is )::
+    aha:name: 01.cortex.loop.vertex.link
+    mirror: aha://cortex@cortex.loop.vertex.link
+
+Take a backup of your 
 
 What's next?
 ############
@@ -187,4 +257,4 @@ Switching to Structured Logging
 Updating Services
 =================
 
-Check the service documentation changelogs 
+* Check the service documentation changelogs 

@@ -212,6 +212,9 @@ class CellApi(s_base.Base):
     def getCellIden(self):
         return self.cell.getCellIden()
 
+    async def getCellRunId(self):
+        return await self.cell.getCellRunId()
+
     async def isCellActive(self):
         '''
         Returns True if the cell is an active/leader cell.
@@ -346,6 +349,14 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def addUser(self, name, passwd=None, email=None, iden=None):
         return await self.cell.addUser(name, passwd=passwd, email=email, iden=iden)
+
+    @adminapi(log=True)
+    async def genUser(self, name):
+        user = await self.cell.auth.getUserByName(name)
+        if user is not None:
+            return user.pack()
+
+        return await self.cell.addUser(name)
 
     @adminapi(log=True)
     async def delUser(self, iden):
@@ -751,7 +762,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'nexslog:en': {
             'default': False,
-            'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
+            'description': 'Record all changes to a stream file on disk.  Required for mirroring (on both sides).',
             'type': 'boolean',
         },
         'nexslog:async': {
@@ -899,7 +910,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.starttime = time.monotonic()  # Used for uptime calc
         self.startms = s_common.now()      # Used to report start time
         s_telepath.Aware.__init__(self)
+
         self.dirn = s_common.gendir(dirn)
+        self.runid = s_common.guid()
 
         self.auth = None
         self.cellparent = parent
@@ -938,7 +951,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'backup:dir must not be within the service directory'
                 raise s_exc.BadConfValu(mesg=mesg)
 
-            backdirn = s_common.gendir(backdirn)
+        if backdirn is None:
+            backdirn = s_common.genpath(self.dirn, 'backups')
+
+        backdirn = s_common.gendir(backdirn)
 
         self.backdirn = backdirn
         self.backuprunning = False  # Whether a backup is currently running
@@ -2255,6 +2271,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def getCellIden(self):
         return self.iden
+
+    async def getCellRunId(self):
+        return self.runid
 
     @classmethod
     def initCellConf(cls):

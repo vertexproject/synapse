@@ -48,6 +48,7 @@ def capturelmdbs(srcdir, skipdirs=None, onlydirs=None):
         srcdir = glob.escape(os.path.abspath(srcdir))
         skipdirs.append(os.path.join(srcdir, 'tmp/*'))
         skipdirs.append(os.path.join(srcdir, '*/tmp/*'))
+        skipdirs.append(os.path.join(srcdir, 'backups/*'))
 
         srcdirglob = s_common.genpath(srcdir, '**/data.mdb')
         fniter = glob.iglob(srcdirglob, recursive=True)
@@ -91,8 +92,9 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
     if skipdirs is None:
         skipdirs = []
 
-    # Always avoid backing up temporary directories
+    # Always avoid backing up temporary and backups directories
     skipdirs.append('**/tmp')
+    skipdirs.append('**/backups')
 
     logger.info(f'Starting backup of [{srcdir}]')
     logger.info(f'Destination dir: [{dstdir}]')
