@@ -10,6 +10,7 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
+import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
@@ -726,6 +727,8 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             user = await self.core.auth.reqUser(useriden)
 
+        await self.wipeAllowed(user)
+
         async with await self.snap(user=user) as snap:
             meta = await snap.getSnapMeta()
             async for nodeedit in self.layers[0].iterWipeNodeEdits():
@@ -802,6 +805,18 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     if splicecount % 1000 == 0:
                         await asyncio.sleep(0)
+
+    async def wipeAllowed(self, user=None):
+        '''
+        Check whether a user can wipe the write layer in the current view.
+        '''
+        if user is None or user.isAdmin():
+            return
+
+        async for nodeedit in self.layers[0].iterWipeNodeEdits():
+            for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
+                self._confirm(user, perm)
+                await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu, view=None):
 

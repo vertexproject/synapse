@@ -434,7 +434,21 @@ class ViewTest(s_t_utils.SynTest):
 
             offs = await layr.getEditOffs()
 
-            await core.nodes('$lib.view.get().wipeLayer()')
+            # must have perms for each edit
+
+            user = await core.addUser('redox')
+            useriden = user['iden']
+            opts = {'user': useriden}
+
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.view.get().wipeLayer()', opts=opts))
+
+            await core.addUserRule(useriden, (True, ('node', 'del')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'prop', 'del')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'del')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'edge', 'del')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'data', 'pop')), gateiden=layr.iden)
+
+            await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
             self.len(nodecnt, layr.nodeeditlog.iter(offs + 1)) # one del nodeedit for each node
 
@@ -477,12 +491,6 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:str=turkey', opts={'view': forkviden}))
 
             await core.nodes('view.merge $forkviden --delete', opts={'vars': {'forkviden': forkviden}})
-
-            # requires node perms
-
-            user = await core.addUser('redox')
-            opts = {'user': user['iden']}
-            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.view.get().wipeLayer()', opts=opts))
 
             # can wipe push/pull/mirror layers
 

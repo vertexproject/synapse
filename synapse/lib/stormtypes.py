@@ -6215,9 +6215,6 @@ class View(Prim):
         useriden = self.runt.user.iden
         viewiden = self.valu.get('iden')
         view = self.runt.snap.core.getView(viewiden)
-
-        # ensure the user may make *any* node edits
-        self.runt.layerConfirm(('node',))
         await view.wipeLayer(useriden=useriden)
 
 @registry.registerLib
