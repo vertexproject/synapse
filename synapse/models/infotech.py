@@ -196,7 +196,7 @@ class SemVer(s_types.Int):
 #                     'ex': 'cve-2012-0158'
 #                 }),
 
-class Cve(s_types.Str):
+class CVE(s_types.Str):
 
     def postTypeInit(self):
         self.opts.update({
@@ -320,6 +320,10 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
                     'doc': 'A NIST CPE 2.2 Formatted String',
                 }),
+                ('it:sec:cve', 'synapse.models.infotech.CVE', {}, {
+                    'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
+                    'ex': 'cve-2012-0158'
+                }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
@@ -353,10 +357,6 @@ class ItModule(s_module.CoreModule):
                 ('it:screenshot', ('guid', {}), {
                     'doc': 'A screenshot of a host.',
                     'interfaces': ('it:host:activity',),
-                }),
-                ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
-                    'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
-                    'ex': 'cve-2012-0158'
                 }),
                 ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                     'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
