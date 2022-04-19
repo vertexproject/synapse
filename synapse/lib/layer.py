@@ -3991,3 +3991,62 @@ def getFlatEdits(nodeedits):
         addedits(buid, form, edits)
 
     return [(k[0], k[1], v) for (k, v) in editsbynode.items()]
+
+def getNodeEditPerms(nodeedits):
+    '''
+    Yields (offs, perm) tuples that can be used in user.allowed()
+    '''
+
+    for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+
+        for editoffs, (edit, info, _) in enumerate(edits):
+
+            permoffs = (nodeoffs, editoffs)
+
+            if edit == EDIT_NODE_ADD:
+                yield (permoffs, ('node', 'add', form))
+                continue
+
+            if edit == EDIT_NODE_DEL:
+                yield (permoffs, ('node', 'del', form))
+                continue
+
+            if edit == EDIT_PROP_SET:
+                yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
+                continue
+
+            if edit == EDIT_PROP_DEL:
+                yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
+                continue
+
+            if edit == EDIT_TAG_SET:
+                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAG_DEL:
+                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAGPROP_SET:
+                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAGPROP_DEL:
+                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_NODEDATA_SET:
+                yield (permoffs, ('node', 'data', 'set', info[0]))
+                continue
+
+            if edit == EDIT_NODEDATA_DEL:
+                yield (permoffs, ('node', 'data', 'pop', info[0]))
+                continue
+
+            if edit == EDIT_EDGE_ADD:
+                yield (permoffs, ('node', 'edge', 'add', info[0]))
+                continue
+
+            if edit == EDIT_EDGE_DEL:
+                yield (permoffs, ('node', 'edge', 'del', info[0]))
+                continue
