@@ -2917,6 +2917,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
+
+            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help foo} as [root]') \
+                    as stream:
+                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
+                self.true(await stream.wait(4))
+
             # Bad syntax
             mesgs = await alist(core.storm(' | | | '))
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
