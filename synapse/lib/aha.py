@@ -7,6 +7,7 @@ import regex
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.daemon as s_daemon
+import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
@@ -149,7 +150,7 @@ class ProvApi:
         return self.provinfo
 
     async def getCaCert(self):
-        netw = self.provinfo.get('network')
+        netw = self.provinfo['conf'].get('aha:network')
         return self.aha.certdir.getCaCertBytes(netw)
 
     async def getAhaUrls(self):
@@ -157,32 +158,32 @@ class ProvApi:
 
     async def signHostCsr(self, byts):
 
-        name = self.provinfo.get('name')
-        netw = self.provinfo.get('network')
+        ahaname = self.provinfo['conf'].get('aha:name')
+        ahanetw = self.provinfo['conf'].get('aha:network')
 
-        hostname = f'{name}.{netw}'
+        hostname = f'{ahaname}.{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
         if xcsr.get_subject().CN != hostname:
             mesg = f'Invalid host CSR CN={xcsr.get_subject().CN}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        pkey, cert = self.aha.certdir.signHostCsr(xcsr, netw)
+        pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw)
         return self.aha.certdir._certToByts(cert)
 
     async def signUserCsr(self, byts):
 
-        user = self.provinfo.get('user')
-        netw = self.provinfo.get('network')
+        ahauser = self.provinfo['conf'].get('aha:user')
+        ahanetw = self.provinfo['conf'].get('aha:network')
 
-        username = f'{user}@{netw}'
+        username = f'{ahauser}@{ahanetw}'
 
         xcsr = self.aha.certdir._loadCsrByts(byts)
         if xcsr.get_subject().CN != username:
             mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        pkey, cert = self.aha.certdir.signUserCsr(xcsr, netw)
+        pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw)
         return self.aha.certdir._certToByts(cert)
 
 class AhaCell(s_cell.Cell):
@@ -199,7 +200,6 @@ class AhaCell(s_cell.Cell):
         },
         'provision:listen': {
             'description': 'A telepath URL for the AHA provisioning listener.',
-            'default': 'tcp://0.0.0.0:27272/',
             'type': ['string', 'null'],
         },
     }
@@ -471,39 +471,60 @@ class AhaCell(s_cell.Cell):
         if not svcname_regx.match(name):
             raise s_exc.BadArg(mesg='Bad service name specified.')
 
+        if self.conf.get('aha:urls') is None:
+            mesg = 'AHA server has no configured aha:urls.'
+            raise s_exc.BadArg(mesg=mesg)
+
         if provinfo is None:
             provinfo = {}
 
         iden = s_common.guid()
 
         provinfo['iden'] = iden
-        provinfo['name'] = name
 
-        provinfo.setdefault('urls', self.conf.get('aha:urls'))
-        provinfo.setdefault('admin', self.conf.get('aha:admin'))
-        provinfo.setdefault('network', self.conf.get('aha:network'))
+        conf = provinfo.setdefault('conf', {})
 
-        if provinfo.get('urls') is None:
-            mesg = 'AHA server has no configured aha:urls.'
-            raise s_exc.BadArg(mesg=mesg)
+        ahaadmin = self.conf.get('aha:admin')
+        if ahaadmin is not None:
+            conf.setdefault('aha:admin', ahaadmin)
 
-        if provinfo.get('admin') is None:
-            mesg = 'AHA server has no configured aha:admin.'
-            raise s_exc.BadArg(mesg=mesg)
+        conf.setdefault('aha:network', self.conf.get('aha:network'))
 
-        netw = provinfo.get('network')
+        netw = conf.get('aha:network')
         if netw is None:
             mesg = 'AHA server has no configured aha:network.'
             raise s_exc.BadArg(mesg=mesg)
+
+        hostname = f'{name}.{netw}'
+
+        conf.setdefault('aha:name', name)
+        conf.setdefault('dmon:listen', f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}')
 
         # if the relative name contains a dot, we are a mirror peer.
         peer = name.find('.') != -1
         leader = name.rsplit('.', 1)[-1]
 
         if peer:
-            provinfo.setdefault('leader', f'{leader}.{netw}')
+            conf.setdefault('aha:leader', leader)
 
-        provinfo['user'] = leader
+        conf.setdefault('aha:user', leader)
+
+        ahaurls = self.conf.get('aha:urls')
+        if isinstance(ahaurls, str):
+            ahaurls = (ahaurls,)
+
+        registry = []
+        for urlinfo in ahaurls:
+            if isinstance(urlinfo, str):
+                urlinfo = s_telepath.chopurl(urlinfo)
+            urlinfo['user'] = leader
+            registry.append(s_telepath.zipurl(urlinfo))
+
+        conf.setdefault('aha:registry', registry)
+
+        mirname = provinfo.get('mirror')
+        if mirname is not None:
+            conf['mirror'] = f'aha://{leader}@{mirname}'
 
         username = f'{leader}@{netw}'
         user = await self.auth.getUserByName(username)

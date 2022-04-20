@@ -290,8 +290,12 @@ class CellApi(s_base.Base):
         return await self.cell.waitNexsOffs(offs, timeout=timeout)
 
     @adminapi()
-    async def promote(self):
-        return await self.cell.promote()
+    async def promote(self, graceful=False):
+        return await self.cell.promote(graceful=graceful)
+
+    @adminapi()
+    async def handoff(self, turl, timeout=30):
+        return await self.cell.handoff(turl, timeout=timeout)
 
     def getCellUser(self):
         return self.user.pack()
@@ -791,6 +795,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
         },
+        'aha:user': {
+            'description': 'The username of this service when connecting to others.',
+            'type': 'string',
+        },
         'aha:leader': {
             'description': 'The AHA service name to claim as the active instance of a storm service.',
             'type': 'string',
@@ -942,6 +950,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         with open(path, 'r') as fd:
             self.iden = fd.read().strip()
 
+        self._initCertDir()
+        await self.provAhaSvc()
+
         self.donexslog = self.conf.get('nexslog:en')
 
         backdirn = self.conf.get('backup:dir')
@@ -1013,6 +1024,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
 
+        self.onfini(self._finiCertDir)
+
         self.dynitems = {
             'auth': self.auth,
             'cell': self
@@ -1028,7 +1041,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHealthFunc(self._cellHealth)
 
         # initialize network backend infrastructure
-        await self._initCertDir()
         await self._initAhaRegistry()
 
         # initialize network daemons (but do not listen yet)
@@ -1074,6 +1086,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    async def _getTeleUrl(self, url):
+
+        if isinstance(url, (tuple, list)):
+            return tuple((await self._getTeleUrl(u) for u in url))
+
+        # insert our aha:user into any aha:// URL without a user specififed
+        if not url.startswith('aha://'):
+            return url
+
+        user = self.conf.get('aha:user')
+        netw = self.conf.get('aha:network')
+
+        info = s_telepath.chopurl(url)
+        if info.get('user') is None and user is not None:
+            info['user'] = user
+
+        host = info.get('host')
+        if host.endswith('...'):
+            if netw is None:
+                raise s_exc.Bad(mesg=mesg)
+
+            info['host'] = f'{host[:-3]}.{netw}'
+
+        return s_telepath.zipurl(info)
+
     async def _initAhaRegistry(self):
 
         self.ahainfo = None
@@ -1094,21 +1131,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.onfini(finiaha)
 
+        ahauser = self.conf.get('aha:user')
+        ahanetw = self.conf.get('aha:network')
+
         ahaadmin = self.conf.get('aha:admin')
+        if ahaadmin is None:
+            if ahanetw is not None:
+                ahaadmin = f'root@{ahanetw}'
+
         if ahaadmin is not None:
-            # add the user in a pre-nexus compatible way
-            user = await self.auth.getUserByName(ahaadmin)
+            await self._addAdminUser(ahaadmin)
 
-            if user is None:
-                iden = s_common.guid(ahaadmin)
-                await self.auth._addUser(iden, ahaadmin)
-                user = await self.auth.getUserByName(ahaadmin)
+        if ahauser is not None and ahanetw is not None:
+            await self._addAdminUser(f'{ahauser}@{ahanetw}')
 
-            if not user.isAdmin():
-                await user.setAdmin(True, logged=False)
+    async def _addAdminUser(self, username):
+        # add the user in a pre-nexus compatible way
+        user = await self.auth.getUserByName(username)
 
-            if user.isLocked():
-                await user.setLocked(False, logged=False)
+        if user is None:
+            iden = s_common.guid(username)
+            await self.auth._addUser(iden, username)
+            user = await self.auth.getUserByName(username)
+
+        if not user.isAdmin():
+            await user.setAdmin(True, logged=False)
+
+        if user.isLocked():
+            await user.setLocked(False, logged=False)
 
     async def initServiceStorage(self):
         pass
@@ -1172,6 +1222,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             urlinfo['port'] = self.sockaddr[1]
 
             ahainfo = {
+                'leader': ahalead,
                 'urlinfo': urlinfo,
             }
 
@@ -1201,8 +1252,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async def fini():
             await self.ahaclient.offlink(onlink)
 
-        await self.ahaclient.onlink(onlink)
-        self.onfini(fini)
+        async def init():
+            await self.ahaclient.onlink(onlink)
+            self.onfini(fini)
+
+        self.schedCoro(init())
 
     async def initServiceRuntime(self):
         pass
@@ -1281,17 +1335,63 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setNexsIndx(self, indx):
         return await self.nexsroot.setindex(indx)
 
-    async def promote(self):
+    async def promote(self, graceful=False):
         '''
         Transform this cell from a passive follower to
         an active cell that writes changes locally.
         '''
-        if self.conf.get('mirror') is None:
+        mirurl = self.conf.get('mirror')
+        if mirurl is None:
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        if graceful:
+
+            mirurl = await self._getTeleUrl(mirurl)
+
+            ahaname = self.conf.get('aha:name')
+            if ahaname is None:
+                mesg = 'Cannot gracefully promote without aha:name.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            myurl = f'aha://{ahaname}'
+            async with await s_telepath.openurl(mirurl) as lead:
+                await lead.handoff(myurl)
+                return
+
         await self.nexsroot.promote()
         await self.setCellActive(True)
+
+        self.modConfState({'mirror': None})
+
+    async def handoff(self, turl, timeout=30):
+        '''
+        Hand off leadership to a mirror in a transactional fashion.
+        '''
+        turl = await self._getTeleUrl(turl)
+        async with await s_telepath.openurl(turl) as cell:
+
+            if self.iden != await cell.getCellIden():
+                mesg = 'Mirror handoff remote cell iden does not match!'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if self.runid == await cell.getCellRunId():
+                mesg = 'Cannot handoff mirror leadership to myself!'
+                raise s_exc.BadArg(mesg=mesg)
+
+            async with self.nexsroot.applylock:
+
+                indx = await self.getNexsIndx()
+                if not await cell.waitNexsOffs(indx - 1, timeout=timeout):
+                    mndx = await cell.getNexsIndx()
+                    mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
+                    raise s_exc.NotReady(mesg=mesg)
+
+                await cell.promote()
+                await self.setCellActive(False)
+                await self.nexsroot.startup(turl, celliden=self.iden)
+
+                self.modConfState({'mirror': turl})
 
     async def _setAhaActive(self):
 
@@ -2079,19 +2179,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (path, ctor, info),
         ))
 
-    async def _initCertDir(self):
+    def _initCertDir(self):
 
-        certpath = s_common.gendir(self.dirn, 'certs')
+        self.certpath = s_common.gendir(self.dirn, 'certs')
 
         # add our cert path to the global resolver
-        s_certdir.addCertPath(certpath)
-
-        async def fini():
-            s_certdir.delCertPath(certpath)
-        self.onfini(fini)
+        s_certdir.addCertPath(self.certpath)
 
         # our certdir is *only* the cell certs dir
-        self.certdir = s_certdir.CertDir(path=(certpath,))
+        self.certdir = s_certdir.CertDir(path=(self.certpath,))
+
+    async def _finiCertDir(self):
+        s_certdir.delCertPath(self.certpath)
 
     async def _initCellDmon(self):
 
@@ -2200,10 +2299,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return f'cell://{user}@{self.dirn}:{share}'
 
     def _initCellConf(self, conf):
+
         if isinstance(conf, dict):
             conf = s_config.Config.getConfFromCell(self, conf=conf)
+
         for k, v in self._loadCellYaml('cell.yaml').items():
             conf.setdefault(k, v)
+
         conf.reqConfValid()
         return conf
 
@@ -2260,6 +2362,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if conf:
             return conf
         return s_common._getLogConfFromEnv()
+
+    def modConfState(self, conf):
+        s_common.yamlmod(conf, self.dirn, 'cell.yaml')
 
     @classmethod
     def getCellType(cls):
@@ -2349,66 +2454,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return pars
 
-    @classmethod
-    async def provAhaSvc(cls, opts, conf):
+    async def provAhaSvc(self):
 
-        donepath = s_common.genpath(opts.dirn, 'prov.done')
-        if os.path.isfile(donepath):
-            return
-
-        provurl = conf.get('aha:provision')
+        provurl = self.conf.get('aha:provision')
         if provurl is None:
             return
 
-        certdir = s_certdir.CertDir(path=s_common.gendir(opts.dirn, 'certs'))
+        doneiden = None
 
-        confedit = {}
+        donepath = s_common.genpath(self.dirn, 'prov.done')
+        if os.path.isfile(donepath):
+            with s_common.genfile(donepath) as fd:
+                doneiden = fd.read().decode().strip()
+
+        urlinfo = s_telepath.chopurl(provurl)
+        providen = urlinfo.get('path').strip('/')
+
+        if doneiden == providen:
+            return
+
+        conf = {}
         async with await s_telepath.openurl(provurl) as prov:
 
-            certdir.saveCaCertByts(await prov.getCaCert())
-
             provinfo = await prov.getProvInfo()
+            provconf = provinfo.get('conf', {})
 
-            name = provinfo.get('name')
-            user = provinfo.get('user')
-            urls = provinfo.get('urls')
-            netw = provinfo.get('network')
-            admin = provinfo.get('admin')
-            leader = provinfo.get('leader')
+            ahauser = provconf.get('aha:user')
+            ahaname = provconf.get('aha:name')
+            ahanetw = provconf.get('aha:network')
 
-            if isinstance(urls, str):
-                urls = (urls,)
+            if not self.certdir.getCaCertPath(ahanetw):
+                self.certdir.saveCaCertByts(await prov.getCaCert())
 
-            registry = []
-            for url in urls:
-                urldict = s_urlhelp.chopurl(url)
-                urldict['user'] = user
-                registry.append(s_telepath.zipurl(urldict))
+            # update our runtime config
+            for name, valu in provconf.items():
+                self.conf[name] = valu
 
-            hostname = f'{name}.{netw}'
-            username = f'{user}@{netw}'
+            self.conf.reqConfValid()
 
-            confedit['aha:name'] = hostname
-            confedit['aha:network'] = netw
-            confedit['aha:admin'] = provinfo.get('admin')
-            confedit['aha:registry'] = registry
-            confedit['dmon:listen'] = f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}'
-            if leader is not None:
-                confedit['aha:leader'] = leader
+            # save our config state
+            self.modConfState(provconf)
 
-            s_common.yamlmod(confedit, opts.dirn, 'cell.yaml')
+            hostname = f'{ahaname}.{ahanetw}'
+            if self.certdir.getHostCertPath(hostname) is None:
+                hostcsr = self.certdir.genHostCsr(hostname)
+                self.certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
 
-            for k, v in confedit.items():
-                conf[k] = v
+            userfull = f'{ahauser}@{ahanetw}'
+            if self.certdir.getUserCertPath(userfull) is None:
+                usercsr = self.certdir.genUserCsr(userfull)
+                self.certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
 
-            hostcsr = certdir.genHostCsr(hostname)
-            certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
-
-            usercsr = certdir.genUserCsr(username)
-            certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
-
-        with s_common.genfile(opts.dirn, 'prov.done') as fd:
-            pass
+        with s_common.genfile(self.dirn, 'prov.done') as fd:
+            fd.write(providen.encode())
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
@@ -2445,17 +2543,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setConfFromOpts(opts)
         conf.setConfFromEnvs()
 
-        # resolve cell.yaml configs so we have a complete config
-        yamlpath = s_common.genpath(opts.dirn, 'cell.yaml')
-        if os.path.isfile(yamlpath):
-            for k, v in s_common.yamlload(yamlpath).items():
-                conf.setdefault(k, v)
-
-        conf.reqConfValid()
-
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
-
-        await cls.provAhaSvc(opts, conf)
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)

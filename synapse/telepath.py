@@ -6,6 +6,7 @@ import os
 import time
 import asyncio
 import logging
+import contextlib
 import collections
 
 import aiohttp
@@ -167,7 +168,23 @@ async def getAhaProxy(urlinfo):
     mesg = f'aha lookup failed: {host}'
     raise s_exc.NoSuchName(mesg=mesg)
 
+@contextlib.asynccontextmanager
+async def withTeleEnv():
+
+    cellfini = await loadTeleCell('/vertex/storage')
+    telefini = await loadTeleEnv(s_common.getSynPath('telepath.yaml'))
+
+    yield
+
+    if telefini:
+        await telefini()
+
+    if cellfini:
+        await cellfini()
+
 async def loadTeleEnv(path):
+
+    path = s_common.genpath(path)
 
     if not os.path.isfile(path):
         return
@@ -193,6 +210,35 @@ async def loadTeleEnv(path):
             await delAhaUrl(a)
         for p in cdirs:
             s_certdir.delCertPath(p)
+
+    return fini
+
+async def loadTeleCell(dirn):
+
+    if not os.path.isdir(dirn):
+        return
+
+    certpath = s_common.genpath(dirn, 'certs')
+    confpath = s_common.genpath(dirn, 'cell.yaml')
+    statepath = s_common.genpath(dirn, 'state.yaml')
+
+    ahaurl = None
+    if os.path.isfile(confpath):
+        conf = s_common.yamlload(confpath)
+        ahaurl = conf.get('aha:registry')
+
+    if os.path.isfile(statepath):
+        conf = s_common.yamlload(statepath)
+        ahaurl = conf.get('aha:registry', ahaurl)
+
+    s_certdir.addCertPath(certpath)
+    if ahaurl:
+        await addAhaUrl(ahaurl)
+
+    async def fini():
+        s_certdir.delCertPath(certpath)
+        if ahaurl:
+            await delAhaUrl(ahaurl)
 
     return fini
 

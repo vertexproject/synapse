@@ -3202,6 +3202,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             self.axready.set()
             return
 
+        turl = self._getTeleUrl(turl)
+
         async def onlink(proxy: s_telepath.Proxy):
             logger.debug(f'Connected to remote axon {s_urlhelp.sanitizeUrl(turl)}')
 

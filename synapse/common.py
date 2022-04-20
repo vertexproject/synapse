@@ -491,16 +491,16 @@ def yamlsave(obj, *paths):
         fd.truncate(0)
         fd.write(s.encode('utf8'))
 
-def yamlmod(obj, *paths):
+def yamlmod(obj, *paths, header=None):
     '''
     Combines/creates a yaml file and combines with obj.  obj and file must be maps/dict or empty.
     '''
     oldobj = yamlload(*paths)
     if obj is not None:
         if oldobj:
-            yamlsave({**oldobj, **obj}, *paths)
+            yamlsave({**oldobj, **obj}, *paths, header=header)
         else:
-            yamlsave(obj, *paths)
+            yamlsave(obj, *paths, header=header)
 
 def verstr(vtup):
     '''

@@ -428,7 +428,6 @@ class AhaTest(s_test.SynTest):
 
             conf = {
                 'aha:name': 'aha.loop.vertex.link',
-                'aha:admin': 'root@loop.vertex.link',
                 'aha:network': 'loop.vertex.link',
                 'provision:listen': 'tcp://127.0.0.1:0'
             }
@@ -459,12 +458,12 @@ class AhaTest(s_test.SynTest):
 
                 axonpath = s_common.gendir(dirn, 'axon')
                 axonconf = {
-                    'dmon:listen': 'ssl://127.0.0.1:0?hostname=axon.loop.vertex.link&ca=loop.vertex.link',
                     'aha:provision': f'tcp://127.0.0.1:{port}/{onetime}'
                 }
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
 
                 async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'prov.done')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'cas', 'loop.vertex.link.crt')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.crt')))
@@ -473,9 +472,8 @@ class AhaTest(s_test.SynTest):
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.key')))
 
                     yamlconf = s_common.yamlload(axon.dirn, 'cell.yaml')
+                    self.eq('00.axon', yamlconf.get('aha:name'))
                     self.eq('loop.vertex.link', yamlconf.get('aha:network'))
-                    self.eq('root@loop.vertex.link', yamlconf.get('aha:admin'))
                     self.eq('axon.loop.vertex.link', yamlconf.get('aha:leader'))
-                    self.eq('00.axon.loop.vertex.link', yamlconf.get('aha:name'))
                     self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
