@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+
+import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
@@ -189,6 +191,21 @@ class SemVer(s_types.Int):
         valu = s_version.fmtVersion(major, minor, patch)
         return valu
 
+class CVE(s_types.Str):
+
+    def postTypeInit(self):
+        self.opts.update({
+            'lower': True,
+            'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$',
+        })
+        s_types.Str.postTypeInit(self)
+
+    def _normPyStr(self, valu):
+
+        valu = s_chop.replaceUnicodeDashes(valu)
+
+        return s_types.Str._normPyStr(self, valu)
+
 loglevels = (
     (10, 'debug'),
     (20, 'info'),
@@ -298,6 +315,10 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
                     'doc': 'A NIST CPE 2.2 Formatted String',
                 }),
+                ('it:sec:cve', 'synapse.models.infotech.CVE', {}, {
+                    'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
+                    'ex': 'cve-2012-0158'
+                }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
@@ -331,10 +352,6 @@ class ItModule(s_module.CoreModule):
                 ('it:screenshot', ('guid', {}), {
                     'doc': 'A screenshot of a host.',
                     'interfaces': ('it:host:activity',),
-                }),
-                ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
-                    'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
-                    'ex': 'cve-2012-0158'
                 }),
                 ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
                     'doc': 'NIST NVD Common Weaknesses Enumeration Specification',

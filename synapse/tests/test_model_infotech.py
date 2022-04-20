@@ -344,6 +344,12 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef[1], 'cve-2013-9999')
                 self.eq(node.get('desc'), 'Some words.')
 
+                node = await snap.addNode('it:sec:cve', 'CVE\u20122013\u20131138', cprops)
+                self.eq(node.ndef[1], 'cve-2013-1138')
+
+                node = await snap.addNode('it:sec:cve', 'CVE\u20112013\u20140001', cprops)
+                self.eq(node.ndef[1], 'cve-2013-0001')
+
                 hash0 = s_common.guid()
                 hprops = {
                     'salt': 'B33F',

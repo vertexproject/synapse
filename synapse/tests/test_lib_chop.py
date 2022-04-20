@@ -85,3 +85,9 @@ class ChopTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTag, s_chop.validateTagMatch, 'foo..bar')
         self.none(s_chop.validateTagMatch('foo.*.bar'))
         self.none(s_chop.validateTagMatch('**foo.*.bar'))
+
+    def test_chop_dashes(self):
+        self.eq('a-b-c-d--e',
+                s_chop.replaceUnicodeDashes('a\u2011b\u2012c\u2013d-\u2014e'))
+        self.eq('a-b-c', s_chop.replaceUnicodeDashes('a-b-c'))
+        self.eq('asdf', s_chop.replaceUnicodeDashes('asdf'))
