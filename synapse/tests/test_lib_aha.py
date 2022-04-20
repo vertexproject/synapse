@@ -114,7 +114,7 @@ class AhaTest(s_test.SynTest):
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({})
 
-        with self.raises(s_exc.NoSuchName):
+        with self.raises(s_exc.NotReady):
             await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
         # We do inprocess reference counting for urls and clients.
@@ -300,6 +300,12 @@ class AhaTest(s_test.SynTest):
 
                 path = s_common.genpath(dirn, 'telepath.yaml')
                 s_common.yamlsave(conf, path)
+
+                # No clients have been loaded yet.
+                with self.raises(s_exc.NotReady) as cm:
+                    await s_telepath.openurl('aha://visi@foo.bar.com')
+                self.eq(cm.exception.get('mesg'),
+                        'No aha servers registered to lookup foo.bar.com')
 
                 fini = await s_telepath.loadTeleEnv(path)
 
