@@ -294,13 +294,17 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': 'object',
                     'properties': {
                         'help': {'type': 'string'},
+                        'default': {},
+                        'dest': {'type': 'string'},
+                        'required': {'type': 'boolean'},
                         'type': {
                             'type': 'string',
                             'enum': list(s_datamodel.Model().types)
                         },
                     },
                 }
-            ]
+            ],
+            'additionalItems': False,
         },
         'cmdinput': {
             'type': 'object',
