@@ -177,8 +177,8 @@ liftbytag: tagname [_cmpr _valu]
 liftbytagprop: tagprop [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: "#" (_varvalu | TAG)
-tagprop: "#" TAG ":" BASEPROP
-formtagprop: (PROPS | UNIVNAME) "#" TAG ":" BASEPROP
+tagprop: "#" TAG _COLONNOPAR BASEPROP
+formtagprop: (PROPS | UNIVNAME) "#" TAG _COLONNOPAR BASEPROP
 
 _funcarg: (VARTOKN | kwarg)
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
@@ -243,7 +243,7 @@ exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
-_listvalu: _basevalu | LISTTOKN | PROPS
+_listvalu: _basevalu | LISTTOKN | PROPS | NUMBER
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
@@ -252,7 +252,7 @@ valulist: "(" [_listvalu ((",")|("," _listvalu)+ ","?)] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 
-relpropvalu: ":" BASEPROP | ":" _varvalu
+relpropvalu: _COLONNOPAR (BASEPROP | _varvalu)
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
@@ -331,7 +331,8 @@ ABSPROP: PROPS | UNIVNAME
 ABSPROPNOUNIV: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: /:(?!\()/ (BASEPROP | _varvalu)
+relprop: _COLONNOPAR (BASEPROP | _varvalu)
+_COLONNOPAR.2: /:(?!\()/
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /\:\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]+)*/
