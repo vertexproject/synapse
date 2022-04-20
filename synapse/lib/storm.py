@@ -297,6 +297,8 @@ reqValidPkgdef = s_config.getJsValidator({
                         'default': {},
                         'dest': {'type': 'string'},
                         'required': {'type': 'boolean'},
+                        'action': {'type': 'string'},
+                        'nargs': {'type': ['string', 'integer']},
                         'type': {
                             'type': 'string',
                             'enum': list(s_datamodel.Model().types)
