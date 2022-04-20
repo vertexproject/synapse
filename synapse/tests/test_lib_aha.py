@@ -478,8 +478,8 @@ class AhaTest(s_test.SynTest):
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.key')))
 
                     yamlconf = s_common.yamlload(axon.dirn, 'cell.yaml')
+                    self.eq('axon', yamlconf.get('aha:leader'))
                     self.eq('00.axon', yamlconf.get('aha:name'))
                     self.eq('loop.vertex.link', yamlconf.get('aha:network'))
-                    self.eq('axon.loop.vertex.link', yamlconf.get('aha:leader'))
                     self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
