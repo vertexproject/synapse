@@ -153,9 +153,6 @@ class ProvApi:
         netw = self.provinfo['conf'].get('aha:network')
         return self.aha.certdir.getCaCertBytes(netw)
 
-    async def getAhaUrls(self):
-        return self.aha.conf.get('aha:urls')
-
     async def signHostCsr(self, byts):
 
         ahaname = self.provinfo['conf'].get('aha:name')

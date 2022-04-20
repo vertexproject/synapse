@@ -322,9 +322,6 @@ class Daemon(s_base.Base):
         except Exception:
             logger.exception('onTeleShare() error for: %s)', name)
 
-    def unshare(self, name):
-        return self.shared.pop(name)
-
     async def getSessInfo(self):
         return [sess.pack() for sess in self.sessions.values()]
 
