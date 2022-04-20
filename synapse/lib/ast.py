@@ -3018,7 +3018,8 @@ class FormName(Value):
         return await self.kids[0].compute(runt, path)
 
 class RelProp(PropName):
-    pass
+    async def compute(self, runt, path):
+        return await self.kids[1].compute(runt, path)
 
 class UnivProp(RelProp):
     async def compute(self, runt, path):

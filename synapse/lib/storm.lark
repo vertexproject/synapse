@@ -226,7 +226,7 @@ BYNAME: /[^=\s]+=/
 !_safe_cmpr: BYNAME | ("@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=")
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | VARTOKN | reqdollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | VARTOKN | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -331,7 +331,7 @@ ABSPROP: PROPS | UNIVNAME
 ABSPROPNOUNIV: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: ":" BASEPROP | ":" _varvalu
+relprop: /:(?!\()/ (BASEPROP | _varvalu)
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /\:\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]+)*/
