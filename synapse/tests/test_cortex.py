@@ -5850,7 +5850,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         }
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
                 with self.raises(s_exc.SchemaViolation) as cm:
@@ -5874,7 +5873,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                await core.pkghive.set('boom_pkg', pkg)
+                with self.raises(s_exc.SchemaViolation) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "data must contain ['name', 'version'] properties")
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg['commands'][0]['cmdargs'] = ((
+                    '--debug',
+                    {'default': False},
+                    {'help': 'Words'},
+                ),)
+                with self.raises(s_exc.SchemaViolation) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "data must contain only specified items")
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:
