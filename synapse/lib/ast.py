@@ -3601,9 +3601,9 @@ class EditTagPropSet(Edit):
 
         async for node, path in genr:
 
-            tag, prop = await self.kids[0].compute(runt, path)
+            tag, prop = await self.kids[1].compute(runt, path)
 
-            valu = await self.kids[2].compute(runt, path)
+            valu = await self.kids[3].compute(runt, path)
             valu = await s_stormtypes.toprim(valu)
 
             normtupl = await runt.snap.getTagNorm(tag)

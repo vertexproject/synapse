@@ -9,10 +9,10 @@ WS: /[\s]/+
 
 // C comment: /* */
 // From https://stackoverflow.com/a/36328890/6518334
-CCOMMENT: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
+CCOMMENT.2: /\/\*+[^*]*\*+([^\/*][^*]*\*+)*\//
 
 // C++ comment: //
-CPPCOMMENT: /\/\/[^\n]*/
+CPPCOMMENT.2: /\/\/[^\n]*/
 
 // Lark Grammar Notes:
 // Lark uses standard EBNF notation with a few extra bells and whistles:
@@ -43,21 +43,21 @@ _editoper: editnodeadd
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
 // Parenthesis in an edit block don't have incoming nodes
-editparens: "(" editnodeadd [ _editoper* ] ")"
+editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: relprop SETOPER _valu
+!editpropset: relprop ("=" | "+=" | "-=" | _TRYSET) _valu
 editpropdel: "-" relprop
-editunivset: univprop SETOPER _valu
-editnodeadd: formname SETOPER _valu
-edittagpropset: "+" tagprop SETOPER _valu
+!editunivset: univprop ("=" | "+=" | "-=" | _TRYSET) _valu
+!editnodeadd: formname ("=" | "+=" | "-=" | _TRYSET) _valu
+!edittagpropset: "+" tagprop ("=" | "+=" | "-=" | _TRYSET) _valu
 edittagpropdel: "-" tagprop
-SETOPER: "=" | "+=" | "-=" | _TRYSET
 _TRYSET: "?=" | "?+=" | "?-="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
+
 _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | formjoin | formpivotin
      | formjoinin | lifttagtag | opervarlist | setitem | setvar | vareval | filtoper | liftbytag
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
@@ -81,7 +81,7 @@ vareval: _varvalu
 
 // A variable assignment
 setvar: "$" VARTOKN "=" _valu
-setitem: _varvalu "." (VARTOKN | "$" varvalue) "=" _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue) "=" _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
@@ -91,7 +91,7 @@ baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE: "*"
-CASEBARE: /(?!\*)([^:\s"']+)(?=[\s]*:)/
+CASEBARE: /(?![\*+])([^:\s"']+)(?=[\s]*:)/
 
 yieldvalu: YIELD _argvalu
 
@@ -198,7 +198,7 @@ CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|whi
 BARECMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s]*($|[\|\}]))\b/
 
 CMDOPT: /-[a-zA-Z0-9_-]+/
-CMDOPTLAST.2: /-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
+CMDOPTLAST: /-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
 
 // An unquoted string within a storm command argument list
 WORDTOKN: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
@@ -219,14 +219,14 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-_cmpr: _by_cmpr | EXPRCMPR | "@="
+!_cmpr: _by_cmpr | ("@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=")
 _by_cmpr: "*" BYNAME
 BYNAME: /[^=\s]+=/
 
-_safe_cmpr: BYNAME | EXPRCMPR | "@="
+!_safe_cmpr: BYNAME | ("@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=")
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | reqdollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | VARTOKN | reqdollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -243,7 +243,7 @@ exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
-_listvalu: _basevalu | LISTTOKN
+_listvalu: _basevalu | LISTTOKN | PROPS
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
@@ -258,13 +258,13 @@ embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
-NONQUOTEWORD: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch)\s+|\/[\/\*])[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?![\s]*=)/
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?!([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*=)/
 
 // An unquoted string within a list syntax
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
-CMDRTOKN: /[^="'\s\{}][^\s\{}]*/
+CMDRTOKN.0: /[^="'\s\{}][^\s\{}]*/
 
 WHITETOKN: /[^\s|]+/
 
@@ -273,11 +273,8 @@ _varvalu: "$" _varvaluatom
 
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
-VARTOKN: /\w+/
-
-// Similar fashion to variables in tag matching
-varderef: _varvaluatom "." DEREFMATCHNOSEP
-DEREFMATCHNOSEP: (VARTOKN | "$" VARTOKN)
+VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
+varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
 _callargs: "(" [(kwarg | _valu) ("," (kwarg | _valu))*] ","? ")"
@@ -321,11 +318,11 @@ andexpr: _condexpr "and" _cond
 
 TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
-SINGLEQUOTEDSTRING: /'[^']*'/
+SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*/
+PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*/
 // A universal property
 UNIVNAME: /(?<=^|[\s\|\{])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
@@ -347,12 +344,11 @@ dollarexpr: "$"? _exprcommon
 // A dollar expression with a required dollar
 reqdollarexpr: "$" _exprcommon
 _exprcommon: "(" expror ")"
-EXPRCMPR: /<=|>=|<|>|=|!=|~=|\^=/
 EXPRPLUS: "+"
 EXPRMINUS: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
-NUMBER: /-?\d+(\.\d*)?/
+NUMBER.2: /-?\d+(\.\d*)?/
 HEXNUMBER: /-?0x[0-9a-fA-F]+/
 BOOL: /true|false/
 NOT: "not"
@@ -363,7 +359,7 @@ AND: "and"
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOT exprcmp
-?exprcmp: exprsum | exprcmp EXPRCMPR exprsum
+!?exprcmp: exprsum | exprcmp ("<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=") exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
 _expratom: _exprvalu
