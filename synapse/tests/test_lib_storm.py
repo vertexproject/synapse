@@ -886,6 +886,16 @@ class StormTest(s_t_utils.SynTest):
                 bytag = await subcore.nodes('#foo.bar')
                 self.len(0, bytag)
 
+                url = await subcore.nodes('inet:url')
+                self.len(1, url)
+                url = url[0]
+                self.eq('https', url.props['proto'])
+                self.eq('/api/v1/exptest/neat', url.props['path'])
+                self.eq('', url.props['params'])
+                self.eq(2130706433, url.props['ipv4'])
+                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.props['base'])
+                self.eq(port, url.props['port'])
+
                 # now test that param works
                 byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
                 self.len(count, byyield)

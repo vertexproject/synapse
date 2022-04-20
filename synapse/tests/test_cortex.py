@@ -2030,7 +2030,7 @@ class CortexTest(s_t_utils.SynTest):
             warns = [msg for msg in mesgs if msg[0] == 'warn']
             self.len(1, warns)
             emesg = "BadTypeValu [10] during pivot: value is below min=20"
-            self.eq(warns[0][1], {'name': 'int', 'valu': 10,
+            self.eq(warns[0][1], {'name': 'int', 'valu': '10',
                                   'mesg': emesg})
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
@@ -2917,6 +2917,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
+
+            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help foo} as [root]') \
+                    as stream:
+                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
+                self.true(await stream.wait(4))
+
             # Bad syntax
             mesgs = await alist(core.storm(' | | | '))
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])

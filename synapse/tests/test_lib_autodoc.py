@@ -85,6 +85,10 @@ shave'''
         lines = s_autodoc.getReturnLines({'returns': {'type': ['str', 'boolean']}})
         self.eq(lines, ('', 'Returns:', '    The return type may be one of the following: ``str``, ``boolean``.'))
 
+        lines = s_autodoc.getReturnLines({'returns': {'type': ['str', 'boolean']}}, isstor=True)
+        self.eq(lines, ('', 'Returns:', '    The return type may be one of the following: ``str``, ``boolean``.',
+                        '    When this is used to set the value, it does not have a return type.'))
+
         lines = s_autodoc.getReturnLines({'returns': {'type': 'str', 'name': 'Yields'}})
         self.eq(lines, ('', 'Yields:', '    The return type is ``str``.'))
 
