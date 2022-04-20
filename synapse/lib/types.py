@@ -918,11 +918,11 @@ class Int(IntBase):
 
         if self.minval is not None and valu < self.minval:
             mesg = f'value is below min={self.minval}'
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
         if self.maxval is not None and valu > self.maxval:
             mesg = f'value is above max={self.maxval}'
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
         if self.enumrepr and valu not in self.enumrepr:
             mesg = 'Value is not a valid enum value.'

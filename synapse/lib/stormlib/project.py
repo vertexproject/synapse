@@ -13,7 +13,9 @@ class ProjectEpic(s_stormtypes.Prim):
     Implements the Storm API for a ProjectEpic
     '''
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the Epic', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Epic. This can be used to set the name as well.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setEpicName', '_gtorfunc': '_getName',
+                          'returns': {'type': ['str', 'null'], }}},
     )
     _storm_typename = 'storm:project:epic'
 
@@ -21,15 +23,12 @@ class ProjectEpic(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, None)
         self.proj = proj
         self.node = node
-        self.locls.update(self.getObjLocals())
+        self.gtors.update({
+            'name': self._getName,
+        })
         self.stors.update({
             'name': self._setEpicName,
         })
-
-    def getObjLocals(self):
-        return {
-            'name': self.node.get('name'),
-        }
 
     async def value(self):
         return self.node.ndef[1]
@@ -44,6 +43,9 @@ class ProjectEpic(s_stormtypes.Prim):
             await self.node.pop('name')
         else:
             await self.node.set('name', name)
+
+    async def _getName(self):
+        return self.node.get('name')
 
 @s_stormtypes.registry.registerType
 class ProjectEpics(s_stormtypes.Prim):
@@ -129,8 +131,9 @@ class ProjectTicketComment(s_stormtypes.Prim):
     Implements the Storm API for a ProjectTicketComment
     '''
     _storm_locals = (
-        {'name': 'text', 'desc': 'The comment text.',
-         'type': 'str'},
+        {'name': 'text', 'desc': 'The comment text. This can be used to set the text as well.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setCommentText', '_gtorfunc': '_getCommentText',
+                  'returns': {'type': ['str', 'null'], }}},
         {'name': 'del', 'desc': 'Delete the comment.',
          'type': {'type': 'function', '_funcname': '_delTicketComment',
                   'returns': {'type': 'boolean', 'desc': 'True if the ProjectTicketComment was deleted'}}},
@@ -147,10 +150,12 @@ class ProjectTicketComment(s_stormtypes.Prim):
         self.stors.update({
             'text': self._setCommentText,
         })
+        self.gtors.update({
+            'text': self._getCommentText,
+        })
 
     def getObjLocals(self):
         return {
-            'text': self.node.get('text'),
             'del': self._delTicketComment,
         }
 
@@ -162,6 +167,11 @@ class ProjectTicketComment(s_stormtypes.Prim):
 
     async def nodes(self):
         yield self.node
+
+    async def _getCommentText(self):
+        if self.node is None:
+            raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
+        return self.node.get('text')
 
     async def _setCommentText(self, valu):
 
@@ -261,17 +271,36 @@ class ProjectTicketComments(s_stormtypes.Prim):
 @s_stormtypes.registry.registerType
 class ProjectTicket(s_stormtypes.Prim):
     '''
-    Implements the Storm API for a ProjectTicket
+    Implements the Storm API for a ProjectTicket.
     '''
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the ticket',
-         'type': 'str'},
-        {'name': 'desc', 'desc': 'A description of the ticket',
-         'type': 'str'},
-        {'name': 'priority', 'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket',
-         'type': 'int'},
-        {'name': 'comments', 'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
-         'type': 'storm:project:ticket:comments'},
+        {'name': 'desc', 'desc': 'A description of the ticket. This can be used to set the description.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setDesc', '_gtorfunc': '_getTicketDesc',
+                  'returns': {'type': ['str', 'null'], }}},
+        {'name': 'epic', 'desc': 'The epic associated with the ticket. This can be used to set the epic.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setEpic', '_gtorfunc': '_getTicketEpic',
+                  'returns': {'type': ['str', 'null'], }}},
+        {'name': 'name', 'desc': 'The name of the ticket. This can be used to set the name of the ticket.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setName', '_gtorfunc': '_getTicketName',
+                          'returns': {'type': ['str', 'null'], }}},
+        {'name': 'status', 'desc': 'The status of the ticket. This can be used to set the status of the ticket.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setStatus', '_gtorfunc': '_getTicketStatus',
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'sprint', 'desc': 'The sprint the ticket is in. This can be used to set the sprint this ticket is in.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setSprint', '_gtorfunc': '_getTicketSprint',
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'assignee',
+         'desc': 'The user the ticket is assigned to. This can be used to set the assignee of the ticket.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setAssignee', '_gtorfunc': '_getTicketAssignee',
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'priority',
+         'desc': 'An integer value from the enums [0, 10, 20, 30, 40, 50] of the priority of the ticket. This can be used to set the priority of the ticket.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setPriority', '_gtorfunc': '_getTicketPriority',
+                          'returns': {'type': ['int', 'null'], }}},
+        {'name': 'comments',
+         'desc': 'A ``storm:project:ticket:comments`` object that contains comments associated with the given ticket.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorTicketComments',
+                  'returns': {'type': 'storm:project:ticket:comments', }}},
     )
 
     _storm_typename = 'storm:project:ticket'
@@ -280,26 +309,48 @@ class ProjectTicket(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, None)
         self.proj = proj
         self.node = node
-        self.locls.update(self.getObjLocals())
         self.ctors.update({
             'comments': self._ctorTicketComments,
         })
+        self.gtors.update({
+            'desc': self._getTicketDesc,
+            'epic': self._getTicketEpic,
+            'name': self._getTicketName,
+            'status': self._getTicketStatus,
+            'sprint': self._getTicketSprint,
+            'assignee': self._getTicketAssignee,
+            'priority': self._getTicketPriority,
+        })
         self.stors.update({
-            'name': self._setName,
             'desc': self._setDesc,
             'epic': self._setEpic,
+            'name': self._setName,
             'status': self._setStatus,
             'sprint': self._setSprint,
             'assignee': self._setAssignee,
             'priority': self._setPriority,
         })
 
-    def getObjLocals(self):
-        return {
-            'name': self.node.get('name'),
-            'desc': self.node.get('desc'),
-            'priority': self.node.get('priority'),
-        }
+    async def _getTicketDesc(self):
+        return self.node.get('desc')
+
+    async def _getTicketEpic(self):
+        return self.node.get('epic')
+
+    async def _getTicketName(self):
+        return self.node.get('name')
+
+    async def _getTicketStatus(self):
+        return self.node.get('status')
+
+    async def _getTicketSprint(self):
+        return self.node.get('sprint')
+
+    async def _getTicketAssignee(self):
+        return self.node.get('assignee')
+
+    async def _getTicketPriority(self):
+        return self.node.get('priority')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
@@ -517,12 +568,18 @@ class ProjectSprint(s_stormtypes.Prim):
     '''
 
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the sprint',
-         'type': 'str'},
-        {'name': 'desc', 'desc': 'A description of the sprint',
-         'type': 'str'},
-        {'name': 'tickets', 'desc': 'Yields out the tickets associated with the given sprint (no call needed)',
-         'type': 'generator'},
+        {'name': 'name', 'desc': 'The name of the sprint. This can also be used to set the name.',
+          'type': {'type': ['gtor', 'stor'], '_storfunc': '_setSprintName', '_gtorfunc': '_getSprintName',
+          'returns': {'type': ['str', 'null'], }}},
+        {'name': 'desc', 'desc': 'A description of the sprint. This can also be used to set the description.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setSprintDesc', '_gtorfunc': '_getSprintDesc',
+          'returns': {'type': ['str', 'null'], }}},
+        {'name': 'status', 'desc': 'The status of the sprint. This can also be used to set the status.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setSprintStatus', '_gtorfunc': '_getSprintStatus',
+                  'returns': {'type': ['int', 'null'], }}},
+        {'name': 'tickets', 'desc': 'Yields out the tickets associated with the given sprint (no call needed).',
+         'type': {'type': 'ctor', '_ctorfunc': '_getSprintTickets',
+                  'returns': {'type': 'generator', }}},
     )
 
     _storm_typename = 'storm:project:sprint'
@@ -531,7 +588,6 @@ class ProjectSprint(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, None)
         self.proj = proj
         self.node = node
-        self.locls.update(self.getObjLocals())
         self.ctors.update({
             'tickets': self._getSprintTickets,
         })
@@ -540,6 +596,20 @@ class ProjectSprint(s_stormtypes.Prim):
             'desc': self._setSprintDesc,
             'status': self._setSprintStatus,
         })
+        self.gtors.update({
+            'name': self._getSprintName,
+            'desc': self._getSprintDesc,
+            'status': self._getSprintStatus,
+        })
+
+    async def _getSprintDesc(self):
+        return self.node.get('desc')
+
+    async def _getSprintName(self):
+        return self.node.get('name')
+
+    async def _getSprintStatus(self):
+        return self.node.get('status')
 
     async def _setSprintStatus(self, valu):
         self.proj.confirm(('project', 'sprint', 'set', 'status'))
@@ -569,13 +639,6 @@ class ProjectSprint(s_stormtypes.Prim):
     async def _getSprintTickets(self, path=None):
         async for node in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', self.node.ndef[1]):
             yield ProjectTicket(self.proj, node)
-
-    def getObjLocals(self):
-        return {
-            'name': self.node.get('name'),
-            'desc': self.node.get('desc'),
-            'status': self.node.get('status'),
-        }
 
     @s_stormtypes.stormfunc(readonly=True)
     async def value(self):
@@ -680,13 +743,18 @@ class Project(s_stormtypes.Prim):
     Implements the Storm API for Project objects, which are used for managing a scrum style project in the Cortex
     '''
     _storm_locals = (
-        {'name': 'name', 'desc': 'The name of the project', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the project. This can also be used to set the name of the project.',
+         'type': {'type': ['gtor', 'stor'], '_storfunc': '_setName', '_gtorfunc': '_getName',
+                  'returns': {'type': ['str', 'null'], }}},
         {'name': 'epics', 'desc': 'A `storm:project:epics` object that contains the epics associated with the given project.',
-         'type': 'storm:project:epics'},
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorProjEpics',
+                 'returns': {'type': 'storm:project:epics', }}},
         {'name': 'sprints', 'desc': 'A `storm:project:sprints` object that contains the sprints associated with the given project.',
-         'type': 'storm:project:sprints'},
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorProjSprints',
+                  'returns': {'type': 'storm:project:sprints', }}},
         {'name': 'tickets', 'desc': 'A `storm:project:tickets` object that contains the tickets associated with the given project.',
-         'type': 'storm:project:tickets'},
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorProjTickets',
+                  'returns': {'type': 'storm:project:tickets', }}},
     )
 
     _storm_typename = 'storm:project'
@@ -695,7 +763,6 @@ class Project(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, None)
         self.node = node
         self.runt = runt
-        self.locls.update(self.getObjLocals())
         self.ctors.update({
             'epics': self._ctorProjEpics,
             'sprints': self._ctorProjSprints,
@@ -703,6 +770,9 @@ class Project(s_stormtypes.Prim):
         })
         self.stors.update({
             'name': self._setName,
+        })
+        self.gtors.update({
+            'name': self._getName,
         })
 
     def _ctorProjEpics(self, path=None):
@@ -719,14 +789,12 @@ class Project(s_stormtypes.Prim):
         # bypass runt.confirm() here to avoid asroot
         return self.runt.user.confirm(perm, gateiden=gateiden)
 
-    def getObjLocals(self):
-        return {
-            'name': self.node.get('name'),
-        }
-
     async def _setName(self, valu):
         self.confirm(('project', 'set', 'name'))
         await self.node.set('name', await tostr(valu))
+
+    async def _getName(self):
+        return self.node.get('name')
 
     @s_stormtypes.stormfunc(readonly=True)
     def value(self):

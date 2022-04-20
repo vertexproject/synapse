@@ -122,23 +122,120 @@ class StormTypesRegistry:
         rtype = info.get('type')
         if isinstance(rtype, dict):
             rname = rtype.get('type')
-            assert rname == 'function', \
-                   f'Dictionary return types must represent functions [{name} {obj} {info.get("name")}].'
-            funcname = rtype.pop('_funcname')
-            locl = getattr(obj, funcname, None)
-            assert locl is not None, f'bad funcname=[{funcname}] for {obj} {info.get("name")}'
-            args = rtype.get('args', ())
-            callsig = getCallSig(locl)
-            # Assert the callsigs match
-            callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
-            assert [d.get('name') for d in
-                    args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj} {args} {callsig_args}'
-            # ensure default values are provided
-            for parameter, argdef in zip(callsig.parameters.values(), args):
-                pdef = parameter.default  # defaults to inspect._empty for undefined default values.
-                adef = argdef.get('default', inspect._empty)
-                assert pdef == adef, \
-                       f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+            rname = copy.deepcopy(rname)  # Make a mutable copy we're going to modify
+
+            if isinstance(rname, tuple):
+                rname = list(rname)
+
+            isstor = False
+            isfunc = False
+            isgtor = False
+            isctor = False
+
+            if rname == 'ctor' or 'ctor' in rname:
+                isctor = True
+                if isinstance(rname, str):
+                    rname = ''
+                if isinstance(rname, list):
+                    rname.remove('ctor')
+                if isinstance(rname, dict):
+                    rname.pop('ctor', None)
+            if rname == 'function' or 'function' in rname:
+                isfunc = True
+                if isinstance(rname, str):
+                    rname = ''
+                if isinstance(rname, list):
+                    rname.remove('function')
+                if isinstance(rname, dict):
+                    rname.pop('function', None)
+            if rname == 'gtor' or 'gtor' in rname:
+                isgtor = True
+                if isinstance(rname, str):
+                    rname = ''
+                if isinstance(rname, list):
+                    rname.remove('gtor')
+                if isinstance(rname, dict):
+                    rname.pop('gtor', None)
+            if rname == 'stor' or 'stor' in rname:
+                if isinstance(rname, str):
+                    rname = ''
+                if isinstance(rname, list):
+                    rname.remove('stor')
+                if isinstance(rname, dict):
+                    rname.pop('stor', None)
+                isstor = True
+
+            invalid = (isgtor and isctor) or (isfunc and (isgtor or isctor))
+            if invalid:
+                mesg = f'Dictionary represents invalid combination of ctors, gtors, locls, and stors [{name} {obj} {info.get("name")}] [{rtype}].'
+                raise AssertionError(mesg)
+
+            if rname:
+                mesg = f'Dictionary return types represents a unknown rtype [{name} {obj} {info.get("name")}] [{rtype}] [{rname}].'
+                raise AssertionError(mesg)
+
+            if isfunc:
+                self._validateFunction(obj, info, name)
+            if isstor:
+                self._validateStor(obj, info, name)
+            if isctor:
+                self._validateCtor(obj, info, name)
+            if isgtor:
+                self._validateGtor(obj, info, name)
+
+    def _validateFunction(self, obj, info, name):
+        rtype = info.get('type')
+        funcname = rtype.pop('_funcname')
+        locl = getattr(obj, funcname, None)
+        assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
+        args = rtype.get('args', ())
+        callsig = getCallSig(locl)
+        # Assert the callsigs match
+        callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+        assert [d.get('name') for d in
+                args] == callsig_args, f'args / callsig args mismatch for {funcname} {name} {obj} {args} {callsig_args}'
+        # ensure default values are provided
+        for parameter, argdef in zip(callsig.parameters.values(), args):
+            pdef = parameter.default  # defaults to inspect._empty for undefined default values.
+            adef = argdef.get('default', inspect._empty)
+            assert pdef == adef, \
+                f'Default value mismatch for {obj} {funcname}, defvals {pdef} != {adef} for {parameter}'
+
+    def _validateStor(self, obj, info, name):
+        rtype = info.get('type')
+        funcname = rtype.pop('_storfunc')
+        locl = getattr(obj, funcname, None)
+        assert locl is not None, f'bad _storfunc=[{funcname}] for {obj} {info.get("name")}'
+        args = rtype.get('args')
+        assert args is None, f'stors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
+        callsig = getCallSig(locl)
+        # Assert the callsig for a stor has one argument
+        callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+        assert len(callsig_args) == 1, f'stor funcs must only have one argument for {obj} {info.get("name")}'
+
+    def _validateCtor(self, obj, info, name):
+        rtype = info.get('type')
+        funcname = rtype.pop('_ctorfunc')
+        locl = getattr(obj, funcname, None)
+        assert locl is not None, f'bad _ctorfunc=[{funcname}] for {obj} {info.get("name")}'
+        args = rtype.get('args')
+        assert args is None, f'ctors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
+        callsig = getCallSig(locl)
+        # Assert the callsig for a stor has one argument
+        callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+        assert len(callsig_args) == 1, f'stor funcs must only have one argument for {obj} {info.get("name")}'
+
+    def _validateGtor(self, obj, info, name):
+        rtype = info.get('type')
+        funcname = rtype.pop('_gtorfunc')
+        locl = getattr(obj, funcname, None)
+        assert locl is not None, f'bad _gtorfunc=[{funcname}] for {obj} {info.get("name")}'
+        args = rtype.get('args')
+        assert args is None, f'gtors have no defined args funcname=[{funcname}] for {obj} {info.get("name")}'
+        callsig = getCallSig(locl)
+        # Assert the callsig for a stor has one argument
+        callsig_args = [str(v).split('=')[0] for v in callsig.parameters.values()]
+        assert len(callsig_args) == 0, f'gtor funcs must only have one argument for {obj} {info.get("name")}'
 
     def getLibDocs(self):
         # Ensure type docs are loaded/verified.
@@ -298,17 +395,25 @@ class StormType:
 
     def __init__(self, path=None):
         self.path = path
+
+        # ctors take no arguments and are intended to return Prim objects. This must be sync.
+        # These are intended for delayed Prim object construction until they are needed.
         self.ctors = {}
+
+        # stors are setter functions which take a single value for setting.
+        # These are intended to act similar to python @setter decorators.
         self.stors = {}
+
+        # gtors are getter functions which are called without arguments. This must be async.
+        # These are intended as to act similar to python @property decorators.
         self.gtors = {}
+
+        # Locals are intended for storing callable functions and constants.
         self.locls = {}
 
     def getObjLocals(self):
         '''
         Get the default list of key-value pairs which may be added to the object ``.locls`` dictionary.
-
-        Notes:
-            These values are exposed in autodoc generated documentation.
 
         Returns:
             dict: A key/value pairs.
@@ -343,7 +448,6 @@ class StormType:
 
         valu = await self._derefGet(name)
         if valu is not s_common.novalu:
-            self.locls[name] = valu
             return valu
 
         raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name, styp=self.__class__.__name__)
@@ -1116,16 +1220,19 @@ class LibBase(Lib):
                 Update the current runtime to enable debugging::
 
                     $lib.debug = $lib.true''',
-
-         'type': 'boolean', },
+         'type': {
+             'type': ['gtor', 'stor'],
+             '_storfunc': '_setRuntDebug',
+             '_gtorfunc': '_getRuntDebug',
+             'returns': {'type': 'boolean'}}},
     )
 
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
         self.stors['debug'] = self._setRuntDebug
-        self.ctors['debug'] = self._getRuntDebug
+        self.gtors['debug'] = self._getRuntDebug
 
-    def _getRuntDebug(self, path=None):
+    async def _getRuntDebug(self):
         return self.runt.debug
 
     async def _setRuntDebug(self, debug):
@@ -7137,6 +7244,26 @@ class User(Prim):
                        'desc': 'The new password for the user. This is best passed into the runtime as a variable.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'name', 'desc': '''
+        A users name. This can also be used to set a users name.
+
+        Example:
+                Change a users name::
+
+                    $user=$lib.auth.users.byname(bob) $user.name=robert
+        ''',
+         'type': {'type': 'stor', '_storfunc': '_storUserName',
+                  'returns': {'type': 'str', }}},
+        {'name': 'email', 'desc': '''
+        A users email. This can also be used to set the users email.
+
+        Example:
+                Change a users email address::
+
+                    $user=$lib.auth.users.byname(bob) $user.email="robert@bobcorp.net"
+        ''',
+         'type': {'type': ['stor'], '_storfunc': '_methUserSetEmail',
+                  'returns': {'type': ['str', 'null'], }}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -7149,7 +7276,7 @@ class User(Prim):
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu
         self.stors.update({
-            'name': self._setUserName,
+            'name': self._storUserName,
             'email': self._methUserSetEmail,
         })
         self.ctors.update({
@@ -7197,7 +7324,7 @@ class User(Prim):
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.addUserNotif(self.valu, mesgtype, mesgdata)
 
-    async def _setUserName(self, name):
+    async def _storUserName(self, name):
 
         name = await tostr(name)
         if self.runt.user.iden == self.valu:
@@ -7256,6 +7383,7 @@ class User(Prim):
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
+        email = await tostr(email)
         if self.runt.user.iden == self.valu:
             self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
             await self.runt.snap.core.setUserEmail(self.valu, email)
@@ -7327,6 +7455,16 @@ class Role(Prim):
                        'default': None, },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'name', 'desc': '''
+            A roles name. This can also be used to set the role name.
+
+            Example:
+                    Change a roles name::
+
+                        $role=$lib.auth.roles.byname(analyst) $role.name=superheroes
+            ''',
+         'type': {'type': 'stor', '_storfunc': '_setRoleName',
+                  'returns': {'type': 'str', }}},
     )
     _storm_typename = 'storm:auth:role'
     _ismutable = False
