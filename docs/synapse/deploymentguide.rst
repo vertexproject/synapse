@@ -3,15 +3,15 @@
 
 .. _deploymentguide:
 
-Deployment Guide
-################
+Synapse Deployment Guide
+########################
 
 Introduction
 ============
 
 This step-by-step guide will walk you through a production-ready Synapse deployment. Services will be
 configured to register with ``AHA`` for service discovery and to prepare for future devops tasks such
-as promoting a mirror to leader and registering ``Synapse Advanced Power-Ups``.
+as promoting a mirror to leader and registering install Synapse Advanced Power-Ups.
 
 This guide will also walk you through deploying all Synapse services using TLS to authenticate both
 servers and clients using client-certificates to minimize the need for secrets management by eliminating
@@ -19,21 +19,17 @@ passwords from all telepath URLs.
 
 For the purposes of this guide, we will use ``docker-compose`` as a light-weight orchestration mechanism.
 The steps, configurations, and volume mapping guidance given in this guide apply equally to other container
-orchestration mechanisms such as ``Kubernetes`` but for simplicity's sake, this guide will only cover
-``docker-compose`` based deployments.
+orchestration mechanisms such as Kubernetes but for simplicity's sake, this guide will only cover
+docker-compose_ based deployments.
 
-
-Deployment FAQ
---------------
 
 Preparation
 ===========
 
-Sizing Hosts
-------------
-
 Preparing Hosts
 ---------------
+
+Ensure that you have an updated install of docker_ and docker-compose_.
 
 In order to run the Synapse service containers as a non-root user, you will need to add a user
 to the host system.  For this guide, we will use the linux user name ``synuser``. This user name can be replaced
@@ -41,24 +37,19 @@ by whatever user name or numeric ID is appropriate for your deployment. We recom
 linux user ``nobody`` for this purpose.
 
 Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend
-adding the folling lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
+adding the following lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
     vm.swappiness=10
     vm.dirty_expire_centisecs=20
     vm.dirty_writeback_centisecs=20
 
-For additional detail on kernel tuning parameters, see _KernelTuningDocs
+We will use the directory ``/srv/syn/`` on the host systems as the base directory used to deploy
+the Synapse services. Each service will be deployed in separate ``/srv/syn/<svcname>`` directories. This
+directory can be changed to whatever you would like, and the services may be deployed to any host provided
+that the hosts can directly connect to each other.  It is critical to performance that these storage volumes
+be low-latency. More latent storage mechanisms such as spinning dicks, NFS, or EFS should be avoided!
 
-We will use the directory ``/srv/synapse/`` on the host systems as the base directory used to deploy
-the Synapse services. Each service will be deployed in separate ``/srv/synapse/<svcname>`` directories.
-
-This directory can be changed to whatever you would like, and the services may be deployed to any host
-provided that the hosts can directly connect to eachother.
-
-
-TODO
-* Ensure an updated / functional docker install
-* Tune kernel parameters for database performance
-* Add log aggregation agent
+We highly recommend that hosts used to run Synapse services deploy a log aggregation agent to make it easier
+to view the logs from the various containers in a single place.
 
 Decide on a Name
 ================
@@ -72,16 +63,17 @@ Deploy AHA Service
 
 The AHA service is used for service discovery and can be used as a CA to issue host/user certificates
 used to link Synapse services. Other Synapse services will need to be able to resolve the IP address
-of the AHA service by name.
+of the AHA service by name, so it is likely that you need to create a DNS A/AAAA record in your existing
+resolver.
 
-For this exmple deployment, we will name our AHA server ``aha.loop.vertex.link`` and assume DNS records
+For this example deployment, we will name our AHA server ``aha.loop.vertex.link`` and assume DNS records
 have been created to resolve the FQDN to an IPv4 / IPv6 address of the host running the container.
 
 Create the container directory::
-    mkdir -p /srv/synapse/aha/storage
-    chown -R synuser /srv/synapse/aha/storage
+    mkdir -p /srv/syn/aha/storage
+    chown -R synuser /srv/syn/aha/storage
 
-Create the ``/srv/synapse/aha/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       user: synuser
@@ -92,7 +84,7 @@ Create the ``/srv/synapse/aha/docker-compose.yaml`` file with contents::
         volumes:
         - ./storage:/vertex/storage
 
-Create the ``/srv/synapse/aha/storage/cell.yaml`` file with contents::
+Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
     aha:name: aha
     aha:network: loop.vertex.link
     aha:urls: ssl://aha.loop.vertex.link:27492
@@ -103,30 +95,25 @@ NOTE: Don't forget to replace ``loop.vertex.link`` with your chosen network name
 
 Change ownership of the storage directory to the user you will use to run the container::
 
-Start the container using ``docker-compose`` on the *host* from the ``/srv/synapse/aha`` directory::
-    docker-compose pull
-    docker-compose up -d
-
-NOTE: For details on learning to use docker-compose see FIXME LINK
+Start the container using ``docker-compose``::
+    docker-compose -f /srv/syn/aha/docker-compose.yaml pull
+    docker-compose -f /srv/syn/aha/docker-compose.yaml up -d
 
 To view the container logs at any time you may run the following command on the *host* from the
-``/srv/synapse/aha`` directory::
+``/srv/syn/aha`` directory::
     docker-compose logs -f
 
-You may also execute a shell inside the container using ``docker-compose`` from the ``/srv/synapse/aha``
+You may also execute a shell inside the container using ``docker-compose`` from the ``/srv/syn/aha``
 directory on the *host*. This will be necessary for some of the additional provisioning steps::
     docker-compose exec aha /bin/bash
 
 Deploy Axon Service
 ===================
 
-In the ``Synapse`` service archtecture, an ``Axon`` provides a place to store arbitrary bytes/files as binary
+In the Synapse service architecture, an Axon provides a place to store arbitrary bytes/files as binary
 blobs and exposes APIs for streaming files in and out regardless of their size.  Given sufficient filesystem
 size, an Axon can be used to efficiently store and retrieve very large files as well as a high number
 (easily billions) of files.
-
-NOTE: If you plan to deploy the ``Synapse-S3`` Advanced Power-Up, replace this step with the steps
-described in the _Synapse_S3_Deployment_Guide.
 
 Inside the AHA container
 ------------------------
@@ -141,10 +128,10 @@ On the Host
 -----------
 
 Create the container directory::
-    mkdir -p /srv/synapse/axon/storage
-    chown -R synuser /srv/synapse/axon/storage
+    mkdir -p /srv/syn/axon/storage
+    chown -R synuser /srv/syn/axon/storage
 
-Create the ``/srv/synapse/00.axon/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       00.axon:
@@ -160,8 +147,8 @@ Create the ``/srv/synapse/00.axon/docker-compose.yaml`` file with contents::
 Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key!
 
 Start the container::
-    docker-compose --file /srv/synapse/axon/docker-compose.yaml pull
-    docker-compose --file /srv/synapse/axon/docker-compose.yaml up -d
+    docker-compose --file /srv/syn/axon/docker-compose.yaml pull
+    docker-compose --file /srv/syn/axon/docker-compose.yaml up -d
 
 Deploy JSONStor Service
 =======================
@@ -179,10 +166,10 @@ On the Host
 -----------
 
 Create the container directory::
-    mkdir -p /srv/synapse/00.jsonstor/storage
-    chown -R synuser /srv/synapse/00.jsonstor/storage
+    mkdir -p /srv/syn/00.jsonstor/storage
+    chown -R synuser /srv/syn/00.jsonstor/storage
 
-Create the ``/srv/synapse/00.jsonstor/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       00.jsonstor:
@@ -198,8 +185,8 @@ Create the ``/srv/synapse/00.jsonstor/docker-compose.yaml`` file with contents::
 Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key!
 
 Start the container::
-    docker-compose --file /srv/synapse/00.jsonstor/docker-compose.yaml pull
-    docker-compose --file /srv/synapse/00.jsonstor/docker-compose.yaml up -d
+    docker-compose --file /srv/syn/00.jsonstor/docker-compose.yaml pull
+    docker-compose --file /srv/syn/00.jsonstor/docker-compose.yaml up -d
 
 Deploy Cortex Service
 =====================
@@ -221,10 +208,10 @@ On the Host
 -----------
 
 Create the container directory::
-    mkdir -p /srv/synapse/00.cortex/storage
-    chown -R synuser /srv/synapse/00.cortex/storage
+    mkdir -p /srv/syn/00.cortex/storage
+    chown -R synuser /srv/syn/00.cortex/storage
 
-Create the ``/srv/synapse/00.cortex/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       00.cortex:
@@ -238,11 +225,11 @@ Create the ``/srv/synapse/00.cortex/docker-compose.yaml`` file with contents::
             - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
 
 Start the container::
-    docker-compose --file /srv/synapse/00.cortex/docker-compose.yaml pull
-    docker-compose --file /srv/synapse/00.cortex/docker-compose.yaml up -d
+    docker-compose --file /srv/syn/00.cortex/docker-compose.yaml pull
+    docker-compose --file /srv/syn/00.cortex/docker-compose.yaml up -d
 
-NOTE: Remember, you can view the container logs in realtime using::
-    docker-compose --file /srv/synapse/00.cortex/docker-compose.yaml logs -f
+NOTE: Remember, you can view the container logs in real-time using::
+    docker-compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
 
 Deploy Cortex Mirror (optional)
 ===============================
@@ -263,10 +250,10 @@ On the Host
 -----------
 
 Create the container storage directory::
-    mkdir -p /srv/synapse/01.cortex/storage
-    chown -R synuser /srv/synapse/01.cortex/storage
+    mkdir -p /srv/syn/01.cortex/storage
+    chown -R synuser /srv/syn/01.cortex/storage
 
-Create the ``/srv/synapse/01.cortex/docker-compose.yaml`` file with contents::
+Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       01.cortex:
@@ -280,8 +267,8 @@ Create the ``/srv/synapse/01.cortex/docker-compose.yaml`` file with contents::
         - ./storage:/vertex/storage
 
 Start the container::
-    docker-compose --file /srv/synapse/01.cortex/docker-compose.yaml pull
-    docker-compose --file /srv/synapse/01.cortex/docker-compose.yaml up -d
+    docker-compose --file /srv/syn/01.cortex/docker-compose.yaml pull
+    docker-compose --file /srv/syn/01.cortex/docker-compose.yaml up -d
 
 NOTE: If you are deploying a mirror from an existing large Cortex, this startup may take a while
 to complete initialization.
@@ -289,4 +276,7 @@ to complete initialization.
 What's next?
 ============
 
-See the _devops documentation for instructions on performing various maintenance tasks on your deployment!
+See the devops_ documentation for instructions on performing various maintenance tasks on your deployment!
+
+.. _docker: https://docs.docker.com/engine/install/
+.. _docker-compose: https://docs.docker.com/compose/install/
