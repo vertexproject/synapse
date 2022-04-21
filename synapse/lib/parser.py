@@ -149,7 +149,7 @@ class AstConverter(lark.Transformer):
         return cls(newkids)
 
     @lark.v_args(meta=True)
-    def subquery(self, kids, meta):
+    def subquery(self, meta, kids):
         assert len(kids) <= 2
         hasyield = (len(kids) == 2)
         kid = self._convert_child(kids[-1])
@@ -158,27 +158,27 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
-    def exprlist(self, kids, meta):
+    def exprlist(self, meta, kids):
         kids = [self._convert_child(k) for k in kids]
         return s_ast.ExprList(kids=kids)
 
     @lark.v_args(meta=True)
-    def exprdict(self, kids, meta):
+    def exprdict(self, meta, kids):
         kids = [self._convert_child(k) for k in kids]
         return s_ast.ExprDict(kids=kids)
 
     @lark.v_args(meta=True)
-    def trycatch(self, kids, meta):
+    def trycatch(self, meta, kids):
         kids = self._convert_children(kids)
         return s_ast.TryCatch(kids=kids)
 
     @lark.v_args(meta=True)
-    def catchblock(self, kids, meta):
+    def catchblock(self, meta, kids):
         kids = self._convert_children(kids)
         return s_ast.CatchBlock(kids=kids)
 
     @lark.v_args(meta=True)
-    def baresubquery(self, kids, meta):
+    def baresubquery(self, meta, kids):
         assert len(kids) == 1
 
         epos = meta.end_pos
@@ -190,7 +190,7 @@ class AstConverter(lark.Transformer):
         return subq
 
     @lark.v_args(meta=True)
-    def argvquery(self, kids, meta):
+    def argvquery(self, meta, kids):
         assert len(kids) == 1
 
         epos = meta.end_pos
@@ -206,17 +206,17 @@ class AstConverter(lark.Transformer):
         return s_ast.YieldValu(kids=[kid])
 
     @lark.v_args(meta=True)
-    def evalvalu(self, kids, meta):
+    def evalvalu(self, meta, kids):
         return self._convert_child(kids[0])
 
     @lark.v_args(meta=True)
-    def lookup(self, kids, meta):
+    def lookup(self, meta, kids):
         kids = self._convert_children(kids)
         look = s_ast.Lookup(kids=kids)
         return look
 
     @lark.v_args(meta=True)
-    def query(self, kids, meta):
+    def query(self, meta, kids):
         kids = self._convert_children(kids)
 
         if kids:
@@ -231,23 +231,23 @@ class AstConverter(lark.Transformer):
         return quer
 
     @lark.v_args(meta=True)
-    def embedquery(self, kids, meta):
+    def embedquery(self, meta, kids):
         assert len(kids) == 1
         text = kids[0].text
         ast = s_ast.EmbedQuery(text, kids)
         return ast
 
     @lark.v_args(meta=True)
-    def emit(self, kids, meta):
+    def emit(self, meta, kids):
         kids = self._convert_children(kids)
         return s_ast.Emit(kids)
 
     @lark.v_args(meta=True)
-    def stop(self, kids, meta):
+    def stop(self, meta, kids):
         return s_ast.Stop()
 
     @lark.v_args(meta=True)
-    def funccall(self, kids, meta):
+    def funccall(self, meta, kids):
         kids = self._convert_children(kids)
         argkids = []
         kwargkids = []
@@ -293,7 +293,7 @@ class AstConverter(lark.Transformer):
         return s_ast.List(kids=kids)
 
     @lark.v_args(meta=True)
-    def funcargs(self, kids, meta):
+    def funcargs(self, meta, kids):
         '''
         A list of function parameters (as part of a function definition)
         '''
@@ -403,7 +403,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'],
-                       propagate_positions=True, parser='lalr', debug=True)
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr', debug=True)
 
 class Parser:
     '''
@@ -668,7 +668,7 @@ def parse_cmd_string(text, off):
 @lark.v_args(meta=True)
 class CmdStringer(lark.Transformer):
 
-    def valu(self, kids, meta):
+    def valu(self, meta, kids):
         assert len(kids) == 1
         kid = kids[0]
         if isinstance(kid, lark.lexer.Token):
@@ -686,8 +686,8 @@ class CmdStringer(lark.Transformer):
 
         return valu, meta.end_pos
 
-    def cmdstring(self, kids, meta):
+    def cmdstring(self, meta, kids):
         return kids[0]
 
-    def alist(self, kids, meta):
+    def alist(self, meta, kids):
         return [k[0] for k in kids], meta.end_pos
