@@ -1,6 +1,7 @@
 import os
 import ssl
 import time
+import fcntl
 import shutil
 import socket
 import asyncio
@@ -920,9 +921,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             with open(path, 'w') as fd:
                 fd.write(guid)
 
-        # read our guid file
-        with open(path, 'r') as fd:
-            self.iden = fd.read().strip()
+        # read & lock our guid file
+        self._cellguidfd = s_common.genfile(path)
+        self.iden = self._cellguidfd.read().decode().strip()
+        self._getCellLock()
 
         self.donexslog = self.conf.get('nexslog:en')
 
@@ -1031,6 +1033,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def fini(self):
+        '''Fini override that ensures locking teardown order.'''
+        # we inherit from Pusher to make the Cell a Base subclass
+        retn = await s_nexus.Pusher.fini(self)
+        if retn == 0:
+            self._onFiniCellGuid()
+        return retn
+
+    def _onFiniCellGuid(self):
+        fcntl.lockf(self._cellguidfd, fcntl.LOCK_UN)
+        self._cellguidfd.close()
+
+    def _getCellLock(self):
+        cmd = fcntl.LOCK_EX | fcntl.LOCK_NB
+        try:
+            fcntl.lockf(self._cellguidfd, cmd)
+        except BlockingIOError:
+            # Raised when the a lock is unable to be obtained on cell.guid file.
+            ctyp = self.getCellType()
+            mesg = f'Cannot start the {ctyp}, another process is already running it.'
+            raise s_exc.FatalErr(mesg=mesg) from None
 
     async def _execCellUpdates(self):
         # implement to apply updates to a fully initialized active cell
