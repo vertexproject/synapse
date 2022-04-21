@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+
+import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
@@ -332,7 +334,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A screenshot of a host.',
                     'interfaces': ('it:host:activity',),
                 }),
-                ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
+                ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
+                                        'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
                 }),
