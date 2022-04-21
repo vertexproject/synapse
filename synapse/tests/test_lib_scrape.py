@@ -304,9 +304,6 @@ class ScrapeTest(s_t_utils.SynTest):
         ndefs = list(s_scrape.scrape('log4j vuln CVE-2021-44228 is pervasive'))
         self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
 
-        infos = list(s_scrape.contextScrape('endashs are a vulnerability  CVE\u20132022\u20131138 '))
-        self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
-
         nodes = set(s_scrape.scrape(data0))
 
         self.len(26, nodes)
