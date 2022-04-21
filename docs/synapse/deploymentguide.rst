@@ -38,6 +38,7 @@ linux user ``nobody`` for this purpose.
 
 Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend
 adding the following lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
+
     vm.swappiness=10
     vm.dirty_expire_centisecs=20
     vm.dirty_writeback_centisecs=20
@@ -70,10 +71,11 @@ For this example deployment, we will name our AHA server ``aha.loop.vertex.link`
 have been created to resolve the FQDN to an IPv4 / IPv6 address of the host running the container.
 
 Create the container directory::
+
     mkdir -p /srv/syn/aha/storage
-    chown -R synuser /srv/syn/aha/storage
 
 Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
+
     version: "3.3"
     services:
       user: synuser
@@ -85,6 +87,7 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         - ./storage:/vertex/storage
 
 Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
+
     aha:name: aha
     aha:network: loop.vertex.link
     aha:urls: ssl://aha.loop.vertex.link:27492
@@ -95,16 +98,21 @@ NOTE: Don't forget to replace ``loop.vertex.link`` with your chosen network name
 
 Change ownership of the storage directory to the user you will use to run the container::
 
+    chown -R synuser /srv/syn/aha/storage
+
 Start the container using ``docker-compose``::
+
     docker-compose -f /srv/syn/aha/docker-compose.yaml pull
     docker-compose -f /srv/syn/aha/docker-compose.yaml up -d
 
 To view the container logs at any time you may run the following command on the *host* from the
 ``/srv/syn/aha`` directory::
+
     docker-compose logs -f
 
 You may also execute a shell inside the container using ``docker-compose`` from the ``/srv/syn/aha``
 directory on the *host*. This will be necessary for some of the additional provisioning steps::
+
     docker-compose exec aha /bin/bash
 
 Deploy Axon Service
@@ -119,19 +127,23 @@ Inside the AHA container
 ------------------------
 
 Generate a one-time use provisioning API key::
+
     python -m synapse.tools.aha.provision 00.axon
 
 You should see output that looks similar to this::
+
     one-time use provisioning key: b751e6c3e6fc2dad7a28d67e315e1874
 
 On the Host
 -----------
 
 Create the container directory::
+
     mkdir -p /srv/syn/axon/storage
     chown -R synuser /srv/syn/axon/storage
 
 Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
+
     version: "3.3"
     services:
       00.axon:
@@ -147,6 +159,7 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key!
 
 Start the container::
+
     docker-compose --file /srv/syn/axon/docker-compose.yaml pull
     docker-compose --file /srv/syn/axon/docker-compose.yaml up -d
 
@@ -157,19 +170,23 @@ Inside the AHA container
 ------------------------
 
 Generate a one-time use provisioning API key::
+
     python -m synapse.tools.aha.provision 00.jsonstor
 
 You should see output that looks similar to this::
+
     one-time use provisioning key: 8c5eeeafdc569b5a0642ee451205efae
 
 On the Host
 -----------
 
 Create the container directory::
+
     mkdir -p /srv/syn/00.jsonstor/storage
     chown -R synuser /srv/syn/00.jsonstor/storage
 
 Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
+
     version: "3.3"
     services:
       00.jsonstor:
@@ -185,6 +202,7 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
 Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key!
 
 Start the container::
+
     docker-compose --file /srv/syn/00.jsonstor/docker-compose.yaml pull
     docker-compose --file /srv/syn/00.jsonstor/docker-compose.yaml up -d
 
@@ -195,23 +213,28 @@ Inside the AHA container
 ------------------------
 
 Edit or copy the following contents to the file ``/tmp/cortex.yaml`` inside the container::
+
     axon: aha://axon...
     jsonstor: aha://jsonstor...
 
 Generate a one-time use provisioning key::
+
     python -m synapse.tools.aha.provision 00.cortex --user root --cellyaml /tmp/cortex.yaml
 
 You should see output that looks similar to this::
+
     one-time use provisioning key: 8c5eeeafdc569b5a0642ee451205efae
 
 On the Host
 -----------
 
 Create the container directory::
+
     mkdir -p /srv/syn/00.cortex/storage
     chown -R synuser /srv/syn/00.cortex/storage
 
 Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
+
     version: "3.3"
     services:
       00.cortex:
@@ -225,10 +248,12 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
             - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
 
 Start the container::
+
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml pull
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml up -d
 
 NOTE: Remember, you can view the container logs in real-time using::
+
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
 
 Deploy Cortex Mirror (optional)
@@ -241,19 +266,23 @@ Inside the AHA container
 ------------------------
 
 Generate a one-time use API key for provisioning from *inside the AHA container*::
+
     python -m synapse.tools.aha.provision 01.cortex --mirror 00.cortex
 
 You should see output that looks similar to this::
+
     one-time use provisioning key: 4f655032bc87b012955922724c4f7ae5
 
 On the Host
 -----------
 
 Create the container storage directory::
+
     mkdir -p /srv/syn/01.cortex/storage
     chown -R synuser /srv/syn/01.cortex/storage
 
 Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
+
     version: "3.3"
     services:
       01.cortex:
@@ -267,6 +296,7 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
         - ./storage:/vertex/storage
 
 Start the container::
+
     docker-compose --file /srv/syn/01.cortex/docker-compose.yaml pull
     docker-compose --file /srv/syn/01.cortex/docker-compose.yaml up -d
 
