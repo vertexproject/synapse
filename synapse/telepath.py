@@ -182,16 +182,14 @@ async def getAhaProxy(urlinfo):
 @contextlib.asynccontextmanager
 async def withTeleEnv():
 
-    cellfini = await loadTeleCell('/vertex/storage')
-    telefini = await loadTeleEnv(s_common.getSynPath('telepath.yaml'))
+    async with loadTeleCell('/vertex/storage'):
 
-    yield
+        telefini = await loadTeleEnv(s_common.getSynPath('telepath.yaml'))
 
-    if telefini:
-        await telefini()
+        yield
 
-    if cellfini:
-        await cellfini()
+        if telefini:
+            await telefini()
 
 async def loadTeleEnv(path):
 
@@ -224,33 +222,32 @@ async def loadTeleEnv(path):
 
     return fini
 
+@contextlib.asynccontextmanager
 async def loadTeleCell(dirn):
-
-    if not os.path.isdir(dirn):
-        return
 
     certpath = s_common.genpath(dirn, 'certs')
     confpath = s_common.genpath(dirn, 'cell.yaml')
+
+    usecerts = os.path.isdir(certpath)
 
     ahaurl = None
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
         ahaurl = conf.get('aha:registry')
 
-        aha_user = conf.get('aha:user')
-        aha_network = conf.get('aha:network')
+    if usecerts:
+        s_certdir.addCertPath(certpath)
 
-    s_certdir.addCertPath(certpath)
     if ahaurl:
         await addAhaUrl(ahaurl)
 
-    async def fini():
+    yield
 
+    if usecerts:
         s_certdir.delCertPath(certpath)
-        if ahaurl:
-            await delAhaUrl(ahaurl)
 
-    return fini
+    if ahaurl:
+        await delAhaUrl(ahaurl)
 
 class Aware:
     '''

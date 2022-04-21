@@ -226,6 +226,10 @@ class CellApi(s_base.Base):
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
 
+    @adminapi()
+    async def readyToMirror(self):
+        return await self.cell.readyToMirror()
+
     @adminapi(log=True)
     async def cullNexsLog(self, offs):
         '''
@@ -924,6 +928,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
 
+        await self._initCellBoot()
+
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
 
@@ -943,11 +949,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._cellguidfd = s_common.genfile(path)
         self.iden = self._cellguidfd.read().decode().strip()
         self._getCellLock()
-
-        self._initCertDir()
-        await self.provAhaSvc()
-
-        self.donexslog = self.conf.get('nexslog:en')
 
         backdirn = self.conf.get('backup:dir')
         if backdirn is not None:
@@ -977,6 +978,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
+
+        self._initCertDir()
 
         root = await self._ctorNexsRoot()
 
@@ -1017,8 +1020,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
-
-        self.onfini(self._finiCertDir)
 
         self.dynitems = {
             'auth': self.auth,
@@ -1266,7 +1267,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return self.cellparent.nexsroot
 
         map_async = self.conf.get('nexslog:async')
-        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async)
+        donexslog = self.conf.get('nexslog:en')
+        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=donexslog, map_async=map_async)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
@@ -1357,7 +1359,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.nexsroot.promote()
         await self.setCellActive(True)
 
-        self.modConfState({'mirror': None})
+        self.modCellConf({'mirror': None})
 
     async def handoff(self, turl, timeout=30):
         '''
@@ -1385,7 +1387,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await self.setCellActive(False)
                 await self.nexsroot.startup(turl, celliden=self.iden)
 
-                self.modConfState({'mirror': turl})
+                self.modCellConf({'mirror': turl})
 
     async def _setAhaActive(self):
 
@@ -2183,8 +2185,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # our certdir is *only* the cell certs dir
         self.certdir = s_certdir.CertDir(path=(self.certpath,))
 
-    async def _finiCertDir(self):
-        s_certdir.delCertPath(self.certpath)
+        def fini():
+            s_certdir.delCertPath(self.certpath)
+
+        self.onfini(fini)
 
     async def _initCellDmon(self):
 
@@ -2357,7 +2361,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return conf
         return s_common._getLogConfFromEnv()
 
-    def modConfState(self, conf):
+    def modCellConf(self, conf):
         s_common.yamlmod(conf, self.dirn, 'cell.yaml')
 
     @classmethod
@@ -2448,7 +2452,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return pars
 
-    async def provAhaSvc(self):
+    async def _initCellBoot(self):
+
+        provconf = await self._bootCellProv()
+
+        # check this before we setup loadTeleCell()
+        if not self._mustBootMirror():
+            return
+
+        async with s_telepath.loadTeleCell(self.dirn):
+            await self._bootCellMirror(conf=provconf)
+
+    async def _bootCellProv(self):
 
         provurl = self.conf.get('aha:provision')
         if provurl is None:
@@ -2467,6 +2482,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if doneiden == providen:
             return
 
+        certdir = s_certdir.CertDir(path=(s_common.gendir(self.dirn, 'certs'),))
+
         conf = {}
         async with await s_telepath.openurl(provurl) as prov:
 
@@ -2477,8 +2494,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ahaname = provconf.get('aha:name')
             ahanetw = provconf.get('aha:network')
 
-            if not self.certdir.getCaCertPath(ahanetw):
-                self.certdir.saveCaCertByts(await prov.getCaCert())
+            if not certdir.getCaCertPath(ahanetw):
+                certdir.saveCaCertByts(await prov.getCaCert())
 
             # update our runtime config
             for name, valu in provconf.items():
@@ -2487,20 +2504,86 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.conf.reqConfValid()
 
             # save our config state
-            self.modConfState(provconf)
+            self.modCellConf(provconf)
 
             hostname = f'{ahaname}.{ahanetw}'
-            if self.certdir.getHostCertPath(hostname) is None:
-                hostcsr = self.certdir.genHostCsr(hostname)
-                self.certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+            if certdir.getHostCertPath(hostname) is None:
+                hostcsr = certdir.genHostCsr(hostname)
+                certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
 
             userfull = f'{ahauser}@{ahanetw}'
-            if self.certdir.getUserCertPath(userfull) is None:
-                usercsr = self.certdir.genUserCsr(userfull)
-                self.certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+            if certdir.getUserCertPath(userfull) is None:
+                usercsr = certdir.genUserCsr(userfull)
+                certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
+
+        return provconf
+
+    def _bootCellConf(self, conf=None):
+        # create a fresh config and re-resolve inputs in precedence order...
+        conf = s_config.Config.getConfFromCell(self, conf=conf)
+
+        conf.setConfFromOpts(conf)
+        conf.setConfFromEnvs()
+
+        for k, v in self._loadCellYaml('cell.yaml').items():
+            conf.setdefault(k, v)
+
+        conf.reqConfValid()
+        return conf
+
+    def _mustBootMirror(self):
+        path = s_common.genpath(self.dirn, 'cell.guid')
+        if os.path.isfile(path):
+            return False
+
+        murl = self.conf.get('mirror')
+        if murl is None:
+            return False
+
+        return True
+
+    async def readyToMirror(self):
+        if not self.conf.get('nexslog:en'):
+            self.modCellConf({'nexslog:en': True})
+            await self.nexsroot.enNexsLog()
+
+    async def _bootCellMirror(self, conf=None):
+        # this function must assume almost nothing is initialized
+        # but that's ok since it will only run rarely...
+        murl = self.conf.get('mirror')
+        logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
+
+        tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
+
+        try:
+
+            async with await s_telepath.openurl(murl) as cell:
+                await cell.readyToMirror()
+                with s_common.genfile(tarpath) as fd:
+                    async for byts in cell.iterNewBackupArchive(remove=True):
+                        fd.write(byts)
+
+                with tarfile.open(tarpath) as tgz:
+                    for memb in tgz.getmembers():
+                        if memb.name.find('/') == -1:
+                            continue
+                        memb.name = memb.name.split('/', 1)[1]
+                        tgz.extract(memb, self.dirn)
+
+        finally:
+
+            if os.path.isfile(tarpath):
+                os.unlink(tarpath)
+
+        if conf is not None:
+            self.modCellConf(conf)
+
+        self.conf = self._bootCellConf()
+
+        logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
@@ -2781,7 +2864,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
-            }
+            },
+            'features': {
+                'dynmirror': True,
+            },
         }
         return ret
 

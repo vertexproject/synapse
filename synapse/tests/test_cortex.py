@@ -61,26 +61,21 @@ class CortexTest(s_t_utils.SynTest):
                 aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
 
                 providen = await aha.addAhaSvcProv('00.cortex')
-                coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}', 'nexslog:en': True}
+                coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}'}
 
-                aha.onfini(await s_telepath.loadTeleCell(aha.dirn))
+                await aha.enter_context(s_telepath.loadTeleCell(aha.dirn))
 
                 async with self.getTestCore(conf=coreconf) as core00:
 
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
-                    await core00.runBackup('mirror')
-                    mirpath = s_common.gendir(core00.dirn, 'backups', 'mirror')
-
                     provinfo = {'mirror': '00.cortex.newp'}
                     providen = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
 
                     # provision with the new hostname and mirror config
                     coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}'}
-                    s_common.yamlmod(coreconf, core00.dirn, 'backups', 'mirror', 'cell.yaml')
-
-                    async with self.getTestCore(dirn=mirpath) as core01:
+                    async with self.getTestCore(conf=coreconf) as core01:
 
                         await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
                         self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))

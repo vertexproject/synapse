@@ -802,7 +802,7 @@ class CertDir:
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, self.signing_digest)
 
-    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None, save=True):
         '''
         Signs a host CSR with a CA keypair.
 
@@ -822,7 +822,7 @@ class CertDir:
         '''
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans)
+        return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans, save=save)
 
     def selfSignCert(self, cert, pkey):
         '''
@@ -843,7 +843,7 @@ class CertDir:
         cert.set_issuer(cert.get_subject())
         cert.sign(pkey, self.signing_digest)
 
-    def signUserCsr(self, xcsr, signas, outp=None):
+    def signUserCsr(self, xcsr, signas, outp=None, save=True):
         '''
         Signs a user CSR with a CA keypair.
 
@@ -860,7 +860,7 @@ class CertDir:
         '''
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
+        return self.genUserCert(name, csr=pkey, signas=signas, outp=outp, save=save)
 
     def _loadCasIntoSSLContext(self, ctx):
 

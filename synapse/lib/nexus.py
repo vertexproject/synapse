@@ -212,6 +212,16 @@ class NexsRoot(s_base.Base):
         finally:
             self._futures.pop(iden, None)
 
+    async def enNexsLog(self):
+
+        async with self.applylock:
+
+            if self.donexslog:
+                return
+
+            self.nexslog.setIndex(self.index())
+            self.donexslog = True
+
     async def recover(self) -> None:
         '''
         Replays the last entry in the nexus log in case we crashed between writing the log and applying it.
@@ -401,6 +411,11 @@ class NexsRoot(s_base.Base):
         self.client.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
+
+        cellinfo = await proxy.getCellInfo()
+        features = cellinfo.get('features', {})
+        if features.get('dynmirror'):
+            await proxy.readyToMirror()
 
         if self.celliden is not None:
             if self.celliden != await proxy.getCellIden():

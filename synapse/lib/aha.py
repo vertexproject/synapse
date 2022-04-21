@@ -171,7 +171,7 @@ class ProvApi:
             mesg = f'Invalid host CSR CN={xcsr.get_subject().CN}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw)
+        pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
 
     async def signUserCsr(self, byts):
@@ -186,7 +186,7 @@ class ProvApi:
             mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw)
+        pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
 
 class AhaCell(s_cell.Cell):
