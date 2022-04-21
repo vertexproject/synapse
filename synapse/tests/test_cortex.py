@@ -61,9 +61,7 @@ class CortexTest(s_t_utils.SynTest):
                 aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
 
                 providen = await aha.addAhaSvcProv('00.cortex')
-                coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}'}
-
-                await aha.enter_context(s_telepath.loadTeleCell(aha.dirn))
+                coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}', 'nexslog:en': False}
 
                 async with self.getTestCore(conf=coreconf) as core00:
 

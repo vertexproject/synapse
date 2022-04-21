@@ -219,7 +219,9 @@ class NexsRoot(s_base.Base):
             if self.donexslog:
                 return
 
-            self.nexslog.setIndex(self.index())
+            indx = await self.index()
+
+            self.nexslog.setIndex(indx)
             self.donexslog = True
 
     async def recover(self) -> None:

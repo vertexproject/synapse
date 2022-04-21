@@ -1347,11 +1347,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if graceful:
 
             ahaname = self.conf.get('aha:name')
-            if ahaname is None:
-                mesg = 'Cannot gracefully promote without aha:name.'
+            if ahaname is None: # pragma: no cover
+                mesg = 'Cannot gracefully promote without aha:name configured.'
                 raise s_exc.BadArg(mesg=mesg)
 
-            myurl = f'aha://{ahaname}...'
+            ahanetw = self.conf.get('aha:network')
+            if ahanetw is None: # pragma: no cover
+                mesg = 'Cannot gracefully promote without aha:network configured.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            myurl = f'aha://{ahaname}.{ahanetw}'
             async with await s_telepath.openurl(mirurl) as lead:
                 await lead.handoff(myurl)
                 return
@@ -2549,6 +2554,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not self.conf.get('nexslog:en'):
             self.modCellConf({'nexslog:en': True})
             await self.nexsroot.enNexsLog()
+            await self.sync()
 
     async def _bootCellMirror(self, conf=None):
         # this function must assume almost nothing is initialized
