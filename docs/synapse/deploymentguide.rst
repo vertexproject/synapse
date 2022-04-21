@@ -97,6 +97,7 @@ Create the ``/srv/synapse/aha/storage/cell.yaml`` file with contents::
     aha:network: loop.vertex.link
     aha:urls: ssl://aha.loop.vertex.link:27492
     dmon:listen: ssl://0.0.0.0:27492?hostname=aha.loop.vertex.link&ca=loop.vertex.link
+    provision:listen: tcp://0.0.0.0:27272/
 
 NOTE: Don't forget to replace ``loop.vertex.link`` with your chosen network name!
 

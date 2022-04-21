@@ -450,7 +450,7 @@ class AhaTest(s_test.SynTest):
         with self.getTestDir() as dirn:
 
             conf = {
-                'aha:name': 'aha.loop.vertex.link',
+                'aha:name': 'aha',
                 'aha:network': 'loop.vertex.link',
                 'provision:listen': 'tcp://127.0.0.1:0'
             }
