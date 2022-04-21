@@ -60,15 +60,24 @@ Sizing Hosts
 Paving Hosts
 ------------
 
-To configure and persist kernel tuning parameters for optimal performance, run the following commands as root::
-    sysctl -w 
-    echo "
+Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend
+adding the folling lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
+    vm.swappiness=10
+    vm.dirty_expire_centisecs=20
+    vm.dirty_writeback_centisecs=20
+
+You'll need to reboot for them to take effect.
 
 TODO
 * Ensure an updated / functional docker install
 * Add the user used to run the containers
 * Tune kernel parameters for database performance
 * Add log aggregation agent
+
+Decide on a Name
+################
+
+This is arguably the most difficult step ;)
 
 Deploy AHA Service
 ##################

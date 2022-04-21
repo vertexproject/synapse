@@ -355,14 +355,6 @@ class CellApi(s_base.Base):
         return await self.cell.addUser(name, passwd=passwd, email=email, iden=iden)
 
     @adminapi(log=True)
-    async def genUser(self, name):
-        user = await self.cell.auth.getUserByName(name)
-        if user is not None:
-            return user.pack()
-
-        return await self.cell.addUser(name)
-
-    @adminapi(log=True)
     async def delUser(self, iden):
         return await self.cell.delUser(iden)
 
@@ -1086,6 +1078,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    def _getAhaAdmin(self):
+        name = self.conf.get('aha:admin')
+        if name is not None:
+            return name
+
+        netw = self.conf.get('aha:network')
+        if netw is not None:
+            return f'root@{netw}'
+
     async def _initAhaRegistry(self):
 
         self.ahainfo = None
@@ -1109,10 +1110,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahauser = self.conf.get('aha:user')
         ahanetw = self.conf.get('aha:network')
 
-        ahaadmin = self.conf.get('aha:admin')
-        if ahaadmin is None:
-            if ahanetw is not None:
-                ahaadmin = f'root@{ahanetw}'
+        ahaadmin = self._getAhaAdmin()
 
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
@@ -1327,7 +1325,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot gracefully promote without aha:name.'
                 raise s_exc.BadArg(mesg=mesg)
 
-            myurl = f'aha://{ahaname}'
+            myurl = f'aha://{ahaname}...'
             async with await s_telepath.openurl(mirurl) as lead:
                 await lead.handoff(myurl)
                 return
@@ -1343,18 +1341,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         async with await s_telepath.openurl(turl) as cell:
 
-            if self.iden != await cell.getCellIden():
+            if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if self.runid == await cell.getCellRunId():
+            if self.runid == await cell.getCellRunId(): # pragma: no cover
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
             async with self.nexsroot.applylock:
 
                 indx = await self.getNexsIndx()
-                if not await cell.waitNexsOffs(indx - 1, timeout=timeout):
+                if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)

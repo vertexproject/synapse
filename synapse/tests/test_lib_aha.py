@@ -428,6 +428,23 @@ class AhaTest(s_test.SynTest):
                     async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=aha.do.vertex.link') as proxy:
                         await proxy.getCellInfo()
 
+    async def test_lib_aha_noconf(self):
+
+        with self.getTestDir() as dirn:
+
+            async with await self.aha_ctor(dirn) as aha:
+
+                with self.raises(s_exc.BadArg):
+                    await aha.addAhaSvcProv('hehe')
+
+                aha.conf['aha:urls'] = 'tcp://127.0.0.1:0/'
+
+                with self.raises(s_exc.BadArg):
+                    await aha.addAhaSvcProv('hehe')
+
+                aha.conf['aha:network'] = 'haha'
+                await aha.addAhaSvcProv('hehe')
+
     async def test_lib_aha_provision(self):
 
         with self.getTestDir() as dirn:
@@ -459,6 +476,21 @@ class AhaTest(s_test.SynTest):
 
                 with self.raises(s_exc.NoSuchName):
                     await s_telepath.openurl(f'tcp://127.0.0.1:{port}/{iden}')
+
+                async with aha.getLocalProxy() as proxy:
+                    onebork = await proxy.addAhaSvcProv('bork')
+                    await proxy.delAhaSvcProv(onebork)
+
+                    onenewp = await proxy.addAhaSvcProv('newp')
+                    async with await s_telepath.openurl(f'tcp://127.0.0.1:{port}/{onenewp}') as provproxy:
+
+                        byts = aha.certdir.genHostCsr('lalala')
+                        with self.raises(s_exc.BadArg):
+                            await provproxy.signHostCsr(byts)
+
+                        byts = aha.certdir.genUserCsr('lalala')
+                        with self.raises(s_exc.BadArg):
+                            await provproxy.signUserCsr(byts)
 
                 onetime = await aha.addAhaSvcProv('00.axon')
 

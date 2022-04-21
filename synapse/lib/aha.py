@@ -18,8 +18,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
-svcname_regx = regex.compile(r'^[a-z0-9]+(\.[a-z0-9]+)*$')
-
 class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self):
@@ -134,7 +132,7 @@ class AhaApi(s_cell.CellApi):
         '''
         Remove a previously added provisioning entry by iden.
         '''
-        return await self.cell.delAhaSvcProv(svcname)
+        return await self.cell.delAhaSvcProv(iden)
 
 class ProvDmon(s_daemon.Daemon):
 
@@ -235,11 +233,13 @@ class AhaCell(s_cell.Cell):
 
                 await self.genCaCert(netw)
 
-                host = self.conf.get('aha:name')
+                name = self.conf.get('aha:name')
+
+                host = f'{name}.{netw}'
                 if host is not None:
                     await self._genHostCert(host, signas=netw)
 
-                user = self.conf.get('aha:admin')
+                user = self._getAhaAdmin()
                 if user is not None:
                     await self._genUserCert(user, signas=netw)
 
@@ -482,9 +482,6 @@ class AhaCell(s_cell.Cell):
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
-        if not svcname_regx.match(name):
-            raise s_exc.BadArg(mesg='Bad service name specified.')
-
         if self.conf.get('aha:urls') is None:
             mesg = 'AHA server has no configured aha:urls.'
             raise s_exc.BadArg(mesg=mesg)
@@ -499,7 +496,7 @@ class AhaCell(s_cell.Cell):
         conf = provinfo.setdefault('conf', {})
 
         ahaadmin = self.conf.get('aha:admin')
-        if ahaadmin is not None:
+        if ahaadmin is not None: # pragma: no cover
             conf.setdefault('aha:admin', ahaadmin)
 
         conf.setdefault('aha:network', self.conf.get('aha:network'))

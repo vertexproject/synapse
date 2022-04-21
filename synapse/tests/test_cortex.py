@@ -10,12 +10,14 @@ from unittest.mock import patch
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.jsonstor as s_jsonstor
@@ -47,7 +49,7 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             conf = {
-                'aha:name': 'aha.newp',
+                'aha:name': 'aha',
                 'aha:network': 'newp',
                 'provision:listen': 'tcp://127.0.0.1:0',
             }
@@ -60,6 +62,8 @@ class CortexTest(s_t_utils.SynTest):
 
                 providen = await aha.addAhaSvcProv('00.cortex')
                 coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}', 'nexslog:en': True}
+
+                aha.onfini(await s_telepath.loadTeleCell(aha.dirn))
 
                 async with self.getTestCore(conf=coreconf) as core00:
 
@@ -84,9 +88,9 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(core00.isactive)
                         self.false(core01.isactive)
 
-                        # argv = ('--svcurl', core01.getLocalUrl())
-                        # await s_tools_promote.main(argv)
-                        await core00.handoff('aha://01.cortex.newp')
+                        outp = s_output.OutPutStr()
+                        argv = ('--svcurl', core01.getLocalUrl())
+                        await s_tools_promote.main(argv, outp=outp)
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
