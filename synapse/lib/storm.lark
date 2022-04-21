@@ -69,7 +69,7 @@ CONTINUE: "continue"
 catchblock: "catch" _valu "as" VARTOKN "{" query "}"
 trycatch: "try" "{" query "}" catchblock*
 
-_STOP: "stop"
+_STOP.2: "stop"
 stop: _STOP
 _RETURN.3: "return"
 return: _RETURN "("[ _valu ] ")"
@@ -264,7 +264,7 @@ NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?!([\s]
 LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
-CMDRTOKN.0: /[^="'\s\{}][^\s\{}]*/
+CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
 
 WHITETOKN: /[^\s|]+/
 
@@ -277,7 +277,8 @@ VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: "(" [(kwarg | _valu) ("," (kwarg | _valu))*] ","? ")"
+_callargs: _LPARNOSPACE [(kwarg | _valu) ("," (kwarg | _valu))*] ","? ")"
+_LPARNOSPACE.2: /(?<!\s)\(/
 kwarg: VARTOKN "=" _valu
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
@@ -350,8 +351,8 @@ EXPRMINUS: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
 NUMBER.2: /-?\d+(\.\d*)?/
-HEXNUMBER: /-?0x[0-9a-fA-F]+/
-BOOL: /true|false/
+HEXNUMBER.2: /-?0x[0-9a-fA-F]+/
+BOOL.2: /true|false/
 NOT: "not"
 OR: "or"
 AND: "and"
