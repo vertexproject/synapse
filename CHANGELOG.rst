@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.91.0 - TBD
+v2.91.0 - 2022-04-21
 ====================
 
 Features and Enhancements
@@ -13,13 +13,17 @@ Features and Enhancements
 - Updates to the ``inet`` and ``infotech`` models.
   (`#2634 <https://github.com/vertexproject/synapse/pull/2634>`_)
   (`#2644 <https://github.com/vertexproject/synapse/pull/2644>`_)
+  (`#2652 <https://github.com/vertexproject/synapse/pull/2652>`_)
 
   ``inet:url``
-    ``inet:url`` now recognizes various ``file:///`` values from RFC 8089.
+    The ``inet:url`` type now recognizes various ``file:///`` values from
+    RFC 8089.
 
   ``it:sec:cve``
-    The ``it:sec:cve`` now parses various Unicode dashs and converts them to
-    hyphens during norm.
+    The ``it:sec:cve`` type now replaces various Unicode dashes with hyphen
+    characters when norming. This allows a wider range of inputs to be
+    accepted for the type. Scrape related APIs have also been updated to
+    match on this wider range of inputs.
 
 - The Cell now uses ``./backup`` as a default path for storing backups in, if
   the ``backup:dir`` path is not set.
@@ -28,22 +32,19 @@ Features and Enhancements
   multiple processes from attempting to start a Cell from the same directory.
   (`#2642 <https://github.com/vertexproject/synapse/pull/2642>`_)
 - Change the default ``SLAB_COMMIT_WARN`` time from 5 seconds to 1 second, in
-  order to more quickly identify slow database writes.
+  order to quickly identify slow storage performance.
   (`#2630 <https://github.com/vertexproject/synapse/pull/2630>`_)
 - Change the Cell ``iterBackupArchive`` and ``iterNewBackupArchive`` routines
-  to always log exceptiosn they encounter, and report the final log message
+  to always log exceptions they encounter, and report the final log message
   at the appropriate log level for success and failure.
   (`#2629 <https://github.com/vertexproject/synapse/pull/2629>`_)
 - When normalizing the ``str`` types, when ``onespace`` is specified, we skip
   the ``strip`` behavior since it is redundant.
-  (`#2635 <https://github.com/vertexproject/synapse/pull/2625>`_)
+  (`#2635 <https://github.com/vertexproject/synapse/pull/2635>`_)
 - Log exceptions raised by Cell creation in ``initFromArgv``. Catch
-  ``lmdb.LockError`` when opening a LMDB database and re-rase an exception
+  ``lmdb.LockError`` when opening a LMDB database and re-raise an exception
   with a clear error message.
   (`#2638 <https://github.com/vertexproject/synapse/pull/2638>`_)
-- Update scrape related APIs for ``it:sec:cve``. They now recognize CVE values
-  which have Unicode dashes in them.
-  (`#2644 <https://github.com/vertexproject/synapse/pull/2644>`_)
 - Update schema validation for Storm packages to ensure that cmd arguments do
   not have excess fields in them.
   (`#2650 <https://github.com/vertexproject/synapse/pull/2650>`_)
@@ -66,7 +67,7 @@ Bugfixes
   valu instead of the raw value.
   (`#2643 <https://github.com/vertexproject/synapse/pull/2643>`_)
 - Raise a ``NotReady`` exception when a client attempts to resolve an
-  ``aha://`` URL and there have no been any ``aha`` services registered.
+  ``aha://`` URL and there have not been any ``aha`` servers registered.
   (`#2645 <https://github.com/vertexproject/synapse/pull/2645>`_)
 
 Improved Documentation
