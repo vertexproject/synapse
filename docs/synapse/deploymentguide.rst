@@ -17,39 +17,14 @@ This guide will also walk you through deploying all Synapse services using TLS t
 servers and clients using client-certificates to minimize the need for secrets management by eliminating
 passwords from all telepath URLs.
 
-Deployment FAQ
---------------
-
-Conventions
-===========
-
-* Docker-Compose
-
 For the purposes of this guide, we will use ``docker-compose`` as a light-weight orchestration mechanism.
 The steps, configurations, and volume mapping guidance given in this guide apply equally to other container
 orchestration mechanisms such as ``Kubernetes`` but for simplicity's sake, this guide will only cover
 ``docker-compose`` based deployments.
 
-* Container Users
 
-In order to run the ``Synapse`` service containers as a non-root user, you will need to add a user
-to the host system.  For this guide, we will use the linux user name ``synuser``. This user name can be replaced
-by whatever user name or numeric ID is appropriate for your deployment. We recommend that you do *not* use the
-linux user ``nobody`` for this purpose.
-
-* Host Filesystem
-
-We will use the directory ``/srv/synapse/`` on the *host* systems as the base directory used to deploy
-the ``Synapse`` services. Each service will be deployed in separate ``/srv/synapse/<svcname>`` directories.
-
-This directory can be changed to whatever you would like, and the services
-may be deployed to any host provided that the hosts can directly connect to eachother.
-
-* AHA Network Name / CA Name
-
-Throughout the examples, we will be using ``loop.vertex.link`` as the ``AHA`` network name which is also
-used by default as the common-name (CN) for the CA certificate. This should be changed to an appropriate
-network name used by your synapse deployment such as ``syn.acmecorp.com``.
+Deployment FAQ
+--------------
 
 Preparation
 ===========
@@ -57,8 +32,13 @@ Preparation
 Sizing Hosts
 ------------
 
-Paving Hosts
-------------
+Preparing Hosts
+---------------
+
+In order to run the Synapse service containers as a non-root user, you will need to add a user
+to the host system.  For this guide, we will use the linux user name ``synuser``. This user name can be replaced
+by whatever user name or numeric ID is appropriate for your deployment. We recommend that you do *not* use the
+linux user ``nobody`` for this purpose.
 
 Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend
 adding the folling lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
@@ -66,21 +46,29 @@ adding the folling lines to ``/etc/sysctl.conf`` on all systems being used to ho
     vm.dirty_expire_centisecs=20
     vm.dirty_writeback_centisecs=20
 
-You'll need to reboot for them to take effect.
+For additional detail on kernel tuning parameters, see _KernelTuningDocs
+
+We will use the directory ``/srv/synapse/`` on the host systems as the base directory used to deploy
+the ``Synapse`` services. Each service will be deployed in separate ``/srv/synapse/<svcname>`` directories.
+
+This directory can be changed to whatever you would like, and the services may be deployed to any host
+provided that the hosts can directly connect to eachother.
+
 
 TODO
 * Ensure an updated / functional docker install
-* Add the user used to run the containers
 * Tune kernel parameters for database performance
 * Add log aggregation agent
 
 Decide on a Name
-################
+================
 
-This is arguably the most difficult step ;)
+Throughout the examples, we will be using ``loop.vertex.link`` as the ``AHA`` network name which is also
+used by default as the common-name (CN) for the CA certificate. This should be changed to an appropriate
+network name used by your synapse deployment such as ``syn.acmecorp.com``.
 
 Deploy AHA Service
-##################
+==================
 
 The AHA service is used for service discovery and can be used as a CA to issue host/user certificates
 used to link Synapse services. Other Synapse services will need to be able to resolve the IP address
@@ -129,7 +117,7 @@ directory on the *host*. This will be necessary for some of the additional provi
     docker-compose exec aha /bin/bash
 
 Deploy Axon Service
-###################
+===================
 
 In the ``Synapse`` service archtecture, an ``Axon`` provides a place to store arbitrary bytes/files as binary
 blobs and exposes APIs for streaming files in and out regardless of their size.  Given sufficient filesystem
@@ -174,8 +162,8 @@ Start the container::
     docker-compose --file /srv/synapse/axon/docker-compose.yaml pull
     docker-compose --file /srv/synapse/axon/docker-compose.yaml up -d
 
-Deploy JSONStor Service (optional)
-##################################
+Deploy JSONStor Service
+=======================
 
 Inside the AHA container
 ------------------------
@@ -189,7 +177,7 @@ You should see output that looks similar to this::
 On the Host
 -----------
 
-Create the container directory on the *host*::
+Create the container directory::
     mkdir -p /srv/synapse/00.jsonstor/storage
     chown -R synuser /srv/synapse/00.jsonstor/storage
 
@@ -213,7 +201,7 @@ Start the container::
     docker-compose --file /srv/synapse/00.jsonstor/docker-compose.yaml up -d
 
 Deploy Cortex Service
-#####################
+=====================
 
 Inside the AHA container
 ------------------------
@@ -256,7 +244,7 @@ NOTE: Remember, you can view the container logs in realtime using::
     docker-compose --file /srv/synapse/00.cortex/docker-compose.yaml logs -f
 
 Deploy Cortex Mirror (optional)
-###############################
+===============================
 
 To deploy a Cortex mirror, we must start with a backup snapshot of an existing Cortex that has already
 been initialized. For instructions on generating a backup, see the docs _here.

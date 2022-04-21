@@ -410,7 +410,7 @@ class AhaTest(s_test.SynTest):
             with self.getTestCertDir(certdirn):
 
                 conf = {
-                    'aha:name': 'aha.do.vertex.link',
+                    'aha:name': 'aha',
                     'aha:admin': 'root@do.vertex.link',
                     'aha:network': 'do.vertex.link',
                 }
