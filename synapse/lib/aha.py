@@ -27,7 +27,7 @@ class AhaApi(s_cell.CellApi):
 
     async def getAhaSvc(self, name):
         '''
-        Return an AHA service description dictionary for a fully qualified service name.
+        Return an AHA service description dictionary for a service name.
         '''
         svcinfo = await self.cell.getAhaSvc(name)
         if svcinfo is None:
@@ -35,6 +35,14 @@ class AhaApi(s_cell.CellApi):
 
         svcnetw = svcinfo.get('svcnetw')
         await self._reqUserAllowed(('aha', 'service', 'get', svcnetw))
+
+        svcinfo = s_msgpack.deepcopy(svcinfo)
+
+        # suggest that the user of the remove service is the same
+        username = self.user.name.split('@')[0]
+
+        svcinfo['svcinfo']['urlinfo']['user'] = username
+
         return svcinfo
 
     async def getAhaSvcs(self, network=None):
@@ -353,6 +361,15 @@ class AhaCell(s_cell.Cell):
         logger.debug(f'Set [{svcfull}] offline.')
 
     async def getAhaSvc(self, name):
+
+        if name.endswith('...'):
+            ahanetw = self.conf.get('aha:network')
+            if ahanetw is None:
+                mesg = f'Relative service name ({name}) can not be resolved without aha:network set.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            name = f'{name[:-2]}{ahanetw}'
+
         path = ('aha', 'svcfull', name)
         svcinfo = await self.jsonstor.getPathObj(path)
         if svcinfo is not None:

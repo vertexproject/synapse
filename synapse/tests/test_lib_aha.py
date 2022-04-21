@@ -483,3 +483,7 @@ class AhaTest(s_test.SynTest):
                     self.eq('loop.vertex.link', yamlconf.get('aha:network'))
                     self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
+
+                    # test user and relative service name resolution
+                    # async with await s_telepath.openurl('aha://00.axon...') as woot:
+                        # await woot.getCellIden()

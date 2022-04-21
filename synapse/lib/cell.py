@@ -1086,31 +1086,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
-    async def _getTeleUrl(self, url):
-
-        if isinstance(url, (tuple, list)):
-            return tuple((await self._getTeleUrl(u) for u in url))
-
-        # insert our aha:user into any aha:// URL without a user specififed
-        if not url.startswith('aha://'):
-            return url
-
-        user = self.conf.get('aha:user')
-        netw = self.conf.get('aha:network')
-
-        info = s_telepath.chopurl(url)
-        if info.get('user') is None and user is not None:
-            info['user'] = user
-
-        host = info.get('host')
-        if host.endswith('...'):
-            if netw is None:
-                raise s_exc.Bad(mesg=mesg)
-
-            info['host'] = f'{host[:-3]}.{netw}'
-
-        return s_telepath.zipurl(info)
-
     async def _initAhaRegistry(self):
 
         self.ahainfo = None
@@ -1347,8 +1322,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         if graceful:
 
-            mirurl = await self._getTeleUrl(mirurl)
-
             ahaname = self.conf.get('aha:name')
             if ahaname is None:
                 mesg = 'Cannot gracefully promote without aha:name.'
@@ -1368,7 +1341,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
-        turl = await self._getTeleUrl(turl)
         async with await s_telepath.openurl(turl) as cell:
 
             if self.iden != await cell.getCellIden():

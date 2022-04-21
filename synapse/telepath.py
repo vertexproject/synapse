@@ -106,12 +106,19 @@ def zipurl(info):
 
 def mergeAhaInfo(info0, info1):
 
+    # info0 - local urlinfo
+    # info1 - urlinfo provided by aha
+
     # copy both to prevent mutation
     info0 = dict(info0)
     info1 = dict(info1)
 
     # local path wins
     info1.pop('path', None)
+
+    # local user wins if specified
+    if info0.get('user') is not None:
+        info1.pop('user', None)
 
     # upstream wins everything else
     info0.update(info1)
@@ -224,22 +231,21 @@ async def loadTeleCell(dirn):
 
     certpath = s_common.genpath(dirn, 'certs')
     confpath = s_common.genpath(dirn, 'cell.yaml')
-    statepath = s_common.genpath(dirn, 'state.yaml')
 
     ahaurl = None
     if os.path.isfile(confpath):
         conf = s_common.yamlload(confpath)
         ahaurl = conf.get('aha:registry')
 
-    if os.path.isfile(statepath):
-        conf = s_common.yamlload(statepath)
-        ahaurl = conf.get('aha:registry', ahaurl)
+        aha_user = conf.get('aha:user')
+        aha_network = conf.get('aha:network')
 
     s_certdir.addCertPath(certpath)
     if ahaurl:
         await addAhaUrl(ahaurl)
 
     async def fini():
+
         s_certdir.delCertPath(certpath)
         if ahaurl:
             await delAhaUrl(ahaurl)
