@@ -110,6 +110,7 @@ unicode_dashes = (
     '\u2013',  # endash
     '\u2014',  # emdash
 )
+unicode_dashes_replace = tuple([(char, '-') for char in unicode_dashes])
 
 def replaceUnicodeDashes(valu):
     '''
