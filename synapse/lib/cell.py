@@ -1296,7 +1296,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def trimNexsLog(self, consumers=None, timeout=30):
 
-        if not self.donexslog:
+        if not self.conf.get('nexslog:en'):
             mesg = 'trimNexsLog requires nexslog:en=True'
             raise s_exc.BadConfValu(mesg=mesg)
 
