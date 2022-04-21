@@ -49,7 +49,7 @@ adding the folling lines to ``/etc/sysctl.conf`` on all systems being used to ho
 For additional detail on kernel tuning parameters, see _KernelTuningDocs
 
 We will use the directory ``/srv/synapse/`` on the host systems as the base directory used to deploy
-the ``Synapse`` services. Each service will be deployed in separate ``/srv/synapse/<svcname>`` directories.
+the Synapse services. Each service will be deployed in separate ``/srv/synapse/<svcname>`` directories.
 
 This directory can be changed to whatever you would like, and the services may be deployed to any host
 provided that the hosts can directly connect to eachother.
@@ -63,7 +63,7 @@ TODO
 Decide on a Name
 ================
 
-Throughout the examples, we will be using ``loop.vertex.link`` as the ``AHA`` network name which is also
+Throughout the examples, we will be using ``loop.vertex.link`` as the AHA network name which is also
 used by default as the common-name (CN) for the CA certificate. This should be changed to an appropriate
 network name used by your synapse deployment such as ``syn.acmecorp.com``.
 
@@ -79,6 +79,7 @@ have been created to resolve the FQDN to an IPv4 / IPv6 address of the host runn
 
 Create the container directory::
     mkdir -p /srv/synapse/aha/storage
+    chown -R synuser /srv/synapse/aha/storage
 
 Create the ``/srv/synapse/aha/docker-compose.yaml`` file with contents::
     version: "3.3"
@@ -100,7 +101,6 @@ Create the ``/srv/synapse/aha/storage/cell.yaml`` file with contents::
 NOTE: Don't forget to replace ``loop.vertex.link`` with your chosen network name!
 
 Change ownership of the storage directory to the user you will use to run the container::
-    chown -R synuser /srv/synapse/aha/storage
 
 Start the container using ``docker-compose`` on the *host* from the ``/srv/synapse/aha`` directory::
     docker-compose pull
@@ -156,7 +156,7 @@ Create the ``/srv/synapse/00.axon/docker-compose.yaml`` file with contents::
         environment:
             - SYN_AXON_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
 
-NOTE: Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key.
+Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key!
 
 Start the container::
     docker-compose --file /srv/synapse/axon/docker-compose.yaml pull
@@ -194,7 +194,7 @@ Create the ``/srv/synapse/00.jsonstor/docker-compose.yaml`` file with contents::
         environment:
             - SYN_JSONSTOR_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
 
-NOTE: Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key.
+Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key!
 
 Start the container::
     docker-compose --file /srv/synapse/00.jsonstor/docker-compose.yaml pull
@@ -286,17 +286,6 @@ NOTE: If you are deploying a mirror from an existing large Cortex, this startup 
 to complete initialization.
 
 What's next?
-############
+============
 
 See the _devops documentation for instructions on performing various maintenance tasks on your deployment!
-
-Running a Backup
-================
-
-Switching to Structured Logging
-===============================
-
-Updating Services
-=================
-
-* Check the service documentation changelogs 
