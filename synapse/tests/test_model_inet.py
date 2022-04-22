@@ -1475,6 +1475,20 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
+            # these two are not allowed by the rfc, but are easy enough to handle
+            url = 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
+            expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
+                'proto': 'file',
+                'path': 'c:/invisig0th/code/synapse/',
+                'user': 'foo@bar.com',
+                'passwd': 'password',
+                'ipv4': 27400963,
+                'port': 12345,
+                'params': '',
+                'base': 'file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
+            }})
+            self.eq(t.norm(url), expected)
+
             # https://datatracker.ietf.org/doc/html/rfc8089#appendix-E.2
             url = 'file://visi@vertex.link:password@somehost.vertex.link:9876/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
