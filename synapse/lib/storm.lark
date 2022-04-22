@@ -47,14 +47,15 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: EXPRPLUS [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-!editpropset: relprop ("=" | _MODSET | _TRYSET) _valu
+!editpropset: relprop ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
 editpropdel: "-" relprop
-!editunivset: univprop ("=" | _MODSET | _TRYSET) _valu
-!editnodeadd: formname ("=" | _MODSET | _TRYSET) _valu
-!edittagpropset: "+" tagprop ("=" | _MODSET | _TRYSET) _valu
+!editunivset: univprop ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
+!editnodeadd: formname ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
+!edittagpropset: "+" tagprop ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
 edittagpropdel: "-" tagprop
 _MODSET.4: "+=" | "-="
-_TRYSET: "?=" | "?+=" | "?-="
+_TRYSET: "?+=" | "?-="
+_TRYEQ.2: "?="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
@@ -92,7 +93,7 @@ baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE: "*"
-CASEBARE: /(?<=[\s{])(?![\*+-{])([^:\s"']+)(?=[\s]*:)/
+CASEBARE: /(?<=[\s{])(?![\*+-{\(])([^:\s"']+)(?=[\s]*:)/
 
 yieldvalu: YIELD _argvalu
 
@@ -114,7 +115,7 @@ _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | fo
 formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | _tagmatch)
 formpivot_jointags: _RIGHTJOIN (ALLTAGS | _tagmatch)
 // The special symbol that indicates to pivot to syn:tag nodes
-ALLTAGS: "#"
+ALLTAGS.2: /#(?=\/[\/\*]|\s|$)/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
 formpivot_:            _RIGHTPIVOT ABSPROP
@@ -133,8 +134,8 @@ operrelprop: relprop _RIGHTPIVOT ("*" | ABSPROP) -> operrelprop_pivot
 
 rawpivot: _RIGHTPIVOT "{" query "}"
 
-_RIGHTJOIN:  "-+>"
-_LEFTJOIN:   "<+-"
+_RIGHTJOIN.4:  "-+>"
+_LEFTJOIN.4:   "<+-"
 _RIGHTPIVOT.4: "->"
 _LEFTPIVOT.4:  "<-"
 
@@ -149,8 +150,8 @@ _wildprops: WILDCARD | PROPS | valulist | _varvalu
 n1walk: _EDGEN1INIT _valu _EDGEN1FINI _wildprops [ _cmpr _valu ]
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
-_WALKNPIVON1: "-->"
-_WALKNPIVON2: "<--"
+_WALKNPIVON1.4: "-->"
+_WALKNPIVON2.4: "<--"
 
 n1walknpivo: _WALKNPIVON1 "*"
 n2walknpivo: _WALKNPIVON2 "*"
@@ -169,7 +170,7 @@ edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
 
 liftformtag: (PROPS | UNIVNAME) tagname [_cmpr _valu]
-_DEREF:  "*"
+_DEREF.2:  /\*(?=\$)/
 liftpropby: ((PROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
 liftprop: ((PROPS | UNIVNAME) | _DEREF _varvalu)
 liftbyarray: ((PROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
@@ -213,7 +214,8 @@ _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
 // A tag name with asterisks or $var as segment after the first segment
-TAGMATCH:  _TAGSEGSTARNOVAR ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
+TAGMATCH:  _TAGSEGSTARNOVARSTRT ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
+_TAGSEGSTARNOVARSTRT: /(?<=#)\w*\*+\w*/
 _TAGSEGSTARNOVAR: /\w*\*+\w*/
 
 // A regular tag potentially with $var as any number of segments after the first
@@ -221,11 +223,11 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-!_cmpr: _by_cmpr | ("@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=")
-_by_cmpr: "*" BYNAME
-BYNAME: /[^=\s]+=/
+!_cmpr: BYNAME | "@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=" | _TRYEQ
+BYNAME: /\*[^=\s]+=/
+BYNAMEARRAY: /[^=\s]+=/
 
-!_safe_cmpr: BYNAME | ("@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=")
+!_safe_cmpr: BYNAMEARRAY | "@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=" | _TRYEQ
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
     | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | VARTOKN | dollarexpr
@@ -312,7 +314,7 @@ tagcond: (_tagmatch | "#" TAG)
 
 condsubq: "{" query "}" [ _cmpr _valu]
 arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
-_ARRAYCONDSTART: "*["
+_ARRAYCONDSTART.2: "*["
 
 // Filter boolean conditions
 _condexpr: _cond | orexpr | andexpr
@@ -327,7 +329,7 @@ SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 // A full property.  Must contain at least 1 colon
 PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*/
 // A universal property
-UNIVNAME.2: /(?<=^|[\s\|\{\(+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
+UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 ABSPROP: PROPS | UNIVNAME
