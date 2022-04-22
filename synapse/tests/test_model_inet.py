@@ -1475,7 +1475,7 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
-            # these two are not allowed by the rfc, but are easy enough to handle
+            # not allowed by the rfc, but conveniently falls out
             url = 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
             expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
                 'proto': 'file',
