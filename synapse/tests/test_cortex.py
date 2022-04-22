@@ -233,15 +233,17 @@ class CortexTest(s_t_utils.SynTest):
                 layr00iden = layr00.get('iden')
                 view00 = await core00.addView({'layers': (layr00iden,)})
                 view00iden = view00.get('iden')
+                view00opts = {'view': view00iden}
 
                 layr00url = core00.getLocalUrl(share=f'*/view/{view00iden}')
 
                 layr01 = await core01.addLayer({'mirror': layr00url})
                 layr01iden = layr01.get('iden')
                 view01 = await core01.addView({'layers': (layr01iden,)})
+                view01opts = {'view': view01.get('iden')}
 
-                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
-                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts=view01opts))
+                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
 
                 info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
                 self.false(info00.get('mirror'))
@@ -251,6 +253,12 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['local']['size'])
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
+
+                await core00.nodes('trigger.add node:del --form inet:fqdn --query {[test:str=foo]}', opts=view00opts)
+
+                await core01.nodes('inet:fqdn=vertex.link | delnode', opts=view01opts)
+                self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
+                self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 
                 layr = core01.getLayer(layr01iden)
                 await layr.storNodeEdits((), {})
@@ -4109,6 +4117,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodelist0 = []
             nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
             nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+            nodelist0.extend(await core0.nodes('[ test:int=42 ]'))
+            await core0.nodes('test:int=42 | delnode')
 
             with self.raises(s_exc.NoSuchLayer):
                 async for _, nodeedits in prox0.syncLayerNodeEdits(0, layriden='asdf', wait=False):
@@ -4122,6 +4132,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             async for _, nodeedits in prox0.syncLayerNodeEdits(0, wait=False):
                 editlist.append(nodeedits)
 
+            deledit = editlist.pop(len(editlist) - 1)
+
             async with self.getTestCoreAndProxy() as (core1, prox1):
 
                 await prox1.addFeedData('syn.nodeedits', editlist)
@@ -4129,10 +4141,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodelist1 = []
                 nodelist1.extend(await core1.nodes('test:str'))
                 nodelist1.extend(await core1.nodes('inet:ipv4'))
+                nodelist1.extend(await core1.nodes('test:int'))
 
                 nodelist0 = [node.pack() for node in nodelist0]
                 nodelist1 = [node.pack() for node in nodelist1]
                 self.eq(nodelist0, nodelist1)
+
+                await core1.nodes('trigger.add node:del --form test:int --query {[test:int=7]}')
+
+                self.len(1, await core1.nodes('test:int=42'))
+
+                await prox1.addFeedData('syn.nodeedits', [deledit])
+
+                self.len(0, await core1.nodes('test:int=42'))
+                self.len(1, await core1.nodes('test:int=7'))
 
                 # Try a nodeedits we might get from cmdr
                 cmdrnodeedits = s_common.jsonsafe_nodeedits(editlist[1])

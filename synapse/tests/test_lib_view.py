@@ -394,3 +394,21 @@ class ViewTest(s_t_utils.SynTest):
             ''', opts={'vars': {'viewiden': view}})
 
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
+
+            # test node:del triggers
+            await core.nodes('trigger.add node:del --form ou:org --query {[test:str=foo]}', opts={'view': view})
+
+            nextoffs = await core.getView(iden=view).layers[0].getEditIndx()
+
+            await core.nodes('ou:org | delnode')
+
+            await core.stormlist('''
+                $view = $lib.view.get($viewiden)
+                for ($offs, $edits) in $lib.layer.get().edits(offs=$offs, wait=$lib.false) {
+                    $view.addNodeEdits($edits)
+                }
+            ''', opts={'vars': {'viewiden': view, 'offs': nextoffs}})
+
+            self.len(0, await core.nodes('ou:org +#foo', opts={'view': view}))
+
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
