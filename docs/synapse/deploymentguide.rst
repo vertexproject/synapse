@@ -22,7 +22,6 @@ The steps, configurations, and volume mapping guidance given in this guide apply
 orchestration mechanisms such as Kubernetes but for simplicity's sake, this guide will only cover
 docker-compose_ based deployments.
 
-
 Preparation
 ===========
 
@@ -94,7 +93,9 @@ Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
     dmon:listen: ssl://0.0.0.0:27492?hostname=aha.loop.vertex.link&ca=loop.vertex.link
     provision:listen: tcp://0.0.0.0:27272/
 
-NOTE: Don't forget to replace ``loop.vertex.link`` with your chosen network name!
+.. note::
+
+    Don't forget to replace ``loop.vertex.link`` with your chosen network name!
 
 Change ownership of the storage directory to the user you will use to run the container::
 
@@ -156,7 +157,9 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
         environment:
             - SYN_AXON_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
 
-Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key!
+.. note::
+
+    Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key!
 
 Start the container::
 
@@ -199,7 +202,9 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
         environment:
             - SYN_JSONSTOR_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
 
-Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key!
+.. note::
+
+    Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key!
 
 Start the container::
 
@@ -223,7 +228,7 @@ Generate a one-time use provisioning key::
 
 You should see output that looks similar to this::
 
-    one-time use provisioning key: 8c5eeeafdc569b5a0642ee451205efae
+    one-time use provisioning key: 25428f3098123c924314e3a3ca5d9003
 
 On the Host
 -----------
@@ -245,14 +250,18 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
         volumes:
         - ./storage:/vertex/storage
         environment:
-            - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
+            - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/25428f3098123c924314e3a3ca5d9003
+
+.. note::
+
+    Don't forget to replace ``25428f3098123c924314e3a3ca5d9003`` with your one-time use provisioning key!
 
 Start the container::
 
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml pull
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml up -d
 
-NOTE: Remember, you can view the container logs in real-time using::
+Remember, you can view the container logs in real-time using::
 
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml logs -f
 
@@ -271,7 +280,7 @@ Generate a one-time use API key for provisioning from *inside the AHA container*
 
 You should see output that looks similar to this::
 
-    one-time use provisioning key: 4f655032bc87b012955922724c4f7ae5
+    one-time use provisioning key: 5083081b157cf41ec45d4148d18b3170
 
 On the Host
 -----------
@@ -289,24 +298,30 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
         user: synuser
         image: vertexproject/synapse-cortex:v2.x.x
         environment:
-            - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/4f655032bc87b012955922724c4f7ae5
+            - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/5083081b157cf41ec45d4148d18b3170
         network_mode: host
         restart: unless-stopped
         volumes:
         - ./storage:/vertex/storage
+
+.. note::
+
+    Don't forget to replace ``5083081b157cf41ec45d4148d18b3170`` with your one-time use provisioning key!
 
 Start the container::
 
     docker-compose --file /srv/syn/01.cortex/docker-compose.yaml pull
     docker-compose --file /srv/syn/01.cortex/docker-compose.yaml up -d
 
-NOTE: If you are deploying a mirror from an existing large Cortex, this startup may take a while
-to complete initialization.
+.. note::
+
+    If you are deploying a mirror from an existing large Cortex, this startup may take a while to complete
+    initialization.
 
 What's next?
 ============
 
-See the devops_ documentation for instructions on performing various maintenance tasks on your deployment!
+See the :ref:`devopsguide` for instructions on performing various maintenance tasks on your deployment!
 
 .. _docker: https://docs.docker.com/engine/install/
 .. _docker-compose: https://docs.docker.com/compose/install/
