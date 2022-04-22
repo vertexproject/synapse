@@ -3002,7 +3002,7 @@ class List(Value):
         return 'List: %s' % self.kids
 
     async def compute(self, runt, path):
-        return [await k.compute(runt, path) for k in self.kids]
+        return [str(k.valu) if isinstance(k, Const) else await k.compute(runt, path) for k in self.kids]
 
 class PropName(Value):
 
@@ -3515,10 +3515,10 @@ class EditTagAdd(Edit):
         if runt.readonly:
             raise s_exc.IsReadOnly()
 
-        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
-            oper_offset = 1
+        if len(self.kids) > 2 and isinstance(self.kids[1], Const) and (await self.kids[1].compute(runt, None)) == '?':
+            oper_offset = 2
         else:
-            oper_offset = 0
+            oper_offset = 1
 
         excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
 

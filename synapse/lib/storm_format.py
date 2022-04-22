@@ -110,7 +110,7 @@ class StormLexer(pygments.lexer.Lexer):
         tree = self.parser.parse(text, start='query')
         for ltoken in self._yield_tree(tree):
             typ = TerminalPygMap[ltoken.type]
-            yield ltoken.pos_in_stream, typ, ltoken.value
+            yield ltoken.start_pos, typ, ltoken.value
 
 def highlight_storm(parser, text):  # pragma: no cover
     '''

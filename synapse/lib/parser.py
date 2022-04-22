@@ -427,7 +427,7 @@ class Parser:
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
             expected = sorted(terminalEnglishMap[t] for t in e.allowed)
             mesg += f'.  Expecting one of: {", ".join(expected)}'
-            at = e.pos_in_stream
+            at = e.start_pos
             line = e.line
             column = e.column
         elif isinstance(e, lark.exceptions.UnexpectedEOF):
@@ -606,7 +606,7 @@ ruleClassMap = {
     'orexpr': s_ast.OrCond,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
-    'relprop': s_ast.RelProp,
+    'relprop': lambda kids: s_ast.RelProp([s_ast.Const(k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
     'relpropvalu': s_ast.RelPropValue,
     'relpropvalue': s_ast.RelPropValue,
@@ -625,6 +625,7 @@ ruleClassMap = {
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp,
     'univpropvalu': s_ast.UnivPropValue,
+    'wordtokn': lambda kids: s_ast.Const(''.join([str(k.valu) for k in kids]))
 }
 
 def unescape(valu):

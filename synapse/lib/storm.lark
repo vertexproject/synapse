@@ -44,7 +44,7 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: "+" [SETTAGOPER] tagname ["=" _valu]
+edittagadd: EXPRPLUS [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
 !editpropset: relprop ("=" | "+=" | "-=" | _TRYSET) _valu
@@ -63,17 +63,17 @@ _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | fo
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
-BREAK: "break"
-CONTINUE: "continue"
+BREAK.4: "break"
+CONTINUE.4: "continue"
 
 catchblock: "catch" _valu "as" VARTOKN "{" query "}"
 trycatch: "try" "{" query "}" catchblock*
 
-_STOP.2: "stop"
+_STOP.4: "stop"
 stop: _STOP
-_RETURN.3: "return"
+_RETURN.4: "return"
 return: _RETURN "("[ _valu ] ")"
-_EMIT: "emit"
+_EMIT.4: "emit"
 emit: _EMIT _valu
 
 // A bare variable reference, useful for a function call
@@ -91,7 +91,7 @@ baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE: "*"
-CASEBARE: /(?![\*+])([^:\s"']+)(?=[\s]*:)/
+CASEBARE: /(?![\*+-])([^:\s"']+)(?=[\s]*:)/
 
 yieldvalu: YIELD _argvalu
 
@@ -134,8 +134,8 @@ rawpivot: _RIGHTPIVOT "{" query "}"
 
 _RIGHTJOIN:  "-+>"
 _LEFTJOIN:   "<+-"
-_RIGHTPIVOT: "->"
-_LEFTPIVOT:  "<-"
+_RIGHTPIVOT.4: "->"
+_LEFTPIVOT.4:  "<-"
 
 _liftprop: liftformtag | liftpropby | liftprop | liftbyarray
             | liftbytagprop | liftbyformtagprop
@@ -154,11 +154,11 @@ _WALKNPIVON2: "<--"
 n1walknpivo: _WALKNPIVON1 "*"
 n2walknpivo: _WALKNPIVON2 "*"
 
-_EDGEN1INIT: "-("
-_EDGEADDN1INIT: "+("
+_EDGEN1INIT.4: "-("
+_EDGEADDN1INIT.4: "+("
 _EDGEN1FINI: ")>"
 
-_EDGEN2INIT: "<("
+_EDGEN2INIT.4: "<("
 _EDGEADDN2FINI: ")+"
 _EDGEN2FINI: ")-"
 
@@ -177,8 +177,8 @@ liftbytag: tagname [_cmpr _valu]
 liftbytagprop: tagprop [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: "#" (_varvalu | TAG)
-tagprop: "#" TAG _COLONNOPAR BASEPROP
-formtagprop: (PROPS | UNIVNAME) "#" TAG _COLONNOPAR BASEPROP
+tagprop: "#" TAG ":" BASEPROP
+formtagprop: (PROPS | UNIVNAME) "#" TAG ":" BASEPROP
 
 _funcarg: (VARTOKN | kwarg)
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
@@ -190,19 +190,20 @@ stormcmdargs: _stormcmdarg+
 _stormcmdarg: CMDOPT "=" (argvquery | _argvalu | _wordarg)
     | _cmdoptarg | argvquery | _argvalu | _wordarg
 
-_wordarg: (WORDTOKN _stormcmdarg) | WORDLAST
+_wordarg: (wordtokn _stormcmdarg) | WORDLAST | BARECMDNAME
 _cmdoptarg: (CMDOPT _stormcmdarg) | CMDOPTLAST
 
 // The name of a storm command
 CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s])(?![\s]*($|[\|\}]))\b/
-BARECMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s]*($|[\|\}]))\b/
+BARECMDNAME.3: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s]*($|[\|\}]))\b/
 
-CMDOPT: /-[a-zA-Z0-9_-]+/
-CMDOPTLAST: /-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
+CMDOPT.4: /-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
+CMDOPTLAST.4: /-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
 
 // An unquoted string within a storm command argument list
-WORDTOKN: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/
-WORDLAST.2: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
+//WORDTOKN: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/ | NUMBER | NONQUOTEWORD
+wordtokn: wordtokn /(?<!\s),(?!\s)/ (NUMBER | NONQUOTEWORD) | NUMBER | NONQUOTEWORD
+WORDLAST.3: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _cmdrargv ("="? _cmdrargv)*
@@ -243,7 +244,7 @@ exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
-_listvalu: _basevalu | LISTTOKN | PROPS | NUMBER
+_listvalu: _basevalu | NONQUOTEWORD | PROPS | NUMBER
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
@@ -252,7 +253,7 @@ valulist: "(" [_listvalu ((",")|("," _listvalu)+ ","?)] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 
-relpropvalu: _COLONNOPAR (BASEPROP | _varvalu)
+relpropvalu: ":" (BASEPROP | _varvalu)
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
@@ -261,12 +262,12 @@ _EMBEDQUERYSTART: "${"
 NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?!([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*=)/
 
 // An unquoted string within a list syntax
-LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
+// LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
 
-WHITETOKN: /[^\s|]+/
+WHITETOKN.-1: /[^\s|]+/
 
 // A value consisting of a name then 0 or more derefs and function calls
 _varvalu: "$" _varvaluatom
@@ -332,8 +333,7 @@ ABSPROP: PROPS | UNIVNAME
 ABSPROPNOUNIV: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: _COLONNOPAR (BASEPROP | _varvalu)
-_COLONNOPAR.2: /:(?!\()/
+relprop: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/ | ":$" _varvaluatom
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /\:\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]+)*/
@@ -346,11 +346,11 @@ dollarexpr: "$"? _exprcommon
 // A dollar expression with a required dollar
 reqdollarexpr: "$" _exprcommon
 _exprcommon: "(" expror ")"
-EXPRPLUS: "+"
-EXPRMINUS: "-"
+EXPRPLUS.4: "+"
+EXPRMINUS.4: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
-NUMBER.2: /-?\d+(\.\d*)?/
+NUMBER.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.])/
 HEXNUMBER.2: /-?0x[0-9a-fA-F]+/
 BOOL.2: /true|false/
 NOT: "not"
