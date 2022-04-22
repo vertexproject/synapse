@@ -268,9 +268,6 @@ Remember, you can view the container logs in real-time using::
 Deploy Cortex Mirror (optional)
 ===============================
 
-To deploy a Cortex mirror, we must start with a backup snapshot of an existing Cortex that has already
-been initialized. For instructions on generating a backup, see the docs _here.
-
 Inside the AHA container
 ------------------------
 
