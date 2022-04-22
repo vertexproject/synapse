@@ -2923,6 +2923,7 @@ class Const(Value):
     def __init__(self, valu, kids=()):
         Value.__init__(self, kids=kids)
         self.valu = valu
+        self.isconst = True
 
     def repr(self):
         return f'{self.__class__.__name__}: {self.valu}'

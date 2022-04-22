@@ -47,12 +47,13 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: EXPRPLUS [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-!editpropset: relprop ("=" | "+=" | "-=" | _TRYSET) _valu
+!editpropset: relprop ("=" | _MODSET | _TRYSET) _valu
 editpropdel: "-" relprop
-!editunivset: univprop ("=" | "+=" | "-=" | _TRYSET) _valu
-!editnodeadd: formname ("=" | "+=" | "-=" | _TRYSET) _valu
-!edittagpropset: "+" tagprop ("=" | "+=" | "-=" | _TRYSET) _valu
+!editunivset: univprop ("=" | _MODSET | _TRYSET) _valu
+!editnodeadd: formname ("=" | _MODSET | _TRYSET) _valu
+!edittagpropset: "+" tagprop ("=" | _MODSET | _TRYSET) _valu
 edittagpropdel: "-" tagprop
+_MODSET.4: "+=" | "-="
 _TRYSET: "?=" | "?+=" | "?-="
 SETTAGOPER: "?"
 
@@ -91,7 +92,7 @@ baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE: "*"
-CASEBARE: /(?![\*+-])([^:\s"']+)(?=[\s]*:)/
+CASEBARE: /(?<=[\s{])(?![\*+-{])([^:\s"']+)(?=[\s]*:)/
 
 yieldvalu: YIELD _argvalu
 
@@ -326,7 +327,7 @@ SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 // A full property.  Must contain at least 1 colon
 PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*/
 // A universal property
-UNIVNAME: /(?<=^|[\s\|\{])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
+UNIVNAME.2: /(?<=^|[\s\|\{\(+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
 ABSPROP: PROPS | UNIVNAME
@@ -350,7 +351,7 @@ EXPRPLUS.4: "+"
 EXPRMINUS.4: "-"
 EXPRTIMES: "*"
 EXPRDIVIDE: "/"
-NUMBER.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.])/
+NUMBER.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:]|([+\-*\/][0-9\.]+)+[,\w])/
 HEXNUMBER.2: /-?0x[0-9a-fA-F]+/
 BOOL.2: /true|false/
 NOT: "not"
