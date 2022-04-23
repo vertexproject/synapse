@@ -1475,21 +1475,10 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(t.norm(url), expected)
 
-            # not allowed by the rfc, but conveniently falls out
-            url = 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
-            expected = ('file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
-                'proto': 'file',
-                'path': 'c:/invisig0th/code/synapse/',
-                'user': 'foo@bar.com',
-                'passwd': 'password',
-                'ipv4': 27400963,
-                'port': 12345,
-                'params': '',
-                'base': 'file://foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/',
-            }})
-            self.eq(t.norm(url), expected)
+            # not allowed by the rfc
+            self.raises(s_exc.BadTypeValu, t.norm, 'file:foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/')
 
-            # Also an invalid URL, but doesn't cleanly fall out
+            # Also an invalid URL, but doesn't cleanly fall out, because well, it could be a valid filename
             url = 'file:/foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/'
             expected = ('file:///foo@bar.com:password@1.162.27.3:12345/c:/invisig0th/code/synapse/', {'subs': {
                 'proto': 'file',

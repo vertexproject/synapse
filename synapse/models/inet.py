@@ -839,6 +839,10 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
+        if host and local:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Host specified on local-only file URI') from None
+
         # Optional Port
         if port is not None:
             port = self.modl.type('inet:port').norm(port)[0]
