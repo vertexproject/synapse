@@ -9,7 +9,8 @@ v2.91.1 - 2022-04-24
 
 Bugfixes
 --------
-- Fix a parsing regression in inet:url nodes related to unencoded "@" symbols in URLs.
+- Fix a parsing regression in inet:url nodes related to unencoded "@" symbols
+  in URLs.
   (`#2653 <https://github.com/vertexproject/synapse/pull/2653>`_)
 
 
