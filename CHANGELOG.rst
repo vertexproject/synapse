@@ -4,6 +4,14 @@
 Synapse Changelog
 *****************
 
+v2.91.1 - 2022-04-23
+====================
+
+Bugfixes
+--------
+- Fix a parsing regression in inet:url nodes related to unencoded "@" symbols in URLs.
+  (`#2653 <https://github.com/vertexproject/synapse/pull/2653>`_)
+
 
 v2.91.0 - 2022-04-21
 ====================
