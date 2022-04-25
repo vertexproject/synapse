@@ -45,7 +45,7 @@ class ViewApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
         self.view = view
         layriden = view.layers[0].iden
-        self.allowedits = user.allowed(('node'), gateiden=layriden)
+        self.allowedits = user.allowed(('node',), gateiden=layriden)
 
     async def storNodeEdits(self, edits, meta):
 

@@ -442,8 +442,16 @@ class ViewTest(s_t_utils.SynTest):
                 return($nodeedits)
             ''')
 
-            async with core.getLocalProxy(share=f'*/view/{view}') as prox:
+            user = await core.auth.addUser('user')
+            await user.addRule((True, ('view', 'read')))
+
+            async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 self.eq(0, await prox.getEditSize())
+                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(edits, None))
+
+            await user.addRule((True, ('node',)))
+
+            async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
                 self.none(await prox.storNodeEdits(edits, None))
 
             self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
