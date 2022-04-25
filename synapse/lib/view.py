@@ -956,7 +956,7 @@ class View(s_nexus.Pusher):  # type: ignore
         user = await self.core.auth.reqUser(meta.get('user'))
         async with await self.snap(user=user) as snap:
             # go with the anti-pattern for now...
-            await snap.applyNodeEdits(edits)
+            await snap.saveNodeEdits(edits, None)
 
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)

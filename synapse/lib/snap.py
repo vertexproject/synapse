@@ -933,7 +933,17 @@ class Snap(s_base.Base):
         return nodes
 
     async def saveNodeEdits(self, edits, meta):
-        saveoff, changes, nodes = await self._applyNodeEdits(edits, meta)
+        if meta is None:
+            meta = await self.getSnapMeta()
+
+        saveoff = -1
+        changes = []
+
+        for edit in edits:
+            await self.getNodeByBuid(edit[0])
+            saveoff, changes_, _ = await self._applyNodeEdits((edit,), meta)
+            changes.extend(changes_)
+
         return saveoff, changes
 
     async def _applyNodeEdits(self, edits, meta):
