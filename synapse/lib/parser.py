@@ -360,13 +360,12 @@ class AstConverter(lark.Transformer):
         return kids
 
     def varderef(self, kids):
-        assert kids and len(kids) == 2
-        newkid = kids[1]
-        if newkid[0] == '$':
-            tokencls = terminalClassMap.get(newkid.type, s_ast.Const)
-            newkid = s_ast.VarValue(kids=[tokencls(newkid[1:])])
+        assert kids and len(kids) in (3, 4)
+        if kids[2] == '$':
+            tokencls = terminalClassMap.get(kids[3].type, s_ast.Const)
+            newkid = s_ast.VarValue(kids=[tokencls(kids[3])])
         else:
-            newkid = self._convert_child(kids[1])
+            newkid = self._convert_child(kids[2])
         return s_ast.VarDeref(kids=(kids[0], newkid))
 
     def tagname(self, kids):
@@ -526,6 +525,7 @@ terminalClassMap = {
     'ABSPROPNOUNIV': s_ast.AbsProp,
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
+    'BYNAME': lambda x: s_ast.Const(x.lstrip('*')),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's
@@ -569,6 +569,8 @@ ruleClassMap = {
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
+    'filtopermust': lambda kids: s_ast.FiltOper(kids, mustoper=True),
+    'filtopernot': lambda kids: s_ast.FiltOper(kids, mustoper=False),
     'forloop': s_ast.ForLoop,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),

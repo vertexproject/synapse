@@ -1578,7 +1578,7 @@ class PivotToTags(PivotOper):
 
         assert len(self.kids) == 1
         kid = self.kids[0]
-        assert isinstance(kid, TagMatch)
+        assert isinstance(kid, (TagMatch, Const))
 
         if kid.isconst:
 
@@ -1591,7 +1591,7 @@ class PivotToTags(PivotOper):
                 async def filter(x, path):
                     return True
 
-            elif kid.hasglob():
+            elif isinstance(kid, TagMatch) and kid.hasglob():
 
                 # glob matcher...
                 async def filter(x, path):
@@ -2259,11 +2259,11 @@ class TagCond(Cond):
 
         kid = self.kids[0]
 
-        if not isinstance(kid, TagMatch):
+        if not isinstance(kid, (TagMatch, Const)):
             # TODO:  we might hint based on variable value
             return []
 
-        if not kid.isconst or kid.hasglob():
+        if not kid.isconst or (isinstance(kid, TagMatch) and kid.hasglob()):
             return []
 
         return (
@@ -2596,17 +2596,31 @@ class TagPropCond(Cond):
 
 class FiltOper(Oper):
 
+    def __init__(self, kids=(), mustoper=None):
+        Oper.__init__(self, kids)
+        self.mustoper = mustoper
+
     async def getLiftHints(self, runt, path):
 
-        if await self.kids[0].compute(None, None) != '+':
-            return []
+        if self.mustoper is None:
+            if await self.kids[0].compute(None, None) != '+':
+                return []
 
-        return await self.kids[1].getLiftHints(runt, path)
+            return await self.kids[1].getLiftHints(runt, path)
+
+        elif self.mustoper:
+            return await self.kids[0].getLiftHints(runt, path)
+
+        return []
 
     async def run(self, runt, genr):
 
-        must = await self.kids[0].compute(None, None) == '+'
-        cond = await self.kids[1].getCondEval(runt)
+        must = self.mustoper
+        if must is None:
+            must = await self.kids[0].compute(None, None) == '+'
+            cond = await self.kids[1].getCondEval(runt)
+        else:
+            cond = await self.kids[0].getCondEval(runt)
 
         async for node, path in genr:
             answ = await cond(node, path)
@@ -3521,7 +3535,7 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 1
 
-        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu,) if oper_offset == 2 else ()
 
         hasval = len(self.kids) > 1 + oper_offset
 

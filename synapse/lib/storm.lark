@@ -93,7 +93,7 @@ baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE: "*"
-CASEBARE: /(?<=[\s{])(?![\*+-{\(])([^:\s"']+)(?=[\s]*:)/
+CASEBARE: /(?<=[\s{])(?![\$\*+{\(\-\[])([^:\s"']+)(?=[\s]*:[\s]*\{)/
 
 yieldvalu: YIELD _argvalu
 
@@ -115,7 +115,7 @@ _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | fo
 formpivot_pivottotags: _RIGHTPIVOT (ALLTAGS | _tagmatch)
 formpivot_jointags: _RIGHTJOIN (ALLTAGS | _tagmatch)
 // The special symbol that indicates to pivot to syn:tag nodes
-ALLTAGS.2: /#(?=\/[\/\*]|\s|$)/
+ALLTAGS.2: /#(?=\/[\/\*]|\s|$|\})/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
 formpivot_:            _RIGHTPIVOT ABSPROP
@@ -147,8 +147,11 @@ WILDCARD: "*"
 // A wild card, full prop, list, or $varvalu
 _wildprops: WILDCARD | PROPS | valulist | _varvalu
 
-n1walk: _EDGEN1INIT _valu _EDGEN1FINI _wildprops [ _cmpr _valu ]
+n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | embedquery | baresubquery | NONQUOTEWORD) _EDGEN1FINI _wildprops [ _cmpr _valu ]
+
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
+
+walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | PROPS) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | PROPS))+ ","?) ")") -> valulist
 
 _WALKNPIVON1.4: "-->"
 _WALKNPIVON2.4: "<--"
@@ -178,9 +181,9 @@ lifttagtag: "#" tagname [_cmpr _valu]
 liftbytag: tagname [_cmpr _valu]
 liftbytagprop: tagprop [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
-tagname: "#" (_varvalu | TAG)
-tagprop: "#" TAG ":" BASEPROP
-formtagprop: (PROPS | UNIVNAME) "#" TAG ":" BASEPROP
+tagname: _tagmatch
+tagprop: _tagmatch ":" BASEPROP
+formtagprop: (PROPS | UNIVNAME) _tagmatch ":" BASEPROP
 
 _funcarg: (VARTOKN | kwarg)
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
@@ -196,11 +199,11 @@ _wordarg: (wordtokn _stormcmdarg) | WORDLAST | BARECMDNAME
 _cmdoptarg: (CMDOPT _stormcmdarg) | CMDOPTLAST
 
 // The name of a storm command
-CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s])(?![\s]*($|[\|\}]))\b/
-BARECMDNAME.3: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s]*($|[\|\}]))\b/
+CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s])(?!([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*($|[\|\}]))\b/
+BARECMDNAME.3: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*($|[\|\}]))\b/
 
-CMDOPT.4: /-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
-CMDOPTLAST.4: /-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
+CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
+CMDOPTLAST.4: /(?<=\s)-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
 
 // An unquoted string within a storm command argument list
 //WORDTOKN: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/ | NUMBER | NONQUOTEWORD
@@ -212,9 +215,9 @@ cmdrargs: _cmdrargv ("="? _cmdrargv)*
 _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN
 
 // A tag with either a variable reference or a tag name potentially with asterisks
-_tagmatch: "#" (_varvalu | TAGMATCH)
+_tagmatch: "#" (_varvalu | TAGMATCH | TAG)
 // A tag name with asterisks or $var as segment after the first segment
-TAGMATCH:  _TAGSEGSTARNOVARSTRT ( "." (_TAGSEGSTARNOVAR | "$" VARTOKN))*
+TAGMATCH:  (_TAGSEGSTARNOVARSTRT | _TAGSEGNOVAR) ( "." (_TAGSEGSTARNOVAR | _TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGSTARNOVARSTRT: /(?<=#)\w*\*+\w*/
 _TAGSEGSTARNOVAR: /\w*\*+\w*/
 
@@ -223,14 +226,17 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-!_cmpr: BYNAME | "@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=" | _TRYEQ
-BYNAME: /\*[^=\s]+=/
-BYNAMEARRAY: /[^=\s]+=/
+!_cmpr: BYNAME | CMPR | CMPRAT | "=" | _TRYEQ
+BYNAME.2: /\*[^=\s]+=/
+BYNAMEARRAY.2: /[^=\s]+=/
 
-!_safe_cmpr: BYNAMEARRAY | "@=" | "<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=" | _TRYEQ
+!_safe_cmpr: BYNAMEARRAY | CMPR | CMPRAT | "=" | _TRYEQ
+
+CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
+CMPRAT: "@="
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | VARTOKN | dollarexpr
+    | VARTOKN | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -278,7 +284,7 @@ _varvalu: "$" _varvaluatom
 _varvaluatom: varvalue | varderef | funccall
 varvalue: VARTOKN
 VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
-varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
+!varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
 _callargs: _LPARNOSPACE [(kwarg | _valu) ("," (kwarg | _valu))*] ","? ")"
@@ -286,6 +292,8 @@ _LPARNOSPACE.2: /(?<!\s)\(/
 kwarg: VARTOKN "=" _valu
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
+    | _EDGEADDN1INIT _condexpr ")" -> filtopermust
+    | _EDGEN1INIT _condexpr ")" -> filtopernot
 
 // Condition used for filters
 // TODO:  unify cond and dollarexpr
@@ -309,12 +317,12 @@ hasabspropcond: ABSPROPNOUNIV
 tagpropcond:  tagprop _cmpr _valu
 hastagpropcond: tagprop
 
-tagvalucond:  (_tagmatch | "#" TAG) _cmpr _valu
-tagcond: (_tagmatch | "#" TAG)
+tagvalucond:  _tagmatch _cmpr _valu
+tagcond: _tagmatch
 
 condsubq: "{" query "}" [ _cmpr _valu]
 arraycond: relprop _ARRAYCONDSTART _safe_cmpr _valu "]"
-_ARRAYCONDSTART.2: "*["
+_ARRAYCONDSTART.3: "*["
 
 // Filter boolean conditions
 _condexpr: _cond | orexpr | andexpr
@@ -327,7 +335,7 @@ SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*/
+PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_])/
 // A universal property
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
@@ -336,7 +344,8 @@ ABSPROP: PROPS | UNIVNAME
 ABSPROPNOUNIV: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/ | ":$" _varvaluatom
+relprop: BASEPROP2 | ":$" _varvaluatom
+BASEPROP2: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
 RELNAME: /\:\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]+)*/
@@ -351,8 +360,8 @@ reqdollarexpr: "$" _exprcommon
 _exprcommon: "(" expror ")"
 EXPRPLUS.4: "+"
 EXPRMINUS.4: "-"
-EXPRTIMES: "*"
-EXPRDIVIDE: "/"
+EXPRTIMES.2: "*"
+EXPRDIVIDE.2: "/"
 NUMBER.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:]|([+\-*\/][0-9\.]+)+[,\w])/
 HEXNUMBER.2: /-?0x[0-9a-fA-F]+/
 BOOL.2: /true|false/
@@ -364,7 +373,7 @@ AND: "and"
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOT exprcmp
-!?exprcmp: exprsum | exprcmp ("<=" | ">=" | "<" | ">" | "=" | "!=" | "~=" | "^=") exprsum
+!?exprcmp: exprsum | exprcmp (CMPR | "=") exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
 _expratom: _exprvalu
