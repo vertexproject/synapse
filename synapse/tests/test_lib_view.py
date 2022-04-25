@@ -412,3 +412,39 @@ class ViewTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('ou:org +#foo', opts={'view': view}))
 
             self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+
+    async def test_lib_view_storNodeEdits(self):
+
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('''
+                $layr = $lib.layer.add().iden
+                $view = $lib.view.add(($layr,))
+                return($view.iden)
+            ''')
+
+            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form inet:ipv4 --query {[test:str=foo]}', opts={'view': view})
+
+            await core.nodes('[ ou:org=* ]')
+            self.len(0, await core.nodes('ou:org', opts={'view': view}))
+
+            await core.nodes('[ inet:ipv4=0 ]')
+            self.len(0, await core.nodes('inet:ipv4', opts={'view': view}))
+
+            await core.nodes('inet:ipv4=0 | delnode')
+
+            edits = await core.callStorm('''
+                $nodeedits = $lib.list()
+                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
+                    $nodeedits.extend($edits)
+                }
+                return($nodeedits)
+            ''')
+
+            async with core.getLocalProxy(share=f'*/view/{view}') as prox:
+                self.eq(0, await prox.getEditSize())
+                self.none(await prox.storNodeEdits(edits, None))
+
+            self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
