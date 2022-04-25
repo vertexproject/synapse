@@ -4,6 +4,89 @@
 Synapse Changelog
 *****************
 
+v2.91.1 - 2022-04-24
+====================
+
+Bugfixes
+--------
+- Fix a parsing regression in inet:url nodes related to unencoded "@" symbols
+  in URLs.
+  (`#2653 <https://github.com/vertexproject/synapse/pull/2653>`_)
+
+
+v2.91.0 - 2022-04-21
+====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``inet`` and ``infotech`` models.
+  (`#2634 <https://github.com/vertexproject/synapse/pull/2634>`_)
+  (`#2644 <https://github.com/vertexproject/synapse/pull/2644>`_)
+  (`#2652 <https://github.com/vertexproject/synapse/pull/2652>`_)
+
+  ``inet:url``
+    The ``inet:url`` type now recognizes various ``file:///`` values from
+    RFC 8089.
+
+  ``it:sec:cve``
+    The ``it:sec:cve`` type now replaces various Unicode dashes with hyphen
+    characters when norming. This allows a wider range of inputs to be
+    accepted for the type. Scrape related APIs have also been updated to
+    match on this wider range of inputs.
+
+- The Cell now uses ``./backup`` as a default path for storing backups in, if
+  the ``backup:dir`` path is not set.
+  (`#2648 <https://github.com/vertexproject/synapse/pull/2648>`_)
+- Add POSIX advisory locking around the Cell ``cell.guid`` file, to prevent
+  multiple processes from attempting to start a Cell from the same directory.
+  (`#2642 <https://github.com/vertexproject/synapse/pull/2642>`_)
+- Change the default ``SLAB_COMMIT_WARN`` time from 5 seconds to 1 second, in
+  order to quickly identify slow storage performance.
+  (`#2630 <https://github.com/vertexproject/synapse/pull/2630>`_)
+- Change the Cell ``iterBackupArchive`` and ``iterNewBackupArchive`` routines
+  to always log exceptions they encounter, and report the final log message
+  at the appropriate log level for success and failure.
+  (`#2629 <https://github.com/vertexproject/synapse/pull/2629>`_)
+- When normalizing the ``str`` types, when ``onespace`` is specified, we skip
+  the ``strip`` behavior since it is redundant.
+  (`#2635 <https://github.com/vertexproject/synapse/pull/2635>`_)
+- Log exceptions raised by Cell creation in ``initFromArgv``. Catch
+  ``lmdb.LockError`` when opening a LMDB database and re-raise an exception
+  with a clear error message.
+  (`#2638 <https://github.com/vertexproject/synapse/pull/2638>`_)
+- Update schema validation for Storm packages to ensure that cmd arguments do
+  not have excess fields in them.
+  (`#2650 <https://github.com/vertexproject/synapse/pull/2650>`_)
+
+Bugfixes
+--------
+- Adjust comma requirements for the JSON style list and dictionary expressions
+  in Storm.
+  (`#2636 <https://github.com/vertexproject/synapse/pull/2636>`_)
+- Add Storm query logging in a code execution path where it was missing.
+  (`#2647 <https://github.com/vertexproject/synapse/pull/2647>`_)
+- Tuplify the output of ``synapse.tools.genpkg.loadPkgProto`` to ensure that
+  Python list constructs ``[...]`` do not make it into Power-Up documentation.
+  (`#2646 <https://github.com/vertexproject/synapse/pull/2646>`_)
+- Fix an issue with heavy Stormtypes objects where caching was preventing
+  some objects from behaving in a dynamic fashion as they were intended to.
+  (`#2640 <https://github.com/vertexproject/synapse/pull/2640>`_)
+- In norming ``int`` values, when something is outside of the minimum or
+  maximum size of the type, we now include the string representation of the
+  valu instead of the raw value.
+  (`#2643 <https://github.com/vertexproject/synapse/pull/2643>`_)
+- Raise a ``NotReady`` exception when a client attempts to resolve an
+  ``aha://`` URL and there have not been any ``aha`` servers registered.
+  (`#2645 <https://github.com/vertexproject/synapse/pull/2645>`_)
+
+Improved Documentation
+----------------------
+- Update Storm command reference to add additional commands.
+  (`#2633 <https://github.com/vertexproject/synapse/pull/2633>`_)
+- Expand Stormtypes API documentation.
+  (`#2637 <https://github.com/vertexproject/synapse/pull/2637>`_)
+  (`#2639 <https://github.com/vertexproject/synapse/pull/2639>`_)
+
 
 v2.90.0 - 2022-04-04
 ====================
