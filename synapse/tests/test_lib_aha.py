@@ -442,6 +442,11 @@ class AhaTest(s_test.SynTest):
 
                 aha.conf['aha:urls'] = 'tcp://127.0.0.1:0/'
 
+                with self.raises(s_exc.NeedConfValu):
+                    await aha.addAhaSvcProv('hehe')
+
+                aha.conf['provision:listen'] = 'tcp://127.0.0.1:27272'
+
                 with self.raises(s_exc.BadArg):
                     await aha.addAhaSvcProv('hehe')
 

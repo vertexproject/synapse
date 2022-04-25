@@ -56,12 +56,13 @@ class CortexTest(s_t_utils.SynTest):
             async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
 
                 provaddr, provport = aha.provdmon.addr
+                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
 
                 ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.newp&ca=newp')
                 aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
 
-                providen = await aha.addAhaSvcProv('00.cortex')
-                coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}', 'nexslog:en': False}
+                provurl = await aha.addAhaSvcProv('00.cortex')
+                coreconf = {'aha:provision': provurl, 'nexslog:en': False}
 
                 async with self.getTestCore(conf=coreconf) as core00:
 
@@ -69,10 +70,10 @@ class CortexTest(s_t_utils.SynTest):
                         await core00.handoff(core00.getLocalUrl())
 
                     provinfo = {'mirror': '00.cortex.newp'}
-                    providen = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+                    provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
 
                     # provision with the new hostname and mirror config
-                    coreconf = {'aha:provision': f'tcp://127.0.0.1:{provport}/{providen}'}
+                    coreconf = {'aha:provision': provurl}
                     async with self.getTestCore(conf=coreconf) as core01:
 
                         await core01.nodes('[ inet:ipv4=1.2.3.4 ]')

@@ -561,7 +561,7 @@ class AhaCell(s_cell.Cell):
         provurl = self.conf.get('provision:listen')
         if provurl is None:
             mesg = 'The AHA server does not have a provision:listen URL!'
-            raise s_exc.ReqConfOpt(mesg=mesg)
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         if provinfo is None:
             provinfo = {}
