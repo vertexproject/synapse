@@ -13,10 +13,10 @@ A tool to prepare provisioning entries in the AHA server.
 Examples:
 
     # provision a new serivce named 00.axon from within the AHA container.
-    python -m synapse.tools.aha.provision 00.axon
+    python -m synapse.tools.aha.provision.service 00.axo.servicen
 
     # provision a new serivce named 01.cortex as a mirror from within the AHA container.
-    python -m synapse.tools.aha.provision 01.cortex --mirror 00.cortex
+    python -m synapse.tools.aha.provision.service 01.cortex --mirror 00.cortex
 
 '''
 
@@ -45,8 +45,8 @@ async def main(argv, outp=s_output.stdout):
             provinfo['mirror'] = opts.mirror
             provinfo['conf']['aha:user'] = opts.user
 
-            iden = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
-            outp.printf(f'one-time use provisioning key: {iden}')
+            provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
+            outp.printf(f'one-time use provisioning url: {provurl}')
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

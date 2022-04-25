@@ -104,6 +104,14 @@ def zipurl(info):
 
     return url
 
+def modurl(url, **info):
+    if isinstance(url, str):
+        urlinfo = chopurl(url)
+        for k, v in info.items():
+            urlinfo[k] = v
+        return zipurl(urlinfo)
+    return [modurl(u, **info) for u in url]
+
 def mergeAhaInfo(info0, info1):
 
     # info0 - local urlinfo
@@ -186,7 +194,12 @@ async def withTeleEnv():
 
         telefini = await loadTeleEnv(s_common.getSynPath('telepath.yaml'))
 
+        certpath = s_common.getSynPath('certs')
+        s_certdir.addCertPath(certpath)
+
         yield
+
+        s_certdir.delCertPath(certpath)
 
         if telefini:
             await telefini()
@@ -1375,6 +1388,9 @@ async def openinfo(info):
 
         path = info.get('path')
         name = info.get('name', path[1:])
+
+        if port is None:
+            port = 27942
 
         hostname = None
 

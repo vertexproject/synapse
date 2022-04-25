@@ -983,17 +983,17 @@ class CertDir:
     def saveCaCertByts(self, byts):
         cert = self._loadCertByts(byts)
         name = cert.get_subject().CN
-        self._saveCertTo(cert, 'cas', f'{name}.crt')
+        return self._saveCertTo(cert, 'cas', f'{name}.crt')
 
     def saveHostCertByts(self, byts):
         cert = self._loadCertByts(byts)
         name = cert.get_subject().CN
-        self._saveCertTo(cert, 'hosts', f'{name}.crt')
+        return self._saveCertTo(cert, 'hosts', f'{name}.crt')
 
     def saveUserCertByts(self, byts):
         cert = self._loadCertByts(byts)
         name = cert.get_subject().CN
-        self._saveCertTo(cert, 'users', f'{name}.crt')
+        return self._saveCertTo(cert, 'users', f'{name}.crt')
 
     def _checkDupFile(self, path):
         if os.path.isfile(path):

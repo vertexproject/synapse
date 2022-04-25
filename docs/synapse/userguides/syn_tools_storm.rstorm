@@ -4,8 +4,8 @@
 
 .. _syn-tools-storm:
 
-Synapse Tools - storm
-=====================
+storm
+=====
 
 The Synapse Storm tool (commonly referred to as the **Storm CLI**) is a text-based interpreter that leverages the Storm query language (see :ref:`storm-ref-intro`). The Storm CLI replaces the Synapse ``cmdr`` tool (see :ref:`syn-tools-cmdr`) as the preferred means for users to interact with a Synapse Cortex. Because the Storm CLI is a native Storm interpreter, users do not need to use the :ref:`syn-storm` command before entering and executing Storm queries or Storm commands.
 

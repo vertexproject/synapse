@@ -569,6 +569,10 @@ class CellApi(s_base.Base):
         return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
 
     @adminapi()
+    async def isRoleAllowed(self, iden, perm, gateiden=None):
+        return await self.cell.isRoleAllowed(iden, perm, gateiden=gateiden)
+
+    @adminapi()
     async def tryUserPasswd(self, name, passwd):
         return await self.cell.tryUserPasswd(name, passwd)
 
@@ -730,12 +734,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
         'cell:guid': {
-            'description': 'An optional hard-coded GUID to store as the permanent GUID for the cell.',
+            'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
             'type': 'string',
+            'hideconf': True,
+            'hidecmdl': True,
         },
         'cell:ctor': {
             'description': 'An optional python path to the Cell class.  Used by stemcell.',
             'type': 'string',
+            'hideconf': True,
+            'hidecmdl': True,
         },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
@@ -755,11 +763,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Allow the construction of the cell auth object to be hooked at runtime.',
             'type': 'string',
             'hideconf': True,
+            'hidecmdl': True,
         },
         'auth:conf': {
             'description': 'Extended configuration to be used by an alternate auth constructor.',
             'type': 'object',
             'hideconf': True,
+            'hidecmdl': True,
         },
         'nexslog:en': {
             'default': False,
@@ -770,6 +780,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'default': False,
             'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
             'type': 'boolean',
+            'hidedocs': True,
+            'hidecmdl': True,
         },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
@@ -833,6 +845,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 }
             },
             'required': ('urlinfo', ),
+            'hidedocs': True,
+            'hidecmdl': True,
         },
         'inaugural': {
             'defs': {
@@ -880,7 +894,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'additionalProperties': False,
                 }
             },
-            'description': 'Data used to drive configuration of the Cell upon first startup.',
+            'description': 'Data used to drive configuration of the service upon first startup.',
             'type': 'object',
             'properties': {
                 'roles': {
@@ -1882,6 +1896,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return False
 
         return user.allowed(perm, gateiden=gateiden)
+
+    async def isRoleAllowed(self, iden, perm, gateiden=None):
+        role = self.auth.role(iden)
+        if role is None:
+            return False
+
+        return role.allowed(perm, gateiden=gateiden)
 
     async def tryUserPasswd(self, name, passwd):
         user = await self.auth.getUserByName(name)

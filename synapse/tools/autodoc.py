@@ -528,9 +528,9 @@ async def docConfdefs(ctor, reflink=':ref:`devops-cell-config`', doc_title=None)
     if doc_title is None:
         doc_title = clsname
     rst.addHead(f'{doc_title} Configuration Options', lvl=0, link=f'.. _autodoc-{clsname.lower()}-conf:')
-    rst.addLines(f'The following are boot-time configuration options for the cell.')
+    rst.addLines(f'The following are boot-time configuration options for the service which may')
 
-    rst.addLines(f'See {reflink} for details on how to set these options.')
+    # rst.addLines(f'See {reflink} for details on how to set these options.')
 
     # access raw config data
 

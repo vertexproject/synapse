@@ -2,8 +2,8 @@
 
 .. _syn-tools-pushfile:
 
-Synapse Tools - pushfile
-========================
+pushfile
+========
 
 The Synapse ``pushfile`` command can be used to upload files to a storage Axon (see Axon in the :ref:`devopsguide`) and optionally create an associated :ref:`type-file` node in a Cortex.
 

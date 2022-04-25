@@ -706,6 +706,24 @@ class HiveRole(HiveRuler):
             info = self.authgates[gateiden] = await gate.genRoleInfo(self.iden)
         return info
 
+    def allowed(self, perm, default=None, gateiden=None):
+
+        perm = tuple(perm)
+        if gateiden is not None:
+            info = self.authgates.get(gateiden)
+            if info is not None:
+                for allow, path in info.get('rules', ()):
+                    if perm[:len(path)] == path:
+                        return allow
+            return default
+
+        # 2. check user rules
+        for allow, path in self.info.get('rules', ()):
+            if perm[:len(path)] == path:
+                return allow
+
+        return default
+
 class HiveUser(HiveRuler):
     '''
     A user (could be human or computer) of the system within HiveAuth.

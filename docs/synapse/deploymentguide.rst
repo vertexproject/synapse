@@ -1,6 +1,3 @@
-.. toctree::
-    :titlesonly:
-
 .. _deploymentguide:
 
 Synapse Deployment Guide
@@ -11,7 +8,7 @@ Introduction
 
 This step-by-step guide will walk you through a production-ready Synapse deployment. Services will be
 configured to register with ``AHA`` for service discovery and to prepare for future devops tasks such
-as promoting a mirror to leader and registering install Synapse Advanced Power-Ups.
+as promoting a mirror to leader and provisioning future Synapse Advanced Power-Ups.
 
 This guide will also walk you through deploying all Synapse services using TLS to authenticate both
 servers and clients using client-certificates to minimize the need for secrets management by eliminating
@@ -20,13 +17,10 @@ passwords from all telepath URLs.
 For the purposes of this guide, we will use ``docker-compose`` as a light-weight orchestration mechanism.
 The steps, configurations, and volume mapping guidance given in this guide apply equally to other container
 orchestration mechanisms such as Kubernetes but for simplicity's sake, this guide will only cover
-docker-compose_ based deployments.
+``docker-compose`` based deployments.
 
-Preparation
-===========
-
-Preparing Hosts
----------------
+Prepare your Hosts
+==================
 
 Ensure that you have an updated install of docker_ and docker-compose_.
 
@@ -46,7 +40,7 @@ We will use the directory ``/srv/syn/`` on the host systems as the base director
 the Synapse services. Each service will be deployed in separate ``/srv/syn/<svcname>`` directories. This
 directory can be changed to whatever you would like, and the services may be deployed to any host provided
 that the hosts can directly connect to each other.  It is critical to performance that these storage volumes
-be low-latency. More latent storage mechanisms such as spinning dicks, NFS, or EFS should be avoided!
+be low-latency. More latent storage mechanisms such as spinning disks, NFS, or EFS should be avoided!
 
 We highly recommend that hosts used to run Synapse services deploy a log aggregation agent to make it easier
 to view the logs from the various containers in a single place.
@@ -129,11 +123,11 @@ Inside the AHA container
 
 Generate a one-time use provisioning API key::
 
-    python -m synapse.tools.aha.provision 00.axon
+    python -m synapse.tools.aha.provision.service 00.axon
 
 You should see output that looks similar to this::
 
-    one-time use provisioning key: b751e6c3e6fc2dad7a28d67e315e1874
+    one-time use provisioning url: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
 
 On the Host
 -----------
@@ -159,7 +153,7 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
 .. note::
 
-    Don't forget to replace ``b751e6c3e6fc2dad7a28d67e315e1874`` with your one-time use provisioning key!
+    Don't forget to replace your one-time use provisioning URL!
 
 Start the container::
 
@@ -174,11 +168,11 @@ Inside the AHA container
 
 Generate a one-time use provisioning API key::
 
-    python -m synapse.tools.aha.provision 00.jsonstor
+    python -m synapse.tools.aha.provision.service 00.jsonstor
 
 You should see output that looks similar to this::
 
-    one-time use provisioning key: 8c5eeeafdc569b5a0642ee451205efae
+    one-time use provisioning url: tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
 
 On the Host
 -----------
@@ -204,7 +198,7 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
 
 .. note::
 
-    Don't forget to replace ``8c5eeeafdc569b5a0642ee451205efae`` with your one-time use provisioning key!
+    Don't forget to replace your one-time use provisioning URL!
 
 Start the container::
 
@@ -222,13 +216,13 @@ Edit or copy the following contents to the file ``/tmp/cortex.yaml`` inside the 
     axon: aha://axon...
     jsonstor: aha://jsonstor...
 
-Generate a one-time use provisioning key::
+Generate a one-time use provisioning URL::
 
-    python -m synapse.tools.aha.provision 00.cortex --user root --cellyaml /tmp/cortex.yaml
+    python -m synapse.tools.aha.provision.service 00.cortex --user root --cellyaml /tmp/cortex.yaml
 
 You should see output that looks similar to this::
 
-    one-time use provisioning key: 25428f3098123c924314e3a3ca5d9003
+    one-time use provisioning URL: tcp://aha.loop.vertex.link:27272/25428f3098123c924314e3a3ca5d9003
 
 On the Host
 -----------
@@ -254,7 +248,7 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
 
 .. note::
 
-    Don't forget to replace ``25428f3098123c924314e3a3ca5d9003`` with your one-time use provisioning key!
+    Don't forget to replace your one-time use provisioning URL!
 
 Start the container::
 
@@ -273,11 +267,11 @@ Inside the AHA container
 
 Generate a one-time use API key for provisioning from *inside the AHA container*::
 
-    python -m synapse.tools.aha.provision 01.cortex --mirror 00.cortex
+    python -m synapse.tools.aha.provision.service 01.cortex --mirror 00.cortex
 
 You should see output that looks similar to this::
 
-    one-time use provisioning key: 5083081b157cf41ec45d4148d18b3170
+    one-time use provisioning URL: tcp://aha.loop.vertex.link:27272/5083081b157cf41ec45d4148d18b3170
 
 On the Host
 -----------
@@ -303,7 +297,7 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
 
 .. note::
 
-    Don't forget to replace ``5083081b157cf41ec45d4148d18b3170`` with your one-time use provisioning key!
+    Don't forget to replace your one-time use provisioning URL!
 
 Start the container::
 

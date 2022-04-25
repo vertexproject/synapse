@@ -285,6 +285,9 @@ class Daemon(s_base.Base):
             host = info.get('host')
             port = info.get('port')
 
+            if port is None:
+                port = 27492
+
             sslctx = None
             if scheme == 'ssl':
 

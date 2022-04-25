@@ -2,8 +2,8 @@
 
 .. _syn-tools-pullfile:
 
-Synapse Tools - pullfile
-========================
+pullfile
+========
 
 The Synapse ``pullfile`` command can be used to retrieve (download) one or more files from a storage Axon (see Axon in the :ref:`devopsguide`).
 
