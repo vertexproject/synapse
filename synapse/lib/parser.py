@@ -334,8 +334,13 @@ class AstConverter(lark.Transformer):
 
     def cmdrargs(self, kids):
         argv = []
+        indx = 0
 
-        for kid in kids:
+        kcnt = len(kids)
+        while indx < kcnt:
+
+            kid = kids[indx]
+            indx += 1
 
             if isinstance(kid, s_ast.SubQuery):
                 argv.append(kid.text)
@@ -347,8 +352,24 @@ class AstConverter(lark.Transformer):
                 continue
 
             if isinstance(kid, lark.lexer.Token):
-                argv.append(str(kid))
-                continue
+
+                if kid == '=':
+                    argv[-1] += kid
+
+                    if kcnt >= indx:
+                        nextkid = kids[indx]
+                        if isinstance(kid, s_ast.SubQuery):
+                            argv[-1] += nextkid.text
+                        elif isinstance(kid, s_ast.Const):
+                            argv[-1] += nextkid.valu
+                        else:
+                            argv[-1] += str(nextkid)
+
+                        indx += 1
+                    continue
+                else:
+                    argv.append(str(kid))
+                    continue
 
             # pragma: no cover
             mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
