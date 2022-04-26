@@ -154,7 +154,7 @@ WILDCARD: "*"
 // A wild card, full prop, list, or $varvalu
 _wildprops: WILDCARD | PROPS | valulist | _varvalu
 
-n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROP) _EDGEN1FINI _wildprops [ _cmpr _valu ]
+n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1FINI _wildprops [ _cmpr _valu ]
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
