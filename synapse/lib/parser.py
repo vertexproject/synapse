@@ -119,7 +119,6 @@ terminalEnglishMap = {
     '_TRYSETPLUS': '?+=',
     '_TRYSETMINUS': '?-=',
     '_STOP': 'stop',
-    '_WS': 'whitespace',
     '$END': 'end of input',
 }
 
