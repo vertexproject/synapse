@@ -638,6 +638,7 @@ ruleClassMap = {
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
+    'nonquotewords': lambda kids: s_ast.Const(' '.join([str(k.valu) for k in kids])),
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,

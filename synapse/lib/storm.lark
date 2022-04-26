@@ -255,12 +255,14 @@ exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | NUMBERWS | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
-_listvalu: _basevalu | NONQUOTEWORD | PROPS | NUMBER | NUMBERWS
+?listvalu: _basevalu
+    | NONQUOTEWORD+ -> nonquotewords
+    | PROPS | NUMBER | NUMBERWS
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
 
-valulist: "(" [_listvalu ((",")|("," _listvalu)+ ","?)] ")"
+valulist: "(" [listvalu ((",")|("," listvalu)+ ","?)] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 

@@ -2245,6 +2245,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:whois:email', ('woot.com', 'pennywise@vertex.link')))
 
+            q = '''
+            [inet:whois:rec=(wellsfargo.com, 2019/11/24 03:30:07.000)
+                :created="1993/02/19 05:00:00.000"]
+            +inet:whois:rec:created < 2017/01/01
+            '''
+            self.len(1, await core.nodes(q))
+
     async def test_whois_recns(self):
         formname = 'inet:whois:recns'
         valu = ('ns1.woot.com', ('woot.com', '@20501217'))
