@@ -267,7 +267,7 @@ tagvalu: tagname
 tagpropvalu: tagprop
 
 _COLONDOLLAR: ":$"
-relpropvalu: BASEPROP2 | _COLONDOLLAR _varvaluatom
+relpropvalu: RELPROP | _COLONDOLLAR _varvaluatom
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
@@ -346,11 +346,8 @@ ABSPROP.2: PROPS | UNIVNAME
 ABSPROPNOUNIV.2: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: BASEPROP2 | _COLONDOLLAR _varvaluatom
-BASEPROP2: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
-
-// Similar to PROPS, but starts with a colon and allows :: as separator
-RELNAME: /\:\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]+)*/
+relprop: RELPROP | _COLONDOLLAR _varvaluatom
+RELPROP: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // Similar to PROPS but does not require a colon
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
