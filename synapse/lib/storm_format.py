@@ -52,6 +52,7 @@ TerminalPygMap = {
     'NONQUOTEWORD': p_t.Literal,
     'NOT': p_t.Keyword,
     'NUMBER': p_t.Literal.Number,
+    'NUMBERWS': p_t.Literal.Number,
     'OR': p_t.Keyword,
     'PROPNAME': p_t.Name,
     'PROPS': p_t.Name,

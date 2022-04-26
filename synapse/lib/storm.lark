@@ -47,15 +47,16 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: EXPRPLUS [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-!editpropset: relprop ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
+!editpropset: relprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
 editpropdel: "-" relprop
-!editunivset: univprop ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
-!editnodeadd: formname ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
-!edittagpropset: "+" tagprop ("=" | _MODSET | _TRYSET | _TRYEQ) _valu
+!editunivset: univprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
+!editnodeadd: formname ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
+!edittagpropset: "+" tagprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
 edittagpropdel: "-" tagprop
 _MODSET.4: "+=" | "-="
-_TRYSET: "?+=" | "?-="
-_TRYEQ.2: "?="
+_TRYSETPLUS: "?+=" | "?-="
+_TRYSETMINUS: "?+=" | "?-="
+_TRYSET.2: "?="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
@@ -65,7 +66,7 @@ _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | fo
      | operrelprop | forloop | whileloop | switchcase | BREAK | CONTINUE | return | emit | stop
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
-BREAK.4: "break"
+BREAK.4: /break(?=[\s\}])/
 CONTINUE.4: "continue"
 
 catchblock: "catch" _valu "as" VARTOKN "{" query "}"
@@ -92,15 +93,21 @@ argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
-DEFAULTCASE: "*"
-CASEBARE: /(?<=[\s{])(?![\$\*+{\(\-\[])([^:\s"']+)(?=[\s]*:[\s]*\{)/
+DEFAULTCASE.2: "*"
+CASEBARE.2: /(?<=[\s{])(?![\$\*+{\(\-\[])([^:\s"']+)(?=[\s]*:[\s]*\{)/
 
 yieldvalu: YIELD _argvalu
 
-initblock: "init" "{" query "}"
-finiblock: "fini" "{" query "}"
+_INIT.2: /init(?=[\s\{])/
+initblock: _INIT "{" query "}"
 
-ifstmt: "if" ifclause ("elif" ifclause)* ["else" baresubquery]
+_FINI.2: /fini(?=[\s\{])/
+finiblock: _FINI "{" query "}"
+
+
+_ELSE.2: /else(?=[\s\{])/
+
+ifstmt: "if" ifclause ("elif" ifclause)* [_ELSE baresubquery]
 // The stuff inside an if or elif
 ifclause: _valu baresubquery
 
@@ -173,7 +180,7 @@ edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
 
 liftformtag: (PROPS | UNIVNAME) tagname [_cmpr _valu]
-_DEREF.2:  /\*(?=\$)/
+_DEREF.3:  /\*(?=\$)/
 liftpropby: ((PROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
 liftprop: ((PROPS | UNIVNAME) | _DEREF _varvalu)
 liftbyarray: ((PROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
@@ -189,26 +196,21 @@ _funcarg: (VARTOKN | kwarg)
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
 stormfunc: "function" VARTOKN funcargs "{" query "}"
 
-stormcmd: CMDNAME stormcmdargs | BARECMDNAME
-stormcmdargs: _stormcmdarg+
-
-_stormcmdarg: CMDOPT "=" (argvquery | _argvalu | _wordarg)
-    | _cmdoptarg | argvquery | _argvalu | _wordarg
-
-_wordarg: (wordtokn _stormcmdarg) | WORDLAST | BARECMDNAME
-_cmdoptarg: (CMDOPT _stormcmdarg) | CMDOPTLAST
+stormcmd: CMDNAME stormcmdargs?
+stormcmdargs: _stormcmdarg
+_stormcmdarg: _stormcmdarg (CMDOPT | argvquery | _argvalu | wordtokn | CMDOPT "=" (argvquery | _argvalu | wordtokn))
+    | CMDOPT "=" (argvquery | _argvalu | wordtokn)
+    | CMDOPT | argvquery | _argvalu | wordtokn
 
 // The name of a storm command
-CMDNAME: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s])(?!([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*($|[\|\}]))\b/
-BARECMDNAME.3: /\b(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*($|[\|\}]))\b/
+CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
-CMDOPTLAST.4: /(?<=\s)-[a-zA-Z0-9_-]+(?=[\s]*($|[\|\}]))/
 
 // An unquoted string within a storm command argument list
-//WORDTOKN: /(?!\/[\/\*]|\+|\-)[\w\+\-\?\*\/\\][^\s\=\|\}\)]*/ | NUMBER | NONQUOTEWORD
-wordtokn: wordtokn /(?<!\s),(?!\s)/ (NUMBER | NONQUOTEWORD) | NUMBER | NONQUOTEWORD
-WORDLAST.3: /(?!\/[\/\*])[\w\+\-\?\*\/\\][^\s\=\|\}\)]*(?=[\s]*($|[\|\}]))/
+?wordtokn: wordtokn /(?<!\s),(?!\s)/ (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?)
+    | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
+    | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _cmdrargv ("="? _cmdrargv)*
@@ -226,11 +228,11 @@ TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-!_cmpr: BYNAME | CMPR | CMPRAT | "=" | _TRYEQ
+!_cmpr: BYNAME | CMPR | CMPRAT | "=" | _TRYSET
 BYNAME.2: /\*[^=\s]+=/
 BYNAMEARRAY.2: /[^=\s]+=/
 
-!_safe_cmpr: BYNAMEARRAY | CMPR | CMPRAT | "=" | _TRYEQ
+!_safe_cmpr: BYNAMEARRAY | CMPR | CMPRAT | "=" | _TRYSET
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPRAT: "@="
@@ -251,9 +253,9 @@ exprdict: "{" (_exprvalu ":" _exprvalu ("," _exprvalu ":" _exprvalu)* ","? )? "}
 exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
-_exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
+_exprvalu: NUMBER | NUMBERWS | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
-_listvalu: _basevalu | NONQUOTEWORD | PROPS | NUMBER
+_listvalu: _basevalu | NONQUOTEWORD | PROPS | NUMBER | NUMBERWS
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
@@ -262,7 +264,8 @@ valulist: "(" [_listvalu ((",")|("," _listvalu)+ ","?)] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 
-relpropvalu: ":" (BASEPROP | _varvalu)
+_COLONDOLLAR: ":$"
+relpropvalu: BASEPROP2 | _COLONDOLLAR _varvaluatom
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
@@ -335,7 +338,7 @@ SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_])/
+PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
 // A universal property
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
@@ -344,7 +347,7 @@ ABSPROP: PROPS | UNIVNAME
 ABSPROPNOUNIV: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: BASEPROP2 | ":$" _varvaluatom
+relprop: BASEPROP2 | _COLONDOLLAR _varvaluatom
 BASEPROP2: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // Similar to PROPS, but starts with a colon and allows :: as separator
@@ -362,7 +365,8 @@ EXPRPLUS.4: "+"
 EXPRMINUS.4: "-"
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
-NUMBER.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:]|([+\-*\/][0-9\.]+)+[,\w])/
+NUMBER.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:\s]|([+\-*\/][0-9\.]+)+[,\w])/
+NUMBERWS.2: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?=\s)/
 HEXNUMBER.2: /-?0x[0-9a-fA-F]+/
 BOOL.2: /true|false/
 NOT: "not"

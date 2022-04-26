@@ -2596,31 +2596,17 @@ class TagPropCond(Cond):
 
 class FiltOper(Oper):
 
-    def __init__(self, kids=(), mustoper=None):
-        Oper.__init__(self, kids)
-        self.mustoper = mustoper
-
     async def getLiftHints(self, runt, path):
 
-        if self.mustoper is None:
-            if await self.kids[0].compute(None, None) != '+':
-                return []
+        if await self.kids[0].compute(None, None) != '+':
+            return []
 
-            return await self.kids[1].getLiftHints(runt, path)
-
-        elif self.mustoper:
-            return await self.kids[0].getLiftHints(runt, path)
-
-        return []
+        return await self.kids[1].getLiftHints(runt, path)
 
     async def run(self, runt, genr):
 
-        must = self.mustoper
-        if must is None:
-            must = await self.kids[0].compute(None, None) == '+'
-            cond = await self.kids[1].getCondEval(runt)
-        else:
-            cond = await self.kids[0].getCondEval(runt)
+        must = await self.kids[0].compute(None, None) == '+'
+        cond = await self.kids[1].getCondEval(runt)
 
         async for node, path in genr:
             answ = await cond(node, path)

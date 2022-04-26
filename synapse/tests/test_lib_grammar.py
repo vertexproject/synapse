@@ -604,7 +604,7 @@ _ParseResults = [
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: TypeError, Const: err, Query: []]]]',
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: FooBar, Const: err, Query: []], CatchBlock: [Const: *, Const: err, Query: []]]]',
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
-    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
+    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery: inet:ipv4]]]',
     'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
@@ -1113,7 +1113,8 @@ class GrammarTest(s_t_utils.SynTest):
         with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
             grammar = larkf.read().decode()
 
-        parser = lark.Lark(grammar, start='query', debug=True, ambiguity='explicit', keep_all_tokens=True,
+        parser = lark.Lark(grammar, start='query', debug=True, regex=True, parser='lalr',
+                           keep_all_tokens=True, maybe_placeholders=False,
                            propagate_positions=True)
 
         for i, query in enumerate(Queries):
@@ -1174,7 +1175,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 9)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 10)
-        self.true(errinfo.get('mesg').startswith("No terminal defined for ')' at line 1 col 10."))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('RPAR', ')') at line 1, column 10"))
 
         query = 'test:str {'
         parser = s_parser.Parser(query)
@@ -1182,11 +1183,10 @@ class GrammarTest(s_t_utils.SynTest):
             parser.query()
         errinfo = cm.exception.errinfo
 
-        # EOF has no line / col infomration
-        self.eq(errinfo.get('at'), 10)
-        self.eq(errinfo.get('line'), -1)
-        self.eq(errinfo.get('column'), -1)
-        self.true(errinfo.get('mesg').startswith("Unexpected end-of-input."))
+        self.eq(errinfo.get('at'), 9)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 10)
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('$END', '') at line 1, column 10"))
 
         query = '''function itworks() {
                 $lib.print('it works')
@@ -1256,7 +1256,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 71)
         self.eq(errinfo.get('line'), 3)
         self.eq(errinfo.get('column'), 18)
-        self.true(errinfo.get('mesg').startswith("No terminal defined for ':' at line 3 col 18."))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('BASEPROP2', ':network') at line 3, column 18"))
 
         query = 'inet:ipv4 | tee { -> foo '
         parser = s_parser.Parser(query)
@@ -1266,7 +1266,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 21)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 22)
-        self.true(errinfo.get('mesg').startswith("No terminal defined for 'f' at line 1 col 22."))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMDNAME', 'foo') at line 1, column 22"))
 
         query = '''// comment
 
@@ -1275,10 +1275,10 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             _ = parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('at'), 55)
-        self.eq(errinfo.get('line'), -1)
-        self.eq(errinfo.get('column'), -1)
-        self.true(errinfo.get('mesg').startswith("Unexpected end-of-input."))
+        self.eq(errinfo.get('at'), 52)
+        self.eq(errinfo.get('line'), 3)
+        self.eq(errinfo.get('column'), 41)
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('$END', '') at line 3, column 41"))
 
         query = '''// comment
 
@@ -1290,7 +1290,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 64)
         self.eq(errinfo.get('line'), 3)
         self.eq(errinfo.get('column'), 53)
-        self.true(errinfo.get('mesg').startswith("No terminal defined for '|' at line 3 col 53"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('VBAR', '|') at line 3, column 53"))
 
         query = '''$str = $lib.cast(str,(1234))
          if (!$str ~= '3.+0'  ) {
@@ -1304,7 +1304,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 42)
         self.eq(errinfo.get('line'), 2)
         self.eq(errinfo.get('column'), 14)
-        self.true(errinfo.get('mesg').startswith("No terminal defined for '!' at line 2 col 14."))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMDRTOKN', '!$str') at line 2, column 14"))
 
         query = '''$str = $lib.cast(str, (1234))  if (!$str ~= '3.+0'  ) { $lib.print($str) }'''
         parser = s_parser.Parser(query)
@@ -1314,7 +1314,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 35)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 36)
-        self.true(errinfo.get('mesg').startswith("No terminal defined for '!' at line 1 col 36."))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMDRTOKN', '!$str') at line 1, column 36"))
 
     async def test_quotes(self):
 

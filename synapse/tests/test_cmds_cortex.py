@@ -226,7 +226,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             self.isin(('#6faef2', ' ^'), clines)
             self.isin(('#ff0066', 'Syntax Error'), clines)
             self.isin(('#6faef2', 'test:str ->'), clines)
-            self.isin(('#6faef2', '           ^'), clines)
+            self.isin(('#6faef2', '         ^'), clines)
 
             # Trying to print an \r doesn't assert (prompt_toolkit bug)
             # https://github.com/prompt-toolkit/python-prompt-toolkit/issues/915

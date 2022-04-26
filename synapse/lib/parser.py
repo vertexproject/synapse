@@ -32,6 +32,7 @@ terminalEnglishMap = {
     'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
     'CMPR': 'comparison operator',
+    'CMPRAT': '@=',
     'BYNAME': 'named comparison operator',
     'COLON': ':',
     'COMMA': ',',
@@ -53,6 +54,7 @@ terminalEnglishMap = {
     'FILTPREFIX': '+ or -',
     'FOR': 'for',
     'FUNCTION': 'function',
+    'HASH': '#',
     'HEXNUMBER': 'number',
     'IF': 'if',
     'IN': 'in',
@@ -63,10 +65,12 @@ terminalEnglishMap = {
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
+    'NUMBERWS': 'number',
     'OR': 'or',
     'PROPNAME': 'property name',
     'PROPS': 'absolute property name',
     'BASEPROP': 'base property name',
+    'BASEPROP2': 'base property name',
     'RBRACE': ']',
     'RELNAME': 'relative property',
     'RPAR': ')',
@@ -88,17 +92,18 @@ terminalEnglishMap = {
     'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
+    '_COLONDOLLAR': ':$',
     '_DEREF': '*',
     '_EDGEADDN1INIT': '+(',
-    '_EDGEADDN1FINI': ')>',
-    '_EDGEDELN1INIT': '-(',
-    '_EDGEDELN1FINI': ')>',
-    '_EDGEADDN2INIT': '<(',
+    '_EDGEN1FINI': ')>',
+    '_EDGEN1INIT': '-(',
+    '_EDGEN2INIT': '<(',
     '_EDGEADDN2FINI': ')+',
-    '_EDGEDELN2INIT': '<(',
-    '_EDGEDELN2FINI': ')-',
+    '_EDGEN2FINI': ')-',
     '_EMBEDQUERYSTART': '${',
     '_EMIT': 'emit',
+    '_FINI': 'fini',
+    '_INIT': 'init',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
     '_WALKNPIVON1': '-->',
@@ -112,9 +117,11 @@ terminalEnglishMap = {
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
     '_TRYSET': '?=',
+    '_TRYSETPLUS': '?+=',
+    '_TRYSETMINUS': '?-=',
     '_STOP': 'stop',
     '_WS': 'whitespace',
-    '_WSCOMM': 'whitespace or comment'
+    '$END': 'end of input',
 }
 
 class AstConverter(lark.Transformer):
@@ -426,7 +433,13 @@ class Parser:
         if isinstance(e, lark.exceptions.UnexpectedCharacters):
             expected = sorted(terminalEnglishMap[t] for t in e.allowed)
             mesg += f'.  Expecting one of: {", ".join(expected)}'
-            at = e.start_pos
+            at = e.pos_in_stream
+            line = e.line
+            column = e.column
+        if isinstance(e, lark.exceptions.UnexpectedToken):
+            expected = sorted(terminalEnglishMap[t] for t in e.expected)
+            mesg += f'  Expecting one of: {", ".join(expected)}'
+            at = e.pos_in_stream
             line = e.line
             column = e.column
         elif isinstance(e, lark.exceptions.UnexpectedEOF):
@@ -530,6 +543,7 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'NUMBERWS': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
@@ -569,8 +583,8 @@ ruleClassMap = {
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
-    'filtopermust': lambda kids: s_ast.FiltOper(kids, mustoper=True),
-    'filtopernot': lambda kids: s_ast.FiltOper(kids, mustoper=False),
+    'filtopermust': lambda kids: s_ast.FiltOper([s_ast.Const('+')] + kids),
+    'filtopernot': lambda kids: s_ast.FiltOper([s_ast.Const('-')] + kids),
     'forloop': s_ast.ForLoop,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
@@ -610,7 +624,7 @@ ruleClassMap = {
     'return': s_ast.Return,
     'relprop': lambda kids: s_ast.RelProp([s_ast.Const(k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
-    'relpropvalu': s_ast.RelPropValue,
+    'relpropvalu': lambda kids: s_ast.RelPropValue([s_ast.Const(k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
     'setitem': s_ast.SetItemOper,
     'setvar': s_ast.SetVarOper,
