@@ -2,6 +2,8 @@ import collections
 
 import synapse.exc as s_exc
 
+import synapse.lib.time as s_time
+
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
@@ -248,6 +250,66 @@ class ViewTest(s_t_utils.SynTest):
 
             # But not the same layer twice
             await self.asyncraises(s_exc.DupIden, core.view.addLayer(layriden))
+
+    async def test_view_merge_ival(self):
+
+        async with self.getTestCore() as core:
+
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+            forkopts = {'view': forkview}
+
+            seen_maxval = (s_time.parse('2010'), s_time.parse('2020') + 1)
+            seen_midval = (s_time.parse('2010'), s_time.parse('2015'))
+            seen_minval = (s_time.parse('2000'), s_time.parse('2015'))
+            seen_exival = (s_time.parse('2000'), s_time.parse('2021'))
+
+            await core.nodes('[ test:str=maxval .seen=(2010, 2015) ]')
+
+            nodes = await core.nodes('test:str=maxval [ .seen=2020 ]', opts=forkopts)
+            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=maxval', opts=forkopts)
+            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+
+            await core.nodes('[ test:str=midval .seen=(2010, 2015) ]')
+
+            nodes = await core.nodes('test:str=midval [ .seen=2012 ]', opts=forkopts)
+            self.eq(seen_midval, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=midval', opts=forkopts)
+            self.eq(seen_midval, nodes[0].props.get('.seen'))
+
+            await core.nodes('[ test:str=minval .seen=(2010, 2015) ]')
+
+            nodes = await core.nodes('test:str=minval [ .seen=2000 ]', opts=forkopts)
+            self.eq(seen_minval, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=minval', opts=forkopts)
+            self.eq(seen_minval, nodes[0].props.get('.seen'))
+
+            await core.nodes('[ test:str=exival .seen=(2010, 2015) ]')
+
+            nodes = await core.nodes('test:str=exival [ .seen=(2000, 2021) ]', opts=forkopts)
+            self.eq(seen_exival, nodes[0].props.get('.seen'))
+            nodes = await core.nodes('test:str=exival', opts=forkopts)
+            self.eq(seen_exival, nodes[0].props.get('.seen'))
+
+            await core.nodes('$lib.view.get().merge()', opts=forkopts)
+
+            nodes = await core.nodes('test:str=maxval')
+            self.eq(seen_maxval, nodes[0].props.get('.seen'))
+
+            nodes = await core.nodes('test:str=midval')
+            self.eq(seen_midval, nodes[0].props.get('.seen'))
+
+            nodes = await core.nodes('test:str=minval')
+            self.eq(seen_minval, nodes[0].props.get('.seen'))
+
+            nodes = await core.nodes('test:str=exival')
+            self.eq(seen_exival, nodes[0].props.get('.seen'))
+
+            # bad type
+
+            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:str=maxval [ .seen=newp ]', opts=forkopts))
+            await core.nodes('test:str=maxval [ .seen?=newp +#foo ]', opts=forkopts)
+            self.len(1, await core.nodes('test:str#foo', opts=forkopts))
 
     async def test_view_trigger(self):
         async with self.getTestCore() as core:
