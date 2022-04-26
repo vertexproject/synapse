@@ -275,9 +275,6 @@ _EMBEDQUERYSTART: "${"
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
 NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?!([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*=)/
 
-// An unquoted string within a list syntax
-// LISTTOKN: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
-
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
 
@@ -345,8 +342,8 @@ PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu
 // A full property or a universal property
-ABSPROP: PROPS | UNIVNAME
-ABSPROPNOUNIV: PROPS
+ABSPROP.2: PROPS | UNIVNAME
+ABSPROPNOUNIV.2: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
 relprop: BASEPROP2 | _COLONDOLLAR _varvaluatom
