@@ -3597,7 +3597,7 @@ class EditTagPropSet(Edit):
         if runt.readonly:
             raise s_exc.IsReadOnly()
 
-        oper = await self.kids[1].compute(runt, None)
+        oper = await self.kids[2].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
         async for node, path in genr:
