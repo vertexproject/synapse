@@ -44,7 +44,7 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: EXPRPLUS [SETTAGOPER] tagname ["=" _valu]
+edittagadd: "+" [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
 !editpropset: relprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu

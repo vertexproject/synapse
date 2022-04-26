@@ -3516,12 +3516,12 @@ class EditTagAdd(Edit):
         if runt.readonly:
             raise s_exc.IsReadOnly()
 
-        if len(self.kids) > 2 and isinstance(self.kids[1], Const) and (await self.kids[1].compute(runt, None)) == '?':
-            oper_offset = 2
-        else:
+        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
             oper_offset = 1
+        else:
+            oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu,) if oper_offset == 2 else ()
+        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
 
         hasval = len(self.kids) > 1 + oper_offset
 
@@ -3597,7 +3597,7 @@ class EditTagPropSet(Edit):
         if runt.readonly:
             raise s_exc.IsReadOnly()
 
-        oper = await self.kids[2].compute(runt, None)
+        oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
         async for node, path in genr:
