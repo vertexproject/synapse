@@ -61,7 +61,7 @@ class StormCliTest(s_test.SynTest):
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
                     await scli.runCmdLine('---')
-                    self.isin("---\n ^\nSyntax Error: No terminal defined for '-' at line 1 col 2", str(outp))
+                    self.isin("---\n ^\nSyntax Error: Unexpected token Token('EXPRMINUS', '-') at line 1, column 2", str(outp))
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
