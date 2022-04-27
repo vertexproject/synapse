@@ -44,7 +44,6 @@ terminalEnglishMap = {
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
     'EQUAL': '=',
-    'EXPRCMPR': 'expression comparison operator',
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
     'EXPRPLUS': '+',
