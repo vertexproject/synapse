@@ -3431,3 +3431,47 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+    async def test_storm_queries(self):
+        async with self.getTestCore() as core:
+
+            q = '''
+            [ inet:ipv4=1.2.3.4
+                // add an asn
+                :asn=1234
+                /* also set .seen
+                   to now
+                */
+                .seen = now
+            ]'''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('asn'), 1234)
+            self.nn(nodes[0].props.get('.seen'))
+
+            case = [
+                ('+', 'plus'),
+                ('-', 'minus'),
+                ('/', 'div'),
+                ('+-', 'plusminus'),
+                ('-+', 'minusplus'),
+                ('--', 'minusminus'),
+                ('++', 'plusplus'),
+            ]
+
+            for valu, exp in case:
+                q = f'$x={valu}'
+                q += '''
+                switch $x {
+                    +: { $lib.print(plus) }
+                    //comm
+                    -: { $lib.print(minus) }
+                    /*comm*/ +-: { $lib.print(plusminus) }
+                    -+: { $lib.print(minusplus) }
+                    --: { $lib.print(minusminus) }
+                    ++: { $lib.print(plusplus) }
+                    /: { $lib.print(div) }
+                }
+                '''
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint(exp, msgs)
