@@ -105,7 +105,6 @@ initblock: _INIT "{" query "}"
 _FINI.2: /fini(?=[\s\{])/
 finiblock: _FINI "{" query "}"
 
-
 _ELSE.2: /else(?=[\s\{])/
 
 ifstmt: "if" ifclause ("elif" ifclause)* [_ELSE baresubquery]
@@ -220,10 +219,8 @@ cmdrargs: _cmdrargv ("="? _cmdrargv)*
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
 // A tag name with asterisks or $var as segment after the first segment
-TAGMATCH:  (_TAGSEGSTARNOVARSTRT | _TAGSEGNOVAR) ( "." (_TAGSEGSTARNOVAR | _TAGSEGNOVAR | "$" VARTOKN))*
-_TAGSEGSTARNOVARSTRT: /(?<=#)\w*\*+\w*/
-_TAGSEGSTARNOVAR: /\w*\*+\w*/
-_TAGSEGNOVAR: /\w+/
+TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
+_TAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
 _cmpr: BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
