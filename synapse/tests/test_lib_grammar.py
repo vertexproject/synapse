@@ -1057,7 +1057,7 @@ _ParseResults = [
     'Query: [FiltOper: [Const: +, HasTagPropCond: [TagProp: [TagMatch: [Const: foo.bar], Const: lol]]]]',
     'Query: [FiltOper: [Const: +, TagPropCond: [TagProp: [TagMatch: [Const: foo.bar], Const: lol], Const: =, Const: 20]]]',
     'Query: [EditTagPropDel: [TagProp: [TagMatch: [Const: baz.faz], Const: lol]]]',
-    'Query: [EditTagPropSet: [Const: +, TagProp: [TagMatch: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
+    'Query: [EditTagPropSet: [TagProp: [TagMatch: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
     'Query: [LiftTagProp: [TagProp: [TagMatch: [Const: tag], Const: somegeoloctypebecauseihatelife], Const: near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
     'Query: [LiftPropBy: [VarValue: [Const: foo], Const: near=, Const: 20]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], Const: woot], Const: var], VarValue: [Const: bar]], Const: mar], VarValue: [Const: car]]]]',

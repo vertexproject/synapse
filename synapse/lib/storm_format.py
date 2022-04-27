@@ -65,6 +65,9 @@ TerminalPygMap = {
     'TAG': p_t.Name,
     'TAGMATCH': p_t.Name,
     'TRYEQ': p_t.Operator,
+    'TRYSET': p_t.Operator,
+    'TRYSETMINUS': p_t.Operator,
+    'TRYSETPLUS': p_t.Operator,
     'UNIVNAME': p_t.Name,
     'UNIVPROP': p_t.Name,
     'VARTOKN': p_t.Name.Variable,
@@ -90,9 +93,6 @@ TerminalPygMap = {
     '_ONLYTAGPROP': p_t.Name,
     '_RIGHTJOIN': p_t.Punctuation,
     '_RIGHTPIVOT': p_t.Punctuation,
-    'TRYSET': p_t.Operator,
-    'TRYSETMINUS': p_t.Operator,
-    'TRYSETPLUS': p_t.Operator,
 }
 
 class StormLexer(pygments.lexer.Lexer):
