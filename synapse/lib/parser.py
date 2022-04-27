@@ -345,9 +345,9 @@ class AstConverter(lark.Transformer):
 
                     if kcnt >= indx:
                         nextkid = kids[indx]
-                        if isinstance(kid, s_ast.SubQuery):
+                        if isinstance(nextkid, s_ast.SubQuery):
                             argv[-1] += nextkid.text
-                        elif isinstance(kid, s_ast.Const):
+                        elif isinstance(nextkid, s_ast.Const):  #pragma: no cover
                             argv[-1] += nextkid.valu
                         else:
                             argv[-1] += str(nextkid)
@@ -438,21 +438,10 @@ class Parser:
         at = len(self.text)
         line = None
         column = None
-        if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
-            mesg += f'.  Expecting one of: {", ".join(expected)}'
-            at = e.pos_in_stream
-            line = e.line
-            column = e.column
         if isinstance(e, lark.exceptions.UnexpectedToken):
             expected = sorted(terminalEnglishMap[t] for t in e.expected)
             mesg += f'  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
-            line = e.line
-            column = e.column
-        elif isinstance(e, lark.exceptions.UnexpectedEOF):
-            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
-            mesg += ' ' + ', '.join(expected)
             line = e.line
             column = e.column
         elif isinstance(e, lark.exceptions.VisitError):

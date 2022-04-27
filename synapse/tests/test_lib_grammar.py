@@ -1151,6 +1151,11 @@ class GrammarTest(s_t_utils.SynTest):
         args = parser.cmdrargs()
         self.eq(args, correct)
 
+        q = 'add --filter={inet:fqdn | limit 1}'
+        parser = s_parser.Parser(q)
+        args = parser.cmdrargs()
+        self.eq(args, ['add', '--filter={inet:fqdn | limit 1}'])
+
     def test_parse_float(self):
         self.raises(s_exc.BadSyntax, s_grammar.parse_float, 'visi', 0)
         self.eq((4.2, 3), s_grammar.parse_float('4.2', 0))
