@@ -1,13 +1,12 @@
 .. _orch-hashistack:
 
 Hashistack
-==========
+~~~~~~~~~~
 
 Hashicorp's Nomad and Consul can be used to run Synapse ecosystem components. We provide a few different examples that
 can be used to help get an operations team up off the ground with using that platform for orchestration purposes.
 
-Nomad
------
+**Nomad**
 
 Nomad is traditionally used as a job and scheduler, but it may also be used to execute longer running services. The use
 of Nomad for running Synapse ecosystem components is fairly straightforward. The main consideration is in making sure
@@ -42,8 +41,7 @@ mainly in that it shows how to use a ``cell.yaml`` file to do some boot time con
 .. literalinclude:: shodan.hcl
     :language: text
 
-Consul and Telepath
--------------------
+**Consul and Telepath**
 
 The Telepath client is aware of being able to resolve remote service locations via a Consul server. The Telepath
 connection string must be formed like the following::

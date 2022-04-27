@@ -286,16 +286,17 @@ class AhaCell(s_cell.Cell):
             netw = self.conf.get('aha:network')
             if netw is not None:
 
-                await self.genCaCert(netw)
+                if self.certdir.getCaCertPath(netw) is None:
+                    await self.genCaCert(netw)
 
                 name = self.conf.get('aha:name')
 
                 host = f'{name}.{netw}'
-                if host is not None:
+                if self.certdir.getHostCertPath(host) is None:
                     await self._genHostCert(host, signas=netw)
 
                 user = self._getAhaAdmin()
-                if user is not None:
+                if self.certdir.getUserCertPath(user) is None:
                     await self._genUserCert(user, signas=netw)
 
     async def initServiceNetwork(self):
@@ -558,8 +559,7 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server has no configured aha:urls.'
             raise s_exc.BadArg(mesg=mesg)
 
-        provurl = self.conf.get('provision:listen')
-        if provurl is None:
+        if self.conf.get('provision:listen') is None:
             mesg = 'The AHA server does not have a provision:listen URL!'
             raise s_exc.NeedConfValu(mesg=mesg)
 
@@ -572,11 +572,14 @@ class AhaCell(s_cell.Cell):
 
         conf = provinfo.setdefault('conf', {})
 
+        myname = self.conf.get('aha:name')
+        mynetw = self.conf.get('aha:network')
+
         ahaadmin = self.conf.get('aha:admin')
         if ahaadmin is not None: # pragma: no cover
             conf.setdefault('aha:admin', ahaadmin)
 
-        conf.setdefault('aha:network', self.conf.get('aha:network'))
+        conf.setdefault('aha:network', mynetw)
 
         netw = conf.get('aha:network')
         if netw is None:
@@ -624,11 +627,36 @@ class AhaCell(s_cell.Cell):
             await user.allow(('aha', 'service', 'add', netw, leader))
 
         iden = await self._push('aha:svc:prov:add', provinfo)
+        return self._getProvClientUrl(iden)
 
-        urlinfo = s_telepath.chopurl(provurl)
-        urlinfo['path'] = '/' + iden
+    def _getProvClientUrl(self, iden):
 
-        return s_telepath.zipurl(urlinfo)
+        provlisn = self.conf.get('provision:listen')
+
+        urlinfo = s_telepath.chopurl(provlisn)
+
+        host = urlinfo.get('hostname')
+        scheme = urlinfo.get('scheme')
+
+        if host is None:
+            host = urlinfo.get('host')
+
+        if host is None:
+            host = f'{myname}.{mynetw}'
+
+        newinfo = {
+            'host': host,
+            'port': urlinfo.get('port'),
+            'scheme': scheme,
+            'path': '/' + iden,
+        }
+
+        if scheme == 'ssl':
+            certhash = self.certdir.getHostCertHash(host)
+            if certhash is not None:
+                newinfo['certhash'] = certhash
+
+        return s_telepath.zipurl(newinfo)
 
     async def getAhaSvcProv(self, iden):
         byts = self.slab.get(iden.encode(), db='aha:provs')
@@ -676,11 +704,7 @@ class AhaCell(s_cell.Cell):
         }
 
         iden = await self._push('aha:enroll:add', userinfo)
-
-        urlinfo = s_telepath.chopurl(provurl)
-        urlinfo['path'] = '/' + iden
-
-        return s_telepath.zipurl(urlinfo)
+        return self._getProvClientUrl(iden)
 
     async def getAhaUserEnroll(self, iden):
         byts = self.slab.get(iden.encode(), db='aha:enrolls')

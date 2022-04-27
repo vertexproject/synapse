@@ -460,23 +460,23 @@ class AhaTest(s_test.SynTest):
             conf = {
                 'aha:name': 'aha',
                 'aha:network': 'loop.vertex.link',
-                'provision:listen': 'tcp://127.0.0.1:0'
+                'provision:listen': 'ssl://aha.loop.vertex.link:0'
             }
             async with await self.aha_ctor(dirn, conf=conf) as aha:
 
                 addr, port = aha.provdmon.addr
                 # update the config to reflect the dynamically bound port
-                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{port}/'
+                aha.conf['provision:listen'] = f'ssl://aha.loop.vertex.link:{port}'
 
                 # do this config ex-post-facto due to port binding...
                 host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
-                aha.conf['aha:urls'] = f'ssl://127.0.0.1:{ahaport}?hostname=aha.loop.vertex.link'
+                aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
 
                 url = aha.getLocalUrl()
 
                 outp = s_output.OutPutStr()
                 await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'foobar'), outp=outp)
-                self.isin('one-time use provisioning url: ', str(outp))
+                self.isin('one-time use url: ', str(outp))
 
                 provurl = str(outp).split(':', 1)[1].strip()
 
@@ -523,7 +523,7 @@ class AhaTest(s_test.SynTest):
                     self.eq('axon', yamlconf.get('aha:leader'))
                     self.eq('00.axon', yamlconf.get('aha:name'))
                     self.eq('loop.vertex.link', yamlconf.get('aha:network'))
-                    self.eq((f'ssl://axon@127.0.0.1:{ahaport}?hostname=aha.loop.vertex.link',), yamlconf.get('aha:registry'))
+                    self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
 
                     await axon.addUser('visi@loop.vertex.link')
@@ -544,7 +544,7 @@ class AhaTest(s_test.SynTest):
 
                             teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                             self.eq(teleyaml.get('version'), 1)
-                            self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@127.0.0.1:{ahaport}?hostname=aha.loop.vertex.link',))
+                            self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
 
                             # TODO
                             # async with s_telepath.withTeleEnv():

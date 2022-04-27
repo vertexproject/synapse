@@ -19,6 +19,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.share as s_share
+import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
 
@@ -386,6 +387,40 @@ class TeleTest(s_t_utils.SynTest):
             # host cert is *NOT* signed by a CA that client recognizes
             await self.asyncraises(ssl.SSLCertVerificationError,
                                    s_telepath.openurl(f'ssl://{hostname}/foo', port=addr[1]))
+
+    async def test_telepath_tls_certhash(self):
+
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+
+        with self.getTestDir() as dirn:
+
+            path = (s_common.gendir(dirn, 'dmoncerts'),)
+            certdir = s_certdir.CertDir(path=path)
+
+            async with await s_daemon.Daemon.anit(certdir=certdir) as dmon:
+
+                hostname = socket.gethostname()
+
+                certdir.genCaCert('loopy')
+                hostkey, hostcert = certdir.genHostCert(hostname, signas='loopy')
+
+                certhash = hostcert.digest('sha256').decode().lower().replace(':', '')
+
+                host, port = await dmon.listen(f'ssl://{hostname}:0')
+                dmon.share('foo', foo)
+
+                certtext = await s_coro.executor(ssl.get_server_certificate, (hostname, port))
+                cert = certdir._loadCertByts(certtext.encode())
+
+                # host cert is *NOT* signed by a CA that client recognizes
+                with self.raises(ssl.SSLCertVerificationError):
+                    await s_telepath.openurl(f'ssl://{hostname}/foo', port=port)
+
+                # still not, but we specify a certhash for the exact server certificate
+                async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port, certhash=certhash) as foo:
+                    self.eq('woot', await foo.echo('woot'))
 
     async def test_telepath_ssl_client_cert(self):
 

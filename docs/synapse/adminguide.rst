@@ -4,14 +4,18 @@
 Synapse Admin Guide
 ###################
 
+This guide is designed for use by Synapse "global admins" who are typically power-users with ``admin=true`` permissions on
+the Cortex and are responsible for non-devops configuration and management of a Synapse deployment. This guide focuses on
+using Storm to accomplish administration tasks and discusses conventions and permissions details for the Cortex.
+
 Common Admin Tasks
 ==================
 
-Using Synapse Power-Ups
------------------------
+Enabling Synapse Power-Ups
+--------------------------
 
-The Vertex Project provides a number of Power-Ups that extend the functionality of Synapse. For
-more information on configuring your Cortex to use Power-Ups, see `the blog post on Synapse Power-Ups`_.
+The Vertex Project provides a number of Power-Ups that extend the functionality of Synapse. For more information on
+configuring your Cortex to use Rapid Power-Ups, see `the blog post on Synapse Power-Ups`_.
 
 Configuring a Mirrored Layer
 ----------------------------

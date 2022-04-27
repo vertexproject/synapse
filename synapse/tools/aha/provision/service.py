@@ -46,7 +46,7 @@ async def main(argv, outp=s_output.stdout):
             provinfo['conf']['aha:user'] = opts.user
 
             provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
-            outp.printf(f'one-time use provisioning url: {provurl}')
+            outp.printf(f'one-time use url: {provurl}')
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

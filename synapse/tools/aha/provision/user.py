@@ -34,7 +34,7 @@ async def main(argv, outp=s_output.stdout):
         async with await s_telepath.openurl(opts.url) as aha:
             userinfo = {}
             provurl = await aha.addAhaUserEnroll(opts.username, userinfo=userinfo, again=opts.again)
-            outp.printf(f'one-time use enroll url: {provurl}')
+            outp.printf(f'one-time use URL: {provurl}')
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

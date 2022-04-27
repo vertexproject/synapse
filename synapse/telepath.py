@@ -3,6 +3,7 @@ An RMI framework for synapse.
 '''
 
 import os
+import ssl
 import time
 import asyncio
 import logging
@@ -1329,6 +1330,12 @@ def chopurl(url, **opts):
 
     return info
 
+class TeleSSLObject(ssl.SSLObject):
+
+    def do_handshake(self):
+        self.context.telessl = self
+        return ssl.SSLObject.do_handshake(self)
+
 async def openinfo(info):
 
     scheme = info.get('scheme')
@@ -1395,11 +1402,18 @@ async def openinfo(info):
         hostname = None
 
         sslctx = None
+
+        linkinfo = {}
+
         if scheme == 'ssl':
 
             certdir = info.get('certdir')
+            certhash = info.get('certhash')
             certname = info.get('certname')
             hostname = info.get('hostname', host)
+
+            linkinfo['certhash'] = certhash
+            linkinfo['hostname'] = hostname
 
             if certdir is None:
                 certdir = s_certdir.getCertDir()
@@ -1410,13 +1424,21 @@ async def openinfo(info):
             if certname is None and user is not None and passwd is None:
                 certname = f'{user}@{hostname}'
 
-            sslctx = certdir.getClientSSLContext(certname=certname)
+            if certhash is None:
+                sslctx = certdir.getClientSSLContext(certname=certname)
+            else:
+                sslctx = ssl.create_default_context()
+                sslctx.check_hostname = False
+                sslctx.verify_mode = ssl.CERT_NONE
+                sslctx.sslobject_class = TeleSSLObject
 
             # do hostname checking manually to avoid DNS lookups
             # ( to support dynamic IP addresses on services )
             sslctx.check_hostname = False
 
-        link = await s_link.connect(host, port, ssl=sslctx, hostname=hostname)
+            linkinfo['ssl'] = sslctx
+
+        link = await s_link.connect(host, port, linkinfo=linkinfo)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)

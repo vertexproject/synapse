@@ -24,10 +24,10 @@ Prepare your Hosts
 
 Ensure that you have an updated install of docker_ and docker-compose_.
 
-In order to run the Synapse service containers as a non-root user, you will need to add a user
-to the host system.  For this guide, we will use the linux user name ``synuser``. This user name can be replaced
-by whatever user name or numeric ID is appropriate for your deployment. We recommend that you do *not* use the
-linux user ``nobody`` for this purpose.
+In order to help you run the Synapse service containers as a non-root user, Synapse service docker containers
+have been preconfigured with a user named ``synuser`` with UID ``999``. You may replace ``999`` in the configs
+below, but keep in mind that doing so will result in the container not having a name for the user. We recommend
+that you do **not** use the Linux user ``nobody`` for this purpose.
 
 Default kernel parameters on most Linux distributions are not optimized for database performance. We recommend
 adding the following lines to ``/etc/sysctl.conf`` on all systems being used to host Synapse services::
@@ -45,6 +45,10 @@ be low-latency. More latent storage mechanisms such as spinning disks, NFS, or E
 We highly recommend that hosts used to run Synapse services deploy a log aggregation agent to make it easier
 to view the logs from the various containers in a single place.
 
+When using AHA, you may run any of the **other** services on additional hosts as long as they can connect
+directly to the AHA service.  You may also shutdown a service, move it's volume to a different host, and
+start it backup without changing anything.
+
 Decide on a Name
 ================
 
@@ -52,13 +56,17 @@ Throughout the examples, we will be using ``loop.vertex.link`` as the AHA networ
 used by default as the common-name (CN) for the CA certificate. This should be changed to an appropriate
 network name used by your synapse deployment such as ``syn.acmecorp.com``.
 
+.. note::
+    It is important that you choose a name and stick with it for a given deployment. Once we begin generating
+    host and service account certificates, changing this name will be difficult.
+
 Deploy AHA Service
 ==================
 
-The AHA service is used for service discovery and can be used as a CA to issue host/user certificates
-used to link Synapse services. Other Synapse services will need to be able to resolve the IP address
-of the AHA service by name, so it is likely that you need to create a DNS A/AAAA record in your existing
-resolver.
+The AHA service is used for service discovery and acts as a CA to issue host/user certificates used to link
+Synapse services. Other Synapse services will need to be able to resolve the IP address of the AHA service
+by name, so it is likely that you need to create a DNS A/AAAA record in your existing resolver. When you are
+using AHA, the only host that needs DNS or other external name resolution is the AHA service.
 
 For this example deployment, we will name our AHA server ``aha.loop.vertex.link`` and assume DNS records
 have been created to resolve the FQDN to an IPv4 / IPv6 address of the host running the container.
@@ -71,8 +79,8 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
 
     version: "3.3"
     services:
-      user: synuser
       aha:
+        user: 999
         image: vertexproject/synapse-aha:v2.x.x
         network_mode: host
         restart: unless-stopped
@@ -83,9 +91,9 @@ Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
 
     aha:name: aha
     aha:network: loop.vertex.link
-    aha:urls: ssl://aha.loop.vertex.link:27492
-    dmon:listen: ssl://0.0.0.0:27492?hostname=aha.loop.vertex.link&ca=loop.vertex.link
-    provision:listen: tcp://0.0.0.0:27272/
+    aha:urls: ssl://aha.loop.vertex.link
+    dmon:listen: ssl://aha.loop.vertex.link?ca=loop.vertex.link
+    provision:listen: ssl://aha.loop.vertex.link:27272/
 
 .. note::
 
@@ -93,7 +101,7 @@ Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
 
 Change ownership of the storage directory to the user you will use to run the container::
 
-    chown -R synuser /srv/syn/aha/storage
+    chown -R 999 /srv/syn/aha/storage
 
 Start the container using ``docker-compose``::
 
@@ -114,42 +122,40 @@ Deploy Axon Service
 ===================
 
 In the Synapse service architecture, an Axon provides a place to store arbitrary bytes/files as binary
-blobs and exposes APIs for streaming files in and out regardless of their size.  Given sufficient filesystem
+blobs and exposes APIs for streaming files in and out regardless of their size.  Given sufficient file system
 size, an Axon can be used to efficiently store and retrieve very large files as well as a high number
 (easily billions) of files.
 
-Inside the AHA container
-------------------------
+**Inside the AHA container**
 
-Generate a one-time use provisioning API key::
+Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.axon
 
 You should see output that looks similar to this::
 
-    one-time use provisioning url: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
-On the Host
------------
+**On the Host**
 
 Create the container directory::
 
     mkdir -p /srv/syn/axon/storage
-    chown -R synuser /srv/syn/axon/storage
+    chown -R 999 /srv/syn/axon/storage
 
 Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
     version: "3.3"
     services:
       00.axon:
-        user: synuser
+        user: 999
         image: vertexproject/synapse-axon:v2.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
         - ./storage:/vertex/storage
         environment:
-            - SYN_AXON_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+            - SYN_AXON_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -163,38 +169,36 @@ Start the container::
 Deploy JSONStor Service
 =======================
 
-Inside the AHA container
-------------------------
+**Inside the AHA container**
 
-Generate a one-time use provisioning API key::
+Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.jsonstor
 
 You should see output that looks similar to this::
 
-    one-time use provisioning url: tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
+    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
-On the Host
------------
+**On the Host**
 
 Create the container directory::
 
     mkdir -p /srv/syn/00.jsonstor/storage
-    chown -R synuser /srv/syn/00.jsonstor/storage
+    chown -R 999 /srv/syn/00.jsonstor/storage
 
 Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
 
     version: "3.3"
     services:
       00.jsonstor:
-        user: synuser
+        user: 999
         image: vertexproject/synapse-jsonstor:v2.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
         - ./storage:/vertex/storage
         environment:
-            - SYN_JSONSTOR_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/8c5eeeafdc569b5a0642ee451205efae
+            - SYN_JSONSTOR_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -208,8 +212,7 @@ Start the container::
 Deploy Cortex Service
 =====================
 
-Inside the AHA container
-------------------------
+**Inside the AHA container**
 
 Edit or copy the following contents to the file ``/tmp/cortex.yaml`` inside the container::
 
@@ -222,29 +225,28 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use provisioning URL: tcp://aha.loop.vertex.link:27272/25428f3098123c924314e3a3ca5d9003
+    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
-On the Host
------------
+**On the Host**
 
 Create the container directory::
 
     mkdir -p /srv/syn/00.cortex/storage
-    chown -R synuser /srv/syn/00.cortex/storage
+    chown -R 999 /srv/syn/00.cortex/storage
 
 Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
 
     version: "3.3"
     services:
       00.cortex:
-        user: synuser
+        user: 999
         image: vertexproject/synapse-cortex:v2.x.x
         network_mode: host
         restart: unless-stopped
         volumes:
         - ./storage:/vertex/storage
         environment:
-            - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/25428f3098123c924314e3a3ca5d9003
+            - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -262,38 +264,36 @@ Remember, you can view the container logs in real-time using::
 Deploy Cortex Mirror (optional)
 ===============================
 
-Inside the AHA container
-------------------------
+**Inside the AHA container**
 
-Generate a one-time use API key for provisioning from *inside the AHA container*::
+Generate a one-time use URL for provisioning from *inside the AHA container*::
 
     python -m synapse.tools.aha.provision.service 01.cortex --mirror 00.cortex
 
 You should see output that looks similar to this::
 
-    one-time use provisioning URL: tcp://aha.loop.vertex.link:27272/5083081b157cf41ec45d4148d18b3170
+    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
-On the Host
------------
+**On the Host**
 
 Create the container storage directory::
 
     mkdir -p /srv/syn/01.cortex/storage
-    chown -R synuser /srv/syn/01.cortex/storage
+    chown -R 999 /srv/syn/01.cortex/storage
 
 Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
 
     version: "3.3"
     services:
       01.cortex:
-        user: synuser
+        user: 999
         image: vertexproject/synapse-cortex:v2.x.x
-        environment:
-            - SYN_CORTEX_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/5083081b157cf41ec45d4148d18b3170
         network_mode: host
         restart: unless-stopped
         volumes:
         - ./storage:/vertex/storage
+        environment:
+            - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -309,10 +309,47 @@ Start the container::
     If you are deploying a mirror from an existing large Cortex, this startup may take a while to complete
     initialization.
 
+Enroll CLI Users
+================
+
+A Synapse user is generally synonymous with a user account on the Cortex. To bootstrap CLI users who will
+have Cortex access using the Telepath API, we will need to add them to the Cortex and generate user
+certificates for them. To add a new admin user to the Cortex, run the following command from **inside the
+Cortex container**::
+
+    python -m synapse.tools.moduser --add --admin visi@loop.vertex.link
+
+.. note::
+    Don't forget to change ``loop.vertex.link`` to your chosen network name!
+
+.. note::
+    If you are a Synapse Enterprise customer, using the Synapse UI with SSO, the admin may now login to the
+    Synapse UI. You may skip the following steps if the admin will not be using CLI tools to access the Cortex.
+
+Then we will need to generate a one-time use URL they may use to generate a user certificate. Run the
+following command from **inside the AHA container** to genreate a one-time use URL for the user::
+
+    python -m synapse.tools.aha.provision.user visi
+
+You should see output that looks similar to this::
+
+    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+
+Then the **user** may run::
+
+    python -m synapse.tools.enroll ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+
+Once they are enrolled, they will have a user certificate located in ``~/.syn/certs/users`` and their telepath
+configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there
+the user should be able to use standard Synapse cli tools using the ``aha://`` URL such as::
+
+    python -m synapse.tools.storm aha://visi@cortex.loop.vertex.link
+
 What's next?
 ============
 
-See the :ref:`devopsguide` for instructions on performing various maintenance tasks on your deployment!
+See the :ref:`adminguide` for instructions on performing application administrator tasks.  See the :ref:`devopsguide`
+for instructions on performing various maintenance tasks on your deployment!
 
 .. _docker: https://docs.docker.com/engine/install/
 .. _docker-compose: https://docs.docker.com/compose/install/

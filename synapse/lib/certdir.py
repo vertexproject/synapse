@@ -493,6 +493,12 @@ class CertDir:
         '''
         return self._loadCertPath(self.getHostCertPath(name))
 
+    def getHostCertHash(self, name):
+        cert = self.getHostCert(name)
+        if cert is None:
+            return None
+        return cert.digest('SHA256').decode().lower().replace(':', '')
+
     def getHostCertPath(self, name):
         '''
         Gets the path to a host certificate.

@@ -1,7 +1,7 @@
 .. _orch-kubernetes:
 
 Kubernetes
-==========
+~~~~~~~~~~
 
 A popular option for Orchestration is Kubernetes. Kubernetes is an open-source system for automating the deployment,
 scaling and management of containerized applications. We provide examples that you can use to quickly get started
@@ -32,19 +32,17 @@ The following examples make the following assumptions:
 4. There is a secret ``regcred`` available which can be used to pull a Docker pull secret that can access the private
    images.
 
-Single Pod
-----------
+**Single Pod**
 
 This single pod example can be readily used, provided that the assumptions noted earlier are accounted for. The DNS name
 for the Certificate, IngressRouteTCP, and SYN_OPTIC_NETLOC value would need to be updated to account for your own DNS
 settings.
 
-.. literalinclude:: demo-aha-onepod.yaml
+.. literalinclude:: devguides/demo-aha-onepod.yaml
     :language: yaml
     :lines: 1-284
 
-Multiple Pods
--------------
+**Multiple Pods**
 
 Each service can also be broken into separate pods. This example is broken down across three sections, a Cortex, an Axon,
 and other services. This lines up with three distinct Persistent Volume Claims being made to host the data for the
@@ -53,7 +51,7 @@ pods; and each Telepath-capable service reports itself into an Aha server.
 
 First, the shared Secret.
 
-.. literalinclude:: demo-aha-pods.yaml
+.. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
     :lines: 17-27
 
@@ -62,19 +60,19 @@ port exposed as a service that other Pods can connect to. This example also adds
 ``livenessProbe`` added to check the Cortex (and other services). This allows us to know when the service is available;
 since the Cortex may take some time to load all of the memory maps associated with layer data.
 
-.. literalinclude:: demo-aha-pods.yaml
+.. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
     :lines: 37-147
 
 The Axon is very similar to the Cortex.
 
-.. literalinclude:: demo-aha-pods.yaml
+.. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
     :lines: 155-253
 
 The last set of components shown here is the most complex. It includes the Aha server, the Maxmind connector, and the
 Optic UI.
 
-.. literalinclude:: demo-aha-pods.yaml
+.. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
     :lines: 273-607
