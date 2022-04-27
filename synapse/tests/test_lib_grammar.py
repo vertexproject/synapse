@@ -1256,7 +1256,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 71)
         self.eq(errinfo.get('line'), 3)
         self.eq(errinfo.get('column'), 18)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('RELPROP', ':network') at line 3, column 18"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('RELNAME', ':network') at line 3, column 18"))
 
         query = 'inet:ipv4 | tee { -> foo '
         parser = s_parser.Parser(query)

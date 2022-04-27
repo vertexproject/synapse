@@ -52,7 +52,7 @@ TerminalPygMap = {
     'OR': p_t.Keyword,
     'PROPS': p_t.Name,
     'RBRACE': p_t.Punctuation,
-    'RELPROP': p_t.Name,
+    'RELNAME': p_t.Name,
     'RPAR': p_t.Punctuation,
     'RSQB': p_t.Punctuation,
     'SETTAGOPER': p_t.Operator,

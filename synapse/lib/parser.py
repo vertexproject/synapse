@@ -67,7 +67,7 @@ terminalEnglishMap = {
     'OR': 'or',
     'PROPS': 'absolute property name',
     'RBRACE': ']',
-    'RELPROP': 'relative property',
+    'RELNAME': 'relative property name',
     'RPAR': ')',
     'RSQB': '}',
     'SETTAGOPER': '?',

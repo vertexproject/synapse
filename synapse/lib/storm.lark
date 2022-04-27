@@ -214,7 +214,7 @@ CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _cmdrargv ("="? _cmdrargv)*
-!_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT ("=" (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
+_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQUAL (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
@@ -262,7 +262,7 @@ tagvalu: tagname
 tagpropvalu: tagprop
 
 _COLONDOLLAR: ":$"
-relpropvalu: RELPROP | _COLONDOLLAR _varvaluatom
+relpropvalu: RELNAME | _COLONDOLLAR _varvaluatom
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
@@ -341,8 +341,10 @@ ABSPROP.2: PROPS | UNIVNAME
 ABSPROPNOUNIV.2: PROPS
 formname: PROPS | _DEREF _varvalu
 // A relative property
-relprop: RELPROP | _COLONDOLLAR _varvaluatom
-RELPROP: /(?<!\w):[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
+relprop: RELNAME | _COLONDOLLAR _varvaluatom
+
+// Similar to PROPS, but starts with a colon and allows :: as separator
+RELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
 // Similar to PROPS but does not require a colon
 BASEPROP: /[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
@@ -368,7 +370,7 @@ AND: "and"
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOT exprcmp
-!?exprcmp: exprsum | exprcmp (CMPR | "=") exprsum
+?exprcmp: exprsum | exprcmp (CMPR | EQUAL) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
 _expratom: _exprvalu
