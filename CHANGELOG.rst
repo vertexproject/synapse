@@ -4,6 +4,23 @@
 Synapse Changelog
 *****************
 
+
+v2.92.0 - 2022-04-27
+====================
+
+Features and Enhancements
+-------------------------
+- Update the allowed versions of the ``pyopenssl`` and ``pytz`` libraries.
+  (`#2657 <https://github.com/vertexproject/synapse/pull/2657>`_)
+  (`#2658 <https://github.com/vertexproject/synapse/pull/2658>`_)
+
+Bugfixes
+--------
+- When setting ival properties, they are now properly merged with existing
+  values.
+  (`#2655 <https://github.com/vertexproject/synapse/pull/2655>`_)
+
+
 v2.91.1 - 2022-04-24
 ====================
 
