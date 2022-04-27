@@ -26,7 +26,6 @@ terminalEnglishMap = {
     'BOOL': 'boolean',
     'BREAK': 'break',
     'BYNAME': 'named comparison operator',
-    'BYNAMEARRAY': 'named array comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -548,7 +547,6 @@ terminalClassMap = {
     'ABSPROPNOUNIV': s_ast.AbsProp,
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
-    'BYNAME': lambda x: s_ast.Const(x.lstrip('*')),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's

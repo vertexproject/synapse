@@ -223,11 +223,10 @@ TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
-BYNAME.2: /\*[^=\s]+=/
-BYNAMEARRAY.2: /[^=\s]+=/
+_cmpr: "*" BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
+BYNAME.2: /[^=\s]+=/
 
-_safe_cmpr: BYNAMEARRAY | CMPR | CMPRAT | EQUAL | TRYSET
+_safe_cmpr: BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPRAT: "@="
