@@ -716,8 +716,8 @@ class Url(s_types.Str):
         hostparts = ''
         pathpart = ''
         parampart = ''
+        local = False
         isUNC = False
-        prep = False
 
         # Protocol
         for splitter in ('://///', ':////'):
@@ -739,20 +739,11 @@ class Url(s_types.Str):
 
         if not proto:
             try:
-                proto, valu = orig.split(':/', 1)
-                proto = proto.lower()
-                assert proto == 'file'
-                prep = True
-            except Exception:
-                proto = valu = ''
-
-        if not proto:
-            try:
                 proto, valu = orig.split(':', 1)
                 proto = proto.lower()
                 assert proto == 'file'
                 assert valu
-                prep = True
+                local = True
             except Exception:
                 proto = valu = ''
 
@@ -767,23 +758,15 @@ class Url(s_types.Str):
             valu, queryrem = valu.split('?', 1)
             # TODO break out query params separately
 
-        # Optional User/Password
-        parts = valu.rsplit('@', 1)
-        if len(parts) == 2:
-            authparts, valu = parts
-            prep = False
-            userpass = authparts.split(':', 1)
-            subs['user'] = userpass[0]
-            if len(userpass) == 2:
-                subs['passwd'] = userpass[1]
-
         # Resource Path
-        if prep:
-            valu = f'/{valu}'
         parts = valu.split('/', 1)
         subs['path'] = ''
         if len(parts) == 2:
             valu, pathpart = parts
+            if local:
+                if drivre.match(valu):
+                    pathpart = '/'.join((valu, pathpart))
+                    valu = ''
             # Ordering here matters due to the differences between how windows and linux filepaths are encoded
             # *nix paths: file://<host>/some/chosen/path
             # for windows path: file://<host>/c:/some/chosen/path
@@ -802,6 +785,15 @@ class Url(s_types.Str):
         if queryrem:
             parampart = f'?{queryrem}'
         subs['params'] = parampart
+
+        # Optional User/Password
+        parts = valu.rsplit('@', 1)
+        if len(parts) == 2:
+            authparts, valu = parts
+            userpass = authparts.split(':', 1)
+            subs['user'] = userpass[0]
+            if len(userpass) == 2:
+                subs['passwd'] = userpass[1]
 
         # Host (FQDN, IPv4, or IPv6)
         host = None
@@ -846,6 +838,10 @@ class Url(s_types.Str):
                     subs['fqdn'] = host
                 except Exception:
                     pass
+
+        if host and local:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Host specified on local-only file URI') from None
 
         # Optional Port
         if port is not None:
