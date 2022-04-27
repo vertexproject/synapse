@@ -208,7 +208,7 @@ CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|whi
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
 
 // An unquoted string within a storm command argument list
-?wordtokn: wordtokn /(?<!\s),(?!\s)/ (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?)
+wordtokn: wordtokn /(?<!\s),(?!\s)/ (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?)
     | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
     | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?
 
