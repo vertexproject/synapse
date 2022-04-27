@@ -1578,7 +1578,7 @@ class PivotToTags(PivotOper):
 
         assert len(self.kids) == 1
         kid = self.kids[0]
-        assert isinstance(kid, (TagMatch, Const))
+        assert isinstance(kid, TagMatch)
 
         if kid.isconst:
 
@@ -1591,7 +1591,7 @@ class PivotToTags(PivotOper):
                 async def filter(x, path):
                     return True
 
-            elif isinstance(kid, TagMatch) and kid.hasglob():
+            elif kid.hasglob():
 
                 # glob matcher...
                 async def filter(x, path):
@@ -2259,11 +2259,11 @@ class TagCond(Cond):
 
         kid = self.kids[0]
 
-        if not isinstance(kid, (TagMatch, Const)):
+        if not isinstance(kid, TagMatch):
             # TODO:  we might hint based on variable value
             return []
 
-        if not kid.isconst or (isinstance(kid, TagMatch) and kid.hasglob()):
+        if not kid.isconst or kid.hasglob():
             return []
 
         return (
@@ -2923,7 +2923,6 @@ class Const(Value):
     def __init__(self, valu, kids=()):
         Value.__init__(self, kids=kids)
         self.valu = valu
-        self.isconst = True
 
     def repr(self):
         return f'{self.__class__.__name__}: {self.valu}'
@@ -3597,14 +3596,14 @@ class EditTagPropSet(Edit):
         if runt.readonly:
             raise s_exc.IsReadOnly()
 
-        oper = await self.kids[2].compute(runt, None)
+        oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
         async for node, path in genr:
 
-            tag, prop = await self.kids[1].compute(runt, path)
+            tag, prop = await self.kids[0].compute(runt, path)
 
-            valu = await self.kids[3].compute(runt, path)
+            valu = await self.kids[2].compute(runt, path)
             valu = await s_stormtypes.toprim(valu)
 
             normtupl = await runt.snap.getTagNorm(tag)

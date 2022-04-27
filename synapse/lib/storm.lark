@@ -47,16 +47,17 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname ["=" _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-!editpropset: relprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
+editpropset: relprop (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 editpropdel: "-" relprop
-!editunivset: univprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
-!editnodeadd: formname ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
-!edittagpropset: "+" tagprop ("=" | _MODSET | _TRYSET | _TRYSETPLUS | _TRYSETMINUS) _valu
+editunivset: univprop (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editnodeadd: formname (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+edittagpropset: "+" tagprop (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropdel: "-" tagprop
-_MODSET.4: "+=" | "-="
-_TRYSETPLUS: "?+=" | "?-="
-_TRYSETMINUS: "?+=" | "?-="
-_TRYSET.2: "?="
+EQUAL: "="
+MODSET.4: "+=" | "-="
+TRYSETPLUS: "?+="
+TRYSETMINUS: "?-="
+TRYSET: "?="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
@@ -217,22 +218,19 @@ cmdrargs: _cmdrargv ("="? _cmdrargv)*
 !_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT ("=" (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
 
 // A tag with either a variable reference or a tag name potentially with asterisks
-_tagmatch: "#" (_varvalu | TAGMATCH | TAG)
+_tagmatch: "#" (_varvalu | TAGMATCH)
 // A tag name with asterisks or $var as segment after the first segment
 TAGMATCH:  (_TAGSEGSTARNOVARSTRT | _TAGSEGNOVAR) ( "." (_TAGSEGSTARNOVAR | _TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGSTARNOVARSTRT: /(?<=#)\w*\*+\w*/
 _TAGSEGSTARNOVAR: /\w*\*+\w*/
-
-// A regular tag potentially with $var as any number of segments after the first
-TAG: _TAGSEGNOVAR ("." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /\w+/
 
 // A comparison operator
-!_cmpr: BYNAME | CMPR | CMPRAT | "=" | _TRYSET
+_cmpr: BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
 BYNAME.2: /\*[^=\s]+=/
 BYNAMEARRAY.2: /[^=\s]+=/
 
-!_safe_cmpr: BYNAMEARRAY | CMPR | CMPRAT | "=" | _TRYSET
+_safe_cmpr: BYNAMEARRAY | CMPR | CMPRAT | EQUAL | TRYSET
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPRAT: "@="
