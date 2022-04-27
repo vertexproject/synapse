@@ -3002,7 +3002,7 @@ class List(Value):
         return 'List: %s' % self.kids
 
     async def compute(self, runt, path):
-        return [str(k.valu) if isinstance(k, Const) else await k.compute(runt, path) for k in self.kids]
+        return [await k.compute(runt, path) for k in self.kids]
 
 class PropName(Value):
 

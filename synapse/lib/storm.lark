@@ -251,8 +251,7 @@ exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
 _exprvalu: NUMBER | NUMBERWS | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
 ?listvalu: _basevalu
-    | NONQUOTEWORD+ -> nonquotewords
-    | PROPS | NUMBER | NUMBERWS
+    | (NONQUOTEWORD | PROPS | NUMBER | NUMBERWS)+ -> nonquotewords
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
