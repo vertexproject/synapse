@@ -3467,7 +3467,9 @@ class StormTest(s_t_utils.SynTest):
                     //comm
                     -: { $lib.print(minus) }
                     /*comm*/ +-: { $lib.print(plusminus) }
-                    -+: { $lib.print(minusplus) }
+                    -+ : { $lib.print(minusplus) }
+                    // -+: { $lib.print(fake) }
+                    /* -+: { $lib.print(fake2) } */
                     --: { $lib.print(minusminus) }
                     ++: { $lib.print(plusplus) }
                     /: { $lib.print(div) }

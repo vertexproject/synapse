@@ -158,7 +158,7 @@ n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu 
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
-walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | PROPS) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
+walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | ABSPROP) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
 
 _WALKNPIVON1.4: "-->"
 _WALKNPIVON2.4: "<--"
