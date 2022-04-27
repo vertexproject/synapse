@@ -3258,6 +3258,12 @@ class EditPropSet(Edit):
 
                     valu = arry
 
+                if isinstance(prop.type, s_types.Ival):
+                    oldv = node.get(name)
+                    if oldv is not None:
+                        valu, _ = prop.type.norm(valu)
+                        valu = prop.type.merge(oldv, valu)
+
                 await node.set(name, valu)
 
             except excignore:
