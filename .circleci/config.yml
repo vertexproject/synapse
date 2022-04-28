@@ -775,6 +775,7 @@ workflows:
             branches:
               only:
                 - master
+                - visi-deployment
 
       - gh-release/dorelease:
           requires:
