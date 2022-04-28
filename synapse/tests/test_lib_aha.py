@@ -437,7 +437,7 @@ class AhaTest(s_test.SynTest):
 
             async with await self.aha_ctor(dirn) as aha:
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.NeedConfValu):
                     await aha.addAhaSvcProv('hehe')
 
                 aha.conf['aha:urls'] = 'tcp://127.0.0.1:0/'
@@ -445,10 +445,16 @@ class AhaTest(s_test.SynTest):
                 with self.raises(s_exc.NeedConfValu):
                     await aha.addAhaSvcProv('hehe')
 
+                with self.raises(s_exc.NeedConfValu):
+                    await aha.addAhaUserEnroll('hehe')
+
                 aha.conf['provision:listen'] = 'tcp://127.0.0.1:27272'
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.NeedConfValu):
                     await aha.addAhaSvcProv('hehe')
+
+                with self.raises(s_exc.NeedConfValu):
+                    await aha.addAhaUserEnroll('hehe')
 
                 aha.conf['aha:network'] = 'haha'
                 await aha.addAhaSvcProv('hehe')
@@ -502,6 +508,16 @@ class AhaTest(s_test.SynTest):
                         with self.raises(s_exc.BadArg):
                             await provproxy.signUserCsr(byts)
 
+                    onebork = await proxy.addAhaUserEnroll('bork00')
+                    await proxy.delAhaUserEnroll(onebork)
+
+                    onebork = await proxy.addAhaUserEnroll('bork01')
+                    async with await s_telepath.openurl(onebork) as provproxy:
+
+                        byts = aha.certdir.genUserCsr('zipzop')
+                        with self.raises(s_exc.BadArg):
+                            await provproxy.signUserCsr(byts)
+
                 onetime = await aha.addAhaSvcProv('00.axon')
 
                 axonpath = s_common.gendir(dirn, 'axon')
@@ -546,14 +562,24 @@ class AhaTest(s_test.SynTest):
                             self.eq(teleyaml.get('version'), 1)
                             self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
 
-                            # TODO
-                            # async with s_telepath.withTeleEnv():
-                            #     async with await s_telepath.openurl('aha://axon...') as axon:
-                            #         pass
-
                     with self.raises(s_exc.DupUserName):
                         outp = s_output.OutPutStr()
                         await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), '--again', 'visi'), outp=outp)
+
+                onetime = await aha.addAhaSvcProv('00.axon')
+                axonconf = {
+                    'aha:provision': onetime,
+                }
+                s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
+
+                # force a re-provision... (because the providen is different)
+                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                    pass
+
+                # tests startup logic that recognizes it's already done
+                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                    # testing second run...
+                    pass

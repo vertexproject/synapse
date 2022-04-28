@@ -202,7 +202,7 @@ async def withTeleEnv():
 
         s_certdir.delCertPath(certpath)
 
-        if telefini:
+        if telefini is not None:
             await telefini()
 
 async def loadTeleEnv(path):

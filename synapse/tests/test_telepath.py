@@ -405,6 +405,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 certdir.genCaCert('loopy')
                 hostkey, hostcert = certdir.genHostCert(hostname, signas='loopy')
+                self.none(certdir.getHostCertHash('newp.newp.newp'))
 
                 certhash = hostcert.digest('sha256').decode().lower().replace(':', '')
 
@@ -417,6 +418,9 @@ class TeleTest(s_t_utils.SynTest):
                 # host cert is *NOT* signed by a CA that client recognizes
                 with self.raises(ssl.SSLCertVerificationError):
                     await s_telepath.openurl(f'ssl://{hostname}/foo', port=port)
+
+                with self.raises(s_exc.LinkBadCert):
+                    await s_telepath.openurl(f'ssl://{hostname}/foo', port=port, certhash='asdfasdf')
 
                 # still not, but we specify a certhash for the exact server certificate
                 async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port, certhash=certhash) as foo:

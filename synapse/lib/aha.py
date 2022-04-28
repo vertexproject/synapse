@@ -557,7 +557,7 @@ class AhaCell(s_cell.Cell):
         ahaurls = self._getAhaUrls()
         if ahaurls is None:
             mesg = 'AHA server has no configured aha:urls.'
-            raise s_exc.BadArg(mesg=mesg)
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         if self.conf.get('provision:listen') is None:
             mesg = 'The AHA server does not have a provision:listen URL!'
@@ -584,7 +584,7 @@ class AhaCell(s_cell.Cell):
         netw = conf.get('aha:network')
         if netw is None:
             mesg = 'AHA server has no configured aha:network.'
-            raise s_exc.BadArg(mesg=mesg)
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         hostname = f'{name}.{netw}'
 
@@ -641,9 +641,6 @@ class AhaCell(s_cell.Cell):
         if host is None:
             host = urlinfo.get('host')
 
-        if host is None:
-            host = f'{myname}.{mynetw}'
-
         newinfo = {
             'host': host,
             'port': urlinfo.get('port'),
@@ -678,11 +675,12 @@ class AhaCell(s_cell.Cell):
         provurl = self.conf.get('provision:listen')
         if provurl is None:
             mesg = 'The AHA server does not have a provision:listen URL!'
-            raise s_exc.ReqConfOpt(mesg=mesg)
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         ahanetw = self.conf.get('aha:network')
         if ahanetw is None:
             mesg = 'AHA server requires aha:network configuration.'
+            raise s_exc.NeedConfValu(mesg=mesg)
 
         username = f'{name}@{ahanetw}'
 
