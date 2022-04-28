@@ -737,13 +737,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
             'type': 'string',
             'hideconf': True,
-            'hidecmdl': True,
         },
         'cell:ctor': {
             'description': 'An optional python path to the Cell class.  Used by stemcell.',
             'type': 'string',
             'hideconf': True,
-            'hidecmdl': True,
         },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
@@ -763,13 +761,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Allow the construction of the cell auth object to be hooked at runtime.',
             'type': 'string',
             'hideconf': True,
-            'hidecmdl': True,
         },
         'auth:conf': {
             'description': 'Extended configuration to be used by an alternate auth constructor.',
             'type': 'object',
             'hideconf': True,
-            'hidecmdl': True,
         },
         'nexslog:en': {
             'default': False,
