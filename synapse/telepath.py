@@ -126,6 +126,10 @@ async def getAhaProxy(urlinfo):
         mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
         raise s_exc.NoSuchName(mesg=mesg)
 
+    if not aha_clients:
+        mesg = f'No aha servers registered to lookup {host}'
+        raise s_exc.NotReady(mesg=mesg)
+
     laste = None
     for ahaurl, cnfo in list(aha_clients.items()):
         client = cnfo.get('client')

@@ -1,8 +1,10 @@
 import os
 import sys
 import time
-import tarfile
+import signal
 import asyncio
+import tarfile
+import multiprocessing
 
 from unittest import mock
 
@@ -46,6 +48,24 @@ async def _iterBackupEOF(path, linkinfo):
 
 def _backupEOF(path, linkinfo):
     asyncio.run(_iterBackupEOF(path, linkinfo))
+
+def lock_target(dirn, evt1):  # pragma: no cover
+    '''
+    Function to make a cell in a directory and wait to be shut down.
+    Used as a Process target for advisory locking tests.
+
+    Args:
+        dirn (str): Cell directory.
+        evt1 (multiprocessing.Event): event to twiddle
+    '''
+    async def main():
+        cell = await s_cell.Cell.anit(dirn)
+        await cell.addSignalHandlers()
+        evt1.set()
+        await cell.waitfini(timeout=60)
+
+    asyncio.run(main())
+    sys.exit(137)
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -1387,6 +1407,32 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.DupUserName):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
                     pass
+
+    async def test_advisory_locking(self):
+        # fcntl not supported on windows
+        self.thisHostMustNot(platform='windows')
+
+        with self.getTestDir() as dirn:
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+
+            proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
+            proc.start()
+
+            self.true(evt1.wait(timeout=10))
+
+            with self.raises(s_exc.FatalErr) as cm:
+                async with await s_cell.Cell.anit(dirn) as cell:
+                    pass
+
+            self.eq(cm.exception.get('mesg'),
+                    'Cannot start the cell, another process is already running it.')
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join(timeout=10)
+            self.eq(proc.exitcode, 137)
 
     async def test_cell_backup_default(self):
 

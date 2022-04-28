@@ -103,3 +103,25 @@ def validateTagMatch(tag):
 
     if TagMatchRe.fullmatch(tag) is None:
         raise s_exc.BadTag(mesg='Invalid tag match')
+
+unicode_dashes = (
+    '\u2011',  # non-breaking hyphen
+    '\u2012',  # figure dash
+    '\u2013',  # endash
+    '\u2014',  # emdash
+)
+unicode_dashes_replace = tuple([(char, '-') for char in unicode_dashes])
+
+def replaceUnicodeDashes(valu):
+    '''
+    Replace unicode dashes in a string with regular dashes.
+
+    Args:
+        valu (str): A string.
+
+    Returns:
+        str: A new string with replaced dashes.
+    '''
+    for dash in unicode_dashes:
+        valu = valu.replace(dash, '-')
+    return valu
