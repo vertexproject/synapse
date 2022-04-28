@@ -3,6 +3,7 @@ import asyncio
 import argparse
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
@@ -44,7 +45,9 @@ async def main(argv, outp=s_output.stdout):
                 provinfo.setdefault('conf', {})
 
                 provinfo['mirror'] = opts.mirror
-                provinfo['conf']['aha:user'] = opts.user
+
+                if opts.user is not None:
+                    provinfo['conf']['aha:user'] = opts.user
 
                 provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
                 outp.printf(f'one-time use URL: {provurl}')
