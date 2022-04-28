@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.91.1'
+VERSION = '2.92.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -78,7 +78,7 @@ setup(
     include_package_data=True,
 
     install_requires=[
-        'pyOpenSSL>=21.0.0,<22.0.0',
+        'pyOpenSSL>=21.0.0,<23.0.0',
         'cryptography>=36.0.0,<39.0.0',
         'msgpack>=1.0.2,<1.1.0',
         'xxhash>=1.4.4,<3.1.0',
@@ -107,7 +107,7 @@ setup(
         'oauthlib>=3.1.1,<4.0.0',
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
-        'pytz>=2021.3,<2022',
+        'pytz>=2021.3,<2022.2',
     ],
 
     extras_require={
