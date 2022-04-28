@@ -3477,3 +3477,13 @@ class StormTest(s_t_utils.SynTest):
                 '''
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint(exp, msgs)
+
+            q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 2: ['file:base:ext', 'doc']", msgs)
+
+            q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['inet.dns.request']", msgs)
+
+            await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')

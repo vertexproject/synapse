@@ -1316,7 +1316,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 42)
         self.eq(errinfo.get('line'), 2)
         self.eq(errinfo.get('column'), 14)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMDRTOKN', '!$str') at line 2, column 14"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMPROTHER', '!') at line 2, column 14"))
 
         query = '''$str = $lib.cast(str, (1234))  if (!$str ~= '3.+0'  ) { $lib.print($str) }'''
         parser = s_parser.Parser(query)
@@ -1326,7 +1326,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 35)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 36)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMDRTOKN', '!$str') at line 1, column 36"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMPROTHER', '!') at line 1, column 36"))
 
     async def test_quotes(self):
 

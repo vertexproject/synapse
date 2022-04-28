@@ -198,19 +198,18 @@ stormfunc: "function" VARTOKN funcargs "{" query "}"
 
 stormcmd: CMDNAME stormcmdargs?
 stormcmdargs: _stormcmdarg
-_stormcmdarg: _stormcmdarg (CMDOPT | argvquery | _argvalu | wordtokn | CMDOPT "=" (argvquery | _argvalu | wordtokn))
-    | CMDOPT "=" (argvquery | _argvalu | wordtokn)
-    | CMDOPT | argvquery | _argvalu | wordtokn
+_stormcmdarg: _stormcmdarg (CMDOPT | _RIGHTPIVOT | argvquery | _argvalu | wordtokn) ["=" (argvquery | _argvalu | wordtokn)]
+    | (CMDOPT | argvquery | _argvalu | wordtokn | _RIGHTPIVOT) [ "=" (argvquery | _argvalu | wordtokn) ]
 
 // The name of a storm command
 CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
 
-CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_-])/
+CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
 // An unquoted string within a storm command argument list
-wordtokn: wordtokn /(?<!\s),(?!\s)/ (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?)
+wordtokn: wordtokn /(?<!\s),(?!\s)/ (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?)
     | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
-    | (EXPRPLUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?
+    | (EXPRPLUS | EXPRMINUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?
 
 // an argv parser for cmdr commands which may contain embedded queries
 cmdrargs: _cmdrargv ("="? _cmdrargv)*
@@ -223,13 +222,13 @@ TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQUAL | TRYSET | SETTAGOPER
 BYNAME.2: /[^=\s]+=/
 
-_safe_cmpr: BYNAME | CMPR | CMPRAT | EQUAL | TRYSET
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQUAL | TRYSET | SETTAGOPER
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
-CMPRAT: "@="
+CMPROTHER: /(?!<-)(?!<=|>=|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
     | VARTOKN | dollarexpr
@@ -259,7 +258,7 @@ valulist: "(" [listvalu ((",")|("," listvalu)+ ","?)] ")"
 tagvalu: tagname
 tagpropvalu: tagprop
 
-_COLONDOLLAR: ":$"
+_COLONDOLLAR: /(?<!\w|\'|\"):\$/
 relpropvalu: RELNAME | _COLONDOLLAR _varvaluatom
 univpropvalu: univprop
 embedquery: _EMBEDQUERYSTART query "}"

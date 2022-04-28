@@ -18,7 +18,7 @@ TerminalPygMap = {
     'CMDNAME': p_t.Keyword,
     'CMDRTOKN': p_t.Literal.String,
     'CMPR': p_t.Operator,
-    'CMPRAT': p_t.Operator,
+    'CMPROTHER': p_t.Operator,
     'COLON': p_t.Punctuation,
     'COMMA': p_t.Punctuation,
     'CONTINUE': p_t.Keyword,

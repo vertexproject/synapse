@@ -33,7 +33,7 @@ terminalEnglishMap = {
     'CMDNAME': 'command name',
     'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
     'CMPR': 'comparison operator',
-    'CMPRAT': '@=',
+    'CMPROTHER': 'comparison operator',
     'COLON': ':',
     'COMMA': ',',
     'CONTINUE': 'continue',
