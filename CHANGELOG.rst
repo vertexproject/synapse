@@ -5,7 +5,7 @@ Synapse Changelog
 *****************
 
 
-v2.92.0 - 2022-04-27
+v2.92.0 - 2022-04-28
 ====================
 
 Features and Enhancements
