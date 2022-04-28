@@ -33,20 +33,24 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.url) as aha:
+        try:
+            async with await s_telepath.openurl(opts.url) as aha:
 
-            provinfo = {}
+                provinfo = {}
 
-            if opts.cellyaml:
-                provinfo['conf'] = s_common.yamlload(opts.cellyaml)
+                if opts.cellyaml:
+                    provinfo['conf'] = s_common.yamlload(opts.cellyaml)
 
-            provinfo.setdefault('conf', {})
+                provinfo.setdefault('conf', {})
 
-            provinfo['mirror'] = opts.mirror
-            provinfo['conf']['aha:user'] = opts.user
+                provinfo['mirror'] = opts.mirror
+                provinfo['conf']['aha:user'] = opts.user
 
-            provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
-            outp.printf(f'one-time use url: {provurl}')
+                provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
+                outp.printf(f'one-time use URL: {provurl}')
+        except s_exc.SynErr as e:
+            mesg = e.errinfo.get('mesg', repr(e))
+            outp.printf(f'ERROR: {mesg}')
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

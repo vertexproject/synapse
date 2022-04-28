@@ -482,7 +482,7 @@ class AhaTest(s_test.SynTest):
 
                 outp = s_output.OutPutStr()
                 await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'foobar'), outp=outp)
-                self.isin('one-time use url: ', str(outp))
+                self.isin('one-time use URL: ', str(outp))
 
                 provurl = str(outp).split(':', 1)[1].strip()
 
@@ -546,6 +546,7 @@ class AhaTest(s_test.SynTest):
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
+                    self.isin('one-time use URL:', str(outp))
 
                     provurl = str(outp).split(':', 1)[1].strip()
                     with self.getTestDir() as syndir:
@@ -562,12 +563,13 @@ class AhaTest(s_test.SynTest):
                             self.eq(teleyaml.get('version'), 1)
                             self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
 
-                    with self.raises(s_exc.DupUserName):
-                        outp = s_output.OutPutStr()
-                        await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
+                    outp = s_output.OutPutStr()
+                    await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)
+                    self.isin('Need --again', str(outp))
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), '--again', 'visi'), outp=outp)
+                    self.isin('one-time use URL:', str(outp))
 
                 onetime = await aha.addAhaSvcProv('00.axon')
                 axonconf = {

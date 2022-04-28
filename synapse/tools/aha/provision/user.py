@@ -31,10 +31,14 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.url) as aha:
-            userinfo = {}
-            provurl = await aha.addAhaUserEnroll(opts.username, userinfo=userinfo, again=opts.again)
-            outp.printf(f'one-time use URL: {provurl}')
+        try:
+            async with await s_telepath.openurl(opts.url) as aha:
+                userinfo = {}
+                provurl = await aha.addAhaUserEnroll(opts.username, userinfo=userinfo, again=opts.again)
+                outp.printf(f'one-time use URL: {provurl}')
+        except s_exc.SynErr as e:
+            mesg = e.errinfo.get('mesg', repr(e))
+            outp.printf(f'ERROR: {mesg}')
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

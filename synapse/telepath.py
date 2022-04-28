@@ -193,7 +193,8 @@ async def withTeleEnv():
 
     async with loadTeleCell('/vertex/storage'):
 
-        telefini = await loadTeleEnv(s_common.getSynPath('telepath.yaml'))
+        yamlpath = s_common.getSynPath('telepath.yaml')
+        telefini = await loadTeleEnv(yamlpath)
 
         certpath = s_common.getSynPath('certs')
         s_certdir.addCertPath(certpath)

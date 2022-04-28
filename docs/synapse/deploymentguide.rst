@@ -177,7 +177,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -225,7 +225,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -272,7 +272,7 @@ Generate a one-time use URL for provisioning from *inside the AHA container*::
 
 You should see output that looks similar to this::
 
-    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -333,7 +333,7 @@ following command from **inside the AHA container** to genreate a one-time use U
 
 You should see output that looks similar to this::
 
-    one-time use url: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 Then the **user** may run::
 
