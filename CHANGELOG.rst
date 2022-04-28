@@ -17,7 +17,7 @@ Features and Enhancements
 Bugfixes
 --------
 - When setting ival properties, they are now properly merged with existing
-  values.
+  values. This only affected multi-layer views.
   (`#2655 <https://github.com/vertexproject/synapse/pull/2655>`_)
 
 
