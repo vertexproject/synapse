@@ -39,7 +39,7 @@ class AhaApi(s_cell.CellApi):
 
         svcinfo = s_msgpack.deepcopy(svcinfo)
 
-        # suggest that the user of the remove service is the same
+        # suggest that the user of the remote service is the same
         username = self.user.name.split('@')[0]
 
         svcinfo['svcinfo']['urlinfo']['user'] = username
@@ -603,20 +603,17 @@ class AhaCell(s_cell.Cell):
         if isinstance(ahaurls, str):
             ahaurls = (ahaurls,)
 
-        registry = []
-        for urlinfo in ahaurls:
-            if isinstance(urlinfo, str):
-                urlinfo = s_telepath.chopurl(urlinfo)
-            urlinfo['user'] = leader
-            registry.append(s_telepath.zipurl(urlinfo))
+        # allow user to win over leader
+        ahauser = conf.get('aha:user')
+        ahaurls = s_telepath.modurl(ahaurls, user=ahauser)
 
-        conf.setdefault('aha:registry', registry)
+        conf.setdefault('aha:registry', ahaurls)
 
         mirname = provinfo.get('mirror')
         if mirname is not None:
-            conf['mirror'] = f'aha://{leader}@{mirname}'
+            conf['mirror'] = f'aha://{ahauser}@{mirname}'
 
-        username = f'{leader}@{netw}'
+        username = f'{ahauser}@{netw}'
         user = await self.auth.getUserByName(username)
         if user is None:
             user = await self.auth.addUser(username)

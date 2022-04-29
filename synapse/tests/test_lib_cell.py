@@ -373,6 +373,7 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await proxy.isUserAllowed(visi.iden, ('foo', 'bar')))
                 self.false(await proxy.isUserAllowed(visi.iden, ('hehe', 'haha')))
                 self.false(await proxy.isUserAllowed('newpnewp', ('hehe', 'haha')))
+                self.false(await proxy.isRoleAllowed('newpnewp', ('foo', 'bar')))
 
                 await proxy.setUserProfInfo(visi.iden, 'hehe', 'haha')
                 self.eq('haha', await proxy.getUserProfInfo(visi.iden, 'hehe'))

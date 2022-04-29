@@ -36,6 +36,8 @@ adding the following lines to ``/etc/sysctl.conf`` on all systems being used to 
     vm.dirty_expire_centisecs=20
     vm.dirty_writeback_centisecs=20
 
+See :ref:`devops-task-performance` for a list of additional tuning options.
+
 We will use the directory ``/srv/syn/`` on the host systems as the base directory used to deploy
 the Synapse services. Each service will be deployed in separate ``/srv/syn/<svcname>`` directories. This
 directory can be changed to whatever you would like, and the services may be deployed to any host provided
@@ -80,7 +82,7 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       aha:
-        user: 999
+        user: "999"
         image: vertexproject/synapse-aha:v2.x.x
         network_mode: host
         restart: unless-stopped
@@ -140,15 +142,15 @@ You should see output that looks similar to this::
 
 Create the container directory::
 
-    mkdir -p /srv/syn/axon/storage
-    chown -R 999 /srv/syn/axon/storage
+    mkdir -p /srv/syn/00.axon/storage
+    chown -R 999 /srv/syn/00.axon/storage
 
 Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
     version: "3.3"
     services:
       00.axon:
-        user: 999
+        user: "999"
         image: vertexproject/synapse-axon:v2.x.x
         network_mode: host
         restart: unless-stopped
@@ -163,8 +165,8 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
 
 Start the container::
 
-    docker-compose --file /srv/syn/axon/docker-compose.yaml pull
-    docker-compose --file /srv/syn/axon/docker-compose.yaml up -d
+    docker-compose --file /srv/syn/00.axon/docker-compose.yaml pull
+    docker-compose --file /srv/syn/00.axon/docker-compose.yaml up -d
 
 Deploy JSONStor Service
 =======================
@@ -191,7 +193,7 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       00.jsonstor:
-        user: 999
+        user: "999"
         image: vertexproject/synapse-jsonstor:v2.x.x
         network_mode: host
         restart: unless-stopped
@@ -219,6 +221,13 @@ Edit or copy the following contents to the file ``/tmp/cortex.yaml`` inside the 
     axon: aha://axon...
     jsonstor: aha://jsonstor...
 
+For example, you could use this command to create the contents from inside the container::
+
+    cat > /tmp/cortex.yaml << EOF
+    axon: aha://axon...
+    jsonstor: aha://jsonstor...
+    EOF
+
 Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.cortex --user root --cellyaml /tmp/cortex.yaml
@@ -239,7 +248,7 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       00.cortex:
-        user: 999
+        user: "999"
         image: vertexproject/synapse-cortex:v2.x.x
         network_mode: host
         restart: unless-stopped
@@ -268,7 +277,7 @@ Deploy Cortex Mirror (optional)
 
 Generate a one-time use URL for provisioning from *inside the AHA container*::
 
-    python -m synapse.tools.aha.provision.service 01.cortex --mirror 00.cortex
+    python -m synapse.tools.aha.provision.service 01.cortex --user root --mirror cortex
 
 You should see output that looks similar to this::
 
@@ -286,7 +295,7 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
     version: "3.3"
     services:
       01.cortex:
-        user: 999
+        user: "999"
         image: vertexproject/synapse-cortex:v2.x.x
         network_mode: host
         restart: unless-stopped
@@ -317,7 +326,7 @@ have Cortex access using the Telepath API, we will need to add them to the Corte
 certificates for them. To add a new admin user to the Cortex, run the following command from **inside the
 Cortex container**::
 
-    python -m synapse.tools.moduser --add --admin visi@loop.vertex.link
+    python -m synapse.tools.moduser --add --admin true visi@loop.vertex.link
 
 .. note::
     Don't forget to change ``loop.vertex.link`` to your chosen network name!
@@ -337,7 +346,7 @@ You should see output that looks similar to this::
 
 Then the **user** may run::
 
-    python -m synapse.tools.enroll ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    python -m synapse.tools.aha.enroll ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 Once they are enrolled, they will have a user certificate located in ``~/.syn/certs/users`` and their telepath
 configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there

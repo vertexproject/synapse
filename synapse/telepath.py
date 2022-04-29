@@ -4,6 +4,7 @@ An RMI framework for synapse.
 
 import os
 import ssl
+import copy
 import time
 import asyncio
 import logging
@@ -119,8 +120,8 @@ def mergeAhaInfo(info0, info1):
     # info1 - urlinfo provided by aha
 
     # copy both to prevent mutation
-    info0 = dict(info0)
-    info1 = dict(info1)
+    info0 = copy.deepcopy(info0)
+    info1 = copy.deepcopy(info1)
 
     # local path wins
     info1.pop('path', None)
@@ -199,12 +200,16 @@ async def withTeleEnv():
         certpath = s_common.getSynPath('certs')
         s_certdir.addCertPath(certpath)
 
-        yield
+        try:
 
-        s_certdir.delCertPath(certpath)
+            yield
 
-        if telefini is not None:
-            await telefini()
+        finally:
+
+            s_certdir.delCertPath(certpath)
+
+            if telefini is not None:
+                await telefini()
 
 async def loadTeleEnv(path):
 
@@ -256,13 +261,17 @@ async def loadTeleCell(dirn):
     if ahaurl:
         await addAhaUrl(ahaurl)
 
-    yield
+    try:
 
-    if usecerts:
-        s_certdir.delCertPath(certpath)
+        yield
 
-    if ahaurl:
-        await delAhaUrl(ahaurl)
+    finally:
+
+        if usecerts:
+            s_certdir.delCertPath(certpath)
+
+        if ahaurl:
+            await delAhaUrl(ahaurl)
 
 class Aware:
     '''
@@ -1334,6 +1343,7 @@ def chopurl(url, **opts):
 class TeleSSLObject(ssl.SSLObject):
 
     def do_handshake(self):
+        # steal a reference for later so we can get the cert
         self.context.telessl = self
         return ssl.SSLObject.do_handshake(self)
 
@@ -1398,7 +1408,7 @@ async def openinfo(info):
         name = info.get('name', path[1:])
 
         if port is None:
-            port = 27942
+            port = 27492
 
         hostname = None
 
