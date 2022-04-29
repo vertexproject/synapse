@@ -44,20 +44,20 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: "+" [SETTAGOPER] tagname ["=" _valu]
+edittagadd: "+" [SETTAGOPER] tagname [(EQUAL | EQNOSPACE) _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: relprop (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editpropset: relprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 editpropdel: "-" relprop
-editunivset: univprop (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-editnodeadd: formname (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-edittagpropset: "+" tagprop (EQUAL | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editunivset: univprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editnodeadd: formname (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+edittagpropset: "+" tagprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropdel: "-" tagprop
-EQUAL: "="
+EQUAL: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
 TRYSETPLUS: "?+="
 TRYSETMINUS: "?-="
-TRYSET: "?="
+TRYSET.1: "?="
 SETTAGOPER: "?"
 
 // The set of non-edit non-commands in storm
@@ -84,15 +84,15 @@ emit: _EMIT _valu
 vareval: _varvalu
 
 // A variable assignment
-setvar: "$" VARTOKN "=" _valu
-setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue) "=" _valu
+setvar: "$" VARTOKN (EQUAL | EQNOSPACE) _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue) (EQUAL | EQNOSPACE) _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
 subquery: [YIELD] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
-YIELD: "yield"
+YIELD.1: "yield"
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
@@ -115,7 +115,7 @@ ifclause: _valu baresubquery
 varlist: "(" ["$" VARTOKN ("," "$" VARTOKN)*] ","? ")"
 
 // A variable list assignment
-opervarlist: varlist "=" _valu
+opervarlist: varlist (EQUAL | EQNOSPACE) _valu
 
 // Pivots
 _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | formpivot_
@@ -192,14 +192,16 @@ tagname: _tagmatch
 tagprop: _tagmatch ":" BASEPROP
 formtagprop: (PROPS | UNIVNAME) _tagmatch ":" BASEPROP
 
-_funcarg: (VARTOKN | kwarg)
+_funcarg: (VARTOKN [EQNOSPACE _valu])
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
 stormfunc: "function" VARTOKN funcargs "{" query "}"
 
 stormcmd: CMDNAME stormcmdargs?
 stormcmdargs: _stormcmdarg
-_stormcmdarg: _stormcmdarg (CMDOPT | _RIGHTPIVOT | argvquery | _argvalu | wordtokn) ["=" (argvquery | _argvalu | wordtokn)]
-    | (CMDOPT | argvquery | _argvalu | wordtokn | _RIGHTPIVOT) [ "=" (argvquery | _argvalu | wordtokn) ]
+_stormcmdarg: _stormcmdarg (CMDOPT | _RIGHTPIVOT | argvquery | _argvalu | wordtokn | YIELD) [ EQNOSPACE (argvquery | _argvalu | wordtokn)]
+    | (CMDOPT | argvquery | _argvalu | wordtokn | _RIGHTPIVOT | YIELD) [ EQNOSPACE (argvquery | _argvalu | wordtokn) ]
+
+EQNOSPACE: /(?<!\s)=(?!\s)/
 
 // The name of a storm command
 CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|while|switch|else|elif|if|not|or|and|try|catch|as)\b)[a-z][a-z0-9.]+(?=[\s\|\}]|$)/
@@ -207,13 +209,15 @@ CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|whi
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
 // An unquoted string within a storm command argument list
-wordtokn: wordtokn /(?<!\s),(?!\s)/ (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?)
+!wordtokn: wordtokn COMMANOSPACE (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | ".")+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?)
     | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
-    | (EXPRPLUS | EXPRMINUS | NUMBER)+ (NONQUOTEWORD | CMDNAME | NUMBERWS)?
+    | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | ".")+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?
+
+COMMANOSPACE: /(?<!\s)[,\]](?!\s)/
 
 // an argv parser for cmdr commands which may contain embedded queries
-cmdrargs: _cmdrargv ("="? _cmdrargv)*
-_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQUAL (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
+cmdrargs: _cmdrargv (EQNOSPACE? _cmdrargv)*
+_cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | CMDOPT (EQNOSPACE (CMDRTOKN | SINGLEQUOTEDSTRING | DOUBLEQUOTEDSTRING | baresubquery))?
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: "#" (_varvalu | TAGMATCH)
@@ -222,13 +226,13 @@ TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQUAL | TRYSET | SETTAGOPER
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQUAL | EQNOSPACE | TRYSET | SETTAGOPER
 BYNAME.2: /[^=\s]+=/
 
-_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQUAL | TRYSET | SETTAGOPER
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQUAL | EQNOSPACE | TRYSET | SETTAGOPER
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
-CMPROTHER: /(?!<-)(?!<=|>=|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
+CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
     | VARTOKN | dollarexpr
@@ -265,7 +269,7 @@ embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
-NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|])(?!([\s]|\/\*+[^*]*\*+([^\/*][^*]*\*+)*\/|\/\/[^\n]*)*=)/
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|\=])/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
@@ -281,9 +285,8 @@ VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 !varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: _LPARNOSPACE [(kwarg | _valu) ("," (kwarg | _valu))*] ","? ")"
+_callargs: _LPARNOSPACE [(_valu | (VARTOKN | NONQUOTEWORD) (EQUAL | EQNOSPACE) _valu) ("," (_valu | (VARTOKN | NONQUOTEWORD) (EQUAL | EQNOSPACE) _valu))*] ","? ")"
 _LPARNOSPACE.2: /(?<!\s)\(/
-kwarg: VARTOKN "=" _valu
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
     | _EDGEADDN1INIT _condexpr ")" -> filtopermust
@@ -367,7 +370,7 @@ AND: "and"
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOT exprcmp
-?exprcmp: exprsum | exprcmp (CMPR | EQUAL) exprsum
+?exprcmp: exprsum | exprcmp (CMPR | EQUAL | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
 _expratom: _exprvalu

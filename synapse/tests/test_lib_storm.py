@@ -3477,13 +3477,40 @@ class StormTest(s_t_utils.SynTest):
                 '''
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint(exp, msgs)
+            q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [17, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [2019, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [8:14:22]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [PM]', msgs)
+            self.stormIsInWarn('iden must be 32 bytes [10]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [hostname]', msgs)
+
+            q = 'iden https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q --test=asdf'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [--test]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [asdf]', msgs)
+
+            q = 'iden 192[.]foo[.]bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [192[.]foo[.]bar]', msgs)
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 2: ['file:base:ext', 'doc']", msgs)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['file:base:ext=doc']", msgs)
 
             q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
             msgs = await core.stormlist(q)
             self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['inet.dns.request']", msgs)
 
             await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
+
+            q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments", msgs)
+
+            q = 'service.add svcrs ssl://svcrs:27492?certname=root'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('(svcrs): ssl://svcrs:27492?certname=root', msgs)

@@ -36,6 +36,7 @@ terminalEnglishMap = {
     'CMPROTHER': 'comparison operator',
     'COLON': ':',
     'COMMA': ',',
+    'COMMANOSPACE': ',',
     'CONTINUE': 'continue',
     'CPPCOMMENT': 'c++ comment',
     'DEFAULTCASE': 'default case',
@@ -43,6 +44,7 @@ terminalEnglishMap = {
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
+    'EQNOSPACE': '=',
     'EQUAL': '=',
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
@@ -246,8 +248,17 @@ class AstConverter(lark.Transformer):
         argkids = []
         kwargkids = []
         kwnames = set()
+        indx = 1
+        kcnt = len(kids)
+        while indx < kcnt:
 
-        for kid in kids[1:]:
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
+                kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
+                indx += 3
+            else:
+                kid = kids[indx]
+                indx += 1
+
             if isinstance(kid, s_ast.CallKwarg):
                 name = kid.kids[0].valu
                 if name in kwnames:
@@ -282,22 +293,58 @@ class AstConverter(lark.Transformer):
         return self.operrelprop_pivot(kids, isjoin=True)
 
     def stormcmdargs(self, kids):
-        kids = self._convert_children(kids)
+        indx = 0
+        kcnt = len(kids)
+        newkids = []
 
-        return s_ast.List(kids=kids)
+        while indx < kcnt:
+            kid = kids[indx]
+            indx += 1
+
+            if isinstance(kid, s_ast.Const):
+
+                if indx + 1 < kcnt:
+                    nextkid = kids[indx]
+                    thirdkid = kids[indx + 1]
+
+                    if isinstance(nextkid, lark.lexer.Token) and \
+                       isinstance(thirdkid, s_ast.Const) and \
+                       nextkid.type == 'EQNOSPACE':
+
+                        newkid = '='.join((kid.valu, thirdkid.valu))
+                        newkids.append(s_ast.Const(newkid))
+                        indx += 2
+                        continue
+
+            elif isinstance(kid, lark.lexer.Token) and kid.type == 'EQNOSPACE':
+                continue
+
+            newkids.append(self._convert_child(kid))
+
+        return s_ast.List(kids=newkids)
 
     @lark.v_args(meta=True)
     def funcargs(self, meta, kids):
         '''
         A list of function parameters (as part of a function definition)
         '''
+        kids = self._convert_children(kids)
         newkids = []
 
         names = set()
         kwfound = False
 
-        for kid in kids:
-            kid = self._convert_child(kid)
+        indx = 0
+        kcnt = len(kids)
+        while indx < kcnt:
+
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
+                kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
+                indx += 3
+            else:
+                kid = kids[indx]
+                indx += 1
+
             newkids.append(kid)
 
             if isinstance(kid, s_ast.CallKwarg):
@@ -544,6 +591,7 @@ terminalClassMap = {
     'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
+    'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
 }
 

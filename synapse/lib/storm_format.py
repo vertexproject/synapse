@@ -29,6 +29,7 @@ TerminalPygMap = {
     'DOUBLEQUOTEDSTRING': p_t.Literal.String,
     'ELIF': p_t.Keyword,
     'EQUAL': p_t.Punctuation,
+    'EQNOSPACE': p_t.Punctuation,
     'EXPRDIVIDE': p_t.Operator,
     'EXPRMINUS': p_t.Operator,
     'EXPRPLUS': p_t.Operator,
