@@ -198,8 +198,7 @@ stormfunc: "function" VARTOKN funcargs "{" query "}"
 
 stormcmd: CMDNAME stormcmdargs?
 stormcmdargs: _stormcmdarg
-_stormcmdarg: _stormcmdarg (CMDOPT | argvquery | _argvalu | wordtokn) [ EQNOSPACE (argvquery | _argvalu | wordtokn)]
-    | (CMDOPT | argvquery | _argvalu | wordtokn) [ EQNOSPACE (argvquery | _argvalu | wordtokn) ]
+_stormcmdarg: _stormcmdarg? (CMDOPT | argvquery | _argvalu | wordtokn) (EQNOSPACE (argvquery | _argvalu | wordtokn))*
 
 EQNOSPACE: /(?<!\s)=(?!\s)/
 
@@ -209,10 +208,11 @@ CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|whi
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
 // An unquoted string within a storm command argument list
-!wordtokn: wordtokn COMMANOSPACE (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?)
+!wordtokn: wordtokn COMMANOSPACE (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | COMMASPACE)?)
     | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
-    | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?
+    | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | COMMASPACE)?
 
+COMMASPACE: ", "
 COMMANOSPACE: /(?<!\s)[,\]](?!\s)/
 
 // an argv parser for cmdr commands which may contain embedded queries

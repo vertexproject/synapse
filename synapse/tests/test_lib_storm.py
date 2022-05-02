@@ -3517,3 +3517,7 @@ class StormTest(s_t_utils.SynTest):
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)
             self.stormIsInPrint('(svcrs): ssl://svcrs:27492?certname=root', msgs)
+
+            q = 'iden ssl://svcrs:27492?certname=root=bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)

@@ -36,6 +36,7 @@ terminalEnglishMap = {
     'CMPROTHER': 'comparison operator',
     'COLON': ':',
     'COMMA': ',',
+    'COMMASPACE': ',',
     'COMMANOSPACE': ',',
     'CONTINUE': 'continue',
     'CPPCOMMENT': 'c++ comment',
@@ -294,32 +295,33 @@ class AstConverter(lark.Transformer):
 
     def stormcmdargs(self, kids):
         indx = 0
-        kcnt = len(kids)
         newkids = []
 
-        while indx < kcnt:
+        while indx < len(kids):
             kid = kids[indx]
-            indx += 1
 
             if isinstance(kid, s_ast.Const):
 
-                if indx + 1 < kcnt:
-                    nextkid = kids[indx]
-                    thirdkid = kids[indx + 1]
+                if indx + 2 < len(kids):
+                    nextkid = kids[indx + 1]
+                    thirdkid = kids[indx + 2]
 
                     if isinstance(nextkid, lark.lexer.Token) and \
                        isinstance(thirdkid, s_ast.Const) and \
                        nextkid.type == 'EQNOSPACE':
 
                         newkid = '='.join((kid.valu, thirdkid.valu))
-                        newkids.append(s_ast.Const(newkid))
-                        indx += 2
+                        kids.pop(indx + 2)
+                        kids.pop(indx + 1)
+                        kids[indx] = s_ast.Const(newkid)
                         continue
 
             elif isinstance(kid, lark.lexer.Token) and kid.type == 'EQNOSPACE':
+                indx += 1
                 continue
 
             newkids.append(self._convert_child(kid))
+            indx += 1
 
         return s_ast.List(kids=newkids)
 
