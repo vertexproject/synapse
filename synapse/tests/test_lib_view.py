@@ -1,3 +1,4 @@
+import asyncio
 import collections
 
 import synapse.exc as s_exc
@@ -581,6 +582,7 @@ class ViewTest(s_t_utils.SynTest):
                     return(($view.iden, $lyr.iden))
                 ''', opts=opts)
 
+                await asyncio.sleep(1)
                 opts['user'] = None
                 opts['vars']['pushiden'] = pushee_layr
                 await core.nodes('$lib.layer.get().addPush($lib.str.concat($syncurl, "/", $pushiden))', opts=opts)
