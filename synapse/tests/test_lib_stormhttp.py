@@ -16,7 +16,17 @@ class TstWebSock(s_httpapi.WebSocket):
         pass
 
     async def open(self):
-        await self.sendJsonMesg({'hi': 'woot', 'headers': dict(self.request.headers)})
+        resp = {'hi': 'woot', 'headers': dict(self.request.headers)}
+
+        params = {}
+        for k, v in self.request.query_arguments.items():
+            v = [_s.decode() for _s in v]
+            params[k] = v
+
+        if params:
+            resp['params'] = params
+
+        await self.sendJsonMesg(resp)
 
     async def on_message(self, byts):
         mesg = json.loads(byts)
@@ -426,10 +436,11 @@ class StormHttpTest(s_test.SynTest):
             addr, port = await core.addHttpsPort(0)
 
             mesg = await core.callStorm('''
-                $hdr=$lib.dict(key=$lib.false)
+                $params = ( { "param1": "somevalu" } )
+                $hdr = ( { "key": $lib.false } )
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
+                ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr, params=$params)
                 if (not $ok) { $lib.exit($sock) }
 
                 ($ok, $mesg) = $sock.rx()
@@ -438,6 +449,8 @@ class StormHttpTest(s_test.SynTest):
             ''', opts={'vars': {'port': port}})
             self.eq(mesg.get('hi'), 'woot')
             self.eq(mesg.get('headers').get('Key'), 'False')
+            # HTTP params are received as multidict's and returned in similar shape.
+            self.eq(mesg.get('params').get('param1'), ['somevalu', ])
 
             mesg = await core.callStorm('''
                 $hdr=( (key, $lib.false), )
@@ -452,6 +465,7 @@ class StormHttpTest(s_test.SynTest):
             ''', opts={'vars': {'port': port}})
             self.eq(mesg.get('hi'), 'woot')
             self.eq(mesg.get('headers').get('Key'), 'False')
+            self.none(mesg.get('params'))
 
             self.eq((True, ('echo', 'lololol')), await core.callStorm('''
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
