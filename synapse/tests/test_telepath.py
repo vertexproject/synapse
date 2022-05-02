@@ -1384,3 +1384,18 @@ class TeleTest(s_t_utils.SynTest):
             conf['version'] = 99
             s_common.yamlsave(conf, path)
             self.none(await s_telepath.loadTeleEnv(path))
+
+    async def test_telepath_default_port(self):
+        # Test default ports for dmon listening AND telepath connections.
+        async with await s_daemon.Daemon.anit() as dmon:
+            url = 'tcp://127.0.0.1/'
+            addr, port = await dmon.listen(url)
+            self.eq(port, 27492)
+
+            foo = Foo()
+            dmon.share('foo', foo)
+
+            furl = 'tcp://127.0.0.1/foo'
+            async with await s_telepath.openurl(furl) as proxy:
+                self.isin('synapse.tests.test_telepath.Foo', proxy._getClasses())
+                self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
