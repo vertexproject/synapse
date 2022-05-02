@@ -8,6 +8,7 @@ import yaml
 import fastjsonschema
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.hashitem as s_hashitem
 
@@ -222,6 +223,17 @@ class Config(c_abc.MutableMapping):
             if nname is None:
                 continue
             self.setdefault(nname, v)
+
+    def setConfFromFile(self, path):
+        '''
+        Set the opts for a conf object from YAML file path.
+        '''
+        item = s_common.yamlload(path)
+        if item is None:
+            return
+
+        for name, valu in item.items():
+            self.setdefault(name, valu)
 
     # Envar support methods
     def setConfFromEnvs(self):

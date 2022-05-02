@@ -2320,11 +2320,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def _initCellConf(self, conf):
 
+        # if they hand in a dict, assume we are not the main/only one
         if isinstance(conf, dict):
             conf = s_config.Config.getConfFromCell(self, conf=conf)
-
-        for k, v in self._loadCellYaml('cell.yaml').items():
-            conf.setdefault(k, v)
+            path = s_common.genpath(self.dirn, 'cell.yaml')
+            conf.setConfFromFile(path)
 
         conf.reqConfValid()
         return conf
@@ -2547,11 +2547,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # create a fresh config and re-resolve inputs in precedence order...
         conf = s_config.Config.getConfFromCell(self, conf=conf)
 
-        conf.setConfFromOpts(conf)
-        conf.setConfFromEnvs()
+        path = s_common.genpath(self.dirn, 'cell.yaml')
 
-        for k, v in self._loadCellYaml('cell.yaml').items():
-            conf.setdefault(k, v)
+        conf.setConfFromOpts(conf)
+        conf.setConfFromFile(path)
+        conf.setConfFromEnvs()
 
         conf.reqConfValid()
         return conf
@@ -2636,11 +2636,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = cls.getArgParser(conf=conf)
 
         opts = pars.parse_args(argv)
+        path = s_common.genpath(opts.dirn, 'cell.yaml')
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
         conf.setdefault('_log_conf', logconf)
+
         conf.setConfFromOpts(opts)
+        conf.setConfFromFile(path)
         conf.setConfFromEnvs()
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])

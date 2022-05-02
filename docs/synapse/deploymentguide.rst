@@ -19,6 +19,11 @@ The steps, configurations, and volume mapping guidance given in this guide apply
 orchestration mechanisms such as Kubernetes but for simplicity's sake, this guide will only cover
 ``docker-compose`` based deployments.
 
+.. note::
+    To allow hosts to be provisioned on one system, this guide instructs you to disable HTTP API listening
+    ports on all services other than the main Cortex. You may remove those configuration options if you are
+    running on separate hosts or select alternate ports which do not conflict.
+
 Prepare your Hosts
 ==================
 
@@ -87,13 +92,17 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         network_mode: host
         restart: unless-stopped
         volumes:
-        - ./storage:/vertex/storage
+            - ./storage:/vertex/storage
+        environment:
+            # disable HTTPS API for now to prevent port collisions
+            - SYN_CORTEX_HTTPS_PORT=null
 
 Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
 
     aha:name: aha
     aha:network: loop.vertex.link
     aha:urls: ssl://aha.loop.vertex.link
+    https:port: null
     dmon:listen: ssl://aha.loop.vertex.link?ca=loop.vertex.link
     provision:listen: ssl://aha.loop.vertex.link:27272/
 
@@ -155,8 +164,10 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
         network_mode: host
         restart: unless-stopped
         volumes:
-        - ./storage:/vertex/storage
+            - ./storage:/vertex/storage
         environment:
+            # disable HTTPS API for now to prevent port collisions
+            - SYN_AXON_HTTPS_PORT=null
             - SYN_AXON_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
@@ -198,8 +209,10 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
         network_mode: host
         restart: unless-stopped
         volumes:
-        - ./storage:/vertex/storage
+            - ./storage:/vertex/storage
         environment:
+            # disable HTTPS API for now to prevent port collisions
+            - SYN_JSONSTOR_HTTPS_PORT=null
             - SYN_JSONSTOR_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
@@ -253,7 +266,7 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
         network_mode: host
         restart: unless-stopped
         volumes:
-        - ./storage:/vertex/storage
+            - ./storage:/vertex/storage
         environment:
             - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
@@ -300,8 +313,10 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
         network_mode: host
         restart: unless-stopped
         volumes:
-        - ./storage:/vertex/storage
+            - ./storage:/vertex/storage
         environment:
+            # disable HTTPS API for now to prevent port collisions
+            - SYN_CORTEX_HTTPS_PORT=null
             - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::

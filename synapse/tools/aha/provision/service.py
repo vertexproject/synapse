@@ -14,7 +14,7 @@ A tool to prepare provisioning entries in the AHA server.
 Examples:
 
     # provision a new serivce named 00.axon from within the AHA container.
-    python -m synapse.tools.aha.provision.service 00.axo.servicen
+    python -m synapse.tools.aha.provision.service 00.axon
 
     # provision a new serivce named 01.cortex as a mirror from within the AHA container.
     python -m synapse.tools.aha.provision.service 01.cortex --mirror 00.cortex
