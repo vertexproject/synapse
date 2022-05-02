@@ -63,10 +63,12 @@ class DnsModelTest(s_t_utils.SynTest):
                     'query': ('1.2.3.4', 'vertex.link', 255),
                     'server': 'udp://5.6.7.8:53',
                     'reply:code': 0,
+                    'sandbox:file': 'a' * 64,
                 }
                 expected_nodes = (
                     ('inet:server', 'udp://5.6.7.8:53'),
                     ('inet:fqdn', 'vertex.link'),
+                    ('file:bytes', 'sha256:' + 64 * 'a'),
                 )
                 node = await snap.addNode('inet:dns:request', '*', props)
                 req_ndef = node.ndef
@@ -77,6 +79,7 @@ class DnsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('query:name'), 'vertex.link')
                 self.eq(node.get('query:name:fqdn'), 'vertex.link')
                 self.eq(node.get('query:type'), 255)
+                self.eq(node.get('sandbox:file'), 'sha256:' + 64 * 'a')
                 self.none(node.get('query:client'))
                 await self.checkNodes(core, expected_nodes)
 
@@ -133,12 +136,14 @@ class DnsModelTest(s_t_utils.SynTest):
                 props = {
                     'time': '2018',
                     'exe': f'guid:{"a" * 32}',
-                    'query:name': 'notac2.someone.com'
+                    'query:name': 'notac2.someone.com',
+                    'sandbox:file': f'guid:{"b" * 32}',
                 }
                 node = await snap.addNode('inet:dns:request', '*', props)
                 self.none(node.get('query'))
                 self.eq(node.get('exe'), f'guid:{"a" * 32}')
                 self.eq(node.get('query:name'), 'notac2.someone.com')
+                self.eq(node.get('sandbox:file'), f'guid:{"b" * 32}')
 
             nodes = await core.nodes('[inet:dns:request=(test,) :query:name="::ffff:8.7.6.5"]')
             self.len(1, nodes)

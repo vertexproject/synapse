@@ -156,6 +156,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :exitcode=0
                     :src:proc=*
                     :src:thread=*
+                    :sandbox:file=*
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
@@ -165,6 +166,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:thread:created :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:thread:created :src:proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:thread:created :src:thread -> it:exec:thread'))
+            self.len(1, await core.nodes('it:exec:thread:created :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:loadlib=*
@@ -174,6 +176,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :unloaded=20210203
                     :path=/home/invisigoth/rootkit.so
                     :file=*
+                    :sandbox:file=*
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
@@ -181,9 +184,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('va'), 0x00a000)
             self.eq(nodes[0].get('loaded'), 1612224000000)
             self.eq(nodes[0].get('unloaded'), 1612310400000)
-            self.len(1, await core.nodes('it:exec:loadlib -> file:bytes'))
+            self.len(1, await core.nodes('it:exec:loadlib :file -> file:bytes'))
             self.len(1, await core.nodes('it:exec:loadlib :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:loadlib -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:loadlib :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:mmap=*
@@ -197,6 +201,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :deleted=20210203
                     :path=/home/invisigoth/rootkit.so
                     :hash:sha256=ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c
+                    :sandbox:file=*
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
@@ -212,12 +217,14 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:exec:mmap -> hash:sha256'))
             self.len(1, await core.nodes('it:exec:mmap :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:mmap -> file:path +file:path=/home/invisigoth/rootkit.so'))
+            self.len(1, await core.nodes('it:exec:mmap :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa
                     :killedby=*
                     :exitcode=0
                     :exited=20210202
+                    :sandbox:file=*
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
@@ -225,6 +232,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('exitcode'), 0)
             self.eq(nodes[0].get('exited'), 1612224000000)
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
+            self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
 
             nodes = await core.nodes('''[
                 it:av:prochit=*
@@ -421,6 +429,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :severity=debug
 
                     :host={it:host | limit 1}
+                    :sandbox:file=*
             ]''')
             self.len(1, nodes)
             self.eq(10, nodes[0].get('severity'))
@@ -428,6 +437,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(('foo', 'bar', 'baz'), nodes[0].get('data'))
             # check that the host activity model was inherited
             self.nn(nodes[0].get('host'))
+            self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
 
     async def test_it_forms_prodsoft(self):
         # Test all prodsoft and prodsoft associated linked forms
@@ -737,6 +747,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :host=*
                     :image=*
                     :desc=WootWoot
+                    :sandbox:file=*
             ]''')
 
             self.len(1, nodes)
@@ -745,6 +756,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('it:screenshot :host -> it:host'))
             self.len(1, await core.nodes('it:screenshot :image -> file:bytes'))
+            self.len(1, await core.nodes('it:screenshot :sandbox:file -> file:bytes'))
 
     async def test_it_forms_hardware(self):
         async with self.getTestCore() as core:
@@ -797,6 +809,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 ipv4 = 0x01020304
                 ipv6 = '::1'
 
+                sandfile = 'sha256:' + 'b' * 64
                 addr4 = f'tcp://1.2.3.4:{port}'
                 addr6 = f'udp://[::1]:{port}'
                 url = 'http://www.google.com/sekrit.html'
@@ -818,6 +831,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'path': raw_path,
                     'src:exe': src_path,
                     'src:proc': src_proc,
+                    'sandbox:file': sandfile,
                 }
                 node = await snap.addNode('it:exec:proc', proc, pprops)
                 self.eq(node.ndef[1], proc)
@@ -830,6 +844,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path'), norm_path)
                 self.eq(node.get('src:exe'), src_path)
                 self.eq(node.get('src:proc'), src_proc)
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 self.nn(node.get('account'))
                 self.len(1, await core.nodes('it:exec:proc -> it:account'))
@@ -845,6 +860,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'name': mutex,
                     'host': host,
                     'time': tick,
+                    'sandbox:file': sandfile,
                 }
                 node = await snap.addNode('it:exec:mutex', m0, mprops)
                 self.eq(node.ndef[1], m0)
@@ -853,6 +869,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('host'), host)
                 self.eq(node.get('time'), tick)
                 self.eq(node.get('name'), mutex)
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 p0 = s_common.guid()
                 pipeprops = {
@@ -861,6 +878,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'name': pipe,
                     'host': host,
                     'time': tick,
+                    'sandbox:file': sandfile,
                 }
                 node = await snap.addNode('it:exec:pipe', p0, pipeprops)
                 self.eq(node.ndef[1], p0)
@@ -869,6 +887,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('host'), host)
                 self.eq(node.get('time'), tick)
                 self.eq(node.get('name'), pipe)
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 u0 = s_common.guid()
                 uprops = {
@@ -882,6 +901,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'page:image': '*',
                     'browser': '*',
                     'client': addr4,
+                    'sandbox:file': sandfile,
                 }
                 node = await snap.addNode('it:exec:url', u0, uprops)
                 self.eq(node.ndef[1], u0)
@@ -893,6 +913,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('client'), addr4)
                 self.eq(node.get('client:ipv4'), ipv4)
                 self.eq(node.get('client:port'), port)
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 self.nn(node.get('page:pdf'))
                 self.nn(node.get('page:html'))
@@ -903,6 +924,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('it:exec:url=$guid :page:html -> file:bytes', opts=opts))
                 self.len(1, await core.nodes('it:exec:url=$guid :page:image -> file:bytes', opts=opts))
                 self.len(1, await core.nodes('it:exec:url=$guid :browser -> it:prod:softver', opts=opts))
+                self.len(1, await core.nodes('it:exec:url=$guid :sandbox:file -> file:bytes', opts=opts))
 
                 u1 = s_common.guid()
                 uprops['client'] = addr6
@@ -918,7 +940,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'host': host,
                     'exe': exe,
                     'time': tick,
-                    'server': addr4
+                    'server': addr4,
+                    'sandbox:file': sandfile,
                 }
                 node = await snap.addNode('it:exec:bind', b0, bprops)
                 self.eq(node.ndef[1], b0)
@@ -929,6 +952,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('server'), addr4)
                 self.eq(node.get('server:ipv4'), ipv4)
                 self.eq(node.get('server:port'), port)
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 b1 = s_common.guid()
                 bprops['server'] = addr6
@@ -945,6 +969,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'file': fbyts,
                     'time': tick,
                     'path': fpath,
+                    'sandbox:file': sandfile,
                 }
                 fa0 = s_common.guid()
                 node = await snap.addNode('it:exec:file:add', fa0, faprops)
@@ -958,6 +983,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path:dir'), 'c:/temp')
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 fr0 = s_common.guid()
                 node = await snap.addNode('it:exec:file:read', fr0, faprops)
@@ -971,6 +997,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path:dir'), 'c:/temp')
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 fw0 = s_common.guid()
                 node = await snap.addNode('it:exec:file:write', fw0, faprops)
@@ -984,6 +1011,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path:dir'), 'c:/temp')
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 fd0 = s_common.guid()
                 node = await snap.addNode('it:exec:file:del', fd0, faprops)
@@ -997,6 +1025,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('path:dir'), 'c:/temp')
                 self.eq(node.get('path:base'), 'yourfiles.rar')
                 self.eq(node.get('path:ext'), 'rar')
+                self.eq(node.get('sandbox:file'), sandfile)
 
                 file0 = s_common.guid()
                 fsprops = {
@@ -1029,6 +1058,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'exe': exe,
                     'time': tick,
                     'reg': '*',
+                    'sandbox:file': sandfile,
                 }
                 forms = ('it:exec:reg:get',
                          'it:exec:reg:set',
@@ -1044,6 +1074,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     self.eq(node.get('exe'), exe)
                     self.eq(node.get('time'), tick)
                     self.nn(node.get('reg'))
+                    self.eq(node.get('sandbox:file'), sandfile)
 
     async def test_it_app_yara(self):
 

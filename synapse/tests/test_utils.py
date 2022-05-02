@@ -205,7 +205,7 @@ class TestUtils(s_t_utils.SynTest):
             self.stormIsInWarn('Failed to decode iden', mesgs)
 
             mesgs = await core.stormlist('[test:str=')
-            self.stormIsInErr('Unexpected end', mesgs)
+            self.stormIsInErr("Unexpected token 'end of input'", mesgs)
 
     async def test_stable_uids(self):
         with self.withStableUids():

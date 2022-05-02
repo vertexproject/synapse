@@ -16,10 +16,13 @@ The following Rapid Power-Ups are available:
 
 - `Synapse-AlienVault <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-alienvault/index.html>`_
 - `Synapse-Apollo <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-apollo/index.html>`_
+- `Synapse-Blockchain <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-blockchain/index.html>`_
+- `Synapse-Blockcypher <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-blockcypher/index.html>`_
 - `Synapse-Censys <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-censys/index.html>`_
 - `Synapse-Certspotter <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-certspotter/index.html>`_
 - `Synapse-Crtsh <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-crtsh/index.html>`_
 - `Synapse-Datadog <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-datadog/index.html>`_
+- `Synapse-Etherscan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-etherscan/index.html>`_
 - `Synapse-Flashpoint <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-flashpoint/index.html>`_
 - `Synapse-Google-CT <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-google-ct/index.html>`_
 - `Synapse-Google-Search <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-google-search/index.html>`_
@@ -40,9 +43,9 @@ The following Rapid Power-Ups are available:
 - `Synapse-URLScan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-urlscan/index.html>`_
 - `Synapse-Utils <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-utils/index.html>`_
 - `Synapse-Virustotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-virustotal/index.html>`_
-- `Synapse-Wappalyzer <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-wappalyzer/index.html>`_
 - `Synapse-VMRay <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vmray/index.html>`_
 - `Synapse-VXIntel <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-vxintel/index.html>`_
+- `Synapse-Wappalyzer <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-wappalyzer/index.html>`_
 - `Synapse-Whoxy <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-whoxy/index.html>`_
 - `Synapse-ZETAlytics <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-zetalytics/index.html>`_
 

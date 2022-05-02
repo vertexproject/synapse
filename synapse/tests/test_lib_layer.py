@@ -1935,3 +1935,74 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.checkLayrvers(core)
+
+    async def test_layer_edit_perms(self):
+
+        async with self.getTestCore() as core:
+
+            viewiden = await core.callStorm('''
+                $lyr = $lib.layer.add()
+                $view = $lib.view.add(($lyr.iden,))
+                return($view.iden)
+            ''')
+
+            opts = {'view': viewiden}
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[ test:str=bar ]', opts=opts)
+
+            await core.nodes('''
+                [ test:str=foo
+                    :hehe=bar
+                    +#foo:score=2
+                    +#foo.bar
+                    <(refs)+ { test:str=bar }
+                ]
+                $node.data.set(foo, bar)
+            ''', opts=opts)
+
+            await core.nodes('''
+                test:str=foo
+                [ <(refs)- { test:str=bar } ]
+                $node.data.pop(foo)
+                | delnode
+            ''', opts=opts)
+
+            layr = core.views[viewiden].layers[0]
+
+            nodeedits = []
+            async for _, edits, _ in layr.iterNodeEditLog():
+                nodeedits.extend(edits)
+
+            perms = [perm for permoffs, perm in s_layer.getNodeEditPerms(nodeedits)]
+
+            self.eq({
+                ('node', 'add', 'test:str'),
+                ('node', 'del', 'test:str'),
+
+                ('node', 'add', 'syn:tag'),
+
+                ('node', 'prop', 'set', 'test:str:.created'),
+                ('node', 'prop', 'del', 'test:str:.created'),
+
+                ('node', 'prop', 'set', 'test:str:hehe'),
+                ('node', 'prop', 'del', 'test:str:hehe'),
+
+                ('node', 'prop', 'set', 'syn:tag:up'),
+                ('node', 'prop', 'set', 'syn:tag:base'),
+                ('node', 'prop', 'set', 'syn:tag:depth'),
+                ('node', 'prop', 'set', 'syn:tag:.created'),
+
+                ('node', 'tag', 'add', 'foo'),
+                ('node', 'tag', 'del', 'foo'),
+
+                ('node', 'tag', 'add', 'foo', 'bar'),
+                ('node', 'tag', 'del', 'foo', 'bar'),
+
+                ('node', 'data', 'set', 'foo'),
+                ('node', 'data', 'pop', 'foo'),
+
+                ('node', 'edge', 'add', 'refs'),
+                ('node', 'edge', 'del', 'refs'),
+            }, set(perms))
