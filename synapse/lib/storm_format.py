@@ -21,6 +21,7 @@ TerminalPygMap = {
     'CMPROTHER': p_t.Operator,
     'COLON': p_t.Punctuation,
     'COMMA': p_t.Punctuation,
+    'COMMANOSPACE': p_t.Punctuation,
     'CONTINUE': p_t.Keyword,
     'CPPCOMMENT': p_t.Comment,
     'DEFAULTCASE': p_t.Keyword,
