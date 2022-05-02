@@ -175,6 +175,46 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('for $item in $lib.jsonstor.iter() {}', opts=asvisi)
 
+            # cache helpers
+
+            self.none(await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz))'))
+
+            self.none(await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, baz, ({"bam": 1})))'))
+            await asyncio.sleep(0.1)
+
+            self.none(await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz))'))
+            self.eq({'bam': 1}, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day"))'))
+            self.eq({'bam': 1}, await core.callStorm('return($lib.jsonstor.cacheget((foo, bar), baz, asof="-1day"))'))
+
+            self.none(await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, (baz, $lib.true), asof="-1day"))'))
+
+            self.none(await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, (baz, $lib.true), ({"bam": 2})))'))
+            await asyncio.sleep(0.1)
+
+            scmd = 'return($lib.jsonstor.cacheget(foo/bar, (baz, $lib.true), asof="-1day"))'
+            self.eq({'bam': 2}, await core.callStorm(scmd))
+
+            self.none(await core.callStorm('return($lib.jsonstor.cacheset((foo, bar), baz, ({"bam": 3})))'))
+            await asyncio.sleep(0.1)
+
+            self.eq({'bam': 3}, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day"))'))
+
+            path = ('cells', core.iden, 'foo', 'bar')
+            items = sorted(await alist(core.jsonstor.getPathObjs(path)), key=lambda x: x[1]['asof'])
+            self.len(2, items)
+            self.true(all(len(item[0]) == 1 and s_common.isguid(item[0][0]) for item in items))
+            [item[1].pop('asof') for item in items]
+            self.eq({'key': ('baz', True), 'data': {'bam': 2}}, items[0][1])
+            self.eq({'key': 'baz', 'data': {'bam': 3}}, items[1][1])
+
+            with self.raises(s_exc.NoSuchType):
+                await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, $lib.queue, (1)))')
+
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.cacheget(foo, bar))', opts=asvisi)
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.jsonstor.cacheset(foo, bar, baz))', opts=asvisi)
+
     async def test_stormtypes_userjson(self):
 
         async with self.getTestCore() as core:
