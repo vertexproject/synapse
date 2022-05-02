@@ -1118,10 +1118,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if name is not None:
             return name
 
-        netw = self.conf.get('aha:network')
-        if netw is not None:
-            return f'root@{netw}'
-
     async def _initAhaRegistry(self):
 
         self.ahainfo = None
@@ -1146,12 +1142,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahanetw = self.conf.get('aha:network')
 
         ahaadmin = self._getAhaAdmin()
-
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
 
-        if ahauser is not None and ahanetw is not None:
-            await self._addAdminUser(f'{ahauser}@{ahanetw}')
+        if ahauser is not None:
+            await self._addAdminUser(ahauser)
 
     async def _addAdminUser(self, username):
         # add the user in a pre-nexus compatible way
@@ -2720,6 +2715,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             user = await self.auth.getUserByName(username)
             if user is not None:
                 return user
+
+            if username.find('@') != -1:
+                userpart, hostpart = username.split('@', 1)
+                if hostpart == self.conf.get('aha:network'):
+                    user = await self.auth.getUserByName(userpart)
+                    if user is not None:
+                        return user
 
             logger.warning(f'TLS Client Cert User NOT FOUND: {username}')
 

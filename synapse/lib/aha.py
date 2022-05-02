@@ -296,8 +296,9 @@ class AhaCell(s_cell.Cell):
                     await self._genHostCert(host, signas=netw)
 
                 user = self._getAhaAdmin()
-                if self.certdir.getUserCertPath(user) is None:
-                    await self._genUserCert(user, signas=netw)
+                if user is not None:
+                    if self.certdir.getUserCertPath(user) is None:
+                        await self._genUserCert(user, signas=netw)
 
     async def initServiceNetwork(self):
 
@@ -579,6 +580,7 @@ class AhaCell(s_cell.Cell):
         if ahaadmin is not None: # pragma: no cover
             conf.setdefault('aha:admin', ahaadmin)
 
+        conf.setdefault('aha:user', 'root')
         conf.setdefault('aha:network', mynetw)
 
         netw = conf.get('aha:network')
@@ -597,8 +599,6 @@ class AhaCell(s_cell.Cell):
 
         if peer:
             conf.setdefault('aha:leader', leader)
-
-        conf.setdefault('aha:user', leader)
 
         if isinstance(ahaurls, str):
             ahaurls = (ahaurls,)

@@ -528,21 +528,26 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
 
+                    # test that nobody set aha:admin
+                    self.none(await axon.auth.getUserByName('root@loop.vertex.link'))
+                    self.none(await axon.auth.getUserByName('axon@loop.vertex.link'))
+
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'prov.done')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'cas', 'loop.vertex.link.crt')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.crt')))
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.key')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.crt')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'axon@loop.vertex.link.key')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'root@loop.vertex.link.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'root@loop.vertex.link.key')))
 
                     yamlconf = s_common.yamlload(axon.dirn, 'cell.yaml')
                     self.eq('axon', yamlconf.get('aha:leader'))
                     self.eq('00.axon', yamlconf.get('aha:name'))
                     self.eq('loop.vertex.link', yamlconf.get('aha:network'))
-                    self.eq((f'ssl://axon@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
+                    self.none(yamlconf.get('aha:admin'))
+                    self.eq((f'ssl://root@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
                     self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
 
-                    await axon.addUser('visi@loop.vertex.link')
+                    await axon.addUser('visi')
 
                     outp = s_output.OutPutStr()
                     await s_tools_provision_user.main(('--url', aha.getLocalUrl(), 'visi'), outp=outp)

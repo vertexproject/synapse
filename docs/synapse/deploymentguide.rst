@@ -103,7 +103,7 @@ Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
     aha:network: loop.vertex.link
     aha:urls: ssl://aha.loop.vertex.link
     https:port: null
-    dmon:listen: ssl://aha.loop.vertex.link?ca=loop.vertex.link
+    dmon:listen: ssl://0.0.0.0?ca=loop.vertex.link
     provision:listen: ssl://aha.loop.vertex.link:27272/
 
 .. note::
@@ -243,7 +243,7 @@ For example, you could use this command to create the contents from inside the c
 
 Generate a one-time use provisioning URL::
 
-    python -m synapse.tools.aha.provision.service 00.cortex --user root --cellyaml /tmp/cortex.yaml
+    python -m synapse.tools.aha.provision.service 00.cortex --cellyaml /tmp/cortex.yaml
 
 You should see output that looks similar to this::
 
@@ -290,7 +290,7 @@ Deploy Cortex Mirror (optional)
 
 Generate a one-time use URL for provisioning from *inside the AHA container*::
 
-    python -m synapse.tools.aha.provision.service 01.cortex --user root --mirror cortex
+    python -m synapse.tools.aha.provision.service 01.cortex --mirror cortex
 
 You should see output that looks similar to this::
 
