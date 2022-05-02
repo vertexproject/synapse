@@ -261,14 +261,24 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
+        updates = {}
         name2envar = self.getEnvarMapping()
         for name, envar in name2envar.items():
             envv = os.getenv(envar)
             if envv is not None:
                 envv = yaml.safe_load(envv)
-                resp = self.setdefault(name, envv)
-                if resp == envv:
-                    logger.debug(f'Set config valu from envar: [{envar}]')
+
+                curv = self.get(name, s_common.novalu)
+                if curv is not s_common.novalu:
+                    if curv != envv:
+                        logger.warning(f'Config from envar [{envar}] skipped due to already being set!')
+                    continue
+
+                self.setdefault(name, envv)
+                logger.debug(f'Set config valu from envar: [{envar}]')
+                updates[name] = envv
+
+        return updates
 
     def getEnvarMapping(self):
         '''

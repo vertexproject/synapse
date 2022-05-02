@@ -2644,7 +2644,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         conf.setConfFromOpts(opts)
         conf.setConfFromFile(path)
-        conf.setConfFromEnvs()
+        updates = conf.setConfFromEnvs()
+
+        if updates:
+            s_common.yamlmod(updates, path)
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
