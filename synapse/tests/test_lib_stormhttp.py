@@ -453,7 +453,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(mesg.get('params').get('param1'), ['somevalu', ])
 
             mesg = await core.callStorm('''
-                $hdr=( (key, $lib.false), )
+                $hdr = ( { "key": $lib.false } )
                 $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
                 ($ok, $sock) = $lib.inet.http.connect($url, headers=$hdr)
