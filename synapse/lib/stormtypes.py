@@ -6110,6 +6110,9 @@ class View(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields tuples containing the source iden, verb, and destination iden.', }}},
+        {'name': 'wipeLayer', 'desc': 'Delete all nodes and nodedata from the write layer. Triggers will be run.',
+         'type': {'type': 'function', '_funcname': '_methWipeLayer',
+                  'returns': {'type': 'null', }}},
         {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation fails, no changes are made.''',
          'type': {'type': 'function', '_funcname': 'addNode',
                   'args': (
@@ -6167,6 +6170,7 @@ class View(Prim):
             'merge': self._methViewMerge,
             'addNode': self.addNode,
             'getEdges': self._methGetEdges,
+            'wipeLayer': self._methWipeLayer,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
@@ -6310,6 +6314,15 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         todo = s_common.todo('merge', useriden=useriden, force=force)
         await self.runt.dyncall(viewiden, todo)
+
+    async def _methWipeLayer(self):
+        '''
+        Delete nodes and nodedata from the view's write layer.
+        '''
+        useriden = self.runt.user.iden
+        viewiden = self.valu.get('iden')
+        view = self.runt.snap.core.getView(viewiden)
+        await view.wipeLayer(useriden=useriden)
 
 @registry.registerLib
 class LibTrigger(Lib):
