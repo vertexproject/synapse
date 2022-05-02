@@ -1,3 +1,4 @@
+import asyncio
 import collections
 
 import synapse.exc as s_exc
@@ -557,6 +558,14 @@ class ViewTest(s_t_utils.SynTest):
             # can wipe push/pull/mirror layers
 
             self.len(1, await core.nodes('test:str=chicken'))
+            baseoffs = await layr.getEditOffs()
+
+            async def waitPushOffs(core_, iden_, offs_):
+                gvar = f'push:{iden_}'
+                while True:
+                    if await core_.getStormVar(gvar, -1) >= offs_:
+                        return
+                    await asyncio.sleep(0)
 
             async with self.getTestCore() as core2:
 
@@ -568,12 +577,16 @@ class ViewTest(s_t_utils.SynTest):
                     },
                 }
 
-                puller_view, puller_layr = await core2.callStorm('''
+                puller_iden, puller_view, puller_layr = await core2.callStorm('''
                     $lyr = $lib.layer.add()
                     $view = $lib.view.add(($lyr.iden,))
-                    $lyr.addPull($lib.str.concat($baseurl, "/", $baseiden))
-                    return(($view.iden, $lyr.iden))
+                    $pdef = $lyr.addPull($lib.str.concat($baseurl, "/", $baseiden))
+                    return(($pdef.iden, $view.iden, $lyr.iden))
                 ''', opts=opts)
+
+                await asyncio.wait_for(waitPushOffs(core2, puller_iden, baseoffs), timeout=5)
+                self.len(1, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
+                puller_offs = await core2.getLayer(iden=puller_layr).getEditOffs()
 
                 pushee_view, pushee_layr = await core2.callStorm('''
                     $lyr = $lib.layer.add()
@@ -583,7 +596,15 @@ class ViewTest(s_t_utils.SynTest):
 
                 opts['user'] = None
                 opts['vars']['pushiden'] = pushee_layr
-                await core.nodes('$lib.layer.get().addPush($lib.str.concat($syncurl, "/", $pushiden))', opts=opts)
+                pushee_iden = await core.callStorm('''
+                    $lyr = $lib.layer.get()
+                    $pdef = $lyr.addPush($lib.str.concat($syncurl, "/", $pushiden))
+                    return($pdef.iden)
+                ''', opts=opts)
+
+                await asyncio.wait_for(waitPushOffs(core, pushee_iden, baseoffs), timeout=5)
+                self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
+                pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
 
                 mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
                 mirror_view, mirror_layr = await core2.callStorm('''
@@ -593,16 +614,11 @@ class ViewTest(s_t_utils.SynTest):
                     return(($view.iden, $lyr.iden))
                 ''', opts=opts)
 
-                self.true(await core2.getLayer(iden=puller_layr).waitEditOffs(0, timeout=2))
-                self.len(1, await core2.nodes('test:str=chicken', opts={'view': puller_view}))
-                puller_offs = await core2.getLayer(iden=puller_layr).getEditOffs()
-
-                self.true(await core2.getLayer(iden=pushee_layr).waitEditOffs(0, timeout=2))
-                self.len(1, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
-                pushee_offs = await core2.getLayer(iden=pushee_layr).getEditOffs()
-
                 self.true(await core2.getLayer(iden=mirror_layr).waitEditOffs(mirror_catchup, timeout=2))
                 self.len(1, await core2.nodes('test:str=chicken', opts={'view': mirror_view}))
+
+                # wipe the mirror view which will writeback
+                # and then get pushed/pulled into the other layers
 
                 await core2.nodes('$lib.view.get().wipeLayer()', opts={'view': mirror_view})
 
