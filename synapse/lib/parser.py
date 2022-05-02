@@ -56,9 +56,9 @@ terminalEnglishMap = {
     'HEXNUMBER': 'number',
     'IF': 'if',
     'IN': 'in',
-    'LBRACE': '[',
+    'LBRACE': '{',
     'LPAR': '(',
-    'LSQB': '{',
+    'LSQB': '[',
     'MODSET': '+= or -=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
@@ -66,10 +66,10 @@ terminalEnglishMap = {
     'NUMBERWS': 'number followed by whitespace',
     'OR': 'or',
     'PROPS': 'absolute property name',
-    'RBRACE': ']',
+    'RBRACE': '}',
     'RELNAME': 'relative property name',
     'RPAR': ')',
-    'RSQB': '}',
+    'RSQB': ']',
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
@@ -464,7 +464,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'],
-                       maybe_placeholders=False, propagate_positions=True, parser='lalr', debug=True)
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
     '''
@@ -485,12 +485,16 @@ class Parser:
         at = len(self.text)
         line = None
         column = None
+        token = None
         if isinstance(e, lark.exceptions.UnexpectedToken):
             expected = sorted(terminalEnglishMap[t] for t in e.expected)
-            mesg += f'  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
             line = e.line
             column = e.column
+            token = e.token.value
+            valu = terminalEnglishMap.get(e.token.type, e.token.value)
+            mesg = f"Unexpected token '{valu}' at line {line}, column {column}," \
+                   f' expecting one of: {", ".join(expected)}'
         elif isinstance(e, lark.exceptions.VisitError):
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
@@ -498,8 +502,19 @@ class Parser:
                 raise  # pragma: no cover
             origexc.errinfo['text'] = self.text
             return s_exc.BadSyntax(**origexc.errinfo)
+        elif isinstance(e, lark.exceptions.UnexpectedCharacters):
+            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
+            mesg += f'.  Expecting one of: {", ".join(expected)}'
+            at = e.pos_in_stream
+            line = e.line
+            column = e.column
+        elif isinstance(e, lark.exceptions.UnexpectedEOF):
+            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
+            mesg += ' ' + ', '.join(expected)
+            line = e.line
+            column = e.column
 
-        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column)
+        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column, token=token)
 
     def eval(self):
         try:

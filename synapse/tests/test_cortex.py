@@ -2928,7 +2928,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
             # Lark sensitive test
-            self.stormIsInErr("Unexpected token Token('VBAR', '|')", mesgs)
+            self.stormIsInErr("Unexpected token '|'", mesgs)
             errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
             self.eq(errs[0][0], 'BadSyntax')
 

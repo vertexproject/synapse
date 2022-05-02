@@ -3552,7 +3552,7 @@ class StormTypesTest(s_test.SynTest):
 
             # Bad storm syntax
             mesgs = await core.stormlist('trigger.add node:add --form test:str --query {[ | | test:int=1 ] }')
-            self.stormIsInErr('Unexpected token', mesgs)
+            self.stormIsInErr("Unexpected token '|' at line 1, column 49", mesgs)
 
             # (Regression) Just a command as the storm query
             q = 'trigger.add node:add --form test:str --query {[ test:int=99 ] | spin }'
@@ -3854,7 +3854,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'cron.add }'
                 mesgs = await core.stormlist(q)
-                self.stormIsInErr('Unexpected token', mesgs)
+                self.stormIsInErr("Unexpected token '}' at line 1, column 10", mesgs)
 
                 ##################
                 oldsplicespos = (await alist(prox.splices(None, 1000)))[-1][0][0]

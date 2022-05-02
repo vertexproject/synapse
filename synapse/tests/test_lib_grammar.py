@@ -1187,7 +1187,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 9)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 10)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('RPAR', ')') at line 1, column 10"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token ')' at line 1, column 10"))
 
         query = 'test:str {'
         parser = s_parser.Parser(query)
@@ -1198,7 +1198,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 9)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 10)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('$END', '') at line 1, column 10"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'end of input' at line 1, column 10"))
 
         query = '''function itworks() {
                 $lib.print('it works')
@@ -1268,7 +1268,8 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 71)
         self.eq(errinfo.get('line'), 3)
         self.eq(errinfo.get('column'), 18)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('RELNAME', ':network') at line 3, column 18"))
+        self.eq(errinfo.get('token'), ':network')
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'relative property name' at line 3, column 18"))
 
         query = 'inet:ipv4 | tee { -> foo '
         parser = s_parser.Parser(query)
@@ -1278,7 +1279,8 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 21)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 22)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMDNAME', 'foo') at line 1, column 22"))
+        self.eq(errinfo.get('token'), 'foo')
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'command name' at line 1, column 22"))
 
         query = '''// comment
 
@@ -1290,7 +1292,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 52)
         self.eq(errinfo.get('line'), 3)
         self.eq(errinfo.get('column'), 41)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('$END', '') at line 3, column 41"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'end of input' at line 3, column 41"))
 
         query = '''// comment
 
@@ -1302,7 +1304,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 64)
         self.eq(errinfo.get('line'), 3)
         self.eq(errinfo.get('column'), 53)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('VBAR', '|') at line 3, column 53"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token '|' at line 3, column 53"))
 
         query = '''$str = $lib.cast(str,(1234))
          if (!$str ~= '3.+0'  ) {
@@ -1316,7 +1318,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 42)
         self.eq(errinfo.get('line'), 2)
         self.eq(errinfo.get('column'), 14)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMPROTHER', '!') at line 2, column 14"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'comparison operator' at line 2, column 14"))
 
         query = '''$str = $lib.cast(str, (1234))  if (!$str ~= '3.+0'  ) { $lib.print($str) }'''
         parser = s_parser.Parser(query)
@@ -1326,7 +1328,7 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('at'), 35)
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 36)
-        self.true(errinfo.get('mesg').startswith("Unexpected token Token('CMPROTHER', '!') at line 1, column 36"))
+        self.true(errinfo.get('mesg').startswith("Unexpected token 'comparison operator' at line 1, column 36"))
 
     async def test_quotes(self):
 
