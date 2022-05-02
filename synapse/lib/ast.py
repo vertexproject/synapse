@@ -925,7 +925,7 @@ class SetVarOper(Oper):
 
         name = await self.kids[0].compute(runt, None)
 
-        vkid = self.kids[2]
+        vkid = self.kids[1]
 
         count = 0
 
@@ -953,7 +953,7 @@ class SetVarOper(Oper):
                 await runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
-        yield self.kids[0].value(), self.kids[2].isRuntSafe(runt)
+        yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)
         for k in self.kids:
             yield from k.getRuntVars(runt)
 
@@ -975,7 +975,7 @@ class SetItemOper(Oper):
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
             name = await self.kids[1].compute(runt, path)
-            valu = await self.kids[3].compute(runt, path)
+            valu = await self.kids[2].compute(runt, path)
 
             # TODO: ditch this when storm goes full heavy object
             name = await tostr(name)
@@ -988,7 +988,7 @@ class SetItemOper(Oper):
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, None), basetypes=False)
 
             name = await self.kids[1].compute(runt, None)
-            valu = await self.kids[3].compute(runt, None)
+            valu = await self.kids[2].compute(runt, None)
 
             # TODO: ditch this when storm goes full heavy object
             await item.setitem(name, valu)
@@ -998,7 +998,7 @@ class VarListSetOper(Oper):
     async def run(self, runt, genr):
 
         names = await self.kids[0].compute(runt, None)
-        vkid = self.kids[2]
+        vkid = self.kids[1]
 
         async for node, path in genr:
 
@@ -1033,7 +1033,7 @@ class VarListSetOper(Oper):
             return
 
     def getRuntVars(self, runt):
-        runtsafe = self.kids[2].isRuntSafe(runt)
+        runtsafe = self.kids[1].isRuntSafe(runt)
         for name in self.kids[0].value():
             yield name, runtsafe
 

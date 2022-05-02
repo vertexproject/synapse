@@ -84,15 +84,15 @@ emit: _EMIT _valu
 vareval: _varvalu
 
 // A variable assignment
-setvar: "$" VARTOKN (EQUAL | EQNOSPACE) _valu
-setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue) (EQUAL | EQNOSPACE) _valu
+setvar: "$" VARTOKN "=" _valu
+setitem: "$" _varvaluatom "." (VARTOKN | "$" varvalue) "=" _valu
 
 forloop: "for" ("$" VARTOKN | varlist) "in" _valu baresubquery
 whileloop: "while" _valu baresubquery
 subquery: [YIELD] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
-YIELD.1: "yield"
+YIELD.1: /yield(?=[\s\{])/
 switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
@@ -115,7 +115,7 @@ ifclause: _valu baresubquery
 varlist: "(" ["$" VARTOKN ("," "$" VARTOKN)*] ","? ")"
 
 // A variable list assignment
-opervarlist: varlist (EQUAL | EQNOSPACE) _valu
+opervarlist: varlist "=" _valu
 
 // Pivots
 _formpivot: formpivot_pivottotags | formpivot_jointags | formpivot_pivotout | formpivot_
@@ -198,8 +198,8 @@ stormfunc: "function" VARTOKN funcargs "{" query "}"
 
 stormcmd: CMDNAME stormcmdargs?
 stormcmdargs: _stormcmdarg
-_stormcmdarg: _stormcmdarg (CMDOPT | _RIGHTPIVOT | argvquery | _argvalu | wordtokn | YIELD) [ EQNOSPACE (argvquery | _argvalu | wordtokn)]
-    | (CMDOPT | argvquery | _argvalu | wordtokn | _RIGHTPIVOT | YIELD) [ EQNOSPACE (argvquery | _argvalu | wordtokn) ]
+_stormcmdarg: _stormcmdarg (CMDOPT | argvquery | _argvalu | wordtokn) [ EQNOSPACE (argvquery | _argvalu | wordtokn)]
+    | (CMDOPT | argvquery | _argvalu | wordtokn) [ EQNOSPACE (argvquery | _argvalu | wordtokn) ]
 
 EQNOSPACE: /(?<!\s)=(?!\s)/
 
@@ -209,9 +209,9 @@ CMDNAME.2: /(?!(init|fini|function|return|emit|stop|yield|break|continue|for|whi
 CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
 // An unquoted string within a storm command argument list
-!wordtokn: wordtokn COMMANOSPACE (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | ".")+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?)
+!wordtokn: wordtokn COMMANOSPACE (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?)
     | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
-    | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | ".")+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?
+    | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | ", ")?
 
 COMMANOSPACE: /(?<!\s)[,\]](?!\s)/
 
