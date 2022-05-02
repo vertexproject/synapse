@@ -1216,6 +1216,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
+        runiden = await self.getCellRunId()
+        celliden = self.getCellIden()
+
         ahainfo = self.conf.get('aha:svcinfo')
         if ahainfo is None and turl is not None:
 
@@ -1225,6 +1228,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             urlinfo['port'] = self.sockaddr[1]
 
             ahainfo = {
+                'run': runiden,
+                'iden': celliden,
                 'leader': ahalead,
                 'urlinfo': urlinfo,
             }

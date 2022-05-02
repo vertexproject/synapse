@@ -94,17 +94,11 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         volumes:
             - ./storage:/vertex/storage
         environment:
-            # disable HTTPS API for now to prevent port collisions
-            - SYN_CORTEX_HTTPS_PORT=null
-
-Create the ``/srv/syn/aha/storage/cell.yaml`` file with contents::
-
-    aha:name: aha
-    aha:network: loop.vertex.link
-    aha:urls: ssl://aha.loop.vertex.link
-    https:port: null
-    dmon:listen: ssl://0.0.0.0?ca=loop.vertex.link
-    provision:listen: ssl://aha.loop.vertex.link:27272/
+            - SYN_AHACELL_HTTPS_PORT=null
+            - SYN_AHACELL_AHA_NAME=aha
+            - SYN_AHACELL_AHA_network=loop.vertex.link
+            - SYN_AHACELL_DMON_LISTEN=ssl://0.0.0.0?hostname=aha.loop.vertex.link&ca=loop.vertex.link
+            - SYN_AHACELL_PROVISION_LISTEN=ssl://0.0.0.0:27272?hostname=aha.loop.vertex.link
 
 .. note::
 
@@ -229,18 +223,6 @@ Deploy Cortex Service
 
 **Inside the AHA container**
 
-Edit or copy the following contents to the file ``/tmp/cortex.yaml`` inside the container::
-
-    axon: aha://axon...
-    jsonstor: aha://jsonstor...
-
-For example, you could use this command to create the contents from inside the container::
-
-    cat > /tmp/cortex.yaml << EOF
-    axon: aha://axon...
-    jsonstor: aha://jsonstor...
-    EOF
-
 Generate a one-time use provisioning URL::
 
     python -m synapse.tools.aha.provision.service 00.cortex --cellyaml /tmp/cortex.yaml
@@ -268,6 +250,8 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
         volumes:
             - ./storage:/vertex/storage
         environment:
+            - SYN_CORTEX_AXON=aha://axon...
+            - SYN_CORTEX_JSONSTOR=aha://jsonstor...
             - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
