@@ -71,6 +71,7 @@ terminalEnglishMap = {
     'RELNAME': 'relative property name',
     'RPAR': ')',
     'RSQB': ']',
+    'RSQBNOSPACE': ']',
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
     'SWITCH': 'switch',
@@ -293,35 +294,11 @@ class AstConverter(lark.Transformer):
         return self.operrelprop_pivot(kids, isjoin=True)
 
     def stormcmdargs(self, kids):
-        indx = 0
         newkids = []
-
-        while indx < len(kids):
-            kid = kids[indx]
-
-            if isinstance(kid, s_ast.Const):
-
-                if indx + 2 < len(kids):
-                    nextkid = kids[indx + 1]
-                    thirdkid = kids[indx + 2]
-
-                    if isinstance(nextkid, lark.lexer.Token) and \
-                       isinstance(thirdkid, s_ast.Const) and \
-                       nextkid.type == 'EQNOSPACE':
-
-                        newkid = '='.join((kid.valu, thirdkid.valu))
-                        kids.pop(indx + 2)
-                        kids.pop(indx + 1)
-                        kids[indx] = s_ast.Const(newkid)
-                        continue
-
-            elif isinstance(kid, lark.lexer.Token) and kid.type == 'EQNOSPACE':
-                indx += 1
+        for kid in kids:
+            if isinstance(kid, lark.lexer.Token) and kid.type == 'EQNOSPACE':
                 continue
-
             newkids.append(self._convert_child(kid))
-            indx += 1
-
         return s_ast.List(kids=newkids)
 
     @lark.v_args(meta=True)
