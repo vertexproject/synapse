@@ -68,16 +68,16 @@ _oper: stormfunc | initblock | finiblock | trycatch | subquery | _formpivot | fo
      | _liftprop | ifstmt | yieldvalu | n1walk | n2walk | n1walknpivo | n2walknpivo | rawpivot
 
 BREAK.4: /break(?=[\s\}])/
-CONTINUE.4: "continue"
+CONTINUE.4: /continue(?=[\s\}])/
 
 catchblock: "catch" _valu "as" VARTOKN "{" query "}"
 trycatch: "try" "{" query "}" catchblock*
 
-_STOP.4: "stop"
+_STOP.4: /stop(?=($|[\s\}]))/
 stop: _STOP
-_RETURN.4: "return"
+_RETURN.4: /return(?=[\s\(])/
 return: _RETURN "("[ _valu ] ")"
-_EMIT.4: "emit"
+_EMIT.4: /emit(?=[\s])/
 emit: _EMIT _valu
 
 // A bare variable reference, useful for a function call

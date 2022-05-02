@@ -252,7 +252,6 @@ class AstConverter(lark.Transformer):
         indx = 1
         kcnt = len(kids)
         while indx < kcnt:
-
             if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
                 kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
                 indx += 3
@@ -338,8 +337,8 @@ class AstConverter(lark.Transformer):
 
         indx = 0
         kcnt = len(kids)
-        while indx < kcnt:
 
+        while indx < kcnt:
             if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
                 kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
                 indx += 3
