@@ -22,100 +22,97 @@ terminalEnglishMap = {
     'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
+    'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
+    'BYNAME': 'named comparison operator',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
     'CMDOPT': 'command line option',
     'CMDNAME': 'command name',
     'CMDRTOKN': 'An unquoted string parsed as a cmdr arg',
-    'WHITETOKN': 'An unquoted string terminated by whitespace',
     'CMPR': 'comparison operator',
-    'BYNAME': 'named comparison operator',
+    'CMPROTHER': 'comparison operator',
     'COLON': ':',
     'COMMA': ',',
+    'COMMASPACE': ',',
+    'COMMANOSPACE': ',',
     'CONTINUE': 'continue',
-    'FINI': 'fini',
-    'INIT': 'init',
     'CPPCOMMENT': 'c++ comment',
-    'DEREFMATCHNOSEP': 'key or variable',
+    'DEFAULTCASE': 'default case',
     'DOLLAR': '$',
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
-    'ELSE': 'else',
+    'EQNOSPACE': '=',
     'EQUAL': '=',
-    'EXPRCMPR': 'expression comparison operator',
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
     'EXPRPLUS': '+',
     'EXPRTIMES': '*',
-    'FILTPREFIX': '+ or -',
     'FOR': 'for',
     'FUNCTION': 'function',
+    'HASH': '#',
     'HEXNUMBER': 'number',
     'IF': 'if',
     'IN': 'in',
-    'LBRACE': '[',
-    'LISTTOKN': 'An unquoted list-compatible string.',
+    'LBRACE': '{',
     'LPAR': '(',
-    'LSQB': '{',
+    'LSQB': '[',
+    'MODSET': '+= or -=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
+    'NUMBERWS': 'number followed by whitespace',
     'OR': 'or',
-    'PROPNAME': 'property name',
     'PROPS': 'absolute property name',
-    'BASEPROP': 'base property name',
-    'RBRACE': ']',
-    'RELNAME': 'relative property',
+    'RBRACE': '}',
+    'RELNAME': 'relative property name',
     'RPAR': ')',
-    'RSQB': '}',
-    'SETOPER': '= or ?=',
+    'RSQB': ']',
+    'RSQBNOSPACE': ']',
     'SETTAGOPER': '?',
     'SINGLEQUOTEDSTRING': 'single-quoted string',
-    'STOP': 'stop',
     'SWITCH': 'switch',
-    'TAG': 'plain tag name',
     'TRY': 'try',
-    'TAGMATCH': 'tag name with asterisks',
+    'TAGMATCH': 'tag name potentially with asterisks',
     'TRIPLEQUOTEDSTRING': 'triple-quoted string',
+    'TRYSET': '?=',
+    'TRYSETPLUS': '?+=',
+    'TRYSETMINUS': '?-=',
     'UNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
+    'WHITETOKN': 'An unquoted string terminated by whitespace',
     'WILDCARD': '*',
-    'WORDTOKN': 'A whitespace tokenized string',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
+    '_COLONDOLLAR': ':$',
     '_DEREF': '*',
     '_EDGEADDN1INIT': '+(',
-    '_EDGEADDN1FINI': ')>',
-    '_EDGEDELN1INIT': '-(',
-    '_EDGEDELN1FINI': ')>',
-    '_EDGEADDN2INIT': '<(',
     '_EDGEADDN2FINI': ')+',
-    '_EDGEDELN2INIT': '<(',
-    '_EDGEDELN2FINI': ')-',
+    '_EDGEN1FINI': ')>',
+    '_EDGEN1INIT': '-(',
+    '_EDGEN2INIT': '<(',
+    '_EDGEN2FINI': ')-',
+    '_ELSE': 'else',
     '_EMBEDQUERYSTART': '${',
     '_EMIT': 'emit',
+    '_FINI': 'fini',
+    '_INIT': 'init',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
-    '_WALKNPIVON1': '-->',
-    '_WALKNPIVON2': '<--',
-    '_N1WALKINIT': '-(',
-    '_N1WALKFINI': ')>',
-    '_N2WALKINIT': '<(',
-    '_N2WALKFINI': ')-',
-    '_ONLYTAGPROP': '#:',
+    '_LPARNOSPACE': '(',
     '_RETURN': 'return',
     '_RIGHTJOIN': '-+>',
     '_RIGHTPIVOT': '->',
-    '_TRYSET': '?=',
     '_STOP': 'stop',
-    '_WS': 'whitespace',
-    '_WSCOMM': 'whitespace or comment'
+    '_TAGSEGNOVAR': 'tag segment potentially with asterisks',
+    '_WALKNPIVON1': '-->',
+    '_WALKNPIVON2': '<--',
+    '$END': 'end of input',
 }
 
 class AstConverter(lark.Transformer):
@@ -150,7 +147,7 @@ class AstConverter(lark.Transformer):
         return cls(newkids)
 
     @lark.v_args(meta=True)
-    def subquery(self, kids, meta):
+    def subquery(self, meta, kids):
         assert len(kids) <= 2
         hasyield = (len(kids) == 2)
         kid = self._convert_child(kids[-1])
@@ -159,27 +156,27 @@ class AstConverter(lark.Transformer):
         return kid
 
     @lark.v_args(meta=True)
-    def exprlist(self, kids, meta):
+    def exprlist(self, meta, kids):
         kids = [self._convert_child(k) for k in kids]
         return s_ast.ExprList(kids=kids)
 
     @lark.v_args(meta=True)
-    def exprdict(self, kids, meta):
+    def exprdict(self, meta, kids):
         kids = [self._convert_child(k) for k in kids]
         return s_ast.ExprDict(kids=kids)
 
     @lark.v_args(meta=True)
-    def trycatch(self, kids, meta):
+    def trycatch(self, meta, kids):
         kids = self._convert_children(kids)
         return s_ast.TryCatch(kids=kids)
 
     @lark.v_args(meta=True)
-    def catchblock(self, kids, meta):
+    def catchblock(self, meta, kids):
         kids = self._convert_children(kids)
         return s_ast.CatchBlock(kids=kids)
 
     @lark.v_args(meta=True)
-    def baresubquery(self, kids, meta):
+    def baresubquery(self, meta, kids):
         assert len(kids) == 1
 
         epos = meta.end_pos
@@ -191,7 +188,7 @@ class AstConverter(lark.Transformer):
         return subq
 
     @lark.v_args(meta=True)
-    def argvquery(self, kids, meta):
+    def argvquery(self, meta, kids):
         assert len(kids) == 1
 
         epos = meta.end_pos
@@ -207,17 +204,17 @@ class AstConverter(lark.Transformer):
         return s_ast.YieldValu(kids=[kid])
 
     @lark.v_args(meta=True)
-    def evalvalu(self, kids, meta):
+    def evalvalu(self, meta, kids):
         return self._convert_child(kids[0])
 
     @lark.v_args(meta=True)
-    def lookup(self, kids, meta):
+    def lookup(self, meta, kids):
         kids = self._convert_children(kids)
         look = s_ast.Lookup(kids=kids)
         return look
 
     @lark.v_args(meta=True)
-    def query(self, kids, meta):
+    def query(self, meta, kids):
         kids = self._convert_children(kids)
 
         if kids:
@@ -232,29 +229,37 @@ class AstConverter(lark.Transformer):
         return quer
 
     @lark.v_args(meta=True)
-    def embedquery(self, kids, meta):
+    def embedquery(self, meta, kids):
         assert len(kids) == 1
         text = kids[0].text
         ast = s_ast.EmbedQuery(text, kids)
         return ast
 
     @lark.v_args(meta=True)
-    def emit(self, kids, meta):
+    def emit(self, meta, kids):
         kids = self._convert_children(kids)
         return s_ast.Emit(kids)
 
     @lark.v_args(meta=True)
-    def stop(self, kids, meta):
+    def stop(self, meta, kids):
         return s_ast.Stop()
 
     @lark.v_args(meta=True)
-    def funccall(self, kids, meta):
+    def funccall(self, meta, kids):
         kids = self._convert_children(kids)
         argkids = []
         kwargkids = []
         kwnames = set()
+        indx = 1
+        kcnt = len(kids)
+        while indx < kcnt:
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
+                kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
+                indx += 3
+            else:
+                kid = kids[indx]
+                indx += 1
 
-        for kid in kids[1:]:
             if isinstance(kid, s_ast.CallKwarg):
                 name = kid.kids[0].valu
                 if name in kwnames:
@@ -289,22 +294,35 @@ class AstConverter(lark.Transformer):
         return self.operrelprop_pivot(kids, isjoin=True)
 
     def stormcmdargs(self, kids):
-        kids = self._convert_children(kids)
-
-        return s_ast.List(kids=kids)
+        newkids = []
+        for kid in kids:
+            if isinstance(kid, lark.lexer.Token) and kid.type == 'EQNOSPACE':
+                continue
+            newkids.append(self._convert_child(kid))
+        return s_ast.List(kids=newkids)
 
     @lark.v_args(meta=True)
-    def funcargs(self, kids, meta):
+    def funcargs(self, meta, kids):
         '''
         A list of function parameters (as part of a function definition)
         '''
+        kids = self._convert_children(kids)
         newkids = []
 
         names = set()
         kwfound = False
 
-        for kid in kids:
-            kid = self._convert_child(kid)
+        indx = 0
+        kcnt = len(kids)
+
+        while indx < kcnt:
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
+                kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
+                indx += 3
+            else:
+                kid = kids[indx]
+                indx += 1
+
             newkids.append(kid)
 
             if isinstance(kid, s_ast.CallKwarg):
@@ -328,8 +346,13 @@ class AstConverter(lark.Transformer):
 
     def cmdrargs(self, kids):
         argv = []
+        indx = 0
 
-        for kid in kids:
+        kcnt = len(kids)
+        while indx < kcnt:
+
+            kid = kids[indx]
+            indx += 1
 
             if isinstance(kid, s_ast.SubQuery):
                 argv.append(kid.text)
@@ -341,8 +364,24 @@ class AstConverter(lark.Transformer):
                 continue
 
             if isinstance(kid, lark.lexer.Token):
-                argv.append(str(kid))
-                continue
+
+                if kid == '=':
+                    argv[-1] += kid
+
+                    if kcnt >= indx:
+                        nextkid = kids[indx]
+                        if isinstance(nextkid, s_ast.SubQuery):
+                            argv[-1] += nextkid.text
+                        elif isinstance(nextkid, s_ast.Const):  #pragma: no cover
+                            argv[-1] += nextkid.valu
+                        else:
+                            argv[-1] += str(nextkid)
+
+                        indx += 1
+                    continue
+                else:
+                    argv.append(str(kid))
+                    continue
 
             # pragma: no cover
             mesg = f'Unhandled AST node type in cmdrargs: {kid!r}'
@@ -361,13 +400,12 @@ class AstConverter(lark.Transformer):
         return kids
 
     def varderef(self, kids):
-        assert kids and len(kids) == 2
-        newkid = kids[1]
-        if newkid[0] == '$':
-            tokencls = terminalClassMap.get(newkid.type, s_ast.Const)
-            newkid = s_ast.VarValue(kids=[tokencls(newkid[1:])])
+        assert kids and len(kids) in (3, 4)
+        if kids[2] == '$':
+            tokencls = terminalClassMap.get(kids[3].type, s_ast.Const)
+            newkid = s_ast.VarValue(kids=[tokencls(kids[3])])
         else:
-            newkid = self._convert_child(kids[1])
+            newkid = self._convert_child(kids[2])
         return s_ast.VarDeref(kids=(kids[0], newkid))
 
     def tagname(self, kids):
@@ -404,7 +442,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'],
-                       propagate_positions=True)
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
     '''
@@ -425,17 +463,17 @@ class Parser:
         at = len(self.text)
         line = None
         column = None
-        if isinstance(e, lark.exceptions.UnexpectedCharacters):
-            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
-            mesg += f'.  Expecting one of: {", ".join(expected)}'
+        token = None
+        if isinstance(e, lark.exceptions.UnexpectedToken):
+            expected = sorted(terminalEnglishMap[t] for t in e.expected)
             at = e.pos_in_stream
             line = e.line
             column = e.column
-        elif isinstance(e, lark.exceptions.UnexpectedEOF):
-            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
-            mesg += ' ' + ', '.join(expected)
-            line = e.line
-            column = e.column
+            token = e.token.value
+            valu = terminalEnglishMap.get(e.token.type, e.token.value)
+            mesg = f"Unexpected token '{valu}' at line {line}, column {column}," \
+                   f' expecting one of: {", ".join(expected)}'
+
         elif isinstance(e, lark.exceptions.VisitError):
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
@@ -444,7 +482,19 @@ class Parser:
             origexc.errinfo['text'] = self.text
             return s_exc.BadSyntax(**origexc.errinfo)
 
-        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column)
+        elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
+            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
+            mesg += f'.  Expecting one of: {", ".join(expected)}'
+            at = e.pos_in_stream
+            line = e.line
+            column = e.column
+        elif isinstance(e, lark.exceptions.UnexpectedEOF):  # pragma: no cover
+            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
+            mesg += ' ' + ', '.join(expected)
+            line = e.line
+            column = e.column
+
+        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column, token=token)
 
     def eval(self):
         try:
@@ -528,14 +578,15 @@ terminalClassMap = {
     'ALLTAGS': lambda _: s_ast.TagMatch(''),
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
-    'DEREFMATCHNOSEP': massage_vartokn,
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
+    'NUMBERWS': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
+    'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
 }
 
@@ -571,6 +622,8 @@ ruleClassMap = {
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
+    'filtopermust': lambda kids: s_ast.FiltOper([s_ast.Const('+')] + kids),
+    'filtopernot': lambda kids: s_ast.FiltOper([s_ast.Const('-')] + kids),
     'forloop': s_ast.ForLoop,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
@@ -603,14 +656,15 @@ ruleClassMap = {
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
+    'nonquotewords': lambda kids: s_ast.Const(' '.join([str(k.valu) for k in kids])),
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
-    'relprop': s_ast.RelProp,
+    'relprop': lambda kids: s_ast.RelProp([s_ast.Const(k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
-    'relpropvalu': s_ast.RelPropValue,
+    'relpropvalu': lambda kids: s_ast.RelPropValue([s_ast.Const(k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
     'setitem': s_ast.SetItemOper,
     'setvar': s_ast.SetVarOper,
@@ -627,6 +681,7 @@ ruleClassMap = {
     'varvalue': s_ast.VarValue,
     'univprop': s_ast.UnivProp,
     'univpropvalu': s_ast.UnivPropValue,
+    'wordtokn': lambda kids: s_ast.Const(''.join([str(k.valu) for k in kids]))
 }
 
 def unescape(valu):
@@ -670,7 +725,7 @@ def parse_cmd_string(text, off):
 @lark.v_args(meta=True)
 class CmdStringer(lark.Transformer):
 
-    def valu(self, kids, meta):
+    def valu(self, meta, kids):
         assert len(kids) == 1
         kid = kids[0]
         if isinstance(kid, lark.lexer.Token):
@@ -688,8 +743,8 @@ class CmdStringer(lark.Transformer):
 
         return valu, meta.end_pos
 
-    def cmdstring(self, kids, meta):
+    def cmdstring(self, meta, kids):
         return kids[0]
 
-    def alist(self, kids, meta):
+    def alist(self, meta, kids):
         return [k[0] for k in kids], meta.end_pos

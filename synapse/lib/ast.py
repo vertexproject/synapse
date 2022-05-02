@@ -3528,7 +3528,7 @@ class EditTagAdd(Edit):
 
         excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
 
-        hasval = len(self.kids) > 1 + oper_offset
+        hasval = len(self.kids) > 2 + oper_offset
 
         valu = (None, None)
 
@@ -3554,7 +3554,7 @@ class EditTagAdd(Edit):
                     runt.layerConfirm(('node', 'tag', 'add', *parts))
 
                     if hasval:
-                        valu = await self.kids[1 + oper_offset].compute(runt, path)
+                        valu = await self.kids[2 + oper_offset].compute(runt, path)
                         valu = await s_stormtypes.toprim(valu)
                     await node.addTag(name, valu=valu)
                 except excignore:
