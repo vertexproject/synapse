@@ -649,7 +649,7 @@ def firethread(f):
 
 def worker(meth, *args, **kwargs):
     thr = threading.Thread(target=meth, args=args, kwargs=kwargs)
-    thr.setDaemon(True)
+    thr.daemon = True
     thr.start()
     return thr
 

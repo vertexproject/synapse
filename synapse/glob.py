@@ -58,7 +58,7 @@ def initloop():
             setGreedCoro(_glob_loop)
 
             _glob_thrd = threading.Thread(target=_glob_loop.run_forever, name='SynLoop')
-            _glob_thrd.setDaemon(True)
+            _glob_thrd.daemon = True
             _glob_thrd.start()
 
     return _glob_loop
@@ -72,7 +72,7 @@ def setGreedCoro(loop: asyncio.AbstractEventLoop):
 
 def iAmLoop():
     initloop()
-    return threading.currentThread() == _glob_thrd
+    return threading.current_thread() == _glob_thrd
 
 def sync(coro, timeout=None):
     '''
