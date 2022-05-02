@@ -496,6 +496,7 @@ class Parser:
             valu = terminalEnglishMap.get(e.token.type, e.token.value)
             mesg = f"Unexpected token '{valu}' at line {line}, column {column}," \
                    f' expecting one of: {", ".join(expected)}'
+
         elif isinstance(e, lark.exceptions.VisitError):
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
@@ -503,13 +504,14 @@ class Parser:
                 raise  # pragma: no cover
             origexc.errinfo['text'] = self.text
             return s_exc.BadSyntax(**origexc.errinfo)
-        elif isinstance(e, lark.exceptions.UnexpectedCharacters):
+
+        elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
             expected = sorted(terminalEnglishMap[t] for t in e.allowed)
             mesg += f'.  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
             line = e.line
             column = e.column
-        elif isinstance(e, lark.exceptions.UnexpectedEOF):
+        elif isinstance(e, lark.exceptions.UnexpectedEOF):  # pragma: no cover
             expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
             mesg += ' ' + ', '.join(expected)
             line = e.line
