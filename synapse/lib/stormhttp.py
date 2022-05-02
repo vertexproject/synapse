@@ -187,7 +187,9 @@ class LibHttp(s_stormtypes.Lib):
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
                        'default': True, },
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, }
+                       'default': 300, },
+                      {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the connection request.',
+                       'default': None, },
                   ),
                   'returns': {'type': 'storm:http:socket', 'desc': 'A websocket object.'}}},
     )
@@ -225,11 +227,12 @@ class LibHttp(s_stormtypes.Lib):
                                        ssl_verify=ssl_verify, params=params, timeout=timeout,
                                        allow_redirects=allow_redirects, fields=fields, )
 
-    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300):
+    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300, params=None):
 
         url = await s_stormtypes.tostr(url)
         headers = await s_stormtypes.toprim(headers)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
+        params = await s_stormtypes.toprim(params)
 
         headers = self.strify(headers)
 
@@ -244,7 +247,8 @@ class LibHttp(s_stormtypes.Lib):
 
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
-            sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, ssl=ssl_verify, timeout=timeout))
+            sock.resp = await sock.enter_context(sess.ws_connect(url, headers=headers, ssl=ssl_verify, timeout=timeout,
+                                                                 params=params, ))
 
             sock._syn_refs = 0
             self.runt.onfini(sock)
