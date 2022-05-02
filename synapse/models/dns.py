@@ -241,6 +241,9 @@ class DnsModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The host that attempted the DNS lookup.'}),
 
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'}),
+
                 )),
 
                 ('inet:dns:answer', {}, (

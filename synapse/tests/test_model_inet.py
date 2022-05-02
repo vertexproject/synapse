@@ -422,6 +422,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:cpes': ('cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*', 'cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*'),
             'ip:proto': 6,
             'ip:tcp:flags': 0x20,
+            'sandbox:file': 'e' * 64,
         }
         expected_props = {
             'time': 0,
@@ -455,6 +456,7 @@ class InetModelTest(s_t_utils.SynTest):
             'dst:cpes': ('cpe:2.3:a:aaa:bbb:*:*:*:*:*:*:*:*', 'cpe:2.3:a:zzz:yyy:*:*:*:*:*:*:*:*'),
             'ip:proto': 6,
             'ip:tcp:flags': 0x20,
+            'sandbox:file': 'sha256:' + 64 * 'e'
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:
@@ -726,6 +728,7 @@ class InetModelTest(s_t_utils.SynTest):
             'client:host': client,
             'server:host': server,
             'session': sess,
+            'sandbox:file': 64 * 'c'
         }
         expected_props = {
             'time': 1420070400000,
@@ -750,6 +753,7 @@ class InetModelTest(s_t_utils.SynTest):
             'response:headers': (('baz', 'faz'),),
             'response:body': 'sha256:' + 64 * 'b',
             'session': sess,
+            'sandbox:file': 'sha256:' + 64 * 'c'
         }
         expected_ndef = (formname, 32 * 'a')
         async with self.getTestCore() as core:

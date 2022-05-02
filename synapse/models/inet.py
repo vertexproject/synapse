@@ -1655,6 +1655,9 @@ class InetModule(s_module.CoreModule):
                         ('ip:tcp:flags', ('int', {'min': 0, 'max': 0xff}), {
                             'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.',
                         }),
+                        ('sandbox:file', ('file:bytes', {}), {
+                            'doc': 'The initial sample given to a sandbox environment to analyze.'
+                        }),
                     )),
 
                     ('inet:fqdn', {}, (
