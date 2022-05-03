@@ -143,7 +143,7 @@ class Config(c_abc.MutableMapping):
         self.validator = getJsValidator(self.json_schema)
 
     @classmethod
-    def getConfFromCell(cls, cell, conf=None, envar_prefix=None):
+    def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):
         '''
         Get a Config object from a Cell directly (either the ctor or the instance thereof).
 
@@ -151,7 +151,9 @@ class Config(c_abc.MutableMapping):
             Config: A Config object.
         '''
         schema = getJsSchema(cell.confbase, cell.confdefs)
-        return cls(schema, conf=conf, envar_prefixes=envar_prefix)
+        if envar_prefixes is None:
+            envar_prefixes = cell.getEnvPrefix()
+        return cls(schema, conf=conf, envar_prefixes=envar_prefixes)
 
     def getArgParseArgs(self):
 
