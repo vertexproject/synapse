@@ -611,7 +611,7 @@ class AhaCell(s_cell.Cell):
 
         mirname = provinfo.get('mirror')
         if mirname is not None:
-            conf['mirror'] = f'aha://{ahauser}@{mirname}'
+            conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
 
         username = f'{ahauser}@{netw}'
         user = await self.auth.getUserByName(username)
