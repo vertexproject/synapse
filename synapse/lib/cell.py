@@ -2504,6 +2504,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if doneiden == providen:
             return
 
+        logger.debug(f'Provisioning {self.getCellType()} from AHA service.')
+
         certdir = s_certdir.CertDir(path=(s_common.gendir(self.dirn, 'certs'),))
 
         conf = {}
@@ -2540,6 +2542,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
+
+        logger.debug(f'Done provisioning {self.getCellType()} AHA service.')
 
         return provconf
 
