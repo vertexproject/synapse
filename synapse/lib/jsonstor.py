@@ -433,14 +433,9 @@ class JsonStorCell(s_cell.Cell):
         self.notif_indx_usertime = self.slab.initdb('indx:user:time', dupsort=True)
         self.notif_indx_usertype = self.slab.initdb('indx:user:type', dupsort=True)
 
-    # Rename the class and remove these two overrides in 3.0.0
     @classmethod
     def getEnvPrefix(cls):
-        return f'SYN_JSONSTOR'
-
-    @classmethod
-    def _getAltEnvPrefix(cls):
-        return f'SYN_JSONSTOR_CELL'
+        return [f'SYN_JSONSTOR', f'SYN_{cls.__name__.upper()}']
 
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):

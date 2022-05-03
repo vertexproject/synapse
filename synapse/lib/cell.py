@@ -2392,12 +2392,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @classmethod
     def getEnvPrefix(cls):
-        return f'SYN_{cls.__name__.upper()}'
-
-    @classmethod
-    def _getAltEnvPrefix(cls):
-        '''A alternative environment variable for doing config resolution.'''
-        return ''
+        '''Get a list of envar prefixes for config resolution.'''
+        return [f'SYN_{cls.__name__.upper()}', ]
 
     def getCellIden(self):
         return self.iden
@@ -2416,9 +2412,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             s_config.Config: A Config helper object.
         '''
-        prefix = cls.getEnvPrefix()
+        prefixes = cls.getEnvPrefix()
         schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
-        return s_config.Config(schema, envar_prefix=prefix)
+        return s_config.Config(schema, envar_prefixes=prefixes)
 
     @classmethod
     def getArgParser(cls, conf=None):
@@ -2439,7 +2435,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
 
         name = cls.getCellType()
-        prefix = cls.getEnvPrefix()
+        prefix = cls.getEnvPrefix()[0]
 
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
@@ -2653,14 +2649,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setConfFromOpts(opts)
         conf.setConfFromFile(path)
         updates = conf.setConfFromEnvs()
-
-        altprefix = cls._getAltEnvPrefix()
-        if altprefix:
-            altupdates = conf.setConfFromEnvs(prefix=altprefix)
-            if altupdates:
-                mesg = f'The following config options were set with deprecated environment variable names: {list(altupdates.keys())}'
-                logger.warning(mesg)
-                [updates.setdefault(k, v) for k, v in altupdates.items()]
 
         if updates:
             s_common.yamlmod(updates, path)

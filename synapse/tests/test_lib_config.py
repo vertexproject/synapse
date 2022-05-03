@@ -35,7 +35,7 @@ class ConfTest(s_test.SynTest):
 
     async def test_config_basics(self):
 
-        conf = s_config.Config(s_test.test_schema)
+        conf = s_config.Config(s_test.test_schema, envar_prefixes=('', 'ALT',))
         # Start out empty
         self.eq(conf.asDict(), {})
 
@@ -111,14 +111,13 @@ class ConfTest(s_test.SynTest):
         with self.setTstEnvars(KEY_ARRAY=a1,
                                KEY_NUMBER=n1,
                                KEY_INTEGER=i1,
-                               ALT_KEY_FOO=f1
                                ):
             updates = conf.setConfFromEnvs()
         self.eq(updates, {'key:array': ('firetruck', 'spaceship'), 'key:integer': 8675309})
         with self.setTstEnvars(KEY_ARRAY=a1,
                                ALT_KEY_FOO=f1
                                ):
-            updates = conf.setConfFromEnvs(prefix='ALT')
+            updates = conf.setConfFromEnvs()
         self.eq(updates, {'key:foo': 'foo'})
 
         self.eq(conf.asDict(), {
@@ -193,7 +192,7 @@ class ConfTest(s_test.SynTest):
         del conf['key:array']
 
         # We can do prefix-bassed collection of envar data.
-        conf2 = s_config.Config(s_test.test_schema, envar_prefix='beeper')
+        conf2 = s_config.Config(s_test.test_schema, envar_prefixes=('beeper',))
         with self.setTstEnvars(BEEPER_KEY_ARRAY=a1,
                                KEY_INTEGER=i1,
                                ):
