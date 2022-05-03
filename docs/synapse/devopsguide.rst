@@ -51,9 +51,9 @@ Generating a Backup
 .. note::
     If you are a Synapse Enterprise customer you should deploy the Synapse-Backup_ Advanced Power-Up.
 
-It is strongly recommended that users schedule regular backups of all services deployed within their **Synapse**
+It is strongly recommended that users schedule regular backups of all services deployed within their Synapse
 ecosystem. Each service must be backed up using either the **live** backup tool ``synapse.tools.livebackup`` or
-the offline backup tool: ``synapse.tools.backup``.
+the offline backup tool ``synapse.tools.backup``.
 
 For a production deployment similar to the one described in the :ref:`deploymentguide` you can easily run
 the backup tool by executing a shell **inside** the docker container.  For example, if we were generating
