@@ -2508,7 +2508,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         certdir = s_certdir.CertDir(path=(s_common.gendir(self.dirn, 'certs'),))
 
-        conf = {}
         async with await s_telepath.openurl(provurl) as prov:
 
             provinfo = await prov.getProvInfo()
