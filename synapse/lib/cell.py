@@ -2393,7 +2393,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @classmethod
     def getEnvPrefix(cls):
         '''Get a list of envar prefixes for config resolution.'''
-        return [f'SYN_{cls.__name__.upper()}', ]
+        return (f'SYN_{cls.__name__.upper()}', )
 
     def getCellIden(self):
         return self.iden

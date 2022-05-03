@@ -264,7 +264,7 @@ class AhaCell(s_cell.Cell):
     # Rename the class and remove these two overrides in 3.0.0
     @classmethod
     def getEnvPrefix(cls):
-        return [f'SYN_AHA', f'SYN_{cls.__name__.upper()}']
+        return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     async def initServiceStorage(self):
 
