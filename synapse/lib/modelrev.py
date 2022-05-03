@@ -468,9 +468,6 @@ class ModelRev:
         await self._normPropValu(layers, 'ou:industry:name')
         await self._propToForm(layers, 'ou:industry:name', 'ou:indname')
 
-        await self._normPropValu(layers, 'risk:alert:type')
-        await self._propToForm(layers, 'risk:alert:type', 'risk:alert:taxonomy')
-
         await self._normPropValu(layers, 'it:prod:soft:name')
         await self._normPropValu(layers, 'it:prod:soft:names')
         await self._normPropValu(layers, 'it:prod:softver:name')

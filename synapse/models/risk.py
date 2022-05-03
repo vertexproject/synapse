@@ -180,6 +180,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The vulnerable host.'
                     })
                 )),
+
                 ('risk:alert', {}, (
                     ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'An alert type.',

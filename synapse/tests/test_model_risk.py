@@ -139,7 +139,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq('bazfaz.', nodes[0].get('type'))
+            self.eq('bazfaz', nodes[0].get('type'))
             self.eq('FooBar', nodes[0].get('name'))
             self.eq('BlahBlah', nodes[0].get('desc'))
             self.eq(2554848000000, nodes[0].get('detected'))
