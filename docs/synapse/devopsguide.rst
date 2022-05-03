@@ -343,7 +343,7 @@ the ``synapse.tools.aha.provision.user`` command from **within the AHA container
 
 Which will produce output similar to::
     
-    one-time use URL: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 .. note::
     The enrollment URL may only be used once. It should be given to the user using a secure messaging system
@@ -352,11 +352,11 @@ Which will produce output similar to::
 Once the one-time enrollment URL has been passed along to the user, the **user must run an enrollment command** to configure
 their environment to use the AHA server and generate a user certificate from the host they will be using to run the Storm CLI::
 
-    python -m synapse.tools.enroll tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    python -m synapse.tools.enroll ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 Once they are enrolled, the user can connect using the Telepath URL ``aha://cortex.loop.vertex.link``::
 
-    python -m synapse.tools.storm aha://visi@cortex.loop.vertex.link
+    python -m synapse.tools.storm aha://cortex.loop.vertex.link
 
 .. _devops-task-aha:
 
