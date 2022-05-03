@@ -380,15 +380,15 @@ For example, to add an existing Axon to your new AHA server, you would execute t
 
 You should see output that looks similar to this::
 
-    one-time use URL: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 Then add the following entry to the Axon's ``cell.conf``::
 
-    aha:provision: tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    aha:provision: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 Or add the following environment variable to your orchestration::
 
-    SYN_AXON_AHA_PROVISION=tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    SYN_AXON_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
 
 Then restart the Axon container. As it restarts, the service will generate user and host certificates and update it's
 ``cell.yaml`` file to include the necessary AHA configuration options. The ``dmon:listen`` option will be updated
