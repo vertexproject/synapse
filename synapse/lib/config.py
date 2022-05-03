@@ -139,7 +139,7 @@ class Config(c_abc.MutableMapping):
         self.conf = conf
         self._argparse_conf_names = {}
         self._argparse_conf_parsed_names = {}
-        self.envar_prefix = envar_prefixes
+        self.envar_prefixes = envar_prefixes
         self.validator = getJsValidator(self.json_schema)
 
     @classmethod
@@ -264,7 +264,7 @@ class Config(c_abc.MutableMapping):
             dict: Returns a dictionary of values which were set from enviroment variables.
         '''
         updates = {}
-        for prefix in self.envar_prefix:
+        for prefix in self.envar_prefixes:
             name2envar = self.getEnvarMapping(prefix=prefix)
             for name, envar in name2envar.items():
                 envv = os.getenv(envar)
@@ -291,7 +291,7 @@ class Config(c_abc.MutableMapping):
         variables.
         '''
         if prefix is None:
-            prefix = self.envar_prefix[0]
+            prefix = self.envar_prefixes[0]
         ret = {}
         for name, conf in self.json_schema.get('properties', {}).items():
             if conf.get('hideconf'):
