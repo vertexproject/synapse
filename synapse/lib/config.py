@@ -236,7 +236,7 @@ class Config(c_abc.MutableMapping):
             self.setdefault(name, valu)
 
     # Envar support methods
-    def setConfFromEnvs(self):
+    def setConfFromEnvs(self, prefix=None):
         '''
         Set configuration options from environment variables.
 
@@ -259,10 +259,10 @@ class Config(c_abc.MutableMapping):
             With the prefix ``cortex``, the the environment variable is resolved as ``CORTEX_AUTH_PASSWD``.
 
         Returns:
-            None: Returns None.
+            dict: Returns a dictionary of values which were set from enviroment variables.
         '''
         updates = {}
-        name2envar = self.getEnvarMapping()
+        name2envar = self.getEnvarMapping(prefix=prefix)
         for name, envar in name2envar.items():
             envv = os.getenv(envar)
             if envv is not None:
@@ -280,19 +280,21 @@ class Config(c_abc.MutableMapping):
 
         return updates
 
-    def getEnvarMapping(self):
+    def getEnvarMapping(self, prefix=None):
         '''
         Get a mapping of config values to envars.
 
         Configuration values which have the ``hideconf`` value set to True are not resolved from environment
         variables.
         '''
+        if prefix is None:
+            prefix = self.envar_prefix
         ret = {}
         for name, conf in self.json_schema.get('properties', {}).items():
             if conf.get('hideconf'):
                 continue
 
-            envar = make_envar_name(name, prefix=self.envar_prefix)
+            envar = make_envar_name(name, prefix=prefix)
             ret[name] = envar
         return ret
 

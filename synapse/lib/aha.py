@@ -261,6 +261,15 @@ class AhaCell(s_cell.Cell):
         },
     }
 
+    # Rename the class and remove these two overrides in 3.0.0
+    @classmethod
+    def getEnvPrefix(cls):
+        return f'SYN_AHA'
+
+    @classmethod
+    def _getAltEnvPrefix(cls):
+        return f'SYN_AHACELL'
+
     async def initServiceStorage(self):
 
         # TODO plumb using a remote jsonstor?

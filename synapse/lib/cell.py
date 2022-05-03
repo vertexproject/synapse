@@ -2394,6 +2394,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     def getEnvPrefix(cls):
         return f'SYN_{cls.__name__.upper()}'
 
+    @classmethod
+    def _getAltEnvPrefix(cls):
+        '''A alternative environment variable for doing config resolution.'''
+        return ''
+
     def getCellIden(self):
         return self.iden
 
@@ -2648,6 +2653,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         conf.setConfFromOpts(opts)
         conf.setConfFromFile(path)
         updates = conf.setConfFromEnvs()
+
+        altprefix = cls._getAltEnvPrefix()
+        if altprefix:
+            altupdates = conf.setConfFromEnvs(prefix=altprefix)
+            if altupdates:
+                mesg = f'The following config options were set with deprecated environment variable names: {list(altupdates.keys())}'
+                logger.warning(mesg)
+                [updates.setdefault(k, v) for k, v in altupdates.items()]
 
         if updates:
             s_common.yamlmod(updates, path)

@@ -789,6 +789,10 @@ test_schema = {
                 'description': 'Key Bool, no default.',
                 'type': 'boolean',
             },
+            'key:foo': {
+                'description': 'Foo String',
+                'type': 'string',
+            },
         },
         'type': 'object',
     }
