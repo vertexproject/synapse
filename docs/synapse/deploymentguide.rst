@@ -94,11 +94,11 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         volumes:
             - ./storage:/vertex/storage
         environment:
-            - SYN_AHACELL_HTTPS_PORT=null
-            - SYN_AHACELL_AHA_NAME=aha
-            - SYN_AHACELL_AHA_network=loop.vertex.link
-            - SYN_AHACELL_DMON_LISTEN=ssl://0.0.0.0?hostname=aha.loop.vertex.link&ca=loop.vertex.link
-            - SYN_AHACELL_PROVISION_LISTEN=ssl://0.0.0.0:27272?hostname=aha.loop.vertex.link
+            - SYN_AHA_HTTPS_PORT=null
+            - SYN_AHA_AHA_NAME=aha
+            - SYN_AHA_AHA_NETWORK=loop.vertex.link
+            - SYN_AHA_DMON_LISTEN=ssl://0.0.0.0?hostname=aha.loop.vertex.link&ca=loop.vertex.link
+            - SYN_AHA_PROVISION_LISTEN=ssl://0.0.0.0:27272?hostname=aha.loop.vertex.link
 
 .. note::
 
@@ -225,7 +225,7 @@ Deploy Cortex Service
 
 Generate a one-time use provisioning URL::
 
-    python -m synapse.tools.aha.provision.service 00.cortex --cellyaml /tmp/cortex.yaml
+    python -m synapse.tools.aha.provision.service 00.cortex
 
 You should see output that looks similar to this::
 

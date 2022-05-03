@@ -69,7 +69,7 @@ class CortexTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
-                    provinfo = {'mirror': '00.cortex.newp'}
+                    provinfo = {'mirror': '00.cortex'}
                     provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
 
                     # provision with the new hostname and mirror config
