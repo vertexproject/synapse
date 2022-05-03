@@ -2,6 +2,8 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+
+import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
@@ -320,7 +322,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A screenshot of a host.',
                     'interfaces': ('it:host:activity',),
                 }),
-                ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
+                ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
+                                        'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
                 }),
@@ -551,6 +554,8 @@ class ItModule(s_module.CoreModule):
                             'doc': 'The host on which the activity occurred.'}),
                         ('time', ('time', {}), {
                             'doc': 'The time that the activity started.'}),
+                        ('sandbox:file', ('file:bytes', {}), {
+                            'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                     ),
                 }),
             ),
@@ -619,7 +624,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:domain', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the domain.',
                     }),
                     ('desc', ('str', {}), {
@@ -630,7 +635,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:network', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the network.',
                     }),
                     ('desc', ('str', {}), {
@@ -686,7 +691,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:group', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the group.',
                     }),
                     ('desc', ('str', {}), {
@@ -987,7 +992,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
                     ('type', ('it:prod:hardwaretype', {}), {
                         'doc': 'The type of hardware.'}),
@@ -998,9 +1003,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
                     ('make', ('ou:name', {}), {
                         'doc': 'The name of the organization which manufactures this hardware.'}),
-                    ('model', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model name or number for this hardware specification.'}),
-                    ('version', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('version', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'Version string associated with this hardware specification.'}),
                     ('released', ('time', {}), {
                         'doc': 'The initial release date for this hardware.'}),
@@ -1311,6 +1316,9 @@ class ItModule(s_module.CoreModule):
                     ('killedby', ('it:exec:proc', {}), {
                         'doc': 'The process which killed this process.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1331,6 +1339,9 @@ class ItModule(s_module.CoreModule):
                     ('src:thread', ('it:exec:thread', {}), {
                         'doc': 'The thread which created this thread.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:loadlib', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1350,6 +1361,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The library file that was loaded.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:mmap', {}, (
@@ -1383,6 +1397,9 @@ class ItModule(s_module.CoreModule):
                     ('hash:sha256', ('hash:sha256', {}), {
                         'doc': 'A SHA256 hash of the memory map. Bytes may optionally be present in the axon.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:mutex', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1400,6 +1417,9 @@ class ItModule(s_module.CoreModule):
                     ('name', ('it:dev:mutex', {}), {
                         'doc': 'The mutex string.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:pipe', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1416,6 +1436,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('name', ('it:dev:pipe', {}), {
                         'doc': 'The named pipe string.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:url', {}, (
@@ -1461,6 +1484,9 @@ class ItModule(s_module.CoreModule):
                     ('client:port', ('inet:port', {}), {
                         'doc': 'The client port during the URL retrieval..'
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:bind', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1486,6 +1512,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('server:port', ('inet:port', {}), {
                         'doc': 'The bound (listening) TCP port.'
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:fs:file', {}, (
@@ -1556,6 +1585,9 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was created.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:del', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1586,6 +1618,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was deleted.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:file:read', {}, (
@@ -1618,6 +1653,9 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was read.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:write', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1649,6 +1687,9 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was modified.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:get', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1665,6 +1706,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was read.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:reg:set', {}, (
@@ -1683,6 +1727,9 @@ class ItModule(s_module.CoreModule):
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was written to.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:del', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1699,6 +1746,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was deleted.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
 

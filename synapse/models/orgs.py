@@ -171,7 +171,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An employment type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
-                ('ou:jobtitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
             ),
@@ -278,11 +278,11 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:award', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the award.',
                         'ex': 'Bachelors of Science',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The type of award.',
                         'ex': 'certification',
                     }),
@@ -497,7 +497,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The contact info for the person who holds the position.',
                     }),
                     # TODO migrate to ou:jobtitle
-                    ('title', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('title', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The title of the position.',
                     }),
                     ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
@@ -884,15 +884,15 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the contest.',
                         'ex': 'defcon ctf 2020',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The type of contest.',
                         'ex': 'cyber ctf',
                     }),
-                    ('family', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('family', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for a series of recurring contests.',
                         'ex': 'defcon ctf',
                     }),

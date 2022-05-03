@@ -18,11 +18,6 @@ class RiskModule(s_module.CoreModule):
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
-                ('risk:alert:taxonomy', ('taxonomy', {}), {
-                    'doc': 'An attack type taxonomy.',
-                    'ex': 'cno.recon.portscan',
-                    'interfaces': ('taxonomy',),
-                }),
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
@@ -185,9 +180,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The vulnerable host.'
                     })
                 )),
-                ('risk:alert:taxonomy', {}, ()),
                 ('risk:alert', {}, (
-                    ('type', ('risk:alert:taxonomy', {}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'An alert type.',
                     }),
                     ('name', ('str', {}), {
@@ -209,7 +203,7 @@ class RiskModule(s_module.CoreModule):
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for the compromise event.',
                     }),
                     ('desc', ('str', {}), {

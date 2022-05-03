@@ -91,7 +91,7 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
                 ('edu:course', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ex': 'organic chemistry for beginners',
                         'doc': 'The name of the course.',
                     }),

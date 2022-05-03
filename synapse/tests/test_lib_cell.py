@@ -1,8 +1,10 @@
 import os
 import sys
 import time
-import tarfile
+import signal
 import asyncio
+import tarfile
+import multiprocessing
 
 from unittest import mock
 
@@ -46,6 +48,24 @@ async def _iterBackupEOF(path, linkinfo):
 
 def _backupEOF(path, linkinfo):
     asyncio.run(_iterBackupEOF(path, linkinfo))
+
+def lock_target(dirn, evt1):  # pragma: no cover
+    '''
+    Function to make a cell in a directory and wait to be shut down.
+    Used as a Process target for advisory locking tests.
+
+    Args:
+        dirn (str): Cell directory.
+        evt1 (multiprocessing.Event): event to twiddle
+    '''
+    async def main():
+        cell = await s_cell.Cell.anit(dirn)
+        await cell.addSignalHandlers()
+        evt1.set()
+        await cell.waitfini(timeout=60)
+
+    asyncio.run(main())
+    sys.exit(137)
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -844,15 +864,18 @@ class CellTest(s_t_utils.SynTest):
                 self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
                 self.isin('...cell API (https): disabled', buf)
 
-    async def test_cell_backup(self):
+    async def test_initargv_failure(self):
+        if not os.path.exists('/dev/null'):
+            self.skip('Test requires /dev/null to exist.')
 
-        async with self.getTestCore() as core:
-            with self.raises(s_exc.NeedConfValu):
-                await core.runBackup()
-            with self.raises(s_exc.NeedConfValu):
-                await core.getBackups()
-            with self.raises(s_exc.NeedConfValu):
-                await core.delBackup('foo')
+        with self.getAsyncLoggerStream('synapse.lib.cell',
+                                       'Error starting cell at /dev/null') as stream:
+            with self.raises(FileExistsError):
+                async with await s_cell.Cell.initFromArgv(['/dev/null']):
+                    pass
+            self.true(await stream.wait(timeout=6))
+
+    async def test_cell_backup(self):
 
         with self.getTestDir() as dirn:
             s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
@@ -1384,3 +1407,45 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.DupUserName):
                 async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
                     pass
+
+    async def test_advisory_locking(self):
+        # fcntl not supported on windows
+        self.thisHostMustNot(platform='windows')
+
+        with self.getTestDir() as dirn:
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+
+            proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
+            proc.start()
+
+            self.true(evt1.wait(timeout=10))
+
+            with self.raises(s_exc.FatalErr) as cm:
+                async with await s_cell.Cell.anit(dirn) as cell:
+                    pass
+
+            self.eq(cm.exception.get('mesg'),
+                    'Cannot start the cell, another process is already running it.')
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join(timeout=10)
+            self.eq(proc.exitcode, 137)
+
+    async def test_cell_backup_default(self):
+
+        async with self.getTestCore() as core:
+
+            await core.runBackup('foo')
+            await core.runBackup('bar')
+
+            foopath = s_common.genpath(core.dirn, 'backups', 'foo')
+            barpath = s_common.genpath(core.dirn, 'backups', 'bar')
+
+            self.true(os.path.isdir(foopath))
+            self.true(os.path.isdir(barpath))
+
+            foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
+            self.false(os.path.isdir(foonest))

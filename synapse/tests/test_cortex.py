@@ -2030,7 +2030,7 @@ class CortexTest(s_t_utils.SynTest):
             warns = [msg for msg in mesgs if msg[0] == 'warn']
             self.len(1, warns)
             emesg = "BadTypeValu [10] during pivot: value is below min=20"
-            self.eq(warns[0][1], {'name': 'int', 'valu': 10,
+            self.eq(warns[0][1], {'name': 'int', 'valu': '10',
                                   'mesg': emesg})
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
@@ -2917,12 +2917,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
+
+            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help foo} as [root]') \
+                    as stream:
+                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
+                self.true(await stream.wait(4))
+
             # Bad syntax
             mesgs = await alist(core.storm(' | | | '))
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
             # Lark sensitive test
-            self.stormIsInErr("No terminal defined for '|'", mesgs)
+            self.stormIsInErr("Unexpected token '|'", mesgs)
             errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
             self.eq(errs[0][0], 'BadSyntax')
 
@@ -4699,6 +4705,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+            q = '''
+            [ file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e
+                :mime:pe:compiled="1992/06/19 22:22:17.000"
+            ]
+            -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)'''
+            self.len(1, await core.nodes(q))
+
     async def test_storm_filter(self):
         async with self.getTestCore() as core:
             q = '[test:str=test +#test=(2018,2019)]'
@@ -5844,7 +5857,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         }
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
                 with self.raises(s_exc.SchemaViolation) as cm:
@@ -5868,7 +5880,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                await core.pkghive.set('boom_pkg', pkg)
+                with self.raises(s_exc.SchemaViolation) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "data must contain ['name', 'version'] properties")
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg['commands'][0]['cmdargs'] = ((
+                    '--debug',
+                    {'default': False},
+                    {'help': 'Words'},
+                ),)
+                with self.raises(s_exc.SchemaViolation) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "data must contain only specified items")
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:

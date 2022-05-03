@@ -258,6 +258,8 @@ class StormVarListError(StormRuntimeError): pass
 class TeleRedir(SynErr): pass
 class FatalErr(SynErr):
     '''
-    Raised when a fatal error has occured which an application cannot recover from.
+    Raised when a fatal error has occurred which an application cannot recover from.
     '''
     pass
+
+class LmdbLock(SynErr): pass

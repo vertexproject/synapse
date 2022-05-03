@@ -51,6 +51,36 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            retn = await core.callStorm('return(([]))')
+            self.eq(retn, ())
+
+            retn = await core.callStorm('return((["foo",]))')
+            self.eq(retn, ('foo',))
+
+            retn = await core.callStorm('return((["foo" , ]))')
+            self.eq(retn, ('foo',))
+
+            retn = await core.callStorm('return(({}))')
+            self.eq(retn, {})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10,}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10 , }))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return((["foo" "foo"]))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return((["foo", "foo", ,]))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar" "baz": 10}))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar", "baz": 10, ,}))')
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""
@@ -855,6 +885,16 @@ class StormTest(s_t_utils.SynTest):
                 # we shouldn't grab any of the nodes tagged #foo.bar (ie, all the test:guid nodes)
                 bytag = await subcore.nodes('#foo.bar')
                 self.len(0, bytag)
+
+                url = await subcore.nodes('inet:url')
+                self.len(1, url)
+                url = url[0]
+                self.eq('https', url.props['proto'])
+                self.eq('/api/v1/exptest/neat', url.props['path'])
+                self.eq('', url.props['params'])
+                self.eq(2130706433, url.props['ipv4'])
+                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.props['base'])
+                self.eq(port, url.props['port'])
 
                 # now test that param works
                 byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
@@ -3391,3 +3431,93 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+    async def test_storm_queries(self):
+        async with self.getTestCore() as core:
+
+            q = '''
+            [ inet:ipv4=1.2.3.4
+                // add an asn
+                :asn=1234
+                /* also set .seen
+                   to now
+                */
+                .seen = now
+            ]'''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('asn'), 1234)
+            self.nn(nodes[0].props.get('.seen'))
+
+            case = [
+                ('+', 'plus'),
+                ('-', 'minus'),
+                ('/', 'div'),
+                ('+-', 'plusminus'),
+                ('-+', 'minusplus'),
+                ('--', 'minusminus'),
+                ('++', 'plusplus'),
+            ]
+
+            for valu, exp in case:
+                q = f'$x={valu}'
+                q += '''
+                switch $x {
+                    +: { $lib.print(plus) }
+                    //comm
+                    -: { $lib.print(minus) }
+                    /*comm*/ +-: { $lib.print(plusminus) }
+                    -+ : { $lib.print(minusplus) }
+                    // -+: { $lib.print(fake) }
+                    /* -+: { $lib.print(fake2) } */
+                    --: { $lib.print(minusminus) }
+                    ++: { $lib.print(plusplus) }
+                    /: { $lib.print(div) }
+                }
+                '''
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint(exp, msgs)
+            q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [17, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [2019, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [8:14:22]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [PM]', msgs)
+            self.stormIsInWarn('iden must be 32 bytes [10]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [hostname]', msgs)
+
+            q = 'iden https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q --test=asdf'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [--test]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [asdf]', msgs)
+
+            q = 'iden 192[.]foo[.]bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [192[.]foo[.]bar]', msgs)
+
+            q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+
+            msgs = await core.stormlist('help yield')
+            self.stormIsInPrint('No commands found matching "yield"', msgs)
+
+            q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
+
+            await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
+
+            q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments", msgs)
+
+            q = 'service.add svcrs ssl://svcrs:27492?certname=root'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('(svcrs): ssl://svcrs:27492?certname=root', msgs)
+
+            q = 'iden ssl://svcrs:27492?certname=root=bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)

@@ -9,6 +9,8 @@ import unicodedata
 import synapse.exc as s_exc
 import synapse.data as s_data
 
+import synapse.lib.chop as s_chop
+
 import synapse.lib.crypto.coin as s_coin
 
 
@@ -40,6 +42,7 @@ inverse_prefixs = {
     '(': ')',
 }
 
+cve_dashes = ''.join(('-',) + s_chop.unicode_dashes)
 
 def fqdn_prefix_check(match: regex.Match):
     mnfo = match.groupdict()
@@ -70,6 +73,14 @@ def fqdn_check(match: regex.Match):
             return None, {}
     return valu, {}
 
+def cve_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')  # type: str
+    cbfo = {}
+
+    valu = s_chop.replaceUnicodeDashes(valu)
+    return valu, cbfo
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
@@ -81,7 +92,7 @@ scrape_types = [  # type: ignore
     ('hash:md5', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{32})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha1', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{40})(?:[^A-Za-z0-9]|$))', {}),
     ('hash:sha256', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[A-Fa-f0-9]{64})(?:[^A-Za-z0-9]|$))', {}),
-    ('it:sec:cve', r'(?:[^a-z0-9]|^)(?P<valu>CVE-[0-9]{4}-[0-9]{4,})(?:[^a-z0-9]|$)', {}),
+    ('it:sec:cve', fr'(?:[^a-z0-9]|^)(?P<valu>CVE[{cve_dashes}][0-9]{{4}}[{cve_dashes}][0-9]{{4,}})(?:[^a-z0-9]|$)', {'callback': cve_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>[1][a-zA-HJ-NP-Z0-9]{25,39})(?:[^A-Za-z0-9]|$))',
      {'callback': s_coin.btc_base58_check}),
     ('crypto:currency:address', r'(?=(?:[^A-Za-z0-9]|^)(?P<valu>3[a-zA-HJ-NP-Z0-9]{33})(?:[^A-Za-z0-9]|$))',

@@ -167,7 +167,6 @@ class LibModelTags(s_stormtypes.Lib):
     '''
     A Storm Library for interacting with tag specifications in the Cortex Data Model.
     '''
-    # XXX FIXME This requires new docs
     _storm_locals = (
         {'name': 'get', 'desc': '''
         Retrieve a tag model specification.
@@ -364,6 +363,9 @@ class ModelForm(s_stormtypes.Prim):
                   'returns': {'type': ['storm:model:property', 'null'],
                               'desc': 'The ``storm:model:property`` instance if the property if present on the form or null.'
                               }}},
+        {'name': 'type', 'desc': 'Get the Type for the form.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorFormType',
+                  'returns': {'type': 'storm:model:type'}}},
     )
     _storm_typename = 'storm:model:form'
     def __init__(self, form, path=None):
@@ -398,6 +400,12 @@ class ModelProp(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'name', 'desc': 'The short name of the Property.', 'type': 'str', },
         {'name': 'full', 'desc': 'The full name of the Property.', 'type': 'str', },
+        {'name': 'form', 'desc': 'Get the Form for the Property.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropForm',
+                  'returns': {'type': ['storm:model:form', 'null']}}},
+        {'name': 'type', 'desc': 'Get the Type for the Property.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorPropType',
+                  'returns': {'type': 'storm:model:type'}}},
     )
     _storm_typename = 'storm:model:property'
     def __init__(self, prop, path=None):
@@ -428,6 +436,9 @@ class ModelTagProp(s_stormtypes.Prim):
     '''
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Tag Property.', 'type': 'str', },
+        {'name': 'type', 'desc': 'Get the Type for the Tag Property.',
+         'type': {'type': 'ctor', '_ctorfunc': '_ctorTagPropType',
+                  'returns': {'type': 'storm:model:type'}}},
     )
     _storm_typename = 'storm:model:tagprop'
     def __init__(self, tagprop, path=None):

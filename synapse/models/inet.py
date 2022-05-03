@@ -18,6 +18,7 @@ import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
+drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\]:(\d+)$')
 
@@ -715,16 +716,42 @@ class Url(s_types.Str):
         hostparts = ''
         pathpart = ''
         parampart = ''
+        local = False
+        isUNC = False
 
         # Protocol
-        try:
-            proto, valu = valu.split('://', 1)
-            proto = proto.lower()
-            subs['proto'] = proto
-        except Exception:
+        for splitter in ('://///', ':////'):
+            try:
+                proto, valu = orig.split(splitter, 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                isUNC = True
+                break
+            except Exception:
+                proto = valu = ''
+
+        if not proto:
+            try:
+                proto, valu = orig.split('://', 1)
+                proto = proto.lower()
+            except Exception:
+                pass
+
+        if not proto:
+            try:
+                proto, valu = orig.split(':', 1)
+                proto = proto.lower()
+                assert proto == 'file'
+                assert valu
+                local = True
+            except Exception:
+                proto = valu = ''
+
+        if not proto or not valu:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol') from None
 
+        subs['proto'] = proto
         # Query params first
         queryrem = ''
         if '?' in valu:
@@ -733,20 +760,36 @@ class Url(s_types.Str):
 
         # Resource Path
         parts = valu.split('/', 1)
+        subs['path'] = ''
         if len(parts) == 2:
             valu, pathpart = parts
-            pathpart = f'/{pathpart}'
-        subs['path'] = pathpart
+            if local:
+                if drivre.match(valu):
+                    pathpart = '/'.join((valu, pathpart))
+                    valu = ''
+            # Ordering here matters due to the differences between how windows and linux filepaths are encoded
+            # *nix paths: file://<host>/some/chosen/path
+            # for windows path: file://<host>/c:/some/chosen/path
+            # the split above will rip out the starting slash on *nix, so we need it back before making the path
+            # sub, but for windows we need to only when constructing the full url (and not the path sub)
+            if proto == 'file' and drivre.match(pathpart):
+                # make the path sub before adding in the slash separator so we don't end up with "/c:/foo/bar"
+                # as part of the subs
+                # per the rfc, only do this for things that start with a drive letter
+                subs['path'] = pathpart
+                pathpart = f'/{pathpart}'
+            else:
+                pathpart = f'/{pathpart}'
+                subs['path'] = pathpart
 
         if queryrem:
             parampart = f'?{queryrem}'
         subs['params'] = parampart
 
         # Optional User/Password
-        parts = valu.split('@', 1)
+        parts = valu.rsplit('@', 1)
         if len(parts) == 2:
             authparts, valu = parts
-
             userpass = authparts.split(':', 1)
             subs['user'] = userpass[0]
             if len(userpass) == 2:
@@ -796,9 +839,9 @@ class Url(s_types.Str):
                 except Exception:
                     pass
 
-        # Raise exception if there was no FQDN, IPv4, or IPv6
-        if host is None:
-            raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg='No valid host')
+        if host and local:
+            raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                    mesg='Host specified on local-only file URI') from None
 
         # Optional Port
         if port is not None:
@@ -811,12 +854,21 @@ class Url(s_types.Str):
                 subs['port'] = self.modl.type('inet:port').norm(defport)[0]
 
         # Set up Normed URL
+        if isUNC:
+            hostparts += '//'
+
         if authparts:
             hostparts = f'{authparts}@'
 
-        hostparts = f'{hostparts}{host}'
-        if port is not None:
-            hostparts = f'{hostparts}:{port}'
+        if host is not None:
+            hostparts = f'{hostparts}{host}'
+            if port is not None:
+                hostparts = f'{hostparts}:{port}'
+
+        if proto != 'file':
+            if not subs.get('fqdn') and not subs.get('ipv4') and not subs.get('ipv6'):
+                raise s_exc.BadTypeValu(valu=orig, name=self.name,
+                                        mesg='Missing address/url') from None
 
         base = f'{proto}://{hostparts}{pathpart}'
         subs['base'] = base
@@ -1602,6 +1654,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('ip:tcp:flags', ('int', {'min': 0, 'max': 0xff}), {
                             'doc': 'An aggregation of observed TCP flags commonly provided by flow APIs.',
+                        }),
+                        ('sandbox:file', ('file:bytes', {}), {
+                            'doc': 'The initial sample given to a sandbox environment to analyze.'
                         }),
                     )),
 
