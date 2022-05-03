@@ -175,7 +175,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [
-                    crypto:smart:effect:transfer:nft=*
+                    crypto:smart:effect:transfertoken=*
                         :token=(2bdea834252a220b61aadf592cc0de66, 30)
                         :to=eth/bbbb
                         :from=eth/aaaa
@@ -187,12 +187,12 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.nn(node.get('transaction'))
             self.eq(node.get('to'), ('eth', 'bbbb'))
             self.eq(node.get('from'), ('eth', 'aaaa'))
-            self.len(1, await core.nodes('crypto:smart:effect:transfer:nft -> crypto:smart:token'))
-            self.len(1, await core.nodes('crypto:smart:effect:transfer:nft -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertoken -> crypto:smart:token'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertoken -> crypto:currency:transaction'))
 
             nodes = await core.nodes('''
                 [
-                    crypto:smart:effect:transfer:tokens=*
+                    crypto:smart:effect:transfertokens=*
                         :to=eth/bbbb
                         :from=eth/aaaa
                         :amount=20
@@ -206,12 +206,12 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('to'), ('eth', 'bbbb'))
             self.eq(node.get('from'), ('eth', 'aaaa'))
             self.eq(node.get('amount'), '20')
-            self.len(1, await core.nodes('crypto:smart:effect:transfer:tokens -> crypto:smart:contract'))
-            self.len(1, await core.nodes('crypto:smart:effect:transfer:tokens -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertokens -> crypto:smart:contract'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertokens -> crypto:currency:transaction'))
 
             nodes = await core.nodes('''
                 [
-                    crypto:smart:effect:token:supply=*
+                    crypto:smart:effect:supplytokens=*
                         :amount=20
                         :contract=*
                         :transaction=*
@@ -223,8 +223,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.nn(node.get('transaction'))
             self.eq(node.get('amount'), '20')
             self.eq(node.get('totalsupply'), '1020')
-            self.len(1, await core.nodes('crypto:smart:effect:token:supply -> crypto:smart:contract'))
-            self.len(1, await core.nodes('crypto:smart:effect:token:supply -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:supplytokens -> crypto:smart:contract'))
+            self.len(1, await core.nodes('crypto:smart:effect:supplytokens -> crypto:currency:transaction'))
 
             nodes = await core.nodes('''
                 [

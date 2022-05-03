@@ -1021,10 +1021,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The it:host which has this component installed.'}),
                 )),
                 ('it:prod:soft', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True}), {
+                    ('name', ('it:prod:softname', {}), {
                         'doc': 'Name of the software.',
                     }),
-                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software.',
                     }),
                     ('desc', ('str', {}), {
@@ -1067,6 +1067,8 @@ class ItModule(s_module.CoreModule):
                     ('islib', ('bool', {}), {
                         'doc': 'Set to True if the software is a library.'}),
                 )),
+
+                ('it:prod:softname', {}, ()),
 
                 ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),

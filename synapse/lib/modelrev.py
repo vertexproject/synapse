@@ -466,7 +466,7 @@ class ModelRev:
     async def revModel20220330(self, layers):
 
         await self._normPropValu(layers, 'ou:industry:name')
-        await self._propToForm(layers, 'ou:industry:name', 'ou:indname')
+        await self._propToForm(layers, 'ou:industry:name', 'ou:industryname')
 
         await self._normPropValu(layers, 'it:prod:soft:name')
         await self._normPropValu(layers, 'it:prod:soft:names')

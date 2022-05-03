@@ -34,13 +34,13 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:contract', ('guid', {}), {
                     'doc': 'A smart contract.',
                 }),
-                ('crypto:smart:effect:transfer:nft', ('guid', {}), {
+                ('crypto:smart:effect:transfertoken', ('guid', {}), {
                     'doc': 'A smart contract effect which transfers ownership of a non-fungible token.',
                 }),
-                ('crypto:smart:effect:transfer:tokens', ('guid', {}), {
+                ('crypto:smart:effect:transfertokens', ('guid', {}), {
                     'doc': 'A smart contract effect which transfers fungible tokens.',
                 }),
-                ('crypto:smart:effect:token:supply', ('guid', {}), {
+                ('crypto:smart:effect:supplytokens', ('guid', {}), {
                     'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.',
                 }),
                 # TODO crypto:smart:effect:call - call another smart contract
@@ -253,7 +253,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The full name of the crypto coin.'}),
                 )),
 
-                ('crypto:smart:effect:transfer:nft', {}, (
+                ('crypto:smart:effect:transfertoken', {}, (
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction where the smart contract was called.'}),
                     ('token', ('crypto:smart:token', {}), {
@@ -264,7 +264,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The address the NFT was transferred to.'}),
                 )),
 
-                ('crypto:smart:effect:transfer:tokens', {}, (
+                ('crypto:smart:effect:transfertokens', {}, (
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction where the smart contract was called.'}),
                     ('contract', ('crypto:smart:contract', {}), {
@@ -277,7 +277,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The number of tokens transferred.'}),
                 )),
 
-                ('crypto:smart:effect:token:supply', {}, (
+                ('crypto:smart:effect:supplytokens', {}, (
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction where the smart contract was called.'}),
                     ('contract', ('crypto:smart:contract', {}), {

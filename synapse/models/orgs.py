@@ -50,7 +50,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
                 }),
-                ('ou:indname', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                ('ou:industryname', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
@@ -540,9 +540,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry', {}, (
-                    ('name', ('ou:indname', {}), {
+                    ('name', ('ou:industryname', {}), {
                         'doc': 'The name of the industry.'}),
-                    ('names', ('array', {'type': 'ou:indname', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of sub-industries.'}),
@@ -557,6 +557,7 @@ class OuModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                 )),
+                ('ou:industryname', {}, ()),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
