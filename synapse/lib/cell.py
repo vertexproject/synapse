@@ -2392,7 +2392,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @classmethod
     def getEnvPrefix(cls):
-        return f'SYN_{cls.__name__.upper()}'
+        '''Get a list of envar prefixes for config resolution.'''
+        return (f'SYN_{cls.__name__.upper()}', )
 
     def getCellIden(self):
         return self.iden
@@ -2411,9 +2412,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             s_config.Config: A Config helper object.
         '''
-        prefix = cls.getEnvPrefix()
+        prefixes = cls.getEnvPrefix()
         schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
-        return s_config.Config(schema, envar_prefix=prefix)
+        return s_config.Config(schema, envar_prefixes=prefixes)
 
     @classmethod
     def getArgParser(cls, conf=None):
@@ -2434,7 +2435,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
 
         name = cls.getCellType()
-        prefix = cls.getEnvPrefix()
+        prefix = cls.getEnvPrefix()[0]
 
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')

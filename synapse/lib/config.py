@@ -112,8 +112,8 @@ class Config(c_abc.MutableMapping):
         schema (dict): The JSON Schema (draft v7) which to validate
                        configuration data against.
         conf (dict): Optional, a set of configuration data to preload.
-        envar_prefix (str): Optional, a prefix used when collecting configuration
-                            data from environment variables.
+        envar_prefixes (list): Optional, a list of prefix strings used when collecting
+                               configuration data from environment variables.
 
     Notes:
         This class implements the collections.abc.MutableMapping class, so it
@@ -129,15 +129,17 @@ class Config(c_abc.MutableMapping):
     def __init__(self,
                  schema,
                  conf=None,
-                 envar_prefix=None,
+                 envar_prefixes=None,
                  ):
         self.json_schema = schema
         if conf is None:
             conf = {}
+        if envar_prefixes is None:
+            envar_prefixes = ('', )
         self.conf = conf
         self._argparse_conf_names = {}
         self._argparse_conf_parsed_names = {}
-        self.envar_prefix = envar_prefix
+        self.envar_prefixes = envar_prefixes
         self.validator = getJsValidator(self.json_schema)
 
     @classmethod
@@ -149,7 +151,7 @@ class Config(c_abc.MutableMapping):
             Config: A Config object.
         '''
         schema = getJsSchema(cell.confbase, cell.confdefs)
-        return cls(schema, conf=conf, envar_prefix=envar_prefix)
+        return cls(schema, conf=conf, envar_prefixes=envar_prefix)
 
     def getArgParseArgs(self):
 
@@ -259,40 +261,43 @@ class Config(c_abc.MutableMapping):
             With the prefix ``cortex``, the the environment variable is resolved as ``CORTEX_AUTH_PASSWD``.
 
         Returns:
-            None: Returns None.
+            dict: Returns a dictionary of values which were set from enviroment variables.
         '''
         updates = {}
-        name2envar = self.getEnvarMapping()
-        for name, envar in name2envar.items():
-            envv = os.getenv(envar)
-            if envv is not None:
-                envv = yaml.safe_load(envv)
+        for prefix in self.envar_prefixes:
+            name2envar = self.getEnvarMapping(prefix=prefix)
+            for name, envar in name2envar.items():
+                envv = os.getenv(envar)
+                if envv is not None:
+                    envv = yaml.safe_load(envv)
 
-                curv = self.get(name, s_common.novalu)
-                if curv is not s_common.novalu:
-                    if curv != envv:
-                        logger.warning(f'Config from envar [{envar}] skipped due to already being set!')
-                    continue
+                    curv = self.get(name, s_common.novalu)
+                    if curv is not s_common.novalu:
+                        if curv != envv:
+                            logger.warning(f'Config from envar [{envar}] skipped due to already being set!')
+                        continue
 
-                self.setdefault(name, envv)
-                logger.debug(f'Set config valu from envar: [{envar}]')
-                updates[name] = envv
+                    self.setdefault(name, envv)
+                    logger.debug(f'Set config valu from envar: [{envar}]')
+                    updates[name] = envv
 
         return updates
 
-    def getEnvarMapping(self):
+    def getEnvarMapping(self, prefix=None):
         '''
         Get a mapping of config values to envars.
 
         Configuration values which have the ``hideconf`` value set to True are not resolved from environment
         variables.
         '''
+        if prefix is None:
+            prefix = self.envar_prefixes[0]
         ret = {}
         for name, conf in self.json_schema.get('properties', {}).items():
             if conf.get('hideconf'):
                 continue
 
-            envar = make_envar_name(name, prefix=self.envar_prefix)
+            envar = make_envar_name(name, prefix=prefix)
             ret[name] = envar
         return ret
 
