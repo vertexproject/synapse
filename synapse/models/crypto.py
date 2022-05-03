@@ -40,14 +40,11 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:effect:transfertokens', ('guid', {}), {
                     'doc': 'A smart contract effect which transfers fungible tokens.',
                 }),
-                ('crypto:smart:effect:supplytokens', ('guid', {}), {
+                ('crypto:smart:effect:edittokensupply', ('guid', {}), {
                     'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.',
                 }),
                 # TODO crypto:smart:effect:call - call another smart contract
                 # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
-                ('crypto:currency:seed', ('guid', {}), {
-                    'doc': 'A seed value used to derive multiple crypto currency addresses.',
-                }),
                 ('crypto:payment:input', ('guid', {}), {
                     'doc': 'A payment made into a transaction.',
                 }),
@@ -277,7 +274,7 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The number of tokens transferred.'}),
                 )),
 
-                ('crypto:smart:effect:supplytokens', {}, (
+                ('crypto:smart:effect:edittokensupply', {}, (
                     ('transaction', ('crypto:currency:transaction', {}), {
                         'doc': 'The transaction where the smart contract was called.'}),
                     ('contract', ('crypto:smart:contract', {}), {
@@ -291,8 +288,8 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:currency:address', {}, (
                     ('coin', ('crypto:currency:coin', {}), {
                         'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
-                    ('seed', ('crypto:currency:seed', {}), {
-                        'doc': 'The seed used to derive the address.'}),
+                    ('seed', ('crypto:key', {}), {
+                        'doc': 'The cryptographic key and or password used to generate the address.'}),
                     ('iden', ('str', {}), {
                         'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
@@ -305,18 +302,17 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:key', {}, (
                     ('algorithm', ('crypto:algorithm', {}), {
+                        'ex': 'aes256',
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
                     ('public', ('hex', {}), {
-                        'doc': 'The public key material if the algorithm has a public/private key pair.'}),
+                        'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
                     ('private', ('hex', {}), {
-                        'doc': 'The private key material. All symmetric keys are private.'}),
-                )),
-
-                ('crypto:currency:seed', {}, (
-                    ('key', ('crypto:key', {}), {
-                        'doc': 'The key material used to derive addresses from the seed.'}),
-                    ('passwd', ('inet:passwd', {}), {
-                        'doc': 'The pass phrase which can be used to derive they key for the seed.'}),
+                        'doc': 'The hex encoded private key material. All symmetric keys are private.'}),
+                    ('seed:passwd', ('inet:passwd', {}), {
+                        'doc': 'The seed password used to generate the key material.'}),
+                    ('seed:algorithm', ('crypto:algorithm', {}), {
+                        'ex': 'pbkdf2',
+                        'doc': 'The algorithm used to generate the key from the seed password.'})
                 )),
 
                 ('crypto:currency:client', {}, (

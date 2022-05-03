@@ -45,15 +45,13 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
                 [ :seed={
-                    [ crypto:currency:seed=* :passwd=s3cret :key={
-                        [ crypto:key=* :algorithm=rsa :private=00000000 :public=ffffffff ]
-                    }]
+                    [ crypto:key=* :algorithm=aes256 :private=00000000 :public=ffffffff :seed:passwd=s3cret :seed:algorithm=pbkdf2 ]
                 }]
             ''')
 
-            self.len(1, await core.nodes('crypto:algorithm=rsa'))
-            self.len(1, await core.nodes('crypto:key:algorithm=rsa +:private=00000000 +:public=ffffffff'))
-            self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:currency:seed +:key -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:algorithm=aes256'))
+            self.len(1, await core.nodes('crypto:key:algorithm=aes256 +:private=00000000 +:public=ffffffff +:seed:algorithm=pbkdf2 +:seed:passwd=s3cret'))
+            self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
 
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.eq(nodes[0].get('coin'), 'btc')
@@ -211,7 +209,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [
-                    crypto:smart:effect:supplytokens=*
+                    crypto:smart:effect:edittokensupply=*
                         :amount=20
                         :contract=*
                         :transaction=*
@@ -223,8 +221,8 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.nn(node.get('transaction'))
             self.eq(node.get('amount'), '20')
             self.eq(node.get('totalsupply'), '1020')
-            self.len(1, await core.nodes('crypto:smart:effect:supplytokens -> crypto:smart:contract'))
-            self.len(1, await core.nodes('crypto:smart:effect:supplytokens -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:edittokensupply -> crypto:smart:contract'))
+            self.len(1, await core.nodes('crypto:smart:effect:edittokensupply -> crypto:currency:transaction'))
 
             nodes = await core.nodes('''
                 [
