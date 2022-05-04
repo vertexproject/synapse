@@ -59,9 +59,11 @@ start it backup without changing anything.
 Decide on a Name
 ================
 
-Throughout the examples, we will be using ``loop.vertex.link`` as the AHA network name which is also
-used by default as the common-name (CN) for the CA certificate. This should be changed to an appropriate
-network name used by your synapse deployment such as ``syn.acmecorp.com``.
+Throughout the examples, we will be using ``<yournetwork>`` as the AHA network name which is also used as the
+common-name (CN) for the CA certificate. This should be changed to an appropriate network name used by your
+synapse deployment such as ``syn.acmecorp.com``. We will use ``<yournetwork>`` in the following configs to
+specify locations which should be replaced with your selected AHA network name. For a **test** deployment which
+runs **all** docker containers on one host, you may use ``loop.vertex.link``.
 
 .. note::
     It is important that you choose a name and stick with it for a given deployment. Once we begin generating
@@ -75,8 +77,10 @@ Synapse services. Other Synapse services will need to be able to resolve the IP 
 by name, so it is likely that you need to create a DNS A/AAAA record in your existing resolver. When you are
 using AHA, the only host that needs DNS or other external name resolution is the AHA service.
 
-For this example deployment, we will name our AHA server ``aha.loop.vertex.link`` and assume DNS records
-have been created to resolve the FQDN to an IPv4 / IPv6 address of the host running the container.
+.. note::
+    It is important to ensure that ``aha.<yournetwork>`` is resolvable via DNS or docker container service
+    name resolution from within the container environment! There are configuration options you may use if
+    this is impossible, but the configuration is far simpler if we can make this assumption.
 
 Create the container directory::
 
@@ -96,13 +100,13 @@ Create the ``/srv/syn/aha/docker-compose.yaml`` file with contents::
         environment:
             - SYN_AHA_HTTPS_PORT=null
             - SYN_AHA_AHA_NAME=aha
-            - SYN_AHA_AHA_NETWORK=loop.vertex.link
-            - SYN_AHA_DMON_LISTEN=ssl://0.0.0.0?hostname=aha.loop.vertex.link&ca=loop.vertex.link
-            - SYN_AHA_PROVISION_LISTEN=ssl://0.0.0.0:27272?hostname=aha.loop.vertex.link
+            - SYN_AHA_AHA_NETWORK=<yournetwork>
+            - SYN_AHA_DMON_LISTEN=ssl://aha.<yournetwork>?ca=<yournetwork>
+            - SYN_AHA_PROVISION_LISTEN=ssl://aha.<yournetwork>:27272
 
 .. note::
 
-    Don't forget to replace ``loop.vertex.link`` with your chosen network name!
+    Don't forget to replace ``<yournetwork>`` with your chosen network name!
 
 Change ownership of the storage directory to the user you will use to run the container::
 
@@ -139,7 +143,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -162,7 +166,7 @@ Create the ``/srv/syn/00.axon/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_AXON_HTTPS_PORT=null
-            - SYN_AXON_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+            - SYN_AXON_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -184,7 +188,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -207,7 +211,7 @@ Create the ``/srv/syn/00.jsonstor/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_JSONSTOR_HTTPS_PORT=null
-            - SYN_JSONSTOR_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+            - SYN_JSONSTOR_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -229,7 +233,7 @@ Generate a one-time use provisioning URL::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -252,7 +256,7 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
         environment:
             - SYN_CORTEX_AXON=aha://axon...
             - SYN_CORTEX_JSONSTOR=aha://jsonstor...
-            - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+            - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -278,7 +282,7 @@ Generate a one-time use URL for provisioning from *inside the AHA container*::
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 **On the Host**
 
@@ -301,7 +305,7 @@ Create the ``/srv/syn/01.cortex/docker-compose.yaml`` file with contents::
         environment:
             # disable HTTPS API for now to prevent port collisions
             - SYN_CORTEX_HTTPS_PORT=null
-            - SYN_CORTEX_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+            - SYN_CORTEX_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 .. note::
 
@@ -325,10 +329,7 @@ have Cortex access using the Telepath API, we will need to add them to the Corte
 certificates for them. To add a new admin user to the Cortex, run the following command from **inside the
 Cortex container**::
 
-    python -m synapse.tools.moduser --add --admin true visi@loop.vertex.link
-
-.. note::
-    Don't forget to change ``loop.vertex.link`` to your chosen network name!
+    python -m synapse.tools.moduser --add --admin true visi
 
 .. note::
     If you are a Synapse Enterprise customer, using the Synapse UI with SSO, the admin may now login to the
@@ -341,17 +342,17 @@ following command from **inside the AHA container** to genreate a one-time use U
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Then the **user** may run::
 
-    python -m synapse.tools.aha.enroll ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    python -m synapse.tools.aha.enroll ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Once they are enrolled, they will have a user certificate located in ``~/.syn/certs/users`` and their telepath
 configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there
 the user should be able to use standard Synapse cli tools using the ``aha://`` URL such as::
 
-    python -m synapse.tools.storm aha://visi@cortex.loop.vertex.link
+    python -m synapse.tools.storm aha://visi@cortex.<yournetwork>
 
 What's next?
 ============
