@@ -1772,7 +1772,10 @@ class Layer(s_nexus.Pusher):
     async def truncate(self):
         '''
         Nuke all the contents in the layer, leaving an empty layer
+        NOTE: This internal API is deprecated but is kept for Nexus event backward compatibility
         '''
+        s_common.deprecated('truncate')
+
         self.dirty.clear()
         self.buidcache.clear()
 
@@ -1781,6 +1784,38 @@ class Layer(s_nexus.Pusher):
         await self.dataslab.trash()
 
         await self._initLayerStorage()
+
+    # async def wipe(self, meta): ...
+
+    async def iterWipeNodeEdits(self):
+
+        await self._saveDirtySodes()
+
+        async for buid, sode in self.getStorNodes():
+
+            edits = []
+
+            async for verb, n2iden in self.iterNodeEdgesN1(buid):
+                edits.append((EDIT_EDGE_DEL, (verb, n2iden), ()))
+
+            async for prop, valu in self.iterNodeData(buid):
+                edits.append((EDIT_NODEDATA_DEL, (prop, valu), ()))
+
+            for tag, propdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in propdict.items():
+                    edits.append((EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
+
+            for tag, tagv in sode.get('tags', {}).items():
+                edits.append((EDIT_TAG_DEL, (tag, tagv), ()))
+
+            for prop, (valu, stortype) in sode.get('props', {}).items():
+                edits.append((EDIT_PROP_DEL, (prop, valu, stortype), ()))
+
+            valu = sode.get('valu')
+            if valu is not None:
+                edits.append((EDIT_NODE_DEL, valu, ()))
+
+            yield (buid, sode.get('form'), edits)
 
     async def clone(self, newdirn):
         '''
@@ -3958,3 +3993,62 @@ def getFlatEdits(nodeedits):
         addedits(buid, form, edits)
 
     return [(k[0], k[1], v) for (k, v) in editsbynode.items()]
+
+def getNodeEditPerms(nodeedits):
+    '''
+    Yields (offs, perm) tuples that can be used in user.allowed()
+    '''
+
+    for nodeoffs, (buid, form, edits) in enumerate(nodeedits):
+
+        for editoffs, (edit, info, _) in enumerate(edits):
+
+            permoffs = (nodeoffs, editoffs)
+
+            if edit == EDIT_NODE_ADD:
+                yield (permoffs, ('node', 'add', form))
+                continue
+
+            if edit == EDIT_NODE_DEL:
+                yield (permoffs, ('node', 'del', form))
+                continue
+
+            if edit == EDIT_PROP_SET:
+                yield (permoffs, ('node', 'prop', 'set', f'{form}:{info[0]}'))
+                continue
+
+            if edit == EDIT_PROP_DEL:
+                yield (permoffs, ('node', 'prop', 'del', f'{form}:{info[0]}'))
+                continue
+
+            if edit == EDIT_TAG_SET:
+                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAG_DEL:
+                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAGPROP_SET:
+                yield (permoffs, ('node', 'tag', 'add', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_TAGPROP_DEL:
+                yield (permoffs, ('node', 'tag', 'del', *info[0].split('.')))
+                continue
+
+            if edit == EDIT_NODEDATA_SET:
+                yield (permoffs, ('node', 'data', 'set', info[0]))
+                continue
+
+            if edit == EDIT_NODEDATA_DEL:
+                yield (permoffs, ('node', 'data', 'pop', info[0]))
+                continue
+
+            if edit == EDIT_EDGE_ADD:
+                yield (permoffs, ('node', 'edge', 'add', info[0]))
+                continue
+
+            if edit == EDIT_EDGE_DEL:
+                yield (permoffs, ('node', 'edge', 'del', info[0]))
+                continue

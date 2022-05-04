@@ -334,11 +334,11 @@ class Daemon(s_base.Base):
 
         finis = [sess.fini() for sess in list(self.sessions.values())]
         if finis:
-            await asyncio.wait(finis)
+            await asyncio.gather(*finis, return_exceptions=True)
 
         finis = [link.fini() for link in self.links]
         if finis:
-            await asyncio.wait(finis)
+            await asyncio.gather(*finis, return_exceptions=True)
 
         for _, share in self.shared.items():
             if isinstance(share, s_base.Base):

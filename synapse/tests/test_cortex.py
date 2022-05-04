@@ -2936,7 +2936,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
             # Lark sensitive test
-            self.stormIsInErr("No terminal defined for '|'", mesgs)
+            self.stormIsInErr("Unexpected token '|'", mesgs)
             errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
             self.eq(errs[0][0], 'BadSyntax')
 
@@ -4726,6 +4726,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[test:type10=1 :strprop=1] -$(0)'
             nodes = await core.nodes(q)
             self.len(1, nodes)
+
+            q = '''
+            [ file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e
+                :mime:pe:compiled="1992/06/19 22:22:17.000"
+            ]
+            -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)'''
+            self.len(1, await core.nodes(q))
 
     async def test_storm_filter(self):
         async with self.getTestCore() as core:
