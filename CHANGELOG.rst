@@ -4,6 +4,51 @@
 Synapse Changelog
 *****************
 
+NEXTVERS - 2022-XX-YY
+=====================
+
+Features and Enhancements
+-------------------------
+- Added service provisioning API to AHA service and associated tool
+  ``synapse.tools.aha.provision.service`` and documentation to make
+  it easy to bootstrap Synapse services using service discovery and
+  SSL client-side certificates to identify service accounts.
+- Added user provisioning API to AHA service and associated tools
+  ``synapse.tools.aha.provision.user`` and ``synapse.tools.aha.enroll``
+  to make it easy to bootstrap new users with SSL client-side certificates
+  and AHA service discovery configuration.
+- Added automatic mirror initialization logic to Synapse services to
+  enable new mirrors to be initilized dynamically via AHA provisioning
+  rather than from a pre-exisging backup.
+- Added ``handoff()`` API to Synapse services to allow mirrors to be
+  gracefully promoted to leader.
+- Added ``synapse.tools.promote`` to allow easy promotion of mirror to
+  leader using the new ``handoff()`` API.
+- Added ``aha:provision`` configuration to Synapse services to allow
+  them to automatically provision and self-configure using AHA.
+- Adjusted Synapse service configuration preference to allow runtime settings
+  to be stored in ``cell.yaml``.
+- Added optional ``certhash`` parameter to telepath ``ssl://`` URLs to
+  allow cert-pinning behavior and automatic trust of provisioning URLs.
+- Added ``synapse.tools.moduser`` and ``synapse.tools.modrole`` commands
+  to modernize and ease user/role management from within Synapse service
+  docker containers.
+
+Improved Documentation
+----------------------
+- Added new Deployment Guide with step-by-step production ready deployment
+  instructions
+- Refactored Devops Guide to give task-oriented instructions on performing
+  common devops tasks.
+- Added new minimal Admin Guide as a place for documenting Cortex admin tasks.
+- Updated Getting Started to direct users to synapse-quickstart instructions.
+- Added ``easycert`` tool documentation.
+- Removed ``cmdr`` tool documentation to emphasize newer tools such as ``storm``.
+
+Bugfixes
+--------
+- Added ``getCellRunId()`` API to Synapse services to allow them to detect
+  incorrect mirror configurations where they refer to themselves.
 
 v2.92.0 - 2022-04-28
 ====================
