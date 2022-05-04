@@ -38,6 +38,9 @@ Features and Enhancements
     Update the interface to add a ``sandbox:file`` property to record an
     initial sample from a sandbox environment.
 
+- Changed primary Storm parser to a LALR compatible syntax to gain 80x speed
+  up in parsing Storm queries
+  (`#2649 <https://github.com/vertexproject/synapse/pull/2649>`_)
 - Added service provisioning API to AHA service and associated tool
   ``synapse.tools.aha.provision.service`` and documentation to make
   it easy to bootstrap Synapse services using service discovery and
@@ -50,7 +53,7 @@ Features and Enhancements
   (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
 - Added automatic mirror initialization logic to Synapse services to
   enable new mirrors to be initilized dynamically via AHA provisioning
-  rather than from a pre-exisging backup.
+  rather than from a pre-existing backup.
   (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
 - Added ``handoff()`` API to Synapse services to allow mirrors to be
   gracefully promoted to leader.
@@ -75,7 +78,7 @@ Features and Enhancements
   in Storm to easily implement data caching in the JSONStor.
   (`#2662 <https://github.com/vertexproject/synapse/pull/2662>`_)
 - Add a ``params`` option to ``$lib.inet.http.connect()`` to pass parameters
-  when creating Websocket connetions in Storm.
+  when creating Websocket connections in Storm.
   (`#2664 <https://github.com/vertexproject/synapse/pull/2664>`_)
 
 Bugfixes
@@ -83,7 +86,7 @@ Bugfixes
 - Added ``getCellRunId()`` API to Synapse services to allow them to detect
   incorrect mirror configurations where they refer to themselves.
   (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
-- Ensure that CLI history files can be read too and writen upon
+- Ensure that CLI history files can be read and written upon
   starting interactive CLI tools.
   (`#2660 <https://github.com/vertexproject/synapse/pull/2660>`_)
 - Assorted unit tests fixes to make tests more stable.
