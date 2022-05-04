@@ -175,7 +175,7 @@ Automatic Migrations
   on the respective ``crypto:payment:input`` and ``crypto:payment:output``
   nodes to account for the modeling changes. Make ``geo:name`` nodes for
   ``geo:place:name`` secondary properties to account for the modeling changes.
-  See :ref:`devops-general-migrations` for more information about automatic
+  See :ref:`datamigration` for more information about automatic
   migrations.
 
 Features and Enhancements
@@ -310,7 +310,7 @@ v2.86.0 - 2022-03-09
 Automatic Migrations
 --------------------
 - Migrate secondary properties in Cortex nodes which use ``hugenum`` type to
-  account for updated ranges. See :ref:`devops-general-migrations` for more
+  account for updated ranges. See :ref:`datamigration` for more
   information about automatic migrations.
 
 Features and Enhancements
@@ -698,7 +698,7 @@ v2.78.0 - 2022-01-14
 Automatic Migrations
 --------------------
 - Migrate Cortex nodes which may have been skipped in an earlier migration due
-  to missing tagprop indexes. See :ref:`devops-general-migrations` for more
+  to missing tagprop indexes. See :ref:`datamigration` for more
   information about automatic migrations.
 
 Features and Enhancements
