@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-<<<<<<< HEAD
+
 NEXTVERS - 2022-XX-YY
 =====================
 
