@@ -330,10 +330,10 @@ Adding Users
 ~~~~~~~~~~~~
 
 Managing users and service accounts in the Synapse ecosystem is most easily accomplished using the ``moduser`` tool
-executed from **within** the service ``docker`` container. In this example we add the user ``visi@loop.vertex.link``
+executed from **within** the service ``docker`` container. In this example we add the user ``visi``
 as an admin user to the Cortex by running the following command from **within the Cortex container**::
 
-    python -m synapse.tools.moduser --add --admin visi@loop.vertex.link
+    python -m synapse.tools.moduser --add --admin visi
 
 If the deployment is using AHA and TLS client certificates and the user will be connecting via the Telepath API using the
 :ref:`syn-tools-storm` CLI tool, will will also need to provision a user TLS certificate for them. This can be done using
@@ -343,7 +343,7 @@ the ``synapse.tools.aha.provision.user`` command from **within the AHA container
 
 Which will produce output similar to::
     
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 .. note::
     The enrollment URL may only be used once. It should be given to the user using a secure messaging system
@@ -352,11 +352,11 @@ Which will produce output similar to::
 Once the one-time enrollment URL has been passed along to the user, the **user must run an enrollment command** to configure
 their environment to use the AHA server and generate a user certificate from the host they will be using to run the Storm CLI::
 
-    python -m synapse.tools.enroll ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    python -m synapse.tools.enroll ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
-Once they are enrolled, the user can connect using the Telepath URL ``aha://cortex.loop.vertex.link``::
+Once they are enrolled, the user can connect using the Telepath URL ``aha://cortex.<yournetwork>``::
 
-    python -m synapse.tools.storm aha://cortex.loop.vertex.link
+    python -m synapse.tools.storm aha://cortex.<yournetwork>
 
 .. _devops-task-aha:
 
@@ -380,15 +380,15 @@ For example, to add an existing Axon to your new AHA server, you would execute t
 
 You should see output that looks similar to this::
 
-    one-time use URL: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Then add the following entry to the Axon's ``cell.conf``::
 
-    aha:provision: ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    aha:provision: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Or add the following environment variable to your orchestration::
 
-    SYN_AXON_AHA_PROVISION=ssl://aha.loop.vertex.link:27272/<guid>?certhash=<sha256>
+    SYN_AXON_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
 
 Then restart the Axon container. As it restarts, the service will generate user and host certificates and update it's
 ``cell.yaml`` file to include the necessary AHA configuration options. The ``dmon:listen`` option will be updated
@@ -404,7 +404,8 @@ AHA
 
 The AHA service provides service discovery, provisioning, graceful mirror promotion, and certificate authority
 services to the other Synapse services. For a step-by-step guide to deploying an AHA instance, see the
-:ref:`deploymentguide`.
+:ref:`deploymentguide`. We will use ``<yournetwork>`` to specify locations where the value should be replaced with
+your chosen AHA network name.
 
 Docker Image: ``vertexproject/synapse-aha:v2.x.x``
 
@@ -413,8 +414,8 @@ Docker Image: ``vertexproject/synapse-aha:v2.x.x``
 A typical AHA deployment requires some initial configuration options. At a minimum, you must specify the following::
 
     aha:name: aha
-    aha:network: loop.vertex.link
-    dmon:listen: ssl://0.0.0.0?hostname=aha.loop.vertex.link&ca=loop.vertex.link
+    aha:network: <yournetwork>
+    dmon:listen: ssl://aha.<yournetwork>&ca=<yournetwork>
 
 To enable provisioning using AHA you must specify an alternate listener such as::
 
@@ -490,10 +491,10 @@ A typical Axon deployment does not require any additional configuration. For the
 *axon.upload*
     Controlls access to upload a binary blob to the Axon.
 
-For example, to allow the service user ``cortex@loop.vertex.link`` to upload, download, and confirm files you would
-execute the following command from **inside the Axon container**::
+For example, to allow the user ``visi`` to upload, download, and confirm files you would execute the following command
+from **inside the Axon container**::
 
-    python -m synapse.tools.moduser --add cortex@loop.vertex.link --allow axon
+    python -m synapse.tools.moduser --add visi --allow axon
 
 .. _devops-svc-jsonstorcell:
 JSONStor
