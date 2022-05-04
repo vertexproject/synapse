@@ -2,8 +2,8 @@
 
 .. _syn-tools-csvtool:
 
-Synapse Tools - csvtool
-=======================
+csvtool
+=======
 
 The Synapse ``csvtool`` command can be used to ingest structured data from a comma-separated values (CSV) file to create nodes in a Cortex. ``csvtool`` is useful for bulk-loading CSV-formatted data without the need to develop custom ingest code. (For other data formats such as JSON, yaml, or msgpack, see :ref:`syn-tools-feed`.)
 

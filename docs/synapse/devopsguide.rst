@@ -16,6 +16,10 @@ Each Synapse service is distributed as a ``docker`` image which contains all the
 service. For the open-source Synapse images, the tag ``:v2.x.x`` will always be present on the most recent supported
 release. Image names are specified in each service specific section below.
 
+Synapse services **require persistent storage**. Each ``docker`` container expects persistent storage to be available
+within the directory ``/vertex/storage`` which should be a persistent mapped volume. Only one container may run from a
+given volume at a time.
+
 cell.yaml
 ---------
 
@@ -419,13 +423,13 @@ A typical AHA deployment requires some initial configuration options. At a minim
 
 To enable provisioning using AHA you must specify an alternate listener such as::
 
-    provision:listen: tcp://0.0.0.0:27272
+    provision:listen: tcp://aha.<yournetwork>:27272
 
 .. note::
     The network connection from a Synapse service to the AHA service must NOT be passing through a Network Adress
     Translation (NAT) device.
 
-For the full list supported options, see the :ref:`autodoc-aha-conf`.
+For the full list supported options, see the :ref:`autodoc-conf-aha`.
 
 **Using Aha with Custom Client Code**
 
@@ -475,7 +479,7 @@ Docker Image: ``vertexproject/synapse-axon:v2.x.x``
 **Configuration**
 
 A typical Axon deployment does not require any additional configuration. For the full list supported options, see the
-:ref:`autodoc-axon-conf`.
+:ref:`autodoc-conf-axon`.
 
 **Permissions**
 
@@ -514,8 +518,8 @@ Docker Image: ``vertexproject/synapse-jsonstor:v2.x.x``
 
 **Configuration**
 
-A typical Axon deployment does not require any additional configuration. For the full list supported options, see the
-:ref:`autodoc-jsonstor-conf`.
+A typical JSONStor deployment does not require any additional configuration. For the full list supported options, see the
+:ref:`autodoc-conf-jsonstor`.
 
 .. _devops-svc-cortex:
 Cortex
@@ -562,7 +566,7 @@ This logging does interplay with the underlying log configuration ( :ref:`devops
 ``storm:log:level`` value must be greater than or equal to the ``SYN_LOG_LEVEL``, otherwise the Storm log will
 not be emitted.
 
-For the full list supported options, see the :ref:`autodoc-cortex-conf`.
+For the full list supported options, see the :ref:`autodoc-conf-cortex`.
 
 Devops Details
 ==============
@@ -572,6 +576,30 @@ Orchestration
 
 .. include:: devguides/orch_hashistack.rst
 .. include:: devguides/orch_kubernetes.rst
+
+.. _autodoc-conf-aha:
+
+AHA Configuration Options
+-------------------------
+.. include:: autodocs/conf_ahacell.rst
+
+.. _autodoc-conf-axon:
+
+Axon Configuration Options
+-------------------------
+.. include:: autodocs/conf_axon.rst
+
+.. _autodoc-conf-jsonstor:
+
+JSONStor Configuration Options
+-------------------------
+.. include:: autodocs/conf_jsonstorcell.rst
+
+.. _autodoc-conf-cortex:
+
+Cortex Configuration Options
+-------------------------
+.. include:: autodocs/conf_cortex.rst
 
 .. _index:              ../index.html
 .. _Synapse-Backup: ../projects/backup/en/latest/

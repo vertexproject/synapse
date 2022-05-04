@@ -515,7 +515,7 @@ async def docModel(outp,
 
     return rst, rst2
 
-async def docConfdefs(ctor, reflink=None, title=None):
+async def docConfdefs(ctor):
     cls = s_dyndeps.tryDynLocal(ctor)
 
     if not hasattr(cls, 'confdefs'):
@@ -526,14 +526,6 @@ async def docConfdefs(ctor, reflink=None, title=None):
     clsname = cls.__name__
 
     conf = cls.initCellConf()  # type: s_config.Config
-    if title is None:
-        title = clsname
-
-    if reflink is None:
-        reflink = f':ref:`devops-svc-{title.lower()}`'
-
-    rst.addHead(f'{title} Configuration Options', lvl=0, link=f'.. _autodoc-{title.lower()}-conf:')
-    rst.addLines(f'See {reflink} for details on how to set these options.')
 
     # access raw config data
 
@@ -552,14 +544,14 @@ async def docConfdefs(ctor, reflink=None, title=None):
 
         nodesc = f'No description available for ``{name}``.'
 
-        hname = name.replace(':', raw_back_slash_colon)
-        rst.addHead(hname, lvl=1)
-
         desc = conf.get('description', nodesc)
         if not desc.endswith('.'):  # pragma: no cover
             logger.warning(f'Description for [{name}] is missing a period.')
 
         lines = []
+        lines.append(name)
+        lines.append('~' * len(name))
+        lines.append('')
         lines.append(desc)
 
         extended_description = conf.get('extended_description')
@@ -756,10 +748,7 @@ async def main(argv, outp=None):
                 fd.write(rstforms.getRstText().encode())
 
     if opts.doc_conf:
-        confdocs, cname = await docConfdefs(opts.doc_conf,
-                                            reflink=opts.doc_conf_reflink,
-                                            title=opts.doc_conf_title,
-                                            )
+        confdocs, cname = await docConfdefs(opts.doc_conf)
 
         if opts.savedir:
             with open(s_common.genpath(opts.savedir, f'conf_{cname.lower()}.rst'), 'wb') as fd:
@@ -802,10 +791,6 @@ def makeargparser():
                           help='Generate RST docs for the DataModel within a cortex')
     doc_type.add_argument('--doc-conf', default=None,
                           help='Generate RST docs for the Confdefs for a given Cell ctor')
-    pars.add_argument('--doc-conf-reflink',
-                      help='Reference link for how to set the cell configuration options.')
-    pars.add_argument('--doc-conf-title', default=None, type=str,
-                      help='Use a custom string for the document title.')
     doc_type.add_argument('--doc-storm', default=None,
                           help='Generate RST docs for a stormssvc implemented by a given Cell')
 

@@ -2,8 +2,8 @@
 
 .. _syn-tools-feed:
 
-Synapse Tools - feed
-====================
+feed
+====
 
 The Synapse ``feed`` tool is a way to ingest data exported from one Cortex into another Cortex. Users should be familiar with both the Synapse data model (:ref:`data-model-terms` et al.) as well as Synapse concepts such as packed nodes and splices in order to use and understand the ``feed`` tool effectively.
 

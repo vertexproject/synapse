@@ -24,6 +24,10 @@ orchestration mechanisms such as Kubernetes but for simplicity's sake, this guid
     ports on all services other than the main Cortex. You may remove those configuration options if you are
     running on separate hosts or select alternate ports which do not conflict.
 
+Synapse services **require persistent storage**. Each ``docker`` container expects persistent storage to be available
+within the directory ``/vertex/storage`` which should be a persistent mapped volume. Only one container may run from a
+given volume at a time.
+
 Prepare your Hosts
 ==================
 

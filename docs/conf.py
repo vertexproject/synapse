@@ -220,8 +220,8 @@ def run_confdocs(_):
     svcargs = (
         ('synapse.axon.Axon',),
         ('synapse.cortex.Cortex',),
-        ('synapse.lib.aha.AhaCell', '--doc-conf-title', 'AHA'),
-        ('synapse.lib.jsonstor.JsonStorCell', '--doc-conf-title', 'JSONStor'),
+        ('synapse.lib.aha.AhaCell', ),
+        ('synapse.lib.jsonstor.JsonStorCell', ),
         # TODO For now lets leave this off...
         # ('synapse.cryotank.CryoCell',),
     )
