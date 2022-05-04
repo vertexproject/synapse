@@ -94,6 +94,7 @@ back online.  Regularly performing this "restore from cold backup" procedure can
 and resource utilization.
 
 .. _devops-task-restore:
+
 Restoring a Backup
 ------------------
 
@@ -192,6 +193,7 @@ Once complete, a WARNING level log message will be issued::
     Please ensure you have a tested backup available before applying these updates.
 
 .. _modelflagday:
+
 Model Flag Day
 ~~~~~~~~~~~~~~
 
@@ -403,6 +405,7 @@ Synapse Services
 ================
 
 .. _devops-svc-ahacell:
+
 AHA
 ---
 
@@ -457,6 +460,7 @@ accomplished using the ``withTeleEnv()`` context manager::
     sys.exit(asyncio.run(main(sys.argv[1:]))))
 
 .. _devops-svc-axon:
+
 Axon
 ----
 
@@ -501,6 +505,7 @@ from **inside the Axon container**::
     python -m synapse.tools.moduser --add visi --allow axon
 
 .. _devops-svc-jsonstorcell:
+
 JSONStor
 --------
 
@@ -522,6 +527,7 @@ A typical JSONStor deployment does not require any additional configuration. For
 :ref:`autodoc-conf-jsonstor`.
 
 .. _devops-svc-cortex:
+
 Cortex
 ------
 
@@ -586,19 +592,19 @@ AHA Configuration Options
 .. _autodoc-conf-axon:
 
 Axon Configuration Options
--------------------------
+--------------------------
 .. include:: autodocs/conf_axon.rst
 
 .. _autodoc-conf-jsonstor:
 
 JSONStor Configuration Options
--------------------------
+------------------------------
 .. include:: autodocs/conf_jsonstorcell.rst
 
 .. _autodoc-conf-cortex:
 
 Cortex Configuration Options
--------------------------
+----------------------------
 .. include:: autodocs/conf_cortex.rst
 
 .. _index:              ../index.html
