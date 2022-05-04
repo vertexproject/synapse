@@ -630,3 +630,70 @@ class ViewTest(s_t_utils.SynTest):
 
                 self.true(await core2.getLayer(iden=pushee_layr).waitEditOffs(pushee_offs + 1, timeout=2))
                 self.len(0, await core2.nodes('test:str=chicken', opts={'view': pushee_view}))
+
+    async def test_lib_view_merge_perms(self):
+
+        async with self.getTestCore() as core:
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            baselayr = core.getLayer().iden
+
+            user = await core.addUser('redox')
+            useriden = user['iden']
+            useropts = {'user': useriden}
+
+            await core.addUserRule(useriden, (True, ('view', 'add')))
+
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)', opts=useropts)
+            viewopts = {**useropts, 'view': forkview}
+
+            q = '''
+            [ test:str=foo
+                .seen = now
+                +#seen:score = 5
+                <(refs)+ { [ test:str=bar ] }
+            ]
+            $node.data.set(foo, bar)
+            '''
+            await core.nodes(q, opts=viewopts)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.add.test:str', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'add')), gateiden=baselayr)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.prop.set.test:str:.created', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'prop', 'set')), gateiden=baselayr)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.edge.add.refs', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'edge', 'add')), gateiden=baselayr)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.tag.add.seen', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'tag', 'add')), gateiden=baselayr)
+
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.nodes('$lib.view.get().merge()', opts=viewopts)
+            self.eq('node.data.set.foo', cm.exception.errinfo['perm'])
+
+            await core.addUserRule(useriden, (True, ('node', 'data', 'set')), gateiden=baselayr)
+
+            await core.nodes('$lib.view.get().merge()', opts=viewopts)
+
+            nodes = await core.nodes('test:str=foo $node.data.load(foo)')
+            self.len(1, nodes)
+            self.nn(nodes[0].props.get('.seen'))
+            self.nn(nodes[0].tags.get('seen'))
+            self.nn(nodes[0].tagprops.get('seen'))
+            self.nn(nodes[0].tagprops['seen'].get('score'))
+            self.nn(nodes[0].nodedata.get('foo'))

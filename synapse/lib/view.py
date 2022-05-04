@@ -132,13 +132,6 @@ class View(s_nexus.Pusher):  # type: ignore
         self.invalid = None
         self.parent = None  # The view this view was forked from
 
-        self.permCheck = {
-            'node:add': self._nodeAddConfirm,
-            'prop:set': self._propSetConfirm,
-            'tag:add': self._tagAddConfirm,
-            'tag:prop:set': self._tagPropSetConfirm,
-        }
-
         # isolate some initialization to easily override.
         await self._initViewLayers()
 
@@ -745,27 +738,6 @@ class View(s_nexus.Pusher):  # type: ignore
         mesg = f'User must have permission {perm} on write layer {layriden} of view {self.iden}'
         raise s_exc.AuthDeny(mesg=mesg, perm=perm, user=user.name)
 
-    async def _nodeAddConfirm(self, user, snap, splice):
-        perms = ('node', 'add', splice['ndef'][0])
-        self.parent._confirm(user, perms)
-
-    async def _propSetConfirm(self, user, snap, splice):
-        ndef = splice.get('ndef')
-        prop = splice.get('prop')
-        full = f'{ndef[0]}:{prop}'
-        perms = ('node', 'prop', 'set', full)
-        self.parent._confirm(user, perms)
-
-    async def _tagAddConfirm(self, user, snap, splice):
-        tag = splice.get('tag')
-        perms = ('node', 'tag', 'add', *tag.split('.'))
-        self.parent._confirm(user, perms)
-
-    async def _tagPropSetConfirm(self, user, snap, splice):
-        tag = splice.get('tag')
-        perms = ('node', 'tag', 'add', *tag.split('.'))
-        self.parent._confirm(user, perms)
-
     async def mergeAllowed(self, user=None, force=False):
         '''
         Check whether a user can merge a view into its parent.
@@ -792,20 +764,10 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         async with await self.parent.snap(user=user) as snap:
-            splicecount = 0
             async for nodeedit in fromlayr.iterLayerNodeEdits():
-                async for offs, splice in fromlayr.makeSplices(0, [nodeedit], None):
-                    check = self.permCheck.get(splice[0])
-                    if check is None:
-                        raise s_exc.SynErr(mesg='Unknown splice type, cannot safely merge',
-                                           splicetype=splice[0])
-
-                    await check(user, snap, splice[1])
-
-                    splicecount += 1
-
-                    if splicecount % 1000 == 0:
-                        await asyncio.sleep(0)
+                for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
+                    self.parent._confirm(user, perm)
+                    await asyncio.sleep(0)
 
     async def wipeAllowed(self, user=None):
         '''
