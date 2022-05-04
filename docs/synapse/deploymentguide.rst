@@ -336,7 +336,7 @@ Cortex container**::
     Synapse UI. You may skip the following steps if the admin will not be using CLI tools to access the Cortex.
 
 Then we will need to generate a one-time use URL they may use to generate a user certificate. Run the
-following command from **inside the AHA container** to genreate a one-time use URL for the user::
+following command from **inside the AHA container** to generate a one-time use URL for the user::
 
     python -m synapse.tools.aha.provision.user visi
 
@@ -350,7 +350,7 @@ Then the **user** may run::
 
 Once they are enrolled, they will have a user certificate located in ``~/.syn/certs/users`` and their telepath
 configuration located in ``~/.syn/telepath.yaml`` will be updated to reflect the use of the AHA server. From there
-the user should be able to use standard Synapse cli tools using the ``aha://`` URL such as::
+the user should be able to use standard Synapse CLI tools using the ``aha://`` URL such as::
 
     python -m synapse.tools.storm aha://visi@cortex.<yournetwork>
 

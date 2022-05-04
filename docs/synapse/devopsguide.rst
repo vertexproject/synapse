@@ -480,16 +480,16 @@ A typical Axon deployment does not require any additional configuration. For the
 **Permissions**
 
 *axon*
-    Controlls access to all ``axon.*`` permissions.
+    Controls access to all ``axon.*`` permissions.
 
 *axon.get*
-    Controlls access to retrieve a binary blob from the Axon based on the SHA256 hash.
+    Controls access to retrieve a binary blob from the Axon based on the SHA256 hash.
 
 *axon.has*
-    Controlls access to check if bytes are present and return sizes based on the SHA256 hash.
+    Controls access to check if bytes are present and return sizes based on the SHA256 hash.
 
 *axon.upload*
-    Controlls access to upload a binary blob to the Axon.
+    Controls access to upload a binary blob to the Axon.
 
 For example, to allow the user ``visi`` to upload, download, and confirm files you would execute the following command
 from **inside the Axon container**::
