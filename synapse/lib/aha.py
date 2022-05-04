@@ -578,7 +578,6 @@ class AhaCell(s_cell.Cell):
 
         conf = provinfo.setdefault('conf', {})
 
-        myname = self.conf.get('aha:name')
         mynetw = self.conf.get('aha:network')
 
         ahaadmin = self.conf.get('aha:admin')
@@ -629,6 +628,9 @@ class AhaCell(s_cell.Cell):
             await user.allow(('aha', 'service', 'add', netw, leader))
 
         iden = await self._push('aha:svc:prov:add', provinfo)
+
+        logger.debug(f'Created provisioning for {name}.{netw}')
+
         return self._getProvClientUrl(iden)
 
     def _getProvClientUrl(self, iden):
