@@ -7,4 +7,4 @@ def current():
     return threading.currentThread()
 
 def iden():
-    return threading.currentThread().ident
+    return threading.current_thread().ident
