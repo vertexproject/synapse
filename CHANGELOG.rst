@@ -14,8 +14,8 @@ Features and Enhancements
   (`#2666 <https://github.com/vertexproject/synapse/pull/2666>`_)
 
   ``:sandbox:file``
-      Add a ``sandbox:file`` property to record a initial sample from a
-      sandbox environment the following forms:
+      Add a ``sandbox:file`` property to record an initial sample from a
+      sandbox environment to the following forms:
 
         ``it:exec:proc``
         ``it:exec:thread``
@@ -35,7 +35,7 @@ Features and Enhancements
 
 
   ``it:host:activity``
-    Update the interface to add a ``sandbox:file`` property to record a
+    Update the interface to add a ``sandbox:file`` property to record an
     initial sample from a sandbox environment.
 
 - Added service provisioning API to AHA service and associated tool
