@@ -606,10 +606,10 @@ The following example for running a Cortex has a few items of note.
 - The ``service`` blocks will be used to do registration with Consul, which will make the Cortex discoverable inside of
   the Nomad cluster, without needing to know hostname/IP or port information for accessing the service.
 
-.. literalinclude:: cortex.hcl
+.. literalinclude:: devguides/cortex.hcl
     :language: text
 
-A second example is shown below, this time for the Synapse Shodan Connector, a Storm Service. This example differs
+A second example is shown below, this time for the Synapse Maxmind Advanced Power-Up. This example differs
 mainly in that it shows how to use a ``cell.yaml`` file to do some boot time configuration.
 
 - First, a ``template`` directive is used to push a YAML file to ``./local/cell.yaml`` when the job is deployed.
@@ -620,7 +620,7 @@ mainly in that it shows how to use a ``cell.yaml`` file to do some boot time con
 - In addition, this example also shows a place where an authentication username for Docker Hub (our container image
   repository) would be placed into the job file, so that the Docker daemon can retrieve the image.
 
-.. literalinclude:: shodan.hcl
+.. literalinclude:: devguides/maxmind.hcl
     :language: text
 
 **Consul and Telepath**
@@ -640,15 +640,15 @@ the following example::
 
 From this, the Telepath Proxy looks up the ``synapse-core01`` service in the Consul catalog, and retrieves the first
 entry from that service which matches the tag ``telepath``. It then uses the IP and Port from the catalog entry in order
-to connect to the cortex. Another example would be using this to connect the Shodan service to the cortex::
+to connect to the cortex. Another example would be using this to connect the Maxmind service to the cortex::
 
-    # Our Shodan Consul URL
-    # tcp+consul://root:secret@synapse-shodan/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath
+    # Our Maxmind Consul URL
+    # tcp+consul://root:secret@synapse-maxmind/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath
 
     # Add the service
-    cli> storm service.add shodan "tcp+consul://root:secret@synapse-shodan/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath"
+    cli> storm service.add maxmind "tcp+consul://root:secret@synapse-maxmind/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath"
     Executing query at 2020/06/30 15:14:04.446
-    added 39fc7c15165291e58a62978ee79e9329 (shodan): tcp+consul://root:secret@synapse-shodan/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath
+    added 39fc7c15165291e58a62978ee79e9329 (maxmind): tcp+consul://root:secret@synapse-maxmind/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath
     complete. 0 nodes in 1 ms (0/sec).
 
     # List the service
@@ -656,7 +656,7 @@ to connect to the cortex. Another example would be using this to connect the Sho
     Executing query at 2020/06/30 15:14:06.502
 
     Storm service list (iden, ready, name, url):
-        39fc7c15165291e58a62978ee79e9329 True (shodan): tcp+consul://root:secret@synapse-shodan/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath
+        39fc7c15165291e58a62978ee79e9329 True (maxmind): tcp+consul://root:****@synapse-maxmind/*?consul=http://consul.vpc.lan:8500&consul_tag=telepath
 
     1 services
     complete. 0 nodes in 1 ms (0/sec).
