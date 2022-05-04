@@ -7,7 +7,7 @@
 Storm Reference - Storm Commands
 ================================
 
-Storm commands are built-in or custom commands that can be used natively within the Synapse Storm tool / Storm CLI (see :ref:`syn-tools-storm`), or in conjunction with the ``storm`` command from the Synapse ``cmdr`` CLI tool (see :ref:`syn-tools-cmdr`).
+Storm commands are built-in or custom commands that can be used natively within the Synapse Storm tool / Storm CLI (see :ref:`syn-tools-storm`).
 
 .. NOTE::
   
@@ -120,9 +120,6 @@ Help for individual ``auth.*`` commands can be displayed using:
 
   ``<command> --help``
 
-.. NOTE::
-
-  For a list of Cortex permissions, see :ref:`cortex-perms` in the :ref:`devopsguide`.
 
 .. _storm-auth-role-add:
 
@@ -240,10 +237,6 @@ Help for individual ``cron.*`` commands can be displayed using:
   ``<command> --help``
 
 Cron jobs (including jobs created with ``cron.at``) are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:cron``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
-
-.. NOTE::
-
-  The Storm ``cron.*`` commands replace the Synapse cmdr-based :ref:`syn-cron` command, which is being deprecated.
 
 .. _storm-cron-add:
 
@@ -557,13 +550,6 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 
 .. storm-pre:: [inet:ipv4=1.2.3.4]
 .. storm-cli:: iden 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f
-
-
-**Usage Notes:**
-
-- The node ID (iden) for a given node can be obtained by lifting the node using the ``--debug`` or ``--raw`` option to the :ref:`syn-storm` command:
-
-  - ``storm --debug inet:fqdn=woot.com``
 
 .. _storm-intersect:
 
@@ -1696,10 +1682,6 @@ Help for individual ``trigger.*`` commands can be displayed using:
   ``<command> --help``
 
 Triggers are added to the Cortex as **runtime nodes** ("runt nodes" - see :ref:`gloss-node-runt`) of the form ``syn:trigger``. These runt nodes can be lifted and filtered just like standard nodes in a Cortex.
-
-.. NOTE::
-
-  The Storm ``trigger.*`` commands replace the Synapse cmdr-based :ref:`syn-trigger` command, which is being deprecated.
 
 .. _storm-trigger-add:
 

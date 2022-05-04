@@ -7,7 +7,7 @@
 storm
 =====
 
-The Synapse Storm tool (commonly referred to as the **Storm CLI**) is a text-based interpreter that leverages the Storm query language (see :ref:`storm-ref-intro`). The Storm CLI replaces the Synapse ``cmdr`` tool (see :ref:`syn-tools-cmdr`) as the preferred means for users to interact with a Synapse Cortex. Because the Storm CLI is a native Storm interpreter, users do not need to use the :ref:`syn-storm` command before entering and executing Storm queries or Storm commands.
+The Synapse Storm tool (commonly referred to as the **Storm CLI**) is a text-based interpreter that leverages the Storm query language (see :ref:`storm-ref-intro`).
 
 - `Connecting to a Cortex with the Storm CLI`_
 - `Storm CLI Basics`_
@@ -50,7 +50,7 @@ Once connected, you will be presented with the following Storm CLI command promp
 Storm CLI Basics
 ----------------
 
-Once connected to a Synapse Cortex with the Storm CLI, you can execute any Storm queries or Storm commands directly (i.e., without needing to precede them with the :ref:`syn-storm` command). Detailed information on using the Storm query language to interact with data in a Synapse Cortex can be found in the :ref:`userguide_storm_ref`.
+Once connected to a Synapse Cortex with the Storm CLI, you can execute any Storm queries or Storm commands directly. Detailed information on using the Storm query language to interact with data in a Synapse Cortex can be found in the :ref:`userguide_storm_ref`.
 
 To view a list of available **Storm commands,** type ``help`` from the Storm CLI prompt:
 

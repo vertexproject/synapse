@@ -20,10 +20,7 @@ Syntax
 
 Where:
 
-- ``AXON`` is the path to a storage Axon.
-
-  - See :ref:`cortex-connect` for the format to specify a path to an Axon and / or Cortex.
-  - Axon and Cortex paths can also be specified using aliases defined in the user's ``.syn/aliases.yaml`` file.
+- ``AXON`` is the telepath URL to a storage Axon.
 
 - ``CORTEX`` is the optional path to a Cortex where a corresponding ``file:bytes`` node should be created.
 

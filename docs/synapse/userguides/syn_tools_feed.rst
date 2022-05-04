@@ -19,18 +19,13 @@ The ``feed`` tool is executed from an operating system command shell. The comman
 
 Where:
 - ``-h`` displays detailed help and these command line options
-- ``CORTEX``  specifies the path to the Cortex where the data should be ingested.
-
-  - See :ref:`cortex-connect` for the format to specify a path to a Cortex.
-  - Cortex paths can also be specified using aliases defined in the user's ``.syn/aliases.yaml`` file.
+- ``CORTEX``  specifies the telapth URL to the Cortex where the data should be ingested.
 
 - ``--test`` means to perform the ingest against a temporary, local Cortex instead of a live cortex, for testing or validation
   
   - When using a temporary Cortex, you do not need to provide a path.
   
-- ``--debug`` specifies to drop into an interactive prompt to inspect the state of the Cortex post-ingest. 
-
-  - See :ref:`syn-tools-cmdr` and :ref:`syn-ref-cmd` for how to use the interactive prompt
+- ``--debug`` specifies to drop into an interactive prompt to inspect the state of the Cortex post-ingest.
   
 - ``FORMAT`` specifies the format of the input files. 
 

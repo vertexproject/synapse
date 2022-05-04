@@ -511,7 +511,7 @@ JSONStor
 
 The JSONStor is a utility service that provides a mechanism for storing and retrieving arbitrary JSON objects using
 a hierarchical naming system. It is commonly used to store user preferences, cache API query responses, and hold
-data that is not part of the :ref:`_userguide_datamodel`. For an example of deploying a JSONStor, see the :ref:`deploymentguide`.
+data that is not part of the :ref:`userguide_datamodel`. For an example of deploying a JSONStor, see the :ref:`deploymentguide`.
 
 Docker Image: ``vertexproject/synapse-jsonstor:v2.x.x``
 

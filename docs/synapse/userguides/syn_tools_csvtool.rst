@@ -38,15 +38,12 @@ Where:
 - ``-h`` displays detailed help and examples.
 - ``LOGFILE`` is the optional name / path to log Storm events associated with running the ``csvtool`` command as a JSONL file.  Messages are appended to this file when they are written to them.
 - ``--csv-header`` is an option that indicates the first row in the CSV file is a header row and should be skipped for purposes of parsing and node creation.
-- ``--cli`` opens a ``cmdr`` (see :ref:`syn-tools-cmdr`) command prompt after ``csvtool`` exits.
+- ``--cli`` opens a ``cmdr`` command prompt after ``csvtool`` exits.
 
   - The command prompt will be connected to the Cortex specified by the ``--cortex CORTEX`` or ``--test`` option.
 
 - ``--debug`` will send verbose output to ``stdout`` during execution.
-- ``CORTEX`` specifies the path to the Cortex where the data should be ingested.
-
-  - See :ref:`cortex-connect` for the format to specify a path to a Cortex.
-  - Cortex paths can also be specified using aliases defined in the user's ``.syn/aliases.yaml`` file.
+- ``CORTEX`` specifies the telepath URL to the Cortex where the data should be ingested.
 
 - ``--test`` specifies the data should be loaded into a temporary local Cortex (i.e., for testing / validation).
 
