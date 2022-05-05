@@ -441,6 +441,9 @@ For the full list supported options, see the :ref:`autodoc-conf-aha`.
 Loading the known AHA resolvers for use with custom python clients can be easily
 accomplished using the ``withTeleEnv()`` context manager::
 
+    import sys
+    import asyncio
+
     import synapse.telepath as s_telepath
 
     async def main(argv):
