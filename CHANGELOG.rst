@@ -5,6 +5,118 @@ Synapse Changelog
 *****************
 
 
+v2.93.0 - 2022-05-04
+====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``inet`` and ``infotech`` models.
+  (`#2666 <https://github.com/vertexproject/synapse/pull/2666>`_)
+
+  ``:sandbox:file``
+      Add a ``sandbox:file`` property to record an initial sample from a
+      sandbox environment to the following forms:
+
+        ``it:exec:proc``
+        ``it:exec:thread``
+        ``it:exec:loadlib``
+        ``it:exec:mmap``
+        ``it:exec:mutex``
+        ``it:exec:pipe``
+        ``it:exec:url``
+        ``it:exec:bind``
+        ``it:exec:file:add``
+        ``it:exec:file:del``
+        ``it:exec:file:read``
+        ``it:exec:file:write``
+        ``it:exec:reg:del``
+        ``it:exec:reg:get``
+        ``it:exec:reg:set``
+
+
+  ``it:host:activity``
+    Update the interface to add a ``sandbox:file`` property to record an
+    initial sample from a sandbox environment.
+
+- Changed primary Storm parser to a LALR compatible syntax to gain 80x speed
+  up in parsing Storm queries
+  (`#2649 <https://github.com/vertexproject/synapse/pull/2649>`_)
+- Added service provisioning API to AHA service and associated tool
+  ``synapse.tools.aha.provision.service`` and documentation to make
+  it easy to bootstrap Synapse services using service discovery and
+  SSL client-side certificates to identify service accounts.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added user provisioning API to AHA service and associated tools
+  ``synapse.tools.aha.provision.user`` and ``synapse.tools.aha.enroll``
+  to make it easy to bootstrap new users with SSL client-side certificates
+  and AHA service discovery configuration.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added automatic mirror initialization logic to Synapse services to
+  enable new mirrors to be initilized dynamically via AHA provisioning
+  rather than from a pre-existing backup.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added ``handoff()`` API to Synapse services to allow mirrors to be
+  gracefully promoted to leader.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added ``synapse.tools.promote`` to allow easy promotion of mirror to
+  leader using the new ``handoff()`` API.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added ``aha:provision`` configuration to Synapse services to allow
+  them to automatically provision and self-configure using AHA.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Adjusted Synapse service configuration preference to allow runtime settings
+  to be stored in ``cell.yaml``.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added optional ``certhash`` parameter to telepath ``ssl://`` URLs to
+  allow cert-pinning behavior and automatic trust of provisioning URLs.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added ``synapse.tools.moduser`` and ``synapse.tools.modrole`` commands
+  to modernize and ease user/role management from within Synapse service
+  docker containers.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Add ``$lib.jsonstor.cacheget()`` and ``lib.jsonstor.cacheset()`` functions
+  in Storm to easily implement data caching in the JSONStor.
+  (`#2662 <https://github.com/vertexproject/synapse/pull/2662>`_)
+- Add a ``params`` option to ``$lib.inet.http.connect()`` to pass parameters
+  when creating Websocket connections in Storm.
+  (`#2664 <https://github.com/vertexproject/synapse/pull/2664>`_)
+
+Bugfixes
+--------
+- Added ``getCellRunId()`` API to Synapse services to allow them to detect
+  incorrect mirror configurations where they refer to themselves.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Ensure that CLI history files can be read and written upon
+  starting interactive CLI tools.
+  (`#2660 <https://github.com/vertexproject/synapse/pull/2660>`_)
+- Assorted unit tests fixes to make tests more stable.
+  (`#2656 <https://github.com/vertexproject/synapse/pull/2656>`_)
+  (`#2665 <https://github.com/vertexproject/synapse/pull/2665>`_)
+- Fix several uses of Python features which are formally deprecated
+  and may be removed in future Python versions.
+  (`#2668 <https://github.com/vertexproject/synapse/pull/2668>`_)
+
+Improved Documentation
+----------------------
+- Added new Deployment Guide with step-by-step production ready deployment
+  instructions
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Refactored Devops Guide to give task-oriented instructions on performing
+  common devops tasks.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added new minimal Admin Guide as a place for documenting Cortex admin tasks.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Updated Getting Started to direct users to synapse-quickstart instructions.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Added ``easycert`` tool documentation.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Removed ``cmdr`` tool documentation to emphasize newer tools such as
+  ``storm``.
+  (`#2641 <https://github.com/vertexproject/synapse/pull/2641>`_)
+- Update the list of available Advanced and Rapid Power-Ups.
+  (`#2667 <https://github.com/vertexproject/synapse/pull/2667>`_)
+
+
 v2.92.0 - 2022-04-28
 ====================
 
@@ -175,7 +287,7 @@ Automatic Migrations
   on the respective ``crypto:payment:input`` and ``crypto:payment:output``
   nodes to account for the modeling changes. Make ``geo:name`` nodes for
   ``geo:place:name`` secondary properties to account for the modeling changes.
-  See :ref:`devops-general-migrations` for more information about automatic
+  See :ref:`datamigration` for more information about automatic
   migrations.
 
 Features and Enhancements
@@ -310,7 +422,7 @@ v2.86.0 - 2022-03-09
 Automatic Migrations
 --------------------
 - Migrate secondary properties in Cortex nodes which use ``hugenum`` type to
-  account for updated ranges. See :ref:`devops-general-migrations` for more
+  account for updated ranges. See :ref:`datamigration` for more
   information about automatic migrations.
 
 Features and Enhancements
@@ -698,7 +810,7 @@ v2.78.0 - 2022-01-14
 Automatic Migrations
 --------------------
 - Migrate Cortex nodes which may have been skipped in an earlier migration due
-  to missing tagprop indexes. See :ref:`devops-general-migrations` for more
+  to missing tagprop indexes. See :ref:`datamigration` for more
   information about automatic migrations.
 
 Features and Enhancements

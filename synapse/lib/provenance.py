@@ -186,6 +186,9 @@ class ProvStor(s_base.Base):
         if not ProvenanceEnabled:
             return None, None
 
+        if not self.enabled:
+            return None, None
+
         iden, waswritten, provstack = get()
         if waswritten:
             return None, None

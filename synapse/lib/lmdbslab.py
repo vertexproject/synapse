@@ -244,6 +244,7 @@ class HotKeyVal(s_base.Base):
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
+        self.slab.dirty = True
         return valu
 
     def delete(self, name: str):
@@ -279,6 +280,7 @@ class HotCount(HotKeyVal):
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
+        self.slab.dirty = True
 
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)

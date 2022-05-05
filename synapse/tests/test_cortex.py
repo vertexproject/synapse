@@ -10,16 +10,20 @@ from unittest.mock import patch
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
+import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tools.backup as s_tools_backup
+import synapse.tools.promote as s_tools_promote
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -39,6 +43,54 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
                 self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
                 self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+
+    async def test_cortex_handoff(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'aha:name': 'aha',
+                'aha:network': 'newp',
+                'provision:listen': 'tcp://127.0.0.1:0',
+            }
+            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+
+                provaddr, provport = aha.provdmon.addr
+                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
+
+                ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.newp&ca=newp')
+                aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
+
+                provurl = await aha.addAhaSvcProv('00.cortex')
+                coreconf = {'aha:provision': provurl, 'nexslog:en': False}
+
+                async with self.getTestCore(conf=coreconf) as core00:
+
+                    with self.raises(s_exc.BadArg):
+                        await core00.handoff(core00.getLocalUrl())
+
+                    provinfo = {'mirror': '00.cortex'}
+                    provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+
+                    # provision with the new hostname and mirror config
+                    coreconf = {'aha:provision': provurl}
+                    async with self.getTestCore(conf=coreconf) as core01:
+
+                        await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
+                        self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
+
+                        self.true(core00.isactive)
+                        self.false(core01.isactive)
+
+                        outp = s_output.OutPutStr()
+                        argv = ('--svcurl', core01.getLocalUrl())
+                        await s_tools_promote.main(argv, outp=outp)
+
+                        self.true(core01.isactive)
+                        self.false(core00.isactive)
+
+                        await core00.nodes('[inet:ipv4=5.5.5.5]')
+                        self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:

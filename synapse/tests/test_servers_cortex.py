@@ -155,6 +155,9 @@ class CortexServerTest(s_t_utils.SynTest):
 
                     s_common.yamlsave({'nexslog:en': True}, path01, 'cell.yaml')
 
+                    async with self.getTestCore(dirn=path01) as core01:
+                        pass
+
                     with self.getAsyncLoggerStream('synapse.lib.nexus',
                                                    'has different iden') as stream:
                         async with await s_cortex.Cortex.initFromArgv(argv1) as core01:
