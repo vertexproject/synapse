@@ -433,6 +433,10 @@ class JsonStorCell(s_cell.Cell):
         self.notif_indx_usertime = self.slab.initdb('indx:user:time', dupsort=True)
         self.notif_indx_usertype = self.slab.initdb('indx:user:type', dupsort=True)
 
+    @classmethod
+    def getEnvPrefix(cls):
+        return (f'SYN_JSONSTOR', f'SYN_{cls.__name__.upper()}', )
+
     async def getPathList(self, path):
         async for item in self.jsonstor.getPathList(path):
             yield item

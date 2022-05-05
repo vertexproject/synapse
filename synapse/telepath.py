@@ -3,9 +3,12 @@ An RMI framework for synapse.
 '''
 
 import os
+import ssl
+import copy
 import time
 import asyncio
 import logging
+import contextlib
 import collections
 
 import aiohttp
@@ -103,14 +106,29 @@ def zipurl(info):
 
     return url
 
+def modurl(url, **info):
+    if isinstance(url, str):
+        urlinfo = chopurl(url)
+        for k, v in info.items():
+            urlinfo[k] = v
+        return zipurl(urlinfo)
+    return [modurl(u, **info) for u in url]
+
 def mergeAhaInfo(info0, info1):
 
+    # info0 - local urlinfo
+    # info1 - urlinfo provided by aha
+
     # copy both to prevent mutation
-    info0 = dict(info0)
-    info1 = dict(info1)
+    info0 = copy.deepcopy(info0)
+    info1 = copy.deepcopy(info1)
 
     # local path wins
     info1.pop('path', None)
+
+    # local user wins if specified
+    if info0.get('user') is not None:
+        info1.pop('user', None)
 
     # upstream wins everything else
     info0.update(info1)
@@ -171,7 +189,31 @@ async def getAhaProxy(urlinfo):
     mesg = f'aha lookup failed: {host}'
     raise s_exc.NoSuchName(mesg=mesg)
 
+@contextlib.asynccontextmanager
+async def withTeleEnv():
+
+    async with loadTeleCell('/vertex/storage'):
+
+        yamlpath = s_common.getSynPath('telepath.yaml')
+        telefini = await loadTeleEnv(yamlpath)
+
+        certpath = s_common.getSynPath('certs')
+        s_certdir.addCertPath(certpath)
+
+        try:
+
+            yield
+
+        finally:
+
+            s_certdir.delCertPath(certpath)
+
+            if telefini is not None:
+                await telefini()
+
 async def loadTeleEnv(path):
+
+    path = s_common.genpath(path)
 
     if not os.path.isfile(path):
         return
@@ -199,6 +241,37 @@ async def loadTeleEnv(path):
             s_certdir.delCertPath(p)
 
     return fini
+
+@contextlib.asynccontextmanager
+async def loadTeleCell(dirn):
+
+    certpath = s_common.genpath(dirn, 'certs')
+    confpath = s_common.genpath(dirn, 'cell.yaml')
+
+    usecerts = os.path.isdir(certpath)
+
+    ahaurl = None
+    if os.path.isfile(confpath):
+        conf = s_common.yamlload(confpath)
+        ahaurl = conf.get('aha:registry')
+
+    if usecerts:
+        s_certdir.addCertPath(certpath)
+
+    if ahaurl:
+        await addAhaUrl(ahaurl)
+
+    try:
+
+        yield
+
+    finally:
+
+        if usecerts:
+            s_certdir.delCertPath(certpath)
+
+        if ahaurl:
+            await delAhaUrl(ahaurl)
 
 class Aware:
     '''
@@ -1267,6 +1340,13 @@ def chopurl(url, **opts):
 
     return info
 
+class TeleSSLObject(ssl.SSLObject):
+
+    def do_handshake(self):
+        # steal a reference for later so we can get the cert
+        self.context.telessl = self
+        return ssl.SSLObject.do_handshake(self)
+
 async def openinfo(info):
 
     scheme = info.get('scheme')
@@ -1327,14 +1407,24 @@ async def openinfo(info):
         path = info.get('path')
         name = info.get('name', path[1:])
 
+        if port is None:
+            port = 27492
+
         hostname = None
 
         sslctx = None
+
+        linkinfo = {}
+
         if scheme == 'ssl':
 
             certdir = info.get('certdir')
+            certhash = info.get('certhash')
             certname = info.get('certname')
             hostname = info.get('hostname', host)
+
+            linkinfo['certhash'] = certhash
+            linkinfo['hostname'] = hostname
 
             if certdir is None:
                 certdir = s_certdir.getCertDir()
@@ -1345,13 +1435,21 @@ async def openinfo(info):
             if certname is None and user is not None and passwd is None:
                 certname = f'{user}@{hostname}'
 
-            sslctx = certdir.getClientSSLContext(certname=certname)
+            if certhash is None:
+                sslctx = certdir.getClientSSLContext(certname=certname)
+            else:
+                sslctx = ssl.create_default_context()
+                sslctx.check_hostname = False
+                sslctx.verify_mode = ssl.CERT_NONE
+                sslctx.sslobject_class = TeleSSLObject
 
             # do hostname checking manually to avoid DNS lookups
             # ( to support dynamic IP addresses on services )
             sslctx.check_hostname = False
 
-        link = await s_link.connect(host, port, ssl=sslctx, hostname=hostname)
+            linkinfo['ssl'] = sslctx
+
+        link = await s_link.connect(host, port, linkinfo=linkinfo)
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)

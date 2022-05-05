@@ -35,7 +35,7 @@ class ConfTest(s_test.SynTest):
 
     async def test_config_basics(self):
 
-        conf = s_config.Config(s_test.test_schema)
+        conf = s_config.Config(s_test.test_schema, envar_prefixes=('', 'ALT',))
         # Start out empty
         self.eq(conf.asDict(), {})
 
@@ -85,7 +85,8 @@ class ConfTest(s_test.SynTest):
             'key_integer': None,
             'key_number': 1234.5678,
             'key_string': None,
-            'beep': 'beep.sys'
+            'beep': 'beep.sys',
+            'key_foo': None,
         }
         self.eq(edata, vopts)
 
@@ -104,19 +105,27 @@ class ConfTest(s_test.SynTest):
         a1 = yaml.safe_dump(['firetruck', 'spaceship'])
         i1 = yaml.safe_dump(8675309)
         n1 = yaml.safe_dump(9.813)
+        f1 = yaml.safe_dump('foo')
         # Load data from envars next - this shows precedence as well
         # where data already set won't be set again via this method.
         with self.setTstEnvars(KEY_ARRAY=a1,
                                KEY_NUMBER=n1,
                                KEY_INTEGER=i1,
                                ):
-            conf.setConfFromEnvs()
+            updates = conf.setConfFromEnvs()
+        self.eq(updates, {'key:array': ('firetruck', 'spaceship'), 'key:integer': 8675309})
+        with self.setTstEnvars(KEY_ARRAY=a1,
+                               ALT_KEY_FOO=f1
+                               ):
+            updates = conf.setConfFromEnvs()
+        self.eq(updates, {'key:foo': 'foo'})
 
         self.eq(conf.asDict(), {
             'key:bool:defvaltrue': False,
             'key:number': 1234.5678,
             'key:integer': 8675309,
-            'key:array': ['firetruck', 'spaceship']
+            'key:array': ['firetruck', 'spaceship'],
+            'key:foo': 'foo',
         })
 
         # we can set some remaining values directly
@@ -129,6 +138,7 @@ class ConfTest(s_test.SynTest):
             'key:array': ['firetruck', 'spaceship'],
             'key:object': {'rubber': 'ducky'},
             'key:string': 'Funky string time!',
+            'key:foo': 'foo',
         })
 
         # Once we've built up our config, we can then ensure that it is valid.
@@ -143,6 +153,7 @@ class ConfTest(s_test.SynTest):
             'key:array': ['firetruck', 'spaceship'],
             'key:object': {'rubber': 'ducky'},
             'key:string': 'Funky string time!',
+            'key:foo': 'foo',
         })
 
         # We can ensure that certain vars are loaded
@@ -152,11 +163,11 @@ class ConfTest(s_test.SynTest):
         self.raises(s_exc.BadArg, conf.reqConfValu, 'key:newp')
 
         # Since we're an Mutable mapping, we have some dict methods available to us
-        self.len(7, conf)  # __len__
+        self.len(8, conf)  # __len__
         self.eq(set(conf.keys()),  # __iter__
                 {'key:bool:defvalfalse', 'key:bool:defvaltrue',
                  'key:number', 'key:integer', 'key:string',
-                 'key:array', 'key:object',
+                 'key:array', 'key:object', 'key:foo',
                  })
 
         del conf['key:object']  # __delitem__
@@ -167,6 +178,7 @@ class ConfTest(s_test.SynTest):
             'key:integer': 8675309,
             'key:array': ['firetruck', 'spaceship'],
             'key:string': 'Funky string time!',
+            'key:foo': 'foo',
         })
 
         # We have a convenience __repr__ :)
@@ -180,7 +192,7 @@ class ConfTest(s_test.SynTest):
         del conf['key:array']
 
         # We can do prefix-bassed collection of envar data.
-        conf2 = s_config.Config(s_test.test_schema, envar_prefix='beeper')
+        conf2 = s_config.Config(s_test.test_schema, envar_prefixes=('beeper',))
         with self.setTstEnvars(BEEPER_KEY_ARRAY=a1,
                                KEY_INTEGER=i1,
                                ):

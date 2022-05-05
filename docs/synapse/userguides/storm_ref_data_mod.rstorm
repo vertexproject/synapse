@@ -23,7 +23,7 @@ Users gain a powerful degree of flexibility and efficiency through the ability t
   The following recommended best practices will help prevent inadvertent changes to a Cortex:
   
   - Use extreme caution when constructing complex Storm queries that may modify (or delete) large numbers of nodes. It is **strongly recommended** that you validate the output of a query by first running the query on its own to ensure it returns the expected results (set of nodes) before permanently modifying (or deleting) those nodes.
-  - Use the Synapse permissions system to enforce least privilege. Limit users to permissions appropriate for tasks they have been trained for / are responsible for. See :ref:`initial-roles` in the :ref:`quickstart` guide for a basic discussion of users, roles, and permissions.
+  - Use the Synapse permissions system to enforce least privilege. Limit users to permissions appropriate for tasks they have been trained for / are responsible for.
 
 See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
 
