@@ -213,6 +213,9 @@ class CellApi(s_base.Base):
     def getCellIden(self):
         return self.cell.getCellIden()
 
+    async def getCellRunId(self):
+        return await self.cell.getCellRunId()
+
     async def isCellActive(self):
         '''
         Returns True if the cell is an active/leader cell.
@@ -222,6 +225,10 @@ class CellApi(s_base.Base):
     @adminapi()
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
+
+    @adminapi()
+    async def readyToMirror(self):
+        return await self.cell.readyToMirror()
 
     @adminapi(log=True)
     async def cullNexsLog(self, offs):
@@ -288,8 +295,12 @@ class CellApi(s_base.Base):
         return await self.cell.waitNexsOffs(offs, timeout=timeout)
 
     @adminapi()
-    async def promote(self):
-        return await self.cell.promote()
+    async def promote(self, graceful=False):
+        return await self.cell.promote(graceful=graceful)
+
+    @adminapi()
+    async def handoff(self, turl, timeout=30):
+        return await self.cell.handoff(turl, timeout=timeout)
 
     def getCellUser(self):
         return self.user.pack()
@@ -558,6 +569,10 @@ class CellApi(s_base.Base):
         return await self.cell.isUserAllowed(iden, perm, gateiden=gateiden)
 
     @adminapi()
+    async def isRoleAllowed(self, iden, perm, gateiden=None):
+        return await self.cell.isRoleAllowed(iden, perm, gateiden=gateiden)
+
+    @adminapi()
     async def tryUserPasswd(self, name, passwd):
         return await self.cell.tryUserPasswd(name, passwd)
 
@@ -719,12 +734,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     confdefs = {}  # type: ignore  # This should be a JSONSchema properties list for an object.
     confbase = {
         'cell:guid': {
-            'description': 'An optional hard-coded GUID to store as the permanent GUID for the cell.',
+            'description': 'An optional hard-coded GUID to store as the permanent GUID for the service.',
             'type': 'string',
+            'hideconf': True,
         },
         'cell:ctor': {
             'description': 'An optional python path to the Cell class.  Used by stemcell.',
             'type': 'string',
+            'hideconf': True,
         },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
@@ -752,13 +769,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'nexslog:en': {
             'default': False,
-            'description': 'Record all changes to the cell.  Required for mirroring (on both sides).',
+            'description': 'Record all changes to a stream file on disk.  Required for mirroring (on both sides).',
             'type': 'boolean',
         },
         'nexslog:async': {
             'default': False,
             'description': '(Experimental) Map the nexus log LMDB instance with map_async=True.',
             'type': 'boolean',
+            'hidedocs': True,
+            'hidecmdl': True,
         },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
@@ -781,6 +800,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'The name of the cell service in the aha service registry.',
             'type': 'string',
         },
+        'aha:user': {
+            'description': 'The username of this service when connecting to others.',
+            'type': 'string',
+        },
         'aha:leader': {
             'description': 'The AHA service name to claim as the active instance of a storm service.',
             'type': 'string',
@@ -791,6 +814,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'aha:registry': {
             'description': 'The telepath URL of the aha service registry.',
+            'type': ['string', 'array'],
+            'items': {'type': 'string'},
+        },
+        'aha:provision': {
+            'description': 'The telepath URL of the aha provisioning service.',
             'type': ['string', 'array'],
             'items': {'type': 'string'},
         },
@@ -813,6 +841,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 }
             },
             'required': ('urlinfo', ),
+            'hidedocs': True,
+            'hidecmdl': True,
         },
         'inaugural': {
             'defs': {
@@ -860,7 +890,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'additionalProperties': False,
                 }
             },
-            'description': 'Data used to drive configuration of the Cell upon first startup.',
+            'description': 'Data used to drive configuration of the service upon first startup.',
             'type': 'object',
             'properties': {
                 'roles': {
@@ -895,7 +925,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.starttime = time.monotonic()  # Used for uptime calc
         self.startms = s_common.now()      # Used to report start time
         s_telepath.Aware.__init__(self)
+
         self.dirn = s_common.gendir(dirn)
+        self.runid = s_common.guid()
 
         self.auth = None
         self.cellparent = parent
@@ -905,6 +937,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.activecoros = {}
 
         self.conf = self._initCellConf(conf)
+
+        await self._initCellBoot()
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -925,8 +959,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self._cellguidfd = s_common.genfile(path)
         self.iden = self._cellguidfd.read().decode().strip()
         self._getCellLock()
-
-        self.donexslog = self.conf.get('nexslog:en')
 
         backdirn = self.conf.get('backup:dir')
         if backdirn is not None:
@@ -956,6 +988,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # construct our nexsroot instance ( but do not start it )
         await s_nexus.Pusher.__anit__(self, self.iden)
+
+        self._initCertDir()
 
         root = await self._ctorNexsRoot()
 
@@ -1012,7 +1046,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHealthFunc(self._cellHealth)
 
         # initialize network backend infrastructure
-        await self._initCertDir()
         await self._initAhaRegistry()
 
         # initialize network daemons (but do not listen yet)
@@ -1080,6 +1113,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             curv = vers
 
+    def _getAhaAdmin(self):
+        name = self.conf.get('aha:admin')
+        if name is not None:
+            return name
+
     async def _initAhaRegistry(self):
 
         self.ahainfo = None
@@ -1100,21 +1138,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.onfini(finiaha)
 
-        ahaadmin = self.conf.get('aha:admin')
+        ahauser = self.conf.get('aha:user')
+        ahanetw = self.conf.get('aha:network')
+
+        ahaadmin = self._getAhaAdmin()
         if ahaadmin is not None:
-            # add the user in a pre-nexus compatible way
-            user = await self.auth.getUserByName(ahaadmin)
+            await self._addAdminUser(ahaadmin)
 
-            if user is None:
-                iden = s_common.guid(ahaadmin)
-                await self.auth._addUser(iden, ahaadmin)
-                user = await self.auth.getUserByName(ahaadmin)
+        if ahauser is not None:
+            await self._addAdminUser(ahauser)
 
-            if not user.isAdmin():
-                await user.setAdmin(True, logged=False)
+    async def _addAdminUser(self, username):
+        # add the user in a pre-nexus compatible way
+        user = await self.auth.getUserByName(username)
 
-            if user.isLocked():
-                await user.setLocked(False, logged=False)
+        if user is None:
+            iden = s_common.guid(username)
+            await self.auth._addUser(iden, username)
+            user = await self.auth.getUserByName(username)
+
+        if not user.isAdmin():
+            await user.setAdmin(True, logged=False)
+
+        if user.isLocked():
+            await user.setLocked(False, logged=False)
 
     async def initServiceStorage(self):
         pass
@@ -1169,6 +1216,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahalead = self.conf.get('aha:leader')
         ahanetw = self.conf.get('aha:network')
 
+        runiden = await self.getCellRunId()
+        celliden = self.getCellIden()
+
         ahainfo = self.conf.get('aha:svcinfo')
         if ahainfo is None and turl is not None:
 
@@ -1178,6 +1228,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             urlinfo['port'] = self.sockaddr[1]
 
             ahainfo = {
+                'run': runiden,
+                'iden': celliden,
+                'leader': ahalead,
                 'urlinfo': urlinfo,
             }
 
@@ -1207,8 +1260,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async def fini():
             await self.ahaclient.offlink(onlink)
 
-        await self.ahaclient.onlink(onlink)
-        self.onfini(fini)
+        async def init():
+            await self.ahaclient.onlink(onlink)
+            self.onfini(fini)
+
+        self.schedCoro(init())
 
     async def initServiceRuntime(self):
         pass
@@ -1221,7 +1277,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return self.cellparent.nexsroot
 
         map_async = self.conf.get('nexslog:async')
-        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=self.donexslog, map_async=map_async)
+        donexslog = self.conf.get('nexslog:en')
+        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=donexslog, map_async=map_async)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
@@ -1249,7 +1306,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def trimNexsLog(self, consumers=None, timeout=30):
 
-        if not self.donexslog:
+        if not self.conf.get('nexslog:en'):
             mesg = 'trimNexsLog requires nexslog:en=True'
             raise s_exc.BadConfValu(mesg=mesg)
 
@@ -1287,17 +1344,65 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setNexsIndx(self, indx):
         return await self.nexsroot.setindex(indx)
 
-    async def promote(self):
+    async def promote(self, graceful=False):
         '''
         Transform this cell from a passive follower to
         an active cell that writes changes locally.
         '''
-        if self.conf.get('mirror') is None:
+        mirurl = self.conf.get('mirror')
+        if mirurl is None:
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
+        if graceful:
+
+            ahaname = self.conf.get('aha:name')
+            if ahaname is None: # pragma: no cover
+                mesg = 'Cannot gracefully promote without aha:name configured.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            ahanetw = self.conf.get('aha:network')
+            if ahanetw is None: # pragma: no cover
+                mesg = 'Cannot gracefully promote without aha:network configured.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            myurl = f'aha://{ahaname}.{ahanetw}'
+            async with await s_telepath.openurl(mirurl) as lead:
+                await lead.handoff(myurl)
+                return
+
         await self.nexsroot.promote()
         await self.setCellActive(True)
+
+        self.modCellConf({'mirror': None})
+
+    async def handoff(self, turl, timeout=30):
+        '''
+        Hand off leadership to a mirror in a transactional fashion.
+        '''
+        async with await s_telepath.openurl(turl) as cell:
+
+            if self.iden != await cell.getCellIden(): # pragma: no cover
+                mesg = 'Mirror handoff remote cell iden does not match!'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if self.runid == await cell.getCellRunId(): # pragma: no cover
+                mesg = 'Cannot handoff mirror leadership to myself!'
+                raise s_exc.BadArg(mesg=mesg)
+
+            async with self.nexsroot.applylock:
+
+                indx = await self.getNexsIndx()
+                if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
+                    mndx = await cell.getNexsIndx()
+                    mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
+                    raise s_exc.NotReady(mesg=mesg)
+
+                await cell.promote()
+                await self.setCellActive(False)
+                await self.nexsroot.startup(turl, celliden=self.iden)
+
+                self.modCellConf({'mirror': turl})
 
     async def _setAhaActive(self):
 
@@ -1788,6 +1893,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return user.allowed(perm, gateiden=gateiden)
 
+    async def isRoleAllowed(self, iden, perm, gateiden=None):
+        role = self.auth.role(iden)
+        if role is None:
+            return False
+
+        return role.allowed(perm, gateiden=gateiden)
+
     async def tryUserPasswd(self, name, passwd):
         user = await self.auth.getUserByName(name)
         if user is None:
@@ -2085,19 +2197,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (path, ctor, info),
         ))
 
-    async def _initCertDir(self):
+    def _initCertDir(self):
 
-        certpath = s_common.gendir(self.dirn, 'certs')
+        self.certpath = s_common.gendir(self.dirn, 'certs')
 
         # add our cert path to the global resolver
-        s_certdir.addCertPath(certpath)
-
-        async def fini():
-            s_certdir.delCertPath(certpath)
-        self.onfini(fini)
+        s_certdir.addCertPath(self.certpath)
 
         # our certdir is *only* the cell certs dir
-        self.certdir = s_certdir.CertDir(path=(certpath,))
+        self.certdir = s_certdir.CertDir(path=(self.certpath,))
+
+        def fini():
+            s_certdir.delCertPath(self.certpath)
+
+        self.onfini(fini)
 
     async def _initCellDmon(self):
 
@@ -2206,10 +2319,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return f'cell://{user}@{self.dirn}:{share}'
 
     def _initCellConf(self, conf):
+
+        # if they hand in a dict, assume we are not the main/only one
         if isinstance(conf, dict):
             conf = s_config.Config.getConfFromCell(self, conf=conf)
-        for k, v in self._loadCellYaml('cell.yaml').items():
-            conf.setdefault(k, v)
+            path = s_common.genpath(self.dirn, 'cell.yaml')
+            conf.setConfFromFile(path)
+
         conf.reqConfValid()
         return conf
 
@@ -2267,16 +2383,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return conf
         return s_common._getLogConfFromEnv()
 
+    def modCellConf(self, conf):
+        s_common.yamlmod(conf, self.dirn, 'cell.yaml')
+
     @classmethod
     def getCellType(cls):
         return cls.__name__.lower()
 
     @classmethod
     def getEnvPrefix(cls):
-        return f'SYN_{cls.__name__.upper()}'
+        '''Get a list of envar prefixes for config resolution.'''
+        return (f'SYN_{cls.__name__.upper()}', )
 
     def getCellIden(self):
         return self.iden
+
+    async def getCellRunId(self):
+        return self.runid
 
     @classmethod
     def initCellConf(cls):
@@ -2289,9 +2412,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             s_config.Config: A Config helper object.
         '''
-        prefix = cls.getEnvPrefix()
+        prefixes = cls.getEnvPrefix()
         schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
-        return s_config.Config(schema, envar_prefix=prefix)
+        return s_config.Config(schema, envar_prefixes=prefixes)
 
     @classmethod
     def getArgParser(cls, conf=None):
@@ -2312,7 +2435,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
 
         name = cls.getCellType()
-        prefix = cls.getEnvPrefix()
+        prefix = cls.getEnvPrefix()[0]
 
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
@@ -2352,6 +2475,143 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return pars
 
+    async def _initCellBoot(self):
+
+        provconf = await self._bootCellProv()
+
+        # check this before we setup loadTeleCell()
+        if not self._mustBootMirror():
+            return
+
+        async with s_telepath.loadTeleCell(self.dirn):
+            await self._bootCellMirror(conf=provconf)
+
+    async def _bootCellProv(self):
+
+        provurl = self.conf.get('aha:provision')
+        if provurl is None:
+            return
+
+        doneiden = None
+
+        donepath = s_common.genpath(self.dirn, 'prov.done')
+        if os.path.isfile(donepath):
+            with s_common.genfile(donepath) as fd:
+                doneiden = fd.read().decode().strip()
+
+        urlinfo = s_telepath.chopurl(provurl)
+        providen = urlinfo.get('path').strip('/')
+
+        if doneiden == providen:
+            return
+
+        logger.debug(f'Provisioning {self.getCellType()} from AHA service.')
+
+        certdir = s_certdir.CertDir(path=(s_common.gendir(self.dirn, 'certs'),))
+
+        async with await s_telepath.openurl(provurl) as prov:
+
+            provinfo = await prov.getProvInfo()
+            provconf = provinfo.get('conf', {})
+
+            ahauser = provconf.get('aha:user')
+            ahaname = provconf.get('aha:name')
+            ahanetw = provconf.get('aha:network')
+
+            if not certdir.getCaCertPath(ahanetw):
+                certdir.saveCaCertByts(await prov.getCaCert())
+
+            # update our runtime config
+            for name, valu in provconf.items():
+                self.conf[name] = valu
+
+            self.conf.reqConfValid()
+
+            # save our config state
+            self.modCellConf(provconf)
+
+            hostname = f'{ahaname}.{ahanetw}'
+            if certdir.getHostCertPath(hostname) is None:
+                hostcsr = certdir.genHostCsr(hostname)
+                certdir.saveHostCertByts(await prov.signHostCsr(hostcsr))
+
+            userfull = f'{ahauser}@{ahanetw}'
+            if certdir.getUserCertPath(userfull) is None:
+                usercsr = certdir.genUserCsr(userfull)
+                certdir.saveUserCertByts(await prov.signUserCsr(usercsr))
+
+        with s_common.genfile(self.dirn, 'prov.done') as fd:
+            fd.write(providen.encode())
+
+        logger.debug(f'Done provisioning {self.getCellType()} AHA service.')
+
+        return provconf
+
+    def _bootCellConf(self, conf=None):
+        # create a fresh config and re-resolve inputs in precedence order...
+        conf = s_config.Config.getConfFromCell(self, conf=conf)
+
+        path = s_common.genpath(self.dirn, 'cell.yaml')
+
+        conf.setConfFromOpts(conf)
+        conf.setConfFromFile(path)
+        conf.setConfFromEnvs()
+
+        conf.reqConfValid()
+        return conf
+
+    def _mustBootMirror(self):
+        path = s_common.genpath(self.dirn, 'cell.guid')
+        if os.path.isfile(path):
+            return False
+
+        murl = self.conf.get('mirror')
+        if murl is None:
+            return False
+
+        return True
+
+    async def readyToMirror(self):
+        if not self.conf.get('nexslog:en'):
+            self.modCellConf({'nexslog:en': True})
+            await self.nexsroot.enNexsLog()
+            await self.sync()
+
+    async def _bootCellMirror(self, conf=None):
+        # this function must assume almost nothing is initialized
+        # but that's ok since it will only run rarely...
+        murl = self.conf.get('mirror')
+        logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
+
+        tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
+
+        try:
+
+            async with await s_telepath.openurl(murl) as cell:
+                await cell.readyToMirror()
+                with s_common.genfile(tarpath) as fd:
+                    async for byts in cell.iterNewBackupArchive(remove=True):
+                        fd.write(byts)
+
+                with tarfile.open(tarpath) as tgz:
+                    for memb in tgz.getmembers():
+                        if memb.name.find('/') == -1:
+                            continue
+                        memb.name = memb.name.split('/', 1)[1]
+                        tgz.extract(memb, self.dirn)
+
+        finally:
+
+            if os.path.isfile(tarpath):
+                os.unlink(tarpath)
+
+        if conf is not None:
+            self.modCellConf(conf)
+
+        self.conf = self._bootCellConf()
+
+        logger.warning(f'Bootstrap mirror from: {murl} DONE!')
+
     @classmethod
     async def initFromArgv(cls, argv, outp=None):
         '''
@@ -2380,12 +2640,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = cls.getArgParser(conf=conf)
 
         opts = pars.parse_args(argv)
+        path = s_common.genpath(opts.dirn, 'cell.yaml')
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
         conf.setdefault('_log_conf', logconf)
+
         conf.setConfFromOpts(opts)
-        conf.setConfFromEnvs()
+        conf.setConfFromFile(path)
+        updates = conf.setConfFromEnvs()
+
+        if updates:
+            s_common.yamlmod(updates, path)
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
@@ -2458,6 +2724,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             user = await self.auth.getUserByName(username)
             if user is not None:
                 return user
+
+            if username.find('@') != -1:
+                userpart, hostpart = username.split('@', 1)
+                if hostpart == self.conf.get('aha:network'):
+                    user = await self.auth.getUserByName(userpart)
+                    if user is not None:
+                        return user
 
             logger.warning(f'TLS Client Cert User NOT FOUND: {username}')
 
@@ -2631,7 +2904,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
-            }
+            },
+            'features': {
+                'dynmirror': True,
+            },
         }
         return ret
 
