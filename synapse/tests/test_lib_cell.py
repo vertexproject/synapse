@@ -997,6 +997,7 @@ class CellTest(s_t_utils.SynTest):
                 cryo.certdir.genCaCert('localca')
                 cryo.certdir.genHostCert('localhost', signas='localca')
                 cryo.certdir.genUserCert('root@localhost', signas='localca')
+                cryo.certdir.genUserCert('newp@localhost', signas='localca')
 
                 root = await cryo.auth.addUser('root@localhost')
                 await root.setAdmin(True)
@@ -1006,10 +1007,15 @@ class CellTest(s_t_utils.SynTest):
                 addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
                 async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    self.nn(await proxy.getCellIden())
+                    self.eq(cryo.iden, await proxy.getCellIden())
 
                 with self.raises(s_exc.BadCertHost):
                     url = f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost'
+                    async with await s_telepath.openurl(url) as proxy:
+                        pass
+
+                with self.raises(s_exc.NoSuchUser):
+                    url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
 
