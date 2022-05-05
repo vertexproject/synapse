@@ -1014,10 +1014,11 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_telepath.openurl(url) as proxy:
                         pass
 
-                with self.raises(s_exc.NoSuchUser):
+                with self.raises(s_exc.NoSuchUser) as cm:
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
+                self.eq(cm.exception.get('user'), 'newp@localhost')
 
     async def test_cell_auth_ctor(self):
         conf = {
