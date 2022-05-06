@@ -10,16 +10,20 @@ from unittest.mock import patch
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
+import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tools.backup as s_tools_backup
+import synapse.tools.promote as s_tools_promote
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -39,6 +43,54 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
                 self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
                 self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+
+    async def test_cortex_handoff(self):
+
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'aha:name': 'aha',
+                'aha:network': 'newp',
+                'provision:listen': 'tcp://127.0.0.1:0',
+            }
+            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+
+                provaddr, provport = aha.provdmon.addr
+                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
+
+                ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.newp&ca=newp')
+                aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
+
+                provurl = await aha.addAhaSvcProv('00.cortex')
+                coreconf = {'aha:provision': provurl, 'nexslog:en': False}
+
+                async with self.getTestCore(conf=coreconf) as core00:
+
+                    with self.raises(s_exc.BadArg):
+                        await core00.handoff(core00.getLocalUrl())
+
+                    provinfo = {'mirror': '00.cortex'}
+                    provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+
+                    # provision with the new hostname and mirror config
+                    coreconf = {'aha:provision': provurl}
+                    async with self.getTestCore(conf=coreconf) as core01:
+
+                        await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
+                        self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
+
+                        self.true(core00.isactive)
+                        self.false(core01.isactive)
+
+                        outp = s_output.OutPutStr()
+                        argv = ('--svcurl', core01.getLocalUrl())
+                        await s_tools_promote.main(argv, outp=outp)
+
+                        self.true(core01.isactive)
+                        self.false(core00.isactive)
+
+                        await core00.nodes('[inet:ipv4=5.5.5.5]')
+                        self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
@@ -233,15 +285,17 @@ class CortexTest(s_t_utils.SynTest):
                 layr00iden = layr00.get('iden')
                 view00 = await core00.addView({'layers': (layr00iden,)})
                 view00iden = view00.get('iden')
+                view00opts = {'view': view00iden}
 
                 layr00url = core00.getLocalUrl(share=f'*/view/{view00iden}')
 
                 layr01 = await core01.addLayer({'mirror': layr00url})
                 layr01iden = layr01.get('iden')
                 view01 = await core01.addView({'layers': (layr01iden,)})
+                view01opts = {'view': view01.get('iden')}
 
-                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
-                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts=view01opts))
+                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
 
                 info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
                 self.false(info00.get('mirror'))
@@ -251,6 +305,12 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['local']['size'])
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
+
+                await core00.nodes('trigger.add node:del --form inet:fqdn --query {[test:str=foo]}', opts=view00opts)
+
+                await core01.nodes('inet:fqdn=vertex.link | delnode', opts=view01opts)
+                self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
+                self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
 
                 layr = core01.getLayer(layr01iden)
                 await layr.storNodeEdits((), {})
@@ -4109,6 +4169,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodelist0 = []
             nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
             nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+            nodelist0.extend(await core0.nodes('[ test:int=42 ]'))
+            await core0.nodes('test:int=42 | delnode')
 
             with self.raises(s_exc.NoSuchLayer):
                 async for _, nodeedits in prox0.syncLayerNodeEdits(0, layriden='asdf', wait=False):
@@ -4122,6 +4184,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             async for _, nodeedits in prox0.syncLayerNodeEdits(0, wait=False):
                 editlist.append(nodeedits)
 
+            deledit = editlist.pop(len(editlist) - 1)
+
             async with self.getTestCoreAndProxy() as (core1, prox1):
 
                 await prox1.addFeedData('syn.nodeedits', editlist)
@@ -4129,10 +4193,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodelist1 = []
                 nodelist1.extend(await core1.nodes('test:str'))
                 nodelist1.extend(await core1.nodes('inet:ipv4'))
+                nodelist1.extend(await core1.nodes('test:int'))
 
                 nodelist0 = [node.pack() for node in nodelist0]
                 nodelist1 = [node.pack() for node in nodelist1]
                 self.eq(nodelist0, nodelist1)
+
+                await core1.nodes('trigger.add node:del --form test:int --query {[test:int=7]}')
+
+                self.len(1, await core1.nodes('test:int=42'))
+
+                await prox1.addFeedData('syn.nodeedits', [deledit])
+
+                self.len(0, await core1.nodes('test:int=42'))
+                self.len(1, await core1.nodes('test:int=7'))
 
                 # Try a nodeedits we might get from cmdr
                 cmdrnodeedits = s_common.jsonsafe_nodeedits(editlist[1])

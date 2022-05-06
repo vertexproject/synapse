@@ -77,5 +77,4 @@ Some data types within the Synapse data model have been optimized in ways that i
 Whitespace
 ----------
 
-Whitespace may be used in the examples for formatting and readability. See the section Synapse Tools - Cmdr on :ref:`whitespace` for how whitespace is used in the Synapse CLI, including within the Storm command.
-
+Whitespace may be used in the examples for formatting and readability.

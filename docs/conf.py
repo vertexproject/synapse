@@ -217,16 +217,18 @@ def run_confdocs(_):
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
     baseargs = ['python', '-m', 'synapse.tools.autodoc', '--savedir',
                 './docs/synapse/autodocs', '--doc-conf']
-    ctors = ('synapse.axon.Axon',
-             'synapse.cortex.Cortex',
-             'synapse.lib.aha.AhaCell',
-             'synapse.lib.jsonstor.JsonStorCell',
-             'synapse.cryotank.CryoCell',
-             )
-    for ctor in ctors:
-        args = baseargs.copy()
-        args.append(ctor)
-        subprocess.run(args, cwd=synpd)
+    svcargs = (
+        ('synapse.axon.Axon',),
+        ('synapse.cortex.Cortex',),
+        ('synapse.lib.aha.AhaCell', ),
+        ('synapse.lib.jsonstor.JsonStorCell', ),
+        # TODO For now lets leave this off...
+        # ('synapse.cryotank.CryoCell',),
+    )
+    for args in svcargs:
+        argv = baseargs.copy()
+        argv.extend(args)
+        subprocess.run(argv, cwd=synpd)
 
 def run_stormtypes(_):
     import synapse

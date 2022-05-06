@@ -2,12 +2,17 @@ import os
 import copy
 import logging
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.daemon as s_daemon
+import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -16,11 +21,14 @@ logger = logging.getLogger(__name__)
 class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self):
-        return self.cell.conf.get('aha:urls', ())
+        ahaurls = self.cell._getAhaUrls()
+        if ahaurls is not None:
+            return ahaurls
+        return()
 
     async def getAhaSvc(self, name):
         '''
-        Return an AHA service description dictionary for a fully qualified service name.
+        Return an AHA service description dictionary for a service name.
         '''
         svcinfo = await self.cell.getAhaSvc(name)
         if svcinfo is None:
@@ -28,6 +36,14 @@ class AhaApi(s_cell.CellApi):
 
         svcnetw = svcinfo.get('svcnetw')
         await self._reqUserAllowed(('aha', 'service', 'get', svcnetw))
+
+        svcinfo = s_msgpack.deepcopy(svcinfo)
+
+        # suggest that the user of the remote service is the same
+        username = self.user.name.split('@')[0]
+
+        svcinfo['svcinfo']['urlinfo']['user'] = username
+
         return svcinfo
 
     async def getAhaSvcs(self, network=None):
@@ -107,6 +123,126 @@ class AhaApi(s_cell.CellApi):
         await self._reqUserAllowed(('aha', 'csr', 'user'))
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
+    @s_cell.adminapi()
+    async def addAhaSvcProv(self, name, provinfo=None):
+        '''
+        Provision the given relative service name within the configured network name.
+        '''
+        return await self.cell.addAhaSvcProv(name, provinfo=provinfo)
+
+    @s_cell.adminapi()
+    async def delAhaSvcProv(self, iden):
+        '''
+        Remove a previously added provisioning entry by iden.
+        '''
+        return await self.cell.delAhaSvcProv(iden)
+
+    @s_cell.adminapi()
+    async def addAhaUserEnroll(self, name, userinfo=None, again=False):
+        '''
+        Create and return a one-time user enroll key.
+        '''
+        return await self.cell.addAhaUserEnroll(name, userinfo=userinfo, again=again)
+
+    @s_cell.adminapi()
+    async def delAhaUserEnroll(self, iden):
+        '''
+        Remove a previously added enrollment entry by iden.
+        '''
+        return await self.cell.delAhaUserEnroll(iden)
+
+class ProvDmon(s_daemon.Daemon):
+
+    async def __anit__(self, aha):
+        self.aha = aha
+        await s_daemon.Daemon.__anit__(self)
+
+    async def _getSharedItem(self, name):
+        provinfo = await self.aha.getAhaSvcProv(name)
+        if provinfo is not None:
+            await self.aha.delAhaSvcProv(name)
+            return ProvApi(self.aha, provinfo)
+
+        userinfo = await self.aha.getAhaUserEnroll(name)
+        if userinfo is not None:
+            await self.aha.delAhaUserEnroll(name)
+            return EnrollApi(self.aha, userinfo)
+
+class EnrollApi:
+
+    def __init__(self, aha, userinfo):
+        self.aha = aha
+        self.userinfo = userinfo
+
+    async def getUserInfo(self):
+        return {
+            'aha:urls': self.aha._getAhaUrls(),
+            'aha:user': self.userinfo.get('name'),
+            'aha:network': self.aha.conf.get('aha:network'),
+        }
+
+    async def getCaCert(self):
+        ahanetw = self.aha.conf.get('aha:network')
+        return self.aha.certdir.getCaCertBytes(ahanetw)
+
+    async def signUserCsr(self, byts):
+
+        ahauser = self.userinfo.get('name')
+        ahanetw = self.aha.conf.get('aha:network')
+
+        username = f'{ahauser}@{ahanetw}'
+
+        xcsr = self.aha.certdir._loadCsrByts(byts)
+        if xcsr.get_subject().CN != username:
+            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
+        return self.aha.certdir._certToByts(cert)
+
+class ProvApi:
+
+    def __init__(self, aha, provinfo):
+        self.aha = aha
+        self.provinfo = provinfo
+
+    async def getProvInfo(self):
+        return self.provinfo
+
+    async def getCaCert(self):
+        ahanetw = self.aha.conf.get('aha:network')
+        return self.aha.certdir.getCaCertBytes(ahanetw)
+
+    async def signHostCsr(self, byts):
+
+        ahaname = self.provinfo['conf'].get('aha:name')
+        ahanetw = self.provinfo['conf'].get('aha:network')
+
+        hostname = f'{ahaname}.{ahanetw}'
+
+        xcsr = self.aha.certdir._loadCsrByts(byts)
+        if xcsr.get_subject().CN != hostname:
+            mesg = f'Invalid host CSR CN={xcsr.get_subject().CN}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pkey, cert = self.aha.certdir.signHostCsr(xcsr, ahanetw, save=False)
+        return self.aha.certdir._certToByts(cert)
+
+    async def signUserCsr(self, byts):
+
+        ahauser = self.provinfo['conf'].get('aha:user')
+        ahanetw = self.provinfo['conf'].get('aha:network')
+
+        username = f'{ahauser}@{ahanetw}'
+
+        xcsr = self.aha.certdir._loadCsrByts(byts)
+        if xcsr.get_subject().CN != username:
+            mesg = f'Invalid user CSR CN={xcsr.get_subject().CN}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
+        return self.aha.certdir._certToByts(cert)
+
 class AhaCell(s_cell.Cell):
 
     cellapi = AhaApi
@@ -119,7 +255,16 @@ class AhaCell(s_cell.Cell):
             'type': ['string', 'array'],
             'items': {'type': 'string'},
         },
+        'provision:listen': {
+            'description': 'A telepath URL for the AHA provisioning listener.',
+            'type': ['string', 'null'],
+        },
     }
+
+    # Rename the class and remove these two overrides in 3.0.0
+    @classmethod
+    def getEnvPrefix(cls):
+        return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     async def initServiceStorage(self):
 
@@ -135,6 +280,9 @@ class AhaCell(s_cell.Cell):
 
         self.onfini(fini)
 
+        self.slab.initdb('aha:provs')
+        self.slab.initdb('aha:enrolls')
+
     async def initServiceRuntime(self):
         self.addActiveCoro(self._clearInactiveSessions)
 
@@ -143,15 +291,31 @@ class AhaCell(s_cell.Cell):
             netw = self.conf.get('aha:network')
             if netw is not None:
 
-                await self.genCaCert(netw)
+                if self.certdir.getCaCertPath(netw) is None:
+                    await self.genCaCert(netw)
 
-                host = self.conf.get('aha:name')
-                if host is not None:
+                name = self.conf.get('aha:name')
+
+                host = f'{name}.{netw}'
+                if self.certdir.getHostCertPath(host) is None:
                     await self._genHostCert(host, signas=netw)
 
-                user = self.conf.get('aha:admin')
+                user = self._getAhaAdmin()
                 if user is not None:
-                    await self._genUserCert(user, signas=netw)
+                    if self.certdir.getUserCertPath(user) is None:
+                        await self._genUserCert(user, signas=netw)
+
+    async def initServiceNetwork(self):
+
+        await s_cell.Cell.initServiceNetwork(self)
+
+        self.provdmon = None
+
+        provurl = self.conf.get('provision:listen')
+        if provurl is not None:
+            self.provdmon = await ProvDmon.anit(self)
+            self.onfini(self.provdmon)
+            await self.provdmon.listen(provurl)
 
     async def _clearInactiveSessions(self):
 
@@ -259,6 +423,15 @@ class AhaCell(s_cell.Cell):
         logger.debug(f'Set [{svcfull}] offline.')
 
     async def getAhaSvc(self, name):
+
+        if name.endswith('...'):
+            ahanetw = self.conf.get('aha:network')
+            if ahanetw is None:
+                mesg = f'Relative service name ({name}) can not be resolved without aha:network set.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            name = f'{name[:-2]}{ahanetw}'
+
         path = ('aha', 'svcfull', name)
         svcinfo = await self.jsonstor.getPathObj(path)
         if svcinfo is not None:
@@ -368,3 +541,184 @@ class AhaCell(s_cell.Cell):
         pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
 
         return self.certdir._certToByts(cert).decode()
+
+    def _getAhaUrls(self):
+        urls = self.conf.get('aha:urls')
+        if urls is not None:
+            return urls
+
+        ahaname = self.conf.get('aha:name')
+        if ahaname is None:
+            return None
+
+        ahanetw = self.conf.get('aha:network')
+        if ahanetw is None:
+            return None
+
+        # TODO this could eventually enumerate others via itself
+        return f'ssl://{ahaname}.{ahanetw}'
+
+    async def addAhaSvcProv(self, name, provinfo=None):
+
+        ahaurls = self._getAhaUrls()
+        if ahaurls is None:
+            mesg = 'AHA server has no configured aha:urls.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+        if self.conf.get('provision:listen') is None:
+            mesg = 'The AHA server does not have a provision:listen URL!'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+        if provinfo is None:
+            provinfo = {}
+
+        iden = s_common.guid()
+
+        provinfo['iden'] = iden
+
+        conf = provinfo.setdefault('conf', {})
+
+        mynetw = self.conf.get('aha:network')
+
+        ahaadmin = self.conf.get('aha:admin')
+        if ahaadmin is not None: # pragma: no cover
+            conf.setdefault('aha:admin', ahaadmin)
+
+        conf.setdefault('aha:user', 'root')
+        conf.setdefault('aha:network', mynetw)
+
+        netw = conf.get('aha:network')
+        if netw is None:
+            mesg = 'AHA server has no configured aha:network.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+        hostname = f'{name}.{netw}'
+
+        conf.setdefault('aha:name', name)
+        conf.setdefault('dmon:listen', f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}')
+
+        # if the relative name contains a dot, we are a mirror peer.
+        peer = name.find('.') != -1
+        leader = name.rsplit('.', 1)[-1]
+
+        if peer:
+            conf.setdefault('aha:leader', leader)
+
+        if isinstance(ahaurls, str):
+            ahaurls = (ahaurls,)
+
+        # allow user to win over leader
+        ahauser = conf.get('aha:user')
+        ahaurls = s_telepath.modurl(ahaurls, user=ahauser)
+
+        conf.setdefault('aha:registry', ahaurls)
+
+        mirname = provinfo.get('mirror')
+        if mirname is not None:
+            conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
+
+        username = f'{ahauser}@{netw}'
+        user = await self.auth.getUserByName(username)
+        if user is None:
+            user = await self.auth.addUser(username)
+
+        await user.allow(('aha', 'service', 'get', netw))
+        await user.allow(('aha', 'service', 'add', netw, name))
+        if peer:
+            await user.allow(('aha', 'service', 'add', netw, leader))
+
+        iden = await self._push('aha:svc:prov:add', provinfo)
+
+        logger.debug(f'Created provisioning for {name}.{netw}')
+
+        return self._getProvClientUrl(iden)
+
+    def _getProvClientUrl(self, iden):
+
+        provlisn = self.conf.get('provision:listen')
+
+        urlinfo = s_telepath.chopurl(provlisn)
+
+        host = urlinfo.get('hostname')
+        scheme = urlinfo.get('scheme')
+
+        if host is None:
+            host = urlinfo.get('host')
+
+        newinfo = {
+            'host': host,
+            'port': urlinfo.get('port'),
+            'scheme': scheme,
+            'path': '/' + iden,
+        }
+
+        if scheme == 'ssl':
+            certhash = self.certdir.getHostCertHash(host)
+            if certhash is not None:
+                newinfo['certhash'] = certhash
+
+        return s_telepath.zipurl(newinfo)
+
+    async def getAhaSvcProv(self, iden):
+        byts = self.slab.get(iden.encode(), db='aha:provs')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPush('aha:svc:prov:add')
+    async def _addAhaSvcProv(self, provinfo):
+        iden = provinfo.get('iden')
+        self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
+        return iden
+
+    @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
+    async def delAhaSvcProv(self, iden):
+        self.slab.delete(iden.encode(), db='aha:provs')
+
+    async def addAhaUserEnroll(self, name, userinfo=None, again=False):
+
+        provurl = self.conf.get('provision:listen')
+        if provurl is None:
+            mesg = 'The AHA server does not have a provision:listen URL!'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+        ahanetw = self.conf.get('aha:network')
+        if ahanetw is None:
+            mesg = 'AHA server requires aha:network configuration.'
+            raise s_exc.NeedConfValu(mesg=mesg)
+
+        username = f'{name}@{ahanetw}'
+
+        user = await self.auth.getUserByName(username)
+
+        if user is not None:
+            if not again:
+                mesg = f'User name ({name}) already exists.  Need --again?'
+                raise s_exc.DupUserName(mesg=mesg)
+
+        if user is None:
+            user = await self.auth.addUser(username)
+
+        await user.allow(('aha', 'service', 'get', ahanetw))
+
+        userinfo = {
+            'name': name,
+            'iden': s_common.guid(),
+        }
+
+        iden = await self._push('aha:enroll:add', userinfo)
+        return self._getProvClientUrl(iden)
+
+    async def getAhaUserEnroll(self, iden):
+        byts = self.slab.get(iden.encode(), db='aha:enrolls')
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPush('aha:enroll:add')
+    async def _addAhaUserEnroll(self, userinfo):
+        iden = userinfo.get('iden')
+        self.slab.put(iden.encode(), s_msgpack.en(userinfo), db='aha:enrolls')
+        return iden
+
+    @s_nexus.Pusher.onPushAuto('aha:enroll:del')
+    async def delAhaUserEnroll(self, iden):
+        self.slab.delete(iden.encode(), db='aha:enrolls')
