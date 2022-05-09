@@ -629,6 +629,7 @@ class OuModelTest(s_t_utils.SynTest):
             q = '''
             [ ou:industry=*
                 :name=" Foo Bar "
+                :names=(baz, faz)
                 :subs=(*, *)
                 :naics=(11111,22222)
                 :sic="1234,5678"
@@ -646,6 +647,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
+            self.len(3, await core.nodes('ou:industryname=baz -> ou:industry -> ou:industryname'))
 
     async def test_ou_opening(self):
 

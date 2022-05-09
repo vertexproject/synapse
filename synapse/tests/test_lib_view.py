@@ -460,6 +460,68 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('ou:org +#foo', opts={'view': view}))
 
+            # test node:del triggers
+            await core.nodes('trigger.add node:del --form ou:org --query {[test:str=foo]}', opts={'view': view})
+
+            nextoffs = await core.getView(iden=view).layers[0].getEditIndx()
+
+            await core.nodes('ou:org | delnode')
+
+            await core.stormlist('''
+                $view = $lib.view.get($viewiden)
+                for ($offs, $edits) in $lib.layer.get().edits(offs=$offs, wait=$lib.false) {
+                    $view.addNodeEdits($edits)
+                }
+            ''', opts={'vars': {'viewiden': view, 'offs': nextoffs}})
+
+            self.len(0, await core.nodes('ou:org +#foo', opts={'view': view}))
+
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+
+    async def test_lib_view_storNodeEdits(self):
+
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('''
+                $layr = $lib.layer.add().iden
+                $view = $lib.view.add(($layr,))
+                return($view.iden)
+            ''')
+
+            await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form inet:ipv4 --query {[test:str=foo]}', opts={'view': view})
+
+            await core.nodes('[ ou:org=* ]')
+            self.len(0, await core.nodes('ou:org', opts={'view': view}))
+
+            await core.nodes('[ inet:ipv4=0 ]')
+            self.len(0, await core.nodes('inet:ipv4', opts={'view': view}))
+
+            await core.nodes('inet:ipv4=0 | delnode')
+
+            edits = await core.callStorm('''
+                $nodeedits = $lib.list()
+                for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
+                    $nodeedits.extend($edits)
+                }
+                return($nodeedits)
+            ''')
+
+            user = await core.auth.addUser('user')
+            await user.addRule((True, ('view', 'read')))
+
+            async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
+                self.eq(0, await prox.getEditSize())
+                await self.asyncraises(s_exc.AuthDeny, prox.storNodeEdits(edits, None))
+
+            await user.addRule((True, ('node',)))
+
+            async with core.getLocalProxy(share=f'*/view/{view}', user='user') as prox:
+                self.none(await prox.storNodeEdits(edits, None))
+
+            self.len(1, await core.nodes('ou:org#foo', opts={'view': view}))
+            self.len(1, await core.nodes('test:str=foo', opts={'view': view}))
+
     async def test_lib_view_wipeLayer(self):
 
         async with self.getTestCore() as core:

@@ -4468,7 +4468,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_common.deprecated('addFeedData(syn.nodeedits, ...)')
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
-            await snap.applyNodeEdits(item)
+            await snap.saveNodeEdits(item, None)
 
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)

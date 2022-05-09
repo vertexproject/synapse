@@ -399,6 +399,9 @@ class PsModule(s_module.CoreModule):
                     ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated user names.',
                     }),
+                    ('crypto:address', ('crypto:currency:address', {}), {
+                        'doc': 'A crypto currency address associated with the contact.'
+                    }),
                 )),
                 ('ps:contactlist', {}, (
                     ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ',', 'sorted': True}), {
