@@ -997,6 +997,10 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(2, await core.callStorm('$d=$lib.dict(k1=1, k2=2) return($lib.len($d))'))
 
+            q = '$d=$lib.dict(foo=bar) $d2=$d.copy() $d2.foo=baz return(($d, $d2))'
+            retn = await core.callStorm(q)
+            self.eq(({'foo': 'bar'}, {'foo': 'baz'}), retn)
+
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
             q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
@@ -1295,6 +1299,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.pop())'))
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$lib.list().pop()')
+
+            q = '$foo = $lib.list(1, 2) $bar = $foo.copy() $bar.append(3) return(($foo, $bar))'
+            retn = await core.callStorm(q)
+            self.eq((('1', '2'), ('1', '2', '3')), retn)
+
+            q = '$bar = $foo.copy() $bar.append(3) return(($foo, $bar))'
+            retn = await core.callStorm(q, opts={'vars': {'foo': ('1', '2')}})
+            self.eq((('1', '2'), ('1', '2', '3')), retn)
 
     async def test_storm_layer_getstornode(self):
 

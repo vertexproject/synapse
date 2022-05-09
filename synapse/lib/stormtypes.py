@@ -3917,11 +3917,28 @@ class Dict(Prim):
     '''
     Implements the Storm API for a Dictionary object.
     '''
+    _storm_locals = (
+        {'name': 'copy', 'desc': 'Return a shallow copy of the dict.',
+         'type': {'type': 'function', '_funcname': 'copy',
+                  'returns': {'type': 'dict', 'desc': 'The copy of the dict.'}}},
+    )
     _storm_typename = 'dict'
     _ismutable = True
 
+    def __init__(self, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'copy': self.copy,
+        }
+
     def __len__(self):
         return len(self.valu)
+
+    async def copy(self):
+        return dict(self.valu)
 
     async def iter(self):
         for item in tuple(self.valu.items()):
@@ -3936,6 +3953,10 @@ class Dict(Prim):
         self.valu[name] = valu
 
     async def deref(self, name):
+        locl = self.locls.get(name, s_common.novalu)
+        if locl is not s_common.novalu:
+            return locl
+
         return self.valu.get(name)
 
     async def value(self):
@@ -4140,6 +4161,9 @@ class List(Prim):
         {'name': 'reverse', 'desc': 'Reverse the order of the list in place',
          'type': {'type': 'function', '_funcname': '_methListReverse',
                   'returns': {'type': 'null', }}},
+        {'name': 'copy', 'desc': 'Return a shallow copy of the list.',
+         'type': {'type': 'function', '_funcname': 'copy',
+                  'returns': {'type': 'list', 'desc': 'The copy of the list.'}}},
         {'name': 'slice', 'desc': '''
             Get a slice of the list.
 
@@ -4201,6 +4225,7 @@ class List(Prim):
             'append': self._methListAppend,
             'reverse': self._methListReverse,
 
+            'copy': self.copy,
             'slice': self.slice,
             'extend': self.extend,
         }
@@ -4271,6 +4296,9 @@ class List(Prim):
 
     async def _methListSize(self):
         return len(self)
+
+    async def copy(self):
+        return list(self.valu)
 
     async def slice(self, start, end=None):
         start = await toint(start)
