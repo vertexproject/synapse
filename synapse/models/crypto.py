@@ -34,6 +34,17 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:contract', ('guid', {}), {
                     'doc': 'A smart contract.',
                 }),
+                ('crypto:smart:effect:transfertoken', ('guid', {}), {
+                    'doc': 'A smart contract effect which transfers ownership of a non-fungible token.',
+                }),
+                ('crypto:smart:effect:transfertokens', ('guid', {}), {
+                    'doc': 'A smart contract effect which transfers fungible tokens.',
+                }),
+                ('crypto:smart:effect:edittokensupply', ('guid', {}), {
+                    'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.',
+                }),
+                # TODO crypto:smart:effect:call - call another smart contract
+                # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
                 ('crypto:payment:input', ('guid', {}), {
                     'doc': 'A payment made into a transaction.',
                 }),
@@ -43,7 +54,6 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
                     'doc': 'A token managed by a smart contract.',
                 }),
-                # TODO ('crypto:smart:method', ('guid', {}), {}),
                 ('crypto:currency:coin', ('str', {'lower': True}), {
                     'doc': 'An individual crypto currency type.',
                     'ex': 'btc',
@@ -92,7 +102,13 @@ class CryptoModule(s_module.CoreModule):
                 ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
                     'doc': 'An RSA keypair modulus and public exponent.'
                 }),
-
+                ('crypto:key', ('guid', {}), {
+                    'doc': 'A cryptographic key and algorithm.',
+                }),
+                ('crypto:algorithm', ('str', {'lower': True, 'onespace': True}), {
+                    'ex': 'aes256',
+                    'doc': 'A cryptographic algorithm name.'
+                }),
                 ('crypto:x509:cert', ('guid', {}), {
                     'doc': 'A unique X.509 certificate.',
                 }),
@@ -234,15 +250,69 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The full name of the crypto coin.'}),
                 )),
 
+                ('crypto:smart:effect:transfertoken', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction where the smart contract was called.'}),
+                    ('token', ('crypto:smart:token', {}), {
+                        'doc': 'The non-fungible token that was transferred.'}),
+                    ('from', ('crypto:currency:address', {}), {
+                        'doc': 'The address the NFT was transferred from.'}),
+                    ('to', ('crypto:currency:address', {}), {
+                        'doc': 'The address the NFT was transferred to.'}),
+                )),
+
+                ('crypto:smart:effect:transfertokens', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction where the smart contract was called.'}),
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens.'}),
+                    ('from', ('crypto:currency:address', {}), {
+                        'doc': 'The address the NFT was transferred from.'}),
+                    ('to', ('crypto:currency:address', {}), {
+                        'doc': 'The address the NFT was transferred to.'}),
+                    ('amount', ('hugenum', {}), {
+                        'doc': 'The number of tokens transferred.'}),
+                )),
+
+                ('crypto:smart:effect:edittokensupply', {}, (
+                    ('transaction', ('crypto:currency:transaction', {}), {
+                        'doc': 'The transaction where the smart contract was called.'}),
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens.'}),
+                    ('amount', ('hugenum', {}), {
+                        'doc': 'The number of tokens added or removed if negative.'}),
+                    ('totalsupply', ('hugenum', {}), {
+                        'doc': 'The total supply of tokens after this modification.'}),
+                )),
+
                 ('crypto:currency:address', {}, (
                     ('coin', ('crypto:currency:coin', {}), {
                         'doc': 'The crypto coin to which the address belongs.', 'ro': True, }),
+                    ('seed', ('crypto:key', {}), {
+                        'doc': 'The cryptographic key and or password used to generate the address.'}),
                     ('iden', ('str', {}), {
                         'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the address.'}),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Contact information associated with the address.'}),
+                )),
+
+                ('crypto:algorithm', {}, ()),
+
+                ('crypto:key', {}, (
+                    ('algorithm', ('crypto:algorithm', {}), {
+                        'ex': 'aes256',
+                        'doc': 'The cryptographic algorithm which uses the key material.'}),
+                    ('public', ('hex', {}), {
+                        'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
+                    ('private', ('hex', {}), {
+                        'doc': 'The hex encoded private key material. All symmetric keys are private.'}),
+                    ('seed:passwd', ('inet:passwd', {}), {
+                        'doc': 'The seed password used to generate the key material.'}),
+                    ('seed:algorithm', ('crypto:algorithm', {}), {
+                        'ex': 'pbkdf2',
+                        'doc': 'The algorithm used to generate the key from the seed password.'})
                 )),
 
                 ('crypto:currency:client', {}, (
@@ -257,6 +327,7 @@ class CryptoModule(s_module.CoreModule):
                 ('hash:sha256', {}, ()),
                 ('hash:sha384', {}, ()),
                 ('hash:sha512', {}, ()),
+                # TODO deprecate rsa:key and add fields to crypto:key
                 ('rsa:key', {}, (
                     ('mod', ('hex', {}), {'ro': True,
                        'doc': 'The RSA key modulus.'}),
