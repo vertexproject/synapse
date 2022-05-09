@@ -377,7 +377,7 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A software product.',
                 }),
-                ('it:prod:softname', ('str', {'strip': True, 'onespace': True, 'lower': True}), {
+                ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'A software product name.',
                 }),
                 ('it:prod:hardware', ('guid', {}), {

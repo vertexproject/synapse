@@ -50,7 +50,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
                 }),
-                ('ou:industryname', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {

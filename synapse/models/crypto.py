@@ -105,7 +105,7 @@ class CryptoModule(s_module.CoreModule):
                 ('crypto:key', ('guid', {}), {
                     'doc': 'A cryptographic key and algorithm.',
                 }),
-                ('crypto:algorithm', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                ('crypto:algorithm', ('str', {'lower': True, 'onespace': True}), {
                     'ex': 'aes256',
                     'doc': 'A cryptographic algorithm name.'
                 }),
