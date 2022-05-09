@@ -3918,9 +3918,9 @@ class Dict(Prim):
     Implements the Storm API for a Dictionary object.
     '''
     _storm_locals = (
-        {'name': 'copy', 'desc': 'Return a shallow copy of the dict.',
+        {'name': 'copy', 'desc': 'Return a shallow copy of the dictionary.',
          'type': {'type': 'function', '_funcname': 'copy',
-                  'returns': {'type': 'dict', 'desc': 'The copy of the dict.'}}},
+                  'returns': {'type': 'dict', 'desc': 'The copy of the dictionary.'}}},
     )
     _storm_typename = 'dict'
     _ismutable = True
