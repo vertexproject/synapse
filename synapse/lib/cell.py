@@ -2732,7 +2732,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if user is not None:
                         return user
 
-            logger.warning(f'TLS Client Cert User NOT FOUND: {username}')
+            raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
 
         auth = mesg[1].get('auth')
         if auth is None:
