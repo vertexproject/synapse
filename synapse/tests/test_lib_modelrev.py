@@ -225,3 +225,36 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.len(0, await core.nodes('crypto:payment:input=(i4,) -> crypto:currency:transaction'))
             self.len(0, await core.nodes('crypto:payment:output=(o4,) -> crypto:currency:transaction'))
+
+    async def test_modelrev_0_2_9(self):
+
+        async with self.getRegrCore('model-0.2.9') as core:
+
+            # test ou:industry:name -> ou:industryname
+            nodes = await core.nodes('ou:industry -> ou:industryname')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].ndef[1])
+            self.len(1, await core.nodes('ou:industryname="foo bar" -> ou:industry'))
+
+            # test the various it:prod:softname conversions
+            nodes = await core.nodes('it:prod:soft -> it:prod:softname')
+            self.len(3, nodes)
+            self.eq(('foo bar', 'baz faz', 'hehe haha'), [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('it:prod:softver -> it:prod:softname')
+            self.len(3, nodes)
+            self.eq(('foo bar', 'baz faz', 'hehe haha'), [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('it:mitre:attack:software -> it:prod:softname')
+            self.len(3, nodes)
+            self.eq(('foo bar', 'baz faz', 'hehe haha'), [n.ndef[1] for n in nodes])
+
+            # test :name pivots
+            self.len(1, await core.nodes('it:prod:softname="foo bar" -> it:prod:soft'))
+            self.len(1, await core.nodes('it:prod:softname="foo bar" -> it:prod:softver'))
+            self.len(1, await core.nodes('it:prod:softname="foo bar" -> it:mitre:attack:software'))
+
+            # test :names pivots
+            self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:prod:soft'))
+            self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:prod:softver'))
+            self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:mitre:attack:software'))

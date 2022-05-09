@@ -42,6 +42,17 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ crypto:currency:client=(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)) ]')
             self.len(1, nodes)
 
+            nodes = await core.nodes('''
+                crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
+                [ :seed={
+                    [ crypto:key=* :algorithm=aes256 :private=00000000 :public=ffffffff :seed:passwd=s3cret :seed:algorithm=pbkdf2 ]
+                }]
+            ''')
+
+            self.len(1, await core.nodes('crypto:algorithm=aes256'))
+            self.len(1, await core.nodes('crypto:key:algorithm=aes256 +:private=00000000 +:public=ffffffff +:seed:algorithm=pbkdf2 +:seed:passwd=s3cret'))
+            self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
+
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.eq(nodes[0].get('coin'), 'btc')
             self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
@@ -159,6 +170,59 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('token:name'), 'Foo')
             self.eq(node.get('token:symbol'), 'Bar')
             self.eq(node.get('token:totalsupply'), '300')
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:transfertoken=*
+                        :token=(2bdea834252a220b61aadf592cc0de66, 30)
+                        :to=eth/bbbb
+                        :from=eth/aaaa
+                        :transaction=*
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('token'))
+            self.nn(node.get('transaction'))
+            self.eq(node.get('to'), ('eth', 'bbbb'))
+            self.eq(node.get('from'), ('eth', 'aaaa'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertoken -> crypto:smart:token'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertoken -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:transfertokens=*
+                        :to=eth/bbbb
+                        :from=eth/aaaa
+                        :amount=20
+                        :transaction=*
+                        :contract=*
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('transaction'))
+            self.nn(node.get('contract'))
+            self.eq(node.get('to'), ('eth', 'bbbb'))
+            self.eq(node.get('from'), ('eth', 'aaaa'))
+            self.eq(node.get('amount'), '20')
+            self.len(1, await core.nodes('crypto:smart:effect:transfertokens -> crypto:smart:contract'))
+            self.len(1, await core.nodes('crypto:smart:effect:transfertokens -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:edittokensupply=*
+                        :amount=20
+                        :contract=*
+                        :transaction=*
+                        :totalsupply=1020
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node.get('contract'))
+            self.nn(node.get('transaction'))
+            self.eq(node.get('amount'), '20')
+            self.eq(node.get('totalsupply'), '1020')
+            self.len(1, await core.nodes('crypto:smart:effect:edittokensupply -> crypto:smart:contract'))
+            self.len(1, await core.nodes('crypto:smart:effect:edittokensupply -> crypto:currency:transaction'))
 
             nodes = await core.nodes('''
                 [
