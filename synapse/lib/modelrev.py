@@ -21,7 +21,7 @@ class ModelRev:
             ((0, 2, 6), self.revModel20211112),
             ((0, 2, 7), self.revModel20220307),
             ((0, 2, 8), self.revModel20220315),
-            ((0, 2, 9), self.revModel20220330),
+            ((0, 2, 9), self.revModel20220509),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -463,7 +463,7 @@ class ModelRev:
         logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
         await self.runStorm(storm_crypto_lockout)
 
-    async def revModel20220330(self, layers):
+    async def revModel20220509(self, layers):
 
         await self._normPropValu(layers, 'ou:industry:name')
         await self._propToForm(layers, 'ou:industry:name', 'ou:industryname')
@@ -558,6 +558,8 @@ class ModelRev:
 
     async def _normPropValu(self, layers, propfull):
 
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
         nodeedits = []
         for layr in layers:
 
@@ -566,20 +568,21 @@ class ModelRev:
                 nodeedits.clear()
 
             prop = self.core.model.prop(propfull)
+
             async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
                 try:
                     norm, info = prop.type.norm(propvalu)
                 except s_exc.BadTypeValu as e: # pragma: no cover
                     oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {formname}:{propname}={propvalu} : {oldm}')
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
                     continue
 
                 if norm == propvalu:
                     continue
 
                 nodeedits.append(
-                    (buid, formname, (
-                        (s_layer.EDIT_PROP_SET, (propname, norm, propvalu, prop.type.stortype), ()),
+                    (buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
                     )),
                 )
 
