@@ -1225,6 +1225,24 @@ class LibBase(Lib):
              '_storfunc': '_setRuntDebug',
              '_gtorfunc': '_getRuntDebug',
              'returns': {'type': 'boolean'}}},
+
+        {'name': 'copy', 'desc': '''
+            Create and return a deep copy of the given storm object.
+
+            NOTE: This is currently limited to msgpack compatible primitives.
+
+            Examples:
+                Make a copy of a list or dict::
+
+                    $copy = $lib.copy($item)
+         ''',
+         'type': {'type': 'function', '_funcname': '_copy',
+                  'args': (
+                      {'name': 'item', 'type': 'prim',
+                       'desc': 'The item to make a copy of.', },
+                  ),
+                  'returns': {'type': 'prim',
+                              'desc': 'A deep copy of the primitive object.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1244,6 +1262,7 @@ class LibBase(Lib):
             'min': self._min,
             'max': self._max,
             'set': self._set,
+            'copy': self._copy,
             'dict': self._dict,
             'exit': self._exit,
             'guid': self._guid,
@@ -1321,6 +1340,26 @@ class LibBase(Lib):
         modlib.name = (name,)
 
         return modlib
+
+    @stormfunc(readonly=True)
+    async def _copy(self, item):
+        # short circuit a few python types
+        if item is None:
+            return None
+
+        if isinstance(item, (int, str, bool)):
+            return item
+
+        valu = fromprim(item)
+        if not isinstance(valu, Prim):
+            mesg = 'Type does not support being copied!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        try:
+            return await valu.copy()
+        except s_exc.NoSuchType:
+            mesg = 'Nested type does not support being copied!'
+            raise s_exc.BadArg(mesg=mesg)
 
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
@@ -3425,6 +3464,10 @@ class Prim(StormType):
     def value(self):
         return self.valu
 
+    async def copy(self):
+        mesg = 'Type ({self._storm_typename}) does not support being copied!'
+        raise s_exc.BadArg(mesg=mesg)
+
     async def iter(self):  # pragma: no cover
         for x in ():
             yield x
@@ -3680,6 +3723,10 @@ class Str(Prim):
             return str(self) == str(othr)
         return False
 
+    async def copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
+
     async def _methStrFind(self, valu):
         text = await tostr(valu)
         retn = self.valu.find(text)
@@ -3875,6 +3922,10 @@ class Bytes(Prim):
             return self.valu == othr.valu
         return False
 
+    async def copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
+
     async def slice(self, start, end=None):
         start = await toint(start)
         if end is None:
@@ -3922,6 +3973,10 @@ class Dict(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
 
     async def iter(self):
         for item in tuple(self.valu.items()):
@@ -4218,6 +4273,10 @@ class List(Prim):
 
         self.valu[indx] = valu
 
+    async def copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
+
     async def _derefGet(self, name):
         return await self._methListIndex(name)
 
@@ -4304,6 +4363,10 @@ class Bool(Prim):
     '''
     _storm_typename = 'boolean'
     _ismutable = False
+
+    async def copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
 
     def __str__(self):
         return str(self.value()).lower()

@@ -76,7 +76,7 @@ def _fallback_en(item):
 if pakr is None:  # pragma: no cover
     en = _fallback_en
 
-def un(byts):
+def un(byts, use_list=False):
     '''
     Use msgpack to de-serialize a python object.
 
@@ -223,10 +223,10 @@ def dumpfile(item, path):
     with io.open(path, 'wb') as fd:
         fd.write(en(item))
 
-def deepcopy(item):
+def deepcopy(item, use_list=False):
     '''
     Copy a msgpack serializable by packing then unpacking it.
     For complex primitives, this runs in about 1/3 the time of
     copy.deepcopy()
     '''
-    return un(en(item))
+    return un(en(item), use_list=use_list)
