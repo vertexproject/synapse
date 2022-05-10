@@ -80,6 +80,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(None, await core.callStorm('return($lib.copy($lib.null))'))
             self.eq(True, await core.callStorm('return($lib.copy($lib.true))'))
             self.eq(False, await core.callStorm('return($lib.copy($lib.false))'))
+            self.eq(b'V', await core.callStorm('return($lib.copy($x))', opts={'vars': {'x': b'V'}}))
 
             # is not a Prim
             with self.raises(s_exc.BadArg):

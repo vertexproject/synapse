@@ -3723,10 +3723,6 @@ class Str(Prim):
             return str(self) == str(othr)
         return False
 
-    async def copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
-
     async def _methStrFind(self, valu):
         text = await tostr(valu)
         retn = self.valu.find(text)
@@ -4363,10 +4359,6 @@ class Bool(Prim):
     '''
     _storm_typename = 'boolean'
     _ismutable = False
-
-    async def copy(self):
-        item = await s_coro.ornot(self.value)
-        return s_msgpack.deepcopy(item, use_list=True)
 
     def __str__(self):
         return str(self.value()).lower()
