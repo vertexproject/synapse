@@ -548,9 +548,10 @@ async def docConfdefs(ctor):
         if not desc.endswith('.'):  # pragma: no cover
             logger.warning(f'Description for [{name}] is missing a period.')
 
+        hname = name.replace(':', raw_back_slash_colon)
         lines = []
-        lines.append(name)
-        lines.append('~' * len(name))
+        lines.append(hname)
+        lines.append('~' * len(hname))
         lines.append('')
         lines.append(desc)
 
