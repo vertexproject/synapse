@@ -1394,7 +1394,13 @@ class TeleTest(s_t_utils.SynTest):
         # Test default ports for dmon listening AND telepath connections.
         async with await s_daemon.Daemon.anit() as dmon:
             url = 'tcp://127.0.0.1/'
-            addr, port = await dmon.listen(url)
+            try:
+                addr, port = await dmon.listen(url)
+            except OSError as e:
+                if e.errno == 98:
+                    self.skip('Port 27492 already bound, skipping test.')
+                else:
+                    raise
             self.eq(port, 27492)
 
             foo = Foo()
