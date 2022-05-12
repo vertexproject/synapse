@@ -3465,7 +3465,7 @@ class Prim(StormType):
         return self.valu
 
     async def copy(self):
-        mesg = 'Type ({self._storm_typename}) does not support being copied!'
+        mesg = f'Type ({self._storm_typename}) does not support being copied!'
         raise s_exc.BadArg(mesg=mesg)
 
     async def iter(self):  # pragma: no cover
