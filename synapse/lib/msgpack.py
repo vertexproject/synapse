@@ -92,7 +92,7 @@ def un(byts, use_list=False):
         obj: The de-serialized object
     '''
     # This uses a subset of unpacker_kwargs
-    return msgpack.loads(byts, use_list=False, raw=False, strict_map_key=False, unicode_errors='surrogatepass')
+    return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False, unicode_errors='surrogatepass')
 
 def isok(item):
     '''

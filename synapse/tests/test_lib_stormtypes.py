@@ -60,12 +60,14 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             item = await core.callStorm('''
-            $item = ({"foo": {"bar": "baz"}})
+            $item = ({"foo": {"bar": "baz"}, "hehe": []})
             $copy = $lib.copy($item)
             $item.foo.bar = hehe
+            $copy.hehe.append(lolz)
             return($copy)
             ''')
             self.eq('baz', item['foo']['bar'])
+            self.eq(['lolz'], item['hehe'])
 
             item = await core.callStorm('''
             $item = ([1, 2, 3])
