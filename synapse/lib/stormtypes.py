@@ -1359,7 +1359,7 @@ class LibBase(Lib):
             return await valu.copy()
         except s_exc.NoSuchType:
             mesg = 'Nested type does not support being copied!'
-            raise s_exc.BadArg(mesg=mesg)
+            raise s_exc.BadArg(mesg=mesg) from None
 
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
