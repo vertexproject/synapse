@@ -392,6 +392,7 @@ class StormType:
     '''
     _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
     _ismutable = True
+    _storm_typename = 'storm:unknown'
 
     def __init__(self, path=None):
         self.path = path
@@ -419,6 +420,10 @@ class StormType:
             dict: A key/value pairs.
         '''
         return {}
+
+    async def _storm_copy(self):
+        mesg = f'Type ({self._storm_typename}) does not support being copied!'
+        raise s_exc.BadArg(mesg=mesg)
 
     async def setitem(self, name, valu):
 
@@ -466,6 +471,7 @@ class Lib(StormType):
     A collection of storm methods under a name
     '''
     _ismutable = False
+    _storm_typename = 'storm:lib'
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -1351,12 +1357,12 @@ class LibBase(Lib):
             return item
 
         valu = fromprim(item)
-        if not isinstance(valu, Prim):
+        if not isinstance(valu, StormType):
             mesg = 'Type does not support being copied!'
             raise s_exc.BadArg(mesg=mesg)
 
         try:
-            return await valu.copy()
+            return await valu._storm_copy()
         except s_exc.NoSuchType:
             mesg = 'Nested type does not support being copied!'
             raise s_exc.BadArg(mesg=mesg) from None
@@ -3436,7 +3442,6 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename = None  # type: Any
 
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
@@ -3463,10 +3468,6 @@ class Prim(StormType):
 
     def value(self):
         return self.valu
-
-    async def copy(self):
-        mesg = f'Type ({self._storm_typename}) does not support being copied!'
-        raise s_exc.BadArg(mesg=mesg)
 
     async def iter(self):  # pragma: no cover
         for x in ():
@@ -3918,7 +3919,7 @@ class Bytes(Prim):
             return self.valu == othr.valu
         return False
 
-    async def copy(self):
+    async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
 
@@ -3970,7 +3971,7 @@ class Dict(Prim):
     def __len__(self):
         return len(self.valu)
 
-    async def copy(self):
+    async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
 
@@ -4269,7 +4270,7 @@ class List(Prim):
 
         self.valu[indx] = valu
 
-    async def copy(self):
+    async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
 
