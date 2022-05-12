@@ -88,11 +88,15 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy($lib))')
 
+            # is not a Prim
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy($lib.print))')
+
             # does not support copy()
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy($lib.auth.users.byname(root)))')
 
-            # nested type does not support copy()`
+            # nested type which contains a object that does not support copy()
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.copy(({"lib": $lib})))')
 

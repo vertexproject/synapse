@@ -1356,10 +1356,11 @@ class LibBase(Lib):
         if isinstance(item, (int, str, bool)):
             return item
 
-        valu = fromprim(item)
-        if not isinstance(valu, StormType):
-            mesg = 'Type does not support being copied!'
-            raise s_exc.BadArg(mesg=mesg)
+        try:
+            valu = fromprim(item)
+        except s_exc.NoSuchType:
+            mesg = 'Type does not have a Storm primitive and cannot be copied.'
+            raise s_exc.BadArg(mesg=mesg) from None
 
         try:
             return await valu._storm_copy()
