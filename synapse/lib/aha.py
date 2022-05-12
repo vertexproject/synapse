@@ -442,7 +442,7 @@ class AhaCell(s_cell.Cell):
         if mirror:
             ahanetw = svcentry.get('ahanetw')
             svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None:
+            if svcinfo is None: # pragma: no cover
                 return svcentry
 
             celliden = svcinfo.get('iden')
@@ -461,13 +461,13 @@ class AhaCell(s_cell.Cell):
         async for svcentry in self.getAhaSvcs(network=network):
 
             svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None:
+            if svcinfo is None: # pragma: no cover
                 continue
 
-            if svcinfo.get('iden') != iden:
+            if svcinfo.get('iden') != iden: # pragma: no cover
                 continue
 
-            if svcinfo.get('online') is None:
+            if svcinfo.get('online') is None: # pragma: no cover
                 continue
 
             # if we run across the leader, skip ( and mark his run )
