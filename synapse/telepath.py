@@ -6,6 +6,8 @@ import os
 import ssl
 import copy
 import time
+import yaml
+import random
 import asyncio
 import logging
 import contextlib
@@ -139,6 +141,7 @@ async def getAhaProxy(urlinfo):
     '''
     Return a telepath proxy by looking up a host from an aha registry.
     '''
+    mirror = bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
     host = urlinfo.get('host')
     if host is None:
         mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
@@ -159,7 +162,7 @@ async def getAhaProxy(urlinfo):
         try:
             proxy = await client.proxy(timeout=5)
 
-            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
+            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, mirror=mirror), timeout=5)
             if ahasvc is None:
                 continue
 
@@ -1001,7 +1004,10 @@ class Client(s_base.Base):
         if isinstance(self._t_url, str):
             self._t_urls.append(self._t_url)
             return
-        self._t_urls.extend(self._t_url)
+
+        urls = list(self._t_url)
+        random.shuffle(urls)
+        self._t_urls.extend(urls)
 
     def _getNextUrl(self):
         # TODO url list in deque
@@ -1309,8 +1315,20 @@ async def openurl(url, **opts):
         async with await openurl(url) as proxy:
             valu = await proxy.getFooThing()
     '''
-    info = chopurl(url, **opts)
-    return await openinfo(info)
+    if isinstance(url, (list, tuple)):
+        urls = list(url)
+        random.shuffle(urls)
+        infoz = [chopurl(rurl, **opts) for rurl in urls]
+    else:
+        infoz = [chopurl(url, **opts)]
+
+    last = len(infoz) - 1
+    for (i, info) in enumerate(infoz):
+        try:
+            return await openinfo(info)
+        except s_exc.LinkErr as e:
+            if i == last:
+                raise e
 
 def chopurl(url, **opts):
 
