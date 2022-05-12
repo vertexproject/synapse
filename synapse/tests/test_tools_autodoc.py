@@ -64,7 +64,7 @@ class TestAutoDoc(s_t_utils.SynTest):
                 buf = fd.read()
             s = buf.decode()
 
-            self.isin('auth:passwd', s)
+            self.isin('auth\\:passwd', s)
             self.isin('Environment Variable\n    ``SYN_STORMVARSERVICECELL_AUTH_PASSWD``', s)
             self.isin('The object expects the following properties', s)
             self.notin('``--mirror``', s)
