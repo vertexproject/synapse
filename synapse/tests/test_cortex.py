@@ -76,6 +76,11 @@ class CortexTest(s_t_utils.SynTest):
                     coreconf = {'aha:provision': provurl}
                     async with self.getTestCore(conf=coreconf) as core01:
 
+                        # test out connecting to the leader but having aha chose a mirror
+                        async with s_telepath.loadTeleCell(core01.dirn):
+                            async with await s_telepath.openurl('aha://cortex...?mirror=true') as proxy:
+                                self.eq(await core01.getCellRunId(), await proxy.getCellRunId())
+
                         await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
                         self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
 

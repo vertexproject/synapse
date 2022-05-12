@@ -28,8 +28,12 @@ async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
     ssl = info.get('ssl')
     hostname = info.get('hostname')
 
-    reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
-    return await Link.anit(reader, writer, info=info)
+    try:
+        reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
+        return await Link.anit(reader, writer, info=info)
+    except ConnectionRefusedError:
+        mesg = f'Connection to {host}:{port} was refused by the server.'
+        raise s_exc.LinkRefused(mesg=mesg, host=host, port=port)
 
 async def listen(host, port, onlink, ssl=None):
     '''
