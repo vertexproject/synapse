@@ -1,6 +1,5 @@
 import os
 import copy
-import random
 import logging
 
 import regex
@@ -27,11 +26,11 @@ class AhaApi(s_cell.CellApi):
             return ahaurls
         return()
 
-    async def getAhaSvc(self, name, mirror=False):
+    async def getAhaSvc(self, name):
         '''
         Return an AHA service description dictionary for a service name.
         '''
-        svcinfo = await self.cell.getAhaSvc(name, mirror=mirror)
+        svcinfo = await self.cell.getAhaSvc(name)
         if svcinfo is None:
             return None
 
@@ -423,7 +422,7 @@ class AhaCell(s_cell.Cell):
 
         logger.debug(f'Set [{svcfull}] offline.')
 
-    async def getAhaSvc(self, name, mirror=False):
+    async def getAhaSvc(self, name):
 
         if name.endswith('...'):
             ahanetw = self.conf.get('aha:network')
@@ -434,53 +433,9 @@ class AhaCell(s_cell.Cell):
             name = f'{name[:-2]}{ahanetw}'
 
         path = ('aha', 'svcfull', name)
-        svcentry = await self.jsonstor.getPathObj(path)
-        if svcentry is None:
-            return None
-
-        # if they requested a mirror, try to locate one
-        if mirror:
-            ahanetw = svcentry.get('ahanetw')
-            svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None: # pragma: no cover
-                return svcentry
-
-            celliden = svcinfo.get('iden')
-            mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
-
-            if mirrors:
-                return random.choice(mirrors)
-
-        return svcentry
-
-    async def getAhaSvcMirrors(self, iden, network=None):
-
-        retn = {}
-        skip = None
-
-        async for svcentry in self.getAhaSvcs(network=network):
-
-            svcinfo = svcentry.get('svcinfo')
-            if svcinfo is None: # pragma: no cover
-                continue
-
-            if svcinfo.get('iden') != iden: # pragma: no cover
-                continue
-
-            if svcinfo.get('online') is None: # pragma: no cover
-                continue
-
-            # if we run across the leader, skip ( and mark his run )
-            if svcentry.get('svcname') == svcinfo.get('leader'):
-                skip = svcinfo.get('run')
-                continue
-
-            retn[svcinfo.get('run')] = svcentry
-
-        if skip is not None:
-            retn.pop(skip, None)
-
-        return list(retn.values())
+        svcinfo = await self.jsonstor.getPathObj(path)
+        if svcinfo is not None:
+            return svcinfo
 
     async def genCaCert(self, network):
 
