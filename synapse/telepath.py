@@ -141,7 +141,6 @@ async def getAhaProxy(urlinfo):
     '''
     Return a telepath proxy by looking up a host from an aha registry.
     '''
-    mirror = bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
     host = urlinfo.get('host')
     if host is None:
         mesg = f'getAhaProxy urlinfo has no host: {urlinfo}'
@@ -162,7 +161,16 @@ async def getAhaProxy(urlinfo):
         try:
             proxy = await client.proxy(timeout=5)
 
-            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, mirror=mirror), timeout=5)
+            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
+
+            if cellinfo['synapse']['version'] >= (2, 94, 0):
+                filters = {
+                    'mirror': bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
+                }
+                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
+            else:
+                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, **getargs), timeout=5)
+
             if ahasvc is None:
                 continue
 

@@ -78,6 +78,8 @@ class CortexTest(s_t_utils.SynTest):
 
                         # test out connecting to the leader but having aha chose a mirror
                         async with s_telepath.loadTeleCell(core01.dirn):
+                            # wait for the mirror to think it's ready...
+                            await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=3)
                             async with await s_telepath.openurl('aha://cortex...?mirror=true') as proxy:
                                 self.eq(await core01.getCellRunId(), await proxy.getCellRunId())
 

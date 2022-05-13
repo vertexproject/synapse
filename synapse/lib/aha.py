@@ -27,11 +27,11 @@ class AhaApi(s_cell.CellApi):
             return ahaurls
         return()
 
-    async def getAhaSvc(self, name, mirror=False):
+    async def getAhaSvc(self, name, filters=None):
         '''
         Return an AHA service description dictionary for a service name.
         '''
-        svcinfo = await self.cell.getAhaSvc(name, mirror=mirror)
+        svcinfo = await self.cell.getAhaSvc(name, filters=filters)
         if svcinfo is None:
             return None
 
@@ -76,6 +76,7 @@ class AhaApi(s_cell.CellApi):
         # dont disclose the real session...
         sess = s_common.guid(self.sess.iden)
         info['online'] = sess
+        info.setdefault('ready', True)
 
         if self.link.sock is not None:
             host, port = self.link.sock.getpeername()
@@ -95,6 +96,19 @@ class AhaApi(s_cell.CellApi):
         self.onfini(fini)
 
         return await self.cell.addAhaSvc(name, info, network=network)
+
+    async def modAhaSvcInfo(self, name, svcinfo):
+
+        svcentry = await self.cell.getAhaSvc(name)
+        if svcentry is None:
+            return False
+
+        svcnetw = svcentry.get('svcnetw')
+        svcname = svcentry.get('svcname')
+
+        await self._reqUserAllowed(('aha', 'service', 'add', svcnetw, svcname))
+
+        return await self.cell.modAhaSvcInfo(name, svcinfo)
 
     async def delAhaSvc(self, name, network=None):
         '''
@@ -267,6 +281,11 @@ class AhaCell(s_cell.Cell):
     def getEnvPrefix(cls):
         return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['features']['aha:anymirror'] = True
+        return info
+
     async def initServiceStorage(self):
 
         # TODO plumb using a remote jsonstor?
@@ -358,6 +377,22 @@ class AhaCell(s_cell.Cell):
 
         return svcname, svcnetw, svcfull
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:mod')
+    async def modAhaSvcInfo(self, name, svcinfo):
+
+        svcentry = await self.getAhaSvc(name)
+        if svcentry is None:
+            return False
+
+        svcnetw = svcentry.get('svcnetw')
+        svcname = svcentry.get('svcname')
+
+        path = ('aha', 'services', svcnetw, svcname)
+
+        for prop, valu in svcinfo.items():
+            await self.jsonstor.setPathObjProp(path, ('svcinfo', prop), valu)
+        return True
+
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info, network=None):
 
@@ -423,7 +458,7 @@ class AhaCell(s_cell.Cell):
 
         logger.debug(f'Set [{svcfull}] offline.')
 
-    async def getAhaSvc(self, name, mirror=False):
+    async def getAhaSvc(self, name, filters=None):
 
         if name.endswith('...'):
             ahanetw = self.conf.get('aha:network')
@@ -439,7 +474,7 @@ class AhaCell(s_cell.Cell):
             return None
 
         # if they requested a mirror, try to locate one
-        if mirror:
+        if filters is not None and filters.get('mirror'):
             ahanetw = svcentry.get('ahanetw')
             svcinfo = svcentry.get('svcinfo')
             if svcinfo is None: # pragma: no cover
@@ -468,6 +503,9 @@ class AhaCell(s_cell.Cell):
                 continue
 
             if svcinfo.get('online') is None: # pragma: no cover
+                continue
+
+            if not svcinfo.get('ready'):
                 continue
 
             # if we run across the leader, skip ( and mark his run )
