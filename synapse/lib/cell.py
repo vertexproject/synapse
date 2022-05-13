@@ -1378,10 +1378,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await lead.handoff(myurl)
                 return
 
+        self.modCellConf({'mirror': None})
+
         await self.nexsroot.promote()
         await self.setCellActive(True)
-
-        self.modCellConf({'mirror': None})
 
     async def handoff(self, turl, timeout=30):
         '''
@@ -1407,6 +1407,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 await cell.promote()
                 await self.setCellActive(False)
+
                 self.modCellConf({'mirror': turl})
                 await self.nexsroot.startup()
 
@@ -2390,6 +2391,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return s_common._getLogConfFromEnv()
 
     def modCellConf(self, conf):
+        self.conf.update(conf)
         s_common.yamlmod(conf, self.dirn, 'cell.yaml')
 
     @classmethod
@@ -2906,6 +2908,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,
+                'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
