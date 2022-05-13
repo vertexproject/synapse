@@ -914,20 +914,19 @@ class TeleTest(s_t_utils.SynTest):
             await targ.waitready()
 
             self.eq(110, await targ.dostuff(100))
-            self.eq(1, fail0.count + fail1.count)
+            self.eq(1, fail0.count)
+            self.eq(0, fail1.count)
 
             await dmon0.fini()
 
             self.eq(110, await targ.dostuff(100))
-            self.eq(2, fail0.count + fail1.count)
+            self.eq(1, fail0.count)
+            self.eq(1, fail1.count)
 
         async with await s_telepath.Client.anit(urls) as targ:
 
             with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
 
-                await targ.waitready()
-                proxy = await targ.proxy()
-                await proxy.fini()
                 await targ.waitready()
 
                 # Verify the password doesn't leak into the log
@@ -938,12 +937,8 @@ class TeleTest(s_t_utils.SynTest):
 
             self.eq(110, await targ.dostuff(100))
 
-            self.eq(3, fail0.count + fail1.count)
-
-        # test urlopen on list
-        async with await s_telepath.openurl(urls) as proxy:
-            self.eq(110, await proxy.dostuff(100))
-            self.eq(4, fail0.count + fail1.count)
+            self.eq(1, fail0.count)
+            self.eq(2, fail1.count)
 
         await dmon1.fini()
 
