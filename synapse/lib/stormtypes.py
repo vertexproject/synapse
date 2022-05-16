@@ -1235,7 +1235,8 @@ class LibBase(Lib):
         {'name': 'copy', 'desc': '''
             Create and return a deep copy of the given storm object.
 
-            NOTE: This is currently limited to msgpack compatible primitives.
+            Note:
+                This is currently limited to msgpack compatible primitives.
 
             Examples:
                 Make a copy of a list or dict::
