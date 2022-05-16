@@ -1,6 +1,7 @@
 import pathlib
 
 import synapse.exc as s_exc
+import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_test
 from synapse.tests.utils import alist
@@ -13,142 +14,131 @@ class AuthTest(s_test.SynTest):
 
     async def test_hive_auth(self):
 
-        with self.getTestDir() as testdirn:
+        async with self.getTestCore() as core:
 
-            async with self.getTestTeleHive() as hive:
+            auth = core.auth
 
-                nexsroot = await s_nexus.NexsRoot.anit(testdirn)
-                await nexsroot.startup(None)
+            user = await auth.addUser('visi@vertex.link')
+            role = await auth.addRole('ninjas')
 
-                node = await hive.open(('hive', 'auth'))
+            self.eq(user, auth.user(user.iden))
+            self.eq(user, await auth.getUserByName('visi@vertex.link'))
 
-                async with await s_hiveauth.Auth.anit(node, nexsroot=nexsroot) as auth:
+            self.eq(role, auth.role(role.iden))
+            self.eq(role, await auth.getRoleByName('ninjas'))
 
-                    auth.onfini(nexsroot.fini)
+            with self.raises(s_exc.DupUserName):
+                await auth.addUser('visi@vertex.link')
 
-                    user = await auth.addUser('visi@vertex.link')
-                    role = await auth.addRole('ninjas')
+            with self.raises(s_exc.DupRoleName):
+                await auth.addRole('ninjas')
 
-                    self.eq(user, auth.user(user.iden))
-                    self.eq(user, await auth.getUserByName('visi@vertex.link'))
+            self.nn(user)
 
-                    self.eq(role, auth.role(role.iden))
-                    self.eq(role, await auth.getRoleByName('ninjas'))
+            self.false(user.info.get('admin'))
+            self.len(0, user.info.get('rules'))
+            self.len(1, user.info.get('roles'))
 
-                    with self.raises(s_exc.DupUserName):
-                        await auth.addUser('visi@vertex.link')
+            await user.setAdmin(True)
+            self.true(user.info.get('admin'))
+            self.true(user.allowed(('foo', 'bar')))
 
-                    with self.raises(s_exc.DupRoleName):
-                        await auth.addRole('ninjas')
+            await user.addRule((True, ('foo',)))
+            self.true(user.allowed(('foo', 'bar')))
+            self.len(1, user.permcache)
 
-                    self.nn(user)
+            await user.delRule((True, ('foo',)))
+            self.len(0, user.permcache)
 
-                    self.false(user.info.get('admin'))
-                    self.len(0, user.info.get('rules'))
-                    self.len(1, user.info.get('roles'))
+            await user.addRule((True, ('foo',)))
+            await user.grant(role.iden)
+            self.len(0, user.permcache)
+            self.true(user.allowed(('baz', 'faz')))
+            self.len(1, user.permcache)
 
-                    await user.setAdmin(True)
-                    self.true(user.info.get('admin'))
-                    self.true(user.allowed(('foo', 'bar')))
+            await role.addRule((True, ('baz', 'faz')))
+            self.len(0, user.permcache)
+            self.true(user.allowed(('baz', 'faz')))
+            self.len(1, user.permcache)
 
-                    await user.addRule((True, ('foo',)))
-                    self.true(user.allowed(('foo', 'bar')))
-                    self.len(1, user.permcache)
+            await user.setLocked(True)
+            self.false(user.allowed(('baz', 'faz')))
 
-                    await user.delRule((True, ('foo',)))
-                    self.len(0, user.permcache)
+            await user.setAdmin(False)
+            await user.setLocked(False)
 
-                    await user.addRule((True, ('foo',)))
-                    await user.grant(role.iden)
-                    self.len(0, user.permcache)
-                    self.true(user.allowed(('baz', 'faz')))
-                    self.len(1, user.permcache)
+            self.true(user.allowed(('baz', 'faz')))
+            self.true(user.allowed(('foo', 'bar')))
 
-                    await role.addRule((True, ('baz', 'faz')))
-                    self.len(0, user.permcache)
-                    self.true(user.allowed(('baz', 'faz')))
-                    self.len(1, user.permcache)
+            # Add a DENY to the beginning of the rule list
+            await role.addRule((False, ('baz', 'faz')), indx=0)
+            self.false(user.allowed(('baz', 'faz')))
 
-                    await user.setLocked(True)
-                    self.false(user.allowed(('baz', 'faz')))
+            # Delete the DENY
+            await role.delRule((False, ('baz', 'faz')))
 
-                    await user.setAdmin(False)
-                    await user.setLocked(False)
+            # After deleting, former ALLOW rule applies
+            self.true(user.allowed(('baz', 'faz')))
 
-                    self.true(user.allowed(('baz', 'faz')))
-                    self.true(user.allowed(('foo', 'bar')))
+            # non-existent rule returns default
+            self.none(user.allowed(('boo', 'foo')))
+            self.eq('yolo', user.allowed(('boo', 'foo'), default='yolo'))
 
-                    # Add a DENY to the beginning of the rule list
-                    await role.addRule((False, ('baz', 'faz')), indx=0)
-                    self.false(user.allowed(('baz', 'faz')))
+            await self.asyncraises(s_exc.NoSuchRole, user.revoke('newp'))
 
-                    # Delete the DENY
-                    await role.delRule((False, ('baz', 'faz')))
+            await user.revoke(role.iden)
+            self.none(user.allowed(('baz', 'faz')))
 
-                    # After deleting, former ALLOW rule applies
-                    self.true(user.allowed(('baz', 'faz')))
+            await user.grant(role.iden)
+            self.true(user.allowed(('baz', 'faz')))
 
-                    # non-existent rule returns default
-                    self.none(user.allowed(('boo', 'foo')))
-                    self.eq('yolo', user.allowed(('boo', 'foo'), default='yolo'))
+            await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
 
-                    await self.asyncraises(s_exc.NoSuchRole, user.revoke('newp'))
+            await auth.delRole(role.iden)
+            self.false(user.allowed(('baz', 'faz')))
 
-                    await user.revoke(role.iden)
-                    self.none(user.allowed(('baz', 'faz')))
+            await self.asyncraises(s_exc.NoSuchUser, auth.delUser('fred@accountancy.com'))
 
-                    await user.grant(role.iden)
-                    self.true(user.allowed(('baz', 'faz')))
+            await auth.delUser(user.iden)
+            self.false(user.allowed(('baz', 'faz')))
 
-                    await self.asyncraises(s_exc.NoSuchRole, auth.delRole('accountants'))
+            role = await auth.addRole('lolusers')
+            role2 = await auth.addRole('lolusers2')
 
-                    await auth.delRole(role.iden)
-                    self.false(user.allowed(('baz', 'faz')))
+            self.none(await role.setName('lolusers'))
 
-                    await self.asyncraises(s_exc.NoSuchUser, auth.delUser('fred@accountancy.com'))
+            with self.raises(s_exc.DupRoleName):
+                await role2.setName('lolusers')
 
-                    await auth.delUser(user.iden)
-                    self.false(user.allowed(('baz', 'faz')))
+            await role.setName('roflusers')
 
-                    role = await auth.addRole('lolusers')
-                    role2 = await auth.addRole('lolusers2')
+            self.nn(await auth.getRoleByName('roflusers'))
+            self.none(await auth.getRoleByName('lolusers'))
 
-                    self.none(await role.setName('lolusers'))
+            user = await auth.addUser('user1')
+            user2 = await auth.addUser('user')
 
-                    with self.raises(s_exc.DupRoleName):
-                        await role2.setName('lolusers')
+            # No problem if the user sets her own name to herself
+            self.none(await user.setName('user1'))
 
-                    await role.setName('roflusers')
+            with self.raises(s_exc.DupUserName):
+                await user2.setName('user1')
 
-                    self.nn(await auth.getRoleByName('roflusers'))
-                    self.none(await auth.getRoleByName('lolusers'))
+            await user.setName('user2')
 
-                    user = await auth.addUser('user1')
-                    user2 = await auth.addUser('user')
-
-                    # No problem if the user sets her own name to herself
-                    self.none(await user.setName('user1'))
-
-                    with self.raises(s_exc.DupUserName):
-                        await user2.setName('user1')
-
-                    await user.setName('user2')
-
-                    self.nn(await auth.getUserByName('user2'))
-                    self.none(await auth.getUserByName('user1'))
+            self.nn(await auth.getUserByName('user2'))
+            self.none(await auth.getUserByName('user1'))
 
     async def test_hive_tele_auth(self):
 
         # confirm that the primitives used by higher level APIs
         # work using telepath remotes and property synchronize.
 
-        async with self.getTestHiveDmon() as dmon:
+        async with self.getTestCore() as core:
 
-            hive = dmon.shared.get('hive')
+            addr, port = await core.dmon.listen('tcp://127.0.0.1:0')
 
-            hive.conf['auth:en'] = True
-
-            auth = await hive.getHiveAuth()
+            auth = core.auth
 
             user = await auth.getUserByName('root')
             await user.setPasswd('secret')
@@ -173,23 +163,23 @@ class AuthTest(s_test.SynTest):
             # Reset the password
             await user.setPasswd('secret')
 
-            turl = self.getTestUrl(dmon, 'hive')
+            turl = f'tcp://127.0.0.1:{port}'
 
             # User can't access after being locked
             await user.setLocked(True)
 
             with self.raises(s_exc.AuthDeny):
-                await s_hive.openurl(turl, user='root', passwd='secret')
+                await s_telepath.openurl(turl, user='root', passwd='secret')
 
             await user.setLocked(False)
 
             # User can't access after being unlocked with wrong password
             with self.raises(s_exc.AuthDeny):
-                await s_hive.openurl(turl, user='root', passwd='newpnewp')
+                await s_telepath.openurl(turl, user='root', passwd='newpnewp')
 
             # User can access with correct password after being unlocked with
-            async with await s_hive.openurl(turl, user='root', passwd='secret'):
-                await hive.open(('foo', 'bar'))
+            async with await s_telepath.openurl(turl, user='root', passwd='secret') as proxy:
+                await proxy.getCellInfo()
 
     async def test_hive_authgate_perms(self):
 
