@@ -56,6 +56,50 @@ jsonsbuf = b'''
 
 class StormTypesTest(s_test.SynTest):
 
+    async def test_stormtypes_copy(self):
+
+        async with self.getTestCore() as core:
+            item = await core.callStorm('''
+            $item = ({"foo": {"bar": "baz"}, "hehe": []})
+            $copy = $lib.copy($item)
+            $item.foo.bar = hehe
+            $copy.hehe.append(lolz)
+            return($copy)
+            ''')
+            self.eq('baz', item['foo']['bar'])
+            self.eq(['lolz'], item['hehe'])
+
+            item = await core.callStorm('''
+            $item = ([1, 2, 3])
+            $copy = $lib.copy($item)
+            $item.append((4))
+            return($copy)
+            ''')
+            self.eq((1, 2, 3), item)
+
+            self.eq('woot', await core.callStorm('return($lib.copy(woot))'))
+            self.eq(10, await core.callStorm('return($lib.copy((10)))'))
+            self.eq(None, await core.callStorm('return($lib.copy($lib.null))'))
+            self.eq(True, await core.callStorm('return($lib.copy($lib.true))'))
+            self.eq(False, await core.callStorm('return($lib.copy($lib.false))'))
+            self.eq(b'V', await core.callStorm('return($lib.copy($x))', opts={'vars': {'x': b'V'}}))
+
+            # is not a Prim
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy($lib))')
+
+            # is not a Prim
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy($lib.print))')
+
+            # does not support copy()
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy($lib.auth.users.byname(root)))')
+
+            # nested type which contains a object that does not support copy()
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.copy(({"lib": $lib})))')
+
     async def test_stormtypes_notify(self):
 
         async def testUserNotif(core):
