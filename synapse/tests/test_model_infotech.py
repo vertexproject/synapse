@@ -1090,6 +1090,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:app:yara:rule=$rule
+                    :family=Beacon
                     :created=20200202 :updated=20220401
                     :enabled=true :text=gronk :author=* :name=foo :version=1.2.3 ]
             ''', opts=opts)
@@ -1100,6 +1101,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1580601600000, nodes[0].get('created'))
             self.eq(1648771200000, nodes[0].get('updated'))
             self.eq('gronk', nodes[0].get('text'))
+            self.eq('beacon', nodes[0].get('family'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
             self.len(1, await core.nodes('it:app:yara:rule=$rule -> ps:contact', opts=opts))
@@ -1241,3 +1243,27 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:/a:vertex:synapse'))
             self.len(1, await core.nodes('it:sec:cpe:v2_2=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+
+    async def test_infotech_c2config(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ it:sec:c2:config=*
+                    :file=*
+                    :family=Beacon
+                    :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
+                    :mutex=OnlyOnce
+                    :crypto:key=*
+                    :raw = ({"hehe": "haha"})
+                    :connect:delay=01:00:00
+                    :connect:interval=08:00:00
+                ]
+            ''')
+            node = nodes[0]
+            self.nn(node.get('file'))
+            self.nn(node.get('crypto:key'))
+            self.eq('OnlyOnce', node.get('mutex'))
+            self.eq('beacon', node.get('family'))
+            self.eq(('http://1.2.3.4', 'tcp://visi:secret@vertex.link'), node.get('servers'))
+            self.eq(3600000, node.get('connect:delay'))
+            self.eq(28800000, node.get('connect:interval'))
+            self.eq({'hehe': 'haha'}, node.get('raw'))
