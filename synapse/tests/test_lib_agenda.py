@@ -173,6 +173,7 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore() as core:
 
                 visi = await core.auth.addUser('visi')
+                await visi.setAdmin(True)
 
                 agenda = core.agenda
                 await agenda.start()  # make sure it doesn't blow up
@@ -382,7 +383,6 @@ class AgendaTest(s_t_utils.SynTest):
                 agenda.enabled = True
 
                 unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await asyncio.sleep(0)
                 self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 self.eq(1, appt.startcount)
@@ -396,13 +396,13 @@ class AgendaTest(s_t_utils.SynTest):
                 await visi.setLocked(True)
 
                 with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
-                    unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16,
-                                                 tzinfo=tz.utc).timestamp()
+                    unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16, tzinfo=tz.utc).timestamp()
 
-                    self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+                    # pump the ioloop via sleep(0) until the log message appears
+                    while not stream.wait(0.1):
+                        await asyncio.sleep(0)
 
                     self.eq(2, appt.startcount)
-                    self.true(stream.wait(0.1))
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
