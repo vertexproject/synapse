@@ -1890,7 +1890,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
                     ('mutex', ('it:dev:mutex', {}), {
                         'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
-                    ('group', ('it:dev:str', {}), {
+                    ('campaigncode', ('it:dev:str', {}), {
                         'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
                     ('crypto:key', ('crypto:key', {}), {
                         'doc': 'Static key material used to encrypt C2 communications.'}),

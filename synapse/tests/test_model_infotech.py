@@ -1253,6 +1253,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :servers=(http://1.2.3.4, tcp://visi:secret@vertex.link)
                     :mutex=OnlyOnce
                     :crypto:key=*
+                    :campaigncode=WootWoot
                     :raw = ({"hehe": "haha"})
                     :connect:delay=01:00:00
                     :connect:interval=08:00:00
@@ -1263,6 +1264,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(node.get('crypto:key'))
             self.eq('OnlyOnce', node.get('mutex'))
             self.eq('beacon', node.get('family'))
+            self.eq('WootWoot', node.get('campaigncode'))
             self.eq(('http://1.2.3.4', 'tcp://visi:secret@vertex.link'), node.get('servers'))
             self.eq(3600000, node.get('connect:delay'))
             self.eq(28800000, node.get('connect:interval'))
