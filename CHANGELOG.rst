@@ -18,6 +18,7 @@ Features and Enhancements
 -------------------------
 - Updates to the ``crypto``, ``infotech``, ``org``, and ``person`` models.
   (`#2620 <https://github.com/vertexproject/synapse/pull/2620>`_)
+  (`#2684 <https://github.com/vertexproject/synapse/pull/2684>`_)
 
   ``crypto:algorithm``
     Add a form to represent a named cryptography algorithm.
@@ -55,6 +56,13 @@ Features and Enhancements
     Deprecate the ``:software:name`` property.
     Migrate the ``:name`` and ``:names`` properties to ``it:prod:softname``
     type.
+
+  ``it:app:yara:rule``
+    Add a ``:family`` property to represent the software family the rule is
+    designed to detect.
+
+  ``it:sec:c2:config``
+    Add a form to represent C2 configuration data.
 
   ``ou:campaign``
     Add a ``:org:name`` property to represent the name of the organization
