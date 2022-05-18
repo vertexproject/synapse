@@ -392,6 +392,7 @@ class StormType:
     '''
     _storm_locals = ()  # type: Any # To be overriden for deref constants that need documentation
     _ismutable = True
+    _storm_typename = 'storm:unknown'
 
     def __init__(self, path=None):
         self.path = path
@@ -419,6 +420,10 @@ class StormType:
             dict: A key/value pairs.
         '''
         return {}
+
+    async def _storm_copy(self):
+        mesg = f'Type ({self._storm_typename}) does not support being copied!'
+        raise s_exc.BadArg(mesg=mesg)
 
     async def setitem(self, name, valu):
 
@@ -466,6 +471,7 @@ class Lib(StormType):
     A collection of storm methods under a name
     '''
     _ismutable = False
+    _storm_typename = 'storm:lib'
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -1225,6 +1231,25 @@ class LibBase(Lib):
              '_storfunc': '_setRuntDebug',
              '_gtorfunc': '_getRuntDebug',
              'returns': {'type': 'boolean'}}},
+
+        {'name': 'copy', 'desc': '''
+            Create and return a deep copy of the given storm object.
+
+            Note:
+                This is currently limited to msgpack compatible primitives.
+
+            Examples:
+                Make a copy of a list or dict::
+
+                    $copy = $lib.copy($item)
+         ''',
+         'type': {'type': 'function', '_funcname': '_copy',
+                  'args': (
+                      {'name': 'item', 'type': 'prim',
+                       'desc': 'The item to make a copy of.', },
+                  ),
+                  'returns': {'type': 'prim',
+                              'desc': 'A deep copy of the primitive object.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1244,6 +1269,7 @@ class LibBase(Lib):
             'min': self._min,
             'max': self._max,
             'set': self._set,
+            'copy': self._copy,
             'dict': self._dict,
             'exit': self._exit,
             'guid': self._guid,
@@ -1321,6 +1347,27 @@ class LibBase(Lib):
         modlib.name = (name,)
 
         return modlib
+
+    @stormfunc(readonly=True)
+    async def _copy(self, item):
+        # short circuit a few python types
+        if item is None:
+            return None
+
+        if isinstance(item, (int, str, bool)):
+            return item
+
+        try:
+            valu = fromprim(item)
+        except s_exc.NoSuchType:
+            mesg = 'Type does not have a Storm primitive and cannot be copied.'
+            raise s_exc.BadArg(mesg=mesg) from None
+
+        try:
+            return await valu._storm_copy()
+        except s_exc.NoSuchType:
+            mesg = 'Nested type does not support being copied!'
+            raise s_exc.BadArg(mesg=mesg) from None
 
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
@@ -3397,7 +3444,6 @@ class Prim(StormType):
     '''
     The base type for all Storm primitive values.
     '''
-    _storm_typename = None  # type: Any
 
     def __init__(self, valu, path=None):
         StormType.__init__(self, path=path)
@@ -3875,6 +3921,10 @@ class Bytes(Prim):
             return self.valu == othr.valu
         return False
 
+    async def _storm_copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
+
     async def slice(self, start, end=None):
         start = await toint(start)
         if end is None:
@@ -3922,6 +3972,10 @@ class Dict(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def _storm_copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
 
     async def iter(self):
         for item in tuple(self.valu.items()):
@@ -4217,6 +4271,10 @@ class List(Prim):
             return
 
         self.valu[indx] = valu
+
+    async def _storm_copy(self):
+        item = await s_coro.ornot(self.value)
+        return s_msgpack.deepcopy(item, use_list=True)
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)

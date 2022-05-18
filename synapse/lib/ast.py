@@ -194,7 +194,6 @@ class Query(AstNode):
 
             limit = runt.getOpt('limit')
             if limit is not None and count >= limit:
-                await runt.printf('limit reached: %d' % (limit,))
                 break
 
 class Lookup(Query):

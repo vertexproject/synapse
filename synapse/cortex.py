@@ -3096,7 +3096,11 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.jsonurl = self.conf.get('jsonstor')
         if self.jsonurl is not None:
-            self.jsonstor = await s_telepath.Client.anit(self.jsonurl)
+
+            async def onlink(proxy: s_telepath.Proxy):
+                logger.debug(f'Connected to remote jsonstor {s_urlhelp.sanitizeUrl(self.jsonurl)}')
+
+            self.jsonstor = await s_telepath.Client.anit(self.jsonurl, onlink=onlink)
         else:
             path = os.path.join(self.dirn, 'jsonstor')
             jsoniden = s_common.guid((self.iden, 'jsonstor'))
@@ -4464,7 +4468,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_common.deprecated('addFeedData(syn.nodeedits, ...)')
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
-            await snap.applyNodeEdits(item)
+            await snap.saveNodeEdits(item, None)
 
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)

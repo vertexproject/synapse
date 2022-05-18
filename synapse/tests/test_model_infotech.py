@@ -129,6 +129,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://redtree.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.len(3, await core.nodes('it:prod:softname=redtree -> it:mitre:attack:software -> it:prod:softname'))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:mitigation=M0100
@@ -452,6 +453,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 url0 = 'https://vertex.link/products/balloonmaker'
                 sprops = {
                     'name': 'Balloon Maker',
+                    'names': ('clowns inc',),
                     'desc': "Pennywise's patented balloon blower upper",
                     'desc:short': 'Balloon blower',
                     'author:org': org0,
@@ -478,6 +480,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 self.eq(node.get('url'), url0)
 
+                self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
+
                 # it:prod:softver - this does test a bunch of property related callbacks
                 url1 = 'https://vertex.link/products/balloonmaker/release_101-beta.exe'
                 vprops = {
@@ -487,6 +491,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'software': prod0,
                     'arch': 'amd64',
                     'name': 'balloonmaker',
+                    'names': ('clowns inc',),
                     'desc': 'makes balloons',
                 }
                 ver0 = s_common.guid()
@@ -496,7 +501,6 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('arch'), 'amd64')
                 self.eq(node.get('released'), 1522745062000)
                 self.eq(node.get('software'), prod0)
-                self.eq(node.get('software:name'), 'balloon maker')
                 self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
                 self.eq(node.get('vers:norm'), 'v1.0.1-beta+exp.sha.5114f85')
                 self.eq(node.get('semver'), 0x000010000000001)
@@ -513,6 +517,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
                 nodes = await snap.nodes('it:dev:str=amd64')
                 self.len(1, nodes)
+                self.len(2, await core.nodes('it:prod:softname="balloonmaker" -> it:prod:softver -> it:prod:softname'))
 
                 host0 = s_common.guid()
                 node = await snap.addNode('it:hostsoft', (host0, ver0))

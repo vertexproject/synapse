@@ -163,6 +163,7 @@ class IsRuntForm(SynErr): pass
 class LayerInUse(SynErr): pass
 
 class LinkErr(SynErr): pass
+class LinkBadCert(LinkErr): pass
 class LinkShutDown(LinkErr): pass
 
 class NoCertKey(SynErr):

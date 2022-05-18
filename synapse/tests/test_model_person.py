@@ -118,6 +118,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'web:accts': (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')),
                     'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
                     'users': ('visi', 'invisigoth'),
+                    'crypto:address': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 }
 
                 node = await snap.addNode('ps:contact', con0, cprops)
@@ -148,6 +149,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('emails'), ('v@vtx.lk', 'visi@vertex.link'))
                 self.eq(node.get('web:accts'), (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')))
                 self.eq(node.get('users'), ('invisigoth', 'visi'))
+                self.eq(node.get('crypto:address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
                 self.len(2, node.get('id:numbers'))
 
                 self.eq(node.get('birth:place:loc'), 'us.va.reston')

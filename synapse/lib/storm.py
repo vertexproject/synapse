@@ -3117,7 +3117,6 @@ class LimitCmd(Cmd):
             count += 1
 
             if count >= self.opts.count:
-                await runt.printf(f'limit reached: {self.opts.count}')
                 break
 
 class UniqCmd(Cmd):

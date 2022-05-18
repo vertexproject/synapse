@@ -46,7 +46,7 @@ class ViewApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
         self.view = view
         layriden = view.layers[0].iden
-        self.allowedits = user.allowed(('node'), gateiden=layriden)
+        self.allowedits = user.allowed(('node',), gateiden=layriden)
 
     async def storNodeEdits(self, edits, meta):
 
@@ -948,7 +948,7 @@ class View(s_nexus.Pusher):  # type: ignore
         user = await self.core.auth.reqUser(meta.get('user'))
         async with await self.snap(user=user) as snap:
             # go with the anti-pattern for now...
-            await snap.applyNodeEdits(edits)
+            await snap.saveNodeEdits(edits, None)
 
     async def storNodeEdits(self, edits, meta):
         return await self.addNodeEdits(edits, meta)

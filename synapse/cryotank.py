@@ -270,7 +270,7 @@ class CryoCell(s_cell.Cell):
 
     @classmethod
     def getEnvPrefix(cls):
-        return 'SYN_CRYOTANK'
+        return ('SYN_CRYOTANK', )
 
     async def getCellApi(self, link, user, path):
 

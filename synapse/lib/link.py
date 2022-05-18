@@ -2,6 +2,8 @@ import socket
 import asyncio
 import logging
 
+from OpenSSL import crypto
+
 import collections
 
 logger = logging.getLogger(__name__)
@@ -15,11 +17,17 @@ import synapse.lib.msgpack as s_msgpack
 
 readsize = 10 * s_const.megabyte
 
-async def connect(host, port, ssl=None, hostname=None):
+async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
     '''
     Async connect and return a Link().
     '''
     info = {'host': host, 'port': port, 'ssl': ssl, 'hostname': hostname}
+    if linkinfo is not None:
+        info.update(linkinfo)
+
+    ssl = info.get('ssl')
+    hostname = info.get('hostname')
+
     reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
     return await Link.anit(reader, writer, info=info)
 
@@ -125,7 +133,6 @@ class Link(s_base.Base):
                 self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
 
         self.info = info
-        self.hostname = self.info.get('hostname')
 
         self.unpk = s_msgpack.Unpk()
 
@@ -138,7 +145,19 @@ class Link(s_base.Base):
 
         self.onfini(fini)
 
-        if self.hostname is not None:
+        self.certhash = info.get('certhash')
+        self.hostname = info.get('hostname')
+
+        if self.certhash is not None:
+
+            byts = info.get('ssl').telessl.getpeercert(True)
+            cert = crypto.load_certificate(crypto.FILETYPE_ASN1, byts)
+            thishash = cert.digest('SHA256').decode().lower().replace(':', '')
+            if thishash != self.certhash:
+                mesg = f'Server cert does not match pinned certhash={self.certhash}.'
+                raise s_exc.LinkBadCert(mesg=mesg)
+
+        elif self.hostname is not None:
             if self.hostname != self.getTlsPeerCn():
                 mesg = f'Expected: {self.hostname} Got: {self.getTlsPeerCn()}'
                 await self.fini()

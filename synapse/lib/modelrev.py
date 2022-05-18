@@ -7,7 +7,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 8)
+maxvers = (0, 2, 9)
 
 class ModelRev:
 
@@ -21,6 +21,7 @@ class ModelRev:
             ((0, 2, 6), self.revModel20211112),
             ((0, 2, 7), self.revModel20220307),
             ((0, 2, 8), self.revModel20220315),
+            ((0, 2, 9), self.revModel20220509),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -462,6 +463,26 @@ class ModelRev:
         logger.debug('Locking out crypto:currency:transaction :input and :output properties.')
         await self.runStorm(storm_crypto_lockout)
 
+    async def revModel20220509(self, layers):
+
+        await self._normPropValu(layers, 'ou:industry:name')
+        await self._propToForm(layers, 'ou:industry:name', 'ou:industryname')
+
+        await self._normPropValu(layers, 'it:prod:soft:name')
+        await self._normPropValu(layers, 'it:prod:soft:names')
+        await self._normPropValu(layers, 'it:prod:softver:name')
+        await self._normPropValu(layers, 'it:prod:softver:names')
+        await self._normPropValu(layers, 'it:mitre:attack:software:name')
+        await self._normPropValu(layers, 'it:mitre:attack:software:names')
+
+        await self._propToForm(layers, 'it:prod:soft:name', 'it:prod:softname')
+        await self._propToForm(layers, 'it:prod:softver:name', 'it:prod:softname')
+        await self._propToForm(layers, 'it:mitre:attack:software:name', 'it:prod:softname')
+
+        await self._propArrayToForm(layers, 'it:prod:soft:names', 'it:prod:softname')
+        await self._propArrayToForm(layers, 'it:prod:softver:names', 'it:prod:softname')
+        await self._propArrayToForm(layers, 'it:mitre:attack:software:names', 'it:prod:softname')
+
     async def runStorm(self, text, opts=None):
         '''
         Run storm code in a schedcoro and log the output messages.
@@ -534,3 +555,97 @@ class ModelRev:
 
         await self.core._disableMigrationMode()
         logger.warning('...model migrations complete!')
+
+    async def _normPropValu(self, layers, propfull):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop(propfull)
+
+            async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
+                try:
+                    norm, info = prop.type.norm(propvalu)
+                except s_exc.BadTypeValu as e: # pragma: no cover
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                    continue
+
+                if norm == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
+
+    async def _propToForm(self, layers, propfull, formname):
+
+        propname = self.core.model.prop(propfull).name
+
+        opts = {'vars': {
+            'layridens': [layr.iden for layr in layers],
+            'formname': formname,
+            'propfull': propfull,
+            'propname': self.core.model.prop(propfull).name,
+        }}
+
+        storm = '''
+        $layers = $lib.set()
+        $layers.adds($layridens)
+
+        for $view in $lib.view.list(deporder=$lib.true) {
+
+            if (not $layers.has($view.layers.0.iden)) { continue }
+
+            view.exec $view.iden {
+                yield $lib.layer.get().liftByProp($propfull)
+                [ *$formname=$node.props.get($propname) ]
+            }
+        }
+        '''
+        await self.runStorm(storm, opts=opts)
+
+    async def _propArrayToForm(self, layers, propfull, formname):
+
+        propname = self.core.model.prop(propfull).name
+
+        opts = {'vars': {
+            'layridens': [layr.iden for layr in layers],
+            'formname': formname,
+            'propfull': propfull,
+            'propname': self.core.model.prop(propfull).name,
+        }}
+
+        storm = '''
+        $layers = $lib.set()
+        $layers.adds($layridens)
+
+        for $view in $lib.view.list(deporder=$lib.true) {
+
+            if (not $layers.has($view.layers.0.iden)) { continue }
+
+            view.exec $view.iden {
+
+                yield $lib.layer.get().liftByProp($propfull)
+                for $item in $node.props.get($propname) {
+                    [ *$formname=$item ]
+                }
+
+            }
+        }
+        '''
+        await self.runStorm(storm, opts=opts)

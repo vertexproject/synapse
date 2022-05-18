@@ -8,7 +8,6 @@ This User Guide is written by and for Synapse users and is intended to provide a
 The User Guide is a living document and will continue to be updated and expanded as appropriate. The current sections are:
 
 .. toctree::
-    :titlesonly:
 
     userguides/index_bkd
 
