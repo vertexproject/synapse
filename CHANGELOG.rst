@@ -20,7 +20,7 @@ Features and Enhancements
   (`#2620 <https://github.com/vertexproject/synapse/pull/2620>`_)
 
   ``crypto:algorithm``
-    Add a form to represent a named cryptography algorithms.
+    Add a form to represent a named cryptography algorithm.
 
   ``crypto:key``
     Add a form to represent a cryptographic key and algorithm.
@@ -61,7 +61,7 @@ Features and Enhancements
     responsible the campaign.
     Add a ``:org:fqdn`` property to represent the fqdn of the organization
     responsible the campaign.
-    Add a ``:team`` property to reprsent the team responsible for the
+    Add a ``:team`` property to represent the team responsible for the
     campaign.
 
   ``ou:team``
@@ -72,10 +72,10 @@ Features and Enhancements
     Add a ``:names`` property for alternative names.
 
   ``ou:industryname``
-    Add a form to represent the name of a industry.
+    Add a form to represent the name of an industry.
 
   ``ou:position``
-    Add a ``:team`` property to represent teh team associated with a given
+    Add a ``:team`` property to represent the team associated with a given
     position.
 
   ``ps:contact``
