@@ -3521,3 +3521,7 @@ class StormTest(s_t_utils.SynTest):
             q = 'iden ssl://svcrs:27492?certname=root=bar'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)
+
+            q = "$foo=one $bar=two $lib.print($lib.str.concat($foo, '=', $bar))"
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("one=two", msgs)
