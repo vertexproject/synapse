@@ -281,11 +281,6 @@ class AhaCell(s_cell.Cell):
     def getEnvPrefix(cls):
         return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
-    async def getCellInfo(self):
-        info = await s_cell.Cell.getCellInfo(self)
-        info['features']['aha:anymirror'] = True
-        return info
-
     async def initServiceStorage(self):
 
         # TODO plumb using a remote jsonstor?
