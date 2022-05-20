@@ -775,6 +775,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_config_safety
 
       - gh-release/dorelease:
           requires:

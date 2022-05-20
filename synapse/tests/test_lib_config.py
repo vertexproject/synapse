@@ -186,10 +186,22 @@ class ConfTest(s_test.SynTest):
         self.isin('<synapse.lib.config.Config at 0x', valu)
         self.isin('conf={', valu)
 
-        # We can set invalid items and ensure the config is no longer valid.
-        conf['key:array'] = 'Totally not an array.'
-        self.raises(s_exc.BadConfValu, conf.reqConfValid)
-        del conf['key:array']
+        # All items are validated when they are set.
+        conf.pop('key:array')
+        with self.raises(s_exc.BadArg):
+            conf['key:newp:newp:newp'] = 'newp'
+        with self.raises(s_exc.SchemaViolation) as cm:
+            conf['key:array'] = 'Totally not an array.'
+        with self.raises(s_exc.SchemaViolation):
+            conf.update({'key:array': 'Totally not an array.'})
+        with self.raises(s_exc.SchemaViolation):
+            conf.setdefault('key:array', 'Totally not an array.')
+
+        # Including envar sets
+        with self.raises(s_exc.SchemaViolation):
+            with self.setTstEnvars(KEY_ARRAY=None,
+                                   ):
+                conf.setConfFromEnvs()
 
         # We can do prefix-bassed collection of envar data.
         conf2 = s_config.Config(s_test.test_schema, envar_prefixes=('beeper',))

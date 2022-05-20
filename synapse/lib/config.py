@@ -141,6 +141,15 @@ class Config(c_abc.MutableMapping):
         self._argparse_conf_parsed_names = {}
         self.envar_prefixes = envar_prefixes
         self.validator = getJsValidator(self.json_schema)
+        self._prop_schemas = {}
+        self._prop_validators = {}
+        for k, v in self.json_schema.get('properties').items():
+            prop_schema = {
+                '$schema': 'http://json-schema.org/draft-07/schema#',
+            }
+            prop_schema.update(v)
+            self._prop_schemas[k] = prop_schema
+            self._prop_validators[k] = getJsValidator(prop_schema)
 
     @classmethod
     def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):
@@ -346,6 +355,16 @@ class Config(c_abc.MutableMapping):
 
         return self.conf.get(key)
 
+    def reqKeyValid(self, key, value):
+        validator = self._prop_validators.get(key)
+        if validator is None:
+            raise s_exc.BadArg(mesg=f'Key {key} is not a valid config', )
+        try:
+            validator(value)
+        except s_exc.SchemaViolation as e:
+            raise s_exc.SchemaViolation(mesg=e.get('mesg'), name=key) from None
+        return
+
     def asDict(self):
         '''
         Get a copy of configuration data.
@@ -373,11 +392,7 @@ class Config(c_abc.MutableMapping):
         return self.conf.__delitem__(key)
 
     def __setitem__(self, key, value):
-        # This explicitly doesn't do any type validation.
-        # The type validation is done on-demand, in order to
-        # allow a user to incrementally construct the config
-        # from different sources before turning around and
-        # doing a validation pass which may fail.
+        self.reqKeyValid(key, value)
         return self.conf.__setitem__(key, value)
 
     def __getitem__(self, item):
