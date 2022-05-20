@@ -136,7 +136,7 @@ class Config(c_abc.MutableMapping):
             conf = {}
         if envar_prefixes is None:
             envar_prefixes = ('', )
-        self.conf = conf
+        self.conf = {}
         self._argparse_conf_names = {}
         self._argparse_conf_parsed_names = {}
         self.envar_prefixes = envar_prefixes
@@ -150,6 +150,9 @@ class Config(c_abc.MutableMapping):
             prop_schema.update(v)
             self._prop_schemas[k] = prop_schema
             self._prop_validators[k] = getJsValidator(prop_schema)
+        # Copy the data in so that it is validated.
+        for k, v in conf.items():
+            self[k] = v
 
     @classmethod
     def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):
@@ -356,6 +359,20 @@ class Config(c_abc.MutableMapping):
         return self.conf.get(key)
 
     def reqKeyValid(self, key, value):
+        '''
+        Test is a key is valid for the provided schema it is associated with.
+
+        Args:
+            key (str): Key to check.
+            value: Value to check.
+
+        Raises:
+            BadArg: If the key is not valid.
+            SchemaViolation: If the data is not schema valid.
+
+        Returns:
+            None when valid.
+        '''
         validator = self._prop_validators.get(key)
         if validator is None:
             raise s_exc.BadArg(mesg=f'Key {key} is not a valid config', )

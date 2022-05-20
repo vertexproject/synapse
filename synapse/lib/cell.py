@@ -2542,8 +2542,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for name, valu in provconf.items():
                 self.conf[name] = valu
 
-            self.conf.reqConfValid()
-
             # save our config state
             self.modCellConf(provconf)
 
