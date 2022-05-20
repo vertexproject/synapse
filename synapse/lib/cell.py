@@ -2387,6 +2387,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return s_common._getLogConfFromEnv()
 
     def modCellConf(self, conf):
+        '''
+        Modify the Cell's ondisk configuration file.
+
+        Args:
+            conf (dict): A dictionary of items to set.
+
+        Notes:
+            This does require the data being set to be schema valid.
+
+        Returns:
+            None.
+        '''
+        for key, valu in conf.items():
+            self.conf.reqKeyValid(key, valu)
         s_common.yamlmod(conf, self.dirn, 'cell.yaml')
 
     @classmethod
@@ -2647,14 +2661,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
-        conf.setdefault('_log_conf', logconf)
-
-        conf.setConfFromOpts(opts)
-        conf.setConfFromFile(path)
-        updates = conf.setConfFromEnvs()
-
-        if updates:
-            s_common.yamlmod(updates, path)
+        try:
+            conf.setdefault('_log_conf', logconf)
+            conf.setConfFromOpts(opts)
+            conf.setConfFromFile(path)
+            updates = conf.setConfFromEnvs()
+            if updates:
+                s_common.yamlmod(updates, path)
+        except:
+            logger.exception(f'Error while bootstrapping cell config.')
+            raise
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
