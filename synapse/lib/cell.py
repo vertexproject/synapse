@@ -845,61 +845,64 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidecmdl': True,
         },
         'inaugural': {
-            'defs': {
-                'rule': {
-                    'type': 'array',
-                    'items': [
-                        {'type': 'boolean'},
-                        {'type': 'array', 'items': {'type': 'string'}, },
-                    ],
-                    'minItems': 2,
-                    'maxItems': 2,
-                },
-                'role': {
-                    'type': 'object',
-                    'properties': {
-                        'name': {'type': 'string',
-                                 'pattern': '^(?!all$).+$',
-                                 },
-                        'rules': {
-                            'type': 'array',
-                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
-                        }
-                    },
-                    'required': ['name', ],
-                    'additionalProperties': False,
-                },
-                'user': {
-                    'type': 'object',
-                    'properties': {
-                        'name': {'type': 'string',
-                                 'pattern': '^(?!root$).+$',
-                                 },
-                        'admin': {'type': 'boolean', 'default': False, },
-                        'email': {'type': 'string', },
-                        'roles': {
-                            'type': 'array',
-                            'items': {'type': 'string'},
-                        },
-                        'rules': {
-                            'type': 'array',
-                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
-                        },
-                    },
-                    'required': ['name', ],
-                    'additionalProperties': False,
-                }
-            },
             'description': 'Data used to drive configuration of the service upon first startup.',
             'type': 'object',
             'properties': {
                 'roles': {
                     'type': 'array',
-                    'items': {'$ref': '#/properties/inaugural/defs/role'}
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string',
+                                     'pattern': '^(?!all$).+$',
+                                     },
+                            'rules': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'boolean'},
+                                        {'type': 'array', 'items': {'type': 'string'}, },
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                            }
+                        },
+                        'required': ['name', ],
+                        'additionalProperties': False,
+                    }
                 },
                 'users': {
                     'type': 'array',
-                    'items': {'$ref': '#/properties/inaugural/defs/user'}
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string',
+                                     'pattern': '^(?!root$).+$',
+                                     },
+                            'admin': {'type': 'boolean', 'default': False, },
+                            'email': {'type': 'string', },
+                            'roles': {
+                                'type': 'array',
+                                'items': {'type': 'string'},
+                            },
+                            'rules': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'boolean'},
+                                        {'type': 'array', 'items': {'type': 'string'}, },
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                            },
+                        },
+                        'required': ['name', ],
+                        'additionalProperties': False,
+                    }
                 }
             },
         },
