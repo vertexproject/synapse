@@ -924,15 +924,29 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
+            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
+                         'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
-                            'help': 'Make the trigger run in the background.'}),
+                         'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
         ),
         'storm': '''
-            $trig = $lib.trigger.add($cmdopts)
+            $opts = $lib.copy($cmdopts)
+
+            // Set valid tdef keys
+            if $opts.disabled {
+                $opts.enabled = $lib.false
+            } else {
+                $opts.enabled = $lib.true
+            }
+
+            // Remove invalid tdef keys
+            $opts.help = $lib.undef
+            $opts.disabled = $lib.undef
+
+            $trig = $lib.trigger.add($opts)
             $lib.print("Added trigger: {iden}", iden=$trig.iden)
         ''',
     },

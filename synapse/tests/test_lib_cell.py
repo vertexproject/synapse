@@ -880,8 +880,8 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             with self.getAsyncLoggerStream('synapse.lib.cell',
                                            'Error while bootstrapping cell config') as stream:
-                with self.raises(s_exc.SchemaViolation) as cm:
-                    with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):
+                with self.raises(s_exc.BadConfValu) as cm:
+                    with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):  # interpreted as a yaml bool true
                         async with await s_cell.Cell.initFromArgv([dirn, ]):
                             pass
                 self.eq(cm.exception.get('name'), 'auth:passwd')

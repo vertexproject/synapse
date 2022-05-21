@@ -190,15 +190,15 @@ class ConfTest(s_test.SynTest):
         conf.pop('key:array')
         with self.raises(s_exc.BadArg):
             conf['key:newp:newp:newp'] = 'newp'
-        with self.raises(s_exc.SchemaViolation) as cm:
+        with self.raises(s_exc.BadConfValu) as cm:
             conf['key:array'] = 'Totally not an array.'
-        with self.raises(s_exc.SchemaViolation):
+        with self.raises(s_exc.BadConfValu):
             conf.update({'key:array': 'Totally not an array.'})
-        with self.raises(s_exc.SchemaViolation):
+        with self.raises(s_exc.BadConfValu):
             conf.setdefault('key:array', 'Totally not an array.')
 
         # Including envar sets
-        with self.raises(s_exc.SchemaViolation):
+        with self.raises(s_exc.BadConfValu):
             with self.setTstEnvars(KEY_ARRAY=None,
                                    ):
                 conf.setConfFromEnvs()
@@ -225,7 +225,7 @@ class ConfTest(s_test.SynTest):
         with self.raises(s_exc.BadArg) as cm:
             s_config.Config.getConfFromCell(SchemaCell, {'test:newp': 'haha'})
 
-        with self.raises(s_exc.SchemaViolation) as cm:
+        with self.raises(s_exc.BadConfValu) as cm:
             s_config.Config.getConfFromCell(SchemaCell, {'apikey': 1234})
         self.eq(cm.exception.get('name'), 'apikey')
 

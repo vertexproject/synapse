@@ -899,6 +899,13 @@ class View(s_nexus.Pusher):  # type: ignore
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
 
+        # Several values may be present in tdef from packed triggers.
+        # Remove them since they are not valid to persist.
+        tdef.pop('startcount', None)
+        tdef.pop('errcount', None)
+        tdef.pop('lasterrs', None)
+        tdef.pop('username', None)
+
         s_trigger.reqValidTdef(tdef)
 
         return await self._push('trigger:add', tdef)

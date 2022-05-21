@@ -3612,11 +3612,14 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.mod "" {#foo}')
             self.stormIsInErr('matches more than one', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --prop another --query {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tag:add --prop another:thing --query {[ +#count2 ]}')
             self.stormIsInErr("data must contain ['tag']", mesgs)
 
+            mesgs = await core.stormlist('trigger.add tag:add --prop another --query {[ +#count2 ]}')
+            self.stormIsInErr("data must match pattern", mesgs)
+
             mesgs = await core.stormlist('trigger.add tug:udd --prop another --query {[ +#count2 ]}')
-            self.stormIsInErr('data.cond must be one of', mesgs)
+            self.stormIsInErr('Invalid config for cond, data must be one of', mesgs)
 
             mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')
             self.stormIsInPrint('Missing a required option: --query', mesgs)
@@ -3657,7 +3660,8 @@ class StormTypesTest(s_test.SynTest):
             # Trigger pack
             q = f'return ($lib.trigger.get({trigiden}).pack())'
             trigdef = await core.callStorm(q)
-            self.false(trigdef.get('disabled'))
+            self.notin('disabled', trigdef)
+            self.true(trigdef.get('enabled'))
             self.nn(trigdef.get('user'))
             self.nn(trigdef.get('view'))
             self.eq(trigdef.get('storm'), '[ test:int=99 ] | spin')

@@ -368,7 +368,7 @@ class Config(c_abc.MutableMapping):
 
         Raises:
             BadArg: If the key is not valid.
-            SchemaViolation: If the data is not schema valid.
+            BadConfValu: If the data is not schema valid.
 
         Returns:
             None when valid.
@@ -379,7 +379,7 @@ class Config(c_abc.MutableMapping):
         try:
             validator(value)
         except s_exc.SchemaViolation as e:
-            raise s_exc.SchemaViolation(mesg=e.get('mesg'), name=key) from None
+            raise s_exc.BadConfValu(mesg=f'Invalid config for {key}, {e.get("mesg")}', name=key, value=value) from None
         return
 
     def asDict(self):
