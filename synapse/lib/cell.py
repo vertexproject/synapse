@@ -745,7 +745,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
-            'type': 'string',
+            'type': ['string', 'null'],
             'hidedocs': True,
             'hidecmdl': True,
         },
