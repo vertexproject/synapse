@@ -3690,7 +3690,7 @@ class StormTypesTest(s_test.SynTest):
                 $tdef = $lib.dict(
                     condition='node:add',
                     form='test:str',
-                    query='{[ +#tagged ]}',
+                    storm='{[ +#tagged ]}',
                 )
                 $trig = $lib.trigger.add($tdef)
                 return($trig.iden)
@@ -3722,7 +3722,7 @@ class StormTypesTest(s_test.SynTest):
                 $tdef = $lib.dict(
                     condition='node:add',
                     form='test:str',
-                    query='{[ +#tagged ]}',
+                    storm='{[ +#tagged ]}',
                     iden=$trig
                 )
                 $trig = $lib.trigger.add($tdef)
