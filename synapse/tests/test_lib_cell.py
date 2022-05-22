@@ -1468,3 +1468,32 @@ class CellTest(s_t_utils.SynTest):
 
             foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
             self.false(os.path.isdir(foonest))
+
+    async def test_mirror_badiden(self):
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'cell00')
+            path01 = s_common.gendir(dirn, 'coll01')
+
+            conf00 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                      'https:port': 0,
+                      'nexslog:en': True,
+                      }
+            async with await s_cell.Cell.anit(conf=conf00, dirn=path00) as cell00:
+
+                conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                          'https:port': 0,
+                          'mirror': cell00.getLocalUrl(),
+                          'nexslog:en': True,
+                          }
+
+                # Create the bad cortex with its own guid
+                async with await s_cell.Cell.anit(dirn=path01, conf={'nexslog:en': True,
+                                                               }) as cell01:
+                    pass
+
+                with self.getAsyncLoggerStream('synapse.lib.nexus',
+                                               'has different iden') as stream:
+                    async with await s_cell.Cell.anit(conf=conf01, dirn=path01) as cell01:
+                        await stream.wait(timeout=2)
+                        self.true(await cell01.waitfini(6))

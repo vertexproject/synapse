@@ -1377,7 +1377,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.nexsroot.promote()
         await self.setCellActive(True)
 
-        self.modCellConf({'mirror': None})
+        self.popCellConf('mirror')
 
     async def handoff(self, turl, timeout=30):
         '''
@@ -2402,6 +2402,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for key, valu in conf.items():
             self.conf.reqKeyValid(key, valu)
         s_common.yamlmod(conf, self.dirn, 'cell.yaml')
+
+    def popCellConf(self, name):
+        '''
+        Remove a key from the Cell's ondisk configuration file.
+
+        Args:
+            name (str): Name of the value to remove.
+
+        Returns:
+            None
+        '''
+        s_common.yamlpop(name, self.dirn, 'cell.yaml')
 
     @classmethod
     def getCellType(cls):
