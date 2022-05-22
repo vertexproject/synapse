@@ -865,6 +865,16 @@ class CellTest(s_t_utils.SynTest):
                 self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
                 self.isin('...cell API (https): disabled', buf)
 
+    async def test_cell_initargv_conf(self):
+        async with self.withSetLoggingMock():
+            # Ensure that envars are persisted into the cell config
+            with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true'):
+                with self.getTestDir() as dirn:
+                    async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                        self.true(cell.conf.reqConfValu('nexslog:en'))
+                    obj = s_common.yamlload(dirn, 'cell.yaml')
+                    self.eq(obj, {'nexslog:en': True, })
+
     async def test_initargv_failure(self):
         if not os.path.exists('/dev/null'):
             self.skip('Test requires /dev/null to exist.')
