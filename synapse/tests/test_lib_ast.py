@@ -163,7 +163,7 @@ async def matchContexts(testself):
 
 class AstTest(s_test.SynTest):
 
-    async def test_lookup_search(self):
+    async def test_mode_search(self):
 
         conf = {'provenance:en': False}
         async with self.getTestCore(conf=conf) as core:
@@ -182,7 +182,7 @@ class AstTest(s_test.SynTest):
             })
             await core.nodes('[ ou:org=* :name=apt1 ]')
             await core.nodes('[ ou:org=* :name=vertex ]')
-            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
+            nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
             self.eq('apt1', nodes[0].props.get('name'))
 
