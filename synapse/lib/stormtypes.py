@@ -1654,25 +1654,6 @@ class LibStr(Lib):
                        'desc': 'Keyword values which are substituted into the string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string.', }}},
-        {'name': 'urlencode', 'desc': '''
-            Urlencode a text string.
-
-            This will replace special characters in a string using the %xx escape and
-            replace spaces with plus signs.
-
-            Examples:
-                Urlencode a string::
-
-                    cli> storm $str="http://go ogle.com"
-                         $str=$lib.str.urlencode($str)
-                         $lib.print($str)
-
-                    http%3A%2F%2Fgo+ogle.com''',
-         'type': {'type': 'function', '_funcname': 'urlencode',
-                  'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The text string.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The urlencoded string.', }}},
     )
     _storm_lib_path = ('str',)
 
@@ -1681,7 +1662,6 @@ class LibStr(Lib):
             'join': self.join,
             'concat': self.concat,
             'format': self.format,
-            'urlencode': self.urlencode,
         }
 
     async def concat(self, *args):
@@ -1696,10 +1676,6 @@ class LibStr(Lib):
     async def join(self, sepr, items):
         strs = [await tostr(item) async for item in toiter(items)]
         return sepr.join(strs)
-
-    async def urlencode(self, text):
-        text = await tostr(text)
-        return urllib.parse.quote_plus(text)
 
 @registry.registerLib
 class LibAxon(Lib):

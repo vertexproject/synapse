@@ -1143,8 +1143,6 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq('foo bar baz faz', await core.callStorm('return($lib.regex.replace("[ ]{2,}", " ", "foo  bar   baz faz"))'))
 
-            self.eq('http%3A%2F%2Fgo+ogle.com', await core.callStorm('return($lib.str.urlencode("http://go ogle.com"))'))
-
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
