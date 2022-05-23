@@ -879,23 +879,24 @@ class CellTest(s_t_utils.SynTest):
         if not os.path.exists('/dev/null'):
             self.skip('Test requires /dev/null to exist.')
 
-        with self.getAsyncLoggerStream('synapse.lib.cell',
-                                       'Error starting cell at /dev/null') as stream:
-            with self.raises(FileExistsError):
-                async with await s_cell.Cell.initFromArgv(['/dev/null']):
-                    pass
-            self.true(await stream.wait(timeout=6))
-
-        # Bad configs can also cause a failure.
-        with self.getTestDir() as dirn:
+        async with self.withSetLoggingMock():
             with self.getAsyncLoggerStream('synapse.lib.cell',
-                                           'Error while bootstrapping cell config') as stream:
-                with self.raises(s_exc.BadConfValu) as cm:
-                    with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):  # interpreted as a yaml bool true
-                        async with await s_cell.Cell.initFromArgv([dirn, ]):
-                            pass
-                self.eq(cm.exception.get('name'), 'auth:passwd')
-            self.true(await stream.wait(timeout=6))
+                                           'Error starting cell at /dev/null') as stream:
+                with self.raises(FileExistsError):
+                    async with await s_cell.Cell.initFromArgv(['/dev/null']):
+                        pass
+                self.true(await stream.wait(timeout=6))
+
+            # Bad configs can also cause a failure.
+            with self.getTestDir() as dirn:
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Error while bootstrapping cell config') as stream:
+                    with self.raises(s_exc.BadConfValu) as cm:
+                        with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):  # interpreted as a yaml bool true
+                            async with await s_cell.Cell.initFromArgv([dirn, ]):
+                                pass
+                    self.eq(cm.exception.get('name'), 'auth:passwd')
+                self.true(await stream.wait(timeout=6))
 
     async def test_cell_backup(self):
 
