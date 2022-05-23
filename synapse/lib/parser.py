@@ -246,18 +246,19 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def funccall(self, meta, kids):
-        kids = self._convert_children(kids)
         argkids = []
         kwargkids = []
         kwnames = set()
         indx = 1
         kcnt = len(kids)
         while indx < kcnt:
-            if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
-                kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
+
+            kid = self._convert_child(kids[indx])
+
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], lark.lexer.Token) and kids[indx + 1].type in ('EQNOSPACE', 'EQUAL'):
+                kid = s_ast.CallKwarg((kid, self._convert_child(kids[indx + 2])))
                 indx += 3
             else:
-                kid = kids[indx]
                 indx += 1
 
             if isinstance(kid, s_ast.CallKwarg):
@@ -478,7 +479,7 @@ class Parser:
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
             if not isinstance(origexc, s_exc.SynErr):
-                raise  # pragma: no cover
+                raise e.orig_exc # pragma: no cover
             origexc.errinfo['text'] = self.text
             return s_exc.BadSyntax(**origexc.errinfo)
 

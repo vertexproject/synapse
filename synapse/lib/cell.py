@@ -745,7 +745,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
-            'type': 'string',
+            'type': ['string', 'null'],
             'hidedocs': True,
             'hidecmdl': True,
         },
@@ -845,61 +845,64 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidecmdl': True,
         },
         'inaugural': {
-            'defs': {
-                'rule': {
-                    'type': 'array',
-                    'items': [
-                        {'type': 'boolean'},
-                        {'type': 'array', 'items': {'type': 'string'}, },
-                    ],
-                    'minItems': 2,
-                    'maxItems': 2,
-                },
-                'role': {
-                    'type': 'object',
-                    'properties': {
-                        'name': {'type': 'string',
-                                 'pattern': '^(?!all$).+$',
-                                 },
-                        'rules': {
-                            'type': 'array',
-                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
-                        }
-                    },
-                    'required': ['name', ],
-                    'additionalProperties': False,
-                },
-                'user': {
-                    'type': 'object',
-                    'properties': {
-                        'name': {'type': 'string',
-                                 'pattern': '^(?!root$).+$',
-                                 },
-                        'admin': {'type': 'boolean', 'default': False, },
-                        'email': {'type': 'string', },
-                        'roles': {
-                            'type': 'array',
-                            'items': {'type': 'string'},
-                        },
-                        'rules': {
-                            'type': 'array',
-                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
-                        },
-                    },
-                    'required': ['name', ],
-                    'additionalProperties': False,
-                }
-            },
             'description': 'Data used to drive configuration of the service upon first startup.',
             'type': 'object',
             'properties': {
                 'roles': {
                     'type': 'array',
-                    'items': {'$ref': '#/properties/inaugural/defs/role'}
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string',
+                                     'pattern': '^(?!all$).+$',
+                                     },
+                            'rules': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'boolean'},
+                                        {'type': 'array', 'items': {'type': 'string'}, },
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                            }
+                        },
+                        'required': ['name', ],
+                        'additionalProperties': False,
+                    }
                 },
                 'users': {
                     'type': 'array',
-                    'items': {'$ref': '#/properties/inaugural/defs/user'}
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string',
+                                     'pattern': '^(?!root$).+$',
+                                     },
+                            'admin': {'type': 'boolean', 'default': False, },
+                            'email': {'type': 'string', },
+                            'roles': {
+                                'type': 'array',
+                                'items': {'type': 'string'},
+                            },
+                            'rules': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'boolean'},
+                                        {'type': 'array', 'items': {'type': 'string'}, },
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                            },
+                        },
+                        'required': ['name', ],
+                        'additionalProperties': False,
+                    }
                 }
             },
         },
@@ -1378,7 +1381,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await lead.handoff(myurl)
                 return
 
-        self.modCellConf({'mirror': None})
+        self.popCellConf('mirror')
 
         await self.nexsroot.promote()
         await self.setCellActive(True)
@@ -2391,8 +2394,36 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return s_common._getLogConfFromEnv()
 
     def modCellConf(self, conf):
+        '''
+        Modify the Cell's ondisk configuration file.
+
+        Args:
+            conf (dict): A dictionary of items to set.
+
+        Notes:
+            This does require the data being set to be schema valid.
+
+        Returns:
+            None.
+        '''
+        for key, valu in conf.items():
+            self.conf.reqKeyValid(key, valu)
+
         self.conf.update(conf)
         s_common.yamlmod(conf, self.dirn, 'cell.yaml')
+
+    def popCellConf(self, name):
+        '''
+        Remove a key from the Cell's ondisk configuration file.
+
+        Args:
+            name (str): Name of the value to remove.
+
+        Returns:
+            None
+        '''
+        self.conf.pop(name, None)
+        s_common.yamlpop(name, self.dirn, 'cell.yaml')
 
     @classmethod
     def getCellType(cls):
@@ -2533,8 +2564,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for name, valu in provconf.items():
                 self.conf[name] = valu
 
-            self.conf.reqConfValid()
-
             # save our config state
             self.modCellConf(provconf)
 
@@ -2652,14 +2681,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
-        conf.setdefault('_log_conf', logconf)
-
-        conf.setConfFromOpts(opts)
-        conf.setConfFromFile(path)
-        updates = conf.setConfFromEnvs()
-
-        if updates:
-            s_common.yamlmod(updates, path)
+        try:
+            conf.setdefault('_log_conf', logconf)
+            conf.setConfFromOpts(opts)
+            conf.setConfFromFile(path)
+            updates = conf.setConfFromEnvs()
+            if updates:
+                s_common.yamlmod(updates, path)
+        except:
+            logger.exception(f'Error while bootstrapping cell config.')
+            raise
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 

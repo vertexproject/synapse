@@ -246,7 +246,7 @@ class TrigTest(s_t_utils.SynTest):
             # Add trigger with iden
             iden = s_common.guid()
             tdef0 = {'cond': 'node:add', 'storm': '[ +#withiden ]', 'form': 'test:int', 'iden': iden}
-            await view.addTrigger(tdef0)
+            pdef0 = await view.addTrigger(tdef0)
             self.nn(await view.getTrigger(iden))
             await core.nodes('[ test:int=77 ]')
             self.len(1, await core.nodes('test:int#withiden'))
@@ -267,7 +267,7 @@ class TrigTest(s_t_utils.SynTest):
             with self.raises(s_exc.DupIden):
                 tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
                 await view.addTrigger(tdef)
-            self.eq(tdef0, (await view.getTrigger(iden)).tdef)
+            self.eq(pdef0.get('storm'), (await view.getTrigger(iden)).tdef.get('storm'))
 
             # Bad trigger parms
             with self.raises(s_exc.BadConfValu):

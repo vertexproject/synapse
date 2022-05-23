@@ -4970,10 +4970,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
 
+                    # get the nexus index
+                    nexusind = core01.nexsroot.nexslog.index()
+
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+
+                    # check that startup does not create any events
+                    self.eq(nexusind, core01.nexsroot.nexslog.index())
 
                     await core00.nodes('[ inet:fqdn=woot.com ]')
                     await core01.sync()
