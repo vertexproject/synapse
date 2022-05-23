@@ -3786,7 +3786,7 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(f'trigger.enable {goodbuid2}').list()
                 self.stormIsInPrint('Enabled trigger', mesgs)
 
-                await prox.addAuthRule('bond', (True, ('trigger', 'del')))
+                await prox.addUserRule(bond.iden, (True, ('trigger', 'del')))
 
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
@@ -4383,7 +4383,7 @@ class StormTypesTest(s_test.SynTest):
                 self.stormIsInErr('May not use both', mesgs)
 
                 # Test manipulating cron jobs as another user
-                await core.auth.addUser('bond')
+                bond = await core.auth.addUser('bond')
 
                 async with core.getLocalProxy(user='bond') as asbond:
 
@@ -4407,8 +4407,8 @@ class StormTypesTest(s_test.SynTest):
 
                     # Give explicit perm
 
-                    await prox.addAuthRule('bond', (True, ('cron', 'add')))
-                    await prox.addAuthRule('bond', (True, ('cron', 'get')))
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'add')))
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'get')))
 
                     await asbond.storm('cron.add --hourly 15 {#bar}').list()
 
@@ -4419,7 +4419,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('user', mesgs)
                     self.stormIsInPrint('root', mesgs)
 
-                    await prox.addAuthRule('bond', (True, ('cron', 'set')))
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'set')))
 
                     mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
                     self.stormIsInPrint('Disabled cron job', mesgs)
@@ -4430,7 +4430,7 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.mod {guid[:6]} {{#foo}}').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
-                    await prox.addAuthRule('bond', (True, ('cron', 'del')))
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'del')))
 
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInPrint('Deleted cron job', mesgs)
