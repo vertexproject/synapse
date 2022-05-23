@@ -160,8 +160,6 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_agenda(self):
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
-        sync = asyncio.Event()
-        lastquery = None
 
         def timetime():
             return unixtime
@@ -169,77 +167,21 @@ class AgendaTest(s_t_utils.SynTest):
         def looptime():
             return unixtime - MONO_DELT
 
-        async def myeval(query, opts=None):
-            nonlocal lastquery
-            lastquery = query
-            sync.set()
-            if 'sleep' in query:
-                await asyncio.sleep(60)
-
-            if query == 'badquery':
-                raise Exception('test exception')
-            return
-            yield None
-
-        class FakeAuth(mock.Mock):
-            def __init__(self, **kwargs):
-                mock.Mock.__init__(self, **kwargs)
-                self.users = {}
-
-            def user(self, iden):
-                return self.users.get(iden)
-
-            async def addUser(self, username, iden=None):
-                if iden is None:
-                    iden = s_common.guid()
-                user = FakeUser()
-                user.name = username
-                self.users[iden] = user
-                return user
-
-        class FakeUser(mock.Mock):
-            def __init__(self, **kwargs):
-                mock.Mock.__init__(self, **kwargs)
-                self.info = {'locked': False}
-
-            async def setLocked(self, valu):
-                self.info['locked'] = valu
-
         loop = asyncio.get_running_loop()
         with mock.patch.object(loop, 'time', looptime), mock.patch('time.time', timetime), self.getTestDir() as dirn:
-            core = mock.Mock()
-            core.eval = myeval
-            core.slab = await s_lmdbslab.Slab.anit(dirn, map_size=s_t_utils.TEST_MAP_SIZE, readonly=False)
-            nexsroot = await s_nexus.NexsRoot.anit(dirn)
-            await nexsroot.startup(None)
 
-            def mockgetStormQuery(q):
-                # TODO: Remove this and use AsyncMock when Python 3.8+ only
-                f = asyncio.Future()
-                f.set_result(None)
-                return f
+            async with self.getTestCore() as core:
 
-            core.getStormQuery = mockgetStormQuery
+                visi = await core.auth.addUser('visi')
+                await visi.setAdmin(True)
 
-            db = core.slab.initdb('hive')
-            core.hive = await s_hive.SlabHive.anit(core.slab, db=db, nexsroot=nexsroot)
-
-            core.auth = FakeAuth()
-            rootiden = 'aaaaa'
-            await core.auth.addUser('root', iden=rootiden)
-
-            core.boss = await s_boss.Boss.anit()
-            async with await s_agenda.Agenda.anit(core) as agenda:
-                agenda.onfini(core.hive)
-                agenda.onfini(core.slab)
-                agenda.onfini(core.boss)
-
-                await agenda.start()
+                agenda = core.agenda
                 await agenda.start()  # make sure it doesn't blow up
+
                 self.eq([], agenda.list())
 
                 # Missing reqs
-                cdef = {'creator': rootiden, 'iden': 'fakeiden', 'storm': 'foo'}
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Missing creator
@@ -248,19 +190,19 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Missing storm
-                cdef = {'creator': rootiden, 'iden': 'fakeiden',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Missing incvals
-                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Cannot schedule a recurring job with 'now'
-                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -268,36 +210,29 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
                 # Schedule a one-shot to run immediately
-                cdef = {'creator': rootiden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                doit = s_common.guid()
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': doit,
+                        'storm': '$lib.queue.gen(visi).put(woot)',
                         'reqs': {s_agenda.TimeUnit.NOW: True}}
                 await agenda.add(cdef)
 
                 # Can't have two with the same iden
                 await self.asyncraises(s_exc.DupIden, agenda.add(cdef))
 
-                await sync.wait()  # wait for the query to run
-                sync.clear()
-                self.eq(lastquery, '[test:str=doit]')
-                core.reset_mock()
-                lastquery = None
+                self.eq((0, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 appts = agenda.list()
                 self.len(1, appts)
                 self.eq(appts[0][1].startcount, 1)
                 self.eq(appts[0][1].nexttime, None)
-                await agenda.delete('DOIT')
+                await agenda.delete(doit)
 
                 # Schedule a one-shot 1 minute from now
-                cdef = {'creator': rootiden, 'iden': 'IDEN1', 'storm': '[test:str=foo]',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(woot)',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await agenda.add(cdef)
-                await asyncio.sleep(0)  # give the scheduler a shot to wait
                 unixtime += 61
-                await sync.wait()  # wait for the query to run
-                sync.clear()
-                self.eq(lastquery, '[test:str=foo]')
-                core.reset_mock()
-                lastquery = None
+                self.eq((1, 'woot'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 appts = agenda.list()
                 self.len(1, appts)
@@ -305,7 +240,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'creator': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=bar]',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
@@ -313,7 +248,7 @@ class AgendaTest(s_t_utils.SynTest):
                 guid = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                cdef = {'creator': rootiden, 'iden': 'IDEN3', 'storm': '[test:str=baz]',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(baz)',
                         'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -324,49 +259,36 @@ class AgendaTest(s_t_utils.SynTest):
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                cdef = {'creator': rootiden, 'iden': 'IDEN4', 'storm': '#happyholidays',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(happyholidays)',
                         'reqs': (xmas, lasthanu)}
                 await agenda.add(cdef)
 
-                await asyncio.sleep(0)
                 unixtime += 1
-                # Nothing should happen
-                self.none(lastquery)
+                await asyncio.sleep(0)
+                self.none(await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop())'), timeout=5))
 
                 # Advance to the first event on Wednesday the 5th
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=bar]')
+                self.eq((2, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Then two on the 6th
                 unixtime = datetime.datetime(year=2018, month=12, day=6, hour=7, minute=15, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=baz]')
-                lastquery = None
+                self.eq((3, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+
                 unixtime = datetime.datetime(year=2018, month=12, day=6, hour=8, minute=15, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=baz]')
+                self.eq((4, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Then back to the 10:15 on Friday
                 unixtime = datetime.datetime(year=2018, month=12, day=7, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=bar]')
+                self.eq((5, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Then Dec 10
                 unixtime = datetime.datetime(year=2018, month=12, day=10, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '#happyholidays')
+                self.eq((6, 'happyholidays'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Then the Wednesday again
                 unixtime = datetime.datetime(year=2018, month=12, day=12, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=bar]')
+                self.eq((7, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Cancel the Wednesday/Friday appt
                 await agenda.delete(guid)
@@ -374,15 +296,11 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Then Dec 25
                 unixtime = datetime.datetime(year=2018, month=12, day=25, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '#happyholidays')
+                self.eq((8, 'happyholidays'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Then Jan 6
                 unixtime = datetime.datetime(year=2019, month=1, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=baz]')
+                self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 # Modify the last appointment
                 await self.asyncraises(ValueError, agenda.mod(guid2, '', ))
@@ -396,22 +314,18 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # Test that isrunning updated, cancelling works
-                cdef = {'creator': rootiden, 'iden': 'IDEN5', 'storm': 'inet:ipv4=1 | sleep 120',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
+                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
                 unixtime += 60
-                await sync.wait()
-                sync.clear()
-                self.len(1, core.boss.tasks)
-                task = next(iter(core.boss.tasks.values()))
-                self.eq(task.info.get('query'), 'inet:ipv4=1 | sleep 120')
-                self.eq(task.info.get('iden'), guid)
+                self.eq((10, 'sleep'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, True)
-                await task.kill()
+                await appt.task.kill()
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
@@ -419,34 +333,31 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
-                cdef = {'creator': rootiden, 'iden': '#foo', 'storm': 'IDEN',
+                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
+                        'storm': '$lib.queue.gen(visi).put(boom) $lib.raise(OmgWtfBbq, boom)',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
                         'incvals': 1}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
 
                 # bypass the API because it would actually syntax check
-                agenda.appts[guid].query = 'badquery'
                 unixtime += 60
-                await sync.wait()
-                sync.clear()
+                self.eq((11, 'boom'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
-                self.eq(appt.lastresult, 'raised exception test exception')
+                self.eq(appt.lastresult, "raised exception StormRaise: errname='OmgWtfBbq' mesg='boom'")
 
                 # Test setting the global enable/disable flag
                 # reset
                 await agenda.delete(guid)
-                lastquery = None
                 self.len(0, agenda.apptheap)
+
                 agenda._schedtask.cancel()
                 agenda._schedtask = agenda.schedCoro(agenda._scheduleLoop())
 
-                visi = await core.auth.addUser('visi', iden='visivisi')
-
                 # schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'creator': 'visivisi', 'iden': 'IDEN6', 'storm': '[test:str=bar]',
+                cdef = {'creator': visi.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
@@ -462,7 +373,6 @@ class AgendaTest(s_t_utils.SynTest):
                 nexttime = datetime.datetime(year=2019, month=2, day=8, hour=10, minute=15, tzinfo=tz.utc).timestamp()
 
                 await asyncio.sleep(0)
-                self.none(lastquery)
 
                 appt = await agenda.get(guid)
                 self.eq(nexttime, appt.nexttime)
@@ -473,25 +383,26 @@ class AgendaTest(s_t_utils.SynTest):
                 agenda.enabled = True
 
                 unixtime = datetime.datetime(year=2019, month=2, day=13, hour=10, minute=16, tzinfo=tz.utc).timestamp()
-                await sync.wait()
-                sync.clear()
-                self.eq(lastquery, '[test:str=bar]')
+                self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
+
                 self.eq(1, appt.startcount)
 
-                cdef = {'creator': rootiden, 'iden': 'IDEN2', 'storm': '[test:str=foo2]',
+                cdef = {'creator': visi.iden, 'iden': s_common.guid(), 'storm': '[test:str=foo2]',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
+
                 await agenda.add(cdef)
 
                 # Lock user and advance time
                 await visi.setLocked(True)
 
                 with self.getLoggerStream('synapse.lib.agenda', 'locked') as stream:
-                    unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16,
-                                                 tzinfo=tz.utc).timestamp()
-                    await sync.wait()
-                    sync.clear()
+                    unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16, tzinfo=tz.utc).timestamp()
+
+                    # pump the ioloop via sleep(0) until the log message appears
+                    while not stream.wait(0.1):
+                        await asyncio.sleep(0)
+
                     self.eq(2, appt.startcount)
-                    self.true(stream.wait(0.1))
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''

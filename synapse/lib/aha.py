@@ -1,5 +1,6 @@
 import os
 import copy
+import random
 import logging
 
 import regex
@@ -26,11 +27,11 @@ class AhaApi(s_cell.CellApi):
             return ahaurls
         return()
 
-    async def getAhaSvc(self, name):
+    async def getAhaSvc(self, name, filters=None):
         '''
         Return an AHA service description dictionary for a service name.
         '''
-        svcinfo = await self.cell.getAhaSvc(name)
+        svcinfo = await self.cell.getAhaSvc(name, filters=filters)
         if svcinfo is None:
             return None
 
@@ -75,6 +76,7 @@ class AhaApi(s_cell.CellApi):
         # dont disclose the real session...
         sess = s_common.guid(self.sess.iden)
         info['online'] = sess
+        info.setdefault('ready', True)
 
         if self.link.sock is not None:
             host, port = self.link.sock.getpeername()
@@ -94,6 +96,24 @@ class AhaApi(s_cell.CellApi):
         self.onfini(fini)
 
         return await self.cell.addAhaSvc(name, info, network=network)
+
+    async def modAhaSvcInfo(self, name, svcinfo):
+
+        for key in svcinfo.keys():
+            if key not in ('ready',):
+                mesg = f'Editing AHA service info property ({key}) is not supported!'
+                raise s_exc.BadArg(mesg=mesg)
+
+        svcentry = await self.cell.getAhaSvc(name)
+        if svcentry is None:
+            return False
+
+        svcnetw = svcentry.get('svcnetw')
+        svcname = svcentry.get('svcname')
+
+        await self._reqUserAllowed(('aha', 'service', 'add', svcnetw, svcname))
+
+        return await self.cell.modAhaSvcInfo(name, svcinfo)
 
     async def delAhaSvc(self, name, network=None):
         '''
@@ -357,6 +377,22 @@ class AhaCell(s_cell.Cell):
 
         return svcname, svcnetw, svcfull
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:mod')
+    async def modAhaSvcInfo(self, name, svcinfo):
+
+        svcentry = await self.getAhaSvc(name)
+        if svcentry is None:
+            return False
+
+        svcnetw = svcentry.get('svcnetw')
+        svcname = svcentry.get('svcname')
+
+        path = ('aha', 'services', svcnetw, svcname)
+
+        for prop, valu in svcinfo.items():
+            await self.jsonstor.setPathObjProp(path, ('svcinfo', prop), valu)
+        return True
+
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info, network=None):
 
@@ -422,7 +458,7 @@ class AhaCell(s_cell.Cell):
 
         logger.debug(f'Set [{svcfull}] offline.')
 
-    async def getAhaSvc(self, name):
+    async def getAhaSvc(self, name, filters=None):
 
         if name.endswith('...'):
             ahanetw = self.conf.get('aha:network')
@@ -433,9 +469,56 @@ class AhaCell(s_cell.Cell):
             name = f'{name[:-2]}{ahanetw}'
 
         path = ('aha', 'svcfull', name)
-        svcinfo = await self.jsonstor.getPathObj(path)
-        if svcinfo is not None:
-            return svcinfo
+        svcentry = await self.jsonstor.getPathObj(path)
+        if svcentry is None:
+            return None
+
+        # if they requested a mirror, try to locate one
+        if filters is not None and filters.get('mirror'):
+            ahanetw = svcentry.get('ahanetw')
+            svcinfo = svcentry.get('svcinfo')
+            if svcinfo is None: # pragma: no cover
+                return svcentry
+
+            celliden = svcinfo.get('iden')
+            mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
+
+            if mirrors:
+                return random.choice(mirrors)
+
+        return svcentry
+
+    async def getAhaSvcMirrors(self, iden, network=None):
+
+        retn = {}
+        skip = None
+
+        async for svcentry in self.getAhaSvcs(network=network):
+
+            svcinfo = svcentry.get('svcinfo')
+            if svcinfo is None: # pragma: no cover
+                continue
+
+            if svcinfo.get('iden') != iden: # pragma: no cover
+                continue
+
+            if svcinfo.get('online') is None: # pragma: no cover
+                continue
+
+            if not svcinfo.get('ready'):
+                continue
+
+            # if we run across the leader, skip ( and mark his run )
+            if svcentry.get('svcname') == svcinfo.get('leader'):
+                skip = svcinfo.get('run')
+                continue
+
+            retn[svcinfo.get('run')] = svcentry
+
+        if skip is not None:
+            retn.pop(skip, None)
+
+        return list(retn.values())
 
     async def genCaCert(self, network):
 

@@ -621,8 +621,8 @@ class CellApi(s_base.Base):
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
-    async def getNexusChanges(self, offs):
-        async for item in self.cell.getNexusChanges(offs):
+    async def getNexusChanges(self, offs, tellready=False):
+        async for item in self.cell.getNexusChanges(offs, tellready=tellready):
             yield item
 
     @adminapi()
@@ -943,6 +943,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._initCellBoot()
 
+        # we need to know this pretty early...
+        self.ahasvcname = None
+        ahaname = self.conf.get('aha:name')
+        ahanetw = self.conf.get('aha:network')
+        if ahaname is not None and ahanetw is not None:
+            self.ahasvcname = f'{ahaname}.{ahanetw}'
+
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
 
@@ -1171,9 +1178,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initNexusSubsystem(self):
         if self.cellparent is None:
-            mirror = self.conf.get('mirror')
-            await self.nexsroot.startup(mirror, celliden=self.iden)
-            await self.setCellActive(mirror is None)
+            await self.nexsroot.startup()
+            await self.setCellActive(self.conf.get('mirror') is None)
 
     async def initServiceNetwork(self):
 
@@ -1235,12 +1241,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'iden': celliden,
                 'leader': ahalead,
                 'urlinfo': urlinfo,
+                # if we are not active, then we are not ready
+                # until we confirm we are in the real-time window.
+                'ready': self.isactive,
             }
 
         if ahainfo is None:
             return
 
         self.ahainfo = ahainfo
+        self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         async def onlink(proxy):
             while not proxy.isfini:
@@ -1278,10 +1288,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         if self.cellparent:
             return self.cellparent.nexsroot
-
-        map_async = self.conf.get('nexslog:async')
-        donexslog = self.conf.get('nexslog:en')
-        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=donexslog, map_async=map_async)
+        return await s_nexus.NexsRoot.anit(self)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
@@ -1374,10 +1381,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await lead.handoff(myurl)
                 return
 
+        self.popCellConf('mirror')
+
         await self.nexsroot.promote()
         await self.setCellActive(True)
-
-        self.popCellConf('mirror')
 
     async def handoff(self, turl, timeout=30):
         '''
@@ -1403,9 +1410,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 await cell.promote()
                 await self.setCellActive(False)
-                await self.nexsroot.startup(turl, celliden=self.iden)
 
                 self.modCellConf({'mirror': turl})
+                await self.nexsroot.startup()
 
     async def _setAhaActive(self):
 
@@ -1540,8 +1547,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initServicePassive(self):  # pragma: no cover
         pass
 
-    async def getNexusChanges(self, offs):
-        async for item in self.nexsroot.iter(offs):
+    async def getNexusChanges(self, offs, tellready=False):
+        async for item in self.nexsroot.iter(offs, tellready=tellready):
             yield item
 
     def _reqBackDirn(self, name):
@@ -2401,6 +2408,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         for key, valu in conf.items():
             self.conf.reqKeyValid(key, valu)
+
+        self.conf.update(conf)
         s_common.yamlmod(conf, self.dirn, 'cell.yaml')
 
     def popCellConf(self, name):
@@ -2413,6 +2422,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             None
         '''
+        self.conf.pop(name, None)
         s_common.yamlpop(name, self.dirn, 'cell.yaml')
 
     @classmethod
@@ -2929,12 +2939,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,
+                'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
             },
             'features': {
+                'tellready': True,
                 'dynmirror': True,
             },
         }
