@@ -162,7 +162,7 @@ async def getAhaProxy(urlinfo):
 
             cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
 
-            if cellinfo['synapse']['version'] >= (2, 94, 0):
+            if cellinfo['synapse']['version'] >= (2, 95, 0):
                 filters = {
                     'mirror': bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
                 }
