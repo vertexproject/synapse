@@ -136,7 +136,7 @@ class StormHttpTest(s_test.SynTest):
             self.eq(code, -1)
             self.eq('ClientConnectorCertificateError', errname)
 
-            self.eq('http%3A%2F%2Fgo+ogle.com', await core.callStorm('return($lib.str.urlencode("http://go ogle.com"))'))
+            self.eq('http%3A%2F%2Fgo+ogle.com', await core.callStorm('return($lib.inet.http.urlencode("http://go ogle.com"))'))
 
     async def test_storm_http_inject_ca(self):
 
