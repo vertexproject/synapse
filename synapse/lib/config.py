@@ -360,14 +360,14 @@ class Config(c_abc.MutableMapping):
 
     def reqKeyValid(self, key, value):
         '''
-        Test is a key is valid for the provided schema it is associated with.
+        Test if a key is valid for the provided schema it is associated with.
 
         Args:
             key (str): Key to check.
             value: Value to check.
 
         Raises:
-            BadArg: If the key is not valid.
+            BadArg: If the key has no associated schema.
             BadConfValu: If the data is not schema valid.
 
         Returns:

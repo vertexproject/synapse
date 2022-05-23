@@ -507,7 +507,7 @@ def yamlpop(key, *paths):
     Pop a key out of a yaml file.
 
     Args:
-        key (str): Name of the key to remote.
+        key (str): Name of the key to remove.
         *paths: Path to a yaml file. The file must be a map / dictionary.
 
     Returns:
