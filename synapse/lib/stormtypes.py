@@ -6533,7 +6533,7 @@ class LibTrigger(Lib):
     async def _methTriggerMod(self, prefix, query):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
-
+        query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
@@ -6642,8 +6642,10 @@ class Trigger(Prim):
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
-        if name == 'async':
+        if name in ('async', 'enabled', ):
             valu = await tobool(valu)
+        if name in ('doc', 'name', 'storm', ):
+            valu = await tostr(valu)
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
         todo = ('setTriggerInfo', (trigiden, name, valu), {})

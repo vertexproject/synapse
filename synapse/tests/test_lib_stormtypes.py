@@ -3613,13 +3613,13 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInErr('matches more than one', mesgs)
 
             mesgs = await core.stormlist('trigger.add tag:add --prop another:thing --query {[ +#count2 ]}')
-            self.stormIsInErr("data must contain ['tag']", mesgs)
+            self.stormIsInErr("data must contain ['tag'] properties", mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --prop another --query {[ +#count2 ]}')
-            self.stormIsInErr("data must match pattern", mesgs)
+            mesgs = await core.stormlist('trigger.add tag:add --tag hehe.haha --prop another --query {[ +#count2 ]}')
+            self.stormIsInErr("data.prop must match pattern", mesgs)
 
             mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp --query {[ +#count2 ]}')
-            self.stormIsInErr('Invalid config for cond, data must be one of', mesgs)
+            self.stormIsInErr('data.cond must be one of', mesgs)
 
             mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')
             self.stormIsInPrint('Missing a required option: --query', mesgs)
@@ -3691,11 +3691,17 @@ class StormTypesTest(s_test.SynTest):
                     condition='node:add',
                     form='test:str',
                     storm='{[ +#tagged ]}',
+                    doc='some trigger'
                 )
                 $trig = $lib.trigger.add($tdef)
-                return($trig.iden)
+                return($trig.pack())
             '''
-            trig = await core.callStorm(q)
+            tdef = await core.callStorm(q)
+            self.eq(tdef.get('doc'), 'some trigger')
+            trig = tdef.get('iden')
+            q = '''$t = $lib.trigger.get($trig) $t.set("doc", "awesome trigger") return ( $t.pack() )'''
+            tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
+            self.eq(tdef.get('doc'), 'awesome trigger')
 
             nodes = await core.nodes('[ test:str=test1 ]')
             self.nn(nodes[0].tags.get('tagged'))

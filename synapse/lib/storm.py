@@ -936,6 +936,8 @@ stormcmds = (
             $opts = $lib.copy($cmdopts)
             // Set valid tdef keys
             $opts.enabled = (not $opts.disabled)
+            $opts.help = $lib.undef
+            $opts.disabled = $lib.undef
             $trig = $lib.trigger.add($opts)
             $lib.print("Added trigger: {iden}", iden=$trig.iden)
         ''',
