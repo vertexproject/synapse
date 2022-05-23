@@ -1498,7 +1498,7 @@ class CellTest(s_t_utils.SynTest):
                           'nexslog:en': True,
                           }
 
-                # Create the bad cortex with its own guid
+                # Create the bad cell with its own guid
                 async with await s_cell.Cell.anit(dirn=path01, conf={'nexslog:en': True,
                                                                }) as cell01:
                     pass
