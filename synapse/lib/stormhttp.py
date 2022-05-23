@@ -1,6 +1,7 @@
 import json
 import asyncio
 import logging
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +193,38 @@ class LibHttp(s_stormtypes.Lib):
                        'default': None, },
                   ),
                   'returns': {'type': 'storm:http:socket', 'desc': 'A websocket object.'}}},
+        {'name': 'urlencode', 'desc': '''
+            Urlencode a text string.
+
+            This will replace special characters in a string using the %xx escape and
+            replace spaces with plus signs.
+
+            Examples:
+                Urlencode a string::
+
+                    $str=$lib.inet.http.urlencode("http://go ogle.com")
+         ''',
+         'type': {'type': 'function', '_funcname': 'urlencode',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text string.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The urlencoded string.', }}},
+        {'name': 'urldecode', 'desc': '''
+            Urldecode a text string.
+
+            This will replace %xx escape characters with the special characters they represent
+            and replace plus signs with spaces.
+
+            Examples:
+                Urlencode a string::
+
+                    $str=$lib.inet.http.urldecode("http%3A%2F%2Fgo+ogle.com")
+         ''',
+         'type': {'type': 'function', '_funcname': 'urldecode',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'The text string.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The urldecoded string.', }}},
     )
     _storm_lib_path = ('inet', 'http')
 
@@ -202,6 +235,8 @@ class LibHttp(s_stormtypes.Lib):
             'head': self._httpEasyHead,
             'request': self._httpRequest,
             'connect': self.inetHttpConnect,
+            'urlencode': self.urlencode,
+            'urldecode': self.urldecode,
         }
 
     def strify(self, item):
@@ -210,6 +245,14 @@ class LibHttp(s_stormtypes.Lib):
         elif isinstance(item, dict):
             return {str(k): str(v) for k, v in item.items()}
         return item
+
+    async def urlencode(self, text):
+        text = await s_stormtypes.tostr(text)
+        return urllib.parse.quote_plus(text)
+
+    async def urldecode(self, text):
+        text = await s_stormtypes.tostr(text)
+        return urllib.parse.unquote_plus(text)
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
                             allow_redirects=False):
