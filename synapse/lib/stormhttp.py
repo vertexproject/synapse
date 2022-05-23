@@ -1,6 +1,7 @@
 import json
 import asyncio
 import logging
+import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -232,7 +233,7 @@ class LibHttp(s_stormtypes.Lib):
         return item
 
     async def urlencode(self, text):
-        text = await tostr(text)
+        text = await s_stormtypes.tostr(text)
         return urllib.parse.quote_plus(text)
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,

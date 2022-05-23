@@ -16,7 +16,6 @@ import datetime
 import calendar
 import functools
 import collections
-import urllib.parse
 from typing import Any
 
 import synapse.exc as s_exc
