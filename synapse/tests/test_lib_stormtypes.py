@@ -3618,7 +3618,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add tag:add --prop another --query {[ +#count2 ]}')
             self.stormIsInErr("data must match pattern", mesgs)
 
-            mesgs = await core.stormlist('trigger.add tug:udd --prop another --query {[ +#count2 ]}')
+            mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp --query {[ +#count2 ]}')
             self.stormIsInErr('Invalid config for cond, data must be one of', mesgs)
 
             mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')

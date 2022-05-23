@@ -936,11 +936,7 @@ stormcmds = (
             $opts = $lib.copy($cmdopts)
 
             // Set valid tdef keys
-            if $opts.disabled {
-                $opts.enabled = $lib.false
-            } else {
-                $opts.enabled = $lib.true
-            }
+            $opts.enabled = (not $opts.disabled)
 
             // Remove invalid tdef keys
             $opts.help = $lib.undef

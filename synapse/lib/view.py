@@ -895,20 +895,20 @@ class View(s_nexus.Pusher):  # type: ignore
 
         root = await self.core.auth.getUserByName('root')
 
-        tdef.setdefault('user', root.iden)
-        tdef.setdefault('async', False)
-        tdef.setdefault('enabled', True)
+        _tdef = {}
+        for key in s_trigger.TrigSchemaKeys:
+            valu = tdef.get(key, s_common.novalu)
+            if valu is s_common.novalu:
+                continue
+            _tdef[key] = valu
 
-        # Several values may be present in tdef from packed triggers.
-        # Remove them since they are not valid to persist.
-        tdef.pop('startcount', None)
-        tdef.pop('errcount', None)
-        tdef.pop('lasterrs', None)
-        tdef.pop('username', None)
+        _tdef.setdefault('user', root.iden)
+        _tdef.setdefault('async', False)
+        _tdef.setdefault('enabled', True)
 
-        s_trigger.reqValidTdef(tdef)
+        s_trigger.reqValidTdef(_tdef)
 
-        return await self._push('trigger:add', tdef)
+        return await self._push('trigger:add', _tdef)
 
     @s_nexus.Pusher.onPush('trigger:add')
     async def _onPushAddTrigger(self, tdef):

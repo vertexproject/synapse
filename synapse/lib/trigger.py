@@ -70,6 +70,7 @@ TrigSchema = {
         },
     ],
 }
+TrigSchemaKeys = tuple(TrigSchema.get('properties').keys())
 
 def reqValidTdef(conf):
     s_config.Config(TrigSchema, conf=conf).reqConfValid()
