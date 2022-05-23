@@ -250,9 +250,6 @@ class Lookup(Query):
 
 class Search(Query):
 
-    def __init__(self, kids):
-        Query.__init__(self, kids=kids)
-
     async def run(self, runt, genr):
 
         view = runt.snap.view
