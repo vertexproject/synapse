@@ -274,6 +274,18 @@ class CommonTest(s_t_utils.SynTest):
             obj['bar'] = 42
             self.eq(obj, robj)
 
+            s_common.yamlmod({'bar': 42}, dirn, 'nomod.yaml')
+            robj = s_common.yamlload(dirn, 'nomod.yaml')
+            self.eq(robj, {'bar': 42})
+
+            s_common.yamlpop('zap', dirn, 'test.yaml')
+            robj = s_common.yamlload(dirn, 'test.yaml')
+            self.eq(robj, {'foo': 'bar', 'bar': 42})
+            # And its replayable
+            s_common.yamlpop('zap', dirn, 'test.yaml')
+            # And won't blow up if the file doesn't exist
+            s_common.yamlpop('zap', dirn, 'newp.yaml')
+
             # Test yaml helper safety
             s = '!!python/object/apply:os.system ["pwd"]'
             with s_common.genfile(dirn, 'explode.yaml') as fd:

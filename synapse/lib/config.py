@@ -136,11 +136,23 @@ class Config(c_abc.MutableMapping):
             conf = {}
         if envar_prefixes is None:
             envar_prefixes = ('', )
-        self.conf = conf
+        self.conf = {}
         self._argparse_conf_names = {}
         self._argparse_conf_parsed_names = {}
         self.envar_prefixes = envar_prefixes
         self.validator = getJsValidator(self.json_schema)
+        self._prop_schemas = {}
+        self._prop_validators = {}
+        for k, v in self.json_schema.get('properties').items():
+            prop_schema = {
+                '$schema': 'http://json-schema.org/draft-07/schema#',
+            }
+            prop_schema.update(v)
+            self._prop_schemas[k] = prop_schema
+            self._prop_validators[k] = getJsValidator(prop_schema)
+        # Copy the data in so that it is validated.
+        for k, v in conf.items():
+            self[k] = v
 
     @classmethod
     def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):
@@ -346,6 +358,30 @@ class Config(c_abc.MutableMapping):
 
         return self.conf.get(key)
 
+    def reqKeyValid(self, key, value):
+        '''
+        Test if a key is valid for the provided schema it is associated with.
+
+        Args:
+            key (str): Key to check.
+            value: Value to check.
+
+        Raises:
+            BadArg: If the key has no associated schema.
+            BadConfValu: If the data is not schema valid.
+
+        Returns:
+            None when valid.
+        '''
+        validator = self._prop_validators.get(key)
+        if validator is None:
+            raise s_exc.BadArg(mesg=f'Key {key} is not a valid config', )
+        try:
+            validator(value)
+        except s_exc.SchemaViolation as e:
+            raise s_exc.BadConfValu(mesg=f'Invalid config for {key}, {e.get("mesg")}', name=key, value=value) from None
+        return
+
     def asDict(self):
         '''
         Get a copy of configuration data.
@@ -373,11 +409,7 @@ class Config(c_abc.MutableMapping):
         return self.conf.__delitem__(key)
 
     def __setitem__(self, key, value):
-        # This explicitly doesn't do any type validation.
-        # The type validation is done on-demand, in order to
-        # allow a user to incrementally construct the config
-        # from different sources before turning around and
-        # doing a validation pass which may fail.
+        self.reqKeyValid(key, value)
         return self.conf.__setitem__(key, value)
 
     def __getitem__(self, item):

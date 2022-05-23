@@ -186,10 +186,22 @@ class ConfTest(s_test.SynTest):
         self.isin('<synapse.lib.config.Config at 0x', valu)
         self.isin('conf={', valu)
 
-        # We can set invalid items and ensure the config is no longer valid.
-        conf['key:array'] = 'Totally not an array.'
-        self.raises(s_exc.BadConfValu, conf.reqConfValid)
-        del conf['key:array']
+        # All items are validated when they are set.
+        conf.pop('key:array')
+        with self.raises(s_exc.BadArg):
+            conf['key:newp:newp:newp'] = 'newp'
+        with self.raises(s_exc.BadConfValu) as cm:
+            conf['key:array'] = 'Totally not an array.'
+        with self.raises(s_exc.BadConfValu):
+            conf.update({'key:array': 'Totally not an array.'})
+        with self.raises(s_exc.BadConfValu):
+            conf.setdefault('key:array', 'Totally not an array.')
+
+        # Including envar sets
+        with self.raises(s_exc.BadConfValu):
+            with self.setTstEnvars(KEY_ARRAY=None,
+                                   ):
+                conf.setConfFromEnvs()
 
         # We can do prefix-bassed collection of envar data.
         conf2 = s_config.Config(s_test.test_schema, envar_prefixes=('beeper',))
@@ -208,6 +220,14 @@ class ConfTest(s_test.SynTest):
         conf = s_config.Config.getConfFromCell(SchemaCell)
         self.isin('apikey', conf.json_schema.get('properties'))
         self.isin('apihost', conf.json_schema.get('properties'))
+
+        # Bad data is bad
+        with self.raises(s_exc.BadArg) as cm:
+            s_config.Config.getConfFromCell(SchemaCell, {'test:newp': 'haha'})
+
+        with self.raises(s_exc.BadConfValu) as cm:
+            s_config.Config.getConfFromCell(SchemaCell, {'apikey': 1234})
+        self.eq(cm.exception.get('name'), 'apikey')
 
         # Assuming we populate that conf with some data
         # we can then use it to make a cell!
