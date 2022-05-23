@@ -1167,9 +1167,7 @@ class GrammarTest(s_t_utils.SynTest):
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
 
     def test_search(self):
-        q = 'foo bar | spin'
-        parser = s_parser.Parser(q)
-        tree = parser.search()
+        tree = s_parser.parseQuery('foo bar | spin', mode='search')
         self.eq(str(tree), 'Search: [LookList: [Const: foo, Const: bar], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
 
