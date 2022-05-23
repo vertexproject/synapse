@@ -267,8 +267,7 @@ class Search(Query):
             if not tokns:
                 return
 
-            path = s_common.genpath(runt.snap.core.dirn, 'tmp')
-            buidset = await s_spooled.Set.anit(dirn=path)
+            buidset = await s_spooled.Set.anit()
 
             todo = s_common.todo('search', tokns)
             async for (prio, buid) in view.mergeStormIface('search', todo):
