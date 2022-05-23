@@ -258,7 +258,7 @@ class Search(Query):
         view = runt.snap.view
 
         if not view.core.stormiface_search:
-            runt.snap.warn('Storm search interface is not enabled!')
+            await runt.snap.warn('Storm search interface is not enabled!')
             return
 
         async def searchgenr():

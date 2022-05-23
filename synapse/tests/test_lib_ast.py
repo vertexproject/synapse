@@ -165,6 +165,11 @@ class AstTest(s_test.SynTest):
 
     async def test_mode_search(self):
 
+        conf = {'storm:interface:search': False}
+        async with self.getTestCore(conf=conf) as core:
+            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
+            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
+
         conf = {'provenance:en': False}
         async with self.getTestCore(conf=conf) as core:
             await core.loadStormPkg({
@@ -185,6 +190,9 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
             self.eq('apt1', nodes[0].props.get('name'))
+
+            nodes = await core.nodes('', opts={'mode': 'search'})
+            self.len(0, nodes)
 
     async def test_try_set(self):
         '''
