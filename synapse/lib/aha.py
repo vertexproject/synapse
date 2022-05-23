@@ -99,6 +99,11 @@ class AhaApi(s_cell.CellApi):
 
     async def modAhaSvcInfo(self, name, svcinfo):
 
+        for key in svcinfo.keys():
+            if key not in ('ready',):
+                mesg = f'Editing AHA service info property ({key}) is not supported!'
+                raise s_exc.BadArg(mesg=mesg)
+
         svcentry = await self.cell.getAhaSvc(name)
         if svcentry is None:
             return False

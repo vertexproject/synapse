@@ -168,6 +168,10 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
+                with self.raises(s_exc.BadArg):
+                    await cryo.ahaclient.waitready(timeout=2)
+                    await cryo.ahaclient.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
+
                 async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
                     self.nn(await proxy.getCellIden())
 
