@@ -1668,7 +1668,7 @@ class LibStr(Lib):
                          $lib.print($str)
 
                     http%3A%2F%2Fgo+ogle.com''',
-         'type': {'type': 'function', '_funcname': 'format',
+         'type': {'type': 'function', '_funcname': 'urlencode',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The text string.', },
                   ),
