@@ -138,6 +138,8 @@ class AstNode:
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
+class LookList(AstNode): pass
+
 class Query(AstNode):
 
     def __init__(self, kids=()):
@@ -235,27 +237,52 @@ class Lookup(Query):
             if not tokns:
                 return
 
-            buidset = set()
-
-            # scrape logic first...
             for tokn in tokns:
                 for form, valu in s_scrape.scrape(tokn, first=True):
                     node = await getnode(form, valu)
                     if node is not None:
-                        buidset.add(node.buid)
-                        yield node, runt.initPath(node)
-
-            if view.core.stormiface_search:
-                todo = s_common.todo('search', tokns)
-                async for (prio, buid) in view.mergeStormIface('search', todo):
-                    if buid in buidset:
-                        await asyncio.sleep(0)
-                        continue
-                    node = await runt.snap.getNodeByBuid(buid)
-                    if node is not None:
                         yield node, runt.initPath(node)
 
         realgenr = lookgenr()
+        if len(self.kids) > 1:
+            realgenr = self.kids[1].run(runt, realgenr)
+
+        async for node, path in realgenr:
+            yield node, path
+
+class Search(Query):
+
+    async def run(self, runt, genr):
+
+        view = runt.snap.view
+
+        if not view.core.stormiface_search:
+            await runt.snap.warn('Storm search interface is not enabled!')
+            return
+
+        async def searchgenr():
+
+            async for item in genr:
+                yield item
+
+            tokns = [await kid.compute(runt, None) for kid in self.kids[0]]
+            if not tokns:
+                return
+
+            buidset = await s_spooled.Set.anit()
+
+            todo = s_common.todo('search', tokns)
+            async for (prio, buid) in view.mergeStormIface('search', todo):
+                if buid in buidset:
+                    await asyncio.sleep(0)
+                    continue
+
+                await buidset.add(buid)
+                node = await runt.snap.getNodeByBuid(buid)
+                if node is not None:
+                    yield node, runt.initPath(node)
+
+        realgenr = searchgenr()
         if len(self.kids) > 1:
             realgenr = self.kids[1].run(runt, realgenr)
 

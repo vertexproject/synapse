@@ -215,6 +215,12 @@ class AstConverter(lark.Transformer):
         return look
 
     @lark.v_args(meta=True)
+    def search(self, meta, kids):
+        kids = self._convert_children(kids)
+        look = s_ast.Search(kids=kids)
+        return look
+
+    @lark.v_args(meta=True)
     def query(self, meta, kids):
         kids = self._convert_children(kids)
 
@@ -443,7 +449,7 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'],
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
@@ -534,6 +540,15 @@ class Parser:
         newtree.text = self.text
         return newtree
 
+    def search(self):
+        try:
+            tree = LarkParser.parse(self.text, start='search')
+        except lark.exceptions.LarkError as e:
+            raise self._larkToSynExc(e) from None
+        newtree = AstConverter(self.text).transform(tree)
+        newtree.text = self.text
+        return newtree
+
     def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
@@ -555,6 +570,9 @@ def parseQuery(text, mode='storm'):
         look = Parser(text).lookup()
         look.autoadd = True
         return look
+
+    if mode == 'search':
+        return Parser(text).search()
 
     return Parser(text).query()
 
@@ -653,7 +671,7 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
-    'looklist': s_ast.Lookup,
+    'looklist': s_ast.LookList,
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,

@@ -29,6 +29,7 @@ CPPCOMMENT.2: /\/\/[^\n]*/
 // Entry point for an unadorned storm query
 query: "|"? _querystart?
 lookup: looklist [ "|" query ]
+search: looklist [ "|" query ]
 
 _querystart: _querystart "|"? (stormcmd | _oper | _editblock)
     | stormcmd | _oper | _editblock

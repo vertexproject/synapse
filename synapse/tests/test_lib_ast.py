@@ -163,7 +163,12 @@ async def matchContexts(testself):
 
 class AstTest(s_test.SynTest):
 
-    async def test_lookup_search(self):
+    async def test_mode_search(self):
+
+        conf = {'storm:interface:search': False}
+        async with self.getTestCore(conf=conf) as core:
+            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
+            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
         conf = {'provenance:en': False}
         async with self.getTestCore(conf=conf) as core:
@@ -182,9 +187,19 @@ class AstTest(s_test.SynTest):
             })
             await core.nodes('[ ou:org=* :name=apt1 ]')
             await core.nodes('[ ou:org=* :name=vertex ]')
-            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
+            nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
+            nodeiden = nodes[0].iden()
             self.eq('apt1', nodes[0].props.get('name'))
+
+            nodes = await core.nodes('', opts={'mode': 'search'})
+            self.len(0, nodes)
+
+            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('| $$$$', opts={'mode': 'search'})
 
     async def test_try_set(self):
         '''

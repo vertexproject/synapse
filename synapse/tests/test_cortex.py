@@ -422,7 +422,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
 
-    async def test_cortex_lookup_dedup(self):
+    async def test_cortex_lookup_search_dedup(self):
         pkgdef = {
             'name': 'foobar',
             'modules': [
@@ -467,20 +467,11 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.mergeStormIface('search', todo)]
             self.eq(((0, buid),), vals)
 
-            # search iface results are deduplicated against scrape results
-            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
-            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
-
-            await core.nodes('[ test:str=foo@bar.com ]')
-
-            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
-            self.eq(['inet:email', 'test:str'], [n.ndef[0] for n in nodes])
-
             await core.nodes('[ test:str=hello ]')
 
-            # search iface results are not deduplicated against themselves
-            nodes = await core.nodes('hello hello', opts={'mode': 'lookup'})
-            self.eq(['test:str', 'test:str'], [n.ndef[0] for n in nodes])
+            # search iface results *are* deduplicated against themselves
+            nodes = await core.nodes('hello hello', opts={'mode': 'search'})
+            self.eq(['test:str'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
         async with self.getTestCore() as core:
