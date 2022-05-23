@@ -45,16 +45,16 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: "+" [SETTAGOPER] tagname [(EQUAL | EQNOSPACE) _valu]
+edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: relprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 editpropdel: "-" relprop
-editunivset: univprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-editnodeadd: formname (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-edittagpropset: "+" tagprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropdel: "-" tagprop
-EQUAL: /((?<=\s)=|=(?=\s))/
+EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
 TRYSETPLUS: "?+="
 TRYSETMINUS: "?-="
@@ -227,10 +227,10 @@ TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQUAL | EQNOSPACE | TRYSET | SETTAGOPER
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 BYNAME.2: /[^=\s]+=/
 
-_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQUAL | EQNOSPACE | TRYSET | SETTAGOPER
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
@@ -286,7 +286,7 @@ VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 !varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: _LPARNOSPACE [(_valu | (VARTOKN | NONQUOTEWORD) (EQUAL | EQNOSPACE) _valu) ("," (_valu | (VARTOKN | NONQUOTEWORD) (EQUAL | EQNOSPACE) _valu))*] ","? ")"
+_callargs: _LPARNOSPACE [(_valu | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 _LPARNOSPACE.2: /(?<!\s)\(/
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
@@ -371,7 +371,7 @@ AND: "and"
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOT exprcmp
-?exprcmp: exprsum | exprcmp (CMPR | EQUAL | EQNOSPACE) exprsum
+?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
 _expratom: _exprvalu

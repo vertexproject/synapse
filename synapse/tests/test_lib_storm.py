@@ -3525,3 +3525,7 @@ class StormTest(s_t_utils.SynTest):
             q = "$foo=one $bar=two $lib.print($lib.str.concat($foo, '=', $bar))"
             msgs = await core.stormlist(q)
             self.stormIsInPrint("one=two", msgs)
+
+            q = "function test(){ $asdf=foo $return () }"
+            msgs = await core.stormlist(q)
+            self.stormIsInErr("Unexpected token '}'", msgs)
