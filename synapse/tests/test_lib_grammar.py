@@ -1162,17 +1162,27 @@ class GrammarTest(s_t_utils.SynTest):
         args = parser.cmdrargs()
         self.eq(args, ['add', '--filter={inet:fqdn | limit 1}'])
 
-    def test_lookup(self):
+    def test_mode_lookup(self):
         q = '1.2.3.4 vertex.link | spin'
         parser = s_parser.Parser(q)
         tree = parser.lookup()
         self.eq(str(tree), 'Lookup: [LookList: [Const: 1.2.3.4, Const: vertex.link], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
 
-    def test_search(self):
+    def test_mode_search(self):
         tree = s_parser.parseQuery('foo bar | spin', mode='search')
         self.eq(str(tree), 'Search: [LookList: [Const: foo, Const: bar], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
+
+    def test_mode_storm(self):
+        # added for coverage of the top level function...
+        tree = s_parser.parseQuery('inet:fqdn=vertex.link', mode='storm')
+        self.eq(str(tree), 'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: vertex.link]]')
+
+    def test_mode_autoadd(self):
+        # added for coverage of the top level function...
+        tree = s_parser.parseQuery('vertex.link', mode='autoadd')
+        self.eq(str(tree), 'Lookup: [LookList: [Const: vertex.link]]')
 
     def test_parse_float(self):
         self.raises(s_exc.BadSyntax, s_grammar.parse_float, 'visi', 0)

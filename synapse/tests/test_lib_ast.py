@@ -189,10 +189,17 @@ class AstTest(s_test.SynTest):
             await core.nodes('[ ou:org=* :name=vertex ]')
             nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
+            nodeiden = nodes[0].iden()
             self.eq('apt1', nodes[0].props.get('name'))
 
             nodes = await core.nodes('', opts={'mode': 'search'})
             self.len(0, nodes)
+
+            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('| $$$$', opts={'mode': 'search'})
 
     async def test_try_set(self):
         '''
