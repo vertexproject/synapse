@@ -46,6 +46,7 @@ terminalEnglishMap = {
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
     'EQNOSPACE': '=',
+    'EQSPACE': '=',
     'EQUAL': '=',
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
@@ -255,7 +256,7 @@ class AstConverter(lark.Transformer):
 
             kid = self._convert_child(kids[indx])
 
-            if indx + 2 < kcnt and isinstance(kids[indx + 1], lark.lexer.Token) and kids[indx + 1].type in ('EQNOSPACE', 'EQUAL'):
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], lark.lexer.Token) and kids[indx + 1].type in ('EQNOSPACE', 'EQUAL', 'EQSPACE'):
                 kid = s_ast.CallKwarg((kid, self._convert_child(kids[indx + 2])))
                 indx += 3
             else:

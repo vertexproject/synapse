@@ -1120,6 +1120,9 @@ class GrammarTest(s_t_utils.SynTest):
                            keep_all_tokens=True, maybe_placeholders=False,
                            propagate_positions=True)
 
+        for term in parser._terminals_dict.keys():
+            self.false(term.startswith('__ANON'))
+
         for i, query in enumerate(Queries):
             if i in (12, 13):
                 # For now, accept an ambiguity in _cond between _condexpr and dollarexpr
