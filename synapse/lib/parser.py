@@ -670,7 +670,7 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
-    'looklist': s_ast.Lookup,
+    'looklist': s_ast.LookList,
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,

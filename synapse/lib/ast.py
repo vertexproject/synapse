@@ -138,6 +138,8 @@ class AstNode:
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
+class LookList(AstNode): pass
+
 class Query(AstNode):
 
     def __init__(self, kids=()):

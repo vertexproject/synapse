@@ -1163,7 +1163,14 @@ class GrammarTest(s_t_utils.SynTest):
         q = '1.2.3.4 vertex.link | spin'
         parser = s_parser.Parser(q)
         tree = parser.lookup()
-        self.eq(str(tree), 'Lookup: [Lookup: [Const: 1.2.3.4, Const: vertex.link], '
+        self.eq(str(tree), 'Lookup: [LookList: [Const: 1.2.3.4, Const: vertex.link], '
+                           'Query: [CmdOper: [Const: spin, Const: ()]]]')
+
+    def test_search(self):
+        q = 'foo bar | spin'
+        parser = s_parser.Parser(q)
+        tree = parser.search()
+        self.eq(str(tree), 'Search: [LookList: [Const: foo, Const: bar], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
 
     def test_parse_float(self):
