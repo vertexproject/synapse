@@ -30,14 +30,16 @@ RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
 _tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proporunivrestr))
 
-_tagtrigvalid = {'properties': {'form': {'type': 'string', 'pattern': _formre},
-                                'tag': {'type': 'string', 'pattern': _tagre}},
-                 'required': ['tag']}
 TrigSchema = {
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'form': {'type': 'string', 'pattern': _formre},
+        'tag': {'type': 'string', 'pattern': _tagre},
+        'prop': {'type': 'string', 'pattern': _propre},
+        'name': {'type': 'string', },
         'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
@@ -48,26 +50,27 @@ TrigSchema = {
     'allOf': [
         {
             'if': {'properties': {'cond': {'const': 'node:add'}}},
-            'then': {'properties': {'form': {'type': 'string'}}, 'required': ['form']},
+            'then': {'required': ['form']},
         },
         {
             'if': {'properties': {'cond': {'const': 'node:del'}}},
-            'then': {'properties': {'form': {'type': 'string'}}, 'required': ['form']},
+            'then': {'required': ['form']},
         },
         {
             'if': {'properties': {'cond': {'const': 'tag:add'}}},
-            'then': _tagtrigvalid,
+            'then': {'required': ['tag']},
         },
         {
             'if': {'properties': {'cond': {'const': 'tag:del'}}},
-            'then': _tagtrigvalid,
+            'then': {'required': ['tag']},
         },
         {
             'if': {'properties': {'cond': {'const': 'prop:set'}}},
-            'then': {'properties': {'prop': {'type': 'string', 'pattern': _propre}}, 'required': ['prop']},
+            'then': {'required': ['prop']},
         },
     ],
 }
+TrigSchemaKeys = tuple(TrigSchema.get('properties').keys())
 
 def reqValidTdef(conf):
     s_config.Config(TrigSchema, conf=conf).reqConfValid()
