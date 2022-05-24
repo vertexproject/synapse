@@ -675,7 +675,9 @@ class Slab(s_base.Base):
             raise s_exc.SlabAlreadyOpen(mesg=path)
 
         if os.path.isfile(self.optspath):
-            opts.update(s_common.yamlload(self.optspath))
+            opts = s_common.yamlload(self.optspath)
+            if isinstance(opts, dict):
+                opts.update(opts)
 
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
