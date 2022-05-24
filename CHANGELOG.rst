@@ -10,7 +10,7 @@ v2.95.1 - 2022-05-24
 
 Bugfixes
 --------
-- Fix a regression in the ``aha://`` update from v2.95.0
+- Fix a regression in the Telepath ``aha://`` update from ``v2.95.0``.
   (`#2693 <https://github.com/vertexproject/synapse/pull/2693>`_)
 
 
