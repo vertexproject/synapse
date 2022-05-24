@@ -40,6 +40,7 @@ TrigSchema = {
         'tag': {'type': 'string', 'pattern': _tagre},
         'prop': {'type': 'string', 'pattern': _propre},
         'name': {'type': 'string', },
+        'doc': {'type': 'string', },
         'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
@@ -70,10 +71,10 @@ TrigSchema = {
         },
     ],
 }
-TrigSchemaKeys = tuple(TrigSchema.get('properties').keys())
+TrigSchemaValidator = s_config.getJsValidator(TrigSchema)
 
 def reqValidTdef(conf):
-    s_config.Config(TrigSchema, conf=conf).reqConfValid()
+    TrigSchemaValidator(conf)
 
 class Triggers:
     '''

@@ -270,7 +270,7 @@ class TrigTest(s_t_utils.SynTest):
             self.eq(pdef0.get('storm'), (await view.getTrigger(iden)).tdef.get('storm'))
 
             # Bad trigger parms
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'nocond', 'storm': 'test:int=4', 'form': 'test:str'})
 
             with self.raises(s_exc.BadSyntax):
@@ -279,21 +279,21 @@ class TrigTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOptValu):
                 await view.addTrigger({'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:str', 'tag': 'foo'})
 
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'prop:set', 'storm': 'test:int=4', 'form': 'test:str', 'prop': 'foo'})
 
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]'})
 
             with self.raises(s_exc.BadOptValu):
                 tdef = {'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo', 'prop': 'test:str'}
                 await view.addTrigger(tdef)
 
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'node:add', 'storm': 'test:int=4', 'form': 'test:str', 'iden': 'foo'})
 
             # bad tagmatch
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo&baz'})
 
             # Trigger list
