@@ -11,8 +11,8 @@ v2.95.0 - 2022-05-24
 Features and Enhancements
 -------------------------
 - Add a ``search`` mode to Storm. The ``search`` mode utilizes the Storm
-  search interface to lift nodes. The ``lookup`` mode longer uses the search
-  interface.
+  search interface to lift nodes. The ``lookup`` mode no longer uses the
+  search interface.
   (`#2689 <https://github.com/vertexproject/synapse/pull/2689>`_)
 - Add a ``?mirror=true`` flag to ``aha://`` Telepath URLs which will cause
   the Aha service lookups to prefer using a mirror of the service rather than
