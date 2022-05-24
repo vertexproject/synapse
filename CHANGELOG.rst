@@ -5,6 +5,36 @@ Synapse Changelog
 *****************
 
 
+v2.95.0 - 2022-05-24
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``search`` mode to Storm. The ``search`` mode utilizes the Storm
+  search interface to lift nodes. The ``lookup`` mode longer uses the search
+  interface.
+  (`#2689 <https://github.com/vertexproject/synapse/pull/2689>`_)
+- Add a ``?mirror=true`` flag to ``aha://`` Telepath URLs which will cause
+  the Aha service lookups to prefer using a mirror of the service rather than
+  the leader.
+  (`#2681 <https://github.com/vertexproject/synapse/pull/2681>`_)
+- Add ``$lib.inet.http.urlencode()`` and ``$lib.inet.http.urldecode()`` Storm
+  APIs for handling URL encoding.
+  (`#2688 <https://github.com/vertexproject/synapse/pull/2688>`_)
+- Add type validation for all Cell configuration options throughout the
+  lifetime of the Cell and all operations which modify its configuration
+  values. This prevents invalid values from being persisted on disk.
+  (`#2687 <https://github.com/vertexproject/synapse/pull/2687>`_)
+  (`#2691 <https://github.com/vertexproject/synapse/pull/2691>`_)
+
+Bugfixes
+--------
+- Fix an issue where the ``=`` sign in the Storm grammar was assigned an
+  anonymous terminal name by the grammar parser. This caused an issue with
+  interpreting various syntax errors.
+  (`#2690 <https://github.com/vertexproject/synapse/pull/2690>`_)
+
+
 v2.94.0 - 2022-05-18
 ====================
 
