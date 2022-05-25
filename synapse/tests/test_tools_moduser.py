@@ -49,6 +49,18 @@ class ModUserTest(s_test.SynTest):
             argv = (
                 '--svcurl', svcurl,
                 'visi',
+                '--passwd', 'mySecretPassword',
+            )
+            outp = s_output.OutPutStr()
+            visi = await core.auth.getUserByName('visi')
+            self.false(await visi.tryPasswd('mySecretPassword'))
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin('...setting passwd: mySecretPassword', str(outp))
+            self.true(await visi.tryPasswd('mySecretPassword'))
+
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
                 '--admin', 'true',
                 '--locked', 'true',
             )

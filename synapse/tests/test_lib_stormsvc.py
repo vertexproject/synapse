@@ -314,7 +314,22 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class StormvarServiceCell(s_cell.Cell):
-
+    confdefs = {
+        'some:obj': {
+            'description': 'Some object',
+            'type': 'object',
+            'properties': {
+                'foo': {
+                    'type': 'string',
+                },
+                'bar': {
+                    'type': 'string',
+                },
+            },
+            'required': ['name', ],
+            'additionalProperties': False,
+        },
+    }
     cellapi = StormvarService
 
 class SvcShare(s_share.Share):
