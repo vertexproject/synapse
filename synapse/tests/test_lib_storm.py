@@ -3529,3 +3529,6 @@ class StormTest(s_t_utils.SynTest):
             q = "function test(){ $asdf=foo $return () }"
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token '}'", msgs)
+
+            retn = await core.callStorm('return((60*60))')
+            self.eq(retn, 3600)

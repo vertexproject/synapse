@@ -290,6 +290,18 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         return s_ast.VarList([k.valu for k in kids])
 
+    def nonquotewords(self, kids):
+        wstr = ''
+        indx = 0
+        kcnt = len(kids)
+        while indx < kcnt:
+            kid = kids[indx]
+            wstr += kid.value
+            if not kid.type == 'NUMBER' and indx + 1 < kcnt:
+                wstr += ' '
+            indx += 1
+        return s_ast.Const(wstr)
+
     def operrelprop_pivot(self, kids, isjoin=False):
         kids = self._convert_children(kids)
         relprop, rest = kids[0], kids[1:]
@@ -676,7 +688,6 @@ ruleClassMap = {
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
-    'nonquotewords': lambda kids: s_ast.Const(' '.join([str(k.valu) for k in kids])),
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
