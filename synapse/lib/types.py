@@ -1712,6 +1712,94 @@ class TagPart(Str):
 
         return valu, {}
 
+speed_dist = {
+    'mm': 1,
+    'millimeters': 1,
+    'k': 1000000,
+    'km': 1000000,
+    'kilometers': 1000000,
+    'in': 25.4,
+    'inches': 25.4,
+    'ft': 304.8,
+    'feet': 304.8,
+    'mi': 1609344,
+    'miles': 1609344,
+}
+
+speed_dura = {
+    's': 1,
+    'sec': 1,
+    'min': 60,
+    'minute': 60,
+    'h': 3600,
+    'hr': 3600,
+    'hour': 3600,
+}
+
+class Velocity(IntBase):
+    oflight = 299792458000
+    stortype = s_layer.STOR_TYPE_I64
+
+    _opt_defs = (
+        ('relative', False),
+    )
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyStr(self, valu):
+
+        valu = valu.lower().strip()
+        if valu == 'c':
+            return self.oflight, {}
+
+        nums, offs = s_grammar.nom(valu, 0, cset='-0123456789.')
+        if not nums:
+            mesg = 'Speed types must begin with a number.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        base = float(nums)
+        if base < 0 and not self.opts.get('relative'):
+            mesg = 'Non-relative velocities may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        unit = valu[offs:].strip()
+        if not unit:
+            return base, {}
+
+        if unit.find('/') != -1:
+            dist, dura = unit.split('/', 1)
+            distmod = speed_dist.get(dist)
+            if distmod is None:
+                mesg = f'Unrecognized distance type: {dist}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            duramod = speed_dura.get(dura)
+            if duramod is None:
+                mesg = f'Unrecognized duration type: {dura}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            norm = int((base * distmod) / duramod)
+            return norm, {}
+
+        if unit == 'mph':
+            norm = int((base * 1609344) / 3600)
+            return norm, {}
+
+        if unit == 'kmh':
+            norm = int((base * 1000000) / 3600)
+            return norm, {}
+
+        mesg = f'Unknown velocity unit: {unit}.'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    def _normPyInt(self, valu):
+        if valu < 0 and not self.opts.get('relative'):
+            mesg = 'Non-relative velocities may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+        return valu, {}
+
 class Duration(IntBase):
 
     stortype = s_layer.STOR_TYPE_U64

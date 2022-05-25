@@ -20,6 +20,33 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    def test_velocity(self):
+        model = s_datamodel.Model()
+        velo = model.type('velocity')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10newps/sec')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10km/newp')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10km/newp')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10newp')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('-10k/h')
+
+        self.eq(1, velo.norm('1mm/sec')[0])
+        self.eq(407517, velo.norm('1337feet/sec')[0])
+
+        relv = velo.clone({'relative': True})
+        self.eq(-2777, relv.norm('-10k/h')[0])
+
+        self.eq(299792458000, velo.norm('c')[0])
+
     def test_hugenum(self):
 
         model = s_datamodel.Model()

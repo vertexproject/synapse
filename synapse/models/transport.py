@@ -120,9 +120,12 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
-                    # TODO
-                    # ('airspeed',
-                    # ('groundspeed'
+                    ('speed', ('velocity', {}), {
+                        'doc': 'The ground speed of the aircraft at the time.'}),
+                    ('airspeed', ('velocity', {}), {
+                        'doc': 'The air speed of the aircraft at the time.'}),
+                    ('verticalspeed', ('velocity', {'relative': True}), {
+                        'doc': 'The relative vertical speed of the aircraft at the time.'}),
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'The altitude of the aircraft at the time.'}),
                     ('altitude:accuracy', ('geo:dist', {}), {
@@ -173,6 +176,8 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
+                    ('speed', ('velocity', {}), {
+                        'doc': 'The speed of the vessel at the time.'}),
                     ('draft', ('geo:dist', {}), {
                         'doc': 'The keel depth at the time.'}),
                     ('airdraft', ('geo:dist', {}), {
