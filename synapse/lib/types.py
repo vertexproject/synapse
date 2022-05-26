@@ -1,4 +1,5 @@
 import asyncio
+import decimal
 import logging
 import binascii
 import collections
@@ -717,18 +718,25 @@ class HugeNum(Type):
 
     def norm(self, valu):
 
-        try:
-            huge = s_common.hugenum(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e)) from None
+        if valu is None:
+            mesg = 'Hugenum type may not be null.'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
-        # behave modulo like int/float
-        if self.modulo is not None:
-            huge = huge % self.modulo
-            if huge < 0:
-                huge = s_common.hugeadd(huge, self.modulo)
-            huge = s_common.hugeround(huge)
+        try:
+
+            huge = s_common.hugenum(valu)
+
+            # behave modulo like int/float
+            if self.modulo is not None:
+                _, huge = s_common.hugemod(huge, self.modulo)
+                if huge < 0:
+                    huge = s_common.hugeadd(huge, self.modulo)
+
+                huge = s_common.hugeround(huge)
+
+        except decimal.DecimalException as e:
+            mesg = f'Invalid hugenum: {e}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
 
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
