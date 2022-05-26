@@ -193,6 +193,12 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The keel depth at the time.'}),
                     ('airdraft', ('geo:dist', {}), {
                         'doc': 'The maximum height of the ship from the waterline.'}),
+                    ('destination', ('geo:place', {}), {
+                        'doc': 'The fully resolved destination that the vessel has declared.'}),
+                    ('destination:name', ('geo:name', {}), {
+                        'doc': 'The name of the destination that the vessel has declared.'}),
+                    ('destination:eta', ('time', {}), {
+                        'doc': 'The estimated time of arrival that the vessel has declared.'}),
                 )),
             ),
         }

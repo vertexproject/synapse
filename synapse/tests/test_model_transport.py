@@ -118,6 +118,9 @@ class TransportTest(s_test.SynTest):
                     :accuracy=10m
                     :draft=20m
                     :airdraft=30m
+                    :destination=*
+                    :destination:name=woot
+                    :destination:eta=20200203
             ]'''))[0]
 
             self.nn(seatelem.get('place'))
@@ -130,6 +133,10 @@ class TransportTest(s_test.SynTest):
             self.eq(299792458000, seatelem.get('speed'))
             self.eq('79.1', seatelem.get('course'))
             self.eq('99.02', seatelem.get('heading'))
+
+            self.nn(seatelem.get('destination'))
+            self.eq('woot', seatelem.get('destination:name'))
+            self.eq(1580688000000, seatelem.get('destination:eta'))
 
             airport = (await core.nodes('transport:air:port=VISI [:name="Visi Airport" :place=*]'))[0]
             self.eq('visi', airport.ndef[1])
