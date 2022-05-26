@@ -184,9 +184,9 @@ class TransportModule(s_module.CoreModule):
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
                     ('course', ('transport:direction', {}), {
-                        'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
+                        'doc': 'The direction, in degrees from true North, that the vessel is traveling.'}),
                     ('heading', ('transport:direction', {}), {
-                        'doc': 'The direction, in degrees from true North, that the nose of the aircraft is pointed.'}),
+                        'doc': 'The direction, in degrees from true North, that the bow of the vessel is pointed.'}),
                     ('speed', ('velocity', {}), {
                         'doc': 'The speed of the vessel at the time.'}),
                     ('draft', ('geo:dist', {}), {
