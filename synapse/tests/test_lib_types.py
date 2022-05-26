@@ -39,13 +39,20 @@ class TypesTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             velo.norm('-10k/h')
 
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm(-1)
+
         self.eq(1, velo.norm('1mm/sec')[0])
         self.eq(407517, velo.norm('1337feet/sec')[0])
 
+        self.eq(299792458000, velo.norm('c')[0])
+
+        self.eq(2777, velo.norm('10kph')[0])
+        self.eq(4470, velo.norm('10mph')[0])
+        self.eq(10, velo.norm(10)[0])
+
         relv = velo.clone({'relative': True})
         self.eq(-2777, relv.norm('-10k/h')[0])
-
-        self.eq(299792458000, velo.norm('c')[0])
 
     def test_hugenum(self):
 

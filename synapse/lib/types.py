@@ -1787,7 +1787,7 @@ class Velocity(IntBase):
             norm = int((base * 1609344) / 3600)
             return norm, {}
 
-        if unit == 'kmh':
+        if unit == 'kph':
             norm = int((base * 1000000) / 3600)
             return norm, {}
 
