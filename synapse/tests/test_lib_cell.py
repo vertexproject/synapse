@@ -873,7 +873,7 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_cell.Cell.initFromArgv([dirn]) as cell:
                         self.true(cell.conf.reqConfValu('nexslog:en'))
                     obj = s_common.yamlload(dirn, 'cell.yaml')
-                    self.eq(obj, {'nexslog:en': True, })
+                    self.none(obj)
 
     async def test_initargv_failure(self):
         if not os.path.exists('/dev/null'):

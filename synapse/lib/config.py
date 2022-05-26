@@ -140,6 +140,7 @@ class Config(c_abc.MutableMapping):
         self._argparse_conf_names = {}
         self._argparse_conf_parsed_names = {}
         self.envar_prefixes = envar_prefixes
+        self._opts_data = argparse.Namespace()
         self.validator = getJsValidator(self.json_schema)
         self._prop_schemas = {}
         self._prop_validators = {}
@@ -220,13 +221,14 @@ class Config(c_abc.MutableMapping):
             _ = self.getArgParseArgs()
         return {k: v for k, v in self._argparse_conf_parsed_names.items()}
 
-    def setConfFromOpts(self, opts):
+    def setConfFromOpts(self, opts, store=True):
         '''
         Set the opts for a conf object from a namespace object.
 
         Args:
             opts (argparse.Namespace): A Namespace object made from parsing args with an ArgumentParser
             made with getArgumentParser.
+            store (boolean): Store the opts data.
 
         Returns:
             None: Returns None.
@@ -239,17 +241,39 @@ class Config(c_abc.MutableMapping):
             if nname is None:
                 continue
             self.setdefault(nname, v)
+        if store:
+            self.storeOpts(opts)
 
-    def setConfFromFile(self, path):
+    def storeOpts(self, opts: argparse.Namespace):
+        self._opts_data = opts
+
+    def getOpts(self) -> argparse.Namespace:
+        return self._opts_data
+
+    def setConfFromFile(self, path, force=False):
         '''
         Set the opts for a conf object from YAML file path.
+
+        Args:
+            path (str): Path to the yaml load. If it exists, it must represent a dictionary.
+            force (bool): Force the update instead of using setdefault() behavior.
+
+        Returns:
+            None
         '''
         item = s_common.yamlload(path)
         if item is None:
             return
 
         for name, valu in item.items():
-            self.setdefault(name, valu)
+            if force:
+                oldv = self.get(name, s_common.novalu)
+                self[name] = valu
+                if oldv is s_common.novalu:
+                    continue
+                logger.info(f'Set configuration override for [{name}] from [{path}]')
+            else:
+                self.setdefault(name, valu)
 
     # Envar support methods
     def setConfFromEnvs(self):

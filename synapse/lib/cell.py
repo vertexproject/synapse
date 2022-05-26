@@ -909,7 +909,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
-            'type': 'object',
+            'type': ['object', 'null'],
             'hideconf': True
         }
     }
@@ -1382,7 +1382,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await lead.handoff(myurl)
                 return
 
-        self.popCellConf('mirror')
+        self.updateCellModConf({'mirror': None})
 
         await self.nexsroot.promote()
         await self.setCellActive(True)
@@ -1412,7 +1412,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await cell.promote()
                 await self.setCellActive(False)
 
-                self.modCellConf({'mirror': turl})
+                self.updateCellModConf({'mirror': turl})
                 await self.nexsroot.startup()
 
     async def _setAhaActive(self):
@@ -2336,8 +2336,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             conf = s_config.Config.getConfFromCell(self, conf=conf)
             path = s_common.genpath(self.dirn, 'cell.yaml')
             conf.setConfFromFile(path)
+            mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
+            conf.setConfFromFile(mods_path, force=True)
 
-        conf.reqConfValid()
+        conf.reqConfValid()  # Populate defaults
         return conf
 
     def _loadCellYaml(self, *path):
@@ -2394,9 +2396,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return conf
         return s_common._getLogConfFromEnv()
 
-    def modCellConf(self, conf):
+    def updateCellModConf(self, conf):
         '''
-        Modify the Cell's ondisk configuration file.
+        Modify the Cell's ondisk configuration overrides file.
 
         Args:
             conf (dict): A dictionary of items to set.
@@ -2411,11 +2413,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.conf.reqKeyValid(key, valu)
 
         self.conf.update(conf)
-        s_common.yamlmod(conf, self.dirn, 'cell.yaml')
+        s_common.yamlmod(conf, self.dirn, 'cell.mods.yaml')
 
-    def popCellConf(self, name):
+    def popCellModConf(self, name):
         '''
-        Remove a key from the Cell's ondisk configuration file.
+        Remove a key from the Cell's ondisk configuration overrides file.
 
         Args:
             name (str): Name of the value to remove.
@@ -2424,7 +2426,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             None
         '''
         self.conf.pop(name, None)
-        s_common.yamlpop(name, self.dirn, 'cell.yaml')
+        s_common.yamlpop(name, self.dirn, 'cell.mods.yaml')
 
     @classmethod
     def getCellType(cls):
@@ -2561,12 +2563,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not certdir.getCaCertPath(ahanetw):
                 certdir.saveCaCertByts(await prov.getCaCert())
 
-            # update our runtime config
-            for name, valu in provconf.items():
-                self.conf[name] = valu
+            # replace our runtime config with the updated config with provconf data
+            new_conf = self.initCellConf()
+            new_conf.setdefault('_log_conf', self.conf.get('_log_conf'))
 
-            # save our config state
-            self.modCellConf(provconf)
+            new_conf.setConfFromOpts(self.conf.getOpts())
+            new_conf.setConfFromEnvs()
+
+            # Validate provconf and insert it into cell.yaml
+            for name, valu in provconf.items():
+                new_conf.reqKeyValid(name, valu)
+            path = s_common.genpath(self.dirn, 'cell.yaml')
+            # load it cell.yaml
+            s_common.yamlmod(provconf, path)
+            new_conf.setConfFromFile(path)
+
+            # Strip keys out of modconf and load it
+            for key in provconf:
+                self.popCellModConf(key)
+            mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
+            new_conf.setConfFromFile(mods_path, force=True)
+
+            new_conf.reqConfValid()
+            self.conf = new_conf
 
             hostname = f'{ahaname}.{ahanetw}'
             if certdir.getHostCertPath(hostname) is None:
@@ -2586,17 +2605,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return provconf
 
     def _bootCellConf(self, conf=None):
-        # create a fresh config and re-resolve inputs in precedence order...
-        conf = s_config.Config.getConfFromCell(self, conf=conf)
+        new_conf = self.initCellConf()
+        new_conf.setdefault('_log_conf', self.conf.get('_log_conf'))
+
+        new_conf.setConfFromOpts(self.conf.getOpts())
+        new_conf.setConfFromEnvs()
 
         path = s_common.genpath(self.dirn, 'cell.yaml')
+        s_common.yamlmod(conf, path)
+        new_conf.setConfFromFile(path)
 
-        conf.setConfFromOpts(conf)
-        conf.setConfFromFile(path)
-        conf.setConfFromEnvs()
+        for key in conf:
+            self.popCellModConf(key)
+        mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
+        new_conf.setConfFromFile(mods_path, force=True)
 
-        conf.reqConfValid()
-        return conf
+        new_conf.reqConfValid()
+
+        return new_conf
 
     def _mustBootMirror(self):
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -2611,7 +2637,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def readyToMirror(self):
         if not self.conf.get('nexslog:en'):
-            self.modCellConf({'nexslog:en': True})
+            self.updateCellModConf({'nexslog:en': True})
             await self.nexsroot.enNexsLog()
             await self.sync()
 
@@ -2643,10 +2669,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
 
-        if conf is not None:
-            self.modCellConf(conf)
-
-        self.conf = self._bootCellConf()
+        self.conf = self._bootCellConf(conf)
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
@@ -2679,16 +2702,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = pars.parse_args(argv)
         path = s_common.genpath(opts.dirn, 'cell.yaml')
+        mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
         try:
             conf.setdefault('_log_conf', logconf)
             conf.setConfFromOpts(opts)
+            conf.setConfFromEnvs()
             conf.setConfFromFile(path)
-            updates = conf.setConfFromEnvs()
-            if updates:
-                s_common.yamlmod(updates, path)
+            conf.setConfFromFile(mods_path, force=True)
         except:
             logger.exception(f'Error while bootstrapping cell config.')
             raise
