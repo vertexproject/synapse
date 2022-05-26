@@ -49,6 +49,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(1, velo.norm('1mm/sec')[0])
         self.eq(407517, velo.norm('1337feet/sec')[0])
 
+        self.eq(514, velo.norm('knots')[0])
         self.eq(299792458000, velo.norm('c')[0])
 
         self.eq(2777, velo.norm('10kph')[0])

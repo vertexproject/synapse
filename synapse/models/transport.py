@@ -5,6 +5,9 @@ class TransportModule(s_module.CoreModule):
         modl = {
             'types': (
 
+                ('transport:direction', ('hugenum', {'modulo': 360}), {
+                    'doc': 'A direction measured in degrees with 0.0 being true North.'}),
+
                 ('transport:air:craft', ('guid', {}), {
                     'doc': 'An individual aircraft.'}),
 
@@ -120,6 +123,10 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
+                    ('course', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
+                    ('heading', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the nose of the aircraft is pointed.'}),
                     ('speed', ('velocity', {}), {
                         'doc': 'The ground speed of the aircraft at the time.'}),
                     ('airspeed', ('velocity', {}), {
@@ -176,6 +183,10 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
+                    ('course', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
+                    ('heading', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the nose of the aircraft is pointed.'}),
                     ('speed', ('velocity', {}), {
                         'doc': 'The speed of the vessel at the time.'}),
                     ('draft', ('geo:dist', {}), {

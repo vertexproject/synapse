@@ -688,6 +688,10 @@ class HugeNum(Type):
 
     stortype = s_layer.STOR_TYPE_HUGENUM
 
+    _opt_defs = (
+        ('modulo', None),  # type: ignore
+    )
+
     def __init__(self, modl, name, info, opts):
 
         Type.__init__(self, modl, name, info, opts)
@@ -705,6 +709,12 @@ class HugeNum(Type):
             'range=': self._storLiftRange,
         })
 
+        self.modulo = None
+
+        modulo = self.opts.get('modulo')
+        if modulo is not None:
+            self.modulo = s_common.hugenum(modulo)
+
     def norm(self, valu):
 
         try:
@@ -713,7 +723,13 @@ class HugeNum(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg=str(e)) from None
 
-        huge = s_common.hugenum(valu)
+        # behave modulo like int/float
+        if self.modulo is not None:
+            huge = huge % self.modulo
+            if huge < 0:
+                huge = s_common.hugeadd(huge, self.modulo)
+            huge = s_common.hugeround(huge)
+
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
@@ -1036,6 +1052,7 @@ class Float(Type):
         return self._normPyFloat(valu)
 
     def _normPyFloat(self, valu):
+
         if self.minval is not None and not self.mincmp(valu, self.minval):
             mesg = f'value is below min={self.minval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
@@ -1718,6 +1735,7 @@ speed_dist = {
     'k': 1000000,
     'km': 1000000,
     'kilometers': 1000000,
+    'nmi': 1852000,
     'in': 25.4,
     'inches': 25.4,
     'ft': 304.8,
@@ -1789,6 +1807,10 @@ class Velocity(IntBase):
 
         if unit == 'kph':
             norm = int((base * 1000000) / 3600)
+            return norm, {}
+
+        if unit in ('knots', 'kts'):
+            norm = int((base * 1852000) / 3600)
             return norm, {}
 
         if unit == 'c':

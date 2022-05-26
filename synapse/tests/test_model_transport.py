@@ -59,6 +59,8 @@ class TransportTest(s_test.SynTest):
                     :latlong=(20.22, 80.1111)
                     :loc=us
                     :place=*
+                    :course=-280.9
+                    :heading=99.02
                     :speed=374km/h
                     :airspeed=24ft/sec
                     :verticalspeed=-20feet/sec
@@ -78,6 +80,8 @@ class TransportTest(s_test.SynTest):
             self.eq(6380152800, telem.get('altitude'))
             self.eq(10000, telem.get('altitude:accuracy'))
             self.eq(1580601600000, telem.get('time'))
+            self.eq('79.1', telem.get('course'))
+            self.eq('99.02', telem.get('heading'))
 
             vessel = (await core.nodes('''[
                 transport:sea:vessel=*
@@ -108,6 +112,8 @@ class TransportTest(s_test.SynTest):
                     :latlong=(20.22, 80.1111)
                     :loc=us
                     :place=*
+                    :course=-280.9
+                    :heading=99.02
                     :speed=c
                     :accuracy=10m
                     :draft=20m
@@ -122,6 +128,8 @@ class TransportTest(s_test.SynTest):
             self.eq(20000, seatelem.get('draft'))
             self.eq(30000, seatelem.get('airdraft'))
             self.eq(299792458000, seatelem.get('speed'))
+            self.eq('79.1', seatelem.get('course'))
+            self.eq('99.02', seatelem.get('heading'))
 
             airport = (await core.nodes('transport:air:port=VISI [:name="Visi Airport" :place=*]'))[0]
             self.eq('visi', airport.ndef[1])
