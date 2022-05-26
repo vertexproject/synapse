@@ -1751,13 +1751,13 @@ class Velocity(IntBase):
     def _normPyStr(self, valu):
 
         valu = valu.lower().strip()
-        if valu == 'c':
-            return self.oflight, {}
+        if not valu:
+            mesg = 'Empty string is not a valid velocity.'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
         nums, offs = s_grammar.nom(valu, 0, cset='-0123456789.')
         if not nums:
-            mesg = 'Speed types must begin with a number.'
-            raise s_exc.BadTypeValu(mesg=mesg)
+            nums = '1'
 
         base = float(nums)
         if base < 0 and not self.opts.get('relative'):
@@ -1790,6 +1790,9 @@ class Velocity(IntBase):
         if unit == 'kph':
             norm = int((base * 1000000) / 3600)
             return norm, {}
+
+        if unit == 'c':
+            return int(base * self.oflight), {}
 
         mesg = f'Unknown velocity unit: {unit}.'
         raise s_exc.BadTypeValu(mesg=mesg)

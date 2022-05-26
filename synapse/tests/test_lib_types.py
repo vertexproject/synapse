@@ -42,6 +42,10 @@ class TypesTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadTypeValu):
             velo.norm(-1)
 
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('')
+
+        self.eq(1, velo.norm('mm/sec')[0])
         self.eq(1, velo.norm('1mm/sec')[0])
         self.eq(407517, velo.norm('1337feet/sec')[0])
 
