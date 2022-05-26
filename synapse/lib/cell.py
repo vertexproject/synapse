@@ -909,7 +909,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
-            'type': ['object', 'null'],
+            'type': 'object',
             'hideconf': True
         }
     }
@@ -2565,7 +2565,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             # replace our runtime config with the updated config with provconf data
             new_conf = self.initCellConf()
-            new_conf.setdefault('_log_conf', self.conf.get('_log_conf'))
+            new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
             new_conf.setConfFromOpts(self.conf.getOpts())
             new_conf.setConfFromEnvs()
@@ -2604,9 +2604,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return provconf
 
-    def _bootCellConf(self, conf=None):
+    async def _bootCellConf(self, conf=None):
         new_conf = self.initCellConf()
-        new_conf.setdefault('_log_conf', self.conf.get('_log_conf'))
+        new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
         new_conf.setConfFromOpts(self.conf.getOpts())
         new_conf.setConfFromEnvs()
@@ -2669,7 +2669,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
 
-        self.conf = self._bootCellConf(conf)
+        self.conf = await self._bootCellConf(conf)
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
