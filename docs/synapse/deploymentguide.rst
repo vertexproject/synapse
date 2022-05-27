@@ -20,13 +20,18 @@ orchestration mechanisms such as Kubernetes but for simplicity's sake, this guid
 ``docker-compose`` based deployments.
 
 .. note::
-    To allow hosts to be provisioned on one system, this guide instructs you to disable HTTP API listening
-    ports on all services other than the main Cortex. You may remove those configuration options if you are
-    running on separate hosts or select alternate ports which do not conflict.
+    Due to `known networking limitations of docker on Mac`_ we do **not** support or recommend the use
+    of Docker for Mac for testing or deploying production Synapse instances. Containers run within
+    separate ``docker-compose`` commands will not be able to reliably communicate with each other.
 
 Synapse services **require persistent storage**. Each ``docker`` container expects persistent storage to be available
 within the directory ``/vertex/storage`` which should be a persistent mapped volume. Only one container may run from a
 given volume at a time.
+
+.. note::
+    To allow hosts to be provisioned on one system, this guide instructs you to disable HTTP API listening
+    ports on all services other than the main Cortex. You may remove those configuration options if you are
+    running on separate hosts or select alternate ports which do not conflict.
 
 Prepare your Hosts
 ==================
@@ -366,3 +371,4 @@ for instructions on performing various maintenance tasks on your deployment!
 
 .. _docker: https://docs.docker.com/engine/install/
 .. _docker-compose: https://docs.docker.com/compose/install/
+.. _known networking limitations of docker on Mac: https://docs.docker.com/desktop/mac/networking/#known-limitations-use-cases-and-workarounds
