@@ -47,13 +47,17 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_handoff(self):
 
         with self.getTestDir() as dirn:
+            ahadir = s_common.genpath(dirn, 'aha00')
+            coredir0 = s_common.genpath(dirn, 'core00')
+            coredir1 = s_common.genpath(dirn, 'core01')
+            coredir2 = s_common.genpath(dirn, 'core02',)
 
             conf = {
                 'aha:name': 'aha',
                 'aha:network': 'newp',
                 'provision:listen': 'tcp://127.0.0.1:0',
             }
-            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+            async with await s_aha.AhaCell.anit(ahadir, conf=conf) as aha:
 
                 provaddr, provport = aha.provdmon.addr
                 aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
@@ -64,7 +68,7 @@ class CortexTest(s_t_utils.SynTest):
                 provurl = await aha.addAhaSvcProv('00.cortex')
                 coreconf = {'aha:provision': provurl, 'nexslog:en': False}
 
-                async with self.getTestCore(conf=coreconf) as core00:
+                async with self.getTestCore(dirn=coredir0, conf=coreconf) as core00:
 
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
@@ -74,7 +78,7 @@ class CortexTest(s_t_utils.SynTest):
 
                     # provision with the new hostname and mirror config
                     coreconf = {'aha:provision': provurl}
-                    async with self.getTestCore(conf=coreconf) as core01:
+                    async with self.getTestCore(dirn=coredir1, conf=coreconf) as core01:
 
                         # test out connecting to the leader but having aha chose a mirror
                         async with s_telepath.loadTeleCell(core01.dirn):
@@ -96,8 +100,24 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(core01.isactive)
                         self.false(core00.isactive)
 
+                        mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
+                        mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
+                        self.eq(mods00, {'mirror': 'aha://01.cortex.newp'})
+                        self.eq(mods01, {'mirror': None})
+
                         await core00.nodes('[inet:ipv4=5.5.5.5]')
                         self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                        # After doing the promotion, provision another mirror cortex.
+                        # This pops the mirror config out of the mods file we copied
+                        # from the backup.
+                        provinfo = {'mirror': '01.cortex'}
+                        provurl = await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)
+                        coreconf = {'aha:provision': provurl}
+                        async with self.getTestCore(dirn=coredir2, conf=coreconf) as core02:
+                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex.newp')
+                            mods02 = s_common.yamlload(coredir2, 'cell.mods.yaml')
+                            self.eq(mods02, {})
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:

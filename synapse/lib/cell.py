@@ -2424,6 +2424,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         for key, valu in conf.items():
             self.conf.reqKeyValid(key, valu)
+            logger.info(f'Setting cell config override for [{key}]')
 
         self.conf.update(conf)
         s_common.yamlmod(conf, self.dirn, 'cell.mods.yaml')
@@ -2447,6 +2448,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.conf.pop(name, None)
         self.conf.reqConfValid()
         s_common.yamlpop(name, self.dirn, 'cell.mods.yaml')
+        logger.info(f'Removed cell config override for [{name}]')
 
     @classmethod
     def getCellType(cls):
