@@ -813,7 +813,7 @@ class CertDir:
         Signs a host CSR with a CA keypair.
 
         Args:
-            cert (OpenSSL.crypto.X509Req): The certificate signing request.
+            xcsr (OpenSSL.crypto.X509Req): The certificate signing request.
             signas (str): The CA keypair name to sign the CSR with.
             outp (synapse.lib.output.Output): The output buffer.
             sans (list): List of subject alternative names.

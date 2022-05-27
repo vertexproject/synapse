@@ -1,9 +1,6 @@
-import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
-
-import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
 

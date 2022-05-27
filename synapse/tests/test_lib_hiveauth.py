@@ -6,10 +6,6 @@ import synapse.telepath as s_telepath
 import synapse.tests.utils as s_test
 from synapse.tests.utils import alist
 
-import synapse.lib.hive as s_hive
-import synapse.lib.nexus as s_nexus
-import synapse.lib.hiveauth as s_hiveauth
-
 class AuthTest(s_test.SynTest):
 
     async def test_hive_auth(self):

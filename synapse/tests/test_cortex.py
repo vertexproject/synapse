@@ -20,7 +20,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tools.backup as s_tools_backup
 import synapse.tools.promote as s_tools_promote

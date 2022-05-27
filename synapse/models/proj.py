@@ -1,5 +1,3 @@
-import synapse.common as s_common
-
 import synapse.lib.module as s_module
 
 prioenums = (

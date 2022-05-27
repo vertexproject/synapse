@@ -1,11 +1,9 @@
 import asyncio
 import logging
 
-import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
-import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 

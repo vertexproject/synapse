@@ -29,7 +29,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -4781,8 +4780,7 @@ class NodeProps(Prim):
         Set a property on a Node.
 
         Args:
-            prop (str): The name of the property to set.
-
+            name (str): The name of the property to set.
             valu: The value being set.
 
         Raises:

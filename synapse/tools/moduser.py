@@ -3,7 +3,6 @@ import yaml
 import asyncio
 import argparse
 
-import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
