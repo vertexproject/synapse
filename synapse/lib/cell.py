@@ -1179,6 +1179,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initNexusSubsystem(self):
         if self.cellparent is None:
+            await self.nexsroot.recover()
             await self.nexsroot.startup()
             await self.setCellActive(self.conf.get('mirror') is None)
 
