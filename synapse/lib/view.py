@@ -554,9 +554,10 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return await self.snapctor(self, user)
 
-    @s_nexus.Pusher.onPushAuto('trig:q:add')
-    async def addTrigQueue(self, triginfo):
-        self.trigqueue.add(triginfo)
+    @s_nexus.Pusher.onPushAuto('trig:q:add', passitem=True)
+    async def addTrigQueue(self, triginfo, nexsitem):
+        nexsoff, nexsmesg = nexsitem
+        self.trigqueue.add(triginfo, indx=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('trig:q:del')
     async def delTrigQueue(self, offs):
