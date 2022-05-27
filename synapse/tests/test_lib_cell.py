@@ -879,7 +879,7 @@ class CellTest(s_t_utils.SynTest):
                     s_common.yamlsave({'nexslog:async': True},
                                       dirn, 'cell.mods.yaml')
                     async with await s_cell.Cell.initFromArgv([dirn, '--auth-passwd', 'secret']) as cell:
-                        # Precedance for booting from initArgV
+                        # config order for booting from initArgV
                         # 0) cell.mods.yaml
                         # 1) cmdline
                         # 2) envars
