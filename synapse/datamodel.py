@@ -535,6 +535,10 @@ class Model:
         item = s_types.Taxonomy(self, 'taxonomy', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A velocity with base units in mm/sec.'}
+        item = s_types.Velocity(self, 'velocity', info, {})
+        self.addBaseType(item)
+
         # add the base universal properties...
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',
