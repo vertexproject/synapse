@@ -221,18 +221,19 @@ class Config(c_abc.MutableMapping):
             _ = self.getArgParseArgs()
         return {k: v for k, v in self._argparse_conf_parsed_names.items()}
 
-    def setConfFromOpts(self, opts, store=True):
+    def setConfFromOpts(self, opts=None):
         '''
         Set the opts for a conf object from a namespace object.
 
         Args:
             opts (argparse.Namespace): A Namespace object made from parsing args with an ArgumentParser
             made with getArgumentParser.
-            store (boolean): Store the opts data.
 
         Returns:
             None: Returns None.
         '''
+        if opts is None:
+            opts = self._opts_data
         opts_data = vars(opts)
         for k, v in opts_data.items():
             if v is None:
@@ -241,14 +242,7 @@ class Config(c_abc.MutableMapping):
             if nname is None:
                 continue
             self.setdefault(nname, v)
-        if store:
-            self.storeOpts(opts)
-
-    def storeOpts(self, opts: argparse.Namespace):
         self._opts_data = opts
-
-    def getOpts(self) -> argparse.Namespace:
-        return self._opts_data
 
     def setConfFromFile(self, path, force=False):
         '''

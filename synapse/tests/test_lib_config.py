@@ -5,9 +5,9 @@ import argparse
 import yaml
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
-
 import synapse.lib.config as s_config
 
 import synapse.tests.utils as s_test
@@ -213,6 +213,35 @@ class ConfTest(s_test.SynTest):
         self.eq(conf2.asDict(), {
             'key:array': ['firetruck', 'spaceship']
         })
+
+        # setConfFromFile apis
+        conf3 = s_config.Config(s_test.test_schema)
+        with self.getTestDir() as dirn:
+            # Set data
+            s_common.yamlsave({'key:array': ['foo', 'bar'],
+                               'key:integer': 1234}, dirn, '1.yaml')
+            fp = s_common.genpath(dirn, '1.yaml')
+            conf3.setConfFromFile(fp)
+            self.eq(conf3.asDict(), {'key:array': ['foo', 'bar'],
+                                     'key:integer': 1234})
+            # key:integer is already set
+            s_common.yamlsave({'key:integer': 5678}, dirn, '2.yaml')
+            fp = s_common.genpath(dirn, '2.yaml')
+            conf3.setConfFromFile(fp)
+            self.eq(conf3.get('key:integer'), 1234)
+
+            # Force the load
+            s_common.yamlsave({'key:integer': 5678, 'key:string': 'haha'},
+                              dirn, '3.yaml')
+            fp = s_common.genpath(dirn, '3.yaml')
+            with self.getAsyncLoggerStream('synapse.lib.config') as stream:
+                conf3.setConfFromFile(fp, force=True)
+            stream.seek(0)
+            buf = stream.read()
+            self.isin('Set configuration override for [key:integer]', buf)
+            self.notin('Set configuration override for [key:string]', buf)
+            self.eq(conf3.get('key:integer'), 5678)
+            self.eq(conf3.get('key:string'), 'haha')
 
     async def test_config_fromcell(self):
 
