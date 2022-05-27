@@ -20,9 +20,9 @@ orchestration mechanisms such as Kubernetes but for simplicity's sake, this guid
 ``docker-compose`` based deployments.
 
 .. note::
-    Due to `known networking limitations of docker on Mac`_ we do **not** support or reccomend the use
+    Due to `known networking limitations of docker on Mac`_ we do **not** support or recommend the use
     of Docker for Mac for testing or deploying production Synapse instances. Containers run within
-    separate ``docker-compose`` commands will not be able to reliably communicate with echother.
+    separate ``docker-compose`` commands will not be able to reliably communicate with each other.
 
 Synapse services **require persistent storage**. Each ``docker`` container expects persistent storage to be available
 within the directory ``/vertex/storage`` which should be a persistent mapped volume. Only one container may run from a
