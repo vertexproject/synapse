@@ -183,6 +183,9 @@ def hugeround(x):
     '''
     return hugectx.quantize(x, hugeexp)
 
+def hugemod(x, y):
+    return hugectx.divmod(x, y)
+
 def vertup(vstr):
     '''
     Convert a version string to a tuple.
