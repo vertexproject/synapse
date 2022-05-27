@@ -154,6 +154,9 @@ class Config(c_abc.MutableMapping):
         # Copy the data in so that it is validated.
         for k, v in conf.items():
             self[k] = v
+        # Ensure we're able to parse opts data for our schema -
+        # this populates the opts mapping data.
+        _ = self.getArgParseArgs()
 
     @classmethod
     def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):

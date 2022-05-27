@@ -2464,9 +2464,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.runid
 
     @classmethod
-    def initCellConf(cls):
+    def initCellConf(cls, conf=None):
         '''
         Create a Config object for the Cell.
+
+        Args:
+            conf (s_config.Config): An optional config structure. This has _opts_data taken from it.
 
         Notes:
             The Config object has a ``envar_prefix`` set according to the results of ``cls.getEnvPrefix()``.
@@ -2476,7 +2479,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         prefixes = cls.getEnvPrefix()
         schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
-        return s_config.Config(schema, envar_prefixes=prefixes)
+        config = s_config.Config(schema, envar_prefixes=prefixes)
+        if conf:
+            config._opts_data = conf._opts_data
+        return config
 
     @classmethod
     def getArgParser(cls, conf=None):
@@ -2618,11 +2624,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             s_config.Config: The new config object to be used.
         '''
         # replace our runtime config with the updated config with provconf data
-        new_conf = self.initCellConf()
+        new_conf = self.initCellConf(self.conf)
         new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
         # Load any opts we have and environment variables.
-        new_conf.setConfFromOpts(self.conf.getOpts())
+        new_conf.setConfFromOpts()
         new_conf.setConfFromEnvs()
 
         # Validate provconf, and insert it into cell.yaml

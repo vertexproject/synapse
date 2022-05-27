@@ -93,7 +93,9 @@ class ConfTest(s_test.SynTest):
         # We can re-inject the opts back into the config object.
         # The s_common.novalu data is skipped, as are opts which
         # were not set by the schema data.
+        self.eq(vars(conf._opts_data), {})
         conf.setConfFromOpts(opts)
+        self.true(conf._opts_data is opts)
         self.eq(conf.asDict(), {
             'key:bool:defvaltrue': False,
             'key:number': 1234.5678,

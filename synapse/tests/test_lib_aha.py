@@ -530,7 +530,11 @@ class AhaTest(s_test.SynTest):
                 }
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
 
-                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                argv = (axonpath, '--auth-passwd', 'rootbeer')
+                async with await s_axon.Axon.initFromArgv(argv) as axon:
+
+                    # opts were copied through successfully
+                    self.true(await axon.auth.rootuser.tryPasswd('rootbeer'))
 
                     # test that nobody set aha:admin
                     self.none(await axon.auth.getUserByName('root@loop.vertex.link'))
@@ -587,10 +591,14 @@ class AhaTest(s_test.SynTest):
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
 
                 # force a re-provision... (because the providen is different)
-                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
-                    pass
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Provisioning axon from AHA service') as stream:
+                    async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                        self.true(await stream.wait(6))
 
                 # tests startup logic that recognizes it's already done
-                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
-                    # testing second run...
-                    pass
+                with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:
+                    async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                        pass
+                    stream.seek(0)
+                    self.notin('Provisioning axon from AHA service', stream.read())
