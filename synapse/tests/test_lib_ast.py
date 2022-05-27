@@ -2222,4 +2222,5 @@ class AstTest(s_test.SynTest):
             $x = $foo((12))
             $lib.print($x)
             '''
+            mesgs = await core.stormlist(q)
             self.stormIsInPrint('some special string', mesgs)
