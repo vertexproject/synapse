@@ -2184,3 +2184,42 @@ class AstTest(s_test.SynTest):
             q = '$ret=$lib.dict(bar=$ret)'
             mesgs = await core.stormlist(q)
             self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$view = $lib.view.get() $lib.print($view)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('storm:view', mesgs)
+
+            q = '''
+                $pipe = $lib.pipe.gen(${
+                    $pipe.put(neato)
+                    $pipe.put(burrito)
+                })
+
+                for $items in $pipe.slices(size=2) {
+                    for $thingy in $items {
+                        $lib.print($thingy)
+                    }
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('neato', mesgs)
+            self.stormIsInPrint('burrito', mesgs)
+
+            q = '''
+                $foo = ${ $foo="NEAT" return($foo) }
+                $bar = $foo.exec()
+                $lib.print($foo)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('NEAT', mesgs)
+
+            q = '''
+            function foo(x) {
+                $x = "some special string"
+                return($x)
+            }
+
+            $x = $foo((12))
+            $lib.print($x)
+            '''
+            self.stormIsInPrint('some special string', mesgs)

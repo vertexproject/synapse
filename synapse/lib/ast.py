@@ -3021,6 +3021,10 @@ class EmbedQuery(Const):
         # var scope validation occurs in the sub-runtime
         pass
 
+    def hasVarName(self, name):
+        # similar to above, the sub-runtime handles var scoping
+        return False
+
     def getRuntVars(self, runt):
         if 0:
             yield
