@@ -867,13 +867,43 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_initargv_conf(self):
         async with self.withSetLoggingMock():
-            # Ensure that envars are persisted into the cell config
-            with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true'):
+            with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true',
+                                   SYN_CELL_DMON_LISTEN='null',
+                                   SYN_CELL_HTTPS_PORT='null',
+                                   SYN_CELL_AUTH_PASSWD='notsecret',
+                                   ):
                 with self.getTestDir() as dirn:
-                    async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:0/',
+                                       'aha:name': 'some:cell'},
+                                      dirn, 'cell.yaml')
+                    s_common.yamlsave({'nexslog:async': True},
+                                      dirn, 'cell.mods.yaml')
+                    async with await s_cell.Cell.initFromArgv([dirn, '--auth-passwd', 'secret']) as cell:
+                        # config order for booting from initArgV
+                        # 0) cell.mods.yaml
+                        # 1) cmdline
+                        # 2) envars
+                        # 3) cell.yaml
                         self.true(cell.conf.reqConfValu('nexslog:en'))
-                    obj = s_common.yamlload(dirn, 'cell.yaml')
-                    self.eq(obj, {'nexslog:en': True, })
+                        self.true(cell.conf.reqConfValu('nexslog:async'))
+                        self.none(cell.conf.reqConfValu('dmon:listen'))
+                        self.none(cell.conf.reqConfValu('https:port'))
+                        self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
+                        root = cell.auth.rootuser
+                        self.true(await root.tryPasswd('secret'))
+
+                # Overrides file wins out over everything else in conflicts
+                with self.getTestDir() as dirn:
+                    s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
+                    async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                        self.false(cell.conf.reqConfValu('nexslog:en'))
+                        # We can remove the valu from the overrides file with the pop API
+                        # This is NOT reactive API which causes the whole behavior
+                        # of the cell to suddenly change. This is intended to be used with
+                        # code that is aware of changing configuration values.
+                        cell.popCellConf('nexslog:en')
+                        overrides = s_common.yamlload(dirn, 'cell.mods.yaml')
+                        self.eq({}, overrides)
 
     async def test_initargv_failure(self):
         if not os.path.exists('/dev/null'):
