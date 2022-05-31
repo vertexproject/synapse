@@ -59,6 +59,7 @@ terminalEnglishMap = {
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '{',
+    'LISTTOKN': 'unquoted list value',
     'LPAR': '(',
     'LSQB': '[',
     'MODSET': '+= or -=',
@@ -158,13 +159,35 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
-        kids = [self._convert_child(k) for k in kids]
-        return s_ast.ExprList(kids=kids)
+        newkids = []
+        for k in kids:
+            if isinstance(k, lark.lexer.Token) and k.type == 'VARTOKN' and k.value[0] not in ("'", '"'):
+                valu = k.value
+                try:
+                    valu = float(valu) if '.' in valu else int(valu, 0)
+                except ValueError as e:
+                    pass
+
+                newkids.append(s_ast.Const(valu))
+            else:
+                newkids.append(self._convert_child(k))
+        return s_ast.ExprList(kids=newkids)
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
-        kids = [self._convert_child(k) for k in kids]
-        return s_ast.ExprDict(kids=kids)
+        newkids = []
+        for k in kids:
+            if isinstance(k, lark.lexer.Token) and k.type == 'VARTOKN' and k.value[0] not in ("'", '"'):
+                valu = k.value
+                try:
+                    valu = float(valu) if '.' in valu else int(valu, 0)
+                except ValueError as e:
+                    pass
+
+                newkids.append(s_ast.Const(valu))
+            else:
+                newkids.append(self._convert_child(k))
+        return s_ast.ExprDict(kids=newkids)
 
     @lark.v_args(meta=True)
     def trycatch(self, meta, kids):
@@ -289,18 +312,6 @@ class AstConverter(lark.Transformer):
     def varlist(self, kids):
         kids = self._convert_children(kids)
         return s_ast.VarList([k.valu for k in kids])
-
-    def nonquotewords(self, kids):
-        wstr = ''
-        indx = 0
-        kcnt = len(kids)
-        while indx < kcnt:
-            kid = kids[indx]
-            wstr += kid.value
-            if not kid.type == 'NUMBER' and indx + 1 < kcnt:
-                wstr += ' '
-            indx += 1
-        return s_ast.Const(wstr)
 
     def operrelprop_pivot(self, kids, isjoin=False):
         kids = self._convert_children(kids)

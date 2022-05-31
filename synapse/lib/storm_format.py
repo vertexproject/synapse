@@ -44,6 +44,7 @@ TerminalPygMap = {
     'IF': p_t.Keyword,
     'IN': p_t.Keyword,
     'LBRACE': p_t.Punctuation,
+    'LISTTOKN': p_t.Literal.String,
     'LPAR': p_t.Punctuation,
     'LSQB': p_t.Punctuation,
     'MODSET': p_t.Operator,

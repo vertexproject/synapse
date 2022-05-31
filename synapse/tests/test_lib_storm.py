@@ -3477,15 +3477,6 @@ class StormTest(s_t_utils.SynTest):
                 '''
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint(exp, msgs)
-            q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
-            msgs = await core.stormlist(q)
-            self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [17, ]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [2019, ]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [8:14:22]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [PM]', msgs)
-            self.stormIsInWarn('iden must be 32 bytes [10]', msgs)
-            self.stormIsInWarn('Failed to decode iden: [hostname]', msgs)
 
             q = 'iden https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q --test=asdf'
             msgs = await core.stormlist(q)
@@ -3535,3 +3526,6 @@ class StormTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)')
             self.len(1, nodes)
+
+            retn = await core.callStorm('return((2021/12 00, 2021/12 :foo))')
+            self.eq(retn, ('2021/12 00', '2021/12 :foo'))
