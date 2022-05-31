@@ -1,4 +1,5 @@
 import asyncio
+import decimal
 import logging
 import binascii
 import collections
@@ -688,6 +689,10 @@ class HugeNum(Type):
 
     stortype = s_layer.STOR_TYPE_HUGENUM
 
+    _opt_defs = (
+        ('modulo', None),  # type: ignore
+    )
+
     def __init__(self, modl, name, info, opts):
 
         Type.__init__(self, modl, name, info, opts)
@@ -705,15 +710,34 @@ class HugeNum(Type):
             'range=': self._storLiftRange,
         })
 
+        self.modulo = None
+
+        modulo = self.opts.get('modulo')
+        if modulo is not None:
+            self.modulo = s_common.hugenum(modulo)
+
     def norm(self, valu):
 
-        try:
-            huge = s_common.hugenum(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e)) from None
+        if valu is None:
+            mesg = 'Hugenum type may not be null.'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
-        huge = s_common.hugenum(valu)
+        try:
+
+            huge = s_common.hugenum(valu)
+
+            # behave modulo like int/float
+            if self.modulo is not None:
+                _, huge = s_common.hugemod(huge, self.modulo)
+                if huge < 0:
+                    huge = s_common.hugeadd(huge, self.modulo)
+
+                huge = s_common.hugeround(huge)
+
+        except decimal.DecimalException as e:
+            mesg = f'Invalid hugenum: {e}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
+
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
@@ -1036,6 +1060,7 @@ class Float(Type):
         return self._normPyFloat(valu)
 
     def _normPyFloat(self, valu):
+
         if self.minval is not None and not self.mincmp(valu, self.minval):
             mesg = f'value is below min={self.minval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
@@ -1710,6 +1735,102 @@ class TagPart(Str):
             mesg = 'Each tag part must be non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
+        return valu, {}
+
+speed_dist = {
+    'mm': 1,
+    'millimeters': 1,
+    'k': 1000000,
+    'km': 1000000,
+    'kilometers': 1000000,
+    'nmi': 1852000,
+    'in': 25.4,
+    'inches': 25.4,
+    'ft': 304.8,
+    'feet': 304.8,
+    'mi': 1609344,
+    'miles': 1609344,
+}
+
+speed_dura = {
+    's': 1,
+    'sec': 1,
+    'min': 60,
+    'minute': 60,
+    'h': 3600,
+    'hr': 3600,
+    'hour': 3600,
+}
+
+class Velocity(IntBase):
+    oflight = 299792458000
+    stortype = s_layer.STOR_TYPE_I64
+
+    _opt_defs = (
+        ('relative', False),
+    )
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyStr(self, valu):
+
+        valu = valu.lower().strip()
+        if not valu:
+            mesg = 'Empty string is not a valid velocity.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        nums, offs = s_grammar.nom(valu, 0, cset='-0123456789.')
+        if not nums:
+            nums = '1'
+
+        base = float(nums)
+        if base < 0 and not self.opts.get('relative'):
+            mesg = 'Non-relative velocities may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        unit = valu[offs:].strip()
+        if not unit:
+            return base, {}
+
+        if unit.find('/') != -1:
+            dist, dura = unit.split('/', 1)
+            distmod = speed_dist.get(dist)
+            if distmod is None:
+                mesg = f'Unrecognized distance type: {dist}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            duramod = speed_dura.get(dura)
+            if duramod is None:
+                mesg = f'Unrecognized duration type: {dura}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            norm = int((base * distmod) / duramod)
+            return norm, {}
+
+        if unit == 'mph':
+            norm = int((base * 1609344) / 3600)
+            return norm, {}
+
+        if unit == 'kph':
+            norm = int((base * 1000000) / 3600)
+            return norm, {}
+
+        if unit in ('knots', 'kts'):
+            norm = int((base * 1852000) / 3600)
+            return norm, {}
+
+        if unit == 'c':
+            return int(base * self.oflight), {}
+
+        mesg = f'Unknown velocity unit: {unit}.'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    def _normPyInt(self, valu):
+        if valu < 0 and not self.opts.get('relative'):
+            mesg = 'Non-relative velocities may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg)
         return valu, {}
 
 class Duration(IntBase):
