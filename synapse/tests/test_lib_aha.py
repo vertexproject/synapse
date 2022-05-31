@@ -595,13 +595,17 @@ class AhaTest(s_test.SynTest):
                     # testing second run...
                     pass
 
-                # Ensure we can provision a service on a given listening port.
+                # Ensure we can provision a service on a given listening ports
                 with self.raises(AssertionError):
                     await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456'),
                                                          outp=outp)
+
+                with self.raises(AssertionError):
+                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--https-port', '123456'),
+                                                         outp=outp)
                 outp = s_output.OutPutStr()
-                await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '1234'),
-                                                     outp=outp)
+                argv = ('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '1234', '--https-port', '443')
+                await s_tools_provision_service.main(argv, outp=outp)
                 self.isin('one-time use URL: ', str(outp))
                 provurl = str(outp).split(':', 1)[1].strip()
                 async with await s_telepath.openurl(provurl) as proxy:
@@ -610,3 +614,5 @@ class AhaTest(s_test.SynTest):
                     dmon_listen = conf.get('dmon:listen')
                     parts = s_telepath.chopurl(dmon_listen)
                     self.eq(parts.get('port'), 1234)
+                    https_port = provconf.get('https:port')
+                    self.eq(https_port, 443)
