@@ -18,11 +18,12 @@ Features and Enhancements
     Add a new base type to record velocities in millimeters/second.
 
   ``transport:direction``
-    Add a new type to indicate a direction of movement with respect t
+    Add a new type to indicate a direction of movement with respect to true
+    North.
 
   ``transport:air:telem``
     Add ``:course`` and ``:heading`` properties to record the direction of travel.
-    Add ``:speed``, ``:airpseed`` and ``:verticalspeed`` properties to record
+    Add ``:speed``, ``:airspeed`` and ``:verticalspeed`` properties to record
     the speed of travel.
 
   ``transport:sea:telem``
@@ -46,7 +47,7 @@ Features and Enhancements
   (`#2701 <https://github.com/vertexproject/synapse/pull/2701>`_)
 - Add ``mesg`` arguments to ``NoSuchLayer`` exceptions.
   (`#2696 <https://github.com/vertexproject/synapse/pull/2696>`_)
-- Make the LMDB slab startup more resiliant to a corrupted ``cell.opts.yaml``
+- Make the LMDB slab startup more resilient to a corrupted ``cell.opts.yaml``
   file.
   (`#2694 <https://github.com/vertexproject/synapse/pull/2694>`_)
 
