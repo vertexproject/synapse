@@ -594,3 +594,19 @@ class AhaTest(s_test.SynTest):
                 async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                     # testing second run...
                     pass
+
+                # Ensure we can provision a service on a given listening port.
+                with self.raises(AssertionError):
+                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456'),
+                                                         outp=outp)
+                outp = s_output.OutPutStr()
+                await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '1234'),
+                                                     outp=outp)
+                self.isin('one-time use URL: ', str(outp))
+                provurl = str(outp).split(':', 1)[1].strip()
+                async with await s_telepath.openurl(provurl) as proxy:
+                    provconf = await proxy.getProvInfo()
+                    conf = provconf.get('conf')
+                    dmon_listen = conf.get('dmon:listen')
+                    parts = s_telepath.chopurl(dmon_listen)
+                    self.eq(parts.get('port'), 1234)

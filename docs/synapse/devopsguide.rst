@@ -401,6 +401,70 @@ Then restart the Axon container. As it restarts, the service will generate user 
 to reflect the use of SSL/TLS and the requirement to use client certificates for authentication. As additional services
 are provisioned, you may update the URLs they use to connect to the Axon to ``aha://axon...``.
 
+Deployment Options
+------------------
+
+The following are some additional deployment options not covered in the :ref:`_deploymentguide`.
+
+.. note::
+  These examples assume the reader has reviewed and understood the Synapse Deployment Guide.
+
+
+Specify listening port
+~~~~~~~~~~~~~~~~~~~~~~
+
+If you need to deploy a service to listen on a specific port, you can use the provision tool to specify
+the port to bind. This example will show deploying the Axon to a specific listening port.
+
+**Inside the AHA container**
+
+Generate a one-time use provisioning URL, with the `--dmon-port`` option::
+
+    python -m synapse.tools.aha.provision.service --dmon-port 30001 01.axon
+
+You should see output that looks similar to this::
+
+    one-time use URL: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+
+**On the Host**
+
+Create the container directory::
+
+    mkdir -p /srv/syn/01.axon/storage
+    chown -R 999 /srv/syn/01.axon/storage
+
+Create the ``/srv/syn/01.axon/docker-compose.yaml`` file with contents::
+
+    version: "3.3"
+    services:
+      01.axon:
+        user: "999"
+        image: vertexproject/synapse-axon:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+            - ./storage:/vertex/storage
+        environment:
+            # disable HTTPS API for now to prevent port collisions
+            - SYN_AXON_HTTPS_PORT=null
+            - SYN_AXON_AHA_PROVISION=ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+
+After starting the service, the Axon will now be configured to bind its listening port to 30001. This can be seen in
+the services ``cell.yaml`` file.
+
+  ::
+
+    ---
+    aha:name: 01.axon
+    aha:network: <yournetwork>
+    aha:provision: ssl://aha.<yournetwork>:27272/<guid>?certhash=<sha256>
+    aha:registry:
+    - ssl://root@aha.<yournetwork>
+    aha:user: root
+    dmon:listen: ssl://0.0.0.0:30001?hostname=01.axon.<yournetwork>&ca=<yournetwork>
+    ...
+
+
 Synapse Services
 ================
 
