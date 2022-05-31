@@ -404,7 +404,7 @@ are provisioned, you may update the URLs they use to connect to the Axon to ``ah
 Deployment Options
 ------------------
 
-The following are some additional deployment options not covered in the :ref:`_deploymentguide`.
+The following are some additional deployment options not covered in the :ref:`deploymentguide`.
 
 .. note::
   These examples assume the reader has reviewed and understood the Synapse Deployment Guide.
