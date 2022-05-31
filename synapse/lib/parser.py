@@ -163,7 +163,7 @@ class AstConverter(lark.Transformer):
             try:
                 valu = float(valu) if '.' in valu else int(valu, 0)
             except ValueError as e:
-                mesg = f"Unexpected unquoted string at line {meta.line} col {meta.column}"
+                mesg = f"Unexpected unquoted string in JSON expression at line {meta.line} col {meta.column}"
                 raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
 
             return s_ast.Const(valu)

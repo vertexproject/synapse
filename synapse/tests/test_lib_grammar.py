@@ -1125,9 +1125,6 @@ class GrammarTest(s_t_utils.SynTest):
             self.false(term.startswith('__ANON'), msg=f'ANON token {valu} present in grammar!')
 
         for i, query in enumerate(Queries):
-            if i in (12, 13):
-                # For now, accept an ambiguity in _cond between _condexpr and dollarexpr
-                continue
             try:
                 tree = parser.parse(query)
                 # print(f'#{i}: {query}')
@@ -1351,6 +1348,16 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 36)
         self.true(errinfo.get('mesg').startswith("Unexpected token 'comparison operator' at line 1, column 36"))
+
+        query = '''return(({"foo": "bar", "baz": foo}))'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 8)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 9)
+        self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression at line 1 col 9"))
 
     async def test_quotes(self):
 
