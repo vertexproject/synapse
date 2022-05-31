@@ -492,7 +492,6 @@ class AhaTest(s_test.SynTest):
 
                 async with await s_telepath.openurl(provurl) as prov:
                     provinfo = await prov.getProvInfo()
-                    print(provinfo)
                     self.isinstance(provinfo, dict)
                     conf = provinfo.get('conf')
                     # Default https port is not set; dmon is port 0
