@@ -59,6 +59,11 @@ class TransportTest(s_test.SynTest):
                     :latlong=(20.22, 80.1111)
                     :loc=us
                     :place=*
+                    :course=-280.9
+                    :heading=99.02
+                    :speed=374km/h
+                    :airspeed=24ft/sec
+                    :verticalspeed=-20feet/sec
                     :accuracy=10m
                     :altitude=9144m
                     :altitude:accuracy=10m
@@ -69,9 +74,14 @@ class TransportTest(s_test.SynTest):
             self.eq((20.22, 80.1111), telem.get('latlong'))
             self.eq('us', telem.get('loc'))
             self.eq(10000, telem.get('accuracy'))
+            self.eq(103888, telem.get('speed'))
+            self.eq(7315, telem.get('airspeed'))
+            self.eq(-6096, telem.get('verticalspeed'))
             self.eq(6380152800, telem.get('altitude'))
             self.eq(10000, telem.get('altitude:accuracy'))
             self.eq(1580601600000, telem.get('time'))
+            self.eq('79.1', telem.get('course'))
+            self.eq('99.02', telem.get('heading'))
 
             vessel = (await core.nodes('''[
                 transport:sea:vessel=*
@@ -102,9 +112,15 @@ class TransportTest(s_test.SynTest):
                     :latlong=(20.22, 80.1111)
                     :loc=us
                     :place=*
+                    :course=-280.9
+                    :heading=99.02
+                    :speed=c
                     :accuracy=10m
                     :draft=20m
                     :airdraft=30m
+                    :destination=*
+                    :destination:name=woot
+                    :destination:eta=20200203
             ]'''))[0]
 
             self.nn(seatelem.get('place'))
@@ -114,6 +130,13 @@ class TransportTest(s_test.SynTest):
             self.eq(1580601600000, seatelem.get('time'))
             self.eq(20000, seatelem.get('draft'))
             self.eq(30000, seatelem.get('airdraft'))
+            self.eq(299792458000, seatelem.get('speed'))
+            self.eq('79.1', seatelem.get('course'))
+            self.eq('99.02', seatelem.get('heading'))
+
+            self.nn(seatelem.get('destination'))
+            self.eq('woot', seatelem.get('destination:name'))
+            self.eq(1580688000000, seatelem.get('destination:eta'))
 
             airport = (await core.nodes('transport:air:port=VISI [:name="Visi Airport" :place=*]'))[0]
             self.eq('visi', airport.ndef[1])
