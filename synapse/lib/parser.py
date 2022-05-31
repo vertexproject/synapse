@@ -157,37 +157,28 @@ class AstConverter(lark.Transformer):
 
         return kid
 
+    def _parseJsonToken(self, meta, tokn):
+        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
+            valu = tokn.value
+            try:
+                valu = float(valu) if '.' in valu else int(valu, 0)
+            except ValueError as e:
+                mesg = f"Unexpected unquoted string at line {meta.line} col {meta.column}"
+                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+
+            return s_ast.Const(valu)
+        else:
+            return self._convert_child(tokn)
+
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
-        newkids = []
-        for k in kids:
-            if isinstance(k, lark.lexer.Token) and k.type == 'VARTOKN' and k.value[0] not in ("'", '"'):
-                valu = k.value
-                try:
-                    valu = float(valu) if '.' in valu else int(valu, 0)
-                except ValueError as e:
-                    pass
-
-                newkids.append(s_ast.Const(valu))
-            else:
-                newkids.append(self._convert_child(k))
-        return s_ast.ExprList(kids=newkids)
+        kids = [self._parseJsonToken(meta, k) for k in kids]
+        return s_ast.ExprList(kids=kids)
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
-        newkids = []
-        for k in kids:
-            if isinstance(k, lark.lexer.Token) and k.type == 'VARTOKN' and k.value[0] not in ("'", '"'):
-                valu = k.value
-                try:
-                    valu = float(valu) if '.' in valu else int(valu, 0)
-                except ValueError as e:
-                    pass
-
-                newkids.append(s_ast.Const(valu))
-            else:
-                newkids.append(self._convert_child(k))
-        return s_ast.ExprDict(kids=newkids)
+        kids = [self._parseJsonToken(meta, k) for k in kids]
+        return s_ast.ExprDict(kids=kids)
 
     @lark.v_args(meta=True)
     def trycatch(self, meta, kids):

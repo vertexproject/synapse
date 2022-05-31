@@ -81,6 +81,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return(({"foo": "bar", "baz": 10, ,}))')
 
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar", "baz": foo}))')
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""
