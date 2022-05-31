@@ -28,6 +28,8 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--user', help='Provision the new service with the username.')
     pars.add_argument('--cellyaml', help='Specify the path to a YAML file containing config options for the service.')
     pars.add_argument('--mirror', help='Provision the new service as a mirror of the existing AHA service.')
+    pars.add_argument('--dmon-port', help='Provision the services SSL listener on a given port.', type=int)
+    pars.add_argument('--https-port', help='Provision the services HTTPS listener on a given port.', type=int)
     pars.add_argument('svcname', help='The name of the service relative to the AHA network.')
 
     opts = pars.parse_args(argv)
@@ -48,6 +50,14 @@ async def main(argv, outp=s_output.stdout):
 
                 if opts.user is not None:
                     provinfo['conf']['aha:user'] = opts.user
+
+                if opts.dmon_port is not None:
+                    assert 0 <= opts.dmon_port < 65535, f'Invalid port: {opts.dmon_port}'
+                    provinfo['dmon:port'] = opts.dmon_port
+
+                if opts.https_port is not None:
+                    assert 0 <= opts.https_port < 65535, f'Invalid port: {opts.https_port}'
+                    provinfo['https:port'] = opts.https_port
 
                 provurl = await aha.addAhaSvcProv(opts.svcname, provinfo=provinfo)
                 outp.printf(f'one-time use URL: {provurl}')

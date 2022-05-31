@@ -678,7 +678,13 @@ class AhaCell(s_cell.Cell):
         hostname = f'{name}.{netw}'
 
         conf.setdefault('aha:name', name)
-        conf.setdefault('dmon:listen', f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}')
+        dmon_port = provinfo.get('dmon:port', 0)
+        dmon_listen = f'ssl://0.0.0.0:{dmon_port}?hostname={hostname}&ca={netw}'
+        conf.setdefault('dmon:listen', dmon_listen)
+
+        https_port = provinfo.get('https:port', s_common.novalu)
+        if https_port is not s_common.novalu:
+            conf.setdefault('https:port', https_port)
 
         # if the relative name contains a dot, we are a mirror peer.
         peer = name.find('.') != -1
