@@ -31,7 +31,6 @@ Features and Enhancements
     Add ``:destination``, ``:destination:name`` and ``:destination:eta`` to record
     information about the destination.
 
-
 - Restore the precedence of environment variables over ``cell.yaml`` options
   during Cell startup. API driven overrides are now stored in the
   ``cell.mods.yaml`` file.
