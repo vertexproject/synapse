@@ -622,7 +622,7 @@ class AhaTest(s_test.SynTest):
                     stream.seek(0)
                     self.notin('Provisioning axon from AHA service', stream.read())
 
-                  async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                     # testing second run...
                     pass
 
