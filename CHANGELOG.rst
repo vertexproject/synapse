@@ -5,6 +5,62 @@ Synapse Changelog
 *****************
 
 
+v2.96.0 - 2022-05-31
+====================
+
+Features and Enhancements
+-------------------------
+
+- Updates to the ``transport`` model.
+  (`#2697 <https://github.com/vertexproject/synapse/pull/2697>`_)
+
+  ``velocity``
+    Add a new base type to record velocities in millimeters/second.
+
+  ``transport:direction``
+    Add a new type to indicate a direction of movement with respect to true
+    North.
+
+  ``transport:air:telem``
+    Add ``:course`` and ``:heading`` properties to record the direction of travel.
+    Add ``:speed``, ``:airspeed`` and ``:verticalspeed`` properties to record
+    the speed of travel.
+
+  ``transport:sea:telem``
+    Add ``:course`` and ``:heading`` properties to record the direction of travel.
+    Add a ``:speed`` property to record the speed of travel.
+    Add ``:destination``, ``:destination:name`` and ``:destination:eta`` to record
+    information about the destination.
+
+- Restore the precedence of environment variables over ``cell.yaml`` options
+  during Cell startup. API driven overrides are now stored in the
+  ``cell.mods.yaml`` file.
+  (`#2699 <https://github.com/vertexproject/synapse/pull/2699>`_)
+- Add ``--dmon-port`` and ``--https-port`` options to the
+  ``synapse.tools.aha.provision.service`` tool in order to specify fixed
+  listening ports during provisioning.
+  (`#2703 <https://github.com/vertexproject/synapse/pull/2703>`_)
+- Add the ability of ``synapse.tools.moduser`` to set user passwords.
+  (`#2695 <https://github.com/vertexproject/synapse/pull/2695>`_)
+- Restore the call to the ``recover()`` method on the Nexus during Cell
+  startup.
+  (`#2701 <https://github.com/vertexproject/synapse/pull/2701>`_)
+- Add ``mesg`` arguments to ``NoSuchLayer`` exceptions.
+  (`#2696 <https://github.com/vertexproject/synapse/pull/2696>`_)
+- Make the LMDB slab startup more resilient to a corrupted ``cell.opts.yaml``
+  file.
+  (`#2694 <https://github.com/vertexproject/synapse/pull/2694>`_)
+
+Bugfixes
+--------
+- Fix missing variable checks in Storm.
+  (`#2702 <https://github.com/vertexproject/synapse/pull/2702>`_)
+
+Improved Documentation
+----------------------
+- Add a warning to the deployment guide about using Docker on Mac OS.
+  (`#2700 <https://github.com/vertexproject/synapse/pull/2700>`_)
+
 v2.95.1 - 2022-05-24
 ====================
 
