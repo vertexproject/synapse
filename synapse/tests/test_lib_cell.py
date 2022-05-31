@@ -897,6 +897,13 @@ class CellTest(s_t_utils.SynTest):
                     s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
                     async with await s_cell.Cell.initFromArgv([dirn]) as cell:
                         self.false(cell.conf.reqConfValu('nexslog:en'))
+                        # We can remove the valu from the overrides file with the pop API
+                        # This is NOT reactive API which causes the whole behavior
+                        # of the cell to suddenly change. This is intended to be used with
+                        # code that is aware of changing configuration values.
+                        cell.popCellConf('nexslog:en')
+                        overrides = s_common.yamlload(dirn, 'cell.mods.yaml')
+                        self.eq({}, overrides)
 
     async def test_initargv_failure(self):
         if not os.path.exists('/dev/null'):

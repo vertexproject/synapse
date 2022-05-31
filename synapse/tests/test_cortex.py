@@ -115,9 +115,17 @@ class CortexTest(s_t_utils.SynTest):
                         provurl = await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)
                         coreconf = {'aha:provision': provurl}
                         async with self.getTestCore(dirn=coredir2, conf=coreconf) as core02:
+                            self.false(core02.isactive)
                             self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex.newp')
                             mods02 = s_common.yamlload(coredir2, 'cell.mods.yaml')
                             self.eq(mods02, {})
+                            # The mirror writeback and change distribution works
+                            self.len(0, await core01.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(0, await core00.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(1, await core02.nodes('[inet:ipv4=6.6.6.6]'))
+                            await core00.sync()
+                            self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(1, await core00.nodes('inet:ipv4=6.6.6.6'))
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
