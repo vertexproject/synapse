@@ -491,7 +491,14 @@ class AhaTest(s_test.SynTest):
                 provurl = str(outp).split(':', 1)[1].strip()
 
                 async with await s_telepath.openurl(provurl) as prov:
-                    self.nn(await prov.getProvInfo())
+                    provinfo = await prov.getProvInfo()
+                    self.isinstance(provinfo, dict)
+                    conf = provinfo.get('conf')
+                    # Default https port is not set; dmon is port 0
+                    self.notin('https:port', conf)
+                    dmon_listen = conf.get('dmon:listen')
+                    parts = s_telepath.chopurl(dmon_listen)
+                    self.eq(parts.get('port'), 0)
                     self.nn(await prov.getCaCert())
 
                 with self.raises(s_exc.NoSuchName):
@@ -614,3 +621,29 @@ class AhaTest(s_test.SynTest):
                         pass
                     stream.seek(0)
                     self.notin('Provisioning axon from AHA service', stream.read())
+
+                  async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                    # testing second run...
+                    pass
+
+                # Ensure we can provision a service on a given listening ports
+                with self.raises(AssertionError):
+                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456'),
+                                                         outp=outp)
+
+                with self.raises(AssertionError):
+                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--https-port', '123456'),
+                                                         outp=outp)
+                outp = s_output.OutPutStr()
+                argv = ('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '1234', '--https-port', '443')
+                await s_tools_provision_service.main(argv, outp=outp)
+                self.isin('one-time use URL: ', str(outp))
+                provurl = str(outp).split(':', 1)[1].strip()
+                async with await s_telepath.openurl(provurl) as proxy:
+                    provconf = await proxy.getProvInfo()
+                    conf = provconf.get('conf')
+                    dmon_listen = conf.get('dmon:listen')
+                    parts = s_telepath.chopurl(dmon_listen)
+                    self.eq(parts.get('port'), 1234)
+                    https_port = provconf.get('https:port')
+                    self.eq(https_port, 443)
