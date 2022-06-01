@@ -11,11 +11,39 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
+
+class AhaProvisionServiceV1(s_httpapi.Handler):
+
+    async def post(self):
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody()
+        if body is None:
+            return
+
+        name = body.get('name')
+        if name is None:
+            return self.sendRestErr('BadArg', 'Must provide a name argument')
+
+        if not isinstance(name, str):
+            return self.sendRestErr('BadArg', 'Must be a string.')
+
+        provinfo = body.get('provinfo')
+
+        try:
+            url = await self.cell.addAhaSvcProv(name, provinfo=provinfo)
+        except s_exc.SynErr as e:
+            logger.exception(f'Error provisioning {name}')
+            return self.sendRestErr(e.__class__.__name__, e.get('mesg', str(e)))
+
+        return self.sendRestRetn({'url': url})
 
 class AhaApi(s_cell.CellApi):
 
@@ -300,6 +328,11 @@ class AhaCell(s_cell.Cell):
 
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
+
+    def _initCellHttpApis(self):
+        s_cell.Cell._initCellHttpApis(self)
+        print('adding aha api')
+        self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
     async def initServiceRuntime(self):
         self.addActiveCoro(self._clearInactiveSessions)

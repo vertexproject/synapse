@@ -645,5 +645,81 @@ class AhaTest(s_test.SynTest):
                     dmon_listen = conf.get('dmon:listen')
                     parts = s_telepath.chopurl(dmon_listen)
                     self.eq(parts.get('port'), 1234)
-                    https_port = provconf.get('https:port')
+                    https_port = conf.get('https:port')
                     self.eq(https_port, 443)
+
+    async def test_aha_httpapi(self):
+        with self.getTestDir() as dirn:
+
+            conf = {
+                'aha:name': 'aha',
+                'aha:network': 'loop.vertex.link',
+                'provision:listen': 'ssl://aha.loop.vertex.link:0'
+            }
+            async with await self.aha_ctor(dirn, conf=conf) as aha:
+
+                await aha.auth.rootuser.setPasswd('secret')
+
+                addr, port = aha.provdmon.addr
+                # update the config to reflect the dynamically bound port
+                aha.conf['provision:listen'] = f'ssl://aha.loop.vertex.link:{port}'
+
+                # do this config ex-post-facto due to port binding...
+                host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
+                aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
+
+                host, httpsport = await aha.addHttpsPort(0)
+
+                url = f'https://localhost:{httpsport}/api/v1/aha/provision/service'
+
+                async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
+                    async with sess.post(url, json={}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'BadArg')
+                    async with sess.post(url, json={'name': 1234}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'BadArg')
+
+                    # Simple request works
+                    async with sess.post(url, json={'name': '00.foosvc'}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'ok')
+                        result = info.get('result')
+                        provurl = result.get('url')
+
+                    async with await s_telepath.openurl(provurl) as prox:
+                        provconf = await prox.getProvInfo()
+                        self.isin('iden', provconf)
+                        conf = provconf.get('conf')
+                        self.eq(conf.get('aha:user'), 'root')
+                        dmon_listen = conf.get('dmon:listen')
+                        parts = s_telepath.chopurl(dmon_listen)
+                        self.eq(parts.get('port'), 0)
+                        self.none(conf.get('https:port'))
+
+                    # Full api works as well
+                    data = {'name': '01.foosvc',
+                            'provinfo': {
+                                'dmon:port': 12345,
+                                'https:port': 8443,
+                                'mirror': 'foosvc',
+                                'conf': {
+                                    'aha:user': 'test',
+                                }
+                            }
+                    }
+                    async with sess.post(url, json=data) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'ok')
+                        result = info.get('result')
+                        provurl = result.get('url')
+                    async with await s_telepath.openurl(provurl) as prox:
+                        provconf = await prox.getProvInfo()
+                        conf = provconf.get('conf')
+                        self.eq(conf.get('aha:user'), 'test')
+                        dmon_listen = conf.get('dmon:listen')
+                        parts = s_telepath.chopurl(dmon_listen)
+                        self.eq(parts.get('port'), 12345)
+                        self.eq(conf.get('https:port'), 8443)
