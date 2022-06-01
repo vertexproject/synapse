@@ -231,7 +231,6 @@ class Config(c_abc.MutableMapping):
         Args:
             opts (argparse.Namespace): A Namespace object made from parsing args with an ArgumentParser
             made with getArgumentParser.
-            store (boolean): Store the opts data.
 
         Returns:
             None: Returns None.
@@ -246,7 +245,6 @@ class Config(c_abc.MutableMapping):
             if nname is None:
                 continue
             self.setdefault(nname, v)
-
         self._opts_data = opts
 
     def setConfFromFile(self, path, force=False):
