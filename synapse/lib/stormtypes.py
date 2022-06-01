@@ -1699,39 +1699,43 @@ class LibAxon(Lib):
             """,
          'type': {'type': 'function', '_funcname': 'wget',
                   'args': (
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to download', },
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to download'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
-                       'default': None, },
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET', },
+                       'default': None},
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET'},
                       {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.',
-                       'default': None, },
-                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None, },
+                       'default': None},
+                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None},
                       {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
-                       'default': None, }
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
+                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
             A method to upload a blob from the axon to an HTTP(S) endpoint.
             """,
          'type': {'type': 'function', '_funcname': 'wput',
                   'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file blob to upload.', },
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to upload the file to.', },
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file blob to upload.'},
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to upload the file to.'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
-                       'default': None, },
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT', },
+                       'default': None},
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT'},
                       {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
-                       'default': None, }
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
+                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
             Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
 
@@ -1740,11 +1744,11 @@ class LibAxon(Lib):
                 ''',
          'type': {'type': 'function', '_funcname': 'urlfile',
                   'args': (
-                      {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
+                      {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
                   ),
                   'returns': {'type': ['storm:node', 'null'],
-                              'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
+                              'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.'}}},
         {'name': 'del', 'desc': '''
             Remove the bytes from the Cortex's Axon by sha256.
 
@@ -1758,7 +1762,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'hash:sha256',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.'}}},
 
         {'name': 'dels', 'desc': '''
             Remove multiple byte blobs from the Cortex's Axon by a list of sha256 hashes.
@@ -1774,7 +1778,7 @@ class LibAxon(Lib):
                       {'name': 'sha256s', 'type': 'list', 'desc': 'A list of sha256 hashes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of boolean values that are True if the bytes were found.', }}},
+                              'desc': 'A list of boolean values that are True if the bytes were found.'}}},
 
         {'name': 'list', 'desc': '''
         List (offset, sha256, size) tuples for files in the Axon in added order.
@@ -1801,7 +1805,7 @@ class LibAxon(Lib):
                         'desc': 'The maximum time to wait for a new result before returning.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                              'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
+                              'desc': 'Tuple of (offset, sha256, size) in added order.'}}},
         {'name': 'readlines', 'desc': '''
         Yields lines of text from a plain-text file stored in the Axon.
 
@@ -1817,7 +1821,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
-                              'desc': 'A line of text from the file.', }}},
+                              'desc': 'A line of text from the file.'}}},
 
         {'name': 'jsonlines', 'desc': '''
         Yields JSON objects from a JSON-lines file stored in the Axon.
@@ -1834,7 +1838,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
-                              'desc': 'A JSON object parsed from a line of text.', }}},
+                              'desc': 'A JSON object parsed from a line of text.'}}},
     )
     _storm_lib_path = ('axon',)
 
