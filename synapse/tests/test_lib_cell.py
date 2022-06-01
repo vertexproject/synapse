@@ -885,7 +885,6 @@ class CellTest(s_t_utils.SynTest):
                         # 2) envars
                         # 3) cell.yaml
                         self.true(cell.conf.reqConfValu('nexslog:en'))
-
                         self.true(cell.conf.reqConfValu('nexslog:async'))
                         self.none(cell.conf.reqConfValu('dmon:listen'))
                         self.none(cell.conf.reqConfValu('https:port'))
