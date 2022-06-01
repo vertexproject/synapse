@@ -3545,3 +3545,11 @@ class StormTest(s_t_utils.SynTest):
 
             retn = await core.callStorm('return((2021/12 00, 2021/12 :foo))')
             self.eq(retn, ('2021/12 00', '2021/12 :foo'))
+
+            q = '''
+            $foo=(123)
+            if ($foo = 123 or not $foo = "cool, str(" or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(success)
+            }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("success", msgs)
