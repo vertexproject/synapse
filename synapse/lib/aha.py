@@ -331,7 +331,6 @@ class AhaCell(s_cell.Cell):
 
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
-        print('adding aha api')
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
     async def initServiceRuntime(self):
