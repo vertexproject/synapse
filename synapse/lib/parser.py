@@ -59,6 +59,7 @@ terminalEnglishMap = {
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '{',
+    'LISTTOKN': 'unquoted list value',
     'LPAR': '(',
     'LSQB': '[',
     'MODSET': '+= or -=',
@@ -156,14 +157,27 @@ class AstConverter(lark.Transformer):
 
         return kid
 
+    def _parseJsonToken(self, meta, tokn):
+        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
+            valu = tokn.value
+            try:
+                valu = float(valu) if '.' in valu else int(valu, 0)
+            except ValueError as e:
+                mesg = f"Unexpected unquoted string in JSON expression at line {meta.line} col {meta.column}"
+                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+
+            return s_ast.Const(valu)
+        else:
+            return self._convert_child(tokn)
+
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
-        kids = [self._convert_child(k) for k in kids]
+        kids = [self._parseJsonToken(meta, k) for k in kids]
         return s_ast.ExprList(kids=kids)
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
-        kids = [self._convert_child(k) for k in kids]
+        kids = [self._parseJsonToken(meta, k) for k in kids]
         return s_ast.ExprDict(kids=kids)
 
     @lark.v_args(meta=True)
@@ -676,7 +690,6 @@ ruleClassMap = {
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
-    'nonquotewords': lambda kids: s_ast.Const(' '.join([str(k.valu) for k in kids])),
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,

@@ -81,6 +81,9 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return(({"foo": "bar", "baz": 10, ,}))')
 
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar", "baz": foo}))')
+
     async def test_lib_storm_triplequote(self):
         async with self.getTestCore() as core:
             retn = await core.callStorm("""
@@ -3477,6 +3480,7 @@ class StormTest(s_t_utils.SynTest):
                 '''
                 msgs = await core.stormlist(q)
                 self.stormIsInPrint(exp, msgs)
+
             q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
             msgs = await core.stormlist(q)
             self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
@@ -3529,3 +3533,15 @@ class StormTest(s_t_utils.SynTest):
             q = "function test(){ $asdf=foo $return () }"
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token '}'", msgs)
+
+            retn = await core.callStorm('return((60*60))')
+            self.eq(retn, 3600)
+
+            retn = await core.callStorm('return((1*2 * 3))')
+            self.eq(retn, 6)
+
+            nodes = await core.nodes('[inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)')
+            self.len(1, nodes)
+
+            retn = await core.callStorm('return((2021/12 00, 2021/12 :foo))')
+            self.eq(retn, ('2021/12 00', '2021/12 :foo'))
