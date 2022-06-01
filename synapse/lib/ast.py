@@ -1166,7 +1166,7 @@ class LiftOper(Oper):
             async for subn in self.lift(runt, path):
                 yield subn, path.fork(subn)
 
-    async def lift(self, runt, path):
+    async def lift(self, runt, path):  # pragma: no cover
         raise NotImplementedError('Must define lift(runt, path)')
 
 class YieldValu(Oper):
