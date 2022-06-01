@@ -1,5 +1,3 @@
-import synapse.common as s_common
-
 import synapse.tests.utils as s_test
 
 

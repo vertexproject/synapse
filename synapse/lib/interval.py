@@ -24,8 +24,8 @@ def overlap(ival0, ival1):
     Determine if two interval tuples have overlap.
 
     Args:
-        iv0 ((int,int)):    An interval tuple
-        iv1 ((int,int));    An interval tuple
+        ival0 ((int,int)):    An interval tuple
+        ival1 ((int,int));    An interval tuple
 
     Returns:
         (bool): True if the intervals overlap, otherwise False

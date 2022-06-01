@@ -1,8 +1,6 @@
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
-import synapse.lib.storm as s_storm
 import synapse.lib.stormtypes as s_stormtypes
 
 import xml.etree.ElementTree as xml_et

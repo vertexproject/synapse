@@ -4809,7 +4809,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             name (str): The name of the feed record format.
             items (list): A list of items to ingest.
-            iden (str): The iden of a view to use.
+            viewiden (str): The iden of a view to use.
                 If a view is not specified, the default view is used.
         '''
 

@@ -4,8 +4,6 @@ import json
 import aiohttp
 import aiohttp.client_exceptions as a_exc
 
-import synapse.cortex as s_cortex
-
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version

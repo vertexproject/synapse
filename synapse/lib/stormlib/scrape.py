@@ -3,7 +3,6 @@ import logging
 
 import regex
 
-import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.scrape as s_scrape

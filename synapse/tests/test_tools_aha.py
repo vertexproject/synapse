@@ -1,13 +1,7 @@
-import io
-import json
-
-import msgpack
-
-import unittest.mock as mock
-
 import synapse.lib.cell as s_cell
-import synapse.lib.msgpack as s_msgpack
+
 import synapse.tests.utils as s_t_utils
+
 import synapse.tools.aha.list as s_a_list
 import synapse.tools.aha.easycert as s_a_easycert
 

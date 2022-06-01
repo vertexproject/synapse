@@ -1,9 +1,4 @@
-import synapse.common as s_common
-
-import synapse.lib.time as s_time
-import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-import synapse.lib.grammar as s_grammar
 
 class EconModule(s_module.CoreModule):
 

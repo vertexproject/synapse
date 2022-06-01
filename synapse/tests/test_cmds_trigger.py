@@ -1,5 +1,3 @@
-import unittest.mock as mock
-
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr

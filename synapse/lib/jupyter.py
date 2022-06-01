@@ -64,7 +64,7 @@ def getDocData(fp, root=None):
     '''
 
     Args:
-        fn (str): Name of the file to retrieve the data of.
+        fp (str): Name of the file to retrieve the data of.
         root (str): Optional root path to look for a docdata directory in.
 
     Notes:
