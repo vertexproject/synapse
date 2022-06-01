@@ -37,6 +37,9 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('$foo=foo $bar=bar return(({$foo: $bar, "baz": 10}))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 0x10}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 16})
+
             retn = await core.callStorm('''
                 $list = (["foo"])
                 $list.append(bar)
@@ -3540,6 +3543,18 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('return((1*2 * 3))')
             self.eq(retn, 6)
 
+            retn = await core.callStorm('return((0x10))')
+            self.eq(retn, 16)
+
+            retn = await core.callStorm('return((0x10*0x10))')
+            self.eq(retn, 256)
+
+            retn = await core.callStorm('return((0x10*0x10 + 5))')
+            self.eq(retn, 261)
+
+            retn = await core.callStorm('return((0x10*0x10,))')
+            self.eq(retn, ('0x10*0x10',))
+
             nodes = await core.nodes('[inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)')
             self.len(1, nodes)
 
@@ -3549,6 +3564,14 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             $foo=(123)
             if ($foo = 123 or not $foo = "cool, str(" or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(success)
+            }'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("success", msgs)
+
+            q = '''
+            $foo=(0x40)
+            if ($foo = 64 and $foo = 0x40 and not $foo = "cool, str(" or $lib.concat("foo,bar", 'baz', 'cool)')) {
                 $lib.print(success)
             }'''
             msgs = await core.stormlist(q)
