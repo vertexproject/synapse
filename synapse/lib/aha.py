@@ -1,6 +1,7 @@
 import os
 import copy
 import random
+import asyncio
 import logging
 
 import synapse.exc as s_exc
@@ -39,10 +40,14 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
 
         try:
             url = await self.cell.addAhaSvcProv(name, provinfo=provinfo)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
         except s_exc.SynErr as e:
             logger.exception(f'Error provisioning {name}')
             return self.sendRestErr(e.__class__.__name__, e.get('mesg', str(e)))
-
+        except Exception as e:
+            logger.exception(f'Error provisioning {name}')
+            return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn({'url': url})
 
 class AhaApi(s_cell.CellApi):

@@ -669,18 +669,9 @@ class AhaTest(s_test.SynTest):
                 aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
 
                 host, httpsport = await aha.addHttpsPort(0)
-
                 url = f'https://localhost:{httpsport}/api/v1/aha/provision/service'
 
                 async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
-                    async with sess.post(url, json={}) as resp:
-                        info = await resp.json()
-                        self.eq(info.get('status'), 'err')
-                        self.eq(info.get('code'), 'BadArg')
-                    async with sess.post(url, json={'name': 1234}) as resp:
-                        info = await resp.json()
-                        self.eq(info.get('status'), 'err')
-                        self.eq(info.get('code'), 'BadArg')
 
                     # Simple request works
                     async with sess.post(url, json={'name': '00.foosvc'}) as resp:
@@ -723,3 +714,23 @@ class AhaTest(s_test.SynTest):
                         parts = s_telepath.chopurl(dmon_listen)
                         self.eq(parts.get('port'), 12345)
                         self.eq(conf.get('https:port'), 8443)
+
+                    # Sad path
+                    async with sess.post(url, json={}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'BadArg')
+                    async with sess.post(url, json={'name': 1234}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'BadArg')
+                    async with sess.post(url, json={'name': '00.newp', 'provinfo': 5309}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'TypeError')
+                    # Break the Aha cell :/
+                    aha.conf.pop('aha:network')
+                    async with sess.post(url, json={'name': '00.newp'}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'NeedConfValu')
