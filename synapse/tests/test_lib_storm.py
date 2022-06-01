@@ -3563,16 +3563,40 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''
             $foo=(123)
-            if ($foo = 123 or not $foo = "cool, str(" or $lib.concat("foo,bar", 'baz', 'cool)')) {
+            if ($foo = 123 or not $foo = "cool, str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
                 $lib.print(success)
-            }'''
+            }
+            if ($foo = 123 or not $foo = "cool, \\"str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(escaped)
+            }
+            if ($foo = 123 or not $foo = \'\'\'cool, "'str(\'\'\'
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(triple)
+            }
+            '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint("success", msgs)
+            self.stormIsInPrint("escaped", msgs)
+            self.stormIsInPrint("triple", msgs)
 
             q = '''
             $foo=(0x40)
-            if ($foo = 64 and $foo = 0x40 and not $foo = "cool, str(" or $lib.concat("foo,bar", 'baz', 'cool)')) {
+            if ($foo = 64 and $foo = 0x40 and not $foo = "cool, str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
                 $lib.print(success)
-            }'''
+            }
+            if ($foo = 64 and $foo = 0x40 and not $foo = "cool, \\"str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(escaped)
+            }
+            if ($foo = 64 and $foo = 0x40 and not $foo = \'\'\'cool, "'str(\'\'\'
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(triple)
+            }
+            '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint("success", msgs)
+            self.stormIsInPrint("escaped", msgs)
+            self.stormIsInPrint("triple", msgs)
