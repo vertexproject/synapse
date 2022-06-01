@@ -236,7 +236,7 @@ CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | VARTOKN | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -247,8 +247,8 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" (_exprvalu ":" _exprvalu ("," _exprvalu ":" _exprvalu)* ","? )? "}"
-exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
+exprdict: "{" ((_exprvalu | VARTOKN)  ":" (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) ":" (_exprvalu | VARTOKN))* ","? )? "}"
+exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | NUMBERWS | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
@@ -287,7 +287,7 @@ VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 !varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: _LPARNOSPACE [(_valu | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
+_callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 _LPARNOSPACE.2: /(?<!\s)\(/
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
@@ -360,8 +360,9 @@ EXPRPLUS.2: "+"
 EXPRMINUS.2: "-"
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
-NUMBER.1: /(?<!,\s*)-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:\s]|([+\-*\/][0-9]+(\.\d*)?)*[\s\.\:\,a-zA-Z])/
-NUMBERWS.1: /(?<!,\s*)-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?=\s)(?!\s+,)/
+NUMBER.1: /(?<!,\s*)-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:\s]|([^=,)]*,))/
+NUMBERWS.1: /(?<!,\s*)-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?=\s)(?![^=,)]*,)/
+
 HEXNUMBER.1: /-?0x[0-9a-fA-F]+/
 BOOL.2: /true|false/
 NOT.2: "not"

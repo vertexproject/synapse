@@ -3537,6 +3537,9 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('return((60*60))')
             self.eq(retn, 3600)
 
+            retn = await core.callStorm('return((1*2 * 3))')
+            self.eq(retn, 6)
+
             nodes = await core.nodes('[inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)')
             self.len(1, nodes)
 
