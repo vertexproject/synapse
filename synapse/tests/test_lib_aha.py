@@ -716,21 +716,43 @@ class AhaTest(s_test.SynTest):
                         self.eq(conf.get('https:port'), 8443)
 
                     # Sad path
+                    async with sess.post(url) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'SchemaViolation')
                     async with sess.post(url, json={}) as resp:
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
-                        self.eq(info.get('code'), 'BadArg')
+                        self.eq(info.get('code'), 'SchemaViolation')
                     async with sess.post(url, json={'name': 1234}) as resp:
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
-                        self.eq(info.get('code'), 'BadArg')
+                        self.eq(info.get('code'), 'SchemaViolation')
+                    async with sess.post(url, json={'name': ''}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'SchemaViolation')
                     async with sess.post(url, json={'name': '00.newp', 'provinfo': 5309}) as resp:
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
-                        self.eq(info.get('code'), 'TypeError')
-                    # Break the Aha cell :/
-                    aha.conf.pop('aha:network')
+                        self.eq(info.get('code'), 'SchemaViolation')
+                    async with sess.post(url, json={'name': '00.newp', 'provinfo': {'dmon:port': -1}}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'SchemaViolation')
+
+                    # Break the Aha cell - not will provision after this.
+                    _network = aha.conf.pop('aha:network')
                     async with sess.post(url, json={'name': '00.newp'}) as resp:
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
                         self.eq(info.get('code'), 'NeedConfValu')
+
+                # Not an admin
+                await aha.addUser('lowuser', passwd='lowuser')
+                async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
+
+                    async with sess.post(url, json={'name': '00.newp'}) as resp:
+                        info = await resp.json()
+                        self.eq(info.get('status'), 'err')
+                        self.eq(info.get('code'), 'AuthDeny')

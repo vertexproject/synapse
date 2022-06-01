@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
@@ -19,23 +20,52 @@ import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
 
+_provSvcSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {
+            'type': 'string',
+            'minLength': 1,
+        },
+        'provinfo': {
+            'type': 'object',
+            'properties': {
+                'conf': {
+                    'type': 'object',
+                },
+                'dmon:port': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 65535,
+                },
+                'https:port': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 65535,
+                },
+                'mirror': {
+                    'type': 'string',
+                    'minLength': 1,
+                },
+            }
+        }
+    },
+    'additionalProperties': False,
+    'required': ['name'],
+}
+provSvcSchema = s_config.getJsValidator(_provSvcSchema)
+
 class AhaProvisionServiceV1(s_httpapi.Handler):
 
     async def post(self):
         if not await self.reqAuthAdmin():
             return
 
-        body = self.getJsonBody()
+        body = self.getJsonBody(validator=provSvcSchema)
         if body is None:
             return
 
         name = body.get('name')
-        if name is None:
-            return self.sendRestErr('BadArg', 'Must provide a name argument')
-
-        if not isinstance(name, str):
-            return self.sendRestErr('BadArg', 'Must be a string.')
-
         provinfo = body.get('provinfo')
 
         try:
@@ -45,7 +75,7 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
         except s_exc.SynErr as e:
             logger.exception(f'Error provisioning {name}')
             return self.sendRestErr(e.__class__.__name__, e.get('mesg', str(e)))
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             logger.exception(f'Error provisioning {name}')
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn({'url': url})
