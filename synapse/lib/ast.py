@@ -138,6 +138,9 @@ class AstNode:
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
+    def hasVarName(self, name):
+        return any(k.hasVarName(name) for k in self.kids)
+
 class LookList(AstNode): pass
 
 class Query(AstNode):
@@ -979,7 +982,12 @@ class SetVarOper(Oper):
                 await runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
-        yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)
+
+        name = self.kids[0].value()
+        if runt.runtvars.get(name) is None and self.kids[1].hasVarName(name):
+            raise s_exc.NoSuchVar(mesg=f'Missing variable: {name}', name=name)
+
+        yield name, self.kids[1].isRuntSafe(runt)
         for k in self.kids:
             yield from k.getRuntVars(runt)
 
@@ -2777,6 +2785,9 @@ class VarValue(Value):
     def isRuntSafe(self, runt):
         return runt.isRuntVar(self.name)
 
+    def hasVarName(self, name):
+        return self.kids[0].value() == name
+
     async def compute(self, runt, path):
 
         if path is not None:
@@ -3012,6 +3023,10 @@ class EmbedQuery(Const):
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
         pass
+
+    def hasVarName(self, name):
+        # similar to above, the sub-runtime handles var scoping
+        return False
 
     def getRuntVars(self, runt):
         if 0:

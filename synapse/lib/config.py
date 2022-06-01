@@ -154,6 +154,9 @@ class Config(c_abc.MutableMapping):
         # Copy the data in so that it is validated.
         for k, v in conf.items():
             self[k] = v
+        # Ensure we're able to parse opts data for our schema -
+        # this populates the opts mapping data.
+        _ = self.getArgParseArgs()
 
     @classmethod
     def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):
@@ -221,7 +224,7 @@ class Config(c_abc.MutableMapping):
             _ = self.getArgParseArgs()
         return {k: v for k, v in self._argparse_conf_parsed_names.items()}
 
-    def setConfFromOpts(self, opts, store=True):
+    def setConfFromOpts(self, opts=None):
         '''
         Set the opts for a conf object from a namespace object.
 
@@ -233,6 +236,8 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
+        if opts is None:
+            opts = self._opts_data
         opts_data = vars(opts)
         for k, v in opts_data.items():
             if v is None:
@@ -241,14 +246,8 @@ class Config(c_abc.MutableMapping):
             if nname is None:
                 continue
             self.setdefault(nname, v)
-        if store:
-            self.storeOpts(opts)
 
-    def storeOpts(self, opts: argparse.Namespace):
         self._opts_data = opts
-
-    def getOpts(self) -> argparse.Namespace:
-        return self._opts_data
 
     def setConfFromFile(self, path, force=False):
         '''

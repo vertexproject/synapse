@@ -491,7 +491,14 @@ class AhaTest(s_test.SynTest):
                 provurl = str(outp).split(':', 1)[1].strip()
 
                 async with await s_telepath.openurl(provurl) as prov:
-                    self.nn(await prov.getProvInfo())
+                    provinfo = await prov.getProvInfo()
+                    self.isinstance(provinfo, dict)
+                    conf = provinfo.get('conf')
+                    # Default https port is not set; dmon is port 0
+                    self.notin('https:port', conf)
+                    dmon_listen = conf.get('dmon:listen')
+                    parts = s_telepath.chopurl(dmon_listen)
+                    self.eq(parts.get('port'), 0)
                     self.nn(await prov.getCaCert())
 
                 with self.raises(s_exc.NoSuchName):
@@ -530,7 +537,11 @@ class AhaTest(s_test.SynTest):
                 }
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
 
-                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                argv = (axonpath, '--auth-passwd', 'rootbeer')
+                async with await s_axon.Axon.initFromArgv(argv) as axon:
+
+                    # opts were copied through successfully
+                    self.true(await axon.auth.rootuser.tryPasswd('rootbeer'))
 
                     # test that nobody set aha:admin
                     self.none(await axon.auth.getUserByName('root@loop.vertex.link'))
@@ -586,11 +597,53 @@ class AhaTest(s_test.SynTest):
                 }
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
 
+                # Populate data in the overrides file that will be removed from the
+                # provisioning data
+                overconf = {
+                    'dmon:listen': 'tcp://0.0.0.0:0',  # This is removed
+                    'nexslog:async': True,  # just set as a demonstrative value
+                }
+                s_common.yamlsave(overconf, axonpath, 'cell.mods.yaml')
+
                 # force a re-provision... (because the providen is different)
-                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
-                    pass
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Provisioning axon from AHA service') as stream:
+                    async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                        self.true(await stream.wait(6))
+                        self.ne(axon.conf.get('dmon:listen'),
+                                'tcp://0.0.0.0:0')
+                overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
+                self.eq(overconf2, {'nexslog:async': True})
 
                 # tests startup logic that recognizes it's already done
+                with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:
+                    async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                        pass
+                    stream.seek(0)
+                    self.notin('Provisioning axon from AHA service', stream.read())
+
                 async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                     # testing second run...
                     pass
+
+                # Ensure we can provision a service on a given listening ports
+                with self.raises(AssertionError):
+                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456'),
+                                                         outp=outp)
+
+                with self.raises(AssertionError):
+                    await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--https-port', '123456'),
+                                                         outp=outp)
+                outp = s_output.OutPutStr()
+                argv = ('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '1234', '--https-port', '443')
+                await s_tools_provision_service.main(argv, outp=outp)
+                self.isin('one-time use URL: ', str(outp))
+                provurl = str(outp).split(':', 1)[1].strip()
+                async with await s_telepath.openurl(provurl) as proxy:
+                    provconf = await proxy.getProvInfo()
+                    conf = provconf.get('conf')
+                    dmon_listen = conf.get('dmon:listen')
+                    parts = s_telepath.chopurl(dmon_listen)
+                    self.eq(parts.get('port'), 1234)
+                    https_port = provconf.get('https:port')
+                    self.eq(https_port, 443)

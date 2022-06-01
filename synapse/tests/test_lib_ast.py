@@ -2162,3 +2162,65 @@ class AstTest(s_test.SynTest):
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
+
+    async def test_ast_vars_missing(self):
+
+        async with self.getTestCore() as core:
+            q = '$ret = $ret $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$lib.concat($ret, foo) $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$ret=$lib.squeeeeeee($ret, foo) $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            mesgs = await core.stormlist(q, opts={'vars': {'ret': 'foo'}})
+            self.stormIsInErr('Cannot find name [squeeeeeee]', mesgs)
+
+            q = '$ret=$lib.dict(bar=$ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$view = $lib.view.get() $lib.print($view)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('storm:view', mesgs)
+
+            q = '''
+                $pipe = $lib.pipe.gen(${
+                    $pipe.put(neato)
+                    $pipe.put(burrito)
+                })
+
+                for $items in $pipe.slices(size=2) {
+                    for $thingy in $items {
+                        $lib.print($thingy)
+                    }
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('neato', mesgs)
+            self.stormIsInPrint('burrito', mesgs)
+
+            q = '''
+                $foo = ${ $foo="NEAT" return($foo) }
+                $bar = $foo.exec()
+                $lib.print($foo)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('NEAT', mesgs)
+
+            q = '''
+            function foo(x) {
+                $x = "some special string"
+                return($x)
+            }
+
+            $x = $foo((12))
+            $lib.print($x)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('some special string', mesgs)
