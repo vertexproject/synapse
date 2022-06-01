@@ -1,12 +1,7 @@
-import contextlib
-
 import synapse.exc as s_exc
-import synapse.telepath as s_telepath
 import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tests.utils as s_test
-
-import synapse.servers.jsonstor
 
 class JsonStorTest(s_test.SynTest):
 

@@ -1,5 +1,3 @@
-import asyncio
-
 import yarl
 from oauthlib import oauth1
 

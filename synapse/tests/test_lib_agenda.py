@@ -8,9 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.boss as s_boss
 import synapse.lib.hive as s_hive
-import synapse.lib.nexus as s_nexus
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.lib.agenda as s_agenda

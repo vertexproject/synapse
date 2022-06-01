@@ -2439,6 +2439,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             name (str): Name of the value to remove.
 
         Notes:
+
             This does **not** modify the cell.yaml file.
             This does re-validate the configuration after removing the value,
             so if the value removed had a default populated by schema, that
@@ -2633,6 +2634,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # Load any opts we have and environment variables.
         new_conf.setConfFromOpts()
+
         new_conf.setConfFromEnvs()
 
         # Validate provconf, and insert it into cell.yaml
