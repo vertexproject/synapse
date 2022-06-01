@@ -1900,9 +1900,12 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
         self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         url = await tostr(url)
         method = await tostr(method)
@@ -1921,11 +1924,14 @@ class LibAxon(Lib):
 
         axon = self.runt.snap.core.axon
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout)
+                               timeout=timeout, proxy=proxy)
 
-    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None):
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
         self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
@@ -1941,7 +1947,7 @@ class LibAxon(Lib):
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout)
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, proxy=proxy)
 
     async def urlfile(self, *args, **kwargs):
         resp = await self.wget(*args, **kwargs)

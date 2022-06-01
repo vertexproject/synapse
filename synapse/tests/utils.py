@@ -1891,6 +1891,10 @@ class SynTest(unittest.TestCase):
         print_str = '\n'.join([m[1][1].get('mesg', '') for m in mesgs if m[0] == 'err'])
         self.isin(mesg, print_str)
 
+    def stormNotInErr(self, text, msgs):
+        errtext = '\n'.join([m[1][1].get('mesg') for m in msgs if m[0] == 'err'])
+        self.notin(text, errtext)
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.

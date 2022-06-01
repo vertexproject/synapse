@@ -255,22 +255,22 @@ class LibHttp(s_stormtypes.Lib):
         return urllib.parse.unquote_plus(text)
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
-                            allow_redirects=False):
+                            allow_redirects=False, proxy=None):
         return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, params=params,
-                                       timeout=timeout, allow_redirects=allow_redirects, )
+                                       timeout=timeout, allow_redirects=allow_redirects, proxy=proxy)
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
-                           allow_redirects=True):
+                           allow_redirects=True, proxy=None):
         return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
-                                       timeout=timeout, allow_redirects=allow_redirects, )
+                                       timeout=timeout, allow_redirects=allow_redirects, proxy=proxy)
 
     async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True,
-                        params=None, timeout=300, allow_redirects=True, fields=None):
+                        params=None, timeout=300, allow_redirects=True, fields=None, proxy=None):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
                                        ssl_verify=ssl_verify, params=params, timeout=timeout,
-                                       allow_redirects=allow_redirects, fields=fields, )
+                                       allow_redirects=allow_redirects, fields=fields, proxy=proxy)
 
-    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300, params=None):
+    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300, params=None, proxy=None):
 
         url = await s_stormtypes.tostr(url)
         headers = await s_stormtypes.toprim(headers)
@@ -281,10 +281,15 @@ class LibHttp(s_stormtypes.Lib):
 
         sock = await WebSocket.anit()
 
-        proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+
+        if proxy is None:
+            proxy = await self.runt.snap.core.getConfOpt('http:proxy')
+
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         timeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -317,7 +322,7 @@ class LibHttp(s_stormtypes.Lib):
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
                            ssl_verify=True, params=None, timeout=300, allow_redirects=True,
-                           fields=None, ):
+                           fields=None, proxy=None):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
@@ -347,12 +352,17 @@ class LibHttp(s_stormtypes.Lib):
         else:
             data = body
 
-        proxyurl = self.runt.snap.core.conf.get('http:proxy')
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
 
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+
+        if proxy is None:
+            proxy = await self.runt.snap.core.getConfOpt('http:proxy')
+
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         if ssl_verify is False:
             kwargs['ssl'] = False
