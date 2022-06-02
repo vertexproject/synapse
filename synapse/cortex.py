@@ -3201,6 +3201,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 conf['http:proxy'] = proxyurl
 
             self.axon = await s_axon.Axon.anit(path, conf=conf)
+            self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
             self.axready.set()
@@ -3211,6 +3212,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             async def fini():
                 self.axready.clear()
+
+            self.axoninfo = await proxy.getCellInfo()
 
             proxy.onfini(fini)
             self.axready.set()

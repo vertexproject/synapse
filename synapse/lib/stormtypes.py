@@ -1920,15 +1920,21 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+        proxy = await toprim(proxy)
 
         params = self.strify(params)
         headers = self.strify(headers)
 
         await self.runt.snap.core.getAxon()
 
+        kwargs = {}
+        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+        if axonvers >= (2, 97, 0):
+            kwargs['proxy'] = proxy
+
         axon = self.runt.snap.core.axon
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout, proxy=proxy)
+                               timeout=timeout, **kwargs)
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
@@ -1940,6 +1946,7 @@ class LibAxon(Lib):
         url = await tostr(url)
         sha256 = await tostr(sha256)
         method = await tostr(method)
+        proxy = await toprim(proxy)
 
         ssl = await tobool(ssl)
         params = await toprim(params)
@@ -1951,7 +1958,13 @@ class LibAxon(Lib):
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, proxy=proxy)
+
+        kwargs = {}
+        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+        if axonvers >= (2, 97, 0):
+            kwargs['proxy'] = proxy
+
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         resp = await self.wget(*args, **kwargs)

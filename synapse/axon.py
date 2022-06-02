@@ -1034,6 +1034,7 @@ class Axon(s_cell.Cell):
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
+            proxy (bool|str|null): Use a specific proxy or disable proxy use.
 
         Notes:
             The dictionaries in the fields list may contain the following values::
@@ -1196,6 +1197,7 @@ class Axon(s_cell.Cell):
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
+            proxy (bool|str|null): Use a specific proxy or disable proxy use.
 
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not

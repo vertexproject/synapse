@@ -286,6 +286,7 @@ class LibHttp(s_stormtypes.Lib):
         headers = await s_stormtypes.toprim(headers)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         params = await s_stormtypes.toprim(params)
+        proxy = await s_stormtypes.toprim(proxy)
 
         headers = self.strify(headers)
 
@@ -343,6 +344,7 @@ class LibHttp(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
         allow_redirects = await s_stormtypes.tobool(allow_redirects)
+        proxy = await s_stormtypes.toprim(proxy)
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:

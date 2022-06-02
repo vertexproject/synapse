@@ -440,6 +440,7 @@ class StormHttpTest(s_test.SynTest):
 
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=$lib.false)', opts=asvisi)
@@ -461,7 +462,17 @@ class StormHttpTest(s_test.SynTest):
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
             self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
 
+            asvisi = {'user': visi.iden}
+            msgs = await core.stormlist('$lib.axon.wput(asdf, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
+            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
+            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+
+            size, sha256 = await core.axon.put(b'asdf')
+
+            sha256 = s_common.ehex(sha256)
+            resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
 
     async def test_storm_http_connect(self):
