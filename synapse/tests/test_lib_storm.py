@@ -3582,6 +3582,23 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint("triple", msgs)
 
             q = '''
+            $foo=(123)
+            if ($foo = 123 or $lib.concat('foo),b"ar', 'baz')) {
+                $lib.print(nest1)
+            }
+            if ($foo = 123 or (not $foo='baz' and $lib.concat("foo),b'ar", 'baz'))) {
+                $lib.print(nest2)
+            }
+            if ($foo = 123 or (not $foo='baz' and $lib.concat(\'\'\'foo),b'"ar\'\'\', 'baz'))) {
+                $lib.print(nest3)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("nest1", msgs)
+            self.stormIsInPrint("nest2", msgs)
+            self.stormIsInPrint("nest3", msgs)
+
+            q = '''
             $foo=(0x40)
             if ($foo = 64 and $foo = 0x40 and not $foo = "cool, str("
                 or $lib.concat("foo,bar", 'baz', 'cool)')) {
@@ -3600,3 +3617,20 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint("success", msgs)
             self.stormIsInPrint("escaped", msgs)
             self.stormIsInPrint("triple", msgs)
+
+            q = '''
+            $foo=(0x40)
+            if ($foo = 64 or $lib.concat('foo),b"ar', 'baz')) {
+                $lib.print(nest1)
+            }
+            if ($foo = 64 or (not $foo='baz' and $lib.concat("foo),b'ar", 'baz'))) {
+                $lib.print(nest2)
+            }
+            if ($foo = 64 or (not $foo='baz' and $lib.concat(\'\'\'foo),b'"ar\'\'\', 'baz'))) {
+                $lib.print(nest3)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("nest1", msgs)
+            self.stormIsInPrint("nest2", msgs)
+            self.stormIsInPrint("nest3", msgs)
