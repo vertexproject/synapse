@@ -1359,14 +1359,6 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('column'), 9)
         self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression at line 1 col 9"))
 
-        query = '''ou:name="foo\x00bar"'''
-        parser = s_parser.Parser(query)
-        with self.raises(s_exc.BadSyntax) as cm:
-            _ = parser.query()
-        errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('valu'), '"foo\x00bar"')
-        self.true(errinfo.get('mesg').startswith('Invalid character in string "foo\x00bar"'))
-
     async def test_quotes(self):
 
         # Test vectors
