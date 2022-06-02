@@ -721,7 +721,12 @@ def unescape(valu):
     The full list of escaped characters can be found at
     https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals
     '''
-    ret = ast.literal_eval(valu)
+    try:
+        ret = ast.literal_eval(valu)
+    except ValueError as e:
+        mesg = f"Invalid character in string {valu}: {e}"
+        raise s_exc.BadSyntax(mesg=mesg, valu=valu) from None
+
     assert isinstance(ret, str)
     return ret
 
