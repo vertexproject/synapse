@@ -1364,8 +1364,8 @@ class GrammarTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadSyntax) as cm:
             _ = parser.query()
         errinfo = cm.exception.errinfo
-        self.eq(errinfo.get('valu'), '"foo\x00bar"')
-        self.true(errinfo.get('mesg').startswith('Invalid character in string "foo\x00bar"'))
+        self.eq(errinfo.get('valu'), '\'"foo\\x00bar"\'')
+        self.true(errinfo.get('mesg').startswith('Invalid character in string \'"foo\\x00bar"\''))
 
     async def test_quotes(self):
 
