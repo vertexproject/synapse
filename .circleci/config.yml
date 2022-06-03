@@ -609,6 +609,40 @@ jobs:
     steps:
       - test_steps_python_replay
 
+  python310:
+    parallelism: 8
+    docker:
+      - image: cimg/python:3.10
+        environment:
+          PYVERS: 3.10
+          RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
+  python310_replay:
+    parallelism: 6
+    docker:
+      - image: cimg/python:3.10
+        environment:
+          PYVERS: 3.10
+          RUN_SYNTAX: 1
+          CODECOV_FLAG: linux_replay
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse --no-cov-on-fail
+          SYNDEV_NEXUS_REPLAY: 1
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python_replay
+
   doctests:
     parallelism: 1
     docker:
@@ -710,6 +744,13 @@ workflows:
             branches:
               only: /.*/
 
+      - python310:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+
       - python37_replay:
           filters:
             tags:
@@ -725,6 +766,14 @@ workflows:
             branches:
               only:
                 - master
+
+      - python310_replay:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only: /.*/
+#                - master
 
       - python_package_smoketest:
           filters:
