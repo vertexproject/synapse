@@ -29,7 +29,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -4781,8 +4780,7 @@ class NodeProps(Prim):
         Set a property on a Node.
 
         Args:
-            prop (str): The name of the property to set.
-
+            name (str): The name of the property to set.
             valu: The value being set.
 
         Raises:
@@ -6486,8 +6484,11 @@ class LibTrigger(Lib):
         tdef['user'] = useriden
         tdef['view'] = viewiden
 
+        # query is kept to keep this API backwards compatible.
         query = tdef.pop('query', None)
-        if query is not None:
+        if query is not None:  # pragma: no cover
+            s_common.deprecated('$lib.trigger.add() with query', curv='2.95.0')
+            await self.runt.warn('$lib.trigger.add() called with query argument, this is deprecated. Use storm instead.')
             tdef['storm'] = query
 
         cond = tdef.pop('condition', None)
@@ -6530,7 +6531,7 @@ class LibTrigger(Lib):
     async def _methTriggerMod(self, prefix, query):
         useriden = self.runt.user.iden
         viewiden = self.runt.snap.view.iden
-
+        query = await tostr(query)
         trig = await self._matchIdens(prefix)
         iden = trig.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
@@ -6639,8 +6640,10 @@ class Trigger(Prim):
         viewiden = self.runt.snap.view.iden
 
         name = await tostr(name)
-        if name == 'async':
+        if name in ('async', 'enabled', ):
             valu = await tobool(valu)
+        if name in ('doc', 'name', 'storm', ):
+            valu = await tostr(valu)
 
         gatekeys = ((useriden, ('trigger', 'set'), viewiden),)
         todo = ('setTriggerInfo', (trigiden, name, valu), {})

@@ -621,8 +621,8 @@ class CellApi(s_base.Base):
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
-    async def getNexusChanges(self, offs):
-        async for item in self.cell.getNexusChanges(offs):
+    async def getNexusChanges(self, offs, tellready=False):
+        async for item in self.cell.getNexusChanges(offs, tellready=tellready):
             yield item
 
     @adminapi()
@@ -745,7 +745,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         },
         'mirror': {
             'description': 'A telepath URL for our upstream mirror (we must be a backup!).',
-            'type': 'string',
+            'type': ['string', 'null'],
             'hidedocs': True,
             'hidecmdl': True,
         },
@@ -845,63 +845,67 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidecmdl': True,
         },
         'inaugural': {
-            'defs': {
-                'rule': {
-                    'type': 'array',
-                    'items': [
-                        {'type': 'boolean'},
-                        {'type': 'array', 'items': {'type': 'string'}, },
-                    ],
-                    'minItems': 2,
-                    'maxItems': 2,
-                },
-                'role': {
-                    'type': 'object',
-                    'properties': {
-                        'name': {'type': 'string',
-                                 'pattern': '^(?!all$).+$',
-                                 },
-                        'rules': {
-                            'type': 'array',
-                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
-                        }
-                    },
-                    'required': ['name', ],
-                    'additionalProperties': False,
-                },
-                'user': {
-                    'type': 'object',
-                    'properties': {
-                        'name': {'type': 'string',
-                                 'pattern': '^(?!root$).+$',
-                                 },
-                        'admin': {'type': 'boolean', 'default': False, },
-                        'email': {'type': 'string', },
-                        'roles': {
-                            'type': 'array',
-                            'items': {'type': 'string'},
-                        },
-                        'rules': {
-                            'type': 'array',
-                            'items': {'$ref': '#/properties/inaugural/defs/rule'},
-                        },
-                    },
-                    'required': ['name', ],
-                    'additionalProperties': False,
-                }
-            },
             'description': 'Data used to drive configuration of the service upon first startup.',
             'type': 'object',
             'properties': {
                 'roles': {
                     'type': 'array',
-                    'items': {'$ref': '#/properties/inaugural/defs/role'}
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string',
+                                     'pattern': '^(?!all$).+$',
+                                     },
+                            'rules': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'boolean'},
+                                        {'type': 'array', 'items': {'type': 'string'}, },
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                            }
+                        },
+                        'required': ['name', ],
+                        'additionalProperties': False,
+                    }
                 },
                 'users': {
                     'type': 'array',
-                    'items': {'$ref': '#/properties/inaugural/defs/user'}
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string',
+                                     'pattern': '^(?!root$).+$',
+                                     },
+                            'admin': {'type': 'boolean', 'default': False, },
+                            'email': {'type': 'string', },
+                            'roles': {
+                                'type': 'array',
+                                'items': {'type': 'string'},
+                            },
+                            'rules': {
+                                'type': 'array',
+                                'items': {
+                                    'type': 'array',
+                                    'items': [
+                                        {'type': 'boolean'},
+                                        {'type': 'array', 'items': {'type': 'string'}, },
+                                    ],
+                                    'minItems': 2,
+                                    'maxItems': 2,
+                                },
+                            },
+                        },
+                        'required': ['name', ],
+                        'additionalProperties': False,
+                    }
                 }
             },
+            'hidedocs': True,
         },
         '_log_conf': {
             'description': 'Opaque structure used for logging by spawned processes.',
@@ -939,6 +943,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.conf = self._initCellConf(conf)
 
         await self._initCellBoot()
+
+        # we need to know this pretty early...
+        self.ahasvcname = None
+        ahaname = self.conf.get('aha:name')
+        ahanetw = self.conf.get('aha:network')
+        if ahaname is not None and ahanetw is not None:
+            self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -1168,9 +1179,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initNexusSubsystem(self):
         if self.cellparent is None:
-            mirror = self.conf.get('mirror')
-            await self.nexsroot.startup(mirror, celliden=self.iden)
-            await self.setCellActive(mirror is None)
+            await self.nexsroot.recover()
+            await self.nexsroot.startup()
+            await self.setCellActive(self.conf.get('mirror') is None)
 
     async def initServiceNetwork(self):
 
@@ -1232,12 +1243,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'iden': celliden,
                 'leader': ahalead,
                 'urlinfo': urlinfo,
+                # if we are not active, then we are not ready
+                # until we confirm we are in the real-time window.
+                'ready': self.isactive,
             }
 
         if ahainfo is None:
             return
 
         self.ahainfo = ahainfo
+        self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         async def onlink(proxy):
             while not proxy.isfini:
@@ -1275,10 +1290,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         if self.cellparent:
             return self.cellparent.nexsroot
-
-        map_async = self.conf.get('nexslog:async')
-        donexslog = self.conf.get('nexslog:en')
-        return await s_nexus.NexsRoot.anit(self.dirn, donexslog=donexslog, map_async=map_async)
+        return await s_nexus.NexsRoot.anit(self)
 
     async def getNexsIndx(self):
         return await self.nexsroot.index()
@@ -1371,10 +1383,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await lead.handoff(myurl)
                 return
 
+        self.modCellConf({'mirror': None})
+
         await self.nexsroot.promote()
         await self.setCellActive(True)
-
-        self.modCellConf({'mirror': None})
 
     async def handoff(self, turl, timeout=30):
         '''
@@ -1400,9 +1412,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 await cell.promote()
                 await self.setCellActive(False)
-                await self.nexsroot.startup(turl, celliden=self.iden)
 
                 self.modCellConf({'mirror': turl})
+                await self.nexsroot.startup()
 
     async def _setAhaActive(self):
 
@@ -1537,8 +1549,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initServicePassive(self):  # pragma: no cover
         pass
 
-    async def getNexusChanges(self, offs):
-        async for item in self.nexsroot.iter(offs):
+    async def getNexusChanges(self, offs, tellready=False):
+        async for item in self.nexsroot.iter(offs, tellready=tellready):
             yield item
 
     def _reqBackDirn(self, name):
@@ -2319,14 +2331,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return f'cell://{user}@{self.dirn}:{share}'
 
     def _initCellConf(self, conf):
+        '''
+        Initialize a cell config during __anit__.
 
+        Args:
+            conf (s_config.Config, dict): A config object or dictionary.
+
+        Notes:
+            This does not pull environment variables or opts.
+            This only pulls cell.yaml / cell.mods.yaml data in the event
+            we got a dictionary
+
+        Returns:
+            s_config.Config: A config object.
+        '''
         # if they hand in a dict, assume we are not the main/only one
         if isinstance(conf, dict):
             conf = s_config.Config.getConfFromCell(self, conf=conf)
             path = s_common.genpath(self.dirn, 'cell.yaml')
             conf.setConfFromFile(path)
+            mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
+            conf.setConfFromFile(mods_path, force=True)
 
-        conf.reqConfValid()
+        conf.reqConfValid()  # Populate defaults
         return conf
 
     def _loadCellYaml(self, *path):
@@ -2384,7 +2411,47 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return s_common._getLogConfFromEnv()
 
     def modCellConf(self, conf):
-        s_common.yamlmod(conf, self.dirn, 'cell.yaml')
+        '''
+        Modify the Cell's ondisk configuration overrides file and runtime configuration.
+
+        Args:
+            conf (dict): A dictionary of items to set.
+
+        Notes:
+            This does require the data being set to be schema valid.
+
+        Returns:
+            None.
+        '''
+        for key, valu in conf.items():
+            self.conf.reqKeyValid(key, valu)
+            logger.info(f'Setting cell config override for [{key}]')
+
+        self.conf.update(conf)
+        s_common.yamlmod(conf, self.dirn, 'cell.mods.yaml')
+
+    def popCellConf(self, name):
+        '''
+        Remove a key from the Cell's ondisk configuration overrides file and
+        runtime configuration.
+
+        Args:
+            name (str): Name of the value to remove.
+
+        Notes:
+
+            This does **not** modify the cell.yaml file.
+            This does re-validate the configuration after removing the value,
+            so if the value removed had a default populated by schema, that
+            default would be reset.
+
+        Returns:
+            None
+        '''
+        self.conf.pop(name, None)
+        self.conf.reqConfValid()
+        s_common.yamlpop(name, self.dirn, 'cell.mods.yaml')
+        logger.info(f'Removed cell config override for [{name}]')
 
     @classmethod
     def getCellType(cls):
@@ -2402,9 +2469,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.runid
 
     @classmethod
-    def initCellConf(cls):
+    def initCellConf(cls, conf=None):
         '''
         Create a Config object for the Cell.
+
+        Args:
+            conf (s_config.Config): An optional config structure. This has _opts_data taken from it.
 
         Notes:
             The Config object has a ``envar_prefix`` set according to the results of ``cls.getEnvPrefix()``.
@@ -2414,7 +2484,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         prefixes = cls.getEnvPrefix()
         schema = s_config.getJsSchema(cls.confbase, cls.confdefs)
-        return s_config.Config(schema, envar_prefixes=prefixes)
+        config = s_config.Config(schema, envar_prefixes=prefixes)
+        if conf:
+            config._opts_data = conf._opts_data
+        return config
 
     @classmethod
     def getArgParser(cls, conf=None):
@@ -2484,7 +2557,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         async with s_telepath.loadTeleCell(self.dirn):
-            await self._bootCellMirror(conf=provconf)
+            await self._bootCellMirror(provconf)
 
     async def _bootCellProv(self):
 
@@ -2521,14 +2594,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if not certdir.getCaCertPath(ahanetw):
                 certdir.saveCaCertByts(await prov.getCaCert())
 
-            # update our runtime config
-            for name, valu in provconf.items():
-                self.conf[name] = valu
-
-            self.conf.reqConfValid()
-
-            # save our config state
-            self.modCellConf(provconf)
+            await self._bootProvConf(provconf)
 
             hostname = f'{ahaname}.{ahanetw}'
             if certdir.getHostCertPath(hostname) is None:
@@ -2547,18 +2613,49 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return provconf
 
-    def _bootCellConf(self, conf=None):
-        # create a fresh config and re-resolve inputs in precedence order...
-        conf = s_config.Config.getConfFromCell(self, conf=conf)
+    async def _bootProvConf(self, provconf):
+        '''
+        Get a configuration object for booting the cell from a AHA configuration.
 
+        Args:
+            provconf (dict): A dictionary containing provisioning config data from AHA.
+
+        Notes:
+            The cell.yaml will be modified with data from provconf.
+            The cell.mods.yaml will have any keys in the prov conf removed from it.
+            This sets the runtime configuration as well.
+
+        Returns:
+            s_config.Config: The new config object to be used.
+        '''
+        # replace our runtime config with the updated config with provconf data
+        new_conf = self.initCellConf(self.conf)
+        new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
+
+        # Load any opts we have and environment variables.
+        new_conf.setConfFromOpts()
+
+        new_conf.setConfFromEnvs()
+
+        # Validate provconf, and insert it into cell.yaml
+        for name, valu in provconf.items():
+            new_conf.reqKeyValid(name, valu)
         path = s_common.genpath(self.dirn, 'cell.yaml')
+        s_common.yamlmod(provconf, path)
+        # load cell.yaml, still preferring actual config data from opts/envs.
+        new_conf.setConfFromFile(path)
 
-        conf.setConfFromOpts(conf)
-        conf.setConfFromFile(path)
-        conf.setConfFromEnvs()
+        # Remove any keys from overrides that were set from provconf
+        # then load the file
+        mods_path = s_common.genpath(self.dirn, 'cell.mods.yaml')
+        for key in provconf:
+            s_common.yamlpop(key, mods_path)
+        new_conf.setConfFromFile(mods_path, force=True)
 
-        conf.reqConfValid()
-        return conf
+        # Ensure defaults are set
+        new_conf.reqConfValid()
+        self.conf = new_conf
+        return new_conf
 
     def _mustBootMirror(self):
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -2577,7 +2674,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.enNexsLog()
             await self.sync()
 
-    async def _bootCellMirror(self, conf=None):
+    async def _bootCellMirror(self, provconf):
         # this function must assume almost nothing is initialized
         # but that's ok since it will only run rarely...
         murl = self.conf.get('mirror')
@@ -2605,10 +2702,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isfile(tarpath):
                 os.unlink(tarpath)
 
-        if conf is not None:
-            self.modCellConf(conf)
-
-        self.conf = self._bootCellConf()
+        await self._bootProvConf(provconf)
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
@@ -2641,17 +2735,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         opts = pars.parse_args(argv)
         path = s_common.genpath(opts.dirn, 'cell.yaml')
+        mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
-        conf.setdefault('_log_conf', logconf)
-
-        conf.setConfFromOpts(opts)
-        conf.setConfFromFile(path)
-        updates = conf.setConfFromEnvs()
-
-        if updates:
-            s_common.yamlmod(updates, path)
+        try:
+            conf.setdefault('_log_conf', logconf)
+            conf.setConfFromOpts(opts)
+            conf.setConfFromEnvs()
+            conf.setConfFromFile(path)
+            conf.setConfFromFile(mods_path, force=True)
+        except:
+            logger.exception(f'Error while bootstrapping cell config.')
+            raise
 
         s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
@@ -2900,12 +2996,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
                 'active': self.isactive,
+                'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
             },
             'features': {
+                'tellready': True,
                 'dynmirror': True,
             },
         }

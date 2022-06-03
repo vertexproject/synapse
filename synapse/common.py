@@ -183,6 +183,9 @@ def hugeround(x):
     '''
     return hugectx.quantize(x, hugeexp)
 
+def hugemod(x, y):
+    return hugectx.divmod(x, y)
+
 def vertup(vstr):
     '''
     Convert a version string to a tuple.
@@ -501,6 +504,22 @@ def yamlmod(obj, *paths):
             yamlsave({**oldobj, **obj}, *paths)
         else:
             yamlsave(obj, *paths)
+
+def yamlpop(key, *paths):
+    '''
+    Pop a key out of a yaml file.
+
+    Args:
+        key (str): Name of the key to remove.
+        *paths: Path to a yaml file. The file must be a map / dictionary.
+
+    Returns:
+        None
+    '''
+    obj = yamlload(*paths)
+    if obj is not None:
+        obj.pop(key, None)
+        yamlsave(obj, *paths)
 
 def verstr(vtup):
     '''

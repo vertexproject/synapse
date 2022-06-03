@@ -136,11 +136,27 @@ class Config(c_abc.MutableMapping):
             conf = {}
         if envar_prefixes is None:
             envar_prefixes = ('', )
-        self.conf = conf
+        self.conf = {}
         self._argparse_conf_names = {}
         self._argparse_conf_parsed_names = {}
         self.envar_prefixes = envar_prefixes
+        self._opts_data = argparse.Namespace()
         self.validator = getJsValidator(self.json_schema)
+        self._prop_schemas = {}
+        self._prop_validators = {}
+        for k, v in self.json_schema.get('properties').items():
+            prop_schema = {
+                '$schema': 'http://json-schema.org/draft-07/schema#',
+            }
+            prop_schema.update(v)
+            self._prop_schemas[k] = prop_schema
+            self._prop_validators[k] = getJsValidator(prop_schema)
+        # Copy the data in so that it is validated.
+        for k, v in conf.items():
+            self[k] = v
+        # Ensure we're able to parse opts data for our schema -
+        # this populates the opts mapping data.
+        _ = self.getArgParseArgs()
 
     @classmethod
     def getConfFromCell(cls, cell, conf=None, envar_prefixes=None):
@@ -208,7 +224,7 @@ class Config(c_abc.MutableMapping):
             _ = self.getArgParseArgs()
         return {k: v for k, v in self._argparse_conf_parsed_names.items()}
 
-    def setConfFromOpts(self, opts):
+    def setConfFromOpts(self, opts=None):
         '''
         Set the opts for a conf object from a namespace object.
 
@@ -219,6 +235,8 @@ class Config(c_abc.MutableMapping):
         Returns:
             None: Returns None.
         '''
+        if opts is None:
+            opts = self._opts_data
         opts_data = vars(opts)
         for k, v in opts_data.items():
             if v is None:
@@ -227,17 +245,32 @@ class Config(c_abc.MutableMapping):
             if nname is None:
                 continue
             self.setdefault(nname, v)
+        self._opts_data = opts
 
-    def setConfFromFile(self, path):
+    def setConfFromFile(self, path, force=False):
         '''
         Set the opts for a conf object from YAML file path.
+
+        Args:
+            path (str): Path to the yaml load. If it exists, it must represent a dictionary.
+            force (bool): Force the update instead of using setdefault() behavior.
+
+        Returns:
+            None
         '''
         item = s_common.yamlload(path)
         if item is None:
             return
 
         for name, valu in item.items():
-            self.setdefault(name, valu)
+            if force:
+                oldv = self.get(name, s_common.novalu)
+                self[name] = valu
+                if oldv is s_common.novalu:
+                    continue
+                logger.info(f'Set configuration override for [{name}] from [{path}]')
+            else:
+                self.setdefault(name, valu)
 
     # Envar support methods
     def setConfFromEnvs(self):
@@ -346,6 +379,30 @@ class Config(c_abc.MutableMapping):
 
         return self.conf.get(key)
 
+    def reqKeyValid(self, key, value):
+        '''
+        Test if a key is valid for the provided schema it is associated with.
+
+        Args:
+            key (str): Key to check.
+            value: Value to check.
+
+        Raises:
+            BadArg: If the key has no associated schema.
+            BadConfValu: If the data is not schema valid.
+
+        Returns:
+            None when valid.
+        '''
+        validator = self._prop_validators.get(key)
+        if validator is None:
+            raise s_exc.BadArg(mesg=f'Key {key} is not a valid config', )
+        try:
+            validator(value)
+        except s_exc.SchemaViolation as e:
+            raise s_exc.BadConfValu(mesg=f'Invalid config for {key}, {e.get("mesg")}', name=key, value=value) from None
+        return
+
     def asDict(self):
         '''
         Get a copy of configuration data.
@@ -373,11 +430,7 @@ class Config(c_abc.MutableMapping):
         return self.conf.__delitem__(key)
 
     def __setitem__(self, key, value):
-        # This explicitly doesn't do any type validation.
-        # The type validation is done on-demand, in order to
-        # allow a user to incrementally construct the config
-        # from different sources before turning around and
-        # doing a validation pass which may fail.
+        self.reqKeyValid(key, value)
         return self.conf.__setitem__(key, value)
 
     def __getitem__(self, item):

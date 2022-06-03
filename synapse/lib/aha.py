@@ -1,8 +1,8 @@
 import os
 import copy
+import random
+import asyncio
 import logging
-
-import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -12,11 +12,73 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
+import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
+
+_provSvcSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {
+            'type': 'string',
+            'minLength': 1,
+        },
+        'provinfo': {
+            'type': 'object',
+            'properties': {
+                'conf': {
+                    'type': 'object',
+                },
+                'dmon:port': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 65535,
+                },
+                'https:port': {
+                    'type': 'integer',
+                    'minimum': 0,
+                    'maximum': 65535,
+                },
+                'mirror': {
+                    'type': 'string',
+                    'minLength': 1,
+                },
+            }
+        }
+    },
+    'additionalProperties': False,
+    'required': ['name'],
+}
+provSvcSchema = s_config.getJsValidator(_provSvcSchema)
+
+class AhaProvisionServiceV1(s_httpapi.Handler):
+
+    async def post(self):
+        if not await self.reqAuthAdmin():
+            return
+
+        body = self.getJsonBody(validator=provSvcSchema)
+        if body is None:
+            return
+
+        name = body.get('name')
+        provinfo = body.get('provinfo')
+
+        try:
+            url = await self.cell.addAhaSvcProv(name, provinfo=provinfo)
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+        except s_exc.SynErr as e:
+            logger.exception(f'Error provisioning {name}')
+            return self.sendRestErr(e.__class__.__name__, e.get('mesg', str(e)))
+        except Exception as e:  # pragma: no cover
+            logger.exception(f'Error provisioning {name}')
+            return self.sendRestErr(e.__class__.__name__, str(e))
+        return self.sendRestRetn({'url': url})
 
 class AhaApi(s_cell.CellApi):
 
@@ -26,11 +88,11 @@ class AhaApi(s_cell.CellApi):
             return ahaurls
         return()
 
-    async def getAhaSvc(self, name):
+    async def getAhaSvc(self, name, filters=None):
         '''
         Return an AHA service description dictionary for a service name.
         '''
-        svcinfo = await self.cell.getAhaSvc(name)
+        svcinfo = await self.cell.getAhaSvc(name, filters=filters)
         if svcinfo is None:
             return None
 
@@ -75,6 +137,7 @@ class AhaApi(s_cell.CellApi):
         # dont disclose the real session...
         sess = s_common.guid(self.sess.iden)
         info['online'] = sess
+        info.setdefault('ready', True)
 
         if self.link.sock is not None:
             host, port = self.link.sock.getpeername()
@@ -94,6 +157,24 @@ class AhaApi(s_cell.CellApi):
         self.onfini(fini)
 
         return await self.cell.addAhaSvc(name, info, network=network)
+
+    async def modAhaSvcInfo(self, name, svcinfo):
+
+        for key in svcinfo.keys():
+            if key not in ('ready',):
+                mesg = f'Editing AHA service info property ({key}) is not supported!'
+                raise s_exc.BadArg(mesg=mesg)
+
+        svcentry = await self.cell.getAhaSvc(name)
+        if svcentry is None:
+            return False
+
+        svcnetw = svcentry.get('svcnetw')
+        svcname = svcentry.get('svcname')
+
+        await self._reqUserAllowed(('aha', 'service', 'add', svcnetw, svcname))
+
+        return await self.cell.modAhaSvcInfo(name, svcinfo)
 
     async def delAhaSvc(self, name, network=None):
         '''
@@ -283,6 +364,10 @@ class AhaCell(s_cell.Cell):
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
 
+    def _initCellHttpApis(self):
+        s_cell.Cell._initCellHttpApis(self)
+        self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
+
     async def initServiceRuntime(self):
         self.addActiveCoro(self._clearInactiveSessions)
 
@@ -357,6 +442,22 @@ class AhaCell(s_cell.Cell):
 
         return svcname, svcnetw, svcfull
 
+    @s_nexus.Pusher.onPushAuto('aha:svc:mod')
+    async def modAhaSvcInfo(self, name, svcinfo):
+
+        svcentry = await self.getAhaSvc(name)
+        if svcentry is None:
+            return False
+
+        svcnetw = svcentry.get('svcnetw')
+        svcname = svcentry.get('svcname')
+
+        path = ('aha', 'services', svcnetw, svcname)
+
+        for prop, valu in svcinfo.items():
+            await self.jsonstor.setPathObjProp(path, ('svcinfo', prop), valu)
+        return True
+
     @s_nexus.Pusher.onPushAuto('aha:svc:add')
     async def addAhaSvc(self, name, info, network=None):
 
@@ -422,7 +523,7 @@ class AhaCell(s_cell.Cell):
 
         logger.debug(f'Set [{svcfull}] offline.')
 
-    async def getAhaSvc(self, name):
+    async def getAhaSvc(self, name, filters=None):
 
         if name.endswith('...'):
             ahanetw = self.conf.get('aha:network')
@@ -433,9 +534,56 @@ class AhaCell(s_cell.Cell):
             name = f'{name[:-2]}{ahanetw}'
 
         path = ('aha', 'svcfull', name)
-        svcinfo = await self.jsonstor.getPathObj(path)
-        if svcinfo is not None:
-            return svcinfo
+        svcentry = await self.jsonstor.getPathObj(path)
+        if svcentry is None:
+            return None
+
+        # if they requested a mirror, try to locate one
+        if filters is not None and filters.get('mirror'):
+            ahanetw = svcentry.get('ahanetw')
+            svcinfo = svcentry.get('svcinfo')
+            if svcinfo is None: # pragma: no cover
+                return svcentry
+
+            celliden = svcinfo.get('iden')
+            mirrors = await self.getAhaSvcMirrors(celliden, network=ahanetw)
+
+            if mirrors:
+                return random.choice(mirrors)
+
+        return svcentry
+
+    async def getAhaSvcMirrors(self, iden, network=None):
+
+        retn = {}
+        skip = None
+
+        async for svcentry in self.getAhaSvcs(network=network):
+
+            svcinfo = svcentry.get('svcinfo')
+            if svcinfo is None: # pragma: no cover
+                continue
+
+            if svcinfo.get('iden') != iden: # pragma: no cover
+                continue
+
+            if svcinfo.get('online') is None: # pragma: no cover
+                continue
+
+            if not svcinfo.get('ready'):
+                continue
+
+            # if we run across the leader, skip ( and mark his run )
+            if svcentry.get('svcname') == svcinfo.get('leader'):
+                skip = svcinfo.get('run')
+                continue
+
+            retn[svcinfo.get('run')] = svcentry
+
+        if skip is not None:
+            retn.pop(skip, None)
+
+        return list(retn.values())
 
     async def genCaCert(self, network):
 
@@ -595,7 +743,13 @@ class AhaCell(s_cell.Cell):
         hostname = f'{name}.{netw}'
 
         conf.setdefault('aha:name', name)
-        conf.setdefault('dmon:listen', f'ssl://0.0.0.0:0?hostname={hostname}&ca={netw}')
+        dmon_port = provinfo.get('dmon:port', 0)
+        dmon_listen = f'ssl://0.0.0.0:{dmon_port}?hostname={hostname}&ca={netw}'
+        conf.setdefault('dmon:listen', dmon_listen)
+
+        https_port = provinfo.get('https:port', s_common.novalu)
+        if https_port is not s_common.novalu:
+            conf.setdefault('https:port', https_port)
 
         # if the relative name contains a dot, we are a mirror peer.
         peer = name.find('.') != -1

@@ -46,6 +46,7 @@ terminalEnglishMap = {
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
     'EQNOSPACE': '=',
+    'EQSPACE': '=',
     'EQUAL': '=',
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
@@ -58,6 +59,7 @@ terminalEnglishMap = {
     'IF': 'if',
     'IN': 'in',
     'LBRACE': '{',
+    'LISTTOKN': 'unquoted list value',
     'LPAR': '(',
     'LSQB': '[',
     'MODSET': '+= or -=',
@@ -155,14 +157,27 @@ class AstConverter(lark.Transformer):
 
         return kid
 
+    def _parseJsonToken(self, meta, tokn):
+        if isinstance(tokn, lark.lexer.Token) and tokn.type == 'VARTOKN' and not tokn.value[0] in ('"', "'"):
+            valu = tokn.value
+            try:
+                valu = float(valu) if '.' in valu else int(valu, 0)
+            except ValueError as e:
+                mesg = f"Unexpected unquoted string in JSON expression at line {meta.line} col {meta.column}"
+                raise s_exc.BadSyntax(mesg=mesg, at=meta.start_pos, line=meta.line, column=meta.column)
+
+            return s_ast.Const(valu)
+        else:
+            return self._convert_child(tokn)
+
     @lark.v_args(meta=True)
     def exprlist(self, meta, kids):
-        kids = [self._convert_child(k) for k in kids]
+        kids = [self._parseJsonToken(meta, k) for k in kids]
         return s_ast.ExprList(kids=kids)
 
     @lark.v_args(meta=True)
     def exprdict(self, meta, kids):
-        kids = [self._convert_child(k) for k in kids]
+        kids = [self._parseJsonToken(meta, k) for k in kids]
         return s_ast.ExprDict(kids=kids)
 
     @lark.v_args(meta=True)
@@ -214,6 +229,12 @@ class AstConverter(lark.Transformer):
         return look
 
     @lark.v_args(meta=True)
+    def search(self, meta, kids):
+        kids = self._convert_children(kids)
+        look = s_ast.Search(kids=kids)
+        return look
+
+    @lark.v_args(meta=True)
     def query(self, meta, kids):
         kids = self._convert_children(kids)
 
@@ -246,18 +267,19 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def funccall(self, meta, kids):
-        kids = self._convert_children(kids)
         argkids = []
         kwargkids = []
         kwnames = set()
         indx = 1
         kcnt = len(kids)
         while indx < kcnt:
-            if indx + 2 < kcnt and isinstance(kids[indx + 1], s_ast.Const) and kids[indx + 1].valu == '=':
-                kid = s_ast.CallKwarg((kids[indx], kids[indx + 2]))
+
+            kid = self._convert_child(kids[indx])
+
+            if indx + 2 < kcnt and isinstance(kids[indx + 1], lark.lexer.Token) and kids[indx + 1].type in ('EQNOSPACE', 'EQUAL', 'EQSPACE'):
+                kid = s_ast.CallKwarg((kid, self._convert_child(kids[indx + 2])))
                 indx += 3
             else:
-                kid = kids[indx]
                 indx += 1
 
             if isinstance(kid, s_ast.CallKwarg):
@@ -441,7 +463,7 @@ class AstConverter(lark.Transformer):
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
-LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu'],
+LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
                        maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
@@ -478,7 +500,7 @@ class Parser:
             # Lark unhelpfully wraps an exception raised from AstConverter in a VisitError.  Unwrap it.
             origexc = e.orig_exc
             if not isinstance(origexc, s_exc.SynErr):
-                raise  # pragma: no cover
+                raise e.orig_exc # pragma: no cover
             origexc.errinfo['text'] = self.text
             return s_exc.BadSyntax(**origexc.errinfo)
 
@@ -532,6 +554,15 @@ class Parser:
         newtree.text = self.text
         return newtree
 
+    def search(self):
+        try:
+            tree = LarkParser.parse(self.text, start='search')
+        except lark.exceptions.LarkError as e:
+            raise self._larkToSynExc(e) from None
+        newtree = AstConverter(self.text).transform(tree)
+        newtree.text = self.text
+        return newtree
+
     def cmdrargs(self):
         '''
         Parse command args that might have storm queries as arguments
@@ -553,6 +584,9 @@ def parseQuery(text, mode='storm'):
         look = Parser(text).lookup()
         look.autoadd = True
         return look
+
+    if mode == 'search':
+        return Parser(text).search()
 
     return Parser(text).query()
 
@@ -651,12 +685,11 @@ ruleClassMap = {
     'liftbyarray': s_ast.LiftByArray,
     'liftbytagprop': s_ast.LiftTagProp,
     'liftbyformtagprop': s_ast.LiftFormTagProp,
-    'looklist': s_ast.Lookup,
+    'looklist': s_ast.LookList,
     'n1walk': s_ast.N1Walk,
     'n2walk': s_ast.N2Walk,
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
-    'nonquotewords': lambda kids: s_ast.Const(' '.join([str(k.valu) for k in kids])),
     'notcond': s_ast.NotCond,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
@@ -690,7 +723,12 @@ def unescape(valu):
     The full list of escaped characters can be found at
     https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals
     '''
-    ret = ast.literal_eval(valu)
+    try:
+        ret = ast.literal_eval(valu)
+    except ValueError as e:
+        mesg = f"Invalid character in string {repr(valu)}: {e}"
+        raise s_exc.BadSyntax(mesg=mesg, valu=repr(valu)) from None
+
     assert isinstance(ret, str)
     return ret
 

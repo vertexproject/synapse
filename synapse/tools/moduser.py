@@ -3,7 +3,6 @@ import yaml
 import asyncio
 import argparse
 
-import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
@@ -18,6 +17,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--svcurl', default='cell://vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the user if they do not already exist.')
     pars.add_argument('--admin', choices=('true', 'false'), default=None, help='Set the user admin status.')
+    pars.add_argument('--passwd', action='store', type=str, help='A password to set for the user.')
     pars.add_argument('--locked', choices=('true', 'false'), default=None, help='Set the user locked status.')
     pars.add_argument('--grant', default=[], action='append', help='A role to grant to the user.')
     pars.add_argument('--revoke', default=[], action='append', help='A role to revoke from the user.')
@@ -71,6 +71,10 @@ async def main(argv, outp=s_output.stdout):
                 locked = yaml.safe_load(opts.locked)
                 outp.printf(f'...setting locked: {opts.locked}')
                 await cell.setUserLocked(useriden, locked)
+
+            if opts.passwd is not None:
+                outp.printf(f'...setting passwd: {opts.passwd}')
+                await cell.setUserPasswd(useriden, opts.passwd)
 
             for role in grants:
                 rolename = role.get('name')

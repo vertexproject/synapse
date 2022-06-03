@@ -838,6 +838,8 @@ class Agenda(s_base.Base):
 
         info = {'iden': appt.iden, 'query': appt.query}
         task = await self.core.boss.execute(self._runJob(user, appt), f'Cron {appt.iden}', user, info=info)
+
+        appt.task = task
         self._running_tasks.append(task)
 
         task.onfini(functools.partial(self._running_tasks.remove, task))

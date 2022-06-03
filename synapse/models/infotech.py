@@ -539,6 +539,8 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:impfunc', ('str', {'lower': 1}), {
                     'doc': 'A function from an imported library.',
                 }),
+                ('it:sec:c2:config', ('guid', {}), {
+                    'doc': 'An extracted C2 config from an executable.'}),
             ),
 
             'interfaces': (
@@ -1811,6 +1813,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time the YARA rule was most recently modified.'}),
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:yara:match', {}, (
@@ -1877,6 +1881,26 @@ class ItModule(s_module.CoreModule):
 
                 ('it:reveng:impfunc', {}, ()),
 
+                ('it:sec:c2:config', {}, (
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family which uses the config.'}),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file that the C2 config was extracted from.'}),
+                    ('servers', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
+                    ('mutex', ('it:dev:mutex', {}), {
+                        'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
+                    ('campaigncode', ('it:dev:str', {}), {
+                        'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
+                    ('crypto:key', ('crypto:key', {}), {
+                        'doc': 'Static key material used to encrypt C2 communications.'}),
+                    ('connect:delay', ('duration', {}), {
+                        'doc': 'The time delay from first execution to connecting to the C2 server.'}),
+                    ('connect:interval', ('duration', {}), {
+                        'doc': 'The configured duration to sleep between connections to the C2 server.'}),
+                    ('raw', ('data', {}), {
+                        'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
+                )),
             ),
         }
         name = 'it'

@@ -865,16 +865,68 @@ class CellTest(s_t_utils.SynTest):
                 self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
                 self.isin('...cell API (https): disabled', buf)
 
+    async def test_cell_initargv_conf(self):
+        async with self.withSetLoggingMock():
+            with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true',
+                                   SYN_CELL_DMON_LISTEN='null',
+                                   SYN_CELL_HTTPS_PORT='null',
+                                   SYN_CELL_AUTH_PASSWD='notsecret',
+                                   ):
+                with self.getTestDir() as dirn:
+                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:0/',
+                                       'aha:name': 'some:cell'},
+                                      dirn, 'cell.yaml')
+                    s_common.yamlsave({'nexslog:async': True},
+                                      dirn, 'cell.mods.yaml')
+                    async with await s_cell.Cell.initFromArgv([dirn, '--auth-passwd', 'secret']) as cell:
+                        # config order for booting from initArgV
+                        # 0) cell.mods.yaml
+                        # 1) cmdline
+                        # 2) envars
+                        # 3) cell.yaml
+                        self.true(cell.conf.reqConfValu('nexslog:en'))
+                        self.true(cell.conf.reqConfValu('nexslog:async'))
+                        self.none(cell.conf.reqConfValu('dmon:listen'))
+                        self.none(cell.conf.reqConfValu('https:port'))
+                        self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
+                        root = cell.auth.rootuser
+                        self.true(await root.tryPasswd('secret'))
+
+                # Overrides file wins out over everything else in conflicts
+                with self.getTestDir() as dirn:
+                    s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
+                    async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                        self.false(cell.conf.reqConfValu('nexslog:en'))
+                        # We can remove the valu from the overrides file with the pop API
+                        # This is NOT reactive API which causes the whole behavior
+                        # of the cell to suddenly change. This is intended to be used with
+                        # code that is aware of changing configuration values.
+                        cell.popCellConf('nexslog:en')
+                        overrides = s_common.yamlload(dirn, 'cell.mods.yaml')
+                        self.eq({}, overrides)
+
     async def test_initargv_failure(self):
         if not os.path.exists('/dev/null'):
             self.skip('Test requires /dev/null to exist.')
 
-        with self.getAsyncLoggerStream('synapse.lib.cell',
-                                       'Error starting cell at /dev/null') as stream:
-            with self.raises(FileExistsError):
-                async with await s_cell.Cell.initFromArgv(['/dev/null']):
-                    pass
-            self.true(await stream.wait(timeout=6))
+        async with self.withSetLoggingMock():
+            with self.getAsyncLoggerStream('synapse.lib.cell',
+                                           'Error starting cell at /dev/null') as stream:
+                with self.raises(FileExistsError):
+                    async with await s_cell.Cell.initFromArgv(['/dev/null']):
+                        pass
+                self.true(await stream.wait(timeout=6))
+
+            # Bad configs can also cause a failure.
+            with self.getTestDir() as dirn:
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Error while bootstrapping cell config') as stream:
+                    with self.raises(s_exc.BadConfValu) as cm:
+                        with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):  # interpreted as a yaml bool true
+                            async with await s_cell.Cell.initFromArgv([dirn, ]):
+                                pass
+                    self.eq(cm.exception.get('name'), 'auth:passwd')
+                self.true(await stream.wait(timeout=6))
 
     async def test_cell_backup(self):
 
@@ -1457,3 +1509,32 @@ class CellTest(s_t_utils.SynTest):
 
             foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
             self.false(os.path.isdir(foonest))
+
+    async def test_mirror_badiden(self):
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'cell00')
+            path01 = s_common.gendir(dirn, 'coll01')
+
+            conf00 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                      'https:port': 0,
+                      'nexslog:en': True,
+                      }
+            async with await s_cell.Cell.anit(conf=conf00, dirn=path00) as cell00:
+
+                conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                          'https:port': 0,
+                          'mirror': cell00.getLocalUrl(),
+                          'nexslog:en': True,
+                          }
+
+                # Create the bad cell with its own guid
+                async with await s_cell.Cell.anit(dirn=path01, conf={'nexslog:en': True,
+                                                               }) as cell01:
+                    pass
+
+                with self.getAsyncLoggerStream('synapse.lib.nexus',
+                                               'has different iden') as stream:
+                    async with await s_cell.Cell.anit(conf=conf01, dirn=path01) as cell01:
+                        await stream.wait(timeout=2)
+                        self.true(await cell01.waitfini(6))

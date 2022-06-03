@@ -575,7 +575,7 @@ class CoreApi(s_cell.CellApi):
         '''
         layr = self.cell.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         self.user.confirm(('sync',), gateiden=layr.iden)
 
@@ -2833,7 +2833,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(iden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=iden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
         async for item in layr.syncNodeEdits(offs, wait=wait):
             yield item
@@ -3368,7 +3368,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if len(path) == 2:
                 layr = self.getLayer(path[1])
                 if layr is None:
-                    raise s_exc.NoSuchLayer(iden=path[1])
+                    raise s_exc.NoSuchLayer(mesg=f'No such layer {path[1]}', iden=path[1])
 
                 return await self.layerapi.anit(self, link, user, layr)
 
@@ -3384,7 +3384,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if view is not None:
                 return await self.viewapi.anit(self, link, user, view)
 
-        raise s_exc.NoSuchPath(path=path)
+        raise s_exc.NoSuchPath(mesg=f'Invalid telepath path={path}', path=path)
 
     async def getModelDict(self):
         return self.model.getModelDict()
@@ -3619,7 +3619,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for lyriden in vdef['layers']:
             if lyriden not in self.layers:
-                raise s_exc.NoSuchLayer(iden=lyriden)
+                raise s_exc.NoSuchLayer(mesg=f'No such layer {lyriden}', iden=lyriden)
 
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
@@ -3681,7 +3681,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=iden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
         return await self._push('layer:del', iden)
 
@@ -4090,7 +4090,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         layr = self.getLayer(layriden)
         if layr is None:
             mesg = f'No layer found with iden: {layriden}'
-            raise s_exc.NoSuchLayer(mesg=mesg)
+            raise s_exc.NoSuchLayer(mesg=mesg, iden=layriden)
         return await layr.saveNodeEdits(edits, meta)
 
     async def cloneLayer(self, iden, ldef=None):
@@ -4107,7 +4107,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.layers.get(iden, None)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=iden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
         ldef = ldef or {}
         ldef['iden'] = s_common.guid()
@@ -4809,7 +4809,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             name (str): The name of the feed record format.
             items (list): A list of items to ingest.
-            iden (str): The iden of a view to use.
+            viewiden (str): The iden of a view to use.
                 If a view is not specified, the default view is used.
         '''
 
@@ -5229,7 +5229,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
             yield item
@@ -5250,7 +5250,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
             yield item
@@ -5270,7 +5270,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
             yield item
@@ -5294,7 +5294,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
             yield item
@@ -5316,7 +5316,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
             yield item

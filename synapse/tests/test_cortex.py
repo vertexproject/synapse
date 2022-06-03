@@ -20,7 +20,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
-import synapse.lib.jsonstor as s_jsonstor
 
 import synapse.tools.backup as s_tools_backup
 import synapse.tools.promote as s_tools_promote
@@ -47,13 +46,17 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_handoff(self):
 
         with self.getTestDir() as dirn:
+            ahadir = s_common.genpath(dirn, 'aha00')
+            coredir0 = s_common.genpath(dirn, 'core00')
+            coredir1 = s_common.genpath(dirn, 'core01')
+            coredir2 = s_common.genpath(dirn, 'core02',)
 
             conf = {
                 'aha:name': 'aha',
                 'aha:network': 'newp',
                 'provision:listen': 'tcp://127.0.0.1:0',
             }
-            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+            async with await s_aha.AhaCell.anit(ahadir, conf=conf) as aha:
 
                 provaddr, provport = aha.provdmon.addr
                 aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
@@ -64,7 +67,7 @@ class CortexTest(s_t_utils.SynTest):
                 provurl = await aha.addAhaSvcProv('00.cortex')
                 coreconf = {'aha:provision': provurl, 'nexslog:en': False}
 
-                async with self.getTestCore(conf=coreconf) as core00:
+                async with self.getTestCore(dirn=coredir0, conf=coreconf) as core00:
 
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
@@ -74,7 +77,14 @@ class CortexTest(s_t_utils.SynTest):
 
                     # provision with the new hostname and mirror config
                     coreconf = {'aha:provision': provurl}
-                    async with self.getTestCore(conf=coreconf) as core01:
+                    async with self.getTestCore(dirn=coredir1, conf=coreconf) as core01:
+
+                        # test out connecting to the leader but having aha chose a mirror
+                        async with s_telepath.loadTeleCell(core01.dirn):
+                            # wait for the mirror to think it's ready...
+                            await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=3)
+                            async with await s_telepath.openurl('aha://cortex...?mirror=true') as proxy:
+                                self.eq(await core01.getCellRunId(), await proxy.getCellRunId())
 
                         await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
                         self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
@@ -89,8 +99,32 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(core01.isactive)
                         self.false(core00.isactive)
 
+                        mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
+                        mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
+                        self.eq(mods00, {'mirror': 'aha://01.cortex.newp'})
+                        self.eq(mods01, {'mirror': None})
+
                         await core00.nodes('[inet:ipv4=5.5.5.5]')
                         self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                        # After doing the promotion, provision another mirror cortex.
+                        # This pops the mirror config out of the mods file we copied
+                        # from the backup.
+                        provinfo = {'mirror': '01.cortex'}
+                        provurl = await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)
+                        coreconf = {'aha:provision': provurl}
+                        async with self.getTestCore(dirn=coredir2, conf=coreconf) as core02:
+                            self.false(core02.isactive)
+                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex.newp')
+                            mods02 = s_common.yamlload(coredir2, 'cell.mods.yaml')
+                            self.eq(mods02, {})
+                            # The mirror writeback and change distribution works
+                            self.len(0, await core01.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(0, await core00.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(1, await core02.nodes('[inet:ipv4=6.6.6.6]'))
+                            await core00.sync()
+                            self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(1, await core00.nodes('inet:ipv4=6.6.6.6'))
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
@@ -415,7 +449,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
 
-    async def test_cortex_lookup_dedup(self):
+    async def test_cortex_lookup_search_dedup(self):
         pkgdef = {
             'name': 'foobar',
             'modules': [
@@ -460,20 +494,11 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.mergeStormIface('search', todo)]
             self.eq(((0, buid),), vals)
 
-            # search iface results are deduplicated against scrape results
-            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
-            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
-
-            await core.nodes('[ test:str=foo@bar.com ]')
-
-            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
-            self.eq(['inet:email', 'test:str'], [n.ndef[0] for n in nodes])
-
             await core.nodes('[ test:str=hello ]')
 
-            # search iface results are not deduplicated against themselves
-            nodes = await core.nodes('hello hello', opts={'mode': 'lookup'})
-            self.eq(['test:str', 'test:str'], [n.ndef[0] for n in nodes])
+            # search iface results *are* deduplicated against themselves
+            nodes = await core.nodes('hello hello', opts={'mode': 'search'})
+            self.eq(['test:str'], [n.ndef[0] for n in nodes])
 
     async def test_cortex_lookmiss(self):
         async with self.getTestCore() as core:
@@ -4963,10 +4988,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
 
+                    # get the nexus index
+                    nexusind = core01.nexsroot.nexslog.index()
+
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+
+                    # check that startup does not create any events
+                    self.eq(nexusind, core01.nexsroot.nexslog.index())
 
                     await core00.nodes('[ inet:fqdn=woot.com ]')
                     await core01.sync()

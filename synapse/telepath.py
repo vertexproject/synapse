@@ -6,6 +6,7 @@ import os
 import ssl
 import copy
 import time
+import yaml
 import asyncio
 import logging
 import contextlib
@@ -159,7 +160,16 @@ async def getAhaProxy(urlinfo):
         try:
             proxy = await client.proxy(timeout=5)
 
-            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
+            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
+
+            if cellinfo['synapse']['version'] >= (2, 95, 0):
+                filters = {
+                    'mirror': bool(yaml.safe_load(urlinfo.get('mirror', 'false')))
+                }
+                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, filters=filters), timeout=5)
+            else:
+                ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host), timeout=5)
+
             if ahasvc is None:
                 continue
 

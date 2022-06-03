@@ -1,4 +1,3 @@
-from unittest import mock
 import synapse.tests.utils as s_test
 
 class EthereumTest(s_test.SynTest):

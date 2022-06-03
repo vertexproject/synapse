@@ -5,6 +5,217 @@ Synapse Changelog
 *****************
 
 
+v2.96.0 - 2022-05-31
+====================
+
+Features and Enhancements
+-------------------------
+
+- Updates to the ``transport`` model.
+  (`#2697 <https://github.com/vertexproject/synapse/pull/2697>`_)
+
+  ``velocity``
+    Add a new base type to record velocities in millimeters/second.
+
+  ``transport:direction``
+    Add a new type to indicate a direction of movement with respect to true
+    North.
+
+  ``transport:air:telem``
+    Add ``:course`` and ``:heading`` properties to record the direction of travel.
+    Add ``:speed``, ``:airspeed`` and ``:verticalspeed`` properties to record
+    the speed of travel.
+
+  ``transport:sea:telem``
+    Add ``:course`` and ``:heading`` properties to record the direction of travel.
+    Add a ``:speed`` property to record the speed of travel.
+    Add ``:destination``, ``:destination:name`` and ``:destination:eta`` to record
+    information about the destination.
+
+- Restore the precedence of environment variables over ``cell.yaml`` options
+  during Cell startup. API driven overrides are now stored in the
+  ``cell.mods.yaml`` file.
+  (`#2699 <https://github.com/vertexproject/synapse/pull/2699>`_)
+- Add ``--dmon-port`` and ``--https-port`` options to the
+  ``synapse.tools.aha.provision.service`` tool in order to specify fixed
+  listening ports during provisioning.
+  (`#2703 <https://github.com/vertexproject/synapse/pull/2703>`_)
+- Add the ability of ``synapse.tools.moduser`` to set user passwords.
+  (`#2695 <https://github.com/vertexproject/synapse/pull/2695>`_)
+- Restore the call to the ``recover()`` method on the Nexus during Cell
+  startup.
+  (`#2701 <https://github.com/vertexproject/synapse/pull/2701>`_)
+- Add ``mesg`` arguments to ``NoSuchLayer`` exceptions.
+  (`#2696 <https://github.com/vertexproject/synapse/pull/2696>`_)
+- Make the LMDB slab startup more resilient to a corrupted ``cell.opts.yaml``
+  file.
+  (`#2694 <https://github.com/vertexproject/synapse/pull/2694>`_)
+
+Bugfixes
+--------
+- Fix missing variable checks in Storm.
+  (`#2702 <https://github.com/vertexproject/synapse/pull/2702>`_)
+
+Improved Documentation
+----------------------
+- Add a warning to the deployment guide about using Docker on Mac OS.
+  (`#2700 <https://github.com/vertexproject/synapse/pull/2700>`_)
+
+v2.95.1 - 2022-05-24
+====================
+
+Bugfixes
+--------
+- Fix a regression in the Telepath ``aha://`` update from ``v2.95.0``.
+  (`#2693 <https://github.com/vertexproject/synapse/pull/2693>`_)
+
+
+v2.95.0 - 2022-05-24
+====================
+
+Features and Enhancements
+-------------------------
+- Add a ``search`` mode to Storm. The ``search`` mode utilizes the Storm
+  search interface to lift nodes. The ``lookup`` mode no longer uses the
+  search interface.
+  (`#2689 <https://github.com/vertexproject/synapse/pull/2689>`_)
+- Add a ``?mirror=true`` flag to ``aha://`` Telepath URLs which will cause
+  the Aha service lookups to prefer using a mirror of the service rather than
+  the leader.
+  (`#2681 <https://github.com/vertexproject/synapse/pull/2681>`_)
+- Add ``$lib.inet.http.urlencode()`` and ``$lib.inet.http.urldecode()`` Storm
+  APIs for handling URL encoding.
+  (`#2688 <https://github.com/vertexproject/synapse/pull/2688>`_)
+- Add type validation for all Cell configuration options throughout the
+  lifetime of the Cell and all operations which modify its configuration
+  values. This prevents invalid values from being persisted on disk.
+  (`#2687 <https://github.com/vertexproject/synapse/pull/2687>`_)
+  (`#2691 <https://github.com/vertexproject/synapse/pull/2691>`_)
+
+Bugfixes
+--------
+- Fix an issue where the ``=`` sign in the Storm grammar was assigned an
+  anonymous terminal name by the grammar parser. This caused an issue with
+  interpreting various syntax errors.
+  (`#2690 <https://github.com/vertexproject/synapse/pull/2690>`_)
+
+
+v2.94.0 - 2022-05-18
+====================
+
+Automatic Migrations
+--------------------
+- Re-normalize the migrated properties noted in the data model updates listed
+  below. See :ref:`datamigration` for more information about automatic
+  migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto``, ``infotech``, ``org``, and ``person`` models.
+  (`#2620 <https://github.com/vertexproject/synapse/pull/2620>`_)
+  (`#2684 <https://github.com/vertexproject/synapse/pull/2684>`_)
+
+  ``crypto:algorithm``
+    Add a form to represent a named cryptography algorithm.
+
+  ``crypto:key``
+    Add a form to represent a cryptographic key and algorithm.
+
+  ``crypto:smart:effect:transfertoken``
+    Add a form to represent the effect of transferring ownership of a
+    non-fungible token.
+
+  ``crypto:smart:effect:transfertokens``
+    Add a form to represent the effect of transferring multiple fungible
+    tokens.
+
+  ``crypto:smart:effect:edittokensupply``
+    Add a form to represent the increase or decrease in the supply of
+    fungible tokens.
+
+  ``it:prod:softname``
+    Add a form to represent a software name.
+
+  ``it:host``
+    Add a ``:os:name`` secondary property.
+
+  ``it:mitre:attack:software``
+    Migrate the ``:name`` and ``:names`` properties to ``it:prod:softname``
+    type.
+
+  ``it:prod:soft``
+    Migrate the ``:name`` and ``:names`` properties to ``it:prod:softname``
+    type.
+
+  ``it:prod:softver``
+    Deprecate the ``:software:name`` property.
+    Migrate the ``:name`` and ``:names`` properties to ``it:prod:softname``
+    type.
+
+  ``it:app:yara:rule``
+    Add a ``:family`` property to represent the software family the rule is
+    designed to detect.
+
+  ``it:sec:c2:config``
+    Add a form to represent C2 configuration data.
+
+  ``ou:campaign``
+    Add a ``:org:name`` property to represent the name of the organization
+    responsible the campaign.
+    Add a ``:org:fqdn`` property to represent the fqdn of the organization
+    responsible the campaign.
+    Add a ``:team`` property to represent the team responsible for the
+    campaign.
+
+  ``ou:team``
+    Add a form to represent a team within an organization.
+
+  ``ou:industry``
+    Migrate the ``:name`` property to ``ou:industryname`` type.
+    Add a ``:names`` property for alternative names.
+
+  ``ou:industryname``
+    Add a form to represent the name of an industry.
+
+  ``ou:position``
+    Add a ``:team`` property to represent the team associated with a given
+    position.
+
+  ``ps:contact``
+    Add a ``:crypto:address`` property to represent the crypto currency
+    address associated with the contact.
+
+- Add ``$lib.copy()`` to Storm. This allows making copies of objects which
+  are compatible with being serialized with msgpack.
+  (`#2678 <https://github.com/vertexproject/synapse/pull/2678>`_)
+- Remove `print` events from the Storm `limit` command.
+  (`#2674 <https://github.com/vertexproject/synapse/pull/2674>`_)
+
+Bugfixes
+--------
+- Fix an issue where client certificates presented in Telepath ``ssl``
+  connections could fallback to resolving users by a prefix. This was not
+  intended to be allowed when client certificates are used with Telepath.
+  (`#2675 <https://github.com/vertexproject/synapse/pull/2675>`_)
+- Fix an issue where ``node:del`` triggers could fail to fire when adding
+  nodeedits directly to a view or snap.
+  (`#2654 <https://github.com/vertexproject/synapse/pull/2654>`_)
+- Fix header escaping when generating autodoc content for Synapse Cells.
+  (`#2677 <https://github.com/vertexproject/synapse/pull/2677>`_)
+- Assorted unit tests fixes to make tests more stable.
+  (`#2680 <https://github.com/vertexproject/synapse/pull/2680>`_)
+- Fix an issue with Storm function argument parsing.
+  (`#2685 <https://github.com/vertexproject/synapse/pull/2685>`_)
+
+Improved Documentation
+----------------------
+- Add an introduction to Storm libraries and types.
+  (`#2670 <https://github.com/vertexproject/synapse/pull/2670>`_)
+  (`#2683 <https://github.com/vertexproject/synapse/pull/2683>`_)
+- Fix small typos and corrections in the devops documentation.
+  (`#2673 <https://github.com/vertexproject/synapse/pull/2673>`_)
+
+
 v2.93.0 - 2022-05-04
 ====================
 

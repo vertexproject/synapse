@@ -29,6 +29,7 @@ CPPCOMMENT.2: /\/\/[^\n]*/
 // Entry point for an unadorned storm query
 query: "|"? _querystart?
 lookup: looklist [ "|" query ]
+search: looklist [ "|" query ]
 
 _querystart: _querystart "|"? (stormcmd | _oper | _editblock)
     | stormcmd | _oper | _editblock
@@ -44,16 +45,16 @@ _editoper: editnodeadd
 
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
-edittagadd: "+" [SETTAGOPER] tagname [(EQUAL | EQNOSPACE) _valu]
+edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
 editunivdel: "-" univprop
 edittagdel: "-" tagname
-editpropset: relprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 editpropdel: "-" relprop
-editunivset: univprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-editnodeadd: formname (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-edittagpropset: "+" tagprop (EQUAL | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropdel: "-" tagprop
-EQUAL: /((?<=\s)=|=(?=\s))/
+EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
 TRYSETPLUS: "?+="
 TRYSETMINUS: "?-="
@@ -207,8 +208,8 @@ CMDOPT.4: /(?<=\s)-[a-zA-Z0-9_-]+(?![:a-zA-Z0-9_><-])/
 
 // An unquoted string within a storm command argument list
 !wordtokn: wordtokn (COMMANOSPACE | EQNOSPACE | RSQBNOSPACE) (NONQUOTEWORD | PROPS | CMDNAME | NUMBERWS | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | COMMASPACE)?)
-    | NONQUOTEWORD | CMDNAME | PROPS | NUMBERWS
     | (EXPRPLUS | EXPRMINUS | NUMBER | CMPR | "[" | "." | _RIGHTPIVOT)+ (NONQUOTEWORD | CMDNAME | NUMBERWS | COMMASPACE)?
+    | NONQUOTEWORD COMMASPACE? | CMDNAME | PROPS | NUMBERWS
 
 COMMASPACE: ", "
 COMMANOSPACE: /(?<!\s),(?!\s)/
@@ -226,16 +227,16 @@ TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQUAL | EQNOSPACE | TRYSET | SETTAGOPER
+_cmpr: "*" BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 BYNAME.2: /[^=\s]+=/
 
-_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQUAL | EQNOSPACE | TRYSET | SETTAGOPER
+_safe_cmpr: BYNAME | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | VARTOKN | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -246,14 +247,15 @@ _basevalu: _argvalu | baresubquery
 _valu: _basevalu | NONQUOTEWORD
 
 evalvalu: _valu
-exprdict: "{" (_exprvalu ":" _exprvalu ("," _exprvalu ":" _exprvalu)* ","? )? "}"
-exprlist: "[" (_exprvalu ("," _exprvalu)* ","? )? "]"
+exprdict: "{" ((_exprvalu | VARTOKN)  ":" (_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN) ":" (_exprvalu | VARTOKN))* ","? )? "}"
+exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | NUMBERWS | HEXNUMBER | BOOL | exprlist | exprdict | _rootvalu
 
-?listvalu: _basevalu
-    | (NONQUOTEWORD | PROPS | NUMBER | NUMBERWS)+ -> nonquotewords
+?listvalu: _basevalu | LISTTOKN
+
+LISTTOKN.1: /[\w\+\-\?\*\/\\]([^=,)]*[^\s,)])*/
 
 _lookvalu: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | WHITETOKN
 looklist: _lookvalu*
@@ -285,7 +287,7 @@ VARTOKN: /\w+/ | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING
 !varderef: _varvaluatom "." (VARTOKN | "$" VARTOKN)
 
 funccall: _varvaluatom _callargs
-_callargs: _LPARNOSPACE [(_valu | (VARTOKN | NONQUOTEWORD) (EQUAL | EQNOSPACE) _valu) ("," (_valu | (VARTOKN | NONQUOTEWORD) (EQUAL | EQNOSPACE) _valu))*] ","? ")"
+_callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 _LPARNOSPACE.2: /(?<!\s)\(/
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
@@ -358,19 +360,20 @@ EXPRPLUS.2: "+"
 EXPRMINUS.2: "-"
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
-NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:\s]|([+\-*\/][0-9\.]+)+[,\w])/
-NUMBERWS.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?=\s)/
+NUMBER.1: /(?<!,\s*)-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![\w\.\:\s]|([^=,)]*,))/
+NUMBERWS.1: /(?<!,\s*)-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?=\s)(?![^=,)]*,)/
+
 HEXNUMBER.1: /-?0x[0-9a-fA-F]+/
 BOOL.2: /true|false/
-NOT: "not"
-OR: "or"
-AND: "and"
+NOT.2: "not"
+OR.2: "or"
+AND.2: "and"
 
 // $ expression rules in increasing order of precedence (modeled on Python's order)
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOT exprcmp
-?exprcmp: exprsum | exprcmp (CMPR | EQUAL | EQNOSPACE) exprsum
+?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
 _expratom: _exprvalu

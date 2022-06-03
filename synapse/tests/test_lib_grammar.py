@@ -597,7 +597,7 @@ Queries = [
     '$x=({"foo": "bar", "baz": 10})',
     '$x=({"foo": "bar", "baz": 10, })',
     'iden ssl://svcrs:27492?certname=root=bar',
-
+    '$x=(foo bar baz, two)',
 ]
 
 # Generated with print_parse_list below
@@ -1105,6 +1105,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprDict: [Const: foo, Const: bar, Const: baz, Const: 10]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprDict: [Const: foo, Const: bar, Const: baz, Const: 10]]]]',
     'Query: [CmdOper: [Const: iden, List: [Const: ssl://svcrs:27492?certname=root=bar]]]',
+    'Query: [SetVarOper: [Const: x, List: [Const: foo bar baz, Const: two]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1120,10 +1121,10 @@ class GrammarTest(s_t_utils.SynTest):
                            keep_all_tokens=True, maybe_placeholders=False,
                            propagate_positions=True)
 
+        for term, valu in parser._terminals_dict.items():
+            self.false(term.startswith('__ANON'), msg=f'ANON token {valu} present in grammar!')
+
         for i, query in enumerate(Queries):
-            if i in (12, 13):
-                # For now, accept an ambiguity in _cond between _condexpr and dollarexpr
-                continue
             try:
                 tree = parser.parse(query)
                 # print(f'#{i}: {query}')
@@ -1159,12 +1160,27 @@ class GrammarTest(s_t_utils.SynTest):
         args = parser.cmdrargs()
         self.eq(args, ['add', '--filter={inet:fqdn | limit 1}'])
 
-    def test_lookup(self):
+    def test_mode_lookup(self):
         q = '1.2.3.4 vertex.link | spin'
         parser = s_parser.Parser(q)
         tree = parser.lookup()
-        self.eq(str(tree), 'Lookup: [Lookup: [Const: 1.2.3.4, Const: vertex.link], '
+        self.eq(str(tree), 'Lookup: [LookList: [Const: 1.2.3.4, Const: vertex.link], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
+
+    def test_mode_search(self):
+        tree = s_parser.parseQuery('foo bar | spin', mode='search')
+        self.eq(str(tree), 'Search: [LookList: [Const: foo, Const: bar], '
+                           'Query: [CmdOper: [Const: spin, Const: ()]]]')
+
+    def test_mode_storm(self):
+        # added for coverage of the top level function...
+        tree = s_parser.parseQuery('inet:fqdn=vertex.link', mode='storm')
+        self.eq(str(tree), 'Query: [LiftPropBy: [Const: inet:fqdn, Const: =, Const: vertex.link]]')
+
+    def test_mode_autoadd(self):
+        # added for coverage of the top level function...
+        tree = s_parser.parseQuery('vertex.link', mode='autoadd')
+        self.eq(str(tree), 'Lookup: [LookList: [Const: vertex.link]]')
 
     def test_parse_float(self):
         self.raises(s_exc.BadSyntax, s_grammar.parse_float, 'visi', 0)
@@ -1332,6 +1348,24 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('line'), 1)
         self.eq(errinfo.get('column'), 36)
         self.true(errinfo.get('mesg').startswith("Unexpected token 'comparison operator' at line 1, column 36"))
+
+        query = '''return(({"foo": "bar", "baz": foo}))'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('at'), 8)
+        self.eq(errinfo.get('line'), 1)
+        self.eq(errinfo.get('column'), 9)
+        self.true(errinfo.get('mesg').startswith("Unexpected unquoted string in JSON expression at line 1 col 9"))
+
+        query = '''ou:name="foo\x00bar"'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('valu'), '\'"foo\\x00bar"\'')
+        self.true(errinfo.get('mesg').startswith('Invalid character in string \'"foo\\x00bar"\''))
 
     async def test_quotes(self):
 

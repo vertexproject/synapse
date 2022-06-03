@@ -2,7 +2,6 @@ import csv
 from unittest import mock
 
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 

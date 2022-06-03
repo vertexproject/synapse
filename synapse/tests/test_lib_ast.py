@@ -163,7 +163,12 @@ async def matchContexts(testself):
 
 class AstTest(s_test.SynTest):
 
-    async def test_lookup_search(self):
+    async def test_mode_search(self):
+
+        conf = {'storm:interface:search': False}
+        async with self.getTestCore(conf=conf) as core:
+            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
+            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
         conf = {'provenance:en': False}
         async with self.getTestCore(conf=conf) as core:
@@ -182,9 +187,19 @@ class AstTest(s_test.SynTest):
             })
             await core.nodes('[ ou:org=* :name=apt1 ]')
             await core.nodes('[ ou:org=* :name=vertex ]')
-            nodes = await core.nodes('apt1', opts={'mode': 'lookup'})
+            nodes = await core.nodes('apt1', opts={'mode': 'search'})
             self.len(1, nodes)
+            nodeiden = nodes[0].iden()
             self.eq('apt1', nodes[0].props.get('name'))
+
+            nodes = await core.nodes('', opts={'mode': 'search'})
+            self.len(0, nodes)
+
+            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('| $$$$', opts={'mode': 'search'})
 
     async def test_try_set(self):
         '''
@@ -2147,3 +2162,65 @@ class AstTest(s_test.SynTest):
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
+
+    async def test_ast_vars_missing(self):
+
+        async with self.getTestCore() as core:
+            q = '$ret = $ret $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$lib.concat($ret, foo) $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$ret=$lib.squeeeeeee($ret, foo) $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            mesgs = await core.stormlist(q, opts={'vars': {'ret': 'foo'}})
+            self.stormIsInErr('Cannot find name [squeeeeeee]', mesgs)
+
+            q = '$ret=$lib.dict(bar=$ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$view = $lib.view.get() $lib.print($view)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('storm:view', mesgs)
+
+            q = '''
+                $pipe = $lib.pipe.gen(${
+                    $pipe.put(neato)
+                    $pipe.put(burrito)
+                })
+
+                for $items in $pipe.slices(size=2) {
+                    for $thingy in $items {
+                        $lib.print($thingy)
+                    }
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('neato', mesgs)
+            self.stormIsInPrint('burrito', mesgs)
+
+            q = '''
+                $foo = ${ $foo="NEAT" return($foo) }
+                $bar = $foo.exec()
+                $lib.print($foo)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('NEAT', mesgs)
+
+            q = '''
+            function foo(x) {
+                $x = "some special string"
+                return($x)
+            }
+
+            $x = $foo((12))
+            $lib.print($x)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('some special string', mesgs)

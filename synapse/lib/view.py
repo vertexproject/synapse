@@ -543,13 +543,14 @@ class View(s_nexus.Pusher):  # type: ignore
     async def snap(self, user):
 
         if self.invalid is not None:
-            raise s_exc.NoSuchLayer(iden=self.invalid)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {self.invalid}', iden=self.invalid)
 
         return await self.snapctor(self, user)
 
-    @s_nexus.Pusher.onPushAuto('trig:q:add')
-    async def addTrigQueue(self, triginfo):
-        self.trigqueue.add(triginfo)
+    @s_nexus.Pusher.onPushAuto('trig:q:add', passitem=True)
+    async def addTrigQueue(self, triginfo, nexsitem):
+        nexsoff, nexsmesg = nexsitem
+        self.trigqueue.add(triginfo, indx=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('trig:q:del')
     async def delTrigQueue(self, offs):
@@ -621,7 +622,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         layr = self.core.layers.get(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         if layr in self.layers:
             return
@@ -651,7 +652,7 @@ class View(s_nexus.Pusher):  # type: ignore
         for iden in layers:
             layr = self.core.layers.get(iden)
             if layr is None:
-                raise s_exc.NoSuchLayer(iden=iden)
+                raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
             if not layrs and layr.readonly:
                 raise s_exc.ReadOnlyLayer(mesg=f'First layer {layr.iden} must not be read-only')
 

@@ -12,8 +12,6 @@ import synapse.vendor.cashaddress.convert as cashaddr_convert  # BCH support
 import synapse.vendor.xrpl.core.addresscodec as xrp_addresscodec  # xrp support
 import synapse.vendor.substrateinterface.utils.ss58 as substrate_ss58  # polkadot support
 
-import synapse.common as s_common
-
 logger = logging.getLogger(__name__)
 
 '''
