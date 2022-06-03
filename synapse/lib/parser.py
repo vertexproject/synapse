@@ -66,7 +66,6 @@ terminalEnglishMap = {
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
     'NUMBER': 'number',
-    'NUMBERWS': 'number followed by whitespace',
     'OR': 'or',
     'PROPS': 'absolute property name',
     'RBRACE': '}',
@@ -615,7 +614,6 @@ terminalClassMap = {
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
     'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
-    'NUMBERWS': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'BOOL': lambda x: s_ast.Bool(x == 'true'),
     'SINGLEQUOTEDSTRING': lambda x: s_ast.Const(x[1:-1]),  # drop quotes
