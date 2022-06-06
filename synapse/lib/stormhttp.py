@@ -94,103 +94,113 @@ class LibHttp(s_stormtypes.Lib):
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.', },
                       {'name': 'headers', 'type': 'dict', 'desc': 'HTTP headers to send with the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, },
+                       'default': 300},
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
-                       'default': True, },
+                       'default': True},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
+                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}}},
         {'name': 'post', 'desc': 'Post data to a given URL.',
          'type': {'type': 'function', '_funcname': '_httpPost',
                   'args': (
                       {'name': 'url', 'type': 'str', 'desc': 'The URL to post to.', },
                       {'name': 'headers', 'type': 'dict', 'desc': 'HTTP headers to send with the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'json', 'type': 'prim', 'desc': 'The data to post, as JSON object.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'body', 'type': 'bytes', 'desc': 'The data to post, as binary object.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, },
+                       'default': 300},
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'fields', 'type': 'list',
                        'desc': 'A list of info dictionaries containing the name, value or sha256, '
                                'and additional parameters for fields to post, as multipart/form-data. '
                                'If a sha256 is specified, the request will be sent from the axon '
                                'and the corresponding file will be uploaded as the value for '
                                'the field.',
-                       'default': None, },
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
+                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}}},
         {'name': 'head', 'desc': 'Get the HEAD response for a URL.',
          'type': {'type': 'function', '_funcname': '_httpEasyHead',
                   'args': (
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.', },
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'HTTP headers to send with the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'params', 'type': 'dict',
                        'desc': 'Optional parameters which may be passed to the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
                        'default': 300, },
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to true, follow redirects.',
-                       'default': False, },
+                       'default': False},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }}},
+                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}}},
         {'name': 'request', 'desc': 'Make an HTTP request using the given HTTP method to the url.',
          'type': {'type': 'function', '_funcname': '_httpRequest',
                    'args': (
-                      {'name': 'meth', 'type': 'str', 'desc': 'The HTTP method. (ex. PUT)', },
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to send the request to.', },
+                      {'name': 'meth', 'type': 'str', 'desc': 'The HTTP method. (ex. PUT)'},
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to send the request to.'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'HTTP headers to send with the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'json', 'type': 'prim', 'desc': 'The data to include in the body, as JSON object.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'body', 'type': 'bytes', 'desc': 'The data to include in the body, as binary object.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, },
+                       'default': 300},
                       {'name': 'allow_redirects', 'type': 'bool', 'desc': 'If set to false, do not follow redirects.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'fields', 'type': 'list',
                        'desc': 'A list of info dictionaries containing the name, value or sha256, '
                                'and additional parameters for fields to post, as multipart/form-data. '
                                'If a sha256 is specified, the request will be sent from the axon '
                                'and the corresponding file will be uploaded as the value for '
                                'the field.',
-                       'default': None, },
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                    ),
-                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.', }
+                  'returns': {'type': 'storm:http:resp', 'desc': 'The response object.'}
                   }
          },
         {'name': 'connect', 'desc': 'Connect a web socket to tx/rx JSON messages.',
          'type': {'type': 'function', '_funcname': 'inetHttpConnect',
                   'args': (
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.', },
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to retrieve.'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'HTTP headers to send with the request.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'ssl_verify', 'type': 'boolean', 'desc': 'Perform SSL/TLS verification.',
-                       'default': True, },
+                       'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Total timeout for the request in seconds.',
-                       'default': 300, },
+                       'default': 300},
                       {'name': 'params', 'type': 'dict', 'desc': 'Optional parameters which may be passed to the connection request.',
-                       'default': None, },
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
                   'returns': {'type': 'storm:http:socket', 'desc': 'A websocket object.'}}},
         {'name': 'urlencode', 'desc': '''
@@ -255,36 +265,42 @@ class LibHttp(s_stormtypes.Lib):
         return urllib.parse.unquote_plus(text)
 
     async def _httpEasyHead(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
-                            allow_redirects=False):
+                            allow_redirects=False, proxy=None):
         return await self._httpRequest('HEAD', url, headers=headers, ssl_verify=ssl_verify, params=params,
-                                       timeout=timeout, allow_redirects=allow_redirects, )
+                                       timeout=timeout, allow_redirects=allow_redirects, proxy=proxy)
 
     async def _httpEasyGet(self, url, headers=None, ssl_verify=True, params=None, timeout=300,
-                           allow_redirects=True):
+                           allow_redirects=True, proxy=None):
         return await self._httpRequest('GET', url, headers=headers, ssl_verify=ssl_verify, params=params,
-                                       timeout=timeout, allow_redirects=allow_redirects, )
+                                       timeout=timeout, allow_redirects=allow_redirects, proxy=proxy)
 
     async def _httpPost(self, url, headers=None, json=None, body=None, ssl_verify=True,
-                        params=None, timeout=300, allow_redirects=True, fields=None):
+                        params=None, timeout=300, allow_redirects=True, fields=None, proxy=None):
         return await self._httpRequest('POST', url, headers=headers, json=json, body=body,
                                        ssl_verify=ssl_verify, params=params, timeout=timeout,
-                                       allow_redirects=allow_redirects, fields=fields, )
+                                       allow_redirects=allow_redirects, fields=fields, proxy=proxy)
 
-    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300, params=None):
+    async def inetHttpConnect(self, url, headers=None, ssl_verify=True, timeout=300, params=None, proxy=None):
 
         url = await s_stormtypes.tostr(url)
         headers = await s_stormtypes.toprim(headers)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         params = await s_stormtypes.toprim(params)
+        proxy = await s_stormtypes.toprim(proxy)
 
         headers = self.strify(headers)
 
         sock = await WebSocket.anit()
 
-        proxyurl = await self.runt.snap.core.getConfOpt('http:proxy')
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+
+        if proxy is None:
+            proxy = await self.runt.snap.core.getConfOpt('http:proxy')
+
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         timeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -317,7 +333,7 @@ class LibHttp(s_stormtypes.Lib):
 
     async def _httpRequest(self, meth, url, headers=None, json=None, body=None,
                            ssl_verify=True, params=None, timeout=300, allow_redirects=True,
-                           fields=None, ):
+                           fields=None, proxy=None):
         meth = await s_stormtypes.tostr(meth)
         url = await s_stormtypes.tostr(url)
         json = await s_stormtypes.toprim(json)
@@ -328,6 +344,7 @@ class LibHttp(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
         allow_redirects = await s_stormtypes.tobool(allow_redirects)
+        proxy = await s_stormtypes.toprim(proxy)
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:
@@ -347,12 +364,17 @@ class LibHttp(s_stormtypes.Lib):
         else:
             data = body
 
-        proxyurl = self.runt.snap.core.conf.get('http:proxy')
         cadir = self.runt.snap.core.conf.get('tls:ca:dir')
 
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
+
+        if proxy is None:
+            proxy = await self.runt.snap.core.getConfOpt('http:proxy')
+
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         if ssl_verify is False:
             kwargs['ssl'] = False
