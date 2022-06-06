@@ -16,6 +16,12 @@ Features and Enhancements
 - Add ``proxy`` options to ``$lib.inet.http`` Storm APIs, to allow an admin
   user to specify an alternative (or to disable) proxy setting.
   (`#2706 <https://github.com/vertexproject/synapse/pull/2706>`_)
+- Add a ``--tag`` and ``--prop`` option to the Storm ``diff`` command. Update
+  the Storm ``merge`` command examples to show more real-world use cases.
+  (`#2710 <https://github.com/vertexproject/synapse/pull/2710>`_)
+- Add the ability to set the layers in a non-forked view with the
+  ``$view.set(layers, $iden)`` API on the Storm view object.
+  (`#2711 <https://github.com/vertexproject/synapse/pull/2711>`_)
 - Improve Storm parser logic for handling list and expression syntax.
   (`#2698 <https://github.com/vertexproject/synapse/pull/2698>`_)
   (`#2708 <https://github.com/vertexproject/synapse/pull/2708>`_)
@@ -26,6 +32,9 @@ Bugfixes
   characters are present in the raw query string. This situation now raises a
   BadSyntax error instead of an opaque Python ValueError.
   (`#2709 <https://github.com/vertexproject/synapse/pull/2709>`_)
+- Fix unquoted JSON keys which were accidentally allowed in Storm JSON style
+  expression syntax.
+  (`#2698 <https://github.com/vertexproject/synapse/pull/2698>`_)
 - When merging layer data, add missing checks for light edge and node data
   changes.
   (`#2671 <https://github.com/vertexproject/synapse/pull/2671>`_)
