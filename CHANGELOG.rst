@@ -39,6 +39,7 @@ Bugfixes
   changes.
   (`#2671 <https://github.com/vertexproject/synapse/pull/2671>`_)
 
+
 v2.96.0 - 2022-05-31
 ====================
 
