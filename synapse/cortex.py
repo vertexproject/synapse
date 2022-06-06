@@ -1143,6 +1143,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.axon = None  # type: s_axon.AxonApi
         self.axready = asyncio.Event()
+        self.axoninfo = {}
 
         self.view = None  # The default/main view
 
