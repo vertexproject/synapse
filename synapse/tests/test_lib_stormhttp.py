@@ -7,6 +7,8 @@ import synapse.common as s_common
 
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.stormctrl as s_stormctrl
+import synapse.lib.stormhttp as s_stormhttp
 
 import synapse.tests.utils as s_test
 
@@ -47,6 +49,7 @@ class StormHttpTest(s_test.SynTest):
         async with self.getTestCore() as core:
             addr, port = await core.addHttpsPort(0)
             root = await core.auth.getUserByName('root')
+            visi = await core.auth.addUser('visi')
             await root.setPasswd('root')
 
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
@@ -434,6 +437,45 @@ class StormHttpTest(s_test.SynTest):
             self.eq(code, -1)
             self.eq('ProxyConnectionError', errname)
 
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wget')))
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'wput')))
+
+            asvisi = {'user': visi.iden}
+            msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=$lib.false)', opts=asvisi)
+            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+
+            asvisi = {'user': visi.iden}
+            msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
+            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+
+            resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
+            self.eq('ProxyConnectionError', resp['err'][0])
+
+            # test $lib.axon proxy API
+            asvisi = {'user': visi.iden}
+            msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=$lib.false)', opts=asvisi)
+            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+
+            asvisi = {'user': visi.iden}
+            msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
+            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+
+            asvisi = {'user': visi.iden}
+            msgs = await core.stormlist('$lib.axon.wput(asdf, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
+            self.stormIsInErr(s_exc.proxy_admin_mesg, msgs)
+
+            resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
+            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+
+            size, sha256 = await core.axon.put(b'asdf')
+
+            sha256 = s_common.ehex(sha256)
+            resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
+            self.isin('Can not connect to proxy 127.0.0.1:1', resp['mesg'])
+
     async def test_storm_http_connect(self):
 
         async with self.getTestCore() as core:
@@ -473,15 +515,33 @@ class StormHttpTest(s_test.SynTest):
             self.eq(mesg.get('headers').get('Key'), 'False')
             self.none(mesg.get('params'))
 
-            self.eq((True, ('echo', 'lololol')), await core.callStorm('''
-                $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
+            query = '''
+            $url = $lib.str.format('https://127.0.0.1:{port}/test/ws', port=$port)
 
-                ($ok, $sock) = $lib.inet.http.connect($url)
-                if (not $ok) { $lib.exit($sock) }
+            ($ok, $sock) = $lib.inet.http.connect($url, proxy=$proxy)
+            if (not $ok) { $lib.exit($sock) }
 
-                ($ok, $mesg) = $sock.rx()
-                if (not $ok) { $lib.exit($mesg) }
+            ($ok, $mesg) = $sock.rx()
+            if (not $ok) { $lib.exit($mesg) }
 
-                ($ok, $valu) = $sock.tx(lololol)
-                return($sock.rx())
-            ''', opts={'vars': {'port': port}}))
+            ($ok, $valu) = $sock.tx(lololol)
+            return($sock.rx())
+            '''
+            opts = {'vars': {'port': port, 'proxy': None}}
+            self.eq((True, ('echo', 'lololol')),
+                    await core.callStorm(query, opts=opts))
+
+            visi = await core.auth.addUser('visi')
+
+            opts = {'user': visi.iden, 'vars': {'port': port, 'proxy': False}}
+            with self.raises(s_exc.AuthDeny) as cm:
+                await core.callStorm(query, opts=opts)
+            self.eq(cm.exception.get('mesg'), s_exc.proxy_admin_mesg)
+
+            await visi.setAdmin(True)
+
+            opts = {'user': visi.iden,
+                    'vars': {'port': port, 'proxy': 'socks5://user:pass@127.0.0.1:1'}}
+            with self.raises(s_stormctrl.StormExit) as cm:
+                await core.callStorm(query, opts=opts)
+            self.isin('Can not connect to proxy', str(cm.exception))
