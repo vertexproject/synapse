@@ -1019,6 +1019,14 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 nodes = await core.nodes('diff')
 
+            nodes = await core.nodes('diff --prop ".created" | +ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --prop ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
             nodes = await core.nodes('diff --prop ou:org:name', opts=altview)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
@@ -1026,6 +1034,9 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('diff --tag haha', opts=altview)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('diff --prop foo:bar', opts=altview)
 
             nodes = await core.nodes('diff | +ou:org', opts=altview)
             self.len(1, nodes)
