@@ -35,8 +35,8 @@ Bugfixes
 - Fix unquoted JSON keys which were accidentally allowed in Storm JSON style
   expression syntax.
   (`#2698 <https://github.com/vertexproject/synapse/pull/2698>`_)
-- When merging layer data, add missing checks for light edge and node data
-  changes.
+- When merging layer data, add missing permission checks for light edge and
+  node data changes.
   (`#2671 <https://github.com/vertexproject/synapse/pull/2671>`_)
 
 
