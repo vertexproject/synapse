@@ -5,12 +5,36 @@ Synapse Changelog
 *****************
 
 
+v2.97.0 - 2022-06-06
+====================
+
+Features and Enhancements
+-------------------------
+- Add an ``/api/v1/aha/provision/service`` HTTP API to the Aha service. This
+  can be used to generate ``aha:provision`` URLs.
+  (`#2707 <https://github.com/vertexproject/synapse/pull/2707>`_)
+- Add ``proxy`` options to ``$lib.inet.http`` Storm APIs, to allow an admin
+  user to specify an alternative (or to disable) proxy setting.
+  (`#2706 <https://github.com/vertexproject/synapse/pull/2706>`_)
+- Improve Storm parser logic for handling list and expression syntax.
+  (`#2698 <https://github.com/vertexproject/synapse/pull/2698>`_)
+  (`#2708 <https://github.com/vertexproject/synapse/pull/2708>`_)
+
+Bugfixes
+--------
+- Improve error handling of double quoted strings in Storm when null
+  characters are present in the raw query string. This situation now raises a
+  BadSyntax error instead of an opaque Python ValueError.
+  (`#2709 <https://github.com/vertexproject/synapse/pull/2709>`_)
+- When merging layer data, add missing checks for light edge and node data
+  changes.
+  (`#2671 <https://github.com/vertexproject/synapse/pull/2671>`_)
+
 v2.96.0 - 2022-05-31
 ====================
 
 Features and Enhancements
 -------------------------
-
 - Updates to the ``transport`` model.
   (`#2697 <https://github.com/vertexproject/synapse/pull/2697>`_)
 
