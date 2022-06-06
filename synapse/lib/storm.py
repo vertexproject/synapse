@@ -2898,9 +2898,6 @@ class MergeCmd(Cmd):
 
         #cno.mal.redtree | merge
 
-        // Merge ou:org nodes, but when merging tags, only merge tags one level
-        // below the rep.vt and rep.whoxy tags.
-
         // Merge any org nodes with changes in the top layer.
 
         diff | +ou:org | merge --apply
