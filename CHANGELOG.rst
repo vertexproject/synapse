@@ -32,7 +32,7 @@ Bugfixes
   characters are present in the raw query string. This situation now raises a
   BadSyntax error instead of an opaque Python ValueError.
   (`#2709 <https://github.com/vertexproject/synapse/pull/2709>`_)
-- Fix unquoted JSON keys which were accidentally allowed in Storm JSON style
+- Fix unquoted JSON keys which were incorrectly allowed in Storm JSON style
   expression syntax.
   (`#2698 <https://github.com/vertexproject/synapse/pull/2698>`_)
 - When merging layer data, add missing permission checks for light edge and
