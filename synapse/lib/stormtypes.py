@@ -6143,6 +6143,10 @@ class View(Prim):
                 nomerge (bool)
                     Setting to $lib.true will prevent the layer from being merged.
 
+                layers (list(str))
+                    Set the list of layer idens for a non-forked view. Layers are specified
+                    in precedence order with the first layer in the list being the write layer.
+
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
 
@@ -6331,6 +6335,33 @@ class View(Prim):
             valu = await tostr(valu)
         elif name == 'nomerge':
             valu = await tobool(valu)
+        elif name == 'layers':
+
+            view = self.runt.snap.core.getView(self.valu.get('iden'))
+            if view is None: # pragma: no cover
+                mesg = f'No view with iden: {self.valu.get("iden")}'
+                raise s_exc.NoSuchView(mesg=mesg)
+
+            layers = await toprim(valu)
+            layers = tuple(str(x) for x in layers)
+
+            for layriden in layers:
+
+                layr = self.runt.snap.core.getLayer(layriden)
+                if layr is None:
+                    mesg = f'No layer with iden: {layriden}'
+                    raise s_exc.NoSuchLayer(mesg=mesg)
+
+                self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
+
+            if not self.runt.isAdmin(gateiden=view.iden):
+                mesg = 'You must be an admin of the view to set the layers.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+            await view.setLayers(layers)
+            self.valu['layers'] = layers
+            return
+
         else:
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)

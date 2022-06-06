@@ -3172,6 +3172,32 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_view(self):
 
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('layer', 'read')))
+
+            layr0 = core.getLayer()
+            ldef1 = await core.addLayer()
+
+            layrs0 = (layr0.iden, ldef1.get('iden'))
+            layrs1 = (ldef1.get('iden'), layr0.iden)
+
+            await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs0}})
+            ldefs = await core.callStorm('return($lib.view.get().get(layers))')
+            self.eq(layrs0, [x.get('iden') for x in ldefs])
+
+            await core.callStorm('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': layrs1}})
+            ldefs = await core.callStorm('return($lib.view.get().get(layers))')
+            self.eq(layrs1, [x.get('iden') for x in ldefs])
+
+            with self.raises(s_exc.NoSuchLayer):
+                await core.nodes('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': ('asdf',)}})
+
+            with self.raises(s_exc.AuthDeny):
+                opts = {'user': visi.iden, 'vars': {'layers': layrs0}}
+                await core.callStorm('$lib.view.get().set(layers, $layers)', opts=opts)
+
         async with self.getTestCoreAndProxy() as (core, prox):
 
             derp = await core.auth.addUser('derp')
