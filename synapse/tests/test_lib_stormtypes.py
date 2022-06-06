@@ -3174,6 +3174,9 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            visi = await core.auth.addUser('visi')
+            await visi.addRule((True, ('layer', 'read')))
+
             layr0 = core.getLayer()
             ldef1 = await core.addLayer()
 
@@ -3190,6 +3193,10 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchLayer):
                 await core.nodes('$lib.view.get().set(layers, $layers)', opts={'vars': {'layers': ('asdf',)}})
+
+            with self.raises(s_exc.AuthDeny):
+                opts = {'user': visi.iden, 'vars': {'layers': layrs0}}
+                await core.callStorm('$lib.view.get().set(layers, $layers)', opts=opts)
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
