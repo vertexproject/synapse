@@ -6144,7 +6144,8 @@ class View(Prim):
                     Setting to $lib.true will prevent the layer from being merged.
 
                 layers (list(str))
-                    Set the list of layer idens for a non-forked view.
+                    Set the list of layer idens for a non-forked view. Layers are specified
+                    in precedence order with the first layer in the list being the write layer.
 
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
