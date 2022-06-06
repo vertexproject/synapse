@@ -3174,9 +3174,6 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
-            asvisi = {'user': visi.iden}
-
             layr0 = core.getLayer()
             ldef1 = await core.addLayer()
 
