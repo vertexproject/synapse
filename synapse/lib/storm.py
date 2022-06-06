@@ -2797,8 +2797,32 @@ class HelpCmd(Cmd):
 class DiffCmd(Cmd):
     '''
     Generate a list of nodes with changes in the top layer of the current view.
+
+    Examples:
+
+        // Lift all nodes with any changes
+
+        diff
+
+        // Lift ou:org nodes that were added in the top layer.
+
+        diff --prop ou:org
+
+        // Lift inet:ipv4 nodes with the :asn property modified in the top layer.
+
+        diff --prop inet:ipv4:asn
+
+        // Lift the nodes with the tag #cno.mal.redtree added in the top layer.
+
+        diff --tag cno.mal.redtree
     '''
     name = 'diff'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--tag', default=None, help='Lift only nodes with the given tag in the top layer.')
+        pars.add_argument('--prop', default=None, help='Lift nodes with changes to the given property the top layer.')
+        return pars
 
     async def execStormCmd(self, runt, genr):
 
@@ -2808,6 +2832,47 @@ class DiffCmd(Cmd):
 
         async for item in genr:
             yield item
+
+        if self.opts.tag and self.opts.prop:
+            mesg = 'You may specify --tag *or* --prop but not both.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if self.opts.tag:
+
+            tagname = await s_stormtypes.tostr(self.opts.tag)
+
+            layr = runt.snap.view.layers[0]
+            async for _, buid, sode in layr.liftByTag(tagname):
+                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+                yield node, runt.initPath(node)
+
+            return
+
+        if self.opts.prop:
+
+            propname = await s_stormtypes.tostr(self.opts.prop)
+
+            prop = self.runt.snap.core.model.prop(propname)
+            if prop is None:
+                mesg = f'The property {propname} does not exist.'
+                raise s_exc.NoSuchProp(mesg=mesg)
+
+            if prop.isform:
+                liftform = prop.name
+                liftprop = None
+            elif prop.isuniv:
+                liftform = None
+                liftprop = prop.name
+            else:
+                liftform = prop.form.name
+                liftprop = prop.name
+
+            layr = runt.snap.view.layers[0]
+            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
+                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+                yield node, runt.initPath(node)
+
+            return
 
         async for buid, sode in runt.snap.view.layers[0].getStorNodes():
             node = await runt.snap.getNodeByBuid(buid)
@@ -2836,12 +2901,28 @@ class MergeCmd(Cmd):
         // Merge ou:org nodes, but when merging tags, only merge tags one level
         // below the rep.vt and rep.whoxy tags.
 
-        ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
+        // Merge any org nodes with changes in the top layer.
 
-        // Only merge tags, and exclude any tags in the cno tag tree.
+        diff | +ou:org | merge --apply
 
-        ou:org | merge --only-tags --exclude-tags cno.** --apply
+        // Merge all tags other than cno.* from ou:org nodes with edits in the
+        // top layer.
 
+        diff | +ou:org | merge --only-tags --exclude-tags cno.** --apply
+
+        // Merge only tags rep.vt.* and rep.whoxy.* from ou:org nodes with edits
+        // in the top layer.
+
+        diff | +ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
+
+        // Lift only inet:ipv4 nodes with a changed :asn property in top layer
+        // and merge all changes.
+
+        diff --prop inet:ipv4:asn | merge --apply
+
+        // Lift only nodes with an added #cno.mal.redtree tag in the top layer and merge them.
+
+        diff --tag cno.mal.redtree | merge --apply
     '''
     name = 'merge'
 

@@ -1019,6 +1019,14 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 nodes = await core.nodes('diff')
 
+            nodes = await core.nodes('diff --prop ou:org:name', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --tag haha', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
             nodes = await core.nodes('diff | +ou:org', opts=altview)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
