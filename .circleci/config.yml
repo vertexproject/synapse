@@ -687,7 +687,7 @@ workflows:
             tags:
               only: /.*/
             branches:
-               only: /.*/
+               ignore: /.*/
 
       - osx38:
           filters:
@@ -701,14 +701,14 @@ workflows:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+              ignore: /.*/
 
       - python38:
           filters:
             tags:
               only: /.*/
             branches:
-              only: /.*/
+              ignore: /.*/
 
       - python37_replay:
           filters:
