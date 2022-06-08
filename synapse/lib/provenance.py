@@ -71,8 +71,6 @@ class _ProvStack:
 
 s_task.vardefault('provstack', lambda: _ProvStack())
 
-MAX_PROV_STACK = 512
-
 @contextlib.contextmanager
 def claim(typ, **info):
     '''
@@ -80,7 +78,7 @@ def claim(typ, **info):
     '''
     stack = s_task.varget('provstack')
     logger.info(f'claim: {typ} {info} {len(stack)=}')
-    if len(stack) > MAX_PROV_STACK:
+    if len(stack) > 256:
         baseframe = stack.provs[1]
         recent_frames = stack.provs[-6:]
         raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',
