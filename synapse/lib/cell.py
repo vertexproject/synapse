@@ -1525,7 +1525,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         task = cdef.pop('task', None)
         if task is not None:
             task.cancel()
-            await asyncio.sleep(0)
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
 
     async def isCellActive(self):
         return self.isactive
