@@ -382,7 +382,6 @@ commands:
           name: build images
           command: |
             docker build -t vertexproject/synapse:${CIRCLE_TAG} -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse:${CIRCLE_TAG}-py37 -f docker/images/synapse/Dockerfile-py37 .
             docker build -t vertexproject/synapse-aha:${CIRCLE_TAG} -f docker/images/aha/Dockerfile .
             docker build -t vertexproject/synapse-axon:${CIRCLE_TAG} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
@@ -395,9 +394,6 @@ commands:
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG} -m synapse.servers.cortex --help
             dstatus00=$?
             if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG}-py37 -m synapse.servers.cortex --help
-            dstatus01=$?
-            if [ $dstatus01 != "0" ]; then exit 1; fi
             docker run -d --name test01 vertexproject/synapse-aha:${CIRCLE_TAG}
             docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_TAG}
             docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_TAG}
@@ -409,7 +405,6 @@ commands:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_TAG}
-            docker push vertexproject/synapse:${CIRCLE_TAG}-py37
             docker push vertexproject/synapse-aha:${CIRCLE_TAG}
             docker push vertexproject/synapse-axon:${CIRCLE_TAG}
             docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
@@ -435,7 +430,6 @@ commands:
           name: build image
           command: |
             docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse:v2.x.x-py37 -f docker/images/synapse/Dockerfile-py37 .
             docker build -t vertexproject/synapse-aha:v2.x.x -f docker/images/aha/Dockerfile .
             docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
@@ -448,9 +442,6 @@ commands:
             docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
             dstatus00=$?
             if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x-py37 -m synapse.servers.cortex --help
-            dstatus01=$?
-            if [ $dstatus01 != "0" ]; then exit 1; fi
             docker run -d --name test01 vertexproject/synapse-aha:v2.x.x
             docker run -d --name test02 vertexproject/synapse-axon:v2.x.x
             docker run -d --name test03 vertexproject/synapse-cortex:v2.x.x
@@ -462,7 +453,6 @@ commands:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:v2.x.x
-            docker push vertexproject/synapse:v2.x.x-py37
             docker push vertexproject/synapse-aha:v2.x.x
             docker push vertexproject/synapse-axon:v2.x.x
             docker push vertexproject/synapse-cortex:v2.x.x
@@ -488,7 +478,6 @@ commands:
           name: build images
           command: |
             docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse:${CIRCLE_BRANCH}-py37 -f docker/images/synapse/Dockerfile-py37 .
             docker build -t vertexproject/synapse-aha:${CIRCLE_BRANCH} -f docker/images/aha/Dockerfile .
             docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
             docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
@@ -501,9 +490,6 @@ commands:
             docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
             dstatus00=$?
             if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH}-py37 -m synapse.servers.cortex --help
-            dstatus01=$?
-            if [ $dstatus01 != "0" ]; then exit 1; fi
             docker run -d --name test01 vertexproject/synapse-aha:${CIRCLE_BRANCH}
             docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
@@ -515,7 +501,6 @@ commands:
           name: tag and push container
           command: |
             docker push vertexproject/synapse:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse:${CIRCLE_BRANCH}-py37
             docker push vertexproject/synapse-aha:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
             docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}

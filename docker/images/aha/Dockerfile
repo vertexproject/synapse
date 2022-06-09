@@ -1,19 +1,11 @@
 # vim:set ft=dockerfile:
-FROM vertexproject/vtx-base-image:py38
+FROM synbuild:base
 
-COPY synapse /build/synapse/synapse
-COPY setup.py /build/synapse/setup.py
-COPY MANIFEST.in /build/synapse/MANIFEST.in
-
-COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
-COPY docker/images/aha/entrypoint.sh /vertex/synapse/entrypoint.sh
-
-RUN /build/synapse/bootstrap.sh
+COPY docker/entrypoint.sh /vertex/synapse/entrypoint.sh
+ENV SYN_STEM_CELL_CTOR="synapse.lib.aha.AhaCell"
 
 EXPOSE 4443
 EXPOSE 27492
-
-VOLUME /vertex/storage
 
 ENTRYPOINT ["tini", "--", "/vertex/synapse/entrypoint.sh"]
 
