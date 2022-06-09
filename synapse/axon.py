@@ -457,7 +457,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.dels(sha256s)
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
         '''
         Stream a file download directly into the Axon.
 
@@ -497,17 +497,17 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         '''
         await self._reqUserAllowed(('axon', 'wget'))
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method, ssl=ssl,
-                                    timeout=timeout)
+                                    timeout=timeout, proxy=proxy)
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None, proxy=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.postfiles(fields, url, params=params, headers=headers,
-                                         method=method, ssl=ssl, timeout=timeout)
+                                         method=method, ssl=ssl, timeout=timeout, proxy=proxy)
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None):
+    async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None, proxy=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.wput(sha256, url, params=params, headers=headers, method=method, ssl=ssl,
-                                    timeout=timeout)
+                                    timeout=timeout, proxy=proxy)
 
     async def metrics(self):
         '''
@@ -1022,7 +1022,7 @@ class Axon(s_cell.Cell):
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None):
+    async def postfiles(self, fields, url, params=None, headers=None, method='POST', ssl=True, timeout=None, proxy=None):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
 
@@ -1034,6 +1034,7 @@ class Axon(s_cell.Cell):
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
+            proxy (bool|str|null): Use a specific proxy or disable proxy use.
 
         Notes:
             The dictionaries in the fields list may contain the following values::
@@ -1061,12 +1062,14 @@ class Axon(s_cell.Cell):
         Returns:
             dict: An information dictionary containing the results of the request.
         '''
-        proxyurl = self.conf.get('http:proxy')
+        if proxy is None:
+            proxy = self.conf.get('http:proxy')
+
         cadir = self.conf.get('tls:ca:dir')
 
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         if ssl is False:
             pass
@@ -1128,16 +1131,18 @@ class Axon(s_cell.Cell):
                 }
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
-                   filename=None, filemime=None):
+                   filename=None, filemime=None, proxy=None):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
-        proxyurl = self.conf.get('http:proxy')
+        if proxy is None:
+            prox = self.conf.get('http:proxy')
+
         cadir = self.conf.get('tls:ca:dir')
 
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         if ssl is False:
             pass
@@ -1179,7 +1184,7 @@ class Axon(s_cell.Cell):
                     'mesg': mesg,
                 }
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None):
+    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET', ssl=True, timeout=None, proxy=None):
         '''
         Stream a file download directly into the Axon.
 
@@ -1192,6 +1197,7 @@ class Axon(s_cell.Cell):
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
+            proxy (bool|str|null): Use a specific proxy or disable proxy use.
 
         Notes:
             The response body will be stored, regardless of the response code. The ``ok`` value in the reponse does not
@@ -1219,12 +1225,14 @@ class Axon(s_cell.Cell):
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
-        proxyurl = self.conf.get('http:proxy')
+        if proxy is None:
+            proxy = self.conf.get('http:proxy')
+
         cadir = self.conf.get('tls:ca:dir')
 
         connector = None
-        if proxyurl is not None:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
+        if proxy:
+            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 

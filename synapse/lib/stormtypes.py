@@ -1699,39 +1699,43 @@ class LibAxon(Lib):
             """,
          'type': {'type': 'function', '_funcname': 'wget',
                   'args': (
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to download', },
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to download'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
-                       'default': None, },
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET', },
+                       'default': None},
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'GET'},
                       {'name': 'json', 'type': 'dict', 'desc': 'A JSON object to send as the body.',
-                       'default': None, },
-                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None, },
+                       'default': None},
+                      {'name': 'body', 'type': 'bytes', 'desc': 'Bytes to send as the body.', 'default': None},
                       {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
-                       'default': None, }
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
+                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'wput', 'desc': """
             A method to upload a blob from the axon to an HTTP(S) endpoint.
             """,
          'type': {'type': 'function', '_funcname': 'wput',
                   'args': (
-                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file blob to upload.', },
-                      {'name': 'url', 'type': 'str', 'desc': 'The URL to upload the file to.', },
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 of the file blob to upload.'},
+                      {'name': 'url', 'type': 'str', 'desc': 'The URL to upload the file to.'},
                       {'name': 'headers', 'type': 'dict', 'desc': 'An optional dictionary of HTTP headers to send.',
-                       'default': None, },
+                       'default': None},
                       {'name': 'params', 'type': 'dict', 'desc': 'An optional dictionary of URL parameters to add.',
-                       'default': None, },
-                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT', },
+                       'default': None},
+                      {'name': 'method', 'type': 'str', 'desc': 'The HTTP method to use.', 'default': 'PUT'},
                       {'name': 'ssl', 'type': 'boolean',
-                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True, },
+                       'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
-                       'default': None, }
+                       'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.', }}},
+                  'returns': {'type': 'dict', 'desc': 'A status dictionary of metadata.'}}},
         {'name': 'urlfile', 'desc': '''
             Retrive the target URL using the wget() function and construct an inet:urlfile node from the response.
 
@@ -1740,11 +1744,11 @@ class LibAxon(Lib):
                 ''',
          'type': {'type': 'function', '_funcname': 'urlfile',
                   'args': (
-                      {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
-                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.', },
+                      {'name': '*args', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
+                      {'name': '**kwargs', 'type': 'any', 'desc': 'Args from ``$lib.axon.wget()``.'},
                   ),
                   'returns': {'type': ['storm:node', 'null'],
-                              'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.', }}},
+                              'desc': 'The ``inet:urlfile`` node on success,  ``null`` on error.'}}},
         {'name': 'del', 'desc': '''
             Remove the bytes from the Cortex's Axon by sha256.
 
@@ -1758,7 +1762,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'hash:sha256',
                        'desc': 'The sha256 of the bytes to remove from the Axon.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.', }}},
+                  'returns': {'type': 'boolean', 'desc': 'True if the bytes were found and removed.'}}},
 
         {'name': 'dels', 'desc': '''
             Remove multiple byte blobs from the Cortex's Axon by a list of sha256 hashes.
@@ -1774,7 +1778,7 @@ class LibAxon(Lib):
                       {'name': 'sha256s', 'type': 'list', 'desc': 'A list of sha256 hashes to remove from the Axon.'},
                   ),
                   'returns': {'type': 'list',
-                              'desc': 'A list of boolean values that are True if the bytes were found.', }}},
+                              'desc': 'A list of boolean values that are True if the bytes were found.'}}},
 
         {'name': 'list', 'desc': '''
         List (offset, sha256, size) tuples for files in the Axon in added order.
@@ -1801,7 +1805,7 @@ class LibAxon(Lib):
                         'desc': 'The maximum time to wait for a new result before returning.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                              'desc': 'Tuple of (offset, sha256, size) in added order.', }}},
+                              'desc': 'Tuple of (offset, sha256, size) in added order.'}}},
         {'name': 'readlines', 'desc': '''
         Yields lines of text from a plain-text file stored in the Axon.
 
@@ -1817,7 +1821,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'str',
-                              'desc': 'A line of text from the file.', }}},
+                              'desc': 'A line of text from the file.'}}},
 
         {'name': 'jsonlines', 'desc': '''
         Yields JSON objects from a JSON-lines file stored in the Axon.
@@ -1834,7 +1838,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
-                              'desc': 'A JSON object parsed from a line of text.', }}},
+                              'desc': 'A JSON object parsed from a line of text.'}}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1900,9 +1904,12 @@ class LibAxon(Lib):
         axon = self.runt.snap.core.axon
         return await axon.del_(sha256b)
 
-    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None):
+    async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
         self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         url = await tostr(url)
         method = await tostr(method)
@@ -1913,23 +1920,33 @@ class LibAxon(Lib):
         params = await toprim(params)
         headers = await toprim(headers)
         timeout = await toprim(timeout)
+        proxy = await toprim(proxy)
 
         params = self.strify(params)
         headers = self.strify(headers)
 
         await self.runt.snap.core.getAxon()
 
+        kwargs = {}
+        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+        if axonvers >= (2, 97, 0):
+            kwargs['proxy'] = proxy
+
         axon = self.runt.snap.core.axon
         return await axon.wget(url, headers=headers, params=params, method=method, ssl=ssl, body=body, json=json,
-                               timeout=timeout)
+                               timeout=timeout, **kwargs)
 
-    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None):
+    async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
         self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+
+        if proxy is not None and not self.runt.isAdmin():
+            raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
 
         url = await tostr(url)
         sha256 = await tostr(sha256)
         method = await tostr(method)
+        proxy = await toprim(proxy)
 
         ssl = await tobool(ssl)
         params = await toprim(params)
@@ -1941,7 +1958,13 @@ class LibAxon(Lib):
 
         axon = self.runt.snap.core.axon
         sha256byts = s_common.uhex(sha256)
-        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout)
+
+        kwargs = {}
+        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+        if axonvers >= (2, 97, 0):
+            kwargs['proxy'] = proxy
+
+        return await axon.wput(sha256byts, url, headers=headers, params=params, method=method, ssl=ssl, timeout=timeout, **kwargs)
 
     async def urlfile(self, *args, **kwargs):
         resp = await self.wget(*args, **kwargs)
@@ -6120,6 +6143,10 @@ class View(Prim):
                 nomerge (bool)
                     Setting to $lib.true will prevent the layer from being merged.
 
+                layers (list(str))
+                    Set the list of layer idens for a non-forked view. Layers are specified
+                    in precedence order with the first layer in the list being the write layer.
+
             To maintain consistency with the view.fork() semantics, setting the "parent"
             option on a view has a few limitations:
 
@@ -6308,6 +6335,33 @@ class View(Prim):
             valu = await tostr(valu)
         elif name == 'nomerge':
             valu = await tobool(valu)
+        elif name == 'layers':
+
+            view = self.runt.snap.core.getView(self.valu.get('iden'))
+            if view is None: # pragma: no cover
+                mesg = f'No view with iden: {self.valu.get("iden")}'
+                raise s_exc.NoSuchView(mesg=mesg)
+
+            layers = await toprim(valu)
+            layers = tuple(str(x) for x in layers)
+
+            for layriden in layers:
+
+                layr = self.runt.snap.core.getLayer(layriden)
+                if layr is None:
+                    mesg = f'No layer with iden: {layriden}'
+                    raise s_exc.NoSuchLayer(mesg=mesg)
+
+                self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
+
+            if not self.runt.isAdmin(gateiden=view.iden):
+                mesg = 'You must be an admin of the view to set the layers.'
+                raise s_exc.AuthDeny(mesg=mesg)
+
+            await view.setLayers(layers)
+            self.valu['layers'] = layers
+            return
+
         else:
             mesg = f'View does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)

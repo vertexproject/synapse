@@ -1019,6 +1019,30 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 nodes = await core.nodes('diff')
 
+            nodes = await core.nodes('diff --prop ".created" | +ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --prop ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --prop ou:org:name', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --tag haha', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('diff --prop foo:bar', opts=altview)
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('diff --prop foo:bar --tag newp.newp', opts=altview)
+            self.eq(cm.exception.get('mesg'),
+                    'You may specify --tag *or* --prop but not both.')
+
             nodes = await core.nodes('diff | +ou:org', opts=altview)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
