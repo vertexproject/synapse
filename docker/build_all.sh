@@ -24,4 +24,3 @@ docker/build_image.sh stemcell $TAG
 
 # Tag the base image as well
 docker tag ${BASEIMAGE} vertexproject/synapse:$TAG
-
