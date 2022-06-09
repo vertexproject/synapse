@@ -1,5 +1,18 @@
 #!/bin/bash
 
+##############################################################################
+#
+# Build and tag the suite of synapse images.
+#
+# This is expected to be executed from the root of the repository; eg:
+#
+# ./docker/build_all.sh
+#
+# The first argument may be provided, including the tag to build.
+# A default tag will be used if one is not provided.
+#
+##############################################################################
+
 set -e # exit on nonzero
 set -u # undefined variables
 set -o pipefail # pipefail propagate error codes

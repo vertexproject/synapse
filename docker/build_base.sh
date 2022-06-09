@@ -1,5 +1,17 @@
 #!/bin/bash
 
+##############################################################################
+#
+# Build and tag a the synapse base image.
+#
+# This is expected to be executed from the root of the repository; eg:
+#
+# ./docker/build_base.sh
+#
+# This will rebuild the base image if it already exists.
+#
+##############################################################################
+
 set -e # exit on nonzero
 set -u # undefined variables
 set -o pipefail # pipefail propagate error codes
