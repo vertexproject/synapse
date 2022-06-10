@@ -412,53 +412,6 @@ commands:
             docker push vertexproject/synapse-stemcell:${CIRCLE_TAG}
             docker push vertexproject/synapse-jsonstor:${CIRCLE_TAG}
 
-  deploy_docker_2xx:
-    description: "Build current release tag to docker as v2.x.x"
-    steps:
-      - checkout
-      - setup_remote_docker
-      - do_docker_login
-      - run:
-          name: install python
-          command: |
-            apk add python3 py3-pip git
-      - run:
-          name: setcommit
-          command: |
-            python3 setup.py setcommit
-      - run:
-          name: build image
-          command: |
-            docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse-aha:v2.x.x -f docker/images/aha/Dockerfile .
-            docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
-            docker build -t vertexproject/synapse-stemcell:v2.x.x -f docker/images/stemcell/Dockerfile .
-            docker build -t vertexproject/synapse-jsonstor:v2.x.x -f docker/images/jsonstor/Dockerfile .
-      - run:
-          name: smoke test image
-          command: |
-            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
-            dstatus00=$?
-            if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-aha:v2.x.x
-            docker run -d --name test02 vertexproject/synapse-axon:v2.x.x
-            docker run -d --name test03 vertexproject/synapse-cortex:v2.x.x
-            docker run -d --name test04 vertexproject/synapse-cryotank:v2.x.x
-            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:v2.x.x
-            docker run -d --name test06 vertexproject/synapse-jsonstor:v2.x.x
-      - check_docker_smoketests
-      - run:
-          name: tag and push container
-          command: |
-            docker push vertexproject/synapse:v2.x.x
-            docker push vertexproject/synapse-aha:v2.x.x
-            docker push vertexproject/synapse-axon:v2.x.x
-            docker push vertexproject/synapse-cortex:v2.x.x
-            docker push vertexproject/synapse-cryotank:v2.x.x
-            docker push vertexproject/synapse-stemcell:v2.x.x
-            docker push vertexproject/synapse-jsonstor:v2.x.x
 
   deploy_docker_branches:
     description: "Deploy current branch images to docker"
@@ -657,12 +610,6 @@ jobs:
     steps:
       - deploy_docker_branches
 
-  docker_tags_2xx:
-    docker:
-      - image: docker:20.10.1
-    steps:
-      - deploy_docker_2xx
-
 workflows:
   version: 2
   run_tests:
@@ -777,21 +724,6 @@ workflows:
                 - master
 
       - docker_tags:
-          requires:
-            - doctests
-            - python37
-            - python38
-            - python37_replay
-            - python38_replay
-            - python_package_smoketest
-          context: SynapseDockerCloudUpload
-          filters:
-            tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
-            branches:
-              ignore: /.*/
-
-      - docker_tags_2xx:
           requires:
             - doctests
             - python37
