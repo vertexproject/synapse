@@ -1078,6 +1078,36 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('diff', opts=altview))
 
+            q = '''
+            [ ou:name=foo +(bar)> {[ ou:name=bar ]} ]
+            { for $i in $lib.range(1001) { $node.data.set($i, $i) }}
+            '''
+            nodes = await core.nodes(q, opts=altview)
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            altview['user'] = visi.iden
+
+            uppriden = core.views[viewiden].layers[0].iden
+            lowriden = core.views[viewiden].layers[1].iden
+
+            await visi.addRule((True, ('view',)), gateiden=viewiden)
+            await visi.addRule((True, ('node',)), gateiden=uppriden)
+            await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
+            await visi.addRule((True, ('node', 'prop')), gateiden=lowriden)
+            await visi.addRule((True, ('node', 'data')), gateiden=lowriden)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('ou:name | merge --apply', opts=altview)
+
+            self.len(0, await core.nodes('ou:name=foo'))
+
+            await visi.addRule((True, ('node', 'edge')), gateiden=lowriden)
+
+            await core.nodes('ou:name | merge --apply', opts=altview)
+            self.len(1, await core.nodes('ou:name=foo -(bar)> *'))
+
     async def test_storm_merge_opts(self):
 
         async with self.getTestCore() as core:
@@ -1194,7 +1224,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('ou:org | movesodes --srclayers foo', opts=view2)
             self.stormIsInErr('No layer with iden foo in this view', msgs)
 
-            layr2 = await core.callStorm('return($lib.layer.get().iden)', opts=view2)
+            layr2 = await core.callStorm('return($lib.view.get().layers.0.iden)', opts=view2)
 
             msgs = await core.stormlist(f'ou:org | movesodes --srclayers {layr2} --destlayer {layr2}', opts=view2)
             self.stormIsInErr('cannot also be the destination layer', msgs)

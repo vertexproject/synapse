@@ -2994,6 +2994,39 @@ class MergeCmd(Cmd):
 
         return None
 
+    async def _checkNodePerms(self, node, sode, runt):
+
+        layr0 = runt.snap.view.layers[0].iden
+        layr1 = runt.snap.view.layers[1].iden
+
+        runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+        runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
+
+        for name, (valu, stortype) in sode.get('props', {}).items():
+            full = node.form.prop(name).full
+            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+
+        for tag, valu in sode.get('tags', {}).items():
+            tagperm = tuple(tag.split('.'))
+            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+
+        for tag, tagdict in sode.get('tagprops', {}).items():
+            for prop, (valu, stortype) in tagdict.items():
+                tagperm = tuple(tag.split('.'))
+                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+
+        async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
+            runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+            runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+
+        async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.buid):
+            verb = edge[0]
+            runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+            runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+
     async def execStormCmd(self, runt, genr):
 
         if runt.snap.view.parent is None:
@@ -3051,6 +3084,9 @@ class MergeCmd(Cmd):
                     subs.clear()
 
             # check all node perms first
+            if self.opts.apply:
+                await self._checkNodePerms(node, sode, runt)
+
             form = sode.get('form')
             if form == 'syn:tag':
                 if notags:
@@ -3064,6 +3100,7 @@ class MergeCmd(Cmd):
                     else:
                         continue
 
+            delnode = False
             if not onlytags or form == 'syn:tag':
                 valu = sode.get('valu')
                 if valu is not None:
@@ -3075,11 +3112,8 @@ class MergeCmd(Cmd):
                         valurepr = node.form.type.repr(valu[0])
                         await runt.printf(f'{nodeiden} {form} = {valurepr}')
                     else:
-                        runt.confirm(('node', 'del', form), gateiden=layr0)
-                        runt.confirm(('node', 'add', form), gateiden=layr1)
-
+                        delnode = True
                         adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                        subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
                 for name, (valu, stortype) in sode.get('props', {}).items():
 
@@ -3096,9 +3130,6 @@ class MergeCmd(Cmd):
                         valurepr = node.form.prop(name).type.repr(valu)
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
-                        runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-                        runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
-
                         adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
                         subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
@@ -3116,9 +3147,6 @@ class MergeCmd(Cmd):
                             valurepr = f' = {tagrepr}'
                         await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                     else:
-                        runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                        runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-
                         adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
                         subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
@@ -3133,9 +3161,6 @@ class MergeCmd(Cmd):
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                         else:
-                            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
-
                             adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
                             subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
@@ -3147,9 +3172,6 @@ class MergeCmd(Cmd):
                         valurepr = repr(valu)
                         await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                     else:
-                        runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-                        runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
-
                         adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
                         subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
                         if len(adds) >= 1000:
@@ -3161,13 +3183,13 @@ class MergeCmd(Cmd):
                         name, dest = edge
                         await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
                     else:
-                        runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
-
                         adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
                         subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
                         if len(adds) >= 1000:
                             await sync()
+
+            if delnode:
+                subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
             await sync()
 
@@ -3217,40 +3239,40 @@ class MoveSodesCmd(Cmd):
                           help='Layer precedence for resolving conflicts (defaults to bottom up)')
         return pars
 
-    async def checkNodePerms(self, destlayr, node, sodes, runt, lyrs, layrdata):
+    async def _checkNodePerms(self, node, sodes, layrdata):
 
         for layr, sode in sodes.items():
-            if layr not in lyrs:
+            if layr not in self.lyrs:
                 continue
 
-            if not layr == destlayr:
-                runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-                runt.confirm(('node', 'add', node.form.name), gateiden=destlayr)
+            if not layr == self.destlayr:
+                self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+                self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
                 for name, (valu, stortype) in sode.get('props', {}).items():
                     full = node.form.prop(name).full
-                    runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
-                    runt.confirm(('node', 'prop', 'set', full), gateiden=destlayr)
+                    self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
+                    self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
 
                 for tag, valu in sode.get('tags', {}).items():
                     tagperm = tuple(tag.split('.'))
-                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                    runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=destlayr)
+                    self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                    self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
                 for tag, tagdict in sode.get('tagprops', {}).items():
                     for prop, (valu, stortype) in tagdict.items():
                         tagperm = tuple(tag.split('.'))
-                        runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                        runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=destlayr)
+                        self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                        self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
                 for name in layrdata[layr]:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
-                    runt.confirm(('node', 'data', 'set', name), gateiden=destlayr)
+                    self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
+                    self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
-                async for edge in lyrs[layr].iterNodeEdgesN1(node.buid):
+                async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
                     verb = edge[0]
-                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
-                    runt.confirm(('node', 'edge', 'add', verb), gateiden=destlayr)
+                    self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
+                    self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3270,24 +3292,24 @@ class MoveSodesCmd(Cmd):
             srclayrs = [layr.iden for layr in runt.snap.view.layers[1:]]
 
         if self.opts.destlayer:
-            destlayr = self.opts.destlayer
-            if destlayr not in layridens:
-                mesg = f'No layer with iden {destlayr} in this view, cannot move sodes.'
-                raise s_exc.BadOperArg(mesg=mesg, layr=destlayr)
+            self.destlayr = self.opts.destlayer
+            if self.destlayr not in layridens:
+                mesg = f'No layer with iden {self.destlayr} in this view, cannot move sodes.'
+                raise s_exc.BadOperArg(mesg=mesg, layr=self.destlayr)
         else:
-            destlayr = runt.snap.view.layers[0].iden
+            self.destlayr = runt.snap.view.layers[0].iden
 
-        if destlayr in srclayrs:
-            mesg = f'Source layer {destlayr} cannot also be the destination layer.'
+        if self.destlayr in srclayrs:
+            mesg = f'Source layer {self.destlayr} cannot also be the destination layer.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        movekeys = set()
-        adds = []
-        subs = {}
-        lyrs = {}
+        self.adds = []
+        self.subs = {}
+        self.lyrs = {}
+        self.runt = runt
 
         if self.opts.precedence:
-            layrlist = srclayrs + [destlayr]
+            layrlist = srclayrs + [self.destlayr]
             for layr in self.opts.precedence:
                 if layr not in layridens:
                     mesg = f'No layer with iden {layr} in this view, cannot be used to specify precedence.'
@@ -3303,11 +3325,11 @@ class MoveSodesCmd(Cmd):
             layerord = layridens.keys()
 
         for layr in layerord:
-            if layr == destlayr or layr in srclayrs:
-                lyrs[layr] = layridens[layr]
+            if layr == self.destlayr or layr in srclayrs:
+                self.lyrs[layr] = layridens[layr]
 
             if layr in srclayrs:
-                subs[layr] = []
+                self.subs[layr] = []
 
         async for node, path in genr:
 
@@ -3318,51 +3340,30 @@ class MoveSodesCmd(Cmd):
             # get nodedata keys per layer
             sodes = {}
             layrdata = {}
-            for layr in lyrs.keys():
-                sodes[layr] = await lyrs[layr].getStorNode(node.buid)
+            for layr in self.lyrs.keys():
+                sodes[layr] = await self.lyrs[layr].getStorNode(node.buid)
                 layrkeys = set()
-                async for name in lyrs[layr].iterNodeDataKeys(node.buid):
+                async for name in self.lyrs[layr].iterNodeDataKeys(node.buid):
                     layrkeys.add(name)
                 layrdata[layr] = layrkeys
 
             # check all perms
             if self.opts.apply:
-                await self.checkNodePerms(destlayr, node, sodes, runt, lyrs, layrdata)
+                await self._checkNodePerms(node, sodes, layrdata)
 
-            ecnt = 0
             form = node.form.name
 
-            async def sync():
-
-                ecnt = 0
-
-                if not self.opts.apply:
-                    adds.clear()
-                    subs.clear()
-                    return
-
-                if adds:
-                    addedits = [(node.buid, form, adds)]
-                    await lyrs[destlayr].storNodeEdits(addedits, meta=meta)
-                    adds.clear()
-
-                for srclayr, edits in subs.items():
-                    if edits:
-                        subedits = [(node.buid, form, edits)]
-                        await lyrs[srclayr].storNodeEdits(subedits, meta=meta)
-                        edits.clear()
-
-            valu = sodes[destlayr].get('valu')
+            valu = sodes[self.destlayr].get('valu')
             if valu is None:
                 if not self.opts.apply:
                     valurepr = node.form.type.repr(valu[0])
-                    await runt.printf(f'{destlayr} add {nodeiden} {form} = {valurepr}')
+                    await runt.printf(f'{self.destlayr} add {nodeiden} {form} = {valurepr}')
                 else:
-                    adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                    ecnt += 1
+                    self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
 
+            delnodes = []
             for layr, sode in sodes.items():
-                if layr == destlayr:
+                if layr == self.destlayr:
                     continue
 
                 valu = sode.get('valu')
@@ -3371,126 +3372,195 @@ class MoveSodesCmd(Cmd):
                     if not self.opts.apply:
                         await runt.printf(f'{layr} delete {nodeiden} {form} = {valurepr}')
                     else:
-                        subs[layr].append((s_layer.EDIT_NODE_DEL, valu, ()))
-                        ecnt += 1
+                        delnodes.append((layr, valu))
 
-            movekeys.clear()
-            for layr, sode in sodes.items():
-                for name, (valu, stortype) in sode.get('props', {}).items():
+            await self._moveProps(node, sodes, meta)
+            await self._moveTags(node, sodes, meta)
+            await self._moveTagProps(node, sodes, meta)
+            await self._moveNodeData(node, layrdata, meta)
+            await self._moveEdges(node, meta)
 
-                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
-                        or name not in movekeys) and not layr == destlayr:
-
-                        if not self.opts.apply:
-                            valurepr = node.form.prop(name).type.repr(valu)
-                            await runt.printf(f'{destlayr} set {nodeiden} {form}:{name} = {valurepr}')
-                        else:
-                            adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                            ecnt += 1
-
-                    movekeys.add(name)
-
-                    if not layr == destlayr:
-                        if not self.opts.apply:
-                            valurepr = node.form.prop(name).type.repr(valu)
-                            await runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
-                        else:
-                            subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype), ()))
-                            ecnt += 1
-
-                    if ecnt >= 1000:
-                        await sync()
-
-                for layr, sode in sodes.items():
-                    for tag, valu in sode.get('tags', {}).items():
-
-                        if not layr == destlayr:
-                            if not self.opts.apply:
-                                valurepr = ''
-                                if valu != (None, None):
-                                    tagrepr = runt.model.type('ival').repr(valu)
-                                    valurepr = f' = {tagrepr}'
-                                await runt.printf(f'{destlayr} set {nodeiden} {form}#{tag}{valurepr}')
-                                await runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
-                            else:
-                                adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
-                                subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None), ()))
-                                ecnt += 2
-
-                        if ecnt >= 1000:
-                            await sync()
-
-                movekeys.clear()
-                for layr, sode in sodes.items():
-                    for tag, tagdict in sode.get('tagprops', {}).items():
-                        for prop, (valu, stortype) in tagdict.items():
-                            if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
-                                or (tag, prop) not in movekeys) and not layr == destlayr:
-                                    if not self.opts.apply:
-                                        valurepr = repr(valu)
-                                        await runt.printf(f'{destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                                    else:
-                                        adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
-                                        ecnt += 1
-
-                            movekeys.add((tag, prop))
-
-                            if not layr == destlayr:
-                                if not self.opts.apply:
-                                    valurepr = repr(valu)
-                                    await runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
-                                else:
-                                    subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype), ()))
-                                    ecnt += 1
-
-                            if ecnt >= 1000:
-                                await sync()
-
-                movekeys.clear()
-                for layr, sode in sodes.items():
-                    for name in layrdata[layr]:
-                        if name not in movekeys and not layr == destlayr:
-                            if not self.opts.apply:
-                                await runt.printf(f'{destlayr} set {nodeiden} {form} DATA {name}')
-                            else:
-                                valu = await lyrs[layr].getNodeData(node.buid, name)
-                                adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                                ecnt += 1
-
-                                await asyncio.sleep(0)
-
-                        movekeys.add(name)
-
-                        if not layr == destlayr:
-                            if not self.opts.apply:
-                                await runt.printf(f'{layr} delete {nodeiden} {form} DATA {name}')
-                            else:
-                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
-                                ecnt += 1
-
-                        if ecnt >= 1000:
-                            await sync()
-
-                for layr, sode in sodes.items():
-                    async for edge in lyrs[layr].iterNodeEdgesN1(node.buid):
-                        if not layr == destlayr:
-                            verb = edge[0]
-                            if not self.opts.apply:
-                                name, dest = edge
-                                await runt.printf(f'{destlayr} add {nodeiden} {form} +({name})> {dest}')
-                                await runt.printf(f'{layr} delete {nodeiden} {form} +({name})> {dest}')
-                            else:
-                                adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                                subs[layr].append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                                ecnt += 2
-
-                            if ecnt >= 1000:
-                                await sync()
-
-            await sync()
+            for layr, valu in delnodes:
+                edit = [(node.buid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu, ())])]
+                await self.lyrs[layr].storNodeEdits(edit, meta=meta)
 
             runt.snap.livenodes.pop(node.buid, None)
             yield await runt.snap.getNodeByBuid(node.buid), path
+
+    async def _sync(self, node, meta):
+
+        if not self.opts.apply:
+            return
+
+        if self.adds:
+            addedits = [(node.buid, node.form.name, self.adds)]
+            await self.lyrs[self.destlayr].storNodeEdits(addedits, meta=meta)
+            self.adds.clear()
+
+        for srclayr, edits in self.subs.items():
+            if edits:
+                subedits = [(node.buid, node.form.name, edits)]
+                await self.lyrs[srclayr].storNodeEdits(subedits, meta=meta)
+                edits.clear()
+
+    async def _moveProps(self, node, sodes, meta):
+
+        ecnt = 0
+        movekeys = set()
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr, sode in sodes.items():
+            for name, (valu, stortype) in sode.get('props', {}).items():
+
+                if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                    or name not in movekeys) and not layr == self.destlayr:
+
+                    if not self.opts.apply:
+                        valurepr = node.form.prop(name).type.repr(valu)
+                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                        ecnt += 1
+
+                movekeys.add(name)
+
+                if not layr == self.destlayr:
+                    if not self.opts.apply:
+                        valurepr = node.form.prop(name).type.repr(valu)
+                        await self.runt.printf(f'{layr} delete {nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        self.subs[layr].append((s_layer.EDIT_PROP_DEL, (name, None, stortype), ()))
+                        ecnt += 1
+
+                if ecnt >= 1000:
+                    await self._sync(node, meta)
+                    ecnt = 0
+
+        await self._sync(node, meta)
+
+    async def _moveTags(self, node, sodes, meta):
+
+        ecnt = 0
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr, sode in sodes.items():
+            for tag, valu in sode.get('tags', {}).items():
+
+                if not layr == self.destlayr:
+                    if not self.opts.apply:
+                        valurepr = ''
+                        if valu != (None, None):
+                            tagrepr = self.runt.model.type('ival').repr(valu)
+                            valurepr = f' = {tagrepr}'
+                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}#{tag}{valurepr}')
+                        await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}{valurepr}')
+                    else:
+                        self.adds.append((s_layer.EDIT_TAG_SET, (tag, valu, None), ()))
+                        self.subs[layr].append((s_layer.EDIT_TAG_DEL, (tag, None), ()))
+                        ecnt += 2
+
+                if ecnt >= 1000:
+                    await self._sync(node, meta)
+                    ecnt = 0
+
+        await self._sync(node, meta)
+
+    async def _moveTagProps(self, node, sodes, meta):
+
+        ecnt = 0
+        movekeys = set()
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr, sode in sodes.items():
+            for tag, tagdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in tagdict.items():
+                    if (stortype in (s_layer.STOR_TYPE_IVAL, s_layer.STOR_TYPE_MINTIME)
+                        or (tag, prop) not in movekeys) and not layr == self.destlayr:
+                            if not self.opts.apply:
+                                valurepr = repr(valu)
+                                mesg = f'{self.destlayr} set {nodeiden} {form}#{tag}:{prop} = {valurepr}'
+                                await self.runt.printf(mesg)
+                            else:
+                                self.adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
+                                ecnt += 1
+
+                    movekeys.add((tag, prop))
+
+                    if not layr == self.destlayr:
+                        if not self.opts.apply:
+                            valurepr = repr(valu)
+                            await self.runt.printf(f'{layr} delete {nodeiden} {form}#{tag}:{prop} = {valurepr}')
+                        else:
+                            self.subs[layr].append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, None, stortype), ()))
+                            ecnt += 1
+
+                    if ecnt >= 1000:
+                        await self._sync(node, meta)
+                        ecnt = 0
+
+        await self._sync(node, meta)
+
+    async def _moveNodeData(self, node, layrdata, meta):
+
+        ecnt = 0
+        movekeys = set()
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for layr in self.lyrs.keys():
+            for name in layrdata[layr]:
+                if name not in movekeys and not layr == self.destlayr:
+                    if not self.opts.apply:
+                        await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
+                    else:
+                        valu = await self.lyrs[layr].getNodeData(node.buid, name)
+                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                        ecnt += 1
+
+                        await asyncio.sleep(0)
+
+                movekeys.add(name)
+
+                if not layr == self.destlayr:
+                    if not self.opts.apply:
+                        await self.runt.printf(f'{layr} delete {nodeiden} {form} DATA {name}')
+                    else:
+                        self.subs.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+                        ecnt += 1
+
+                if ecnt >= 1000:
+                    await self._sync(node, meta)
+                    ecnt = 0
+
+        await self._sync(node, meta)
+
+    async def _moveEdges(self, node, meta):
+
+        ecnt = 0
+        form = node.form.name
+        nodeiden = node.iden()
+
+        for iden, layr in self.lyrs.items():
+            if not iden == self.destlayr:
+                async for edge in layr.iterNodeEdgesN1(node.buid):
+                    verb = edge[0]
+                    if not self.opts.apply:
+                        name, dest = edge
+                        await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} +({name})> {dest}')
+                        await self.runt.printf(f'{iden} delete {nodeiden} {form} +({name})> {dest}')
+                    else:
+                        self.adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                        self.subs[iden].append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                        ecnt += 2
+
+                    if ecnt >= 1000:
+                        await self._sync(node, meta)
+                        ecnt = 0
+
+        await self._sync(node, meta)
 
 class LimitCmd(Cmd):
     '''
