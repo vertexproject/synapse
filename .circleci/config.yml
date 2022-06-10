@@ -366,7 +366,7 @@ commands:
           command: |
             docker/build_all.sh << parameters.image-tag >>
       - run:
-          name:smoke test images
+          name: smoke test images
           command: |
             docker/test_all.sh << parameters.image-tag >>
       - run:
@@ -413,6 +413,19 @@ commands:
           command: |
             docker/push_all.sh << parameters.image-tag >> << parameters.registry >>
 
+  delete_docker_image:
+    description: "Delete a image from the workspace"
+    steps:
+      - run:
+          name: wipe image
+          command: |
+            mkdir -p workspace
+            echo "" > ./workspace/images.tar.gz
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - images.tar.gz
+
   deploy_docker_tags:
     description: "Deploy current tag images to docker"
     steps:
@@ -449,7 +462,7 @@ commands:
             docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_TAG}
             docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_TAG}
             docker run -d --name test06 vertexproject/synapse-jsonstor:${CIRCLE_TAG}
-      - check_docker_smoketests
+#      - check_docker_smoketests
       - run:
           name: tag and push container
           command: |
@@ -653,11 +666,40 @@ jobs:
     steps:
       - deploy_docker_tags
 
-  docker_branches:
+  build_docker_branch:
     docker:
       - image: docker:20.10.1
     steps:
-      - deploy_docker_branches
+      - build_docker:
+          image-tag: ${CIRCLE_BRANCH}
+
+  push_docker_branch:
+    docker:
+      - image: docker:20.10.1
+    steps:
+      - load_docker_from_workspace
+      - push_docker_image:
+          image-tag: ${CIRCLE_BRANCH}
+#          source: ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}
+
+#  push_docker_branch_ecr:
+#    docker:
+#      - image: docker:20.10.1
+#    steps:
+#      - load_docker_from_workspace:
+#          use_ecr: true
+#      - push_docker_image:
+#          image-repo: ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}
+#          image-tag: ${CIRCLE_BRANCH}
+#          source: ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}
+#          registry: ${AWS_ECR_REGISTRY}
+
+  delete_docker_branch:
+    docker:
+      - image: docker:20.10.1
+    steps:
+      - delete_docker_image
+
 
 workflows:
   version: 2
@@ -760,17 +802,36 @@ workflows:
             branches:
               ignore: /.*/
 
-      - docker_branches:
+      - build_docker_branch:
           requires:
             - doctests
             - python37
             - python38
-            - python_package_smoketest
-          context: SynapseDockerCloudUpload
+          context:
+            - DockerCloudUpload
+
           filters:
             branches:
               only:
                 - master
+                - modern-docs
+
+      - push_docker_branch:
+          requires:
+            - build_docker_branch
+          context:
+            - DockerCloudUpload
+#
+#      - push_docker_branch_ecr:
+#          requires:
+#            - build_docker_branch
+#          context:
+#            - AWSSynapseEcrPusher
+
+      - delete_docker_branch:
+          requires:
+            - push_docker_branch
+#            - push_docker_branch_ecr
 
       - docker_tags:
           requires:
