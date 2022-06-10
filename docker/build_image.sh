@@ -20,7 +20,7 @@
 set -e # exit on nonzero
 set -u # undefined variables
 set -o pipefail # pipefail propagate error codes
-# set -x # debugging
+set -x # debugging
 
 BASEIMAGE=synbuild:base
 

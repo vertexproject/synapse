@@ -315,54 +315,103 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
-  check_docker_smoketests:
-    description: "Check docker smoke test results"
-    steps:
-      - run:
-          name: validate docker smoketest
-          command: |
-            sleep 60
-            docker ps
-            docker container ls -a
-            docker logs test01
-            docker logs test02
-            docker logs test03
-            docker logs test04
-            docker logs test05
-            docker logs test06
-            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
-            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
-            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
-            dstatus04=`docker inspect test04 --format '{{.State.Health.Status}}'`
-            dstatus05=`docker inspect test05 --format '{{.State.Health.Status}}'`
-            dstatus06=`docker inspect test06 --format '{{.State.Health.Status}}'`
-            docker stop test01
-            docker stop test02
-            docker stop test03
-            docker stop test04
-            docker stop test05
-            docker stop test06
-            docker rm test01
-            docker rm test02
-            docker rm test03
-            docker rm test04
-            docker rm test05
-            docker rm test06
-            if [ $dstatus01 != "healthy" ]; then exit 1; fi
-            if [ $dstatus02 != "healthy" ]; then exit 1; fi
-            if [ $dstatus03 != "healthy" ]; then exit 1; fi
-            if [ $dstatus04 != "healthy" ]; then exit 1; fi
-            if [ $dstatus05 != "healthy" ]; then exit 1; fi
-            if [ $dstatus06 != "healthy" ]; then exit 1; fi
-            exit 0
 
   do_docker_login:
     description: "Login to docker"
+    parameters:
+      use_ecr:
+        type: boolean
+        default: false
+    steps:
+      - when:
+          condition: << parameters.use_ecr >>
+          steps:
+            - run:
+                name: docker login with ECR
+                command: |
+                  apk add python3 py3-pip
+                  python3 -m pip install awscli
+                  aws ecr get-login-password | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY
+      - unless:
+          condition: << parameters.use_ecr >>
+          steps:
+            - run:
+                name: docker login
+                command: |
+                  docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+
+  do_docker_prep:
+    description: "Login to docker, install packages and set commit."
     steps:
       - run:
-          name: docker login
+          name: install python
           command: |
-            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+            apk add python3 py3-pip git
+      - run:
+          name: setcommit
+          command: |
+            python3 setup.py setcommit
+
+  build_docker:
+    description: "Build a docker image"
+    parameters:
+      image-tag:
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - do_docker_prep
+      - run:
+          name: build images
+          command: |
+            docker/build_all.sh << parameters.image-tag >>
+      - run:
+          name:smoke test images
+          command: |
+            docker/test_all.sh << parameters.image-tag >>
+      - run:
+          name: save images to workspace
+          command: |
+            mkdir -p workspace
+            docker/save_all.sh workspace/images.tar.gz << parameters.image-tag >>
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - images.tar.gz
+
+  load_docker_from_workspace:
+    description: "Load the docker images from workspace"
+    parameters:
+      use_ecr:
+        type: boolean
+        default: false
+    steps:
+      - setup_remote_docker
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: load image
+          command: |
+            gunzip /tmp/workspace/images.tar.gz
+            docker load -i /tmp/workspace/images.tar
+      - do_docker_login:
+          use_ecr: << parameters.use_ecr >>
+
+  push_docker_image:
+    description: "Push a docker image up to a registry"
+    parameters:
+      registry:
+        type: string
+        default: ""
+      image-tag:
+        type: string
+#      source:
+#        type: string
+    steps:
+      - run:
+          name: push images
+          command: |
+            docker/push_all.sh << parameters.image-tag >> << parameters.registry >>
 
   deploy_docker_tags:
     description: "Deploy current tag images to docker"
