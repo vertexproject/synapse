@@ -3351,16 +3351,6 @@ class MoveSodesCmd(Cmd):
             if self.opts.apply:
                 await self._checkNodePerms(node, sodes, layrdata)
 
-            form = node.form.name
-
-            valu = sodes[self.destlayr].get('valu')
-            if valu is None:
-                if not self.opts.apply:
-                    valurepr = node.form.type.repr(valu[0])
-                    await runt.printf(f'{self.destlayr} add {nodeiden} {form} = {valurepr}')
-                else:
-                    self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-
             delnodes = []
             for layr, sode in sodes.items():
                 if layr == self.destlayr:
@@ -3370,8 +3360,10 @@ class MoveSodesCmd(Cmd):
                 if valu is not None:
                     valurepr = node.form.type.repr(valu[0])
                     if not self.opts.apply:
-                        await runt.printf(f'{layr} delete {nodeiden} {form} = {valurepr}')
+                        await runt.printf(f'{self.destlayr} add {nodeiden} {node.form.name} = {valurepr}')
+                        await runt.printf(f'{layr} delete {nodeiden} {node.form.name} = {valurepr}')
                     else:
+                        self.adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
                         delnodes.append((layr, valu))
 
             await self._moveProps(node, sodes, meta)
@@ -3516,9 +3508,10 @@ class MoveSodesCmd(Cmd):
                     if not self.opts.apply:
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form} DATA {name}')
                     else:
-                        valu = await self.lyrs[layr].getNodeData(node.buid, name)
-                        self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                        ecnt += 1
+                        (retn, valu) = await self.lyrs[layr].getNodeData(node.buid, name)
+                        if retn:
+                            self.adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                            ecnt += 1
 
                         await asyncio.sleep(0)
 
@@ -3528,7 +3521,7 @@ class MoveSodesCmd(Cmd):
                     if not self.opts.apply:
                         await self.runt.printf(f'{layr} delete {nodeiden} {form} DATA {name}')
                     else:
-                        self.subs.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+                        self.subs[layr].append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
                         ecnt += 1
 
                 if ecnt >= 1000:
