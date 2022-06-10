@@ -697,6 +697,7 @@ jobs:
 #    docker:
 #      - image: docker:20.10.1
 #    steps:
+#      - checkout
 #      - load_docker_from_workspace:
 #          use_ecr: true
 #      - push_docker_image:
@@ -776,7 +777,8 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: PublicPypiAccess
+          context:
+            - PublicPypiAccess
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -791,7 +793,8 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: PublicPypiAccess
+          context:
+            - PublicPypiAccess
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -806,7 +809,8 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: GithubMachine
+          context:
+            - GithubMachine
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -818,9 +822,6 @@ workflows:
             - doctests
             - python37
             - python38
-          context:
-            - DockerCloudUpload
-
           filters:
             branches:
               only:
@@ -831,7 +832,7 @@ workflows:
           requires:
             - build_docker_branch
           context:
-            - DockerCloudUpload
+            - SynapseDockerCloudUpload
 #
 #      - push_docker_branch_ecr:
 #          requires:
@@ -852,7 +853,8 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: SynapseDockerCloudUpload
+          context:
+           - SynapseDockerCloudUpload
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
