@@ -340,6 +340,14 @@ commands:
                 command: |
                   docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
 
+  do_docker_bash:
+    description: "Add bash"
+    steps:
+      - run:
+          name: install bash
+          command: |
+            apk add bash
+
   do_docker_prep:
     description: "Login to docker, install packages and set commit."
     steps:
@@ -361,6 +369,7 @@ commands:
       - checkout
       - setup_remote_docker
       - do_docker_prep
+      - do_docker_bash
       - run:
           name: build images
           command: |
@@ -408,6 +417,7 @@ commands:
 #      source:
 #        type: string
     steps:
+      - do_docker_bash
       - run:
           name: push images
           command: |
