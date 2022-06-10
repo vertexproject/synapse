@@ -687,6 +687,7 @@ jobs:
     docker:
       - image: docker:20.10.1
     steps:
+      - checkout
       - load_docker_from_workspace
       - push_docker_image:
           image-tag: ${CIRCLE_BRANCH}
