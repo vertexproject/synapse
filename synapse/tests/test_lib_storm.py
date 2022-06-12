@@ -1344,6 +1344,35 @@ class StormTest(s_t_utils.SynTest):
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(bar))', opts=view3)
             self.eq(data, 'prio')
 
+            for i in range(1001):
+                await core.addFormProp('ou:org', f'_test{i}', ('int', {}), {})
+
+            await core.nodes('''
+            [ ou:org=(cov,) ]
+
+            { for $i in $lib.range(1001) {
+                $prop = $lib.str.format('_test{i}', i=$i)
+                [ :$prop = $i
+                  +#$prop:score = $i
+                  +($i)> { ou:org=(cov,) }
+                ]
+                $node.data.set($prop, $i)
+            }}
+            ''')
+
+            q = f'ou:org | movesodes --apply --srclayers {layr1} --destlayer {layr2}'
+            nodes = await core.nodes(q, opts=view3)
+
+            sodes = await core.callStorm('ou:org=(cov,) return($node.getStorNodes())', opts=view2)
+            sode = sodes[0]
+            self.len(1002, sode['props'])
+            self.len(1001, sode['tags'])
+            self.len(1001, sode['tagprops'])
+            self.len(1001, await core.callStorm('ou:org=(cov,) return($node.data.list())', opts=view2))
+
+            msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
+            self.stormIsInPrint('1001', msgs)
+
     async def test_storm_embeds(self):
 
         async with self.getTestCore() as core:
