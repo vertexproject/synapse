@@ -1202,6 +1202,9 @@ class StormTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
+            msgs = await core.stormlist('[ inet:fqdn=foo.com ] | movesodes --destlayer $node')
+            self.stormIsInErr('movesodes arguments must be runtsafe.', msgs)
+
             msgs = await core.stormlist('ou:org | movesodes')
             self.stormIsInErr('You may only move nodes in views with multiple layers.', msgs)
 

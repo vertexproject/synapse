@@ -3284,6 +3284,10 @@ class MoveSodesCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        if not self.runtsafe:
+            mesg = 'movesodes arguments must be runtsafe.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
         if len(runt.snap.view.layers) < 2:
             mesg = 'You may only move nodes in views with multiple layers.'
             raise s_exc.StormRuntimeError(mesg=mesg)
