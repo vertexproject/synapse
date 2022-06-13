@@ -25,6 +25,18 @@ TAG=${1}
 
 REGISTRY=${2-}
 
+if [ $REGISTRY ]
+then
+    echo "Tagging images with alternative registry."
+    docker tag vertexproject/synapse:${TAG} ${REGISTRY}vertexproject/synapse:${TAG}
+    docker tag vertexproject/synapse-aha:${TAG} ${REGISTRY}vertexproject/synapse-aha:${TAG}
+    docker tag vertexproject/synapse-axon:${TAG} ${REGISTRY}vertexproject/synapse-axon:${TAG}
+    docker tag vertexproject/synapse-cortex:${TAG} ${REGISTRY}vertexproject/synapse-cortex:${TAG}
+    docker tag vertexproject/synapse-cryotank:${TAG} ${REGISTRY}vertexproject/synapse-cryotank:${TAG}
+    docker tag vertexproject/synapse-stemcell:${TAG} ${REGISTRY}vertexproject/synapse-stemcell:${TAG}
+    docker tag vertexproject/synapse-jsonstor:${TAG} ${REGISTRY}vertexproject/synapse-jsonstor:${TAG}
+fi
+
 docker push ${REGISTRY}vertexproject/synapse:${TAG}
 docker push ${REGISTRY}vertexproject/synapse-aha:${TAG}
 docker push ${REGISTRY}vertexproject/synapse-axon:${TAG}

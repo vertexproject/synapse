@@ -414,8 +414,6 @@ commands:
         default: ""
       image-tag:
         type: string
-#      source:
-#        type: string
     steps:
       - do_docker_bash
       - run:
@@ -691,20 +689,17 @@ jobs:
       - load_docker_from_workspace
       - push_docker_image:
           image-tag: ${CIRCLE_BRANCH}
-#          source: ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}
 
-#  push_docker_branch_ecr:
-#    docker:
-#      - image: docker:20.10.1
-#    steps:
-#      - checkout
-#      - load_docker_from_workspace:
-#          use_ecr: true
-#      - push_docker_image:
-#          image-repo: ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}
-#          image-tag: ${CIRCLE_BRANCH}
-#          source: ${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_BRANCH}
-#          registry: ${AWS_ECR_REGISTRY}
+  push_docker_branch_ecr:
+    docker:
+      - image: docker:20.10.1
+    steps:
+      - checkout
+      - load_docker_from_workspace:
+          use_ecr: true
+      - push_docker_image:
+          image-tag: ${CIRCLE_BRANCH}
+          registry: ${AWS_ECR_REGISTRY}
 
   delete_docker_branch:
     docker:
@@ -833,17 +828,17 @@ workflows:
             - build_docker_branch
           context:
             - SynapseDockerCloudUpload
-#
-#      - push_docker_branch_ecr:
-#          requires:
-#            - build_docker_branch
-#          context:
-#            - AWSSynapseEcrPusher
+
+      - push_docker_branch_ecr:
+          requires:
+            - build_docker_branch
+          context:
+            - AWSEcrPusherOSS
 
       - delete_docker_branch:
           requires:
             - push_docker_branch
-#            - push_docker_branch_ecr
+            - push_docker_branch_ecr
 
       - docker_tags:
           requires:
