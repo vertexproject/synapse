@@ -27,7 +27,7 @@ REGISTRY=${2-}
 
 if [ $REGISTRY ]
 then
-    $REGISTRY=$REGISTRY/
+    REGISTRY=$REGISTRY/
     echo "Tagging images with alternative registry."
     docker tag vertexproject/synapse:${TAG} ${REGISTRY}vertexproject/synapse:${TAG}
     docker tag vertexproject/synapse-aha:${TAG} ${REGISTRY}vertexproject/synapse-aha:${TAG}
