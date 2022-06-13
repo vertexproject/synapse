@@ -3251,7 +3251,7 @@ class MoveSodesCmd(Cmd):
     async def _checkNodePerms(self, node, sodes, layrdata):
 
         for layr, sode in sodes.items():
-            if layr == destlayr:
+            if layr == self.destlayr:
                 continue
 
             self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
