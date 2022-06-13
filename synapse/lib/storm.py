@@ -3202,28 +3202,37 @@ class MoveSodesCmd(Cmd):
     Move storage nodes between layers.
 
     Storage nodes will be removed from the source layers and the resulting
-    storage node in the top layer will contain the merged values (merged in
-    bottom up layer order).
+    storage node in the destination layer will contain the merged values (merged
+    in bottom up layer order by default).
 
     Examples:
 
-        // Having tagged a new #cno.mal.redtree subgraph in a forked view...
+        // Move sodes for ou:org nodes to the top layer
 
-        #cno.mal.redtree | merge --apply
+        ou:org | movesodes --apply
 
-        // Print out what the merge command *would* do but dont.
+        // Print out what the movesodes command *would* do but dont.
 
-        #cno.mal.redtree | merge
+        ou:org | movesodes
 
-        // Merge ou:org nodes, but when merging tags, only merge tags one level
-        // below the rep.vt and rep.whoxy tags.
+        // In a view with many layers, only move sodes from the bottom layer
+        // to the top layer.
 
-        ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
+        $layers = $lib.view.get().layers
+        $top = $layers.0.iden
+        $bot = $layers."-1".iden
 
-        // Only merge tags, and exclude any tags in the cno tag tree.
+        ou:org | movesodes --srclayers $bot --destlayer $top
 
-        ou:org | merge --only-tags --exclude-tags cno.** --apply
+        // In a view with many layers, move sodes to the top layer and prioritize
+        // sodes values from the bottom layer over the other layers.
 
+        $layers = $lib.view.get().layers
+        $top = $layers.0.iden
+        $mid = $layers.1.iden
+        $bot = $layers.2.iden
+
+        ou:org | movesodes --precedence $bot $top $mid
     '''
     name = 'movesodes'
 
@@ -3242,37 +3251,36 @@ class MoveSodesCmd(Cmd):
     async def _checkNodePerms(self, node, sodes, layrdata):
 
         for layr, sode in sodes.items():
-            if layr not in self.lyrs:
+            if layr == destlayr:
                 continue
 
-            if not layr == self.destlayr:
-                self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-                self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
+            self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+            self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
-                for name, (valu, stortype) in sode.get('props', {}).items():
-                    full = node.form.prop(name).full
-                    self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
-                    self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
+            for name, (valu, stortype) in sode.get('props', {}).items():
+                full = node.form.prop(name).full
+                self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
+                self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
 
-                for tag, valu in sode.get('tags', {}).items():
+            for tag, valu in sode.get('tags', {}).items():
+                tagperm = tuple(tag.split('.'))
+                self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
+
+            for tag, tagdict in sode.get('tagprops', {}).items():
+                for prop, (valu, stortype) in tagdict.items():
                     tagperm = tuple(tag.split('.'))
                     self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
                     self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
-                for tag, tagdict in sode.get('tagprops', {}).items():
-                    for prop, (valu, stortype) in tagdict.items():
-                        tagperm = tuple(tag.split('.'))
-                        self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                        self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
+            for name in layrdata[layr]:
+                self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
+                self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
-                for name in layrdata[layr]:
-                    self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
-                    self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
-
-                async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
-                    verb = edge[0]
-                    self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
-                    self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
+            async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
+                verb = edge[0]
+                self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
+                self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
 
     async def execStormCmd(self, runt, genr):
 
