@@ -1527,7 +1527,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             task.cancel()
             try:
                 await task
-            except (asyncio.CancelledError, Exception):
+            except asyncio.CancelledError:
                 pass
             except Exception:  # pragma: no cover
                 logger.exception(f'Error tearing down activecoro for {task}')
