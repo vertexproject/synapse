@@ -20,14 +20,14 @@
 set -e # exit on nonzero
 set -u # undefined variables
 set -o pipefail # pipefail propagate error codes
-set -x # debugging
+# set -x # debugging
 
 BASEIMAGE=synbuild:base
 
 IMAGE=${1:-}
 if [ ${IMAGE} == "synapse" ]
 then
-    echo "The synapse image is build with build_base.sh"
+    echo "The vertexproject/synapse image is built with docker/build_all.sh"
     false
 fi
 IMAGE_DIR=docker/images/${IMAGE}

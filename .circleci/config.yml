@@ -377,12 +377,12 @@ commands:
       - run:
           name: smoke test images
           command: |
-            docker/test_all.sh << parameters.image-tag >>
+            docker/build/test_all.sh << parameters.image-tag >>
       - run:
           name: save images to workspace
           command: |
             mkdir -p workspace
-            docker/save_all.sh workspace/images.tar.gz << parameters.image-tag >>
+            docker/build/save_all.sh workspace/images.tar.gz << parameters.image-tag >>
       - persist_to_workspace:
           root: workspace
           paths:
@@ -422,11 +422,11 @@ commands:
       - run:
           name: retag images
           command: |
-            docker/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
+            docker/build/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
       - run:
           name: push images
           command: |
-            docker/push_all.sh << parameters.image-tag >> << parameters.registry >>
+            docker/build/push_all.sh << parameters.image-tag >> << parameters.registry >>
 
   delete_docker_image:
     description: "Delete a image from the workspace"
