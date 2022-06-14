@@ -2829,7 +2829,10 @@ class FuncCall(Value):
         kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
-            return await s_coro.ornot(func, *argv, **kwargs)
+            retn = func(*argv, **kwargs)
+            if s_coro.iscoro(retn):
+                return await retn
+            return retn
 
 class DollarExpr(Value):
     '''
