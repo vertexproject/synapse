@@ -1518,8 +1518,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cdef['task'] = self.schedCoro(wrap())
 
     async def _killActiveCoros(self):
-        for cdef in self.activecoros.values():
-            await self._killActiveCoro(cdef)
+        coros = [self._killActiveCoro(cdef) for cdef in self.activecoros.values()]
+        await asyncio.gather(*coros, return_exceptions=True)
 
     async def _killActiveCoro(self, cdef):
         task = cdef.pop('task', None)
@@ -1529,6 +1529,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await task
             except (asyncio.CancelledError, Exception):
                 pass
+            except Exception:  # pragma: no cover
+                logger.exception(f'Error tearing down activecoro for {task}')
 
     async def isCellActive(self):
         return self.isactive
