@@ -823,13 +823,13 @@ workflows:
 
       - push_docker_tag:
           requires:
-            - build_docker_branch
+            - build_docker_tag
           context:
             - SynapseDockerCloudUpload
 
       - push_docker_tag_ecr:
           requires:
-            - build_docker_branch
+            - build_docker_tag
           context:
             - AWSEcrPusherOSS
 
