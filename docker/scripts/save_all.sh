@@ -6,7 +6,7 @@
 #
 # This is expected to be executed from the root of the repository; eg:
 #
-# ./docker/save_all.sh
+# ./docker/scripts/save_all.sh
 #
 # The first argument is the gzip file where images are saved.
 # The second argument may be provided, which is the tag to save.

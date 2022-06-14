@@ -6,7 +6,7 @@
 #
 # This is expected to be executed from the root of the repository; eg:
 #
-# ./docker/retag_all.sh $currentTag $newTag
+# ./docker/scripts/retag_all.sh $currentTag $newTag
 #
 # The first argument is the current tag for the images.
 # The second argument is the new iamge tag. If it is not provided, the script

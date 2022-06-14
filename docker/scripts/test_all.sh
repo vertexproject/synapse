@@ -6,7 +6,7 @@
 #
 # This is expected to be executed from the root of the repository; eg:
 #
-# ./docker/test_all.sh
+# ./docker/scripts/test_all.sh
 #
 # The first argument may be provided, which is the tag to test.
 # A default tag will be used if one is not provided.

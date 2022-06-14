@@ -6,7 +6,7 @@
 #
 # This is expected to be executed from the root of the repository; eg:
 #
-# ./docker/build/push_all.sh
+# ./docker/scripts/push_all.sh
 #
 # The first argument is the tag to push.
 # The second argument may be provided, which is the respository base to push
