@@ -1,3 +1,4 @@
+import csv
 import json
 import asyncio
 import hashlib
@@ -547,6 +548,11 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.readlines(sha256):
             yield item
 
+    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.csvrows(sha256, dialect, **fmtparams):
+            yield item
+
     async def jsonlines(self, sha256):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
@@ -1008,6 +1014,27 @@ class Axon(s_cell.Cell):
 
         if remain:
             yield remain
+
+    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+        dialect = dialect.lower()
+        if dialect not in csv.list_dialects():
+            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
+
+        lines = []
+        async for line in self.readlines(sha256):
+            lines.append(line)
+            if len(lines) >= 64:
+                reader = csv.reader(lines, dialect, **fmtparams)
+                for row in reader:
+                    yield row
+                    await asyncio.sleep(0)
+                lines.clear()
+
+        if lines:
+            reader = csv.reader(lines, dialect, **fmtparams)
+            for row in reader:
+                yield row
+                await asyncio.sleep(0)
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
