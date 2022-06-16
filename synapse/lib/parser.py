@@ -102,6 +102,8 @@ terminalEnglishMap = {
     '_EMBEDQUERYSTART': '${',
     '_EMIT': 'emit',
     '_FINI': 'fini',
+    '_HASHSPACE': '#',
+    '_HASHNOSPACE': '#',
     '_INIT': 'init',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -438,6 +440,15 @@ class AstConverter(lark.Transformer):
         kids = self._tagsplit(kid.value)
         return s_ast.TagName(kids=kids)
 
+    def tagnamenospace(self, kids):
+        assert kids and len(kids) == 1
+        kid = kids[0]
+        if not isinstance(kid, lark.lexer.Token):
+            return self._convert_child(kid)
+
+        kids = self._tagsplit(kid.value)
+        return s_ast.TagName(kids=kids)
+
     def switchcase(self, kids):
         newkids = []
 
@@ -703,6 +714,7 @@ ruleClassMap = {
     'stormfunc': s_ast.Function,
     'tagcond': s_ast.TagCond,
     'tagprop': s_ast.TagProp,
+    'tagpropnospace': s_ast.TagProp,
     'tagvalu': s_ast.TagValue,
     'tagpropvalu': s_ast.TagPropValue,
     'tagvalucond': s_ast.TagValuCond,
