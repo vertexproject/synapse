@@ -1852,6 +1852,7 @@ class LibAxon(Lib):
             'list': self.list,
             'readlines': self.readlines,
             'jsonlines': self.jsonlines,
+            'csvrows': self.csvrows,
         }
 
     def strify(self, item):
@@ -2015,6 +2016,18 @@ class LibAxon(Lib):
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
+
+    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.snap.core.getAxon()
+
+        sha256 = await tostr(sha256)
+        dialect = await tostr(dialect)
+        fmtparams = await toprim(fmtparams)
+        async for item in self.runt.snap.core.axon.csvrows(sha256, dialect, **fmtparams):
+            yield item
+            await asyncio.sleep(0)
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -2674,6 +2687,33 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         regx = await self._getRegx(pattern, flags)
         return regx.findall(text)
+
+
+@registry.registerLib
+class LibCsv(Lib):
+    '''
+    A Storm Library for interacting with csvtool.
+    '''
+    _storm_locals = (
+        {'name': 'emit', 'desc': 'Emit a ``csv:row`` event to the Storm runtime for the given args.',
+         'type': {'type': 'function', '_funcname': '_libCsvEmit',
+                  'args': (
+                      {'name': '*args', 'type': 'any', 'desc': 'Items which are emitted as a ``csv:row`` event.', },
+                      {'name': 'table', 'type': 'str', 'default': None,
+                       'desc': 'The name of the table to emit data too. Optional.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+    )
+    _storm_lib_path = ('csv',)
+
+    def getObjLocals(self):
+        return {
+            'emit': self._libCsvEmit,
+        }
+
+    async def _libCsvEmit(self, *args, table=None):
+        row = [await toprim(a) for a in args]
+        await self.runt.snap.fire('csv:row', row=row, table=table)
 
 @registry.registerLib
 class LibExport(Lib):

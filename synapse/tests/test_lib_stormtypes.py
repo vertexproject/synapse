@@ -1404,6 +1404,42 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[1].get('prop'), 'newp')
             self.eq(err[1].get('form'), 'inet:ipv4')
 
+    async def test_storm_csv_emit(self):
+        async with self.getTestCore() as core:
+            await core.nodes('[test:str=1234 :tick=2001]')
+            await core.nodes('[test:str=9876 :tick=3001]')
+
+            q = "test:str " \
+                "$tick=$node.repr(tick) " \
+                "$lib.csv.emit($node.form(), $node.value(), $tick, table=mytable)"
+
+            mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
+            csv_rows = [m for m in mesgs if m[0] == 'csv:row']
+            self.len(2, csv_rows)
+            csv_rows.sort(key=lambda x: x[1].get('row')[1])
+            self.eq(csv_rows[0],
+                    ('csv:row', {'row': ['test:str', '1234', '2001/01/01 00:00:00.000'],
+                                 'table': 'mytable'}))
+            self.eq(csv_rows[1],
+                    ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
+                                 'table': 'mytable'}))
+
+            q = 'test:str $hehe=$node.props.hehe $lib.csv.emit(:tick, $hehe)'
+            mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
+            csv_rows = [m for m in mesgs if m[0] == 'csv:row']
+            self.len(2, csv_rows)
+            self.eq(csv_rows[0], ('csv:row', {'row': [978307200000, None], 'table': None}))
+            self.eq(csv_rows[1], ('csv:row', {'row': [32535216000000, None], 'table': None}))
+
+            # Sad path case...
+            q = '''
+                [ test:str=woot ]
+                $lib.csv.emit($path)
+            '''
+            mesgs = await core.stormlist(q, {'show': ('err', 'csv:row')})
+            err = mesgs[-2]
+            self.eq(err[1][0], 'NoSuchType')
+
     async def test_storm_text(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
@@ -5499,6 +5535,36 @@ class StormTypesTest(s_test.SynTest):
             items = await task
             self.len(6, items)
             self.eq(items[5][1], 'e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f')
+
+            fp = self.getTestFilePath('addresses.csv')
+
+            with s_common.genfile(fp) as fd:
+                buf = fd.read()
+            data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
+Jack,McGinnis,220 hobo Av.,Phila, PA,09119
+"John ""Da Man""",Repici,120 Jefferson St.,Riverside, NJ,08075
+Stephen,Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
+,Blankman,,SomeTown, SD, 00298
+"Joan ""the bone"", Anne",Jet,"9th, at Terrace plc",Desert City,CO,00123
+Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
+            size, sha256 = await core.axon.put(data.encode())
+            sha256 = s_common.ehex(sha256)
+            q = '''
+            $genr = $lib.axon.csvrows($sha256)
+            for $row in $genr {
+                $lib.fire(csvrow, row=$row)
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'sha256': sha256}})
+            rows = [m[1].get('data').get('row') for m in msgs if m[0] == 'storm:fire']
+            self.len(7, rows)
+            for row in rows:
+                self.len(6, row)
+            names = [row[0] for row in rows]
+            self.len(7, names)
+            self.isin('', names)
+            self.isin('Bob', names)
+            self.isin('John "Da Man"', names)
 
     async def test_storm_lib_export(self):
 

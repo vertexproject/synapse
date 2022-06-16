@@ -263,6 +263,30 @@ class AxonTest(s_t_utils.SynTest):
                 jsons.append(item)
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
+        # regular csv
+        data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
+Jack,McGinnis,220 hobo Av.,Phila, PA,09119
+"John ""Da Man""",Repici,120 Jefferson St.,Riverside, NJ,08075
+Stephen,Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
+,Blankman,,SomeTown, SD, 00298
+"Joan ""the bone"", Anne",Jet,"9th, at Terrace plc",Desert City,CO,00123
+Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
+        data = '\n'.join([data for _ in range(10)])
+        size, sha256 = await axon.put(data.encode())
+        rows = [row async for row in axon.csvrows(s_common.ehex(sha256))]
+        self.len(70, rows)
+        for row in rows:
+            self.len(6, row)
+
+        # CSV with alternative delimiter
+        data = '''foo|bar|baz
+words|word|wrd'''
+        size, sha256 = await axon.put(data.encode())
+        rows = [row async for row in axon.csvrows(s_common.ehex(sha256), delimiter='|')]
+        self.len(2, rows)
+        for row in rows:
+            self.len(3, row)
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)

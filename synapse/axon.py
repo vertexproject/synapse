@@ -1027,14 +1027,12 @@ class Axon(s_cell.Cell):
                 reader = csv.reader(lines, dialect, **fmtparams)
                 for row in reader:
                     yield row
-                    await asyncio.sleep(0)
                 lines.clear()
 
         if lines:
             reader = csv.reader(lines, dialect, **fmtparams)
             for row in reader:
                 yield row
-                await asyncio.sleep(0)
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
