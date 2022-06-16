@@ -268,7 +268,7 @@ class AxonTest(s_t_utils.SynTest):
         data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
 Jack,McGinnis,220 hobo Av.,Phila, PA,09119
 "John ""Da Man""",Repici,120 Jefferson St.,Riverside, NJ,08075
-Stephen,Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
+"Stephen, aka the dude",Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
 ,Blankman,,SomeTown, SD, 00298
 "Joan ""the bone"", Anne",Jet,"9th, at Terrace plc",Desert City,CO,00123
 Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
@@ -280,7 +280,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             self.len(6, row)
         names = {row[0] for row in rows}
         self.len(7, names)
-        enames = {'John', 'Jack', 'John "Da Man"', 'Stephen', '',
+        enames = {'John', 'Jack', 'John "Da Man"', 'Stephen, aka the dude', '',
                   'Joan "the bone", Anne', 'Bob'}
         self.eq(names, enames)
 
