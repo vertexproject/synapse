@@ -2710,7 +2710,6 @@ class LibRegx(Lib):
         regx = await self._getRegx(pattern, flags)
         return regx.findall(text)
 
-
 @registry.registerLib
 class LibCsv(Lib):
     '''
