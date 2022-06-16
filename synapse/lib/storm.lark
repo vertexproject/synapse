@@ -192,7 +192,7 @@ liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: _tagmatch
 tagnamenospace: _tagmatchnospace -> tagname
 tagprop: _tagmatch ":" BASEPROP
-tagpropnospace: _tagmatchnospace ":" BASEPROP
+tagpropnospace: _tagmatchnospace ":" BASEPROP -> tagprop
 formtagprop: (PROPS | UNIVNAME) _tagmatchnospace ":" BASEPROP
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
