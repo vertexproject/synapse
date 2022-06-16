@@ -1404,7 +1404,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(err[1].get('prop'), 'newp')
             self.eq(err[1].get('form'), 'inet:ipv4')
 
-    async def test_storm_csv_emit(self):
+    async def test_storm_csv(self):
         async with self.getTestCore() as core:
             await core.nodes('[test:str=1234 :tick=2001]')
             await core.nodes('[test:str=9876 :tick=3001]')
