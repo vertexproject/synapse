@@ -1048,7 +1048,7 @@ class Axon(s_cell.Cell):
         except TypeError as e:
             if 'invalid keyword' in str(e):
                 raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}') from None
-            else:
+            else:  # pragma: no cover
                 raise
         else:
             return reader

@@ -5536,10 +5536,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(6, items)
             self.eq(items[5][1], 'e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f')
 
-            fp = self.getTestFilePath('addresses.csv')
-
-            with s_common.genfile(fp) as fd:
-                buf = fd.read()
             data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
 Jack,McGinnis,220 hobo Av.,Phila, PA,09119
 "John ""Da Man""",Repici,120 Jefferson St.,Riverside, NJ,08075
