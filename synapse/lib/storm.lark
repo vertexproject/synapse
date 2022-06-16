@@ -190,7 +190,7 @@ liftbytag: (tagname | tagnamenospace) [_cmpr _valu]
 liftbytagprop: tagprop [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: _tagmatch
-tagnamenospace: _tagmatchnospace
+tagnamenospace: _tagmatchnospace -> tagname
 tagprop: _tagmatch ":" BASEPROP
 tagpropnospace: _tagmatchnospace ":" BASEPROP
 formtagprop: (PROPS | UNIVNAME) _tagmatchnospace ":" BASEPROP
@@ -225,8 +225,10 @@ _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | C
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: _HASHSPACE (_varvalu | TAGMATCH)
 _HASHSPACE.2: /((?<=\s)|^)#/
+
 _tagmatchnospace: _HASHNOSPACE (_varvalu | TAGMATCH)
 _HASHNOSPACE.2: /(?<!\s)#/
+
 // A tag name with asterisks or $var as segment after the first segment
 TAGMATCH:  _TAGSEGNOVAR ( "." (_TAGSEGNOVAR | "$" VARTOKN))*
 _TAGSEGNOVAR: /[\w*]+/

@@ -440,15 +440,6 @@ class AstConverter(lark.Transformer):
         kids = self._tagsplit(kid.value)
         return s_ast.TagName(kids=kids)
 
-    def tagnamenospace(self, kids):
-        assert kids and len(kids) == 1
-        kid = kids[0]
-        if not isinstance(kid, lark.lexer.Token):
-            return self._convert_child(kid)
-
-        kids = self._tagsplit(kid.value)
-        return s_ast.TagName(kids=kids)
-
     def switchcase(self, kids):
         newkids = []
 
