@@ -205,6 +205,10 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The currency of the balance amount.'}),
                     ('delta', ('econ:price', {}), {
                         'doc': 'The change since last regular sample.'}),
+                    ('total:received', ('econ:price', {}), {
+                        'doc': 'The total amount of currency received by the account.'}),
+                    ('total:sent', ('econ:price', {}), {
+                        'doc': 'The total amount of currency sent from the account.'}),
                 )),
 
 

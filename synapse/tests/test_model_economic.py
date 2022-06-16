@@ -211,6 +211,8 @@ class EconTest(s_utils.SynTest):
                     :amount = 123.45
                     :currency = usd
                     :delta = 12.00
+                    :total:received = 13.14
+                    :total:sent = 15.16
                 ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('pay:card'))
@@ -219,3 +221,5 @@ class EconTest(s_utils.SynTest):
             self.eq(nodes[0].get('amount'), '123.45')
             self.eq(nodes[0].get('currency'), 'usd')
             self.eq(nodes[0].get('delta'), '12')
+            self.eq(nodes[0].get('total:received'), '13.14')
+            self.eq(nodes[0].get('total:sent'), '15.16')
