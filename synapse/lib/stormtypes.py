@@ -1839,6 +1839,28 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
                               'desc': 'A JSON object parsed from a line of text.'}}},
+        {'name': 'csvrows', 'desc': '''
+            Yields CSV rows from a CSV file  file stored in the Axon.
+
+            Notes:
+                The dialect and fmtparams expose the Python csv.reader() parameters.
+
+            Example:
+                Get the rows from a given csv file::
+
+                    for $row in $lib.axon.csvrows($sha256) {
+                        $dostuff($row)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'csvrows',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'dialect', 'type': 'str', 'desc': 'The default CSV dialect to use.',
+                       'default': 'excel'},
+                      {'name': '**fmtparams', 'type': 'any', 'desc': 'Format arguments.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'A list of strings from the CSV file.'}}},
     )
     _storm_lib_path = ('axon',)
 
