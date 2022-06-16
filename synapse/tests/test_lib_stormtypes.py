@@ -5566,6 +5566,22 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
             self.isin('Bob', names)
             self.isin('John "Da Man"', names)
 
+            data = '''foo\tbar\tbaz
+words\tword\twrd'''
+            size, sha256 = await core.axon.put(data.encode())
+            sha256 = s_common.ehex(sha256)
+            # Note: The tab delimiter in the query here is double quoted
+            # so that we decode it in the Storm parser.
+            q = '''
+            $genr = $lib.axon.csvrows($sha256, delimiter="\\t")
+            for $row in $genr {
+                $lib.fire(csvrow, row=$row)
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'sha256': sha256}})
+            rows = [m[1].get('data').get('row') for m in msgs if m[0] == 'storm:fire']
+            self.eq(rows, [['foo', 'bar', 'baz'], ['words', 'word', 'wrd']])
+
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:

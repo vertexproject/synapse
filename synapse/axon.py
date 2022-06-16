@@ -549,6 +549,32 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             yield item
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
+        '''
+        Yield CSV rows from a CSV file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+            dialect (str): The CSV dialect to use.
+            **fmtparams: The CSV dialect format parameters.
+
+        Notes:
+            The dialect and fmtparams expose the Python csv.reader() parameters.
+
+        Examples:
+
+            Get the rows from a CSV file and process them::
+
+                async for row in axon.csvrows(sha256):
+                    await dostuff(row)
+
+            Get the rows from a tab seperated file and process them::
+
+                async for row in axon.csvrows(sha256, delimiter='\t'):
+                    await dostuff(row)
+
+        Yields:
+            list: Decoded CSV rows.
+        '''
         await self._reqUserAllowed(('axon', 'get'))
         async for item in self.cell.csvrows(sha256, dialect, **fmtparams):
             yield item
@@ -1015,6 +1041,18 @@ class Axon(s_cell.Cell):
         if remain:
             yield remain
 
+    @staticmethod
+    def _getCsvReader(lines, dialect, **fmtparams) -> csv.reader:
+        try:
+            reader = csv.reader(lines, dialect, **fmtparams)
+        except TypeError as e:
+            if 'invalid keyword' in str(e):
+                raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}') from None
+            else:
+                raise
+        else:
+            return reader
+
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
         dialect = dialect.lower()
         if dialect not in csv.list_dialects():
@@ -1024,13 +1062,13 @@ class Axon(s_cell.Cell):
         async for line in self.readlines(sha256):
             lines.append(line)
             if len(lines) >= 64:
-                reader = csv.reader(lines, dialect, **fmtparams)
+                reader = self._getCsvReader(lines, dialect, **fmtparams)
                 for row in reader:
                     yield row
                 lines.clear()
 
         if lines:
-            reader = csv.reader(lines, dialect, **fmtparams)
+            reader = self._getCsvReader(lines, dialect, **fmtparams)
             for row in reader:
                 yield row
 

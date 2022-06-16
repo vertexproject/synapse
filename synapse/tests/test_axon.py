@@ -1,3 +1,4 @@
+import csv
 import io
 import os
 import shutil
@@ -277,6 +278,11 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
         self.len(70, rows)
         for row in rows:
             self.len(6, row)
+        names = {row[0] for row in rows}
+        self.len(7, names)
+        enames = {'John', 'Jack', 'John "Da Man"', 'Stephen', '',
+                  'Joan "the bone", Anne', 'Bob'}
+        self.eq(names, enames)
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
@@ -286,6 +292,14 @@ words|word|wrd'''
         self.len(2, rows)
         for row in rows:
             self.len(3, row)
+
+        # CSV with bad dialect
+        with self.raises(s_exc.BadArg):
+            rows = [row async for row in axon.csvrows(s_common.ehex(sha256), dialect='newp')]
+
+        # Bad fmtparams
+        with self.raises(s_exc.BadArg) as cm:
+            rows = [row async for row in axon.csvrows(s_common.ehex(sha256), newp='newp')]
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:

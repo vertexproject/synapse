@@ -1851,6 +1851,12 @@ class LibAxon(Lib):
                     for $row in $lib.axon.csvrows($sha256) {
                         $dostuff($row)
                     }
+
+                Get the rows from a given tab separated file::
+
+                    for $row in $lib.axon.csvrows($sha256, delimiter="\\t") {
+                        $dostuff($row)
+                    }
             ''',
          'type': {'type': 'function', '_funcname': 'csvrows',
                   'args': (
