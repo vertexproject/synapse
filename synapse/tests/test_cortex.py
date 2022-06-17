@@ -732,12 +732,22 @@ class CortexTest(s_t_utils.SynTest):
             self.len(2, await core.nodes(storm))
             self.eq(orgcount + 4, len(await core.nodes('ou:org')))
 
+            # running pernode with runtsafe args
             storm = '''
                 function y(nn) { yield $nn }
                 [ test:str=foo test:str=bar ]
                 $n=$lib.null $n=$node divert $lib.true $y($n)
             '''
             self.sorteq(['foo', 'bar'], [n.ndef[1] for n in await core.nodes(storm)])
+
+            # empty input with non-runtsafe args
+            storm = '''
+            function x(y) {
+                [ ou:org=* ]
+            }
+            divert $lib.true $x($node)
+            '''
+            self.len(0, await core.nodes(storm))
 
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
