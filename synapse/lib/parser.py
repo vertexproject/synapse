@@ -437,7 +437,12 @@ class AstConverter(lark.Transformer):
         if not isinstance(kid, lark.lexer.Token):
             return self._convert_child(kid)
 
-        kids = self._tagsplit(kid.value)
+        valu = kid.value
+        if '*' in valu:
+            mesg = f"Invalid wildcard usage in tag {valu}"
+            raise s_exc.BadSyntax(mesg=mesg, tag=valu)
+
+        kids = self._tagsplit(valu)
         return s_ast.TagName(kids=kids)
 
     def switchcase(self, kids):
