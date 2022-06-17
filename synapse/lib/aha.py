@@ -147,11 +147,10 @@ class AhaApi(s_cell.CellApi):
         async def fini():
             if self.cell.isfini:  # pragma: no cover
                 mesg = f'{self.cell.__class__.__name__} is fini. Unable to set {name}@{network} as down.'
-                logger.warning(mesg, await self.cell.getLogExtra(name=svcname, netw=svcnetw))
+                logger.warning(mesg)
                 return
 
-            logger.debug(f'AhaCellApi fini, tearing down [{name}]',
-                         extra=await self.cell.getLogExtra(name=svcname, netw=svcnetw))
+            logger.debug(f'AhaCellApi fini, tearing down [{name}]')
             coro = self.cell.setAhaSvcDown(name, sess, network=network)
             self.cell.schedCoro(coro)  # this will eventually execute or get cancelled.
 
@@ -243,18 +242,10 @@ class ProvDmon(s_daemon.Daemon):
         provinfo = await self.aha.getAhaSvcProv(name)
         if provinfo is not None:
             await self.aha.delAhaSvcProv(name)
-            conf = provinfo.get('conf', {})
-            anam = conf.get('aha:name')
-            anet = conf.get('aha:network')
-            mesg = f'Retrieved service provisioning info for {anam}.{anet} iden {name}'
-            logger.debug(mesg, extra=await self.aha.getLogExtra(iden=name, name=anam, netw=anet))
             return ProvApi(self.aha, provinfo)
 
         userinfo = await self.aha.getAhaUserEnroll(name)
         if userinfo is not None:
-            unam = userinfo.get('name')
-            mesg = f'Retrieved user provisioning info for {unam} iden {name}'
-            logger.debug(mesg, extra=await self.aha.getLogExtra(iden=name, name=unam))
             await self.aha.delAhaUserEnroll(name)
             return EnrollApi(self.aha, userinfo)
 
@@ -421,8 +412,7 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]',
-                             extra=await self.getLogExtra(name=svcname, netw=network))
+                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]')
                 await self.setAhaSvcDown(svcname, linkiden, network=network)
 
         # Wait until we are cancelled or the cell is fini.
@@ -477,8 +467,7 @@ class AhaCell(s_cell.Cell):
         path = ('aha', 'services', svcnetw, svcname)
 
         unfo = info.get('urlinfo')
-        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]',
-                     extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+        logger.debug(f'Adding service [{svcfull}] from [{unfo.get("scheme")}://{unfo.get("host")}:{unfo.get("port")}]')
 
         svcinfo = {
             'name': svcfull,
@@ -532,8 +521,7 @@ class AhaCell(s_cell.Cell):
 
         await self.fire('aha:svcdown', svcname=svcname, svcnetw=svcnetw)
 
-        logger.debug(f'Set [{svcfull}] offline.',
-                     extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+        logger.debug(f'Set [{svcfull}] offline.')
 
     async def getAhaSvc(self, name, filters=None):
 
@@ -604,8 +592,7 @@ class AhaCell(s_cell.Cell):
             with open(path, 'rb') as fd:
                 return fd.read().decode()
 
-        logger.info(f'Generating CA certificate for {network}',
-                    extra=await self.getLogExtra(netw=network))
+        logger.info(f'Generating CA certificate for {network}')
         fut = s_coro.executor(self.certdir.genCaCert, network, save=False)
         pkey, cert = await fut
 
@@ -679,8 +666,7 @@ class AhaCell(s_cell.Cell):
         if signas is None:
             signas = hostname.split('.', 1)[1]
 
-        logger.info(f'Signing host CSR for [{hostname}], signas={signas}, sans={sans}',
-                    extra=await self.getLogExtra(hostname=hostname, signas=signas))
+        logger.info(f'Signing host CSR for [{hostname}], signas={signas}, sans={sans}')
 
         pkey, cert = self.certdir.signHostCsr(xcsr, signas=signas, sans=sans)
 
@@ -698,8 +684,7 @@ class AhaCell(s_cell.Cell):
         if signas is None:
             signas = username.split('@', 1)[1]
 
-        logger.info(f'Signing user CSR for [{username}], signas={signas}',
-                    extra=await self.getLogExtra(name=username, signas=signas))
+        logger.info(f'Signing user CSR for [{username}], signas={signas}')
 
         pkey, cert = self.certdir.signUserCsr(xcsr, signas=signas)
 
@@ -798,8 +783,7 @@ class AhaCell(s_cell.Cell):
 
         iden = await self._push('aha:svc:prov:add', provinfo)
 
-        logger.debug(f'Created service provisioning for {name}.{netw} with iden {iden}',
-                     extra=await self.getLogExtra(iden=iden, name=name, netw=netw))
+        logger.debug(f'Created provisioning for {name}.{netw}')
 
         return self._getProvClientUrl(iden)
 
@@ -876,10 +860,6 @@ class AhaCell(s_cell.Cell):
         }
 
         iden = await self._push('aha:enroll:add', userinfo)
-
-        logger.debug(f'Created user provisioning for {name} with iden {iden}',
-                     extra=await self.getLogExtra(iden=iden, name=name))
-
         return self._getProvClientUrl(iden)
 
     async def getAhaUserEnroll(self, iden):
