@@ -14,12 +14,12 @@ Features and Enhancements
   (`#2717 <https://github.com/vertexproject/synapse/pull/2717>`_)
 
   ``econ:acct:balance``
-    Add a ``total:received`` and ``total:sent`` properties to record total
+    Add ``total:received`` and ``total:sent`` properties to record total
     currency sent and received by the account.
 
 - Add additional debug logging for Aha provisioning.
   (`#2722 <https://github.com/vertexproject/synapse/pull/2722>`_)
-- Adjust whitespace requirements on Storm grammar related tags.
+- Adjust whitespace requirements on Storm grammar related to tags.
   (`#2721 <https://github.com/vertexproject/synapse/pull/2721>`_)
 - Always run the function provided to the Storm ``divert`` command per node.
   (`#2718 <https://github.com/vertexproject/synapse/pull/2718>`_)
