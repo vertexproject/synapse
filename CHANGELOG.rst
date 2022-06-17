@@ -17,6 +17,13 @@ Features and Enhancements
     Add a ``total:received`` and ``total:sent`` properties to record total
     currency sent and received by the account.
 
+- Add additional debug logging for Aha provisioning.
+  (`#2722 <https://github.com/vertexproject/synapse/pull/2722>`_)
+- Adjust whitespace requirements on Storm grammar related tags.
+  (`#2721 <https://github.com/vertexproject/synapse/pull/2721>`_)
+- Always run the function provided to the Storm ``divert`` command per node.
+  (`#2718 <https://github.com/vertexproject/synapse/pull/2718>`_)
+
 Bugfixes
 --------
 - Fix an issue that prevented function arguments named ``func`` in Storm
@@ -25,6 +32,9 @@ Bugfixes
 - Ensure that active coroutines have been cancelled when changing a Cell from
   active to passive status; before starting any passive coroutines.
   (`#2713 <https://github.com/vertexproject/synapse/pull/2713>`_)
+- Fix an issue where the ``Nexus._tellAhaReady`` was registering with the Aha
+  cell when the Cell did not have a proper Aha service name set.
+  (`#2723 <https://github.com/vertexproject/synapse/pull/2723>`_)
 
 
 v2.97.0 - 2022-06-06
