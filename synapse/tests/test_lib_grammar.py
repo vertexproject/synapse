@@ -1367,6 +1367,14 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(errinfo.get('valu'), '\'"foo\\x00bar"\'')
         self.true(errinfo.get('mesg').startswith('Invalid character in string \'"foo\\x00bar"\''))
 
+        query = '''#test.*.bar'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('tag'), 'test.*.bar')
+        self.true(errinfo.get('mesg').startswith('Invalid wildcard usage in tag test.*.bar'))
+
     async def test_quotes(self):
 
         # Test vectors
