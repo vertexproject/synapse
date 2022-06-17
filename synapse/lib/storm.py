@@ -2639,46 +2639,7 @@ class DivertCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if self.runtsafe:
-
-            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
-                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
-
-            size = await s_stormtypes.toint(self.opts.size, noneok=True)
-            doyield = await s_stormtypes.tobool(self.opts.cond)
-
-            try:
-                count = 0
-                if doyield:
-
-                    # in a runtsafe yield case we drop all the nodes
-                    async for item in genr:
-                        await asyncio.sleep(0)
-
-                    async for item in self.opts.genr:
-                        yield item
-                        count += 1
-                        if size is not None and count >= size:
-                            return
-                else:
-
-                    # in a runtsafe non-yield case we pass nodes through
-                    async for origitem in genr:
-                        yield origitem
-
-                    async for item in self.opts.genr:
-                        await asyncio.sleep(0)
-                        count += 1
-                        if size is not None and count >= size:
-                            return
-            finally:
-                await self.opts.genr.aclose()
-
-            return
-
-        # non-runtsafe
-        async for item in genr:
-
+        async def run(item):
             if not isinstance(self.opts.genr, types.AsyncGeneratorType):
                 raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
@@ -2702,9 +2663,21 @@ class DivertCmd(Cmd):
                         if size is not None and count >= size:
                             break
 
-                    yield item
+                    if item is not None:
+                        yield item
+
             finally:
                 await self.opts.genr.aclose()
+
+        empty = True
+        async for item in genr:
+            empty = False
+            async for runitem in run(item):
+                yield runitem
+
+        if empty:
+            async for runitem in run(None):
+                yield runitem
 
 class HelpCmd(Cmd):
     '''

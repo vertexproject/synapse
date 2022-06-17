@@ -1052,15 +1052,15 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprOrNode: [Const: 1, Const: or, ExprAndNode: [Const: 0, Const: and, Const: 0]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprAndNode: [UnaryExprNode: [Const: not, Const: 1], Const: and, Const: 1]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, ExprNode: [Const: 1, Const: >, Const: 1]]]]]',
-    'Query: [LiftTagProp: [TagProp: [TagMatch: [Const: baz.faz], Const: lol]]]',
-    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, TagMatch: [Const: baz.faz], Const: lol]]]',
-    'Query: [LiftTagProp: [TagProp: [TagMatch: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
-    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, TagMatch: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
-    'Query: [FiltOper: [Const: +, HasTagPropCond: [TagProp: [TagMatch: [Const: foo.bar], Const: lol]]]]',
-    'Query: [FiltOper: [Const: +, TagPropCond: [TagProp: [TagMatch: [Const: foo.bar], Const: lol], Const: =, Const: 20]]]',
-    'Query: [EditTagPropDel: [TagProp: [TagMatch: [Const: baz.faz], Const: lol]]]',
-    'Query: [EditTagPropSet: [TagProp: [TagMatch: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
-    'Query: [LiftTagProp: [TagProp: [TagMatch: [Const: tag], Const: somegeoloctypebecauseihatelife], Const: near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
+    'Query: [LiftTagProp: [TagProp: [TagName: [Const: baz.faz], Const: lol]]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, TagName: [Const: baz.faz], Const: lol]]]',
+    'Query: [LiftTagProp: [TagProp: [TagName: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftFormTagProp: [FormTagProp: [Const: foo:bar, TagName: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
+    'Query: [FiltOper: [Const: +, HasTagPropCond: [TagProp: [TagName: [Const: foo.bar], Const: lol]]]]',
+    'Query: [FiltOper: [Const: +, TagPropCond: [TagProp: [TagName: [Const: foo.bar], Const: lol], Const: =, Const: 20]]]',
+    'Query: [EditTagPropDel: [TagProp: [TagName: [Const: baz.faz], Const: lol]]]',
+    'Query: [EditTagPropSet: [TagProp: [TagName: [Const: baz.faz], Const: lol], Const: =, Const: 20]]',
+    'Query: [LiftTagProp: [TagProp: [TagName: [Const: tag], Const: somegeoloctypebecauseihatelife], Const: near=, List: [VarValue: [Const: lat], VarValue: [Const: long]]]]',
     'Query: [LiftPropBy: [VarValue: [Const: foo], Const: near=, Const: 20]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarDeref: [VarValue: [Const: foo], Const: woot], Const: var], VarValue: [Const: bar]], Const: mar], VarValue: [Const: car]]]]',
     'Query: [LiftPropBy: [Const: test:str, Const: =, VarDeref: [VarDeref: [VarValue: [Const: foo], VarValue: [Const: space key]], Const: subkey]]]',
@@ -1366,6 +1366,14 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.eq(errinfo.get('valu'), '\'"foo\\x00bar"\'')
         self.true(errinfo.get('mesg').startswith('Invalid character in string \'"foo\\x00bar"\''))
+
+        query = '''#test.*.bar'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(errinfo.get('tag'), 'test.*.bar')
+        self.true(errinfo.get('mesg').startswith('Invalid wildcard usage in tag test.*.bar'))
 
     async def test_quotes(self):
 
