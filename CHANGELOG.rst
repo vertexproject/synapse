@@ -33,7 +33,7 @@ Bugfixes
   active to passive status; before starting any passive coroutines.
   (`#2713 <https://github.com/vertexproject/synapse/pull/2713>`_)
 - Fix an issue where the ``Nexus._tellAhaReady`` was registering with the Aha
-  cell when the Cell did not have a proper Aha service name set.
+  service when the Cell did not have a proper Aha service name set.
   (`#2723 <https://github.com/vertexproject/synapse/pull/2723>`_)
 
 
