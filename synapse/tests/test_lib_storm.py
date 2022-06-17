@@ -3665,9 +3665,11 @@ class StormTest(s_t_utils.SynTest):
 
             q = 'media:news:org #test'
             self.len(2, await core.nodes(q))
+            self.len(1, await core.nodes('#test'))
 
             q = 'media:news:org #test:score'
             self.len(2, await core.nodes(q))
+            self.len(1, await core.nodes('#test:score'))
 
             q = 'media:news:org#test'
             msgs = await core.stormlist(q)

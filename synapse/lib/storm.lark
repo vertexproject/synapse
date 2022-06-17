@@ -187,7 +187,7 @@ liftprop: ((PROPS | UNIVNAME) | _DEREF _varvalu)
 liftbyarray: ((PROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
 lifttagtag:(_HASHSPACE | _HASHNOSPACE) tagnamenospace [_cmpr _valu]
 liftbytag: (tagname | tagnamenospace) [_cmpr _valu]
-liftbytagprop: tagprop [_cmpr _valu]
+liftbytagprop: (tagprop | tagpropnospace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: _tagmatch
 tagnamenospace: _tagmatchnospace -> tagname
@@ -224,7 +224,7 @@ _cmdrargv: baresubquery | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CMDRTOKN | C
 
 // A tag with either a variable reference or a tag name potentially with asterisks
 _tagmatch: _HASHSPACE (_varvalu | TAGMATCH)
-_HASHSPACE.2: /((?<=\s)|^)#/
+_HASHSPACE.2: /(?<=\s)#/
 
 _tagmatchnospace: _HASHNOSPACE (_varvalu | TAGMATCH)
 _HASHNOSPACE.2: /(?<!\s)#/
