@@ -5,6 +5,28 @@ Synapse Changelog
 *****************
 
 
+v2.98.0 - 2022-06-17
+====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``econ`` model.
+  (`#2717 <https://github.com/vertexproject/synapse/pull/2717>`_)
+
+  ``econ:acct:balance``
+    Add a ``total:received`` and ``total:sent`` properties to record total
+    currency sent and received by the account.
+
+Bugfixes
+--------
+- Fix an issue that prevented function arguments named ``func`` in Storm
+  function calls.
+  (`#2715 <https://github.com/vertexproject/synapse/pull/2715>`_)
+- Ensure that active coroutines have been cancelled when changing a Cell from
+  active to passive status; before starting any passive coroutines.
+  (`#2713 <https://github.com/vertexproject/synapse/pull/2713>`_)
+
+
 v2.97.0 - 2022-06-06
 ====================
 
