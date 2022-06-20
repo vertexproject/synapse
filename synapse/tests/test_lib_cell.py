@@ -1254,6 +1254,15 @@ class CellTest(s_t_utils.SynTest):
                             with self.raises(asyncio.TimeoutError):
                                 await asyncio.wait_for(arch, timeout=0.1)
 
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('dupbackup', remove=True))
+                            task = core.schedCoro(arch)
+                            await asyncio.sleep(0)
+
+                            fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadystreaming', remove=True))
+                            await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
+                            task.cancel()
+                            await asyncio.sleep(0.1)
+
                         async def _slowFakeBackup(self, name=None, wait=True):
                             s_common.gendir(os.path.join(backdirn, name))
                             await asyncio.sleep(3.0)
