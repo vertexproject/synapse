@@ -1835,12 +1835,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
         if self.backupstreaming:
-            print('FAIL', name)
             raise s_exc.BackupAlreadyRunning(mesg='Another streaming backup is already running')
 
         try:
             if remove:
-                print('STREAMING', name)
                 self.backupstreaming = True
 
             success = False
@@ -1918,7 +1916,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         finally:
             if remove:
-                print('DONESTREAMING', name)
                 self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
