@@ -16,6 +16,26 @@ import synapse.lib.version as s_version
 
 reqver = '>=0.2.0,<3.0.0'
 
+def genopts(rows=None, show=None, view=None, editformat=None, opts=None):
+    vars = {}
+    ret = {'vars': vars}
+    if editformat:
+        ret['editformat'] = editformat
+    if view:
+        ret['view'] = view
+    if show:
+        ret['show'] = show
+    if rows:
+        vars['rows'] = rows
+    if opts:
+        for k, v in opts.items():
+            if k == 'vars':
+                for _k, _v in v.items():
+                    vars.setdefault(_k, _v)
+            else:
+                ret.setdefault(k, v)
+    return ret
+
 async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
 
@@ -32,7 +52,11 @@ async def main(argv, outp=s_output.stdout):
         view = opts.view
         if not s_common.isguid(view):
             outp.printf(f'View is not a guid {view}')
-            return 1
+            return -1
+
+    optsfile_opts = None
+    if opts.optsfile:
+        optsfile_opts = s_common.yamlload(opts.optsfile)
 
     if opts.export:
 
@@ -61,14 +85,12 @@ async def main(argv, outp=s_output.stdout):
             with open(path, 'w') as fd:
 
                 wcsv = csv.writer(fd)
-
                 # prevent streaming nodes by limiting shown events
-                opts = {'show': ('csv:row', 'print', 'warn', 'err')}
-                if view:
-                    opts['view'] = view
+                stormopts = genopts(show=('csv:row', 'print', 'warn', 'err'), view=view,
+                                    opts=optsfile_opts)
 
                 count = 0
-                async for name, info in core.storm(text, opts=opts):
+                async for name, info in core.storm(text, opts=stormopts):
 
                     if name == 'csv:row':
                         count += 1
@@ -82,7 +104,7 @@ async def main(argv, outp=s_output.stdout):
 
                 outp.printf(f'exported {count} csv rows.')
 
-        return
+        return 0
 
     def iterrows():
         for path in opts.csvfiles:
@@ -113,12 +135,8 @@ async def main(argv, outp=s_output.stdout):
 
         for rows in rowgenr:
 
-            stormopts = {
-                'vars': {'rows': rows},
-                'editformat': 'splices',
-            }
-            if view:
-                opts['view'] = view
+            stormopts = genopts(rows=rows, editformat='splices', view=view,
+                                opts=optsfile_opts)
 
             async for mesg in core.storm(text, opts=stormopts):
 
@@ -221,8 +239,10 @@ def makeargparser():
                       help='Perform a local CSV ingest against a temporary cortex.')
     pars.add_argument('--export', default=False, action='store_true',
                       help='Export CSV data to file from storm using $lib.csv.emit(...) events.')
-    pars.add_argument('--view', default=None, action='store_true',
+    pars.add_argument('--view', default=None, action='store',
                       help='Optional view to work in.')
+    pars.add_argument('--optsfile', default=None, action='store',
+                      help='Path to a opts file (.yaml) on disk.')
     pars.add_argument('stormfile', help='A Storm script describing how to create nodes from rows.')
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
