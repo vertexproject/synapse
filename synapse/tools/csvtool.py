@@ -16,26 +16,6 @@ import synapse.lib.version as s_version
 
 reqver = '>=0.2.0,<3.0.0'
 
-def genopts(rows=None, show=None, view=None, editformat=None, opts=None):
-    vars = {}
-    ret = {'vars': vars}
-    if editformat:
-        ret['editformat'] = editformat
-    if view:
-        ret['view'] = view
-    if show:
-        ret['show'] = show
-    if rows:
-        vars['rows'] = rows
-    if opts:
-        for k, v in opts.items():
-            if k == 'vars':
-                for _k, _v in v.items():
-                    vars.setdefault(_k, _v)
-            else:
-                ret.setdefault(k, v)
-    return ret
-
 async def main(argv, outp=s_output.stdout):
     pars = makeargparser()
 
@@ -47,16 +27,15 @@ async def main(argv, outp=s_output.stdout):
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
 
-    view = None
-    if opts.view:
-        view = opts.view
-        if not s_common.isguid(view):
-            outp.printf(f'View is not a guid {view}')
-            return -1
-
-    optsfile_opts = None
+    stormopts = {}
     if opts.optsfile:
-        optsfile_opts = s_common.yamlload(opts.optsfile)
+        stormopts = s_common.yamlload(opts.optsfile)
+
+    if opts.view:
+        if not s_common.isguid(opts.view):
+            outp.printf(f'View is not a guid {opts.view}')
+            return -1
+        stormopts['view'] = opts.view
 
     if opts.export:
 
@@ -86,9 +65,7 @@ async def main(argv, outp=s_output.stdout):
 
                 wcsv = csv.writer(fd)
                 # prevent streaming nodes by limiting shown events
-                stormopts = genopts(show=('csv:row', 'print', 'warn', 'err'), view=view,
-                                    opts=optsfile_opts)
-
+                stormopts['show'] = ('csv:row', 'print', 'warn', 'err')
                 count = 0
                 async for name, info in core.storm(text, opts=stormopts):
 
@@ -133,10 +110,12 @@ async def main(argv, outp=s_output.stdout):
 
         nodecount = 0
 
+        stormopts['editformat'] = 'splices'
+        vars = stormopts.setdefault('vars', {})
+
         for rows in rowgenr:
 
-            stormopts = genopts(rows=rows, editformat='splices', view=view,
-                                opts=optsfile_opts)
+            vars['rows'] = rows
 
             async for mesg in core.storm(text, opts=stormopts):
 
@@ -242,7 +221,7 @@ def makeargparser():
     pars.add_argument('--view', default=None, action='store',
                       help='Optional view to work in.')
     pars.add_argument('--optsfile', default=None, action='store',
-                      help='Path to a opts file (.yaml) on disk.')
+                      help='Path to an opts file (.yaml) on disk.')
     pars.add_argument('stormfile', help='A Storm script describing how to create nodes from rows.')
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
