@@ -765,19 +765,23 @@ class LibStixImport(s_stormtypes.Lib):
             'name': 'config', 'desc': '''
             Return an editable copy of the default STIX ingest config.
             ''',
-            'type': 'function', '_funcname': 'config',
-            'returns': {'type': 'dict', 'desc': 'A copy of the default STIX ingest configuration.'}
+            'type': {
+                'type': 'function', '_funcname': 'config',
+                'returns': {'type': 'dict', 'desc': 'A copy of the default STIX ingest configuration.'},
+            },
         },
         {
             'name': 'ingest', 'desc': '''
             Import nodes from a STIX bundle.
             ''',
-            'type': 'function', '_funcname': 'ingest',
-            'args': (
-                {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
-                {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
-            ),
-            'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+            'type': {
+                'type': 'function', '_funcname': 'ingest',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
+                    {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
+                ),
+                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+            },
         },
     )
 
