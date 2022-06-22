@@ -81,11 +81,11 @@ class StormCellTest(s_test.SynTest):
             day = await core.callStorm('return($lib.time.format($lib.time.now(), "%Y-%m-%d"))')
 
             msgs = await core.stormlist('uptime')
-            self.stormIsInPrint('up 0 days, 0 hours', msgs)
+            self.stormIsInPrint('up 00:00:', msgs)
             self.stormIsInPrint(f'since {day}', msgs)
 
             msgs = await core.stormlist('uptime testsvc')
-            self.stormIsInPrint('up 0 days, 0 hours', msgs)
+            self.stormIsInPrint('up 00:00:', msgs)
             self.stormIsInPrint(f'since {day}', msgs)
 
             msgs = await core.stormlist('uptime newp')
@@ -93,17 +93,12 @@ class StormCellTest(s_test.SynTest):
 
             svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour) / 1000
             msgs = await core.stormlist('uptime testsvc')
-            self.stormIsInPrint('up 1 day, 2 hours', msgs)
+            self.stormIsInPrint('up 1D 02:00:', msgs)
             self.stormIsInPrint(day, msgs)
 
             resp = await core.callStorm('return($lib.cell.uptime())')
             self.eq(core.startms, resp['starttime'])
             self.lt(resp['uptime'], s_const.minute)
-            self.eq({
-                'days': 0,
-                'hours': 0,
-                'minutes': 0,
-            }, resp['uptime_parts'])
 
     async def test_stormfix_autoadds(self):
 

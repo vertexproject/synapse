@@ -251,19 +251,7 @@ class CellLib(s_stormtypes.Lib):
             await ssvc.proxy.waitready()
             info = await ssvc.proxy.getSystemInfo()
 
-        starttime = info['cellstarttime']
-        uptime = info['celluptime']
-
-        days, rem = divmod(uptime, s_const.day)
-        hrs, rem = divmod(rem, s_const.hour)
-        mins, rem = divmod(rem, s_const.minute)
-
         return {
-            'starttime': starttime,
-            'uptime': uptime,
-            'uptime_parts': {
-                'days': days,
-                'hours': hrs,
-                'minutes': mins,
-            },
+            'starttime': info['cellstarttime'],
+            'uptime': info['celluptime'],
         }
