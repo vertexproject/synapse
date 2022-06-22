@@ -844,7 +844,7 @@ class LibStixImport(s_stormtypes.Lib):
                 node = await self._callStorm(objstorm, {'bundle': bundle, 'object': obj})
                 if node is not None:
                     nodesbyid[obj.get('id')] = node
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception as e:
                 await self.runt.snap.warn(f'Error during STIX import callback for {objtype}: {e}')
@@ -879,7 +879,7 @@ class LibStixImport(s_stormtypes.Lib):
                     continue
 
                 relstorm = relconf.get('storm')
-                if relstorm is None:
+                if relstorm is None: # pragma: no cover
                     continue
 
                 foundone = True
@@ -888,7 +888,7 @@ class LibStixImport(s_stormtypes.Lib):
                     node = await self._callStorm(relstorm, {'bundle': bundle, 'n1node': n1node, 'n2node': n2node})
                     if node is not None:
                         nodesbyid[rel.get('id')] = node
-                except asyncio.CancelledError:
+                except asyncio.CancelledError: # pragma: no cover
                     raise
                 except Exception as e:
                     await self.runt.snap.warn(f'Error during STIX import callback for {reltype}: {e}')

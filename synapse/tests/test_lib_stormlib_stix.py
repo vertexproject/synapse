@@ -319,3 +319,18 @@ class StormLibStixTest(s_test.SynTest):
             ''', opts={'view': viewiden, 'vars': {'stix': stix}})
             self.len(5, await core.nodes('it:cmd', opts={'view': viewiden}))
             self.len(0, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
+            msgs = await core.stormlist('''
+                $config = $lib.stix.import.config()
+                $storm00 = ${ $lib.raise(omg, omg) }
+                $config.objects."threat-actor" = ({"storm": $storm00})
+                $config.relationships = ([{
+                    "type": [$lib.null, "indicates", $lib.null],
+                    "storm": $storm00,
+                }])
+                yield $lib.stix.import.ingest($stix, config=$config)
+            ''', opts={'view': viewiden, 'vars': {'stix': stix}})
+            self.stormIsInWarn('Error during STIX import callback for threat-actor:', msgs)
+            self.stormIsInWarn("Error during STIX import callback for (None, 'indicates', None): StormRaise", msgs)
