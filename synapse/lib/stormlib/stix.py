@@ -897,7 +897,6 @@ class LibStixImport(s_stormtypes.Lib):
                 await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
 
         # attempt to resolve object_refs
-        self.runt.layerConfirm(('node', 'edge', 'add', 'refs'))
         for obj in bundle.get('objects'):
 
             node = nodesbyid.get(obj.get('id'))
