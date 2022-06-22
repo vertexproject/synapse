@@ -1,8 +1,36 @@
 import synapse.exc as s_exc
 
-import synapse.lib.stormlib.cell as s_cell
+import synapse.lib.cell as s_cell
+import synapse.lib.const as s_const
+import synapse.lib.stormsvc as s_stormsvc
+import synapse.lib.stormlib.cell as s_stormlib_cell
 
 import synapse.tests.utils as s_test
+
+class TestsvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
+    _storm_svc_name = 'testsvc'
+    _storm_svc_vers = (0, 0, 1)
+    _storm_svc_pkgs = (
+        {
+            'name': 'testsvc',
+            'version': (0, 0, 1),
+            'commands': (
+                {
+                    'name': 'testsvc.test',
+                    'storm': '$lib.print($lib.service.get($cmdconf.svciden).test())',
+                },
+            )
+        },
+    )
+
+    async def test(self):
+        return await self.cell.test()
+
+class Testsvc(s_cell.Cell):
+    cellapi = TestsvcApi
+
+    async def test(self):
+        return 'foo'
 
 class StormCellTest(s_test.SynTest):
 
@@ -25,9 +53,9 @@ class StormCellTest(s_test.SynTest):
 
             # New cores have stormvar set to the current max version fix
             vers = await core.callStorm('return ( $lib.globals.get($key) )',
-                                        {'vars': {'key': s_cell.runtime_fixes_key}})
+                                        {'vars': {'key': s_stormlib_cell.runtime_fixes_key}})
             self.nn(vers)
-            self.eq(vers, s_cell.getMaxHotFixes())
+            self.eq(vers, s_stormlib_cell.getMaxHotFixes())
 
             user = await core.addUser('bob')
             opts = {'user': user.get('iden')}
@@ -43,6 +71,39 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.getHealthCheck() )', opts=opts)
+
+    async def test_stormlib_cell_uptime(self):
+
+        async with self.getTestCoreProxSvc(Testsvc) as (core, prox, svc):
+
+            self.eq('foo', await core.callStorm('return($lib.service.get(testsvc).test())'))
+
+            day = await core.callStorm('return($lib.time.format($lib.time.now(), "%Y-%m-%d"))')
+
+            msgs = await core.stormlist('uptime')
+            self.stormIsInPrint('up 0 days, 0 hours', msgs)
+            self.stormIsInPrint(f'since {day}', msgs)
+
+            msgs = await core.stormlist('uptime testsvc')
+            self.stormIsInPrint('up 0 days, 0 hours', msgs)
+            self.stormIsInPrint(f'since {day}', msgs)
+
+            msgs = await core.stormlist('uptime newp')
+            self.stormIsInErr('No service with name/iden: newp', msgs)
+
+            svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour) / 1000
+            msgs = await core.stormlist('uptime testsvc')
+            self.stormIsInPrint('up 1 day, 2 hours', msgs)
+            self.stormIsInPrint(day, msgs)
+
+            resp = await core.callStorm('return($lib.cell.uptime())')
+            self.eq(core.startms, resp['starttime'])
+            self.lt(resp['uptime'], s_const.minute)
+            self.eq({
+                'days': 0,
+                'hours': 0,
+                'minutes': 0,
+            }, resp['uptime_parts'])
 
     async def test_stormfix_autoadds(self):
 
@@ -169,7 +230,7 @@ class StormCellTest(s_test.SynTest):
             self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
 
             # Set the hotfix valu
-            opts = {'vars': {'key': s_cell.runtime_fixes_key, 'valu': (2, 0, 0)}}
+            opts = {'vars': {'key': s_stormlib_cell.runtime_fixes_key, 'valu': (2, 0, 0)}}
             await core.callStorm('$lib.globals.set($key, $valu)', opts)
 
             # Run all hotfixes.

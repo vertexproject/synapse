@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,14 @@ class CellLib(s_stormtypes.Lib):
                        'desc': 'Time (in seconds) to wait for consumers to catch-up before culling.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The offset that was culled (up to and including).'}}},
+        {'name': 'uptime', 'desc': 'Get update data for the Cortex or a connected Service.',
+         'type': {'type': 'function', '_funcname': '_uptime',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                       'desc': 'The name, or iden, of the service to get uptime data for '
+                               '(defaults to the Cortex if not provided).'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary containing uptime data.', }}},
     )
     _storm_lib_path = ('cell',)
 
@@ -136,6 +145,7 @@ class CellLib(s_stormtypes.Lib):
             'hotFixesApply': self._hotFixesApply,
             'hotFixesCheck': self._hotFixesCheck,
             'trimNexsLog': self._trimNexsLog,
+            'uptime': self._uptime,
         }
 
     async def _hotFixesApply(self):
@@ -226,3 +236,34 @@ class CellLib(s_stormtypes.Lib):
             consumers = [await s_stormtypes.tostr(turl) async for turl in s_stormtypes.toiter(consumers)]
 
         return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)
+
+    async def _uptime(self, name=None):
+
+        name = await s_stormtypes.tostr(name, noneok=True)
+
+        if name is None:
+            info = await self.runt.snap.core.getSystemInfo()
+        else:
+            ssvc = self.runt.snap.core.getStormSvc(name)
+            if ssvc is None:
+                mesg = f'No service with name/iden: {name}'
+                raise s_exc.NoSuchName(mesg=mesg)
+            await ssvc.proxy.waitready()
+            info = await ssvc.proxy.getSystemInfo()
+
+        starttime = info['cellstarttime']
+        uptime = info['celluptime']
+
+        days, rem = divmod(uptime, s_const.day)
+        hrs, rem = divmod(rem, s_const.hour)
+        mins, rem = divmod(rem, s_const.minute)
+
+        return {
+            'starttime': starttime,
+            'uptime': uptime,
+            'uptime_parts': {
+                'days': days,
+                'hours': hrs,
+                'minutes': mins,
+            },
+        }

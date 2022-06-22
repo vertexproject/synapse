@@ -1415,6 +1415,28 @@ stormcmds = (
             [ <(about)+ { yield $note } ]
         ''',
     },
+    {
+        'name': 'uptime',
+        'descr': 'Print the uptime for the Cortex or a connected service.',
+        'cmdargs': (
+            ('name', {'type': 'str', 'nargs': '?',
+                      'help': 'The name, or iden, of the service (if not provided defaults to the Cortex).'}),
+        ),
+        'storm': '''
+            function fixplural(word, val) {
+                if ($val != 1) { $word = $lib.str.concat($word, "s") }
+                return($lib.str.format("{val} {word}", val=$val, word=$word))
+            }
+
+            $resp = $lib.cell.uptime(name=$cmdopts.name)
+
+            $lib.print("up {days}, {hrs}, {mins} (since {since})",
+                        days=$fixplural("day", $resp.uptime_parts.days),
+                        hrs=$fixplural("hour", $resp.uptime_parts.hours),
+                        mins=$fixplural("minute", $resp.uptime_parts.minutes),
+                        since=$lib.time.format($resp.starttime, "%Y-%m-%d %H:%M"))
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
