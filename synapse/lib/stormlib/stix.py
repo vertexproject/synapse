@@ -766,7 +766,7 @@ class LibStixImport(s_stormtypes.Lib):
             Return an editable copy of the default STIX ingest config.
             ''',
             'type': 'function', '_funcname': 'config',
-            'returns': {'name': 'config', 'type': 'dict', 'desc': 'A copy of the default STIX ingest configuration.'}
+            'returns': {'type': 'dict', 'desc': 'A copy of the default STIX ingest configuration.'}
         },
         {
             'name': 'ingest', 'desc': '''
