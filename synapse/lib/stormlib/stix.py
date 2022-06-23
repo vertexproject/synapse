@@ -8,6 +8,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -570,16 +571,13 @@ class LibStix(s_stormtypes.Lib):
             'type': {
                 'type': 'function', '_funcname': 'liftBundle',
                 'args': (
-                    {'type': 'dict', 'name': 'bundle', 'desc': 'The stix bundle to lift nodes from.'},
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to lift nodes from.'},
                 ),
                 'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
             }
         },
     )
     _storm_lib_path = ('stix', )
-
-    def __init__(self, runt, name=()):
-        s_stormtypes.Lib.__init__(self, runt, name)
 
     def getObjLocals(self):
         return {
@@ -593,6 +591,7 @@ class LibStix(s_stormtypes.Lib):
 
     async def liftBundle(self, bundle):
         bundle = await s_stormtypes.toprim(bundle)
+
         for obj in bundle.get('objects', ()):
             exts = obj.get('extensions')
             if not exts:
@@ -606,6 +605,334 @@ class LibStix(s_stormtypes.Lib):
             node = await self.runt.snap.getNodeByNdef(ndef)
             if node:
                 yield node
+
+stixingest = {
+    'addbundle': True,
+    'bundle': {
+        'storm': '''
+            it:sec:stix:bundle:id=$bundle.id
+            return($node)
+            [ it:sec:stix:bundle=* :id=$bundle.id ]
+            return($node)
+        ''',
+    },
+    'objects': {
+        'intrusion-set': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(ou:name, $object.name)
+                if $ok {
+
+                    ou:name=$name -> ou:org
+                    { for $alias in $object.aliases { [ :names?+=$alias ] } }
+                    return($node)
+
+                    [ ou:org=* :name=$name ]
+                    { for $alias in $object.aliases { [ :names?+=$alias ] } }
+                    return($node)
+                }
+            ''',
+        },
+        'identity': {
+            'storm': '''
+                switch $object.identity_class {
+                    group: {[ ps:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    organization: {[ ps:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    individual: {[ ps:contact=(stix, identity, $object.id) :name?=$object.name ]}
+                    system: {[ it:host=(stix, identity, $object.id) :name?=$object.name ]}
+                }
+            ''',
+        },
+        'tool': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(it:prod:softname, $object.name)
+                if $ok {
+                    it:prod:softname=$name -> it:prod:soft
+                    return($node)
+                    [ it:prod:soft=* :name=$name ]
+                    return($node)
+                }
+            ''',
+        },
+        'threat-actor': {
+            'storm': '''
+                [ ps:contact=(stix, threat-actor, $object.id)
+                    :name?=$object.name
+                    :desc?=$object.description
+                    :names?=$object.aliases
+                ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'course-of-action': {
+            'storm': '''
+                [ risk:mitigation=(stix, course-of-action, $object.id)
+                    :name?=$object.name
+                    :desc?=$object.description
+                ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'campaign': {
+            'storm': '''
+                [ ou:campaign=(stix, campaign, $object.id)
+                    :name?=$object.name
+                    :desc?=$object.description
+                    .seen?=$object.last_seen
+                    .seen?=$object.first_seen
+                ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'malware': {
+            'storm': '''
+                ($ok, $name) = $lib.trycast(it:prod:softname, $object.name)
+                if $ok {
+                    it:prod:softname=$name -> it:prod:soft
+                    return($node)
+                    [ it:prod:soft=* :name=$name ]
+                    return($node)
+                }
+            ''',
+        },
+        'indicator': {
+            'storm': '''
+                $guid = $lib.guid(stix, indicator, $object.id)
+                switch $object.pattern_type {
+
+                    yara: {[ it:app:yara:rule=$guid
+                                :name?=$object.name
+                                :text?=$object.pattern
+                    ]}
+
+                    snort: {[ it:app:snort:rule=$guid
+                                :name?=$object.name
+                                :text?=$object.pattern
+                    ]}
+
+                    *: {[ it:sec:stix:indicator=$guid
+                            :name?=$object.name
+                            :pattern?=$object.pattern
+                            :created?=$object.created
+                            :updated?=$object.modified]
+                       | scrape --refs :pattern
+                       }
+                }
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+        'report': {
+            'storm': '''
+                [ media:news=(stix, report, $object.id)
+                    :title?=$object.name
+                    :summary?=$object.description
+                    :published?=$object.published
+                ]
+                $node.data.set(stix:object, $object)
+                return($node)
+            ''',
+        },
+    },
+    'relationships': (
+
+        {'type': ('campaign', 'attributed-to', 'intrusion-set'), 'storm': '''
+            $n1node.props.org = $n2node
+        '''},
+
+        # this relationship is backwards in the STIX model
+        {'type': ('intrusion-set', 'attributed-to', 'threat-actor'), 'storm': '''
+            $n2node.props.org = $n1node
+        '''},
+
+        {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(uses)> { yield $n2node } ]'},
+        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(indicates)> { yield $n2node } ]'},
+
+        # nothing to do... they are the same for us...
+        {'type': ('threat-actor', 'attributed-to', 'identity'), 'storm': ''}
+    ),
+}
+
+@s_stormtypes.registry.registerLib
+class LibStixImport(s_stormtypes.Lib):
+
+    _storm_lib_path = ('stix', 'import')
+
+    _storm_locals = (  # type: ignore
+        {
+            'name': 'config', 'desc': '''
+            Return an editable copy of the default STIX ingest config.
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'config',
+                'returns': {'type': 'dict', 'desc': 'A copy of the default STIX ingest configuration.'},
+            },
+        },
+        {
+            'name': 'ingest', 'desc': '''
+            Import nodes from a STIX bundle.
+            ''',
+            'type': {
+                'type': 'function', '_funcname': 'ingest',
+                'args': (
+                    {'type': 'dict', 'name': 'bundle', 'desc': 'The STIX bundle to ingest.'},
+                    {'type': 'dict', 'name': 'config', 'default': None, 'desc': 'An optional STIX ingest configuration.'},
+                ),
+                'returns': {'name': 'Yields', 'type': 'storm:node', 'desc': 'Yields nodes'}
+            },
+        },
+    )
+
+    def getObjLocals(self):
+        return {
+            'config': self.config,
+            'ingest': self.ingest,
+        }
+
+    async def config(self):
+        return s_msgpack.deepcopy(stixingest, use_list=True)
+
+    async def ingest(self, bundle, config=None):
+
+        if config is None:
+            config = stixingest
+
+        config = await s_stormtypes.toprim(config)
+
+        config.setdefault('bundle', {})
+        config.setdefault('objects', {})
+        config.setdefault('relationships', [])
+
+        rellook = {r['type']: r for r in config.get('relationships', ())}
+
+        nodesbyid = {}
+        relationships = []
+
+        bundlenode = None
+
+        bundleconf = config.get('bundle')
+        if bundleconf is None:
+            bundleconf = {}
+
+        bundlestorm = bundleconf.get('storm')
+        if bundlestorm:
+            bundlenode = await self._callStorm(bundlestorm, {'bundle': bundle})
+
+        self.runt.layerConfirm(('node', 'edge', 'add', 'refs'))
+
+        for obj in bundle.get('objects'):
+
+            objtype = obj.get('type')
+
+            # do these in a second pass...
+            if objtype == 'relationship':
+                relationships.append(obj)
+                continue
+
+            objconf = config['objects'].get(objtype)
+            if objconf is None:
+                await self.runt.snap.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
+                continue
+
+            objstorm = objconf.get('storm')
+            if objstorm is None:
+                continue
+
+            try:
+                node = await self._callStorm(objstorm, {'bundle': bundle, 'object': obj})
+                if node is not None:
+                    nodesbyid[obj.get('id')] = node
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+            except Exception as e:
+                await self.runt.snap.warn(f'Error during STIX import callback for {objtype}: {e}')
+
+        for rel in relationships:
+
+            stixn1 = rel.get('source_ref')
+            stixn2 = rel.get('target_ref')
+
+            n1node = nodesbyid.get(stixn1)
+            if n1node is None:
+                await asyncio.sleep(0)
+                continue
+
+            n2node = nodesbyid.get(stixn2)
+            if n2node is None:
+                await asyncio.sleep(0)
+                continue
+
+            reltypes = (
+                (None, rel.get('relationship_type'), None),
+                (None, rel.get('relationship_type'), stixn2.split('--')[0]),
+                (stixn1.split('--')[0], rel.get('relationship_type'), None),
+                (stixn1.split('--')[0], rel.get('relationship_type'), stixn2.split('--')[0]),
+            )
+
+            foundone = False
+            for reltype in reltypes:
+
+                relconf = rellook.get(reltype)
+                if relconf is None:
+                    continue
+
+                relstorm = relconf.get('storm')
+                if relstorm is None: # pragma: no cover
+                    continue
+
+                foundone = True
+
+                try:
+                    node = await self._callStorm(relstorm, {'bundle': bundle, 'n1node': n1node, 'n2node': n2node})
+                    if node is not None:
+                        nodesbyid[rel.get('id')] = node
+                except asyncio.CancelledError: # pragma: no cover
+                    raise
+                except Exception as e:
+                    await self.runt.snap.warn(f'Error during STIX import callback for {reltype}: {e}')
+
+            if not foundone:
+                await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
+
+        # attempt to resolve object_refs
+        for obj in bundle.get('objects'):
+
+            node = nodesbyid.get(obj.get('id'))
+            if node is None:
+                continue
+
+            for refid in obj.get('object_refs', ()):
+                refsnode = nodesbyid.get(refid)
+                if refsnode is None:
+                    continue
+
+                await node.addEdge('refs', refsnode.iden())
+
+        if bundlenode is not None:
+            for node in nodesbyid.values():
+                await bundlenode.addEdge('refs', node.iden())
+                await asyncio.sleep(0)
+            yield bundlenode
+
+        for node in nodesbyid.values():
+            yield node
+
+        if bundlenode:
+            yield bundlenode
+
+    async def _callStorm(self, text, varz):
+
+        query = await self.runt.snap.core.getStormQuery(text)
+        async with self.runt.getSubRuntime(query, opts={'vars': varz}) as runt:
+            try:
+                async for _ in runt.execute():
+                    await asyncio.sleep(0)
+            except s_stormctrl.StormReturn as e:
+                return e.item
+
+        return None
 
 @s_stormtypes.registry.registerLib
 class LibStixExport(s_stormtypes.Lib):
