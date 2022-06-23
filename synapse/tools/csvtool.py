@@ -27,6 +27,16 @@ async def main(argv, outp=s_output.stdout):
     with open(opts.stormfile, 'r', encoding='utf8') as fd:
         text = fd.read()
 
+    stormopts = {}
+    if opts.optsfile:
+        stormopts = s_common.yamlload(opts.optsfile)
+
+    if opts.view:
+        if not s_common.isguid(opts.view):
+            outp.printf(f'View is not a guid {opts.view}')
+            return -1
+        stormopts['view'] = opts.view
+
     if opts.export:
 
         if not opts.cortex:
@@ -54,12 +64,10 @@ async def main(argv, outp=s_output.stdout):
             with open(path, 'w') as fd:
 
                 wcsv = csv.writer(fd)
-
                 # prevent streaming nodes by limiting shown events
-                opts = {'show': ('csv:row', 'print', 'warn', 'err')}
-
+                stormopts['show'] = ('csv:row', 'print', 'warn', 'err')
                 count = 0
-                async for name, info in core.storm(text, opts=opts):
+                async for name, info in core.storm(text, opts=stormopts):
 
                     if name == 'csv:row':
                         count += 1
@@ -73,7 +81,7 @@ async def main(argv, outp=s_output.stdout):
 
                 outp.printf(f'exported {count} csv rows.')
 
-        return
+        return 0
 
     def iterrows():
         for path in opts.csvfiles:
@@ -102,12 +110,12 @@ async def main(argv, outp=s_output.stdout):
 
         nodecount = 0
 
+        stormopts['editformat'] = 'splices'
+        vars = stormopts.setdefault('vars', {})
+
         for rows in rowgenr:
 
-            stormopts = {
-                'vars': {'rows': rows},
-                'editformat': 'splices',
-            }
+            vars['rows'] = rows
 
             async for mesg in core.storm(text, opts=stormopts):
 
@@ -210,6 +218,10 @@ def makeargparser():
                       help='Perform a local CSV ingest against a temporary cortex.')
     pars.add_argument('--export', default=False, action='store_true',
                       help='Export CSV data to file from storm using $lib.csv.emit(...) events.')
+    pars.add_argument('--view', default=None, action='store',
+                      help='Optional view to work in.')
+    pars.add_argument('--optsfile', default=None, action='store',
+                      help='Path to an opts file (.yaml) on disk.')
     pars.add_argument('stormfile', help='A Storm script describing how to create nodes from rows.')
     pars.add_argument('csvfiles', nargs='+', help='CSV files to load.')
     return pars
