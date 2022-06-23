@@ -748,7 +748,7 @@ stixingest = {
         '''},
 
         {'type': (None, 'uses', None), 'storm': 'yield $n1node [ +(uses)> { yield $n2node } ]'},
-        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(uses)> { yield $n2node } ]'},
+        {'type': (None, 'indicates', None), 'storm': 'yield $n1node [ +(indicates)> { yield $n2node } ]'},
 
         # nothing to do... they are the same for us...
         {'type': ('threat-actor', 'attributed-to', 'identity'), 'storm': ''}

@@ -308,8 +308,9 @@ class StormLibStixTest(s_test.SynTest):
             self.len(1, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
             self.len(3, await core.nodes('it:sec:stix:indicator -(refs)> inet:fqdn', opts={'view': viewiden}))
 
-            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
             msgs = await core.stormlist('''
                 $config = $lib.stix.import.config()
                 $config.bundle = $lib.null
@@ -321,7 +322,6 @@ class StormLibStixTest(s_test.SynTest):
             self.len(0, await core.nodes('it:sec:stix:bundle:id', opts={'view': viewiden}))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
-            stix = s_common.yamlload(self.getTestFilePath('stix_import', 'apt1.json'))
             msgs = await core.stormlist('''
                 $config = $lib.stix.import.config()
                 $storm00 = ${ $lib.raise(omg, omg) }
@@ -334,3 +334,33 @@ class StormLibStixTest(s_test.SynTest):
             ''', opts={'view': viewiden, 'vars': {'stix': stix}})
             self.stormIsInWarn('Error during STIX import callback for threat-actor:', msgs)
             self.stormIsInWarn("Error during STIX import callback for (None, 'indicates', None): StormRaise", msgs)
+
+            # NOTE: we mututate the APT1 stix here...
+            stix['objects'].append({
+                'type': 'relationship',
+                'id': 'relationship--6598bf44-1c10-4218-af9f-aaaaaaaaaaaa',
+                'relationship_type': 'frobs',
+                'source_ref': 'threat-actor--6d179234-61fc-40c4-ae86-3d53308d8e65',
+                'target_ref': 'threat-actor--d84cf283-93be-4ca7-890d-76c63eff3636',
+            })
+            stix['objects'].append({
+                'type': 'relationship',
+                'id': 'relationship--6598bf44-1c10-4218-af9f-bbbbbbbbbbbb',
+                'relationship_type': 'gronks',
+                'source_ref': 'threat-actor--6d179234-61fc-40c4-ae86-3d53308d8e65',
+                'target_ref': 'threat-actor--d84cf283-93be-4ca7-890d-76c63eff3636',
+            })
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            msgs = await core.stormlist('''
+                $config = $lib.stix.import.config()
+                $storm00 = ${ [ it:cmd=$n1node.props.name ] return($node) }
+                $config.relationships = ([{
+                    "type": [$lib.null, "frobs", $lib.null],
+                    "storm": $storm00,
+                }])
+                yield $lib.stix.import.ingest($stix, config=$config)
+            ''', opts={'view': viewiden, 'vars': {'stix': stix}})
+
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.len(1, [n for n in nodes if n[0][0] == 'it:cmd'])
+            self.stormIsInWarn("STIX bundle ingest has no relationship definition for: ('threat-actor', 'gronks', 'threat-actor')", msgs)
