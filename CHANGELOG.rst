@@ -10,12 +10,21 @@ v2.99.0 - 2022-06-23
 
 Features and Enhancements
 -------------------------
-- Add an extensible STIX 2.1 import library, ``$lib.stix.import()``. This can
-  be used to load STIX bundles into a Cortex via Storm.
+- Add an extensible STIX 2.1 import library, ``$lib.stix.import``. The
+  function ``$lib.stix.import.ingest()`` can be used to STIX bundles into a
+  Cortex via Storm.
   (`#2727 <https://github.com/vertexproject/synapse/pull/2727>`_)
+- Add a Storm ``uptime`` command to display the uptime of a Cortex or a Storm
+  Service configured on the Cortex.
+  (`#2728 <https://github.com/vertexproject/synapse/pull/2728>`_)
 - Add ``--view`` and ``--optsfile`` arguments to ``synapse.tools.csvtool``.
   (`#2726 <https://github.com/vertexproject/synapse/pull/2726>`_)
 
+Bugfixes
+--------
+- Fix an issue getting the maximum available memory for a host running with
+  Linux cgroupsv2 apis.
+  (`#2728 <https://github.com/vertexproject/synapse/pull/2728>`_)
 
 v2.98.0 - 2022-06-17
 ====================
