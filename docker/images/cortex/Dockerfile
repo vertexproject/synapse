@@ -1,8 +1,7 @@
 # vim:set ft=dockerfile:
 FROM synbuild:base
 
-COPY docker/entrypoint.sh /vertex/synapse/entrypoint.sh
-ENV SYN_STEM_CELL_CTOR="synapse.cortex.Cortex"
+COPY docker/images/cortex/entrypoint.sh /vertex/synapse/entrypoint.sh
 
 EXPOSE 4443
 EXPOSE 27492
