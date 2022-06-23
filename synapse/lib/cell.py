@@ -1511,8 +1511,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     await func()
                 except asyncio.CancelledError:
                     raise
-                except Exception:  # pragma no cover
-                    logger.exception(f'activeCoro Error: {func}')
+                except Exception as e:  # pragma no cover
+                    logger.exception(f'activeCoro Error: {func}: {e}')
                     await asyncio.sleep(1)
 
         cdef['task'] = self.schedCoro(wrap())
@@ -1526,11 +1526,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if task is not None:
             task.cancel()
             try:
-                await task
+                await asyncio.gather(task, return_exceptions=True)
             except asyncio.CancelledError:
                 pass
-            except Exception:  # pragma: no cover
-                logger.exception(f'Error tearing down activecoro for {task}')
+            except Exception as e:  # pragma: no cover
+                logger.exception(f'Error tearing down activecoro for {task}: {e}')
 
     async def isCellActive(self):
         return self.isactive
