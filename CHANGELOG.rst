@@ -11,7 +11,7 @@ v2.99.0 - 2022-06-23
 Features and Enhancements
 -------------------------
 - Add an extensible STIX 2.1 import library, ``$lib.stix.import()``. This can
-  be used to load STIX bundles into a Cortex.
+  be used to load STIX bundles into a Cortex via Storm.
   (`#2727 <https://github.com/vertexproject/synapse/pull/2727>`_)
 - Add ``--view`` and ``--optsfile`` arguments to ``synapse.tools.csvtool``.
   (`#2726 <https://github.com/vertexproject/synapse/pull/2726>`_)
