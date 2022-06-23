@@ -1140,6 +1140,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             info = await s_telepath.addAhaUrl(ahaurl)
             self.ahaclient = info.get('client')
             if self.ahaclient is None:
+                self.ahaclient = await s_telepath.Client.anit(info.get('url'))
                 self.ahaclient._fini_atexit = True
                 info['client'] = self.ahaclient
 
