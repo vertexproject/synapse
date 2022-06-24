@@ -518,6 +518,33 @@ seen in the services ``cell.yaml`` file.
     ...
 
 
+.. _devops-task-nexustrim:
+
+Trimming the Nexus Log
+----------------------
+
+The Nexus log can be trimmed to reduce the storage size of any Cell that has Nexus logging enabled.
+This is commonly done before taking backups to reduce to their size.
+
+For a Cortex **without** any mirrors, this is best accomplished in Storm via the following query::
+
+    $lib.cell.trimNexsLog()
+
+The Storm API call will rotate the Nexus log and then delete the older entries.
+
+If the Cortex is mirrored, a list of Telepath URLs of all mirrors must be provided.
+This ensures that all mirrors have rotated their Nexus logs before the cull operation is executed.
+
+.. warning::
+    If this list is ommitted, or incorrect, the mirrors may become de-synchronized
+    which will require a re-deployment from a backup of the upstream.
+
+The Telepath URLs can be provided to the Storm API as follows::
+
+    $mirrors = ("aha://01.cortex...", "aha://02.cortex...")
+    $lib.cell.trimNexsLog(consumers=$mirrors)
+
+
 Synapse Services
 ================
 
