@@ -352,8 +352,6 @@ class AxonTest(s_t_utils.SynTest):
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(404, resp.status)
-                item = await resp.json()
-                self.eq('err', item.get('status'))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
@@ -663,3 +661,35 @@ class AxonTest(s_t_utils.SynTest):
 
                 resp = await axon.postfiles(fields, url)
                 self.true(resp.get('ok'))
+
+    async def test_axon_range(self):
+
+        async with self.getTestAxon() as axon:
+            # hand insert a genr to control offset sizes
+            def genr():
+                yield b'asdf'
+                yield b'qwer'
+                yield b'zxcv'
+
+            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
+            await axon.save(sha256, genr())
+
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=4)]
+            self.eq(b'asdf', b''.join(bytslist))
+
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=4)]
+            self.eq(b'dfqw', b''.join(bytslist))
+
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=6)]
+            self.eq(b'dfqwer', b''.join(bytslist))
+
+            await axon.auth.rootuser.setPasswd('secret')
+            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
+
+            shatext = s_common.ehex(sha256)
+            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
+                headers = {'range': 'bytes=2-4'}
+                async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('3', resp.headers.get('content-length'))
+                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))

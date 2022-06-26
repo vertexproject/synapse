@@ -115,7 +115,97 @@ class AxonHttpDelV1(s_httpapi.Handler):
         resp = await self.cell.dels(hashes)
         return self.sendRestRetn(tuple(zip(sha256s, resp)))
 
-class AxonHttpBySha256V1(s_httpapi.Handler):
+class AxonFileHandler(s_httpapi.Handler):
+
+    async def _setSha256Headers(self, sha256b):
+
+        self.ranges = []
+
+        self.blobsize = await self.axon().size(sha256b)
+        if self.blobsize is None:
+            self.set_status(404)
+            self.finish()
+            return False
+
+        status = 200
+
+        if self.axon().byterange:
+            self.set_header('Accept-Ranges', 'bytes')
+            self._chopRangeHeader()
+
+        if len(self.ranges):
+            status = 206
+            soff, eoff = self.ranges[0]
+            # ranges are *inclusive*...
+            self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
+            self.set_header('Content-Length', str(eoff - soff))
+            # TODO eventually support multi-range returns
+        else:
+            self.set_header('Content-Length', str(self.blobsize))
+
+        self.set_status(status)
+        return True
+
+    def _chopRangeHeader(self):
+
+        header = self.request.headers.get('range', '').strip().lower()
+        if not header.startswith('bytes='):
+            return
+
+        for part in header.split('=', 1)[1].split(','):
+
+            part = part.strip()
+            if not part:
+                continue
+
+            soff, eoff = part.split('-', 1)
+
+            soff = int(soff.strip())
+            eoff = eoff.strip()
+
+            if not eoff:
+                eoff = self.blobsize
+            else:
+                eoff = int(eoff) + 1
+
+            self.ranges.append((soff, eoff))
+
+    async def _sendSha256Byts(self, sha256b):
+
+        # a single range is simple...
+        if self.ranges:
+            # TODO eventually support multi-range returns
+            soff, eoff = self.ranges[0]
+            async for byts in self.axon().getByteRange(sha256b, soff, eoff):
+                self.write(byts)
+                await self.flush()
+                await asyncio.sleep(0)
+            return
+
+        # standard file return
+        async for byts in self.axon().get(sha256b):
+            self.write(byts)
+            await self.flush()
+            await asyncio.sleep(0)
+
+class AxonHttpBySha256V1(AxonFileHandler):
+
+    def axon(self):
+        return self.cell
+
+    async def head(self, sha256):
+
+        if not await self.allowed(('axon', 'get')):
+            return
+
+        sha256b = s_common.uhex(sha256)
+
+        self._setGetHeaders(sha256b)
+
+        self.set_header('Content-Disposition', 'attachment')
+        self.set_header('Content-Type', 'application/octet-stream')
+
+        return self.finish()
 
     async def get(self, sha256):
 
@@ -123,21 +213,15 @@ class AxonHttpBySha256V1(s_httpapi.Handler):
             return
 
         sha256b = s_common.uhex(sha256)
+        if not await self._setSha256Headers(sha256b):
+            return
 
-        self.set_header('Content-Type', 'application/octet-stream')
         self.set_header('Content-Disposition', 'attachment')
+        self.set_header('Content-Type', 'application/octet-stream')
 
-        try:
-            async for byts in self.cell.get(sha256b):
-                self.write(byts)
-                await self.flush()
-                await asyncio.sleep(0)
+        await self._sendSha256Byts(sha256b)
 
-        except s_exc.NoSuchFile as e:
-            self.set_status(404)
-            self.sendRestErr('NoSuchFile', e.get('mesg'))
-
-        return
+        return self.finish()
 
     async def delete(self, sha256):
 
@@ -564,6 +648,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
+    byterange = False
 
     confdefs = {
         'max:bytes': {
@@ -621,6 +706,11 @@ class Axon(s_cell.Cell):
 
         self._initAxonHttpApi()
 
+    async def getCellInfo(self):
+        info = await s_cell.Cell.getCellInfo(self)
+        info['features']['byterange'] = self.byterange
+        return info
+
     @contextlib.asynccontextmanager
     async def holdHashLock(self, hashbyts):
         '''
@@ -659,10 +749,57 @@ class Axon(s_cell.Cell):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _initBlobStor(self):
+
+        self.byterange = True
+
         path = s_common.gendir(self.dirn, 'blob.lmdb')
+
         self.blobslab = await s_lmdbslab.Slab.anit(path)
         self.blobs = self.blobslab.initdb('blobs')
+        self.offsets = self.blobslab.initdb('offsets')
+        self.metadata = self.blobslab.initdb('metadata')
         self.onfini(self.blobslab.fini)
+
+        if self.inaugural:
+            self._setStorVers(1)
+
+        storvers = self._getStorVers()
+        if storvers < 1:
+            storvers = await self._setStorVers01()
+
+    async def _setStorVers01(self):
+
+        logger.warning('Updating Axon storage version (adding offset index). This may take a while.')
+
+        offs = 0
+        cursha = b''
+
+        # TODO: need LMDB to support getting value size without getting value
+        for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
+
+            await asyncio.sleep(0)
+
+            blobsha = lkey[:32]
+
+            if blobsha != cursha:
+                offs = 0
+                cursha = blobsha
+
+            offs += len(byts)
+
+            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+
+        return self._setStorVers(1)
+
+    def _getStorVers(self):
+        byts = self.blobslab.get(b'version', db=self.metadata)
+        if not byts:
+            return 0
+        return int.from_bytes(byts, 'big')
+
+    def _setStorVers(self, version):
+        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        return version
 
     def _initAxonHttpApi(self):
         self.addHttpApi('/api/v1/axon/files/del', AxonHttpDelV1, {'cell': self})
@@ -913,13 +1050,80 @@ class Axon(s_cell.Cell):
             return size
 
     async def _saveFileGenr(self, sha256, genr):
+
         size = 0
+
         for i, byts in enumerate(genr):
+
             size += len(byts)
-            lkey = sha256 + i.to_bytes(8, 'big')
-            self.blobslab.put(lkey, byts, db=self.blobs)
+
+            ikey = i.to_bytes(8, 'big')
+            okey = size.to_bytes(8, 'big')
+
+            self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+            self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+
             await asyncio.sleep(0)
+
         return size
+
+    def _offsToIndx(self, sha256, offs):
+        lkey = sha256 + offs.to_bytes(8, 'big')
+        for offskey, indxbyts in self.blobslab.scanByRange(lkey, db=self.offsets):
+            return int.from_bytes(offskey[32:], 'big'), indxbyts
+
+    async def getByteRange(self, sha256, soff, eoff):
+
+        if not self.byterange:
+            mesg = 'This axon does not support byte ranges.'
+            raise s_exc.FeatureNotSupported(mesg=mesg)
+
+        size = eoff - soff
+        async for byts in self._getBytsOffsSize(sha256, soff, size):
+            yield byts
+
+    async def _getBytsOffs(self, sha256, offs):
+            indx = self._offsToIndx(sha256, offs)
+
+            first = True
+
+            boff, indxbyts = self._offsToIndx(sha256, offs)
+
+            for bkey, byts in self.blobslab.scanByRange(sha256 + indxbyts, db=self.blobs):
+
+                await asyncio.sleep(0)
+
+                cursha = bkey[:32]
+                if bkey[:32] != sha256:
+                    return
+
+                if first:
+                    first = False
+                    delt = boff - offs
+                    yield byts[-delt:]
+                    continue
+
+                yield byts
+
+    async def _getBytsOffsSize(self, sha256, offs, size):
+
+        total = 0
+        async for byts in self._getBytsOffs(sha256, offs):
+
+            blen = len(byts)
+
+            nexttotal = total + blen
+            if nexttotal == size:
+                yield byts
+                return
+
+            if nexttotal < size:
+                yield byts
+                total = nexttotal
+                continue
+
+            yield byts[:nexttotal - size]
+            return
 
     async def dels(self, sha256s):
         '''
@@ -960,6 +1164,12 @@ class Axon(s_cell.Cell):
             return True
 
     async def _delBlobByts(self, sha256):
+
+        # remove the offset indexes...
+        for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
+            self.blobslab.delete(lkey, db=self.offsets)
+            await asyncio.sleep(0)
+
         # remove the actual blobs...
         for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
             self.blobslab.delete(lkey, db=self.blobs)
