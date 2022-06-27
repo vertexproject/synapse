@@ -81,14 +81,14 @@ class CvssLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
         }},
-        {'name': 'vectToProps', 'desc': 'Parse a CVSS vector and return a dictionary of risk:vuln props.',
+        {'name': 'vectToProps', 'desc': 'Parse a CVSS v3.1 vector and return a dictionary of risk:vuln props.',
          'type': {'type': 'function', '_funcname': 'vectToProps',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'A CVSS vector string.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary of risk:vuln secondary props.', }
         }},
-        {'name': 'saveVectToNode', 'desc': 'Parse a CVSS vector and record properties on a risk:vuln node.',
+        {'name': 'saveVectToNode', 'desc': 'Parse a CVSS v3.1 vector and record properties on a risk:vuln node.',
          'type': {'type': 'function', '_funcname': 'saveVectToNode',
                   'args': (
                       {'name': 'node', 'type': 'storm:node',
@@ -113,9 +113,14 @@ class CvssLib(s_stormtypes.Lib):
         props = {}
 
         try:
-            for item in text.split('/'):
+            for i, item in enumerate(text.split('/')):
 
                 name, valu = item.split(':')
+
+                if i == 0 and name == 'CVSS':
+                    if valu != '3.1':
+                        raise s_exc.BadArg(mesg='Currently only version 3.1 is supported.', vers=valu)
+                    continue
 
                 prop = vect2prop.get(name)
                 if prop is None:
