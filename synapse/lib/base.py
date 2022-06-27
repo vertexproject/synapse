@@ -450,7 +450,7 @@ class Base:
 
         return await s_coro.event_wait(self.finievt, timeout)
 
-    def schedCoro(self, coro, name=None):
+    def schedCoro(self, coro):
         '''
         Schedules a free-running coroutine to run on this base's event loop.  Kills the coroutine if Base is fini'd.
         It does not pend on coroutine completion.
@@ -469,7 +469,7 @@ class Base:
             import synapse.lib.threads as s_threads  # avoid import cycle
             assert s_threads.iden() == self.tid
 
-        task = self.loop.create_task(coro, name=name)
+        task = self.loop.create_task(coro)
 
         # In rare cases, (Like this function being triggered from call_soon_threadsafe), there's no task context
         if asyncio.current_task():
