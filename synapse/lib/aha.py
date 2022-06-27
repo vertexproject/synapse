@@ -177,6 +177,23 @@ class AhaApi(s_cell.CellApi):
 
         return await self.cell.modAhaSvcInfo(name, svcinfo)
 
+    async def getAhaSvcMirrors(self, name):
+        '''
+        Return list AHA svcinfo dictionaries for mirrors of a service.
+        '''
+        svcinfo = await self.cell.getAhaSvc(name)
+        if svcinfo is None:
+            return None
+
+        svcnetw = svcinfo.get('svcnetw')
+        await self._reqUserAllowed(('aha', 'service', 'get', svcnetw))
+
+        svciden = svcinfo['svcinfo']['iden']
+
+        mirrors = await self.cell.getAhaSvcMirrors(svciden)
+
+        return s_msgpack.deepcopy(mirrors)
+
     async def delAhaSvc(self, name, network=None):
         '''
         Remove an AHA service entry.

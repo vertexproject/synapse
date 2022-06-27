@@ -756,3 +756,7 @@ class AhaTest(s_test.SynTest):
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
                         self.eq(info.get('code'), 'AuthDeny')
+
+    async def test_aha_getmirrors(self):
+        # todo
+        pass

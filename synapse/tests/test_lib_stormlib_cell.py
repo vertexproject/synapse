@@ -72,6 +72,10 @@ class StormCellTest(s_test.SynTest):
             self.eq(core.startms, resp['starttime'])
             self.lt(resp['uptime'], s_const.minute)
 
+    async def test_stormlib_cell_getmirrors(self):
+        # todo
+        pass
+
     async def test_stormfix_autoadds(self):
 
         async def get_regression_views(cortex):
