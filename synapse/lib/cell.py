@@ -1515,7 +1515,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.exception(f'activeCoro Error: {func}: {e}')
                     await asyncio.sleep(1)
 
-        cdef['task'] = self.schedCoro(wrap())
+        name = f'ActiveCoro-{iden}-{func}'
+        cdef['task'] = self.schedCoro(wrap(), name=name)
 
     async def _killActiveCoros(self):
         coros = [self._killActiveCoro(cdef) for cdef in self.activecoros.values()]
