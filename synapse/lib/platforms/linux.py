@@ -75,7 +75,7 @@ def getTotalMemory():
     if os.path.isfile(fp):
         with open(fp) as f:
             valu = f.read()
-            if valu != 'max':
+            if valu.strip() != 'max':
                 return int(valu)
     # /proc/meminfo is a fallback we can try to use in the event that
     # we find ourselves in a situation where there is not a memory cap.
