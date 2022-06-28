@@ -595,12 +595,18 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             yield item
 
 
-class QueueHelper:
-    def __init__(self):
-        self.queue = collections.deque()
+class _DequeueHelper:
+    '''
+    Thin helper for the collections.dequeue class.
 
-    def __repr__(self):
-        return f'QueueHelper <0x{id(self)}> queue={repr(self.queue)}>'
+    Provides an __iter__ method that allows the queue to
+    be appended to while iterating over it.
+    '''
+    def __init__(self, maxlen=None):
+        self.queue = collections.deque(maxlen=maxlen)
+
+    def __repr__(self):  # pragma: no cover
+        return f'<{self.__class__.__name__} object at 0x{id(self)} queue={repr(self.queue)}>'
 
     def append(self, item):
         self.queue.append(item)
@@ -609,9 +615,6 @@ class QueueHelper:
         while self.queue:
             item = self.queue.popleft()
             yield item
-
-    def __len__(self):
-        return len(self.queue)
 
 class Axon(s_cell.Cell):
 
@@ -1083,7 +1086,8 @@ class Axon(s_cell.Cell):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
         reader = None
-        queue = QueueHelper()
+        queue = _DequeueHelper()
+
         async for line in self.readlines(sha256):
             queue.append(line)
             if reader is None:
