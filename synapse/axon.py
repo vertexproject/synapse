@@ -602,8 +602,8 @@ class _DequeueHelper:
     Provides an __iter__ method that allows the queue to
     be appended to while iterating over it.
     '''
-    def __init__(self, maxlen=None):
-        self.queue = collections.deque(maxlen=maxlen)
+    def __init__(self, queue):
+        self.queue = queue
 
     def __repr__(self):  # pragma: no cover
         return f'<{self.__class__.__name__} object at 0x{id(self)} queue={repr(self.queue)}>'
@@ -1085,13 +1085,11 @@ class Axon(s_cell.Cell):
             return reader
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
-        reader = None
-        queue = _DequeueHelper()
+        queue = _DequeueHelper(collections.deque())
+        reader = self._getCsvReader(queue, dialect, **fmtparams)
 
         async for line in self.readlines(sha256):
             queue.append(line)
-            if reader is None:
-                reader = self._getCsvReader(queue, dialect, **fmtparams)
 
             try:
                 row = next(reader)
