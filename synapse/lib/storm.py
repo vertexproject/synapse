@@ -1415,6 +1415,20 @@ stormcmds = (
             [ <(about)+ { yield $note } ]
         ''',
     },
+    {
+        'name': 'uptime',
+        'descr': 'Print the uptime for the Cortex or a connected service.',
+        'cmdargs': (
+            ('name', {'type': 'str', 'nargs': '?',
+                      'help': 'The name, or iden, of the service (if not provided defaults to the Cortex).'}),
+        ),
+        'storm': '''
+            $resp = $lib.cell.uptime(name=$cmdopts.name)
+            $uptime = $lib.model.type(duration).repr($resp.uptime)
+            $starttime = $lib.time.format($resp.starttime, "%Y-%m-%d %H:%M:%S")
+            $lib.print("up {uptime} (since {since})", uptime=$uptime, since=$starttime)
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
