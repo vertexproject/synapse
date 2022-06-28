@@ -296,6 +296,9 @@ class PsModule(s_module.CoreModule):
                     ('name', ('ps:name', {}), {
                         'doc': 'The person name listed for the contact.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of this contact.',
+                    }),
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The job/org title listed for this contact.',
                     }),
