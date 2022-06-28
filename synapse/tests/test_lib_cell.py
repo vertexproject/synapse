@@ -1265,20 +1265,25 @@ class CellTest(s_t_utils.SynTest):
 
                         evt0 = asyncio.Event()
                         evt1 = asyncio.Event()
+                        orig = s_cell.Cell.iterNewBackupArchive
 
                         async def _slowFakeBackup2(self, name=None, wait=True):
-                            s_common.gendir(os.path.join(backdirn, name))
                             evt0.set()
+                            s_common.gendir(os.path.join(backdirn, name))
+                            await asyncio.sleep(3.0)
+
+                        async def _iterNewDup(self, user, name=None, remove=False):
                             try:
-                                await asyncio.sleep(3.0)
+                                await orig(self, user, name=name, remove=remove)
                             except asyncio.CancelledError:
                                 evt1.set()
                                 raise
 
                         with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup2):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('dupbackup', remove=True))
-                            task = core.schedCoro(arch)
-                            await asyncio.wait_for(evt0.wait(), timeout=2)
+                            with mock.patch.object(s_cell.Cell, 'iterNewBackupArchive', _iterNewDup):
+                                arch = s_t_utils.alist(proxy.iterNewBackupArchive('dupbackup', remove=True))
+                                task = core.schedCoro(arch)
+                                await asyncio.wait_for(evt0.wait(), timeout=2)
 
                         fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadystreaming', remove=True))
                         await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
