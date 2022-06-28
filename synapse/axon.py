@@ -1,4 +1,3 @@
-import collections
 import csv
 import json
 import asyncio
@@ -6,6 +5,7 @@ import hashlib
 import logging
 import tempfile
 import contextlib
+import collections
 
 import aiohttp
 import aiohttp_socks
