@@ -1053,8 +1053,7 @@ class Axon(s_cell.Cell):
             try:
                 text = remain + byts.decode()
             except UnicodeDecodeError as e:
-                raise s_exc.BadDataValu(mesg=f'Unable to decode line: {e}',
-                                        extra=await self.getLogExtra(sha256=sha256))
+                raise s_exc.BadDataValu(mesg=f'Unable to decode line: {e}', sha256=sha256)
 
             lines = text.split('\n')
             if len(lines) == 1:
@@ -1093,9 +1092,8 @@ class Axon(s_cell.Cell):
 
             try:
                 row = next(reader)
-            except Exception:
-                logger.exception('Error processing csv row')
-                raise
+            except csv.Error as e:
+                raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
             else:
                 yield row
 

@@ -310,6 +310,11 @@ words|word|wrd'''
         with self.raises(s_exc.BadDataValu) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
 
+        # This is pulled from CPython's csv test suite to throw a CSV error.
+        size, sha256 = await axon.put('"a'.encode())
+        with self.raises(s_exc.BadDataValu) as cm:
+            rows = [row async for row in axon.csvrows(s_common.ehex(sha256), strict=True)]
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
