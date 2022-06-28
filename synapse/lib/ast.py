@@ -1324,6 +1324,9 @@ class LiftFormTagProp(LiftOper):
 
         form, tag, prop = await self.kids[0].compute(runt, path)
 
+        if not runt.model.form(form):
+            raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
+
         if len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
@@ -1387,7 +1390,7 @@ class LiftFormTag(LiftOper):
 
         form = await self.kids[0].compute(runt, path)
         if not runt.model.form(form):
-            raise s_exc.NoSuchProp(mesg=f'No form {form}', name=form)
+            raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
 
         tag = await tostr(await self.kids[1].compute(runt, path))
 
