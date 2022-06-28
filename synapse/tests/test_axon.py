@@ -28,6 +28,7 @@ bbuf = b'0123456' * 4793491
 abuf = b'asdfasdf'
 pbuf = b'pennywise'
 rbuf = b'robert gray'
+bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'
 
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(abuf).digest()
@@ -264,6 +265,10 @@ class AxonTest(s_t_utils.SynTest):
                 jsons.append(item)
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
+        binsize, bin256 = await axon.put(bin_buf)
+        with self.raises(s_exc.BadDataValu) as cm:
+            lines = [item async for item in axon.readlines(s_common.ehex(bin256))]
+
         # regular csv
         data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
 Jack,McGinnis,220 hobo Av.,Phila, PA,09119
@@ -300,6 +305,10 @@ words|word|wrd'''
         # Bad fmtparams
         with self.raises(s_exc.BadArg) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), newp='newp')]
+
+        # data that isn't a text file
+        with self.raises(s_exc.BadDataValu) as cm:
+            rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:

@@ -78,6 +78,9 @@ class BadPropDef(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
+class BadDataValu(SynErr):
+    '''Cannot process the data as intended.'''
+    pass
 
 class BadArg(SynErr):
     ''' Improper function arguments '''

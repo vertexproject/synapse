@@ -1,3 +1,4 @@
+import collections
 import csv
 import json
 import asyncio
@@ -593,6 +594,25 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.jsonlines(sha256):
             yield item
 
+
+class QueueHelper:
+    def __init__(self):
+        self.queue = collections.deque()
+
+    def __repr__(self):
+        return f'QueueHelper <0x{id(self)}> queue={repr(self.queue)}>'
+
+    def append(self, item):
+        self.queue.append(item)
+
+    def __iter__(self):
+        while self.queue:
+            item = self.queue.popleft()
+            yield item
+
+    def __len__(self):
+        return len(self.queue)
+
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -1027,7 +1047,11 @@ class Axon(s_cell.Cell):
     async def readlines(self, sha256):
         remain = ''
         async for byts in self.get(s_common.uhex(sha256)):
-            text = remain + byts.decode()
+            try:
+                text = remain + byts.decode()
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=f'Unable to decode line: {e}',
+                                        extra=await self.getLogExtra(sha256=sha256))
 
             lines = text.split('\n')
             if len(lines) == 1:
@@ -1043,6 +1067,10 @@ class Axon(s_cell.Cell):
 
     @staticmethod
     def _getCsvReader(lines, dialect, **fmtparams) -> csv.reader:
+        dialect = dialect.lower()
+        if dialect not in csv.list_dialects():
+            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
+
         try:
             reader = csv.reader(lines, dialect, **fmtparams)
         except TypeError as e:
@@ -1054,22 +1082,19 @@ class Axon(s_cell.Cell):
             return reader
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
-        dialect = dialect.lower()
-        if dialect not in csv.list_dialects():
-            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
-
-        lines = []
+        reader = None
+        queue = QueueHelper()
         async for line in self.readlines(sha256):
-            lines.append(line)
-            if len(lines) >= 64:
-                reader = self._getCsvReader(lines, dialect, **fmtparams)
-                for row in reader:
-                    yield row
-                lines.clear()
+            queue.append(line)
+            if reader is None:
+                reader = self._getCsvReader(queue, dialect, **fmtparams)
 
-        if lines:
-            reader = self._getCsvReader(lines, dialect, **fmtparams)
-            for row in reader:
+            try:
+                row = next(reader)
+            except Exception:
+                logger.exception('Error processing csv row')
+                raise
+            else:
                 yield row
 
     async def jsonlines(self, sha256):
