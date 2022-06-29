@@ -1088,8 +1088,26 @@ class Axon(s_cell.Cell):
         with tempfile.SpooledTemporaryFile(mode='a+', max_size=MAX_SPOOL_SIZE) as fd:
 
             # This is prone to byte alignment issues
+            tchunk = b''
+            i = 0
             async for chunk in self.get(s_common.uhex(sha256)):
-                fd.write(chunk.decode())
+                await asyncio.sleep(0)
+                if tchunk:
+                    tchunk = tchunk + chunk
+                else:
+                    tchunk = chunk
+                i = i + 1
+                try:
+                    fd.write(tchunk.decode())
+                except UnicodeDecodeError:
+                    logger.exception(f'Unable to append line for {i=} {chunk[:10]}...{chunk[-10:]}')
+                    continue
+                else:
+                    tchunk = b''
+
+            if tchunk:
+                raise s_exc.BadDataValu(mesg=f'Unable to decode all of file when loading', sha256=sha256)
+
             fd.seek(0)
 
             reader = self._getCsvReader(fd, dialect, **fmtparams)
