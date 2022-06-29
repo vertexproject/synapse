@@ -1878,9 +1878,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 return proc
 
             try:
-                if remove:
-                    self.backupstreaming = True
-
                 proc = await s_coro.executor(getproc)
 
                 await s_coro.executor(proc.join)
