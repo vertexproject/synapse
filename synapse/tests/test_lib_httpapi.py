@@ -1112,10 +1112,10 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('NoSuchFunc', (await resp.json())['code'])
 
-                body = {'items': [(('inet:ipv4', 0x05050505), {})]}
+                body = {'items': [(('inet:ipv4', 0x05050505), {'tags': {'hehe': (None, None)}})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('ok', (await resp.json())['status'])
-                self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+                self.len(1, await core.nodes('inet:ipv4=5.5.5.5 +#hehe'))
 
             async with self.getHttpSess(auth=('visi', 'secret'), port=port) as sess:
                 body = {'items': [(('inet:ipv4', 0x01020304), {})]}
