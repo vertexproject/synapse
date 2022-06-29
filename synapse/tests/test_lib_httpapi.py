@@ -1121,4 +1121,4 @@ class HttpApiTest(s_tests.SynTest):
                 body = {'items': [(('inet:ipv4', 0x01020304), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('AuthDeny', (await resp.json())['code'])
-                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#hehe'))
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
