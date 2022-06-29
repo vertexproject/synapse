@@ -96,14 +96,16 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['logo']['mime'], 'image/svg')
             self.eq(pdef['logo']['file'], 'c3R1ZmYK')
 
-            wflow = pdef['optic']['workflows']['310eb7324b5da268fb31e4cd3d74e673']
+            self.len(3, pdef['optic']['workflows'])
+
+            wflow = pdef['optic']['workflows']['testpkg-foo']
             self.eq(wflow, {'name': 'foo', 'desc': 'a foo workflow'})
 
-            wflow = pdef['optic']['workflows']['41e3368bd094e1c1563a242bfa56bd01']
+            wflow = pdef['optic']['workflows']['testpkg-bar']
             self.eq(wflow, {'name': 'bar', 'desc': 'this is an inline workflow'})
 
-            wflow = pdef['optic']['workflows']['bfb53cbaa789f2960de003d72b6e4544']
-            self.eq(wflow, {'name': 'baz', 'desc': 'this is the real baz desc'})
+            wflow = pdef['optic']['workflows']['testpkg-baz']
+            self.eq(wflow, {'name': 'real-baz', 'desc': 'this is the real baz desc'})
 
             # nodocs
             nodocspath = s_common.genpath(core.dirn, 'testpkg_nodocs.json')
@@ -192,3 +194,16 @@ class GenPkgTest(s_test.SynTest):
         self.raises(ValueError, s_files.getAssetPath, 'newp.bin')
         self.raises(ValueError, s_files.getAssetPath,
                     '../../../../../../../../../etc/passwd')
+
+    async def test_genpkg_dotstorm(self):
+
+        yamlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml')
+
+        async with self.getTestCore() as core:
+            url = core.getLocalUrl()
+            argv = ('--push', url, yamlpath)
+            await s_genpkg.main(argv)
+            msgs = await core.stormlist('$lib.import(dotstorm.foo)')
+            self.stormIsInPrint('hello foo', msgs)
+            msgs = await core.stormlist('dotstorm.bar')
+            self.stormIsInPrint('hello bar', msgs)

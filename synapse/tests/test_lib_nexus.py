@@ -2,14 +2,12 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
 
+import synapse.lib.cell as s_cell
 import synapse.lib.nexus as s_nexus
+
 import synapse.tests.utils as s_t_utils
 
-class SampleNexus(s_nexus.Pusher):
-
-    async def __anit__(self, iden, nexsroot=None):
-        await s_nexus.Pusher.__anit__(self, iden=iden, nexsroot=nexsroot)
-        self.iden = iden
+class SampleNexus(s_cell.Cell):
 
     async def doathing(self, eventdict):
         return await self._push('thing:doathing', eventdict, 'foo')
@@ -63,84 +61,97 @@ class NexusTest(s_t_utils.SynTest):
     async def test_nexus(self):
 
         with self.getTestDir() as dirn:
+            dir1 = s_common.genpath(dirn, 'nexus1')
+            dir2 = s_common.genpath(dirn, 'nexus2')
+            guid1 = s_common.guid('nexus1')
+            guid2 = s_common.guid('nexus2')
 
-            async with await s_nexus.NexsRoot.anit(dirn) as nexsroot:
-                await nexsroot.startup(None)
+            conf1 = {'cell:guid': guid1, 'nexslog:en': True}
+            async with await SampleNexus.anit(conf=conf1, dirn=dir1) as nexus1:
+                nexsroot = nexus1.nexsroot
 
-                async with await SampleNexus.anit(1, nexsroot=nexsroot) as nexus1:
+                eventdict = {'specialpush': 0}
+                self.eq('foo', await nexus1.doathing(eventdict))
+                self.eq(guid1, eventdict.get('happened'))
+
+                self.eq('foo', await nexus1.doathingauto(eventdict, 'foo'))
+                self.eq(guid1, eventdict.get('autohappened'))
+
+                self.eq('foo', await nexus1.doathingauto2(eventdict, 'foo'))
+                self.eq(guid1, eventdict.get('autohappened2'))
+
+                self.eq('doc', nexus1.doathingauto2.__doc__)
+
+                self.eq(3, await nexsroot.index())
+
+                conf2 = {'cell:guid': guid2, 'nexslog:en': True}
+                async with await SampleNexus2.anit(conf=conf2, dirn=dir2, parent=nexus1) as nexus2:
 
                     eventdict = {'specialpush': 0}
+                    # Tricky inheriting handler funcs themselves
                     self.eq('foo', await nexus1.doathing(eventdict))
-                    self.eq(1, eventdict.get('happened'))
+                    self.eq('bar', await nexus2.doathing(eventdict))
+                    self.eq(guid2, eventdict.get('happened'))
 
-                    self.eq('foo', await nexus1.doathingauto(eventdict, 'foo'))
-                    self.eq(1, eventdict.get('autohappened'))
+                    # Check offset passing
+                    self.eq('foo', await nexus2.doathing2(eventdict))
+                    self.eq(5, eventdict.get('gotindex'))
 
-                    self.eq('foo', await nexus1.doathingauto2(eventdict, 'foo'))
-                    self.eq(1, eventdict.get('autohappened2'))
+                    # Check raising an exception
+                    with self.raises(s_exc.SynErr) as cm:
+                        await nexus2.doathingauto3(eventdict)
+                    self.eq(cm.exception.get('mesg'), 'Test error')
 
-                    self.eq('doc', nexus1.doathingauto2.__doc__)
+                    with self.getLoggerStream('synapse.lib.nexus') as stream:
+                        await nexsroot.recover()
 
-                    self.eq(3, await nexsroot.index())
-
-                    async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
-
-                        eventdict = {'specialpush': 0}
-                        # Tricky inheriting handler funcs themselves
-                        self.eq('foo', await nexus1.doathing(eventdict))
-                        self.eq('bar', await testkid.doathing(eventdict))
-                        self.eq(2, eventdict.get('happened'))
-
-                        # Check offset passing
-                        self.eq('foo', await testkid.doathing2(eventdict))
-                        self.eq(5, eventdict.get('gotindex'))
-
-                        # Check raising an exception
-                        await self.asyncraises(s_exc.SynErr, testkid.doathingauto3(eventdict))
-
-                        with self.getLoggerStream('synapse.lib.nexus') as stream:
-                            await nexsroot.recover()
-
-                        stream.seek(0)
-                        self.isin('while replaying log', stream.read())
+                    stream.seek(0)
+                    self.isin('while replaying log', stream.read())
 
     async def test_nexus_mixin(self):
         with self.getTestDir() as dirn:
+            dir1 = s_common.genpath(dirn, 'nexus1')
+            dir2 = s_common.genpath(dirn, 'nexus2')
+            guid1 = s_common.guid('nexus1')
+            guid2 = s_common.guid('nexus2')
 
-            async with await s_nexus.NexsRoot.anit(dirn) as nexsroot:
-                await nexsroot.startup(None)
-
-                eventdict = {'specialpush': 0}
-                async with await SampleNexus2.anit(2, nexsroot=nexsroot) as testkid:
-                    self.eq('bar', await testkid.doathing(eventdict))
-                    self.eq(42, await testkid.mixinthing(eventdict))
+            conf1 = {'cell:guid': guid1, 'nexslog:en': True}
+            async with await SampleNexus.anit(conf=conf1, dirn=dir1) as nexus1:
+                conf1 = {'cell:guid': guid2, 'nexslog:en': True}
+                async with await SampleNexus2.anit(conf=conf1, dirn=dir2, parent=nexus1) as nexus2:
+                    eventdict = {'specialpush': 0}
+                    self.eq('bar', await nexus2.doathing(eventdict))
+                    self.eq(42, await nexus2.mixinthing(eventdict))
 
     async def test_nexus_no_logging(self):
         '''
         Pushers/NexsRoot works with donexslog=False
         '''
         with self.getTestDir() as dirn:
+            dir1 = s_common.genpath(dirn, 'nexus1')
+            dir2 = s_common.genpath(dirn, 'nexus2')
+            guid1 = s_common.guid('nexus1')
+            guid2 = s_common.guid('nexus2')
 
-            async with await s_nexus.NexsRoot.anit(dirn, donexslog=False) as nexsroot:
+            conf1 = {'cell:guid': guid1, 'nexslog:en': False}
+            async with await SampleNexus.anit(conf=conf1, dirn=dirn) as nexus1:
+                nexsroot = nexus1.nexsroot
 
-                async with await SampleNexus.anit(1, nexsroot=nexsroot) as nexus1:
+                eventdict = {'specialpush': 0}
+                self.eq('foo', await nexus1.doathing(eventdict))
+                self.eq('foo', await nexus1.doathing2(eventdict))
+                self.eq(guid1, eventdict.get('happened'))
+                self.eq(1, eventdict.get('gotindex'))
 
-                    await nexsroot.startup(None)
+                self.eq(2, await nexsroot.index())
 
+                conf2 = {'cell:guid': guid2, 'nexslog:en': False}
+                async with await SampleNexus2.anit(conf=conf2, dirn=dir2, parent=nexus1) as nexus2:
                     eventdict = {'specialpush': 0}
-                    self.eq('foo', await nexus1.doathing(eventdict))
-                    self.eq('foo', await nexus1.doathing2(eventdict))
-                    self.eq(1, eventdict.get('happened'))
-                    self.eq(1, eventdict.get('gotindex'))
-
-                    self.eq(2, await nexsroot.index())
-
-                    async with await SampleNexus2.anit(2, nexsroot=nexsroot) as nexus2:
-                        eventdict = {'specialpush': 0}
-                        self.eq('bar', await nexus2.doathing(eventdict))
-                        self.eq('foo', await nexus2.doathing2(eventdict))
-                        self.eq(2, eventdict.get('happened'))
-                        self.eq(3, eventdict.get('gotindex'))
+                    self.eq('bar', await nexus2.doathing(eventdict))
+                    self.eq('foo', await nexus2.doathing2(eventdict))
+                    self.eq(guid2, eventdict.get('happened'))
+                    self.eq(3, eventdict.get('gotindex'))
 
     async def test_nexus_migration(self):
         with self.getRegrDir('cortexes', 'reindex-byarray3') as regrdirn:
@@ -153,12 +164,13 @@ class NexusTest(s_t_utils.SynTest):
 
                 nexsindx = await core00.getNexsIndx()
                 layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-                self.eq(nexsindx, layrindx)
+                self.gt(nexsindx, layrindx)
 
                 retn = await core00.nexsroot.nexslog.get(0)
                 self.nn(retn)
                 self.eq([0], core00.nexsroot.nexslog._ranges)
-                await self.agenlen(54, core00.nexsroot.nexslog.iter(0))
+                items = await s_t_utils.alist(core00.nexsroot.nexslog.iter(0))
+                self.ge(len(items), 62)
 
     async def test_nexus_setindex(self):
 
@@ -166,7 +178,7 @@ class NexusTest(s_t_utils.SynTest):
 
             nexsindx = await core00.getNexsIndx()
             layrindx = max([await layr.getEditIndx() for layr in core00.layers.values()])
-            self.eq(nexsindx, layrindx)
+            self.ge(nexsindx, layrindx)
 
             # Make sure a mirror gets updated to the correct index
             url = core00.getLocalUrl()
@@ -177,7 +189,7 @@ class NexusTest(s_t_utils.SynTest):
                 await core01.sync()
 
                 layrindx = max([await layr.getEditIndx() for layr in core01.layers.values()])
-                self.eq(nexsindx, layrindx)
+                self.ge(nexsindx, layrindx)
 
             # Can only move index forward
             self.false(await core00.setNexsIndx(0))
@@ -188,4 +200,4 @@ class NexusTest(s_t_utils.SynTest):
 
             nexsindx = await core.getNexsIndx()
             layrindx = max([await layr.getEditIndx() for layr in core.layers.values()])
-            self.eq(nexsindx, layrindx)
+            self.ge(nexsindx, layrindx)

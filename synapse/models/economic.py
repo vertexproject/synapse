@@ -1,9 +1,4 @@
-import synapse.common as s_common
-
-import synapse.lib.time as s_time
-import synapse.lib.types as s_types
 import synapse.lib.module as s_module
-import synapse.lib.grammar as s_grammar
 
 class EconModule(s_module.CoreModule):
 
@@ -141,9 +136,9 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:acquired', {}, (
                     ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase event which acquired an item.'}),
+                        'doc': 'The purchase event which acquired an item.', 'ro': True, }),
                     ('item', ('ndef', {}), {
-                        'doc': 'A reference to the item that was acquired.'}),
+                        'doc': 'A reference to the item that was acquired.', 'ro': True, }),
                     ('item:form', ('str', {}), {
                         'doc': 'The form of item purchased.'}),
                 )),
@@ -210,6 +205,10 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The currency of the balance amount.'}),
                     ('delta', ('econ:price', {}), {
                         'doc': 'The change since last regular sample.'}),
+                    ('total:received', ('econ:price', {}), {
+                        'doc': 'The total amount of currency received by the account.'}),
+                    ('total:sent', ('econ:price', {}), {
+                        'doc': 'The total amount of currency sent from the account.'}),
                 )),
 
 

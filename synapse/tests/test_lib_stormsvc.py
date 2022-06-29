@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -313,7 +314,22 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
     )
 
 class StormvarServiceCell(s_cell.Cell):
-
+    confdefs = {
+        'some:obj': {
+            'description': 'Some object',
+            'type': 'object',
+            'properties': {
+                'foo': {
+                    'type': 'string',
+                },
+                'bar': {
+                    'type': 'string',
+                },
+            },
+            'required': ['name', ],
+            'additionalProperties': False,
+        },
+    }
     cellapi = StormvarService
 
 class SvcShare(s_share.Share):
@@ -414,10 +430,19 @@ class StormSvcTest(s_test.SynTest):
                 await core.nodes(f'service.add fake {lurl}')
                 await core.nodes('$lib.service.wait(fake)')
 
+                self.true(await core.callStorm('return($lib.service.wait(fake, timeout=(0)))'))
+                self.true(await core.callStorm('return($lib.service.wait(fake, timeout=(1)))'))
+
                 core.svcsbyname['fake'].proxy._t_conf['timeout'] = 0.1
                 proxy = core.svcsbyname['fake'].proxy._t_proxy
 
             self.true(await proxy.waitfini(6))
+
+            self.false(await core.callStorm('return($lib.service.wait(fake, timeout=(1)))'))
+            # This blocks indefinitely without a timeout value provided.
+            fut = core.callStorm('return($lib.service.wait(fake))')
+            with self.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(fut, timeout=0.3)
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ inet:ipv4=6.6.6.6 ] | ohhai')
@@ -651,7 +676,7 @@ class StormSvcTest(s_test.SynTest):
                     msgs = await core.stormlist(q, {'vars': {'svc': iden}})
                     self.stormIsInPrint('yes', msgs)
 
-                    # Since there ws a chnage to how $lib.service.wait handles permissions, anyone that can
+                    # Since there was a change to how $lib.service.wait handles permissions, anyone that can
                     # get a service can also wait for it, so ensure that those permissions still work.
                     # lib.service.wait can still be called both ways (iden or name)
                     msgs = await core.stormlist('$svc=$lib.service.wait(fake) $lib.print(yup)', {'user': user.iden})

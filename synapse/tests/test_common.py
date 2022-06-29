@@ -1,4 +1,5 @@
 import os
+import logging
 import subprocess
 
 import yaml
@@ -6,6 +7,8 @@ import yaml
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
+
+logger = logging.getLogger(__name__)
 
 class CommonTest(s_t_utils.SynTest):
     def test_tuplify(self):
@@ -109,12 +112,28 @@ class CommonTest(s_t_utils.SynTest):
 
             # getDirSize: check against du
             real, appr = s_common.getDirSize(dirn)
-            durealstr = subprocess.check_output(['du', '-B', '1', '-s', dirn])
-            dureal = int(durealstr.split()[0])
+
             duapprstr = subprocess.check_output(['du', '-bs', dirn])
             duappr = int(duapprstr.split()[0])
-            self.eq(dureal, real)
             self.eq(duappr, appr)
+
+            # The following does not work in a busybox based environment,
+            # but manual testing of the getDirSize() API does confirm
+            # that the results are still as expected when run there.
+            argv = ['du', '-B', '1', '-s', dirn]
+            proc = subprocess.run(argv, capture_output=True)
+            try:
+                proc.check_returncode()
+            except subprocess.CalledProcessError as e:
+                stderr = proc.stderr.decode()
+                if 'unrecognized option: B' in stderr and 'BusyBox' in stderr:
+                    logger.warning(f'Unable to run {"".join(argv)} in BusyBox.')
+                else:
+                    raise
+            else:
+                durealstr = proc.stdout.decode()
+                dureal = int(durealstr.split()[0])
+                self.eq(dureal, real)
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
@@ -254,6 +273,18 @@ class CommonTest(s_t_utils.SynTest):
             robj = s_common.yamlload(dirn, 'test.yaml')
             obj['bar'] = 42
             self.eq(obj, robj)
+
+            s_common.yamlmod({'bar': 42}, dirn, 'nomod.yaml')
+            robj = s_common.yamlload(dirn, 'nomod.yaml')
+            self.eq(robj, {'bar': 42})
+
+            s_common.yamlpop('zap', dirn, 'test.yaml')
+            robj = s_common.yamlload(dirn, 'test.yaml')
+            self.eq(robj, {'foo': 'bar', 'bar': 42})
+            # And its replayable
+            s_common.yamlpop('zap', dirn, 'test.yaml')
+            # And won't blow up if the file doesn't exist
+            s_common.yamlpop('zap', dirn, 'newp.yaml')
 
             # Test yaml helper safety
             s = '!!python/object/apply:os.system ["pwd"]'

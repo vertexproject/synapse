@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,13 @@ storm_missing_coins = '''
     }
 '''
 
+storm_missing_cpe22 = '''
+$views = $lib.view.list(deporder=$lib.true)
+for $view in $views {
+    view.exec $view.iden { it:sec:cpe -:v2_2 [ :v2_2=$node.value() ] }
+}
+'''
+
 
 hotfixes = (
     ((1, 0, 0), {
@@ -66,6 +74,10 @@ hotfixes = (
         'desc': 'Populate crypto:currency:coin nodes from existing addresses.',
         'query': storm_missing_coins,
     }),
+    ((3, 0, 0), {
+        'desc': 'Populate it:sec:cpe:v2_2 properties from existing CPE where the property is not set.',
+        'query': storm_missing_cpe22,
+    }),
 )
 runtime_fixes_key = 'cortex:runtime:stormfixes'
 
@@ -75,7 +87,7 @@ def getMaxHotFixes():
 @s_stormtypes.registry.registerLib
 class CellLib(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with Json data.
+    A Storm Library for interacting with the Cortex.
     '''
     _storm_locals = (
         {'name': 'getCellInfo', 'desc': 'Return metadata specific for the Cortex.',
@@ -113,6 +125,14 @@ class CellLib(s_stormtypes.Lib):
                        'desc': 'Time (in seconds) to wait for consumers to catch-up before culling.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The offset that was culled (up to and including).'}}},
+        {'name': 'uptime', 'desc': 'Get update data for the Cortex or a connected Service.',
+         'type': {'type': 'function', '_funcname': '_uptime',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                       'desc': 'The name, or iden, of the service to get uptime data for '
+                               '(defaults to the Cortex if not provided).'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary containing uptime data.', }}},
     )
     _storm_lib_path = ('cell',)
 
@@ -125,6 +145,7 @@ class CellLib(s_stormtypes.Lib):
             'hotFixesApply': self._hotFixesApply,
             'hotFixesCheck': self._hotFixesCheck,
             'trimNexsLog': self._trimNexsLog,
+            'uptime': self._uptime,
         }
 
     async def _hotFixesApply(self):
@@ -144,20 +165,20 @@ class CellLib(s_stormtypes.Lib):
             assert desc is not None
             assert vars is not None
 
-            await self.runt.printf(f'Applying fix {vers} for [{desc}]')
+            await self.runt.printf(f'Applying hotfix {vers} for [{desc}]')
             try:
                 query = await self.runt.getStormQuery(text)
                 async with self.runt.getSubRuntime(query, opts={'vars': vars}) as runt:
                     async for item in runt.execute():
                         pass
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # pragma: no cover
                 raise
-            except Exception as e:
-                logger.exception(f'Error applying stormfix {vers}')
+            except Exception as e: # pragma: no cover
+                logger.exception(f'Error applying storm hotfix {vers}')
                 raise
             else:
                 await self.runt.snap.core.setStormVar(runtime_fixes_key, vers)
-                await self.runt.printf(f'Applied fix {vers}')
+                await self.runt.printf(f'Applied hotfix {vers}')
             curv = vers
 
         return curv
@@ -215,3 +236,22 @@ class CellLib(s_stormtypes.Lib):
             consumers = [await s_stormtypes.tostr(turl) async for turl in s_stormtypes.toiter(consumers)]
 
         return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)
+
+    async def _uptime(self, name=None):
+
+        name = await s_stormtypes.tostr(name, noneok=True)
+
+        if name is None:
+            info = await self.runt.snap.core.getSystemInfo()
+        else:
+            ssvc = self.runt.snap.core.getStormSvc(name)
+            if ssvc is None:
+                mesg = f'No service with name/iden: {name}'
+                raise s_exc.NoSuchName(mesg=mesg)
+            await ssvc.proxy.waitready()
+            info = await ssvc.proxy.getSystemInfo()
+
+        return {
+            'starttime': info['cellstarttime'],
+            'uptime': info['celluptime'],
+        }

@@ -2,6 +2,7 @@ import os
 import ssl
 import shutil
 import socket
+import logging
 import collections
 
 from OpenSSL import crypto  # type: ignore
@@ -9,9 +10,10 @@ from OpenSSL import crypto  # type: ignore
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
 if defdir is None:
-    defdir = '~/.syn/certs'
+    defdir = defdir_default
 
 def iterFqdnUp(fqdn):
     levs = fqdn.split('.')
@@ -19,6 +21,8 @@ def iterFqdnUp(fqdn):
         yield '.'.join(levs[i:])
 
 TEN_YEARS = 10 * 365 * 24 * 60 * 60
+
+logger = logging.getLogger(__name__)
 
 class CertDir:
     '''
@@ -35,8 +39,8 @@ class CertDir:
         path (str): Optional path which can override the default path directory.
 
     Notes:
-        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the envvar SYN_CERT_DIR to
-          override.
+        * All certificates will be loaded from and written to ~/.syn/certs by default. Set the environment variable
+          SYN_CERT_DIR to override.
         * All certificate generation methods create 4096 bit RSA keypairs.
         * All certificate signing methods use sha256 as the signature algorithm.
         * CertDir does not currently support signing CA CSRs.
@@ -60,16 +64,11 @@ class CertDir:
 
     def addCertPath(self, *path):
 
-        fullpath = s_common.gendir(*path)
+        fullpath = s_common.genpath(*path)
         self.pathrefs[fullpath] += 1
 
         if self.pathrefs[fullpath] == 1:
-
             self.certdirs.append(fullpath)
-
-            s_common.gendir(fullpath, 'cas')
-            s_common.gendir(fullpath, 'hosts')
-            s_common.gendir(fullpath, 'users')
 
     def delCertPath(self, *path):
         fullpath = s_common.gendir(*path)
@@ -116,7 +115,7 @@ class CertDir:
 
         return pkey, cert
 
-    def genHostCert(self, name, signas=None, outp=None, csr=None, sans=None):
+    def genHostCert(self, name, signas=None, outp=None, csr=None, sans=None, save=True):
         '''
         Generates a host keypair.
 
@@ -155,14 +154,15 @@ class CertDir:
         else:
             self.selfSignCert(cert, pkey)
 
-        if not pkey._only_public:
-            keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
-            if outp is not None:
-                outp.printf('key saved: %s' % (keypath,))
+        if save:
+            if not pkey._only_public:
+                keypath = self._savePkeyTo(pkey, 'hosts', '%s.key' % name)
+                if outp is not None:
+                    outp.printf('key saved: %s' % (keypath,))
 
-        crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
-        if outp is not None:
-            outp.printf('cert saved: %s' % (crtpath,))
+            crtpath = self._saveCertTo(cert, 'hosts', '%s.crt' % name)
+            if outp is not None:
+                outp.printf('cert saved: %s' % (crtpath,))
 
         return pkey, cert
 
@@ -184,7 +184,7 @@ class CertDir:
         '''
         return self._genPkeyCsr(name, 'hosts', outp=outp)
 
-    def genUserCert(self, name, signas=None, outp=None, csr=None):
+    def genUserCert(self, name, signas=None, outp=None, csr=None, save=True):
         '''
         Generates a user keypair.
 
@@ -216,14 +216,15 @@ class CertDir:
         else:
             self.selfSignCert(cert, pkey)
 
-        crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
-        if outp is not None:
-            outp.printf('cert saved: %s' % (crtpath,))
-
-        if not pkey._only_public:
-            keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
+        if save:
+            crtpath = self._saveCertTo(cert, 'users', '%s.crt' % name)
             if outp is not None:
-                outp.printf('key saved: %s' % (keypath,))
+                outp.printf('cert saved: %s' % (crtpath,))
+
+            if not pkey._only_public:
+                keypath = self._savePkeyTo(pkey, 'users', '%s.key' % name)
+                if outp is not None:
+                    outp.printf('key saved: %s' % (keypath,))
 
         return pkey, cert
 
@@ -328,6 +329,12 @@ class CertDir:
             OpenSSL.crypto.X509: The certificate, if exists.
         '''
         return self._loadCertPath(self.getCaCertPath(name))
+
+    def getCaCertBytes(self, name):
+        path = self.getCaCertPath(name)
+        if os.path.exists(path):
+            with open(path, 'rb') as fd:
+                return fd.read()
 
     def getCaCerts(self):
         '''
@@ -485,6 +492,12 @@ class CertDir:
             OpenSSL.crypto.X509: The certificate, if exists.
         '''
         return self._loadCertPath(self.getHostCertPath(name))
+
+    def getHostCertHash(self, name):
+        cert = self.getHostCert(name)
+        if cert is None:
+            return None
+        return cert.digest('SHA256').decode().lower().replace(':', '')
 
     def getHostCertPath(self, name):
         '''
@@ -680,7 +693,7 @@ class CertDir:
             None
         '''
         if not os.path.isfile(path):
-            raise s_exc.NoSuchFile(mesg='File does not exist', path=path)
+            raise s_exc.NoSuchFile(mesg=f'File {path} does not exist', path=path)
 
         fname = os.path.split(path)[1]
         parts = fname.rsplit('.', 1)
@@ -692,7 +705,9 @@ class CertDir:
 
         newpath = s_common.genpath(self.certdirs[0], mode, fname)
         if os.path.isfile(newpath):
-            raise s_exc.FileExists('File already exists')
+            raise s_exc.FileExists(mesg=f'File {newpath} already exists', path=path)
+
+        s_common.gendir(os.path.dirname(newpath))
 
         shutil.copy(path, newpath)
         if outp is not None:
@@ -785,20 +800,20 @@ class CertDir:
         '''
         cakey = self.getCaKey(signas)
         if cakey is None:
-            raise s_exc.NoCertKey('Missing .key for %s' % signas)
+            raise s_exc.NoCertKey(mesg=f'Missing .key for {signas}')
         cacert = self.getCaCert(signas)
         if cacert is None:
-            raise s_exc.NoCertKey('Missing .crt for %s' % signas)
+            raise s_exc.NoCertKey(mesg=f'Missing .crt for {signas}')
 
         cert.set_issuer(cacert.get_subject())
         cert.sign(cakey, self.signing_digest)
 
-    def signHostCsr(self, xcsr, signas, outp=None, sans=None):
+    def signHostCsr(self, xcsr, signas, outp=None, sans=None, save=True):
         '''
         Signs a host CSR with a CA keypair.
 
         Args:
-            cert (OpenSSL.crypto.X509Req): The certificate signing request.
+            xcsr (OpenSSL.crypto.X509Req): The certificate signing request.
             signas (str): The CA keypair name to sign the CSR with.
             outp (synapse.lib.output.Output): The output buffer.
             sans (list): List of subject alternative names.
@@ -813,7 +828,7 @@ class CertDir:
         '''
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans)
+        return self.genHostCert(name, csr=pkey, signas=signas, outp=outp, sans=sans, save=save)
 
     def selfSignCert(self, cert, pkey):
         '''
@@ -834,12 +849,12 @@ class CertDir:
         cert.set_issuer(cert.get_subject())
         cert.sign(pkey, self.signing_digest)
 
-    def signUserCsr(self, xcsr, signas, outp=None):
+    def signUserCsr(self, xcsr, signas, outp=None, save=True):
         '''
         Signs a user CSR with a CA keypair.
 
         Args:
-            cert (OpenSSL.crypto.X509Req): The certificate signing request.
+            xcsr (OpenSSL.crypto.X509Req): The certificate signing request.
             signas (str): The CA keypair name to sign the CSR with.
             outp (synapse.lib.output.Output): The output buffer.
 
@@ -851,7 +866,7 @@ class CertDir:
         '''
         pkey = xcsr.get_pubkey()
         name = xcsr.get_subject().CN
-        return self.genUserCert(name, csr=pkey, signas=signas, outp=outp)
+        return self.genUserCert(name, csr=pkey, signas=signas, outp=outp, save=save)
 
     def _loadCasIntoSSLContext(self, ctx):
 
@@ -971,9 +986,24 @@ class CertDir:
             fd.truncate(0)
             fd.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, pkey))
 
+    def saveCaCertByts(self, byts):
+        cert = self._loadCertByts(byts)
+        name = cert.get_subject().CN
+        return self._saveCertTo(cert, 'cas', f'{name}.crt')
+
+    def saveHostCertByts(self, byts):
+        cert = self._loadCertByts(byts)
+        name = cert.get_subject().CN
+        return self._saveCertTo(cert, 'hosts', f'{name}.crt')
+
+    def saveUserCertByts(self, byts):
+        cert = self._loadCertByts(byts)
+        name = cert.get_subject().CN
+        return self._saveCertTo(cert, 'users', f'{name}.crt')
+
     def _checkDupFile(self, path):
         if os.path.isfile(path):
-            raise s_exc.DupFileName(path=path)
+            raise s_exc.DupFileName(mesg=f'Duplicate file {path}', path=path)
 
     def _genBasePkeyCert(self, name, pkey=None):
 
@@ -1036,7 +1066,10 @@ class CertDir:
     def _loadCertPath(self, path):
         byts = self._getPathBytes(path)
         if byts:
-            return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
+            return self._loadCertByts(byts)
+
+    def _loadCertByts(self, byts):
+        return crypto.load_certificate(crypto.FILETYPE_PEM, byts)
 
     def _loadCsrPath(self, path):
         byts = self._getPathBytes(path)
@@ -1096,7 +1129,13 @@ class CertDir:
         return path
 
 certdir = CertDir()
-def getCertDir():
+def getCertDir() -> CertDir:
+    '''
+    Get the singleton CertDir instance.
+
+    Returns:
+        CertDir: A certdir object.
+    '''
     return certdir
 
 def addCertPath(path):
@@ -1104,3 +1143,12 @@ def addCertPath(path):
 
 def delCertPath(path):
     return certdir.delCertPath(path)
+
+def getCertDirn() -> str:
+    '''
+    Get the expanded default path used by the singleton CertDir instance.
+
+    Returns:
+        str: The path string.
+    '''
+    return s_common.genpath(defdir)

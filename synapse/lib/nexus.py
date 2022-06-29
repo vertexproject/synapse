@@ -72,7 +72,7 @@ class ChangeDist(s_base.Base):
 
 class NexsRoot(s_base.Base):
 
-    async def __anit__(self, dirn: str, donexslog: bool = True, map_async=False):
+    async def __anit__(self, cell):
 
         await s_base.Base.__anit__(self)
 
@@ -80,12 +80,15 @@ class NexsRoot(s_base.Base):
         import synapse.lib.lmdbslab as s_lmdbslab
         import synapse.lib.multislabseqn as s_multislabseqn
 
-        self.dirn = dirn
+        self.cell = cell
+        self.dirn = cell.dirn
         self.client = None
         self.started = False
-        self.celliden = None
-        self.donexslog = donexslog
+        self.celliden = self.cell.iden
         self.applylock = asyncio.Lock()
+
+        self.ready = asyncio.Event()
+        self.donexslog = self.cell.conf.get('nexslog:en')
 
         self._mirrors: List[ChangeDist] = []
         self._nexskids: Dict[str, 'Pusher'] = {}
@@ -98,8 +101,8 @@ class NexsRoot(s_base.Base):
 
         logpath = s_common.genpath(self.dirn, 'slabs', 'nexuslog')
 
-        self.map_async = map_async
-        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=map_async)
+        self.map_async = self.cell.conf.get('nexslog:async')
+        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=self.map_async)
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
         if fresh:
@@ -112,7 +115,7 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        slabopts = {'map_async': map_async}
+        slabopts = {'map_async': self.map_async}
         self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts)
 
         # just in case were previously configured differently
@@ -211,6 +214,18 @@ class NexsRoot(s_base.Base):
 
         finally:
             self._futures.pop(iden, None)
+
+    async def enNexsLog(self):
+
+        async with self.applylock:
+
+            if self.donexslog:
+                return
+
+            indx = await self.index()
+
+            self.nexslog.setIndex(indx)
+            self.donexslog = True
 
     async def recover(self) -> None:
         '''
@@ -336,7 +351,7 @@ class NexsRoot(s_base.Base):
 
             return await func(nexus, *args, **kwargs)
 
-    async def iter(self, offs: int) -> AsyncIterator[Any]:
+    async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
         '''
         Returns an iterator of change entries in the log
         '''
@@ -353,6 +368,9 @@ class NexsRoot(s_base.Base):
                 raise s_exc.IsFini()
             maxoffs = item[0] + 1
             yield item
+
+        if tellready:
+            yield None
 
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
@@ -374,19 +392,32 @@ class NexsRoot(s_base.Base):
 
             yield dist
 
-    async def startup(self, mirurl, celliden=None):
-
-        self.celliden = celliden
+    async def startup(self):
 
         if self.client is not None:
             await self.client.fini()
 
         self.client = None
+
+        mirurl = self.cell.conf.get('mirror')
+
+        await self.setNexsReady(mirurl is None)
+
         if mirurl is not None:
             self.client = await s_telepath.Client.anit(mirurl, onlink=self._onTeleLink)
             self.onfini(self.client)
 
         self.started = True
+
+    async def setNexsReady(self, status):
+        if status:
+            self.ready.set()
+        else:
+            self.ready.clear()
+
+        # TODO maybe bump clients if status True -> False?
+        # (or fire a timer that if we're not back to ready soon bump them?)
+        await self._tellAhaReady(status)
 
     async def promote(self):
 
@@ -395,12 +426,19 @@ class NexsRoot(s_base.Base):
             mesg = 'promote() called on non-mirror nexsroot'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        await self.startup(None)
+        await self.startup()
 
     async def _onTeleLink(self, proxy):
         self.client.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
+
+        cellinfo = await proxy.getCellInfo()
+        features = cellinfo.get('features', {})
+        if features.get('dynmirror'):
+            await proxy.readyToMirror()
+
+        cellvers = cellinfo['synapse']['version']
 
         if self.celliden is not None:
             if self.celliden != await proxy.getCellIden():
@@ -412,13 +450,22 @@ class NexsRoot(s_base.Base):
         while not proxy.isfini:
 
             try:
-
                 offs = self.nexslog.index()
-                genr = proxy.getNexusChanges(offs)
+
+                opts = {}
+                if cellvers >= (2, 95, 0):
+                    opts['tellready'] = True
+
+                genr = proxy.getNexusChanges(offs, **opts)
                 async for item in genr:
 
                     if proxy.isfini:  # pragma: no cover
                         break
+
+                    # with tellready we move to ready=true when we get a None
+                    if item is None:
+                        await self.setNexsReady(True)
+                        continue
 
                     offs, args = item
                     if offs != self.nexslog.index():  # pragma: no cover
@@ -452,6 +499,24 @@ class NexsRoot(s_base.Base):
 
             except Exception:  # pragma: no cover
                 logger.exception('error in mirror loop')
+
+    async def _tellAhaReady(self, status):
+
+        if self.cell.ahaclient is None:
+            return
+
+        try:
+            await self.cell.ahaclient.waitready(timeout=5)
+            ahainfo = await self.cell.ahaclient.getCellInfo()
+            ahavers = ahainfo['synapse']['version']
+            if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
+                await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': True})
+
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            raise
+
+        except Exception as e: # pragma: no cover
+            logger.exception(f'Error trying to set aha ready: {status}')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''

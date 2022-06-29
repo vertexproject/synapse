@@ -1,8 +1,10 @@
 import os
 import sys
 import time
-import tarfile
+import signal
 import asyncio
+import tarfile
+import multiprocessing
 
 from unittest import mock
 
@@ -15,6 +17,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.link as s_link
 import synapse.lib.version as s_version
+import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_t_utils
@@ -45,6 +48,24 @@ async def _iterBackupEOF(path, linkinfo):
 
 def _backupEOF(path, linkinfo):
     asyncio.run(_iterBackupEOF(path, linkinfo))
+
+def lock_target(dirn, evt1):  # pragma: no cover
+    '''
+    Function to make a cell in a directory and wait to be shut down.
+    Used as a Process target for advisory locking tests.
+
+    Args:
+        dirn (str): Cell directory.
+        evt1 (multiprocessing.Event): event to twiddle
+    '''
+    async def main():
+        cell = await s_cell.Cell.anit(dirn)
+        await cell.addSignalHandlers()
+        evt1.set()
+        await cell.waitfini(timeout=60)
+
+    asyncio.run(main())
+    sys.exit(137)
 
 class EchoAuthApi(s_cell.CellApi):
 
@@ -352,6 +373,7 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await proxy.isUserAllowed(visi.iden, ('foo', 'bar')))
                 self.false(await proxy.isUserAllowed(visi.iden, ('hehe', 'haha')))
                 self.false(await proxy.isUserAllowed('newpnewp', ('hehe', 'haha')))
+                self.false(await proxy.isRoleAllowed('newpnewp', ('foo', 'bar')))
 
                 await proxy.setUserProfInfo(visi.iden, 'hehe', 'haha')
                 self.eq('haha', await proxy.getUserProfInfo(visi.iden, 'hehe'))
@@ -843,15 +865,70 @@ class CellTest(s_t_utils.SynTest):
                 self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
                 self.isin('...cell API (https): disabled', buf)
 
-    async def test_cell_backup(self):
+    async def test_cell_initargv_conf(self):
+        async with self.withSetLoggingMock():
+            with self.setTstEnvars(SYN_CELL_NEXSLOG_EN='true',
+                                   SYN_CELL_DMON_LISTEN='null',
+                                   SYN_CELL_HTTPS_PORT='null',
+                                   SYN_CELL_AUTH_PASSWD='notsecret',
+                                   ):
+                with self.getTestDir() as dirn:
+                    s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:0/',
+                                       'aha:name': 'some:cell'},
+                                      dirn, 'cell.yaml')
+                    s_common.yamlsave({'nexslog:async': True},
+                                      dirn, 'cell.mods.yaml')
+                    async with await s_cell.Cell.initFromArgv([dirn, '--auth-passwd', 'secret']) as cell:
+                        # config order for booting from initArgV
+                        # 0) cell.mods.yaml
+                        # 1) cmdline
+                        # 2) envars
+                        # 3) cell.yaml
+                        self.true(cell.conf.reqConfValu('nexslog:en'))
+                        self.true(cell.conf.reqConfValu('nexslog:async'))
+                        self.none(cell.conf.reqConfValu('dmon:listen'))
+                        self.none(cell.conf.reqConfValu('https:port'))
+                        self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
+                        root = cell.auth.rootuser
+                        self.true(await root.tryPasswd('secret'))
 
-        async with self.getTestCore() as core:
-            with self.raises(s_exc.NeedConfValu):
-                await core.runBackup()
-            with self.raises(s_exc.NeedConfValu):
-                await core.getBackups()
-            with self.raises(s_exc.NeedConfValu):
-                await core.delBackup('foo')
+                # Overrides file wins out over everything else in conflicts
+                with self.getTestDir() as dirn:
+                    s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
+                    async with await s_cell.Cell.initFromArgv([dirn]) as cell:
+                        self.false(cell.conf.reqConfValu('nexslog:en'))
+                        # We can remove the valu from the overrides file with the pop API
+                        # This is NOT reactive API which causes the whole behavior
+                        # of the cell to suddenly change. This is intended to be used with
+                        # code that is aware of changing configuration values.
+                        cell.popCellConf('nexslog:en')
+                        overrides = s_common.yamlload(dirn, 'cell.mods.yaml')
+                        self.eq({}, overrides)
+
+    async def test_initargv_failure(self):
+        if not os.path.exists('/dev/null'):
+            self.skip('Test requires /dev/null to exist.')
+
+        async with self.withSetLoggingMock():
+            with self.getAsyncLoggerStream('synapse.lib.cell',
+                                           'Error starting cell at /dev/null') as stream:
+                with self.raises(FileExistsError):
+                    async with await s_cell.Cell.initFromArgv(['/dev/null']):
+                        pass
+                self.true(await stream.wait(timeout=6))
+
+            # Bad configs can also cause a failure.
+            with self.getTestDir() as dirn:
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Error while bootstrapping cell config') as stream:
+                    with self.raises(s_exc.BadConfValu) as cm:
+                        with self.setTstEnvars(SYN_CELL_AUTH_PASSWD="true"):  # interpreted as a yaml bool true
+                            async with await s_cell.Cell.initFromArgv([dirn, ]):
+                                pass
+                    self.eq(cm.exception.get('name'), 'auth:passwd')
+                self.true(await stream.wait(timeout=6))
+
+    async def test_cell_backup(self):
 
         with self.getTestDir() as dirn:
             s_common.yamlsave({'backup:dir': dirn}, dirn, 'cell.yaml')
@@ -972,6 +1049,7 @@ class CellTest(s_t_utils.SynTest):
                 cryo.certdir.genCaCert('localca')
                 cryo.certdir.genHostCert('localhost', signas='localca')
                 cryo.certdir.genUserCert('root@localhost', signas='localca')
+                cryo.certdir.genUserCert('newp@localhost', signas='localca')
 
                 root = await cryo.auth.addUser('root@localhost')
                 await root.setAdmin(True)
@@ -981,12 +1059,18 @@ class CellTest(s_t_utils.SynTest):
                 addr, port = await cryo.dmon.listen('ssl://0.0.0.0:0?hostname=localhost&ca=localca')
 
                 async with await s_telepath.openurl(f'ssl://root@127.0.0.1:{port}?hostname=localhost') as proxy:
-                    self.nn(await proxy.getCellIden())
+                    self.eq(cryo.iden, await proxy.getCellIden())
 
                 with self.raises(s_exc.BadCertHost):
                     url = f'ssl://root@127.0.0.1:{port}?hostname=borked.localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
+
+                with self.raises(s_exc.NoSuchUser) as cm:
+                    url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
+                    async with await s_telepath.openurl(url) as proxy:
+                        pass
+                self.eq(cm.exception.get('user'), 'newp@localhost')
 
     async def test_cell_auth_ctor(self):
         conf = {
@@ -1287,3 +1371,170 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=bkupdirn5) as core:
                 nodes = await core.nodes('test:str=ssl')
                 self.len(1, nodes)
+
+    async def test_inaugural_users(self):
+
+        conf = {
+            'inaugural': {
+                'users': [
+                    {
+                        'name': 'foo@bar.mynet.com',
+                        'email': 'foo@barcorp.com',
+                        'roles': [
+                            'user'
+                        ],
+                        'rules': [
+                            [False, ['thing', 'del']],
+                            [True, ['thing', ]],
+                        ],
+                    },
+                    {
+                        'name': 'sally@bar.mynet.com',
+                        'admin': True,
+                    },
+                ],
+                'roles': [
+                    {
+                        'name': 'user',
+                        'rules': [
+                            [True, ['foo', 'bar']],
+                            [True, ['foo', 'duck']],
+                            [False, ['newp', ]],
+                        ]
+                    },
+                ]
+            }
+        }
+
+        with self.getTestDir() as dirn:
+            async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
+                iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
+                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+                self.eq(user.name, 'foo@bar.mynet.com')
+                self.eq(user.pack().get('email'), 'foo@barcorp.com')
+                self.false(user.isAdmin())
+                self.true(user.allowed(('thing', 'cool')))
+                self.false(user.allowed(('thing', 'del')))
+                self.true(user.allowed(('thing', 'duck', 'stuff')))
+                self.false(user.allowed(('newp', 'secret')))
+
+                iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
+                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+                self.eq(user.name, 'sally@bar.mynet.com')
+                self.true(user.isAdmin())
+
+        # Cannot use root
+        with self.getTestDir() as dirn:
+            conf = {
+                'inaugural': {
+                    'users': [
+                        {'name': 'root',
+                         'admin': False,
+                         }
+                    ]
+                }
+            }
+            with self.raises(s_exc.BadConfValu):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
+
+        # Cannot use all
+        with self.getTestDir() as dirn:
+            conf = {
+                'inaugural': {
+                    'roles': [
+                        {'name': 'all',
+                         'rules': [
+                             [True, ['floop', 'bloop']],
+                         ]}
+                    ]
+                }
+            }
+            with self.raises(s_exc.BadConfValu):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
+
+        # Colliding with aha:admin will fail
+        with self.getTestDir() as dirn:
+            conf = {
+                'inaugural': {
+                    'users': [
+                        {'name': 'bob@foo.bar.com'}
+                    ]
+                },
+                'aha:admin': 'bob@foo.bar.com',
+            }
+            with self.raises(s_exc.DupUserName):
+                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
+                    pass
+
+    async def test_advisory_locking(self):
+        # fcntl not supported on windows
+        self.thisHostMustNot(platform='windows')
+
+        with self.getTestDir() as dirn:
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+
+            proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
+            proc.start()
+
+            self.true(evt1.wait(timeout=10))
+
+            with self.raises(s_exc.FatalErr) as cm:
+                async with await s_cell.Cell.anit(dirn) as cell:
+                    pass
+
+            self.eq(cm.exception.get('mesg'),
+                    'Cannot start the cell, another process is already running it.')
+
+            os.kill(proc.pid, signal.SIGTERM)
+            proc.join(timeout=10)
+            self.eq(proc.exitcode, 137)
+
+    async def test_cell_backup_default(self):
+
+        async with self.getTestCore() as core:
+
+            await core.runBackup('foo')
+            await core.runBackup('bar')
+
+            foopath = s_common.genpath(core.dirn, 'backups', 'foo')
+            barpath = s_common.genpath(core.dirn, 'backups', 'bar')
+
+            self.true(os.path.isdir(foopath))
+            self.true(os.path.isdir(barpath))
+
+            foonest = s_common.genpath(core.dirn, 'backups', 'bar', 'backups')
+            self.false(os.path.isdir(foonest))
+
+    async def test_mirror_badiden(self):
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'cell00')
+            path01 = s_common.gendir(dirn, 'coll01')
+
+            conf00 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                      'https:port': 0,
+                      'nexslog:en': True,
+                      }
+            async with await s_cell.Cell.anit(conf=conf00, dirn=path00) as cell00:
+
+                conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
+                          'https:port': 0,
+                          'mirror': cell00.getLocalUrl(),
+                          'nexslog:en': True,
+                          }
+
+                # Create the bad cell with its own guid
+                async with await s_cell.Cell.anit(dirn=path01, conf={'nexslog:en': True,
+                                                               }) as cell01:
+                    pass
+
+                with self.getAsyncLoggerStream('synapse.lib.nexus',
+                                               'has different iden') as stream:
+                    async with await s_cell.Cell.anit(conf=conf01, dirn=path01) as cell01:
+                        await stream.wait(timeout=2)
+                        self.true(await cell01.waitfini(6))

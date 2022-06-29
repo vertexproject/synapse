@@ -19,6 +19,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.scope as s_scope
 import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
@@ -137,6 +138,11 @@ class AstNode:
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
+    def hasVarName(self, name):
+        return any(k.hasVarName(name) for k in self.kids)
+
+class LookList(AstNode): pass
+
 class Query(AstNode):
 
     def __init__(self, kids=()):
@@ -193,7 +199,6 @@ class Query(AstNode):
 
             limit = runt.getOpt('limit')
             if limit is not None and count >= limit:
-                await runt.printf('limit reached: %d' % (limit,))
                 break
 
 class Lookup(Query):
@@ -210,25 +215,77 @@ class Lookup(Query):
             mesg = 'Autoadd may not be executed in readonly Storm runtime.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        view = runt.snap.view
+
+        async def getnode(form, valu):
+            try:
+                if self.autoadd:
+                    runt.layerConfirm(('node', 'add', form))
+                    return await runt.snap.addNode(form, valu)
+                else:
+                    norm, info = runt.model.form(form).type.norm(valu)
+                    node = await runt.snap.getNodeByNdef((form, norm))
+                    if node is None:
+                        await runt.snap.fire('look:miss', ndef=(form, norm))
+                    return node
+            except s_exc.BadTypeValu:
+                return None
+
         async def lookgenr():
 
             async for item in genr:
                 yield item
 
-            for kid in self.kids[0]:
-                tokn = await kid.compute(runt, None)
+            tokns = [await kid.compute(runt, None) for kid in self.kids[0]]
+            if not tokns:
+                return
+
+            for tokn in tokns:
                 for form, valu in s_scrape.scrape(tokn, first=True):
-                    if self.autoadd:
-                        node = await runt.snap.addNode(form, valu)
+                    node = await getnode(form, valu)
+                    if node is not None:
                         yield node, runt.initPath(node)
 
-                    else:
-                        norm, info = runt.model.form(form).type.norm(valu)
-                        node = await runt.snap.getNodeByNdef((form, norm))
-                        if node is not None:
-                            yield node, runt.initPath(node)
-
         realgenr = lookgenr()
+        if len(self.kids) > 1:
+            realgenr = self.kids[1].run(runt, realgenr)
+
+        async for node, path in realgenr:
+            yield node, path
+
+class Search(Query):
+
+    async def run(self, runt, genr):
+
+        view = runt.snap.view
+
+        if not view.core.stormiface_search:
+            await runt.snap.warn('Storm search interface is not enabled!')
+            return
+
+        async def searchgenr():
+
+            async for item in genr:
+                yield item
+
+            tokns = [await kid.compute(runt, None) for kid in self.kids[0]]
+            if not tokns:
+                return
+
+            buidset = await s_spooled.Set.anit()
+
+            todo = s_common.todo('search', tokns)
+            async for (prio, buid) in view.mergeStormIface('search', todo):
+                if buid in buidset:
+                    await asyncio.sleep(0)
+                    continue
+
+                await buidset.add(buid)
+                node = await runt.snap.getNodeByBuid(buid)
+                if node is not None:
+                    yield node, runt.initPath(node)
+
+        realgenr = searchgenr()
         if len(self.kids) > 1:
             realgenr = self.kids[1].run(runt, realgenr)
 
@@ -925,7 +982,12 @@ class SetVarOper(Oper):
                 await runt.setVar(name, valu)
 
     def getRuntVars(self, runt):
-        yield self.kids[0].value(), self.kids[1].isRuntSafe(runt)
+
+        name = self.kids[0].value()
+        if runt.runtvars.get(name) is None and self.kids[1].hasVarName(name):
+            raise s_exc.NoSuchVar(mesg=f'Missing variable: {name}', name=name)
+
+        yield name, self.kids[1].isRuntSafe(runt)
         for k in self.kids:
             yield from k.getRuntVars(runt)
 
@@ -1104,6 +1166,9 @@ class LiftOper(Oper):
             async for subn in self.lift(runt, path):
                 yield subn, path.fork(subn)
 
+    async def lift(self, runt, path):  # pragma: no cover
+        raise NotImplementedError('Must define lift(runt, path)')
+
 class YieldValu(Oper):
 
     async def run(self, runt, genr):
@@ -1259,6 +1324,9 @@ class LiftFormTagProp(LiftOper):
 
         form, tag, prop = await self.kids[0].compute(runt, path)
 
+        if not runt.model.form(form):
+            raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
+
         if len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
@@ -1322,7 +1390,7 @@ class LiftFormTag(LiftOper):
 
         form = await self.kids[0].compute(runt, path)
         if not runt.model.form(form):
-            raise s_exc.NoSuchProp(name=form)
+            raise s_exc.NoSuchForm(mesg=f'No form {form}', name=form)
 
         tag = await tostr(await self.kids[1].compute(runt, path))
 
@@ -1347,7 +1415,8 @@ class LiftProp(LiftOper):
 
         prop = runt.model.prop(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         assert len(self.kids) == 1
 
@@ -1716,7 +1785,8 @@ class FormPivot(PivotOper):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         # -> baz:ndef
         if isinstance(prop.type, s_types.Ndef):
@@ -1967,7 +2037,8 @@ class PropPivot(PivotOper):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         # TODO if we are pivoting to a form, use ndef!
 
@@ -2301,11 +2372,13 @@ class HasRelPropCond(Cond):
 
             prop = node.form.props.get(part)
             if prop is None:
-                raise s_exc.NoSuchProp(name=part, form=node.form.name)
+                mesg = f'No property named {node.form.name}:{part}'
+                raise s_exc.NoSuchProp(mesg=mesg, name=part, form=node.form.name)
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
-                raise s_exc.NoSuchForm(name=prop.type.name)
+                mesg = f'No form {prop.type.name}'
+                raise s_exc.NoSuchForm(mesg=mesg, name=prop.type.name)
 
             node = await runt.snap.getNodeByNdef((form.name, valu))
             if node is None:
@@ -2349,7 +2422,8 @@ class HasAbsPropCond(Cond):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         if prop.isform:
 
@@ -2409,7 +2483,8 @@ class AbsPropCond(Cond):
 
         prop = runt.model.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(name=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         ctor = prop.type.getCmprCtor(cmpr)
         if ctor is None:
@@ -2616,7 +2691,8 @@ class PropValue(Value):
 
             prop = path.node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=path.node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=path.node.form.name)
 
             valu = path.node.get(name)
             return prop, valu
@@ -2634,8 +2710,9 @@ class PropValue(Value):
                 return None, None
 
             prop = node.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            if prop is None:  # pragma: no cover
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             if i >= imax:
                 return prop, valu
@@ -2711,6 +2788,9 @@ class VarValue(Value):
     def isRuntSafe(self, runt):
         return runt.isRuntVar(self.name)
 
+    def hasVarName(self, name):
+        return self.kids[0].value() == name
+
     async def compute(self, runt, path):
 
         if path is not None:
@@ -2752,7 +2832,10 @@ class FuncCall(Value):
         kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
-            return await s_coro.ornot(func, *argv, **kwargs)
+            retn = func(*argv, **kwargs)
+            if s_coro.iscoro(retn):
+                return await retn
+            return retn
 
 class DollarExpr(Value):
     '''
@@ -2899,6 +2982,39 @@ class Const(Value):
     async def compute(self, runt, path):
         return self.valu
 
+class ExprDict(Value):
+
+    def prepare(self):
+        self.const = None
+        if all(isinstance(k, Const) for k in self.kids):
+            valu = {}
+            for i in range(0, len(self.kids), 2):
+                valu[self.kids[i].value()] = self.kids[i + 1].value()
+            self.const = s_msgpack.en(valu)
+
+    async def compute(self, runt, path):
+
+        if self.const is not None:
+            return s_stormtypes.Dict(s_msgpack.un(self.const))
+
+        valu = {}
+        for i in range(0, len(self.kids), 2):
+            valu[await self.kids[i].compute(runt, path)] = await self.kids[i + 1].compute(runt, path)
+
+        return s_stormtypes.Dict(valu)
+
+class ExprList(Value):
+
+    def prepare(self):
+        self.const = None
+        if all(isinstance(k, Const) for k in self.kids):
+            self.const = s_msgpack.en([k.value() for k in self.kids])
+
+    async def compute(self, runt, path):
+        if self.const is not None:
+            return s_stormtypes.List(list(s_msgpack.un(self.const)))
+        return s_stormtypes.List([await v.compute(runt, path) for v in self.kids])
+
 class VarList(Const):
     pass
 
@@ -2913,6 +3029,10 @@ class EmbedQuery(Const):
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
         pass
+
+    def hasVarName(self, name):
+        # similar to above, the sub-runtime handles var scoping
+        return False
 
     def getRuntVars(self, runt):
         if 0:
@@ -3137,7 +3257,8 @@ class EditPropSet(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
@@ -3187,6 +3308,12 @@ class EditPropSet(Edit):
 
                     valu = arry
 
+                if isinstance(prop.type, s_types.Ival):
+                    oldv = node.get(name)
+                    if oldv is not None:
+                        valu, _ = prop.type.norm(valu)
+                        valu = prop.type.merge(oldv, valu)
+
                 await node.set(name, valu)
 
             except excignore:
@@ -3208,7 +3335,8 @@ class EditPropDel(Edit):
 
             prop = node.form.props.get(name)
             if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             runt.layerConfirm(('node', 'prop', 'del', prop.full))
 
@@ -3232,7 +3360,8 @@ class EditUnivDel(Edit):
 
             univ = runt.model.props.get(name)
             if univ is None:
-                raise s_exc.NoSuchProp(name=name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         async for node, path in genr:
             if not univprop.isconst:
@@ -3240,7 +3369,8 @@ class EditUnivDel(Edit):
 
                 univ = runt.model.props.get(name)
                 if univ is None:
-                    raise s_exc.NoSuchProp(name=name)
+                    mesg = f'No property named {name}.'
+                    raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
             runt.layerConfirm(('node', 'prop', 'del', name))
 
@@ -3446,9 +3576,9 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu, s_exc.BadTypeValu) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
 
-        hasval = len(self.kids) > 1 + oper_offset
+        hasval = len(self.kids) > 2 + oper_offset
 
         valu = (None, None)
 
@@ -3459,14 +3589,23 @@ class EditTagAdd(Edit):
                 names = [names]
 
             for name in names:
-                parts = name.split('.')
 
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                if isinstance(name, list):
+                    name = tuple(name)
 
-                if hasval:
-                    valu = await self.kids[1 + oper_offset].compute(runt, path)
-                    valu = await s_stormtypes.toprim(valu)
                 try:
+                    normtupl = await runt.snap.getTagNorm(name)
+                    if normtupl is None:
+                        continue
+
+                    name, info = normtupl
+                    parts = name.split('.')
+
+                    runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+                    if hasval:
+                        valu = await self.kids[2 + oper_offset].compute(runt, path)
+                        valu = await s_stormtypes.toprim(valu)
                     await node.addTag(name, valu=valu)
                 except excignore:
                     pass
@@ -3485,11 +3624,20 @@ class EditTagDel(Edit):
         async for node, path in genr:
 
             name = await self.kids[0].compute(runt, path)
-            parts = name.split('.')
 
-            runt.layerConfirm(('node', 'tag', 'del', *parts))
+            # special case for backward compatibility
+            if name:
 
-            await node.delTag(name)
+                normtupl = await runt.snap.getTagNorm(name)
+                if normtupl is None:
+                    continue
+
+                name, info = normtupl
+                parts = name.split('.')
+
+                runt.layerConfirm(('node', 'tag', 'del', *parts))
+
+                await node.delTag(name)
 
             yield node, path
 
@@ -3514,6 +3662,11 @@ class EditTagPropSet(Edit):
             valu = await self.kids[2].compute(runt, path)
             valu = await s_stormtypes.toprim(valu)
 
+            normtupl = await runt.snap.getTagNorm(tag)
+            if normtupl is None:
+                continue
+
+            tag, info = normtupl
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
@@ -3542,6 +3695,12 @@ class EditTagPropDel(Edit):
         async for node, path in genr:
 
             tag, prop = await self.kids[0].compute(runt, path)
+
+            normtupl = await runt.snap.getTagNorm(tag)
+            if normtupl is None:
+                continue
+
+            tag, info = normtupl
 
             tagparts = tag.split('.')
 
@@ -3657,9 +3816,32 @@ class Return(Oper):
             raise s_stormctrl.StormReturn(valu)
 
         # no items in pipeline... execute
-        if self.kids and self.isRuntSafe(runt):
-            valu = await self.kids[0].compute(runt, None)
+        if self.isRuntSafe(runt):
+            if self.kids:
+                valu = await self.kids[0].compute(runt, None)
             raise s_stormctrl.StormReturn(valu)
+
+class Emit(Oper):
+
+    async def run(self, runt, genr):
+
+        count = 0
+        async for node, path in genr:
+            count += 1
+            await runt.emit(await self.kids[0].compute(runt, path))
+            yield node, path
+
+        # no items in pipeline and runtsafe. execute once.
+        if count == 0 and self.isRuntSafe(runt):
+            await runt.emit(await self.kids[0].compute(runt, None))
+
+class Stop(Oper):
+
+    async def run(self, runt, genr):
+        for _ in (): yield _
+        async for node, path in genr:
+            raise s_stormctrl.StormStop()
+        raise s_stormctrl.StormStop()
 
 class FuncArgs(AstNode):
     '''
@@ -3701,6 +3883,7 @@ class Function(AstNode):
     def prepare(self):
         assert isinstance(self.kids[0], Const)
         self.name = self.kids[0].value()
+        self.hasemit = self.hasAstClass(Emit)
         self.hasretn = self.hasAstClass(Return)
 
     def isRuntSafe(self, runt):
@@ -3785,6 +3968,11 @@ class Function(AstNode):
 
         opts = {'vars': mergargs}
 
+        if self.hasemit:
+            runt = await runt.initSubRuntime(self.kids[2], opts=opts)
+            runt.funcscope = True
+            return await runt.emitter()
+
         if self.hasretn:
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
 
@@ -3802,11 +3990,12 @@ class Function(AstNode):
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
-
                 # inform the sub runtime to use function scope rules
                 subr.funcscope = True
-
-                async for node, path in subr.execute():
-                    yield node, path
+                try:
+                    async for node, path in subr.execute():
+                        yield node, path
+                except s_stormctrl.StormStop:
+                    return
 
         return genr()

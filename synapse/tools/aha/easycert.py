@@ -12,12 +12,9 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
-import synapse.lib.version as s_version
+
 
 logger = logging.getLogger(__name__)
-
-# FIXME - set the correct version prior to release.
-# reqver = '>=2.26.0,<3.0.0'
 
 async def _main(argv, outp):
     pars = getArgParser()
@@ -26,13 +23,6 @@ async def _main(argv, outp):
     cdir = s_certdir.CertDir(path=opts.certdir)
 
     async with await s_telepath.openurl(opts.aha) as prox:
-
-        # try:
-        #     s_version.reqVersion(prox._getSynVers(), reqver)
-        # except s_exc.BadVersion as e:  # pragma: no cover
-        #     valu = s_version.fmtVersion(*e.get('valu'))
-        #     outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
-        #     return 1
 
         name = opts.name
 

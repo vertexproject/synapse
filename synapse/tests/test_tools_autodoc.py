@@ -64,17 +64,11 @@ class TestAutoDoc(s_t_utils.SynTest):
                 buf = fd.read()
             s = buf.decode()
 
-            self.isin('autodoc-stormvarservicecell-conf', s)
-            self.isin('StormvarServiceCell Configuration Options', s)
-            self.isin('See :ref:`devops-cell-config` for', s)
             self.isin('auth\\:passwd', s)
             self.isin('Environment Variable\n    ``SYN_STORMVARSERVICECELL_AUTH_PASSWD``', s)
-            self.isin('``--auth-passwd``', s)
             self.isin('The object expects the following properties', s)
+            self.notin('``--mirror``', s)
             self.notin('_log_conf', s)
-
-            argv.append('--doc-conf-reflink')
-            argv.append('`Configuring a Cell Service <https://synapse.docs.vertex.link/en/latest/synapse/devguides/devops_cell.html>`_')
 
             # truncate the current file
             with s_common.genfile(path, 'conf_stormvarservicecell.rst') as fd:
@@ -85,9 +79,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             with s_common.genfile(path, 'conf_stormvarservicecell.rst') as fd:
                 buf = fd.read()
             s = buf.decode()
-
-            self.isin('StormvarServiceCell Configuration Options', s)
-            self.isin('See `Configuring a Cell Service <https://synapse', s)
 
     async def test_tools_autodoc_stormsvc(self):
 
@@ -146,6 +137,10 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('``test:int``', s)
             self.isin('nodedata with the following keys', s)
             self.isin('``testnd`` on ``inet:ipv4``', s)
+
+            # Tuplelized output
+            self.isin('testpkg.baz', s)
+            self.isin("Help on baz opt (default: ('-7days', 'now'))", s)
 
     async def test_tools_autodoc_stormtypes(self):
         with self.getTestDir() as path:

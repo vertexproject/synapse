@@ -1001,11 +1001,15 @@ class FeedV1(Handler):
     '''
     /api/v1/feed
 
-    {
-        'name': 'syn.nodes',
-        'view': null,
-        'items': [...],
-    }
+    Examples:
+
+        Example data::
+
+            {
+                'name': 'syn.nodes',
+                'view': null,
+                'items': [...],
+            }
     '''
     async def post(self):
 

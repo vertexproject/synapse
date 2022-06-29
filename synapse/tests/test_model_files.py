@@ -3,7 +3,6 @@ import synapse.common as s_common
 import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 class FileTest(s_t_utils.SynTest):
 
@@ -89,6 +88,99 @@ class FileTest(s_t_utils.SynTest):
                 vsnode = await snap.addNode('file:mime:pe:vsvers:info', (fnode.ndef[1], vskvnode.ndef[1]))
                 self.eq(vsnode.get('file'), fnode.ndef[1])
                 self.eq(vsnode.get('keyval'), vskvnode.ndef[1])
+
+    async def test_model_filebytes_macho(self):
+        async with self.getTestCore() as core:
+            async with await core.snap() as snap:
+                file = 'a' * 64
+                fnode = await snap.addNode('file:bytes', file)
+
+                # loadcmds
+                opts = {'vars': {'file': fnode.get('sha256')}}
+                gencmd = await core.nodes('''[
+                    file:mime:macho:loadcmd=*
+                        :file=$file
+                        :type=27
+                        :size=123456
+                ]''', opts=opts)
+                self.len(1, gencmd)
+                gencmd = gencmd[0]
+                self.eq(27, gencmd.get('type'))
+                self.eq(123456, gencmd.get('size'))
+                self.eq('sha256:' + file, gencmd.get('file'))
+
+                # uuid
+                opts = {'vars': {'file': fnode.get('sha256')}}
+                uuid = await core.nodes(f'''[
+                    file:mime:macho:uuid=*
+                        :file=$file
+                        :type=27
+                        :size=32
+                        :uuid=BCAA4A0BBF703A5DBCF972F39780EB67
+                ]''', opts=opts)
+                self.len(1, uuid)
+                uuid = uuid[0]
+                self.eq('bcaa4a0bbf703a5dbcf972f39780eb67', uuid.get('uuid'))
+                self.eq('sha256:' + file, uuid.get('file'))
+
+                # version
+                ver = await core.nodes(f'''[
+                    file:mime:macho:version=*
+                        :file=$file
+                        :type=42
+                        :size=32
+                        :version="7605.1.33.1.4"
+                ]''', opts=opts)
+                self.len(1, ver)
+                ver = ver[0]
+                self.eq('7605.1.33.1.4', ver.get('version'))
+                self.eq('sha256:' + file, ver.get('file'))
+                self.eq(42, ver.get('type'))
+                self.eq(32, ver.get('size'))
+                self.eq('sha256:' + file, ver.get('file'))
+
+                # segment
+                seghash = 'e' * 64
+                opts = {'vars': {'file': file, 'sha256': seghash}}
+                seg = await core.nodes(f'''[
+                    file:mime:macho:segment=*
+                        :file=$file
+                        :type=1
+                        :size=48
+                        :name="__TEXT"
+                        :memsize=4092
+                        :disksize=8192
+                        :sha256=$sha256
+                        :offset=1234
+                ]''', opts=opts)
+                self.len(1, seg)
+                seg = seg[0]
+                self.eq('sha256:' + file, seg.get('file'))
+                self.eq(1, seg.get('type'))
+                self.eq(48, seg.get('size'))
+                self.eq('__TEXT', seg.get('name'))
+                self.eq(4092, seg.get('memsize'))
+                self.eq(8192, seg.get('disksize'))
+                self.eq(seghash, seg.get('sha256'))
+                self.eq(1234, seg.get('offset'))
+
+                # section
+                opts = {'vars': {'seg': seg.ndef[1]}}
+                sect = await core.nodes(f'''[
+                    file:mime:macho:section=*
+                        :segment=$seg
+                        :name="__text"
+                        :size=12
+                        :type=0
+                        :offset=5678
+                ]''', opts=opts)
+                self.len(1, sect)
+                sect = sect[0]
+                self.eq(seg.ndef[1], sect.get('segment'))
+                self.eq("__text", sect.get('name'))
+                self.eq(12, sect.get('size'))
+                self.eq(0, sect.get('type'))
+                self.eq(5678, sect.get('offset'))
 
     async def test_model_filebytes_string(self):
         async with self.getTestCore() as core:

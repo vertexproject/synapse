@@ -20,6 +20,83 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    def test_velocity(self):
+        model = s_datamodel.Model()
+        velo = model.type('velocity')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10newps/sec')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10km/newp')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10km/newp')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('10newp')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('-10k/h')
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm(-1)
+
+        with self.raises(s_exc.BadTypeValu):
+            velo.norm('')
+
+        self.eq(1, velo.norm('mm/sec')[0])
+        self.eq(1, velo.norm('1mm/sec')[0])
+        self.eq(407517, velo.norm('1337feet/sec')[0])
+
+        self.eq(514, velo.norm('knots')[0])
+        self.eq(299792458000, velo.norm('c')[0])
+
+        self.eq(2777, velo.norm('10kph')[0])
+        self.eq(4470, velo.norm('10mph')[0])
+        self.eq(10, velo.norm(10)[0])
+
+        relv = velo.clone({'relative': True})
+        self.eq(-2777, relv.norm('-10k/h')[0])
+
+    def test_hugenum(self):
+
+        model = s_datamodel.Model()
+        huge = model.type('hugenum')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('-730750818665451459101843')
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm(None)
+
+        with self.raises(s_exc.BadTypeValu):
+            huge.norm('foo')
+
+        self.eq('0.000000000000000000000001', huge.norm('1E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('1.0E-24')[0])
+        self.eq('0.000000000000000000000001', huge.norm('0.000000000000000000000001')[0])
+
+        self.eq('0', huge.norm('1E-25')[0])
+        self.eq('0', huge.norm('5E-25')[0])
+        self.eq('0.000000000000000000000001', huge.norm('6E-25')[0])
+        self.eq('1.000000000000000000000002', huge.norm('1.0000000000000000000000015')[0])
+
+        bign = '730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
+        bign = '-730750818665451459101841.000000000000000000000002'
+        self.eq(bign, huge.norm(bign)[0])
+
+        big2 = '-730750818665451459101841.0000000000000000000000015'
+        self.eq(bign, huge.norm(big2)[0])
+
     def test_taxonomy(self):
 
         model = s_datamodel.Model()
@@ -243,6 +320,10 @@ class TypesTest(s_t_utils.SynTest):
                 nodes = await snap.nodes('test:hex4=022020*')
                 self.len(0, nodes)
 
+            self.len(1, await core.nodes('[test:hexa=0xf00fb33b00000000]'))
+            self.len(1, await core.nodes('test:hexa=0xf00fb33b00000000'))
+            self.len(1, await core.nodes('test:hexa^=0xf00fb33b'))
+
     def test_int(self):
 
         model = s_datamodel.Model()
@@ -250,9 +331,13 @@ class TypesTest(s_t_utils.SynTest):
 
         # test ranges
         self.nn(t.norm(-2**63))
-        self.raises(s_exc.BadTypeValu, t.norm, (-2**63) - 1)
+        with self.raises(s_exc.BadTypeValu) as cm:
+            t.norm((-2**63) - 1)
+        self.isinstance(cm.exception.get('valu'), str)
         self.nn(t.norm(2**63 - 1))
-        self.raises(s_exc.BadTypeValu, t.norm, 2**63)
+        with self.raises(s_exc.BadTypeValu) as cm:
+            t.norm(2**63)
+        self.isinstance(cm.exception.get('valu'), str)
 
         # test base types that Model snaps in...
         self.eq(t.norm('100')[0], 100)
@@ -682,7 +767,7 @@ class TypesTest(s_t_utils.SynTest):
 
         norm, info = t.norm(('test:str', 'Foobar!'))
         self.eq(norm, ('test:str', 'Foobar!'))
-        self.eq(info, {'adds': (('test:str', 'Foobar!'),),
+        self.eq(info, {'adds': (('test:str', 'Foobar!', {}),),
                        'subs': {'form': 'test:str'}})
 
         rval = t.repr(('test:str', 'Foobar!'))
@@ -875,6 +960,9 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ttime = model.types.get('time')
 
+        with self.raises(s_exc.BadTypeValu):
+            ttime.norm('0000-00-00')
+
         self.gt(s_common.now(), ttime.norm('-1hour')[0])
 
         tminmax = ttime.clone({'min': True, 'max': True})
@@ -923,7 +1011,7 @@ class TypesTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str:tick=201401*')
             self.eq({node.ndef[1] for node in nodes}, {'a'})
 
-            nodes = await core.nodes('test:str:tick*range=("-3000 days", now)')
+            nodes = await core.nodes('test:str:tick*range=("-4200 days", now)')
             self.eq({node.ndef[1] for node in nodes}, {'a', 'b', 'c', 'd'})
 
             opts = {'vars': {'tick': tick, 'tock': tock}}
@@ -1280,3 +1368,22 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:witharray:fqdns*[~=ehe]')
             self.len(1, nodes)
+
+            await core.addFormProp('test:int', '_hehe', ('array', {'type': 'str'}), {})
+
+            baz = 'baz' * 100
+
+            nodes = await core.nodes(f'[ test:int=1 :_hehe=("foo", "bar", "{baz}") ]')
+            self.len(1, nodes)
+            self.len(1, await core.nodes('test:int:_hehe*[~=foo]'))
+            self.len(1, await core.nodes('test:int:_hehe*[~=baz]'))
+
+            nodes = await core.nodes(f'[ test:int=2 :_hehe=("foo", "bar", "{baz}") ]')
+            self.len(1, nodes)
+            self.len(2, await core.nodes('test:int:_hehe*[~=foo]'))
+            self.len(2, await core.nodes('test:int:_hehe*[~=baz]'))
+
+            buid = nodes[0].buid
+
+            core.getLayer()._testAddPropArrayIndx(buid, 'test:int', '_hehe', ('newp' * 100,))
+            self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))

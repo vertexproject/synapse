@@ -44,8 +44,9 @@ class Hist:
         self.slab = slab
         self.db = slab.initdb(name, dupsort=True)
 
-    def add(self, item):
-        tick = s_common.now()
+    def add(self, item, tick=None):
+        if tick is None:
+            tick = s_common.now()
         lkey = tick.to_bytes(8, 'big')
         self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
 
@@ -243,6 +244,7 @@ class HotKeyVal(s_base.Base):
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
+        self.slab.dirty = True
         return valu
 
     def delete(self, name: str):
@@ -278,6 +280,7 @@ class HotCount(HotKeyVal):
         byts = name.encode()
         self.cache[byts] = valu
         self.dirty.add(byts)
+        self.slab.dirty = True
 
     def get(self, name: str, defv=0):
         return self.cache.get(name.encode(), defv)
@@ -586,7 +589,7 @@ class Slab(s_base.Base):
     COMMIT_PERIOD = float(os.environ.get('SYN_SLAB_COMMIT_PERIOD', '0.2'))
 
     # warn if commit takes too long
-    WARN_COMMIT_TIME_MS = int(float(os.environ.get('SYN_SLAB_COMMIT_WARN', '5.0')) * 1000)
+    WARN_COMMIT_TIME_MS = int(float(os.environ.get('SYN_SLAB_COMMIT_WARN', '1.0')) * 1000)
 
     DEFAULT_MAPSIZE = s_const.gibibyte
     DEFAULT_GROWSIZE = None
@@ -672,7 +675,9 @@ class Slab(s_base.Base):
             raise s_exc.SlabAlreadyOpen(mesg=path)
 
         if os.path.isfile(self.optspath):
-            opts.update(s_common.yamlload(self.optspath))
+            _opts = s_common.yamlload(self.optspath)
+            if isinstance(_opts, dict):
+                opts.update(_opts)
 
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
@@ -712,7 +717,17 @@ class Slab(s_base.Base):
 
         self._saveOptsFile()
 
-        self.lenv = lmdb.open(str(path), **opts)
+        try:
+            self.lenv = lmdb.open(str(path), **opts)
+        except lmdb.LockError as e:  # pragma: no cover
+            # This is difficult to test since it requires two processes to open the slab with
+            # the same pid. In practice this typically occurs when there are two docker
+            # containers running from different process namespaces, whose process pids are
+            # the same, opening the same lmdb database. That isn't a supported configuration
+            # and we just need to catch that error.
+            mesg = f'Unable to obtain lock on {path}. Another process may have this file locked. {e}'
+            raise s_exc.LmdbLock(mesg=mesg, path=path) from None
+
         self.allslabs[path] = self
 
         self.scans = set()

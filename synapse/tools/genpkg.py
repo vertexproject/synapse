@@ -2,7 +2,10 @@ import os
 import sys
 import base64
 import asyncio
+import logging
 import argparse
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -10,6 +13,10 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
+
+logger = logging.getLogger(__name__)
+
+wflownamere = regex.compile(r'^([\w-]+)\.yaml$')
 
 def chopSemVer(vers):
     return tuple([int(x) for x in vers.split('.')])
@@ -44,6 +51,28 @@ def loadOpticFiles(pkgdef, path):
                     'file': base64.b64encode(fd.read()).decode(),
                 }
 
+def loadOpticWorkflows(pkgdef, path):
+
+    wdefs = pkgdef['optic']['workflows']
+
+    for root, dirs, files in os.walk(path):
+
+        for name in files:
+
+            match = wflownamere.match(name)
+
+            if match is None:
+                logger.warning('Skipping workflow "%s" that does not match pattern "%s"' % (name, wflownamere.pattern))
+                continue
+
+            wname = match.groups()[0]
+
+            fullname = s_common.genpath(root, name)
+            if not os.path.isfile(fullname):  # pragma: no cover
+                continue
+
+            wdefs[wname] = s_common.yamlload(fullname)
+
 def tryLoadPkgProto(fp, opticdir=None, readonly=False):
     '''
     Try to get a Storm Package prototype from disk with or without inline documentation.
@@ -67,7 +96,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     Get a Storm Package definition from disk.
 
     Args:
-        fp (str): Path to the package .yaml file on disk.
+        path (str): Path to the package .yaml file on disk.
         opticdir (str): Path to optional Optic module code to add to the Storm Package.
         no_docs (bool): If true, omit inline documentation content if it is not present on disk.
         readonly (bool): If set, open files in read-only mode. If files are missing, that will raise a NoSuchFile
@@ -85,6 +114,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     protodir = os.path.dirname(full)
     pkgname = pkgdef.get('name')
+
+    genopts = pkgdef.pop('genopts', {})
 
     logodef = pkgdef.get('logo')
     if logodef is not None:
@@ -123,8 +154,14 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
             raise s_exc.BadPkgDef(mesg=mesg)
 
     for mod in pkgdef.get('modules', ()):
+
         name = mod.get('name')
-        mod_path = s_common.genpath(protodir, 'storm', 'modules', name)
+
+        basename = name
+        if genopts.get('dotstorm', False):
+            basename = f'{basename}.storm'
+
+        mod_path = s_common.genpath(protodir, 'storm', 'modules', basename)
         if readonly:
             mod['storm'] = getStormStr(mod_path)
         else:
@@ -150,18 +187,23 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
 
     for cmd in pkgdef.get('commands', ()):
         name = cmd.get('name')
-        cmd_path = s_common.genpath(protodir, 'storm', 'commands', name)
+
+        basename = name
+        if genopts.get('dotstorm'):
+            basename = f'{basename}.storm'
+
+        cmd_path = s_common.genpath(protodir, 'storm', 'commands', basename)
         if readonly:
             cmd['storm'] = getStormStr(cmd_path)
         else:
             with s_common.genfile(cmd_path) as fd:
                 cmd['storm'] = fd.read().decode()
 
-    for widen, wdef in pkgdef.get('optic', {}).get('workflows', {}).items():
-        name = wdef.get('name')
-        wyaml = s_common.yamlload(protodir, 'workflows', f'{name}.yaml')
-        if wyaml is not None:
-            wdef.update(wyaml)
+    wflowdir = s_common.genpath(protodir, 'workflows')
+    if os.path.isdir(wflowdir):
+        pkgdef.setdefault('optic', {})
+        pkgdef['optic'].setdefault('workflows', {})
+        loadOpticWorkflows(pkgdef, wflowdir)
 
     if opticdir is None:
         opticdir = s_common.genpath(protodir, 'optic')
@@ -171,6 +213,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         pkgdef['optic'].setdefault('files', {})
         loadOpticFiles(pkgdef, opticdir)
 
+    # Tuplify the package.
+    pkgdef = s_common.tuplify(pkgdef)
     return pkgdef
 
 

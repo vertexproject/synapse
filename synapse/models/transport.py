@@ -5,6 +5,9 @@ class TransportModule(s_module.CoreModule):
         modl = {
             'types': (
 
+                ('transport:direction', ('hugenum', {'modulo': 360}), {
+                    'doc': 'A direction measured in degrees with 0.0 being true North.'}),
+
                 ('transport:air:craft', ('guid', {}), {
                     'doc': 'An individual aircraft.'}),
 
@@ -62,7 +65,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'Contact info representing the person or org that operates the aircraft.'}),
                 )),
                 ('transport:air:port', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the airport'}),
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the IATA airport code is assigned.'}),
@@ -120,9 +123,16 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
-                    # TODO
-                    # ('airspeed',
-                    # ('groundspeed'
+                    ('course', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the aircraft is traveling.'}),
+                    ('heading', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the nose of the aircraft is pointed.'}),
+                    ('speed', ('velocity', {}), {
+                        'doc': 'The ground speed of the aircraft at the time.'}),
+                    ('airspeed', ('velocity', {}), {
+                        'doc': 'The air speed of the aircraft at the time.'}),
+                    ('verticalspeed', ('velocity', {'relative': True}), {
+                        'doc': 'The relative vertical speed of the aircraft at the time.'}),
                     ('altitude', ('geo:altitude', {}), {
                         'doc': 'The altitude of the aircraft at the time.'}),
                     ('altitude:accuracy', ('geo:dist', {}), {
@@ -144,7 +154,7 @@ class TransportModule(s_module.CoreModule):
                 ('transport:sea:vessel', {}, (
                     ('imo', ('transport:sea:imo', {}), {
                         'doc': 'The International Maritime Organization number for the vessel.'}),
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the vessel'}),
                     ('length', ('geo:dist', {}), {
                         'doc': 'The official overall vessel length'}),
@@ -173,10 +183,22 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The place that the lat/lon geocodes to.'}),
                     ('accuracy', ('geo:dist', {}), {
                         'doc': 'The horizontal accuracy of the latlong sample.'}),
+                    ('course', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the vessel is traveling.'}),
+                    ('heading', ('transport:direction', {}), {
+                        'doc': 'The direction, in degrees from true North, that the bow of the vessel is pointed.'}),
+                    ('speed', ('velocity', {}), {
+                        'doc': 'The speed of the vessel at the time.'}),
                     ('draft', ('geo:dist', {}), {
                         'doc': 'The keel depth at the time.'}),
                     ('airdraft', ('geo:dist', {}), {
                         'doc': 'The maximum height of the ship from the waterline.'}),
+                    ('destination', ('geo:place', {}), {
+                        'doc': 'The fully resolved destination that the vessel has declared.'}),
+                    ('destination:name', ('geo:name', {}), {
+                        'doc': 'The name of the destination that the vessel has declared.'}),
+                    ('destination:eta', ('time', {}), {
+                        'doc': 'The estimated time of arrival that the vessel has declared.'}),
                 )),
             ),
         }

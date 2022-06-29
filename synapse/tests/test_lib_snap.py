@@ -5,6 +5,7 @@ import contextlib
 import collections
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 
@@ -200,63 +201,6 @@ class SnapTest(s_t_utils.SynTest):
 
             self.false(failed)
 
-    async def test_addNodesFork(self):
-        '''
-        Exercise the nested buid prefetch cases
-        '''
-        async with self.getTestCore() as core:
-            vdef = await core.view.fork()
-            view = core.getView(vdef['iden'])
-            async with await core.snap(view=view) as snap:
-
-                # Check that ndef secondary props don't create new nodes if already exist
-                form = core.model.form('test:str')
-
-                props = {'bar': ('test:auto', 'autothis')}
-                adds = await snap.getNodeAdds(form, 'woot', props)
-                self.len(1, adds)
-                self.len(2, adds[0][2])
-                self.len(1, adds[0][2][1][2])
-
-                await snap.addNode('test:auto', 'autothis')
-
-                adds = await snap.getNodeAdds(form, 'woot', props)
-                self.len(0, adds[0][2][1][2])
-
-                # Check that array secondary props don't create new nodes if already exist
-                props = {'ints': (1, 2, 3)}
-                form = core.model.form('test:arrayprop')
-                adds = await snap.getNodeAdds(form, '*', props=props)
-                self.len(1, adds)
-                self.len(2, adds[0][2])
-                self.len(3, adds[0][2][1][2])
-
-                await snap.addNode('test:int', 1)
-                await snap.addNode('test:int', 3)
-
-                adds = await snap.getNodeAdds(form, '*', props=props)
-                self.len(1, adds)
-                self.len(2, adds[0][2])
-                self.len(1, adds[0][2][1][2])
-
-                # Check that secondary props that are forms don't create new nodes if already exist
-                form = core.model.form('test:guid')
-                props = {'size': '42'}
-                adds = await snap.getNodeAdds(form, '*', props=props)
-                self.len(1, adds)
-                self.len(2, adds[0][2])
-                self.len(1, adds[0][2][1][2])
-
-                await snap.addNode('test:int', 42)
-                adds = await snap.getNodeAdds(form, '*', props=props)
-                self.len(1, adds)
-                self.len(2, adds[0][2])
-                self.len(0, adds[0][2][1][2])
-
-            async with await core.snap(view=view) as snap:
-                node = await snap.addNode('test:str', 'woot')
-                self.nn(node)
-
     async def test_addNodeRace2(self):
         ''' Test that dependencies between active editatoms don't wedge '''
         bc_done_event = asyncio.Event()
@@ -407,11 +351,12 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(1, snap0.buidcache)
                 self.len(1, snap0.livenodes)
                 self.len(0, snap0.tagcache)
+                self.len(0, snap0.tagnorms)
 
                 await original_node0.addTag('foo.bar.baz')
                 self.len(4, snap0.buidcache)
                 self.len(4, snap0.livenodes)
-                self.len(3, snap0.tagcache)
+                self.len(3, snap0.tagnorms)
 
                 async with await core.snap() as snap1:  # type: s_snap.Snap
                     snap1_node0 = await snap1.getNodeByNdef(('test:str', 'node0'))
@@ -431,6 +376,7 @@ class SnapTest(s_t_utils.SynTest):
                 self.len(0, snap0.buidcache)
                 self.len(0, snap0.livenodes)
                 self.len(0, snap0.tagcache)
+                self.len(0, snap0.tagnorms)
 
                 # After clearing the cache and lifting nodes, the new node
                 # was lifted directly from the layer.
@@ -611,3 +557,27 @@ class SnapTest(s_t_utils.SynTest):
 
             nodes = await view1.nodes('#woot:data=foo')
             self.len(2, nodes)
+
+    async def test_snap_editor(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
+            root = core.auth.rootuser
+            async with await core.view.snap(user=root) as snap:
+                async with snap.getEditor() as editor:
+                    fqdn = await editor.addNode('inet:fqdn', 'vertex.link')
+                    news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
+                    self.false(await news.addEdge('refs', s_common.ehex(fqdn.buid)))
+                    self.len(0, editor.getNodeEdits())
+
+                    self.true(await news.addEdge('pwns', s_common.ehex(fqdn.buid)))
+                    nodeedits = editor.getNodeEdits()
+                    self.len(1, nodeedits)
+                    self.len(1, nodeedits[0][2])
+
+            self.len(1, await core.nodes('media:news -(pwns)> *'))
+
+            self.len(1, await core.nodes('[ inet:dns:soa=(lol,) :fqdn=vertex.link ]'))
+            self.len(1, await core.nodes('inet:dns:soa=(lol,) [ :fqdn=vertex.link ]'))
+            with self.raises(s_exc.ReadOnlyProp):
+                await core.nodes('inet:dns:soa=(lol,) [ :fqdn=woot.com ]')

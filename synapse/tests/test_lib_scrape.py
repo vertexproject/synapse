@@ -1,3 +1,5 @@
+import synapse.exc as s_exc
+
 import synapse.lib.scrape as s_scrape
 
 import synapse.tests.utils as s_t_utils
@@ -86,6 +88,30 @@ https://c2server.com/evil/malware/doesnot[care+]aboutstandards{at-all}
 
 '''
 
+data3 = '''
+<https://www.foobar.com/things.html>
+
+bech32 segwit values from bip0173
+Mainnet P2WPKH: bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4
+Testnet P2WPKH: tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx
+
+(https://blog.newp.com/scrape/all/the/urls)
+
+what is this hxxp[:]//foo(.)com noise
+
+[https://www.thingspace.com/blog/giggles.html]
+
+{https://testme.org/test.php}
+
+nothing hxxp[:]//bar(.)com madness
+
+eip-55 address test vectors
+# All caps
+0x52908400098527886E0F7030069857D2E4169EE7
+0x8617E340B3D01FA5F11F306F4090FD50E238070D
+
+'''
+
 btc_addresses = '''
 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
 
@@ -166,6 +192,9 @@ eip-55 address test vectors
 0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359
 0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB
 0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb
+
+# Real world where someone upper() the whole string
+0X633B354CF215DFF4FF3D686AFF363FA0132877F3
 
 # Bad vectors!
 0x8617E340B3D01FA5F11F306F4090FD50E238070d
@@ -263,7 +292,21 @@ addr1vpu5vlrf4xkxv2qpwngf6cjhtw542ayty80v8dyr49rf5eg0yu80W
 
 class ScrapeTest(s_t_utils.SynTest):
 
-    def test_scrape(self):
+    def test_scrape_basic(self):
+        forms = s_scrape.getForms()
+        self.isin('inet:ipv4', forms)
+        self.isin('crypto:currency:address', forms)
+        self.notin('inet:web:message', forms)
+
+        with self.raises(s_exc.BadArg):
+            s_scrape.genFangRegex({'hehe': 'haha', 'newp': 'bignope'})
+
+        ndefs = list(s_scrape.scrape('log4j vuln CVE-2021-44228 is pervasive'))
+        self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+
+        infos = list(s_scrape.contextScrape('endashs are a vulnerability  CVE\u20132022\u20131138 '))
+        self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
+
         nodes = set(s_scrape.scrape(data0))
 
         self.len(26, nodes)
@@ -347,7 +390,7 @@ class ScrapeTest(s_t_utils.SynTest):
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(eth_addresses))
-        self.len(9, nodes)
+        self.len(10, nodes)
         nodes.remove(('crypto:currency:address',
                       ('eth', '0x001d3f1ef827552ae1114027bd3ecf1f086ba0f9')))
         nodes.remove(('crypto:currency:address',
@@ -366,6 +409,8 @@ class ScrapeTest(s_t_utils.SynTest):
                       ('eth', '0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB')))
         nodes.remove(('crypto:currency:address',
                       ('eth', '0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb')))
+        nodes.remove(('crypto:currency:address',
+                      ('eth', '0x633b354cf215dff4ff3d686aff363fa0132877f3')))
         self.len(0, nodes)
 
         nodes = list(s_scrape.scrape(bch_addresses))
@@ -383,7 +428,7 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('crypto:currency:address', ('xrp', 'rfBKzgkPt9EvSJmk1uhoWTauaFCaRh4jMp')))
         nodes.remove(('crypto:currency:address', ('xrp', 'rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD')))
         nodes.remove(('crypto:currency:address',
-                      ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')),)
+                      ('xrp', 'X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ')), )
         nodes.remove(('crypto:currency:address', ('xrp', 'rG2ZJRab3EGBmpoxUyiF2guB3GoQTwMGEC')))
         nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrrhoLvTp')))
         nodes.remove(('crypto:currency:address', ('xrp', 'rrrrrrrrrrrrrrrrrrrrBZbvji')))
@@ -488,6 +533,10 @@ class ScrapeTest(s_t_utils.SynTest):
         refanged = '10.0.0.1'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = '10\\.0\\.0\\.1'
+        refanged = '10.0.0.1'
+        self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
+
         defanged = 'www(.)spam(.)net'
         refanged = 'www.spam.net'
         self.eq({refanged}, {n[1] for n in s_scrape.scrape(defanged)})
@@ -534,6 +583,55 @@ class ScrapeTest(s_t_utils.SynTest):
         }
         self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = '''hxxp[://]beep-thing[.]com/beep[.]docx
+        hxxps[://]beep[.]com/beep/gen[.]stuff
+        '''
+        exp = {
+            'http://beep-thing.com/beep.docx',
+            'https://beep.com/beep/gen.stuff',
+            'beep-thing.com',
+            'beep.com',
+        }
+        self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
+
         # Test scrape without re-fang
         defanged = 'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here'
         self.eq({'example.com'}, {n[1] for n in s_scrape.scrape(defanged, refang=False)})
+
+    def test_scrape_context(self):
+        results = list(s_scrape.contextScrape(data3))
+        r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]
+        self.eq(r, {'form': 'inet:url',
+                    'match': 'https://www.foobar.com/things.html',
+                    'offset': 2,
+                    'valu': 'https://www.foobar.com/things.html'})
+
+        r = [r for r in results if r.get('valu') == 'www.thingspace.com'][0]
+        self.eq(r, {'form': 'inet:fqdn',
+                    'match': 'www.thingspace.com',
+                    'offset': 285,
+                    'valu': 'www.thingspace.com'}
+                )
+        r = [r for r in results if r.get('valu') == 'http://foo.com'][0]
+        self.eq(r, {'match': 'hxxp[:]//foo(.)com',
+                    'offset': 250,
+                    'valu': 'http://foo.com',
+                    'form': 'inet:url'})
+        r = [r for r in results if r.get('valu') == 'http://bar.com'][0]
+        self.eq(r, {'match': 'hxxp[:]//bar(.)com',
+                    'offset': 363,
+                    'valu': 'http://bar.com',
+                    'form': 'inet:url'})
+
+        r = [r for r in results if r.get('valu') == ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')][0]
+        self.eq(r, {'form': 'crypto:currency:address',
+                    'offset': 430,
+                    'match': '0x52908400098527886E0F7030069857D2E4169EE7',
+                    'valu': ('eth', '0x52908400098527886e0f7030069857d2e4169ee7')}
+                )
+        # Assert match value matches...
+        for r in results:
+            erv = r.get('match')
+            offs = r.get('offset')
+            fv = data3[offs:offs + len(erv)]
+            self.eq(erv, fv)

@@ -1,4 +1,4 @@
-job "synapse-shodan" {
+job "synapse-maxmind" {
   datacenters = ["us-east-1a"]
 
   constraint {
@@ -8,10 +8,10 @@ job "synapse-shodan" {
   }
 
   group "service" {
-    task "shodan" {
+    task "maxmind" {
       driver = "docker"
       config {
-        image = "vertexproject/synapse-shodan:v2.0.0"
+        image = "vertexproject/synapse-maxmind:v2.x.x"
         auth = [
           {
             username = "username"
@@ -20,9 +20,9 @@ job "synapse-shodan" {
         ]
         entrypoint = ["sh"]
         command = "-c"
-        args = ["cp local/cell.yaml /vertex/storage/ && exec python3 -O -m synapse.servers.cell synmods.shodan.service.Shodan /vertex/storage"]
+        args = ["cp local/cell.yaml /vertex/storage/ && exec python3 -O -m synapse.servers.cell synmods.maxmind.service.MaxMind /vertex/storage"]
         volumes = [
-          "/data/vertex/shodan/:/vertex/storage",
+          "/data/vertex/maxmind/:/vertex/storage",
         ]
         port_map {
           telepath = 27492
@@ -35,7 +35,7 @@ job "synapse-shodan" {
       }
 
       service {
-        name = "synapse-shodan"
+        name = "synapse-maxmind"
         port = "telepath"
         tags = [
           "telepath"

@@ -29,6 +29,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
                 }),
+                ('ou:team', ('guid', {}), {
+                    'doc': 'A GUID for a team within an organization.',
+                }),
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('taxonomy',),
@@ -46,6 +49,9 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
+                }),
+                ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'The name of an industry.',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
                     'doc': 'An alias for the org GUID.',
@@ -165,7 +171,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An employment type taxonomy.',
                     'interfaces': ('taxonomy',),
                 }),
-                ('ou:jobtitle', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
             ),
@@ -272,11 +278,11 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:award', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the award.',
                         'ex': 'Bachelors of Science',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The type of award.',
                         'ex': 'certification',
                     }),
@@ -294,10 +300,10 @@ class OuModule(s_module.CoreModule):
                 )),
                 ('ou:id:number', {}, (
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id',
+                        'doc': 'The type of org id', 'ro': True,
                     }),
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The type of org id',
+                        'doc': 'The type of org id', 'ro': True,
                     }),
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.',
@@ -337,10 +343,10 @@ class OuModule(s_module.CoreModule):
                 )),
                 ('ou:hasgoal', {}, (
                     ('org', ('ou:org', {}), {
-                        'doc': 'The org which has the goal.',
+                        'doc': 'The org which has the goal.', 'ro': True,
                     }),
                     ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal which the org has.',
+                        'doc': 'The goal which the org has.', 'ro': True,
                     }),
                     ('stated', ('bool', {}), {
                         'doc': 'Set to true/false if the goal is known to be self stated.',
@@ -354,6 +360,12 @@ class OuModule(s_module.CoreModule):
                     # political campaign, funding round, ad campaign, fund raising
                     ('org', ('ou:org', {}), {
                         'doc': 'The org carrying out the campaign.',
+                    }),
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The name of the org responsible for the campaign. Used for entity resolution.',
+                    }),
+                    ('org:fqdn', ('inet:fqdn', {}), {
+                        'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.',
                     }),
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.',
@@ -394,6 +406,10 @@ class OuModule(s_module.CoreModule):
 
                     ('goal:pop', ('int', {}), {}),
                     ('result:pop', ('int', {}), {}),
+
+                    ('team', ('ou:team', {}), {
+                        'doc': 'The org team responsible for carrying out the campaign.',
+                    }),
                 )),
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
@@ -466,15 +482,22 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),
                 )),
+                ('ou:team', {}, (
+                    ('org', ('ou:org', {}), {}),
+                    ('name', ('ou:name', {}), {}),
+                )),
                 ('ou:position', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the position.',
+                    }),
+                    ('team', ('ou:team', {}), {
+                        'doc': 'The team that the position is a member of.',
                     }),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'The contact info for the person who holds the position.',
                     }),
                     # TODO migrate to ou:jobtitle
-                    ('title', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('title', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The title of the position.',
                     }),
                     ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
@@ -517,8 +540,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A terse name for the industry.'}),
+                    ('name', ('ou:industryname', {}), {
+                        'doc': 'The name of the industry.'}),
+                    ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of alternative names for the industry.'}),
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of sub-industries.'}),
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
@@ -532,6 +557,7 @@ class OuModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                 )),
+                ('ou:industryname', {}, ()),
                 ('ou:hasalias', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
@@ -859,15 +885,15 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the contest.',
                         'ex': 'defcon ctf 2020',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The type of contest.',
                         'ex': 'cyber ctf',
                     }),
-                    ('family', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('family', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for a series of recurring contests.',
                         'ex': 'defcon ctf',
                     }),

@@ -125,3 +125,134 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(nodes[0].ndef[1], 'cve-2013-9999')
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
+
+    async def test_modelrev_0_2_7_mirror(self):
+
+        vers = '2.85.1-hugenum-indx'
+
+        with self.getRegrDir('cortexes', vers) as regrdir00:
+
+            with self.getRegrDir('cortexes', vers) as regrdir01:
+
+                conf00 = {'nexslog:en': True}
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+
+                    self.true(await core00.getLayer().getModelVers() >= (0, 2, 7))
+
+                    conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+
+                async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                    self.eq(await core01.getLayer().getModelVers(), (0, 2, 6))
+
+                    nodes = await core01.nodes('inet:fqdn=baz.com')
+                    self.len(1, nodes)
+                    node = nodes[0]
+                    self.eq(node.props.get('_huge'), '10E-21')
+                    self.eq(node.props.get('._univhuge'), '10E-21')
+                    self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
+                    self.eq(node.props.get('._hugearray'), ('3.45', '10E-21'))
+
+                async with await s_cortex.Cortex.anit(regrdir00, conf=conf00) as core00:
+                    async with await s_cortex.Cortex.anit(regrdir01, conf=conf01) as core01:
+
+                        await core01.sync()
+
+                        self.true(await core01.getLayer().getModelVers() >= (0, 2, 7))
+
+                        nodes = await core01.nodes('inet:fqdn=baz.com')
+                        self.len(1, nodes)
+                        node = nodes[0]
+                        self.eq(node.props.get('_huge'), '0.00000000000000000001')
+                        self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
+                        self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+                        self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+
+    async def test_modelrev_0_2_8(self):
+        # Test geo:place:name re-norming
+        # Test crypto:currency:block:hash re-norming
+        # Test crypto:currency:transaction:hash re-norming
+        async with self.getRegrCore('2.87.0-geo-crypto') as core:
+
+            # Layer migrations
+            nodes = await core.nodes('geo:place:name="big hollywood sign"')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:currency:block:hash')
+            self.len(1, nodes)
+            valu = nodes[0].get('hash')  # type: str
+            self.false(valu.startswith('0x'))
+
+            nodes = await core.nodes('crypto:currency:transaction:hash')
+            self.len(1, nodes)
+            valu = nodes[0].get('hash')  # type: str
+            self.false(valu.startswith('0x'))
+
+            # storm migrations
+            nodes = await core.nodes('geo:name')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 'big hollywood sign')
+
+            self.len(0, await core.nodes('crypto:currency:transaction:inputs'))
+            self.len(0, await core.nodes('crypto:currency:transaction:outputs'))
+
+            nodes = await core.nodes('crypto:payment:input=(i1,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes('crypto:payment:input=(i2,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:input=(i2,) -> crypto:currency:transaction +crypto:currency:transaction=(t2,)')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:input=(i2,) -> crypto:currency:transaction +crypto:currency:transaction=(t3,)')
+            self.len(0, nodes)
+            nodes = await core.nodes('crypto:payment:input=(i3,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes('crypto:payment:output=(o1,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes('crypto:payment:output=(o2,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:output=(o2,) -> crypto:currency:transaction +crypto:currency:transaction=(t2,)')
+            self.len(1, nodes)
+            nodes = await core.nodes(
+                'crypto:payment:output=(o2,) -> crypto:currency:transaction +crypto:currency:transaction=(t3,)')
+            self.len(0, nodes)
+            nodes = await core.nodes('crypto:payment:output=(o3,) -> crypto:currency:transaction')
+            self.len(1, nodes)
+            self.len(0, await core.nodes('crypto:payment:input=(i4,) -> crypto:currency:transaction'))
+            self.len(0, await core.nodes('crypto:payment:output=(o4,) -> crypto:currency:transaction'))
+
+    async def test_modelrev_0_2_9(self):
+
+        async with self.getRegrCore('model-0.2.9') as core:
+
+            # test ou:industry:name -> ou:industryname
+            nodes = await core.nodes('ou:industry -> ou:industryname')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].ndef[1])
+            self.len(1, await core.nodes('ou:industryname="foo bar" -> ou:industry'))
+
+            # test the various it:prod:softname conversions
+            nodes = await core.nodes('it:prod:soft -> it:prod:softname')
+            self.len(3, nodes)
+            self.eq(('foo bar', 'baz faz', 'hehe haha'), [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('it:prod:softver -> it:prod:softname')
+            self.len(3, nodes)
+            self.eq(('foo bar', 'baz faz', 'hehe haha'), [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('it:mitre:attack:software -> it:prod:softname')
+            self.len(3, nodes)
+            self.eq(('foo bar', 'baz faz', 'hehe haha'), [n.ndef[1] for n in nodes])
+
+            # test :name pivots
+            self.len(1, await core.nodes('it:prod:softname="foo bar" -> it:prod:soft'))
+            self.len(1, await core.nodes('it:prod:softname="foo bar" -> it:prod:softver'))
+            self.len(1, await core.nodes('it:prod:softname="foo bar" -> it:mitre:attack:software'))
+
+            # test :names pivots
+            self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:prod:soft'))
+            self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:prod:softver'))
+            self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:mitre:attack:software'))

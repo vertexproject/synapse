@@ -285,6 +285,9 @@ class Daemon(s_base.Base):
             host = info.get('host')
             port = info.get('port')
 
+            if port is None:
+                port = 27492
+
             sslctx = None
             if scheme == 'ssl':
 
@@ -334,11 +337,11 @@ class Daemon(s_base.Base):
 
         finis = [sess.fini() for sess in list(self.sessions.values())]
         if finis:
-            await asyncio.wait(finis)
+            await asyncio.gather(*finis, return_exceptions=True)
 
         finis = [link.fini() for link in self.links]
         if finis:
-            await asyncio.wait(finis)
+            await asyncio.gather(*finis, return_exceptions=True)
 
         for _, share in self.shared.items():
             if isinstance(share, s_base.Base):
@@ -408,6 +411,9 @@ class Daemon(s_base.Base):
 
         await item.fini()
 
+    async def _getSharedItem(self, name):
+        return self.shared.get(name)
+
     async def _onTeleSyn(self, link, mesg):
 
         reply = ('tele:syn', {
@@ -433,7 +439,7 @@ class Daemon(s_base.Base):
                 if rest:
                     path = rest.split('/')
 
-            item = self.shared.get(name)
+            item = await self._getSharedItem(name)
 
             if item is None:
                 raise s_exc.NoSuchName(name=name)

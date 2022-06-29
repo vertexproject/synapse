@@ -30,14 +30,17 @@ RecursionDepth = contextvars.ContextVar('RecursionDepth', default=0)
 tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
 _tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proporunivrestr))
 
-_tagtrigvalid = {'properties': {'form': {'type': 'string', 'pattern': _formre},
-                                'tag': {'type': 'string', 'pattern': _tagre}},
-                 'required': ['tag']}
 TrigSchema = {
     'type': 'object',
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'form': {'type': 'string', 'pattern': _formre},
+        'tag': {'type': 'string', 'pattern': _tagre},
+        'prop': {'type': 'string', 'pattern': _propre},
+        'name': {'type': 'string', },
+        'doc': {'type': 'string', },
         'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set']},
         'storm': {'type': 'string'},
         'async': {'type': 'boolean'},
@@ -48,29 +51,30 @@ TrigSchema = {
     'allOf': [
         {
             'if': {'properties': {'cond': {'const': 'node:add'}}},
-            'then': {'properties': {'form': {'type': 'string'}}, 'required': ['form']},
+            'then': {'required': ['form']},
         },
         {
             'if': {'properties': {'cond': {'const': 'node:del'}}},
-            'then': {'properties': {'form': {'type': 'string'}}, 'required': ['form']},
+            'then': {'required': ['form']},
         },
         {
             'if': {'properties': {'cond': {'const': 'tag:add'}}},
-            'then': _tagtrigvalid,
+            'then': {'required': ['tag']},
         },
         {
             'if': {'properties': {'cond': {'const': 'tag:del'}}},
-            'then': _tagtrigvalid,
+            'then': {'required': ['tag']},
         },
         {
             'if': {'properties': {'cond': {'const': 'prop:set'}}},
-            'then': {'properties': {'prop': {'type': 'string', 'pattern': _propre}}, 'required': ['prop']},
+            'then': {'required': ['prop']},
         },
     ],
 }
+TrigSchemaValidator = s_config.getJsValidator(TrigSchema)
 
 def reqValidTdef(conf):
-    s_config.Config(TrigSchema, conf=conf).reqConfValid()
+    TrigSchemaValidator(conf)
 
 class Triggers:
     '''
@@ -120,7 +124,9 @@ class Triggers:
             [await trig.execute(node, view=view) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv, view=None):
-        vars = {'propname': prop.name, 'propfull': prop.full}
+        vars = {'propname': prop.name, 'propfull': prop.full,
+                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
+                }
         with self._recursion_check():
             [await trig.execute(node, vars=vars, view=view) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
@@ -128,7 +134,9 @@ class Triggers:
 
     async def runTagAdd(self, node, tag, view=None):
 
-        vars = {'tag': tag}
+        vars = {'tag': tag,
+                'auto': {'opts': {'tag': tag}},
+                }
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -151,7 +159,9 @@ class Triggers:
 
     async def runTagDel(self, node, tag, view=None):
 
-        vars = {'tag': tag}
+        vars = {'tag': tag,
+                'auto': {'opts': {'tag': tag}},
+                }
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
@@ -335,7 +345,6 @@ class Trigger:
 
     async def _execute(self, node, vars=None, view=None):
 
-        opts = {}
         locked = self.user.info.get('locked')
         if locked:
             if not self.lockwarned:
@@ -354,13 +363,22 @@ class Trigger:
         if view is None:
             view = self.view.iden
 
+        if vars is None:
+            vars = {}
+        else:
+            vars = vars.copy()
+
+        autovars = vars.setdefault('auto', {})
+        autovars.update({'iden': self.iden, 'type': 'trigger'})
+        optvars = autovars.setdefault('opts', {})
+        optvars['form'] = node.ndef[0]
+        optvars['valu'] = node.ndef[1]
+
         opts = {
+            'vars': vars,
             'view': view,
             'user': self.user.iden,
         }
-
-        if vars is not None:
-            opts['vars'] = vars
 
         self.startcount += 1
 

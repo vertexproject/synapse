@@ -91,7 +91,7 @@ class PsModule(s_module.CoreModule):
                     }),
                 )),
                 ('edu:course', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'ex': 'organic chemistry for beginners',
                         'doc': 'The name of the course.',
                     }),
@@ -296,6 +296,9 @@ class PsModule(s_module.CoreModule):
                     ('name', ('ps:name', {}), {
                         'doc': 'The person name listed for the contact.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of this contact.',
+                    }),
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The job/org title listed for this contact.',
                     }),
@@ -316,6 +319,24 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('web:group', ('inet:web:group', {}), {
                         'doc': 'A web group representing this contact.',
+                    }),
+                    ('birth:place', ('geo:place', {}), {
+                        'doc': 'A fully resolved place of birth for this contact.',
+                    }),
+                    ('birth:place:loc', ('loc', {}), {
+                        'doc': 'The loc of the place of birth of this contact.',
+                    }),
+                    ('birth:place:name', ('geo:name', {}), {
+                        'doc': 'The name of the place of birth of this contact.',
+                    }),
+                    ('death:place', ('geo:place', {}), {
+                        'doc': 'A fully resolved place of death for this contact.',
+                    }),
+                    ('death:place:loc', ('loc', {}), {
+                        'doc': 'The loc of the place of death of this contact.',
+                    }),
+                    ('death:place:name', ('geo:name', {}), {
+                        'doc': 'The name of the place of death of this contact.',
                     }),
                     ('dob', ('time', {}), {
                         'doc': 'The date of birth for this contact.',
@@ -380,6 +401,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('users', ('array', {'type': 'inet:user', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated user names.',
+                    }),
+                    ('crypto:address', ('crypto:currency:address', {}), {
+                        'doc': 'A crypto currency address associated with the contact.'
                     }),
                 )),
                 ('ps:contactlist', {}, (

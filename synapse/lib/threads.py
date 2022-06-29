@@ -4,7 +4,7 @@ import threading
 logger = logging.getLogger(__name__)
 
 def current():
-    return threading.currentThread()
+    return threading.current_thread()
 
 def iden():
-    return threading.currentThread().ident
+    return current().ident

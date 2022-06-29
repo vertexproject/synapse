@@ -95,7 +95,7 @@ The method takes a single argument consisting of a wildcard expression for the s
 - The wildcard ( ``*`` ) character can be used to match full or partial tag elements.
 - Single wildcards are constrained by tag element boundaries (i.e., the dot ( ``.`` ) character. Single wildcards can match an entire tag element or a partial string within an element.
 - The double wildcard ( ``**`` ) can be used to match across any number of tag elements; that is, the double wildcard is not constrained by the dot boundary.
-- If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the use of :ref:`literals`.
+- If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-tags` to access full tags (vs. tag substrings).
 
@@ -193,7 +193,7 @@ The method can optionally take one argument.
 
 - If no arguments are provided, the method returns the repr of the node's primary property value.
 - If an argument is provided, it should be the string of the secondary property name (i.e., without the leading colon ( ``:`` ) from relative property syntax).
-- If a universal property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`literals`.
+- If a universal property string is provided, it must be preceded by the dot / period ( ``.`` ) and enclosed in quotes in accordance with the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-value` to return the raw value of a property.
 
@@ -234,7 +234,7 @@ The method can optionally take one argument.
   - The method performs an **inclusive match** and returns the full tag for all tags that match the provided expression.
   - Single wildcards are constrained by tag element boundaries (i.e., the dot ( ``.`` ) character). Single wildcards can match an entire tag element or a partial string within an element.
   - The double wildcard ( ``**`` ) can be used to match across any number of tag elements; that is, the double wildcard is not constrained by the dot boundary.
-  - If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the use of :ref:`literals`.
+  - If the string expression starts with a wildcard, it must be enclosed in quotes in accordance with the use of :ref:`storm-literals`.
 
 See :ref:`meth-node-globtags` to access tag substrings (vs. full tags).
 

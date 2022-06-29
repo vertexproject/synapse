@@ -20,6 +20,170 @@ from synapse.tests.utils import alist
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_jsonexpr(self):
+        async with self.getTestCore() as core:
+
+            # test a pure const for the msgpack optimization
+            retn = await core.callStorm('return((["foo"]))')
+            self.eq(retn, ('foo',))
+
+            # test a dynamic multi-entry list
+            retn = await core.callStorm('$foo = "foo" return(([$foo, $foo, $foo]))')
+            self.eq(retn, ('foo', 'foo', 'foo'))
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('$foo=foo $bar=bar return(({$foo: $bar, "baz": 10}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 0x10}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 16})
+
+            retn = await core.callStorm('''
+                $list = (["foo"])
+                $list.append(bar)
+                return($list)
+            ''')
+            self.eq(retn, ('foo', 'bar'))
+
+            retn = await core.callStorm('''
+                $dict = ({"foo": "bar"})
+                $dict.baz = (10)
+                return($dict)
+            ''')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('return(([]))')
+            self.eq(retn, ())
+
+            retn = await core.callStorm('return((["foo",]))')
+            self.eq(retn, ('foo',))
+
+            retn = await core.callStorm('return((["foo" , ]))')
+            self.eq(retn, ('foo',))
+
+            retn = await core.callStorm('return(({}))')
+            self.eq(retn, {})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10,}))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            retn = await core.callStorm('return(({"foo": "bar", "baz": 10 , }))')
+            self.eq(retn, {'foo': 'bar', 'baz': 10})
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return((["foo" "foo"]))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return((["foo", "foo", ,]))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar" "baz": 10}))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar", "baz": 10, ,}))')
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm('return(({"foo": "bar", "baz": foo}))')
+
+    async def test_lib_storm_triplequote(self):
+        async with self.getTestCore() as core:
+            retn = await core.callStorm("""
+            return($lib.yaml.load('''
+                foo: bar
+                baz:
+                    - hehe's
+                    - haha's
+            '''))
+            """)
+            self.eq(retn, {'foo': 'bar', 'baz': ("hehe's", "haha's")})
+
+            self.eq(''' '"lol"' ''', await core.callStorm("""return(''' '"lol"' ''')"""))
+
+            retn = await core.callStorm("""return(('''foo bar''', '''baz faz'''))""")
+            self.eq(retn, ('foo bar', 'baz faz'))
+            self.eq("'''", await core.callStorm("""return("'''")"""))
+
+    async def test_lib_storm_emit(self):
+        async with self.getTestCore() as core:
+            self.eq(('foo', 'bar'), await core.callStorm('''
+                function generate() {
+                    emit foo
+                    emit bar
+                }
+                function makelist() {
+                    $retn = $lib.list()
+                    for $item in $generate() { $retn.append($item) }
+                    return($retn)
+                }
+                return($makelist())
+            '''))
+
+            self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
+                function generate() {
+                    [ inet:fqdn=vertex.link inet:fqdn=woot.com ]
+                    emit $node.repr()
+                }
+                function makelist() {
+                    $retn = $lib.list()
+                    for $item in $generate() { $retn.append($item) }
+                    return($retn)
+                }
+                return($makelist())
+            '''))
+
+            msgs = await core.stormlist('''
+                function generate() {
+                    emit foo
+                    $lib.raise(omg, omg)
+                }
+                for $item in $generate() { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'err' and m[1][0] == 'StormRaise'])
+
+            msgs = await core.stormlist('''
+                function generate(items) {
+                    for $item in $items {
+                        if ($item = "woot") { stop }
+                        emit $item
+                    }
+                }
+                for $item in $generate((foo, woot, bar)) { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('woot', msgs)
+            self.stormNotInPrint('bar', msgs)
+
+            msgs = await core.stormlist('''
+                function generate(items) {
+                    for $item in $items {
+                        [ it:dev:str=$item ]
+                        if ($node.repr() = "woot") { stop }
+                        emit $item
+                    }
+                }
+                for $item in $generate((foo, woot, bar)) { $lib.print($item) }
+            ''')
+            self.stormIsInPrint('foo', msgs)
+            self.stormNotInPrint('woot', msgs)
+            self.stormNotInPrint('bar', msgs)
+
+            nodes = await core.nodes('''
+                function generate(items) {
+                    for $item in $items {
+                        if ($item = "woot") { stop }
+                        [ it:dev:str=$item ]
+                    }
+                }
+                yield $generate((foo, woot, bar))
+            ''')
+            self.len(1, nodes)
+            self.eq('foo', nodes[0].ndef[1])
+
+            # include a quick test for using stop in a node yielder
+
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
             await core.nodes('''
@@ -268,6 +432,11 @@ class StormTest(s_t_utils.SynTest):
                 }''')
             self.eq((0, 'hehe'), await core.callStorm('return($lib.queue.get(foo).get())'))
 
+            await core.nodes('''$lib.queue.gen(bar)
+            background ${ $lib.queue.get(bar).put(haha) }
+            ''')
+            self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
 
@@ -388,9 +557,31 @@ class StormTest(s_t_utils.SynTest):
                 )
             }
 
+            emptypkg = {
+                'name': 'emptypkg',
+                'modules': ({'name': 'emptymod'},),
+            }
+
+            strverpkg = {
+                'name': 'strvers',
+                'version': (0, 0, 1),
+                'modules': ({'name': 'strvers', 'storm': ''},),
+            }
+            await core.loadStormPkg(emptypkg)
+            await core.addStormPkg(strverpkg)
+
             await core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
+            await core.nodes('$lib.import(foo.baz, reqvers="==0.0.1")', opts=opts)
+            await core.nodes('$lib.import(foo.baz, reqvers=">=0.0.1")', opts=opts)
+            await core.nodes('$lib.import(strvers, reqvers="==0.0.1")', opts=opts)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.import(emptymod, reqvers=">=0.0.1")', opts=opts)
+
+            with self.raises(s_exc.NoSuchName):
+                await core.nodes('$lib.import(foo.baz, reqvers=">=0.0.2")', opts=opts)
 
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.import(foo.bar)', opts=opts)
@@ -479,9 +670,13 @@ class StormTest(s_t_utils.SynTest):
 
             self.true(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.none(core.stormdmons.getDmon(ddef0['iden']).task)
+            self.false(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm(f'return($lib.dmon.stop($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
             self.true(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
             self.nn(core.stormdmons.getDmon(ddef0['iden']).task)
+            self.true(await core.callStorm(f'return($lib.dmon.get($iden).enabled)', opts={'vars': {'iden': ddef0['iden']}}))
+            self.false(await core.callStorm(f'return($lib.dmon.start($iden))', opts={'vars': {'iden': ddef0['iden']}}))
 
             self.false(await core.callStorm(f'return($lib.dmon.bump(newp))'))
             self.false(await core.callStorm(f'return($lib.dmon.stop(newp))'))
@@ -697,6 +892,16 @@ class StormTest(s_t_utils.SynTest):
                 bytag = await subcore.nodes('#foo.bar')
                 self.len(0, bytag)
 
+                url = await subcore.nodes('inet:url')
+                self.len(1, url)
+                url = url[0]
+                self.eq('https', url.props['proto'])
+                self.eq('/api/v1/exptest/neat', url.props['path'])
+                self.eq('', url.props['params'])
+                self.eq(2130706433, url.props['ipv4'])
+                self.eq(f'https://127.0.0.1:{port}/api/v1/exptest/neat', url.props['base'])
+                self.eq(port, url.props['port'])
+
                 # now test that param works
                 byyield = await subcore.nodes(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/exptest/kewl')
                 self.len(count, byyield)
@@ -814,6 +1019,30 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 nodes = await core.nodes('diff')
 
+            nodes = await core.nodes('diff --prop ".created" | +ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --prop ou:org', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --prop ou:org:name', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            nodes = await core.nodes('diff --tag haha', opts=altview)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'haha')
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('diff --prop foo:bar', opts=altview)
+
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('diff --prop foo:bar --tag newp.newp', opts=altview)
+            self.eq(cm.exception.get('mesg'),
+                    'You may specify --tag *or* --prop but not both.')
+
             nodes = await core.nodes('diff | +ou:org', opts=altview)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'haha')
@@ -848,6 +1077,84 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org#haha'))
 
             self.len(0, await core.nodes('diff', opts=altview))
+
+    async def test_storm_merge_opts(self):
+
+        async with self.getTestCore() as core:
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            altview = {'view': viewiden}
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[ ou:org=(org1,) :name=hehe ]')
+
+            q = '''
+            [ ou:org=(org1,)
+                :url=https://vertex.link
+                :name=haha
+                :desc=cool
+                :founded=2021
+                .seen=2022
+                +#one:score=1
+                +#two:score=2
+                +#three:score=3
+                +#haha.four
+                +#haha.five
+            ]
+            '''
+            await core.nodes(q, opts=altview)
+
+            self.len(0, await core.nodes('syn:tag'))
+            self.len(6, await core.nodes('syn:tag', opts=altview))
+
+            await core.nodes('diff | merge --only-tags --include-tags one two --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two'])
+            self.eq(nodes[0].tagprops['one']['score'], 1)
+            self.eq(nodes[0].tagprops['two']['score'], 2)
+            self.none(nodes[0].tagprops.get('three'))
+            self.len(2, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --only-tags --exclude-tags three haha.four --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'haha', 'haha.five'])
+            self.none(nodes[0].tagprops.get('three'))
+            self.len(4, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --include-props ou:org:name ou:org:desc --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.sorteq(list(nodes[0].tags.keys()), ['one', 'two', 'three', 'haha', 'haha.four', 'haha.five'])
+            self.eq(nodes[0].props.get('name'), 'haha')
+            self.eq(nodes[0].props.get('desc'), 'cool')
+            self.none(nodes[0].props.get('url'))
+            self.none(nodes[0].props.get('founded'))
+            self.none(nodes[0].props.get('.seen'))
+            self.eq(nodes[0].tagprops['three']['score'], 3)
+            self.len(6, await core.nodes('syn:tag'))
+
+            await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.eq(nodes[0].props.get('founded'), 1609459200000)
+            self.none(nodes[0].props.get('url'))
+            self.none(nodes[0].props.get('.seen'))
+
+            await core.nodes('diff | merge --include-props ".seen" --apply', opts=altview)
+            nodes = await core.nodes('ou:org')
+            self.nn(nodes[0].props.get('.seen'))
+            self.none(nodes[0].props.get('url'))
+
+            await core.nodes('[ ou:org=(org2,) +#six ]', opts=altview)
+            await core.nodes('diff | merge --only-tags --apply', opts=altview)
+
+            self.len(0, await core.nodes('ou:org=(org2,)'))
+
+            sodes = await core.callStorm('ou:org=(org2,) return($node.getStorNodes())', opts=altview)
+            self.nn(sodes[0]['tags']['six'])
+
+            await core.nodes('[ ou:org=(org3,) +#glob.tags +#more.glob.tags +#more.gob.tags ]', opts=altview)
+            await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
+            nodes = await core.nodes('ou:org=(org3,)')
+            self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
 
     async def test_storm_embeds(self):
 
@@ -2049,6 +2356,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_spliceundo(self):
 
+        self.skip('order is different and this is deprecated')
         async with self.getTestCoreAndProxy() as (core, prox):
 
             await core.addTagProp('risk', ('int', {'min': 0, 'max': 100}), {'doc': 'risk score'})
@@ -2291,6 +2599,12 @@ class StormTest(s_t_utils.SynTest):
         self.isin('  --help                      : Display the command usage.', pars.mesgs)
         self.isin('Arguments:', pars.mesgs)
         self.isin('  <hehe>                      : No help available', pars.mesgs)
+
+        pars = s_storm.Parser(prog='hehe')
+        pars.add_argument('hehe')
+        opts = pars.parse_args(['newp', '-h'])
+        self.none(opts)
+        self.isin('ERROR: Extra arguments and flags are not supported with the help flag: hehe newp -h', pars.mesgs)
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
@@ -3147,3 +3461,232 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
+
+    async def test_storm_queries(self):
+        async with self.getTestCore() as core:
+
+            q = '''
+            [ inet:ipv4=1.2.3.4
+                // add an asn
+                :asn=1234
+                /* also set .seen
+                   to now
+                */
+                .seen = now
+            ]'''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('asn'), 1234)
+            self.nn(nodes[0].props.get('.seen'))
+
+            case = [
+                ('+', 'plus'),
+                ('-', 'minus'),
+                ('/', 'div'),
+                ('+-', 'plusminus'),
+                ('-+', 'minusplus'),
+                ('--', 'minusminus'),
+                ('++', 'plusplus'),
+            ]
+
+            for valu, exp in case:
+                q = f'$x={valu}'
+                q += '''
+                switch $x {
+                    +: { $lib.print(plus) }
+                    //comm
+                    -: { $lib.print(minus) }
+                    /*comm*/ +-: { $lib.print(plusminus) }
+                    -+ : { $lib.print(minusplus) }
+                    // -+: { $lib.print(fake) }
+                    /* -+: { $lib.print(fake2) } */
+                    --: { $lib.print(minusminus) }
+                    ++: { $lib.print(plusplus) }
+                    /: { $lib.print(div) }
+                }
+                '''
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint(exp, msgs)
+
+            q = 'iden			Jul 17, 2019, 8:14:22 PM		10	 hostname'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [Jul]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [17, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [2019, ]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [8:14:22]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [PM]', msgs)
+            self.stormIsInWarn('iden must be 32 bytes [10]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [hostname]', msgs)
+
+            q = 'iden https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q --test=asdf'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [https://intelx.io/?s=3NBtmP3tZtZQHKrTCtTEiUby9dgujnmV6q]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [--test]', msgs)
+            self.stormIsInWarn('Failed to decode iden: [asdf]', msgs)
+
+            q = 'iden 192[.]foo[.]bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [192[.]foo[.]bar]', msgs)
+
+            q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+
+            msgs = await core.stormlist('help yield')
+            self.stormIsInPrint('No commands found matching "yield"', msgs)
+
+            q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
+
+            await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
+
+            q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("ERROR: Expected 0 positional arguments", msgs)
+
+            q = 'service.add svcrs ssl://svcrs:27492?certname=root'
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('(svcrs): ssl://svcrs:27492?certname=root', msgs)
+
+            q = 'iden ssl://svcrs:27492?certname=root=bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)
+
+            q = "$foo=one $bar=two $lib.print($lib.str.concat($foo, '=', $bar))"
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("one=two", msgs)
+
+            q = "function test(){ $asdf=foo $return () }"
+            msgs = await core.stormlist(q)
+            self.stormIsInErr("Unexpected token '}'", msgs)
+
+            retn = await core.callStorm('return((60*60))')
+            self.eq(retn, 3600)
+
+            retn = await core.callStorm('return((1*2 * 3))')
+            self.eq(retn, 6)
+
+            retn = await core.callStorm('return((0x10))')
+            self.eq(retn, 16)
+
+            retn = await core.callStorm('return((0x10*0x10))')
+            self.eq(retn, 256)
+
+            retn = await core.callStorm('return((0x10*0x10 + 5))')
+            self.eq(retn, 261)
+
+            retn = await core.callStorm('return((0x10*0x10,))')
+            self.eq(retn, ('0x10*0x10',))
+
+            nodes = await core.nodes('[inet:whois:email=(usnewssite.com, contact@privacyprotect.org) .seen=(2008/07/10 00:00:00.000, 2020/06/29 00:00:00.001)] +inet:whois:email.seen@=(2018/01/01, now)')
+            self.len(1, nodes)
+
+            retn = await core.callStorm('return((2021/12 00, 2021/12 :foo))')
+            self.eq(retn, ('2021/12 00', '2021/12 :foo'))
+
+            q = '''
+            $foo=(123)
+            if ($foo = 123 or not $foo = "cool, str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(success)
+            }
+            if ($foo = 123 or not $foo = "cool, \\"str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(escaped)
+            }
+            if ($foo = 123 or not $foo = \'\'\'cool, "'str(\'\'\'
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(triple)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("success", msgs)
+            self.stormIsInPrint("escaped", msgs)
+            self.stormIsInPrint("triple", msgs)
+
+            q = '''
+            $foo=(123)
+            if ($foo = 123 or $lib.concat('foo),b"ar', 'baz')) {
+                $lib.print(nest1)
+            }
+            if ($foo = 123 or (not $foo='baz' and $lib.concat("foo),b'ar", 'baz'))) {
+                $lib.print(nest2)
+            }
+            if ($foo = 123 or (not $foo='baz' and $lib.concat(\'\'\'foo),b'"ar\'\'\', 'baz'))) {
+                $lib.print(nest3)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("nest1", msgs)
+            self.stormIsInPrint("nest2", msgs)
+            self.stormIsInPrint("nest3", msgs)
+
+            q = '''
+            $foo=(0x40)
+            if ($foo = 64 and $foo = 0x40 and not $foo = "cool, str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(success)
+            }
+            if ($foo = 64 and $foo = 0x40 and not $foo = "cool, \\"str("
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(escaped)
+            }
+            if ($foo = 64 and $foo = 0x40 and not $foo = \'\'\'cool, "'str(\'\'\'
+                or $lib.concat("foo,bar", 'baz', 'cool)')) {
+                $lib.print(triple)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("success", msgs)
+            self.stormIsInPrint("escaped", msgs)
+            self.stormIsInPrint("triple", msgs)
+
+            q = '''
+            $foo=(0x40)
+            if ($foo = 64 or $lib.concat('foo),b"ar', 'baz')) {
+                $lib.print(nest1)
+            }
+            if ($foo = 64 or (not $foo='baz' and $lib.concat("foo),b'ar", 'baz'))) {
+                $lib.print(nest2)
+            }
+            if ($foo = 64 or (not $foo='baz' and $lib.concat(\'\'\'foo),b'"ar\'\'\', 'baz'))) {
+                $lib.print(nest3)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("nest1", msgs)
+            self.stormIsInPrint("nest2", msgs)
+            self.stormIsInPrint("nest3", msgs)
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[(media:news=* :org=foo) (inet:ipv4=1.2.3.4 +#test:score=1)]')
+
+            q = 'media:news:org #test'
+            self.len(2, await core.nodes(q))
+            self.len(1, await core.nodes('#test'))
+
+            q = 'media:news:org #test:score'
+            self.len(2, await core.nodes(q))
+            self.len(1, await core.nodes('#test:score'))
+
+            q = 'media:news:org#test'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No form media:news:org', msgs)
+
+            q = 'media:news:org#test:score'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No form media:news:org', msgs)
+
+            q = 'media:news:org#test.*.bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+            q = '#test.*.bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+            q = 'media:news:org#test.*.bar:score'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)

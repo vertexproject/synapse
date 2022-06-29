@@ -39,6 +39,17 @@ commands:
         - - --bar
           - help: Help on bar opt
 
+    - name: testpkg.baz
+      descr: |
+        testpkgcmd does some stuff.
+      cmdargs:
+        - - foo
+          - help: Help on foo opt
+        - - --baz
+          - help: Help on baz opt
+            time: ival
+            default: ["-7days", "now"]
+
 optic:
     title: woot
 
@@ -52,13 +63,12 @@ optic:
 
     workflows:
 
-      310eb7324b5da268fb31e4cd3d74e673:
-        name: foo
+      # testpkg-foo will get inserted from the workflows/testpkg-foo.yaml file
 
-      41e3368bd094e1c1563a242bfa56bd01:
+      testpkg-bar:
         name: bar
         desc: this is an inline workflow
 
-      bfb53cbaa789f2960de003d72b6e4544:
+      testpkg-baz:
         name: baz
-        desc: this baz desc gets overwritten
+        desc: this workflow gets overwritten by the workflows/testpkg-baz.yaml file

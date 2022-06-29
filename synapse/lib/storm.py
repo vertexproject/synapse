@@ -16,6 +16,7 @@ import synapse.lib.base as s_base
 import synapse.lib.chop as s_chop
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
@@ -293,13 +294,19 @@ reqValidPkgdef = s_config.getJsValidator({
                     'type': 'object',
                     'properties': {
                         'help': {'type': 'string'},
+                        'default': {},
+                        'dest': {'type': 'string'},
+                        'required': {'type': 'boolean'},
+                        'action': {'type': 'string'},
+                        'nargs': {'type': ['string', 'integer']},
                         'type': {
                             'type': 'string',
                             'enum': list(s_datamodel.Model().types)
                         },
                     },
                 }
-            ]
+            ],
+            'additionalItems': False,
         },
         'cmdinput': {
             'type': 'object',
@@ -901,9 +908,10 @@ stormcmds = (
 
             if $cmdopts.delete {
                 $layriden = $view.pack().layers.index(0).iden
-
                 $lib.view.del($view.iden)
                 $lib.layer.del($layriden)
+            } else {
+                $view.wipeLayer()
             }
             $lib.print("View merged: {iden}", iden=$cmdopts.iden)
         ''',
@@ -916,15 +924,21 @@ stormcmds = (
             ('--form', {'help': 'Form to fire on.'}),
             ('--tag', {'help': 'Tag to fire on.'}),
             ('--prop', {'help': 'Property to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True}),
+            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
+                         'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
-                            'help': 'Make the trigger run in the background.'}),
+                         'help': 'Make the trigger run in the background.'}),
             ('--disabled', {'default': False, 'action': 'store_true',
                             'help': 'Create the trigger in disabled state.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
         ),
         'storm': '''
-            $trig = $lib.trigger.add($cmdopts)
+            $opts = $lib.copy($cmdopts)
+            // Set valid tdef keys
+            $opts.enabled = (not $opts.disabled)
+            $opts.help = $lib.undef
+            $opts.disabled = $lib.undef
+            $trig = $lib.trigger.add($opts)
             $lib.print("Added trigger: {iden}", iden=$trig.iden)
         ''',
     },
@@ -1386,6 +1400,35 @@ stormcmds = (
 
         ''',
     },
+    {
+        'name': 'note.add',
+        'descr': 'Add a new meta:note node and link it to the inbound nodes using an -(about)> edge.',
+        'cmdargs': (
+            ('text', {'type': 'str', 'help': 'The note text to add to the nodes.'}),
+        ),
+        'storm': '''
+            function addNoteNode(text) {
+                [ meta:note=* :text=$text :creator=$lib.user.iden :created=now ]
+                return($node)
+            }
+            init { $note = $addNoteNode($cmdopts.text) }
+            [ <(about)+ { yield $note } ]
+        ''',
+    },
+    {
+        'name': 'uptime',
+        'descr': 'Print the uptime for the Cortex or a connected service.',
+        'cmdargs': (
+            ('name', {'type': 'str', 'nargs': '?',
+                      'help': 'The name, or iden, of the service (if not provided defaults to the Cortex).'}),
+        ),
+        'storm': '''
+            $resp = $lib.cell.uptime(name=$cmdopts.name)
+            $uptime = $lib.model.type(duration).repr($resp.uptime)
+            $starttime = $lib.time.format($resp.starttime, "%Y-%m-%d %H:%M:%S")
+            $lib.print("up {uptime} (since {since})", uptime=$uptime, since=$starttime)
+        ''',
+    },
 )
 
 class DmonManager(s_base.Base):
@@ -1549,6 +1592,8 @@ class StormDmon(s_base.Base):
 
             text = self.ddef.get('storm')
             opts = self.ddef.get('stormopts', {})
+            vars = opts.setdefault('vars', {})
+            vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
 
             viewiden = opts.get('view')
             view = self.core.getView(viewiden)
@@ -1562,6 +1607,7 @@ class StormDmon(s_base.Base):
 
                 self.status = 'running'
                 async with await self.core.snap(user=self.user, view=view) as snap:
+                    snap.cachebuids = False
 
                     snap.on('warn', dmonWarn)
                     snap.on('print', dmonPrint)
@@ -1628,6 +1674,7 @@ class Runtime(s_base.Base):
         self.model = snap.core.getDataModel()
 
         self.task = asyncio.current_task()
+        self.emitq = None
 
         self.inputs = []    # [synapse.lib.node.Node(), ...]
 
@@ -1659,6 +1706,45 @@ class Runtime(s_base.Base):
         self._loadRuntVars(query)
         self.onfini(self._onRuntFini)
 
+    async def emitter(self):
+
+        self.emitq = asyncio.Queue(maxsize=1)
+        async def fill():
+            try:
+                async for item in self.execute():
+                    await asyncio.sleep(0)
+                await self.emitq.put((False, None))
+
+            except asyncio.CancelledError: # pragma: no cover
+                raise
+
+            except s_stormctrl.StormStop:
+                await self.emitq.put((False, None))
+
+            except Exception as e:
+                await self.emitq.put((False, e))
+
+        self.schedCoro(fill())
+
+        async def genr():
+
+            async with self:
+                while not self.isfini:
+                    ok, item = await self.emitq.get()
+                    if ok:
+                        yield item
+                        continue
+
+                    if not ok and item is None:
+                        return
+
+                    raise item
+
+        return genr()
+
+    async def emit(self, item):
+        await self.emitq.put((True, item))
+
     async def _onRuntFini(self):
         # fini() any Base objects constructed by this runtime
         for valu in list(self.vars.values()):
@@ -1669,6 +1755,22 @@ class Runtime(s_base.Base):
         if self.asroot:
             return
         await self.snap.core.reqGateKeys(gatekeys)
+
+    async def reqUserCanReadLayer(self, layriden):
+
+        if self.asroot:
+            return
+
+        for view in self.snap.core.viewsbylayer.get(layriden, ()):
+            if self.user.allowed(('view', 'read'), gateiden=view.iden):
+                return
+
+        # check the old way too...
+        if self.user.allowed(('layer', 'read'), gateiden=layriden):
+            return
+
+        mesg = 'User can not read layer.'
+        raise s_exc.AuthDeny(mesg=mesg)
 
     async def dyncall(self, iden, todo, gatekeys=()):
         # bypass all perms checks if we are running asroot
@@ -1867,11 +1969,8 @@ class Runtime(s_base.Base):
                 self.tick()
                 yield item
 
-    @contextlib.asynccontextmanager
-    async def getSubRuntime(self, query, opts=None):
-        '''
-        Yield a runtime with shared scope that will populate changes upward.
-        '''
+    async def _snapFromOpts(self, opts):
+
         snap = self.snap
 
         if opts is not None:
@@ -1886,13 +1985,30 @@ class Runtime(s_base.Base):
                 self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
-        async with await Runtime.anit(query, snap, user=self.user, opts=opts, root=self) as runt:
-            if self.debug:
-                runt.debug = True
-            runt.asroot = self.asroot
-            runt.readonly = self.readonly
+        return snap
 
+    @contextlib.asynccontextmanager
+    async def getSubRuntime(self, query, opts=None):
+        '''
+        Yield a runtime with shared scope that will populate changes upward.
+        '''
+        async with await self.initSubRuntime(query, opts=opts) as runt:
             yield runt
+
+    async def initSubRuntime(self, query, opts=None):
+        '''
+        Construct and return sub-runtime with a shared scope.
+        ( caller must fini )
+        '''
+        snap = await self._snapFromOpts(opts)
+
+        runt = await Runtime.anit(query, snap, user=self.user, opts=opts, root=self)
+        if self.debug:
+            runt.debug = True
+        runt.asroot = self.asroot
+        runt.readonly = self.readonly
+
+        return runt
 
     @contextlib.asynccontextmanager
     async def getCmdRuntime(self, query, opts=None):
@@ -2074,8 +2190,11 @@ class Parser:
                 return
 
         # check for help before processing other args
-        if opts.get('help'):
-            self.help()
+        if opts.pop('help', None):
+            mesg = None
+            if opts or posargs:
+                mesg = f'Extra arguments and flags are not supported with the help flag: {self.prog} {" ".join(argv)}'
+            self.help(mesg)
             return
 
         # process positional arguments
@@ -2534,46 +2653,7 @@ class DivertCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if self.runtsafe:
-
-            if not isinstance(self.opts.genr, types.AsyncGeneratorType):
-                raise s_exc.BadArg(mesg='The genr argument must yield nodes')
-
-            size = await s_stormtypes.toint(self.opts.size, noneok=True)
-            doyield = await s_stormtypes.tobool(self.opts.cond)
-
-            try:
-                count = 0
-                if doyield:
-
-                    # in a runtsafe yield case we drop all the nodes
-                    async for item in genr:
-                        await asyncio.sleep(0)
-
-                    async for item in self.opts.genr:
-                        yield item
-                        count += 1
-                        if size is not None and count >= size:
-                            return
-                else:
-
-                    # in a runtsafe non-yield case we pass nodes through
-                    async for origitem in genr:
-                        yield origitem
-
-                    async for item in self.opts.genr:
-                        await asyncio.sleep(0)
-                        count += 1
-                        if size is not None and count >= size:
-                            return
-            finally:
-                await self.opts.genr.aclose()
-
-            return
-
-        # non-runtsafe
-        async for item in genr:
-
+        async def run(item):
             if not isinstance(self.opts.genr, types.AsyncGeneratorType):
                 raise s_exc.BadArg(mesg='The genr argument must yield nodes')
 
@@ -2597,9 +2677,21 @@ class DivertCmd(Cmd):
                         if size is not None and count >= size:
                             break
 
-                    yield item
+                    if item is not None:
+                        yield item
+
             finally:
                 await self.opts.genr.aclose()
+
+        empty = True
+        async for item in genr:
+            empty = False
+            async for runitem in run(item):
+                yield runitem
+
+        if empty:
+            async for runitem in run(None):
+                yield runitem
 
 class HelpCmd(Cmd):
     '''
@@ -2692,8 +2784,32 @@ class HelpCmd(Cmd):
 class DiffCmd(Cmd):
     '''
     Generate a list of nodes with changes in the top layer of the current view.
+
+    Examples:
+
+        // Lift all nodes with any changes
+
+        diff
+
+        // Lift ou:org nodes that were added in the top layer.
+
+        diff --prop ou:org
+
+        // Lift inet:ipv4 nodes with the :asn property modified in the top layer.
+
+        diff --prop inet:ipv4:asn
+
+        // Lift the nodes with the tag #cno.mal.redtree added in the top layer.
+
+        diff --tag cno.mal.redtree
     '''
     name = 'diff'
+
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('--tag', default=None, help='Lift only nodes with the given tag in the top layer.')
+        pars.add_argument('--prop', default=None, help='Lift nodes with changes to the given property the top layer.')
+        return pars
 
     async def execStormCmd(self, runt, genr):
 
@@ -2703,6 +2819,47 @@ class DiffCmd(Cmd):
 
         async for item in genr:
             yield item
+
+        if self.opts.tag and self.opts.prop:
+            mesg = 'You may specify --tag *or* --prop but not both.'
+            raise s_exc.StormRuntimeError(mesg=mesg)
+
+        if self.opts.tag:
+
+            tagname = await s_stormtypes.tostr(self.opts.tag)
+
+            layr = runt.snap.view.layers[0]
+            async for _, buid, sode in layr.liftByTag(tagname):
+                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+                yield node, runt.initPath(node)
+
+            return
+
+        if self.opts.prop:
+
+            propname = await s_stormtypes.tostr(self.opts.prop)
+
+            prop = self.runt.snap.core.model.prop(propname)
+            if prop is None:
+                mesg = f'The property {propname} does not exist.'
+                raise s_exc.NoSuchProp(mesg=mesg)
+
+            if prop.isform:
+                liftform = prop.name
+                liftprop = None
+            elif prop.isuniv:
+                liftform = None
+                liftprop = prop.name
+            else:
+                liftform = prop.form.name
+                liftprop = prop.name
+
+            layr = runt.snap.view.layers[0]
+            async for _, buid, sode in layr.liftByProp(liftform, liftprop):
+                node = await self.runt.snap._joinStorNode(buid, {layr.iden: sode})
+                yield node, runt.initPath(node)
+
+            return
 
         async for buid, sode in runt.snap.view.layers[0].getStorNodes():
             node = await runt.snap.getNodeByBuid(buid)
@@ -2714,6 +2871,10 @@ class MergeCmd(Cmd):
 
     NOTE: This command requires the current view to be a fork.
 
+    NOTE: The arguments for including/excluding tags can accept tag glob
+          expressions for specifying tags. For more information on tag glob
+          expressions, check the Synapse documentation for $node.globtags().
+
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
@@ -2724,15 +2885,101 @@ class MergeCmd(Cmd):
 
         #cno.mal.redtree | merge
 
+        // Merge any org nodes with changes in the top layer.
+
+        diff | +ou:org | merge --apply
+
+        // Merge all tags other than cno.* from ou:org nodes with edits in the
+        // top layer.
+
+        diff | +ou:org | merge --only-tags --exclude-tags cno.** --apply
+
+        // Merge only tags rep.vt.* and rep.whoxy.* from ou:org nodes with edits
+        // in the top layer.
+
+        diff | +ou:org | merge --include-tags rep.vt.* rep.whoxy.* --apply
+
+        // Lift only inet:ipv4 nodes with a changed :asn property in top layer
+        // and merge all changes.
+
+        diff --prop inet:ipv4:asn | merge --apply
+
+        // Lift only nodes with an added #cno.mal.redtree tag in the top layer and merge them.
+
+        diff --tag cno.mal.redtree | merge --apply
     '''
     name = 'merge'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('--apply', default=False, action='store_true', help='Execute the merge changes.')
-        pars.add_argument('--no-tags', default=False, action='store_true', help='Do not merge tags/tagprops or syn:tag nodes.')
-        pars.add_argument('--diff', default=False, action='store_true', help='Enumerate all changes in the current layer.')
+        pars.add_argument('--apply', default=False, action='store_true',
+                          help='Execute the merge changes.')
+        pars.add_argument('--no-tags', default=False, action='store_true',
+                          help='Do not merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--only-tags', default=False, action='store_true',
+                          help='Only merge tags/tagprops or syn:tag nodes.')
+        pars.add_argument('--include-tags', default=[], nargs='*',
+                          help='Include specific tags/tagprops or syn:tag nodes when '
+                               'merging, others are ignored. Tag glob expressions may '
+                               'be used to specify the tags.')
+        pars.add_argument('--exclude-tags', default=[], nargs='*',
+                          help='Exclude specific tags/tagprops or syn:tag nodes from merge.'
+                               'Tag glob expressions may be used to specify the tags.')
+        pars.add_argument('--include-props', default=[], nargs='*',
+                          help='Include specific props when merging, others are ignored.')
+        pars.add_argument('--exclude-props', default=[], nargs='*',
+                          help='Exclude specific props from merge.')
+        pars.add_argument('--diff', default=False, action='store_true',
+                          help='Enumerate all changes in the current layer.')
         return pars
+
+    def _getTagFilter(self):
+        if self.opts.include_tags:
+            globs = s_cache.TagGlobs()
+            for name in self.opts.include_tags:
+                globs.add(name, True)
+
+            def tagfilter(tag):
+                if globs.get(tag):
+                    return False
+                return True
+
+            return tagfilter
+
+        if self.opts.exclude_tags:
+            globs = s_cache.TagGlobs()
+            for name in self.opts.exclude_tags:
+                globs.add(name, True)
+
+            def tagfilter(tag):
+                if globs.get(tag):
+                    return True
+                return False
+
+            return tagfilter
+
+        return None
+
+    def _getPropFilter(self):
+        if self.opts.include_props:
+
+            def propfilter(prop):
+                if prop in self.opts.include_props:
+                    return False
+                return True
+
+            return propfilter
+
+        if self.opts.exclude_props:
+
+            def propfilter(prop):
+                if prop in self.opts.exclude_props:
+                    return True
+                return False
+
+            return propfilter
+
+        return None
 
     async def execStormCmd(self, runt, genr):
 
@@ -2741,6 +2988,10 @@ class MergeCmd(Cmd):
             raise s_exc.CantMergeView(mesg=mesg)
 
         notags = self.opts.no_tags
+        onlytags = self.opts.only_tags
+
+        tagfilter = self._getTagFilter()
+        propfilter = self._getPropFilter()
 
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
@@ -2763,7 +3014,8 @@ class MergeCmd(Cmd):
             nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
 
-            sode = (await node.getStorNodes())[0]
+            sodes = await node.getStorNodes()
+            sode = sodes[0]
 
             adds = []
             subs = []
@@ -2787,37 +3039,62 @@ class MergeCmd(Cmd):
 
             # check all node perms first
             form = sode.get('form')
+            if form == 'syn:tag':
+                if notags:
+                    continue
+            else:
+                # avoid merging a tag if the node won't exist below us
+                if onlytags:
+                    for undr in sodes[1:]:
+                        if undr.get('valu') is not None:
+                            break
+                    else:
+                        continue
 
-            if form == 'syn:tag' and notags:
-                continue
+            if not onlytags or form == 'syn:tag':
+                valu = sode.get('valu')
+                if valu is not None:
 
-            valu = sode.get('valu')
-            if valu is not None:
-                if not self.opts.apply:
-                    valurepr = node.form.type.repr(valu[0])
-                    await runt.printf(f'{nodeiden} {form} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'del', form), gateiden=layr0)
-                    runt.confirm(('node', 'add', form), gateiden=layr1)
+                    if tagfilter and form == 'syn:tag' and tagfilter(valu[0]):
+                        continue
 
-                    adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
-                    subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
+                    if not self.opts.apply:
+                        valurepr = node.form.type.repr(valu[0])
+                        await runt.printf(f'{nodeiden} {form} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'del', form), gateiden=layr0)
+                        runt.confirm(('node', 'add', form), gateiden=layr1)
 
-            for name, (valu, stortype) in sode.get('props', {}).items():
-                full = node.form.prop(name).full
-                if not self.opts.apply:
-                    valurepr = node.form.prop(name).type.repr(valu)
-                    await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-                    runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+                        adds.append((s_layer.EDIT_NODE_ADD, valu, ()))
+                        subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
-                    adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
-                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
+                for name, (valu, stortype) in sode.get('props', {}).items():
+
+                    full = node.form.prop(name).full
+                    if propfilter:
+                        if name[0] == '.':
+                            if propfilter(name):
+                                continue
+                        else:
+                            if propfilter(full):
+                                continue
+
+                    if not self.opts.apply:
+                        valurepr = node.form.prop(name).type.repr(valu)
+                        await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+                        runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+
+                        adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype), ()))
+                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
             if not notags:
-
                 for tag, valu in sode.get('tags', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
                     tagperm = tuple(tag.split('.'))
                     if not self.opts.apply:
                         valurepr = ''
@@ -2833,6 +3110,10 @@ class MergeCmd(Cmd):
                         subs.append((s_layer.EDIT_TAG_DEL, (tag, valu), ()))
 
                 for tag, tagdict in sode.get('tagprops', {}).items():
+
+                    if tagfilter and tagfilter(tag):
+                        continue
+
                     for prop, (valu, stortype) in tagdict.items():
                         tagperm = tuple(tag.split('.'))
                         if not self.opts.apply:
@@ -2845,33 +3126,35 @@ class MergeCmd(Cmd):
                             adds.append((s_layer.EDIT_TAGPROP_SET, (tag, prop, valu, None, stortype), ()))
                             subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype), ()))
 
-            layr = runt.snap.view.layers[0]
-            async for name, valu in layr.iterNodeData(node.buid):
-                if not self.opts.apply:
-                    valurepr = repr(valu)
-                    await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
-                else:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-                    runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+            if not onlytags or form == 'syn:tag':
 
-                    adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
-                    subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
-                    if len(adds) >= 1000:
-                        await sync()
+                layr = runt.snap.view.layers[0]
+                async for name, valu in layr.iterNodeData(node.buid):
+                    if not self.opts.apply:
+                        valurepr = repr(valu)
+                        await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
+                    else:
+                        runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                        runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
-            async for edge in layr.iterNodeEdgesN1(node.buid):
-                verb = edge[0]
-                if not self.opts.apply:
-                    name, dest = edge
-                    await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
-                else:
-                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-                    runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+                        adds.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
+                        subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu), ()))
+                        if len(adds) >= 1000:
+                            await sync()
 
-                    adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
-                    subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
-                    if len(adds) >= 1000:
-                        await sync()
+                async for edge in layr.iterNodeEdgesN1(node.buid):
+                    verb = edge[0]
+                    if not self.opts.apply:
+                        name, dest = edge
+                        await runt.printf(f'{nodeiden} {form} +({name})> {dest}')
+                    else:
+                        runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                        runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+
+                        adds.append((s_layer.EDIT_EDGE_ADD, edge, ()))
+                        subs.append((s_layer.EDIT_EDGE_DEL, edge, ()))
+                        if len(adds) >= 1000:
+                            await sync()
 
             await sync()
 
@@ -2905,7 +3188,6 @@ class LimitCmd(Cmd):
             count += 1
 
             if count >= self.opts.count:
-                await runt.printf(f'limit reached: {self.opts.count}')
                 break
 
 class UniqCmd(Cmd):
@@ -3152,12 +3434,13 @@ class MoveTagCmd(Cmd):
         oldparts = oldstr.split('.')
         noldparts = len(oldparts)
 
-        newparts = (await s_stormtypes.tostr(self.opts.newtag)).split('.')
+        newname, newinfo = await snap.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
+        newparts = newname.split('.')
 
         runt.layerConfirm(('node', 'tag', 'del', *oldparts))
         runt.layerConfirm(('node', 'tag', 'add', *newparts))
 
-        newt = await snap.addNode('syn:tag', self.opts.newtag)
+        newt = await snap.addNode('syn:tag', newname, norminfo=newinfo)
         newstr = newt.ndef[1]
 
         if oldstr == newstr:
@@ -3172,7 +3455,7 @@ class MoveTagCmd(Cmd):
                 raise s_exc.BadOperArg(mesg=f'Pre-existing cycle detected when moving {oldstr} to tag {newstr}',
                                        cycle=tagcycle)
             tagcycle.append(isnow)
-            newtag = await snap.addTagNode(isnow)
+            newtag = await snap.addNode('syn:tag', isnow)
             isnow = newtag.get('isnow')
             await asyncio.sleep(0)
 
@@ -3503,7 +3786,7 @@ class ViewExecCmd(Cmd):
             text = await s_stormtypes.tostr(self.opts.storm)
             query = await runt.getStormQuery(text)
 
-            opts = {'view': self.opts.view}
+            opts = {'view': view}
             async with runt.getSubRuntime(query, opts=opts) as subr:
                 async for item in subr.execute():
                     await asyncio.sleep(0)
@@ -3552,7 +3835,8 @@ class BackgroundCmd(Cmd):
             'vars': runtvars,
         }
 
-        query = await runt.getStormQuery(self.opts.query)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
 
         # make sure the subquery *could* have run with existing vars
         query.validate(runt)
@@ -3679,7 +3963,7 @@ class TeeCmd(Cmd):
                           help='Emit inbound nodes after processing storm queries.')
 
         pars.add_argument('--parallel', '-p', default=False, action='store_true',
-                          help='Run the storm queries in parallel instead of sequence. The node output order is not gauranteed.')
+                          help='Run the storm queries in parallel instead of sequence. The node output order is not guaranteed.')
 
         pars.add_argument('query', nargs='*',
                           help='Specify a query to execute on the input nodes.')
@@ -3974,6 +4258,7 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.list')
         maxtime = None
         if self.opts.maxtimestamp:
             maxtime = self.opts.maxtimestamp
@@ -4102,8 +4387,9 @@ class SpliceUndoCmd(Cmd):
 
         if node:
             prop = node.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            if prop is None:  # pragma: no cover
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
@@ -4121,8 +4407,9 @@ class SpliceUndoCmd(Cmd):
 
         if node:
             prop = node.form.props.get(name)
-            if prop is None:
-                raise s_exc.NoSuchProp(name=name, form=node.form.name)
+            if prop is None:  # pragma: no cover
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
             valu = splice.props.get('valu')
 
@@ -4204,6 +4491,7 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
+        s_common.deprecated('splices.undo')
         if self.opts.force:
             if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'

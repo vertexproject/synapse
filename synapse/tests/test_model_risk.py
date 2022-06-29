@@ -111,8 +111,10 @@ class RiskModelTest(s_t_utils.SynTest):
                 :org={org0}
                 :place={plac}
                 :software={soft}
+                :hardware=*
                 :spec={spec}
                 :item={item}
+                :host={host}
             ]''')
             self.eq(node.ndef, ('risk:hasvuln', hasv))
             self.eq(node.get('vuln'), vuln)
@@ -122,6 +124,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('software'), soft)
             self.eq(node.get('spec'), spec)
             self.eq(node.get('item'), item)
+            self.eq(node.get('host'), host)
+            self.nn(node.get('hardware'))
+            self.len(1, await core.nodes('risk:hasvuln -> it:prod:hardware'))
 
             nodes = await core.nodes('''
                 [ risk:alert=*
@@ -156,6 +161,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :loss:econ = 1337
                     :loss:life = 0
                     :loss:bytes = 1024
+                    :theft:price = 919
                     :ransom:paid = 1
                     :ransom:price = 99
                     :response:cost = 1010
@@ -175,6 +181,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('1337', nodes[0].get('loss:econ'))
             self.eq(0, nodes[0].get('loss:life'))
             self.eq(1024, nodes[0].get('loss:bytes'))
+            self.eq('919', nodes[0].get('theft:price'))
             self.eq('1', nodes[0].get('ransom:paid'))
             self.eq('99', nodes[0].get('ransom:price'))
             self.eq('1010', nodes[0].get('response:cost'))
@@ -183,3 +190,19 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
+
+    async def test_model_risk_mitigation(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                risk:mitigation=*
+                    :vuln=*
+                    :name=FooBar
+                    :desc=BazFaz
+                    :hardware=*
+                    :software=*
+            ]''')
+            self.eq('FooBar', nodes[0].props['name'])
+            self.eq('BazFaz', nodes[0].props['desc'])
+            self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
+            self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
+            self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))

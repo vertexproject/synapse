@@ -163,6 +163,44 @@ async def matchContexts(testself):
 
 class AstTest(s_test.SynTest):
 
+    async def test_mode_search(self):
+
+        conf = {'storm:interface:search': False}
+        async with self.getTestCore(conf=conf) as core:
+            msgs = await core.stormlist('asdf asdf', opts={'mode': 'search'})
+            self.stormIsInWarn('Storm search interface is not enabled!', msgs)
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
+            await core.loadStormPkg({
+                'name': 'testsearch',
+                'modules': [
+                    {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
+                        function search(tokens) {
+                            for $tokn in $tokens {
+                                ou:org:name^=$tokn
+                                emit ((0), $lib.hex.decode($node.iden()))
+                            }
+                        }
+                    '''},
+                ],
+            })
+            await core.nodes('[ ou:org=* :name=apt1 ]')
+            await core.nodes('[ ou:org=* :name=vertex ]')
+            nodes = await core.nodes('apt1', opts={'mode': 'search'})
+            self.len(1, nodes)
+            nodeiden = nodes[0].iden()
+            self.eq('apt1', nodes[0].props.get('name'))
+
+            nodes = await core.nodes('', opts={'mode': 'search'})
+            self.len(0, nodes)
+
+            nodes = await core.nodes('| uniq', opts={'mode': 'search', 'idens': [nodeiden]})
+            self.len(1, nodes)
+
+            with self.raises(s_exc.BadSyntax):
+                await core.nodes('| $$$$', opts={'mode': 'search'})
+
     async def test_try_set(self):
         '''
         Test ?= assignment
@@ -189,6 +227,10 @@ class AstTest(s_test.SynTest):
     async def test_ast_autoadd(self):
 
         async with self.getTestCore() as core:
+            visi = await core.auth.addUser('visi')
+            with self.raises(s_exc.AuthDeny):
+                opts = {'mode': 'autoadd', 'user': visi.iden}
+                nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
             opts = {'mode': 'autoadd'}
             nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
             self.len(3, nodes)
@@ -205,24 +247,25 @@ class AstTest(s_test.SynTest):
                 inet:email=visi@vertex.link
                 inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
                 inet:server=tcp://1.2.3.4:123
+                it:sec:cve=CVE-2021-44228
             ]''')
             ndefs = [n.ndef for n in nodes]
-            self.len(5, ndefs)
+            self.len(6, ndefs)
 
             opts = {'mode': 'lookup'}
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 cve-2021-44228'
             nodes = await core.nodes(q, opts=opts)
             self.eq(ndefs, [n.ndef for n in nodes])
 
             # check lookup refang
-            q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123'
+            q = '1(.)2.3.4 foo[.]bar.com visi[at]vertex.link hxxps://[ff::00]:4443/hehe?foo=bar&baz=faz 1(.)2.3.4:123 CVE-2021-44228'
             nodes = await core.nodes(q, opts=opts)
-            self.len(5, nodes)
+            self.len(6, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
 
-            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 | [ +#hehe ]'
+            q = '1.2.3.4 foo.bar.com visi@vertex.link https://[ff::00]:4443/hehe?foo=bar&baz=faz 1.2.3.4:123 CVE-2021-44228 | [ +#hehe ]'
             nodes = await core.nodes(q, opts=opts)
-            self.len(5, nodes)
+            self.len(6, nodes)
             self.eq(ndefs, [n.ndef for n in nodes])
             self.true(all(n.tags.get('hehe') is not None for n in nodes))
 
@@ -1475,6 +1518,8 @@ class AstTest(s_test.SynTest):
             q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
+            self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:
@@ -2119,3 +2164,65 @@ class AstTest(s_test.SynTest):
                 await core.nodes("inet:fqdn -> { inet:fqdn=vertex.link } | limit 1")
                 await core.nodes("function x() { inet:fqdn=vertex.link } yield $x() | limit 1")
                 await core.nodes("yield ${inet:fqdn=vertex.link} | limit 1")
+
+    async def test_ast_vars_missing(self):
+
+        async with self.getTestCore() as core:
+            q = '$ret = $ret $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$lib.concat($ret, foo) $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$ret=$lib.squeeeeeee($ret, foo) $lib.print($ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            mesgs = await core.stormlist(q, opts={'vars': {'ret': 'foo'}})
+            self.stormIsInErr('Cannot find name [squeeeeeee]', mesgs)
+
+            q = '$ret=$lib.dict(bar=$ret)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInErr('Missing variable: ret', mesgs)
+
+            q = '$view = $lib.view.get() $lib.print($view)'
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('storm:view', mesgs)
+
+            q = '''
+                $pipe = $lib.pipe.gen(${
+                    $pipe.put(neato)
+                    $pipe.put(burrito)
+                })
+
+                for $items in $pipe.slices(size=2) {
+                    for $thingy in $items {
+                        $lib.print($thingy)
+                    }
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('neato', mesgs)
+            self.stormIsInPrint('burrito', mesgs)
+
+            q = '''
+                $foo = ${ $foo="NEAT" return($foo) }
+                $bar = $foo.exec()
+                $lib.print($foo)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('NEAT', mesgs)
+
+            q = '''
+            function foo(x) {
+                $x = "some special string"
+                return($x)
+            }
+
+            $x = $foo((12))
+            $lib.print($x)
+            '''
+            mesgs = await core.stormlist(q)
+            self.stormIsInPrint('some special string', mesgs)

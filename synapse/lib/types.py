@@ -1,4 +1,5 @@
 import asyncio
+import decimal
 import logging
 import binascii
 import collections
@@ -437,16 +438,14 @@ class Array(Type):
         adds = []
         norms = []
 
+        form = self.modl.form(self.arraytype.name)
+
         for item in valu:
             norm, info = self.arraytype.norm(item)
             adds.extend(info.get('adds', ()))
+            if form is not None:
+                adds.append((form.name, norm, info))
             norms.append(norm)
-
-        form = self.modl.form(self.arraytype.name)
-        if form is not None:
-            adds.extend([(form.name, n) for n in norms])
-
-        adds = list(set(adds))
 
         if self.isuniq:
 
@@ -516,6 +515,11 @@ class Comp(Type):
 
             for k, v in info.get('subs', {}).items():
                 subs[f'{name}:{k}'] = v
+
+            typeform = self.modl.form(_type.name)
+            if typeform is not None:
+                adds.append((typeform.name, norm, info))
+
             adds.extend(info.get('adds', ()))
 
         norm = tuple(norms)
@@ -603,7 +607,7 @@ class Guid(Type):
             valu = s_common.guid()
             return valu, {}
 
-        valu = valu.lower()
+        valu = valu.lower().replace('-', '')
         if not s_common.isguid(valu):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='valu is not a guid.')
@@ -637,16 +641,24 @@ class Hex(Type):
     def _storLiftEq(self, cmpr, valu):
 
         if type(valu) == str:
+            valu = valu.strip().lower()
+            if valu.startswith('0x'):
+                valu = valu[2:]
+
             if valu.endswith('*'):
                 return (
-                    ('^=', valu[:-1].lower(), self.stortype),
+                    ('^=', valu[:-1], self.stortype),
                 )
 
         return self._storLiftNorm(cmpr, valu)
 
     def _storLiftPref(self, cmpr, valu):
+        valu = valu.strip().lower()
+        if valu.startswith('0x'):
+            valu = valu[2:]
+
         return (
-            ('^=', valu.lower(), self.stortype),
+            ('^=', valu, self.stortype),
         )
 
     def _normPyStr(self, valu):
@@ -672,14 +684,14 @@ intstors = {
     (16, False): s_layer.STOR_TYPE_U128,
 }
 
-hugemax = 170141183460469231731687
+hugemax = 730750818665451459101842
 class HugeNum(Type):
 
-    _opt_defs = (
-        ('norm', True),
-    )
-
     stortype = s_layer.STOR_TYPE_HUGENUM
+
+    _opt_defs = (
+        ('modulo', None),  # type: ignore
+    )
 
     def __init__(self, modl, name, info, opts):
 
@@ -698,9 +710,34 @@ class HugeNum(Type):
             'range=': self._storLiftRange,
         })
 
+        self.modulo = None
+
+        modulo = self.opts.get('modulo')
+        if modulo is not None:
+            self.modulo = s_common.hugenum(modulo)
+
     def norm(self, valu):
 
-        huge = s_common.hugenum(valu)
+        if valu is None:
+            mesg = 'Hugenum type may not be null.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        try:
+
+            huge = s_common.hugenum(valu)
+
+            # behave modulo like int/float
+            if self.modulo is not None:
+                _, huge = s_common.hugemod(huge, self.modulo)
+                if huge < 0:
+                    huge = s_common.hugeadd(huge, self.modulo)
+
+                huge = s_common.hugeround(huge)
+
+        except decimal.DecimalException as e:
+            mesg = f'Invalid hugenum: {e}'
+            raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=mesg) from None
+
         if huge > hugemax:
             mesg = f'Value ({valu}) is too large for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
@@ -709,9 +746,8 @@ class HugeNum(Type):
             mesg = f'Value ({valu}) is too small for hugenum.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if self.opts.get('norm'):
-            huge.normalize(), {}
-        return huge.to_eng_string(), {}
+        huge = s_common.hugeround(huge).normalize(s_common.hugectx)
+        return '{:f}'.format(huge), {}
 
     def _ctorCmprEq(self, text):
         base = s_common.hugenum(text)
@@ -906,11 +942,11 @@ class Int(IntBase):
 
         if self.minval is not None and valu < self.minval:
             mesg = f'value is below min={self.minval}'
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
         if self.maxval is not None and valu > self.maxval:
             mesg = f'value is above max={self.maxval}'
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
+            raise s_exc.BadTypeValu(valu=repr(valu), name=self.name, mesg=mesg)
 
         if self.enumrepr and valu not in self.enumrepr:
             mesg = 'Value is not a valid enum value.'
@@ -1024,6 +1060,7 @@ class Float(Type):
         return self._normPyFloat(valu)
 
     def _normPyFloat(self, valu):
+
         if self.minval is not None and not self.mincmp(valu, self.minval):
             mesg = f'value is below min={self.minval}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg)
@@ -1155,6 +1192,10 @@ class Ival(Type):
             raise s_exc.BadTypeValu(name=self.name, valu=valu,
                                     mesg='Ival range must in (min, max) format')
 
+        if maxv > self.futsize:
+            raise s_exc.BadTypeValu(name=self.name, valu=valu,
+                                    mesg='Ival upper range cannot exceed future size marker')
+
         return (minv, maxv), info
 
     def _normByTickTock(self, valu):
@@ -1269,10 +1310,10 @@ class Ndef(Type):
         if form is None:
             raise s_exc.NoSuchForm(name=self.name, form=formname)
 
-        formnorm, info = form.type.norm(formvalu)
+        formnorm, forminfo = form.type.norm(formvalu)
         norm = (form.name, formnorm)
 
-        adds = (norm,)
+        adds = ((form.name, formnorm, forminfo),)
         subs = {'form': form.name}
 
         return norm, {'adds': adds, 'subs': subs}
@@ -1399,7 +1440,7 @@ class Data(Type):
             s_common.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)
-        except s_exc.MustBeJsonSafe as e:
+        except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:
             raise s_exc.BadTypeValu(name=self.name, valu=valu, mesg=str(e)) from None
         byts = s_msgpack.en(valu)
         return s_msgpack.un(byts), {}
@@ -1425,7 +1466,8 @@ class NodeProp(Type):
 
         prop = self.modl.prop(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=self.name, prop=propname)
+            mesg = f'No prop {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=self.name, prop=propname)
 
         propnorm, info = prop.type.norm(propvalu)
         return (prop.full, propnorm), {'subs': {'prop': prop.full}}
@@ -1693,6 +1735,102 @@ class TagPart(Str):
             mesg = 'Each tag part must be non-zero length.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
+        return valu, {}
+
+speed_dist = {
+    'mm': 1,
+    'millimeters': 1,
+    'k': 1000000,
+    'km': 1000000,
+    'kilometers': 1000000,
+    'nmi': 1852000,
+    'in': 25.4,
+    'inches': 25.4,
+    'ft': 304.8,
+    'feet': 304.8,
+    'mi': 1609344,
+    'miles': 1609344,
+}
+
+speed_dura = {
+    's': 1,
+    'sec': 1,
+    'min': 60,
+    'minute': 60,
+    'h': 3600,
+    'hr': 3600,
+    'hour': 3600,
+}
+
+class Velocity(IntBase):
+    oflight = 299792458000
+    stortype = s_layer.STOR_TYPE_I64
+
+    _opt_defs = (
+        ('relative', False),
+    )
+
+    def postTypeInit(self):
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(int, self._normPyInt)
+
+    def _normPyStr(self, valu):
+
+        valu = valu.lower().strip()
+        if not valu:
+            mesg = 'Empty string is not a valid velocity.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        nums, offs = s_grammar.nom(valu, 0, cset='-0123456789.')
+        if not nums:
+            nums = '1'
+
+        base = float(nums)
+        if base < 0 and not self.opts.get('relative'):
+            mesg = 'Non-relative velocities may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        unit = valu[offs:].strip()
+        if not unit:
+            return base, {}
+
+        if unit.find('/') != -1:
+            dist, dura = unit.split('/', 1)
+            distmod = speed_dist.get(dist)
+            if distmod is None:
+                mesg = f'Unrecognized distance type: {dist}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            duramod = speed_dura.get(dura)
+            if duramod is None:
+                mesg = f'Unrecognized duration type: {dura}.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            norm = int((base * distmod) / duramod)
+            return norm, {}
+
+        if unit == 'mph':
+            norm = int((base * 1609344) / 3600)
+            return norm, {}
+
+        if unit == 'kph':
+            norm = int((base * 1000000) / 3600)
+            return norm, {}
+
+        if unit in ('knots', 'kts'):
+            norm = int((base * 1852000) / 3600)
+            return norm, {}
+
+        if unit == 'c':
+            return int(base * self.oflight), {}
+
+        mesg = f'Unknown velocity unit: {unit}.'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    def _normPyInt(self, valu):
+        if valu < 0 and not self.opts.get('relative'):
+            mesg = 'Non-relative velocities may not be negative.'
+            raise s_exc.BadTypeValu(mesg=mesg)
         return valu, {}
 
 class Duration(IntBase):

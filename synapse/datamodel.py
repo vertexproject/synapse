@@ -522,8 +522,8 @@ class Model:
         item = s_types.NodeProp(self, 'nodeprop', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'A potentially huge/tiny number. [x] <= 170141183460469231731687 with a fractional '
-                       'precision of 15 decimal digits.'}
+        info = {'doc': 'A potentially huge/tiny number. [x] <= 730750818665451459101842 with a fractional '
+                       'precision of 24 decimal digits.'}
         item = s_types.HugeNum(self, 'hugenum', info, {})
         self.addBaseType(item)
 
@@ -533,6 +533,10 @@ class Model:
 
         info = {'doc': 'A hierarchical taxonomy.'}
         item = s_types.Taxonomy(self, 'taxonomy', info, {})
+        self.addBaseType(item)
+
+        info = {'doc': 'A velocity with base units in mm/sec.'}
+        item = s_types.Velocity(self, 'velocity', info, {})
         self.addBaseType(item)
 
         # add the base universal properties...
@@ -862,7 +866,9 @@ class Model:
 
         prop = form.delProp(propname)
         if prop is None:
-            raise s_exc.NoSuchProp(name=f'{formname}:{propname}')
+            name = f'{formname}:{propname}'
+            mesg = f'No prop {name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
         if isinstance(prop.type, s_types.Array):
             self.arraysbytype[prop.type.arraytype.name].remove(prop)

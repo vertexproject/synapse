@@ -71,16 +71,8 @@ class Node:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
             raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
-        if not s_common.isbuidhex(n2iden):
-            mesg = f'addEdge() got an invalid node iden: {n2iden}'
-            raise s_exc.BadArg(mesg=mesg)
-
-        nodeedits = (
-            (self.buid, self.form.name, (
-                (s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()),
-            )),
-        )
-        await self.snap.applyNodeEdits(nodeedits)
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.addEdge(verb, n2iden)
 
     async def delEdge(self, verb, n2iden):
 
@@ -277,17 +269,13 @@ class Node:
             mesg = 'Cannot set property in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        prop = self.form.prop(name)
+        prop = self.form.props.get(name)
         if prop is None:
-
-            if self.snap.strict:
-                raise s_exc.NoSuchProp(name=name, form=self.form.name)
-
-            await self.snap.warn(f'NoSuchProp: name={name}')
+            mesg = f'No property named {name} on form {self.form.name}.'
+            await self.snap._raiseOnStrict(s_exc.NoSuchProp, mesg)
             return False
 
         if self.form.isrunt:
-
             if prop.info.get('ro'):
                 mesg = 'Cannot set read-only props on runt nodes'
                 raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full, prop=name, valu=valu)
@@ -295,43 +283,8 @@ class Node:
             await self.snap.core.runRuntPropSet(self, prop, valu)
             return True
 
-        curv = self.props.get(name)
-
-        # normalize the property value...
-        try:
-            norm, info = prop.type.norm(valu)
-
-        except Exception as e:
-            mesg = f'Bad property value: {prop.full}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
-
-        # do we already have the value?
-        if curv == norm:
-            return False
-
-        await self.snap.core._callPropSetHook(self, prop, norm)
-
-        if curv is not None and not init:
-
-            if prop.info.get('ro'):
-
-                if self.snap.strict:
-                    raise s_exc.ReadOnlyProp(name=prop.full)
-
-                # not setting a set-once prop unless we are init...
-                return False
-
-            # check for type specific merging...
-            norm = prop.type.merge(curv, norm)
-            if curv == norm:
-                return False
-
-        props = {prop.name: norm}
-        nodeedits = await self.snap.getNodeAdds(self.form, self.ndef[1], props, addnode=False)
-
-        await self.snap.applyNodeEdits(nodeedits)
-
-        return True
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.set(name, valu)
 
     def has(self, name):
         return name in self.props
@@ -355,7 +308,8 @@ class Node:
         prop = self.form.prop(name)
         if prop is None:
             if self.snap.strict:
-                raise s_exc.NoSuchProp(name=name, form=self.form.name)
+                mesg = f'No property named {name}.'
+                raise s_exc.NoSuchProp(mesg=mesg, name=name, form=self.form.name)
             await self.snap.warn(f'No Such Property: {name}')
             return ()
 
@@ -402,7 +356,8 @@ class Node:
 
         prop = self.form.props.get(name)
         if prop is None:
-            raise s_exc.NoSuchProp(form=self.form.name, prop=name)
+            mesg = f'No property named {name}.'
+            raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
 
         valu = self.props.get(name)
         if valu is None:
@@ -495,58 +450,8 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        path = s_chop.tagpath(tag)
-
-        name = '.'.join(path)
-
-        if not await self.snap.core.isTagValid(name):
-            mesg = f'The tag does not meet the regex for the tree.'
-            raise s_exc.BadTag(mesg=mesg)
-
-        tagnode = await self.snap.addTagNode(name)
-
-        # implement tag renames...
-        isnow = tagnode.get('isnow')
-        if isnow:
-            await self.snap.warn(f'tag {name} is now {isnow}')
-            name = isnow
-            path = isnow.split('.')
-
-        if isinstance(valu, list):
-            valu = tuple(valu)
-
-        if valu != (None, None):
-            valu = self.snap.core.model.type('ival').norm(valu)[0]
-
-        curv = self.tags.get(name)
-        if curv == valu:
-            return
-
-        edits = []
-        if curv is None:
-
-            tags = s_chop.tags(name)
-            for tag in tags[:-1]:
-
-                if self.tags.get(tag) is not None:
-                    continue
-
-                await self.snap.addTagNode(tag)
-
-                edits.append((s_layer.EDIT_TAG_SET, (tag, (None, None), None), ()))
-
-        else:
-            # merge values into one interval
-            valu = s_time.ival(*valu, *curv)
-
-        if valu == curv:
-            return
-
-        edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
-
-        nodeedit = (self.buid, self.form.name, edits)
-
-        await self.snap.applyNodeEdit(nodeedit)
+        async with self.snap.getNodeEditor(self) as protonode:
+            await protonode.addTag(tag, valu=valu)
 
     def _getTagTree(self):
 
@@ -677,31 +582,8 @@ class Node:
         '''
         Set the value of the given tag property.
         '''
-        if not self.hasTag(tag):
-            await self.addTag(tag)
-
-        prop = self.snap.core.model.getTagProp(name)
-        if prop is None:
-            raise s_exc.NoSuchTagProp(mesg='Tag prop does not exist in this Cortex.',
-                                      name=name)
-
-        try:
-            norm, info = prop.type.norm(valu)
-        except Exception as e:
-            mesg = f'Bad property value: #{tag}:{prop.name}={valu!r}'
-            return await self.snap._raiseOnStrict(s_exc.BadTypeValu, mesg, name=prop.name, valu=valu, emesg=str(e))
-
-        edits = (
-            (s_layer.EDIT_TAGPROP_SET, (tag, name, norm, None, prop.type.stortype), ()),
-        )
-
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
-
-        props = self.tagprops.get(tag)
-        if props is None:
-            props = self.tagprops[tag] = {}
-
-        props[name] = norm
+        async with self.snap.getNodeEditor(self) as editor:
+            await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
         prop = self.snap.core.model.getTagProp(name)
@@ -792,19 +674,19 @@ class Node:
         self.snap.livenodes.pop(self.buid, None)
 
     async def hasData(self, name):
+        if name in self.nodedata:
+            return True
         return await self.snap.hasNodeData(self.buid, name)
 
-    async def getData(self, name):
+    async def getData(self, name, defv=None):
         valu = self.nodedata.get(name, s_common.novalu)
         if valu is not s_common.novalu:
             return valu
-        return await self.snap.getNodeData(self.buid, name)
+        return await self.snap.getNodeData(self.buid, name, defv=defv)
 
     async def setData(self, name, valu):
-        edits = (
-            (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
-        )
-        await self.snap.applyNodeEdits(((self.buid, self.form.name, edits),))
+        async with self.snap.getNodeEditor(self) as protonode:
+            await protonode.setData(name, valu)
 
     async def popData(self, name):
         retn = await self.snap.getNodeData(self.buid, name)

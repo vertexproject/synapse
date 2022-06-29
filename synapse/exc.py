@@ -163,6 +163,7 @@ class IsRuntForm(SynErr): pass
 class LayerInUse(SynErr): pass
 
 class LinkErr(SynErr): pass
+class LinkBadCert(LinkErr): pass
 class LinkShutDown(LinkErr): pass
 
 class NoCertKey(SynErr):
@@ -258,6 +259,10 @@ class StormVarListError(StormRuntimeError): pass
 class TeleRedir(SynErr): pass
 class FatalErr(SynErr):
     '''
-    Raised when a fatal error has occured which an application cannot recover from.
+    Raised when a fatal error has occurred which an application cannot recover from.
     '''
     pass
+
+class LmdbLock(SynErr): pass
+
+proxy_admin_mesg = 'Specifying a proxy to the HTTP library requires admin privileges.'

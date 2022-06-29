@@ -99,6 +99,12 @@ class PsModelTest(s_t_utils.SynTest):
                     'web:group': ('twitter.com', 'avengers'),
                     'dob': '1976-12-17',
                     'dod': '20501217',
+                    'birth:place': '*',
+                    'birth:place:loc': 'us.va.reston',
+                    'birth:place:name': 'Reston, VA, USA, Earth, Sol, Milkyway',
+                    'death:place': '*',
+                    'death:place:loc': 'us.va.reston',
+                    'death:place:name': 'Reston, VA, USA, Earth, Sol, Milkyway',
                     'url': 'https://starkindustries.com/',
                     'email': 'tony.stark@gmail.com',
                     'email:work': 'tstark@starkindustries.com',
@@ -112,6 +118,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'web:accts': (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')),
                     'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
                     'users': ('visi', 'invisigoth'),
+                    'crypto:address': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 }
 
                 node = await snap.addNode('ps:contact', con0, cprops)
@@ -142,7 +149,15 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('emails'), ('v@vtx.lk', 'visi@vertex.link'))
                 self.eq(node.get('web:accts'), (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')))
                 self.eq(node.get('users'), ('invisigoth', 'visi'))
+                self.eq(node.get('crypto:address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
                 self.len(2, node.get('id:numbers'))
+
+                self.eq(node.get('birth:place:loc'), 'us.va.reston')
+                self.eq(node.get('death:place:loc'), 'us.va.reston')
+                self.eq(node.get('birth:place:name'), 'reston, va, usa, earth, sol, milkyway')
+                self.eq(node.get('death:place:name'), 'reston, va, usa, earth, sol, milkyway')
+                self.len(1, await core.nodes('ps:contact :birth:place -> geo:place'))
+                self.len(1, await core.nodes('ps:contact :death:place -> geo:place'))
 
                 nodes = await core.nodes('''[
                     ps:achievement=*

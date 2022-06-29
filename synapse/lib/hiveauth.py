@@ -78,7 +78,7 @@ class Auth(s_nexus.Pusher):
 
     '''
 
-    async def __anit__(self, node, nexsroot=None):
+    async def __anit__(self, node, nexsroot=None, seed=None):
         '''
         Args:
             node (HiveNode): The root of the persistent storage for auth
@@ -88,6 +88,9 @@ class Auth(s_nexus.Pusher):
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
 
         self.node = node
+
+        if seed is None:
+            seed = s_common.guid()
 
         self.usersbyiden = {}
         self.rolesbyiden = {}
@@ -116,14 +119,14 @@ class Auth(s_nexus.Pusher):
         self.allrole = await self.getRoleByName('all')
         if self.allrole is None:
             # initialize the role of which all users are a member
-            guid = s_common.guid()
+            guid = s_common.guid((seed, 'auth', 'role', 'all'))
             await self._addRole(guid, 'all')
             self.allrole = self.role(guid)
 
         # initialize an admin user named root
         self.rootuser = await self.getUserByName('root')
         if self.rootuser is None:
-            guid = s_common.guid()
+            guid = s_common.guid((seed, 'auth', 'user', 'root'))
             await self._addUser(guid, 'root')
             self.rootuser = self.user(guid)
 
@@ -406,11 +409,13 @@ class Auth(s_nexus.Pusher):
 
         await self._addUserNode(node)
 
-    async def addRole(self, name):
+    async def addRole(self, name, iden=None):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
-        iden = s_common.guid()
+        if iden is None:
+            iden = s_common.guid()
+
         await self._push('role:add', iden, name)
 
         return self.role(iden)
@@ -701,6 +706,24 @@ class HiveRole(HiveRuler):
             info = self.authgates[gateiden] = await gate.genRoleInfo(self.iden)
         return info
 
+    def allowed(self, perm, default=None, gateiden=None):
+
+        perm = tuple(perm)
+        if gateiden is not None:
+            info = self.authgates.get(gateiden)
+            if info is not None:
+                for allow, path in info.get('rules', ()):
+                    if perm[:len(path)] == path:
+                        return allow
+            return default
+
+        # 2. check user rules
+        for allow, path in self.info.get('rules', ()):
+            if perm[:len(path)] == path:
+                return allow
+
+        return default
+
 class HiveUser(HiveRuler):
     '''
     A user (could be human or computer) of the system within HiveAuth.
@@ -753,6 +776,10 @@ class HiveUser(HiveRuler):
 
     async def setName(self, name):
         return await self.auth.setUserName(self.iden, name)
+
+    async def allow(self, perm):
+        if not self.allowed(perm):
+            await self.addRule((True, perm), indx=0)
 
     def allowed(self, perm, default=None, gateiden=None):
         perm = tuple(perm)

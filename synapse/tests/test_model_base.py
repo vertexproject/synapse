@@ -5,6 +5,44 @@ import synapse.tests.utils as s_t_utils
 
 class BaseTest(s_t_utils.SynTest):
 
+    async def test_model_base_timeline(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ meta:timeline=* :title=Woot :summary=4LOLZ :type=lol.cats ]')
+            self.len(1, nodes)
+            nodes = await core.nodes('''
+                [ meta:event=* :title=Zip :duration=1:30:00
+                    :summary=Zop :time=20220321 :type=zip.zop :timeline={meta:timeline:title=Woot} ]''')
+            self.len(1, nodes)
+            nodes = await core.nodes('''[ meta:event=* :title=Hehe :duration=2:00
+                    :summary=Haha :time=20220322 :type=hehe.haha :timeline={meta:timeline:title=Woot} ]''')
+            self.len(1, nodes)
+
+            self.len(2, await core.nodes('meta:timeline +:title=Woot +:summary=4LOLZ +:type=lol.cats -> meta:event'))
+            self.len(1, await core.nodes('meta:timeline -> meta:timeline:taxonomy'))
+            self.len(2, await core.nodes('meta:event -> meta:event:taxonomy'))
+            self.len(1, await core.nodes('meta:event +:title=Hehe +:summary=Haha +:time=20220322 +:duration=120 +:type=hehe.haha +:timeline'))
+
+    async def test_model_base_note(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
+            self.len(2, nodes)
+            self.len(1, await core.nodes('meta:note'))
+            self.len(1, await core.nodes('meta:note:created<=now'))
+            self.len(1, await core.nodes('meta:note:creator=$lib.user.iden'))
+            self.len(1, await core.nodes('meta:note:text="foo bar baz"'))
+            self.len(2, await core.nodes('meta:note -(about)> inet:fqdn'))
+            self.len(1, await core.nodes('meta:note [ :author={[ ps:contact=* :name=visi ]} ]'))
+            self.len(1, await core.nodes('ps:contact:name=visi -> meta:note'))
+
+            # Notes are always unique when made by note.add
+            nodes = await core.nodes('[ inet:fqdn=vertex.link inet:fqdn=woot.com ] | note.add "foo bar baz"')
+            self.len(2, await core.nodes('meta:note'))
+            self.ne(nodes[0].ndef, nodes[1].ndef)
+            self.eq(nodes[0].get('text'), nodes[1].get('text'))
+
     async def test_model_base_node(self):
 
         async with self.getTestCore() as core:
@@ -190,3 +228,42 @@ class BaseTest(s_t_utils.SynTest):
                 # Gather up all the nodes in the cluster
                 nodes = await snap.eval(f'graph:cluster={guid} -+> edge:refs -+> * | uniq').list()
                 self.len(5, nodes)
+
+    async def test_model_base_rules(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ meta:ruleset=*
+                    :created=20200202 :updated=20220401 :author=*
+                    :name=" My  Rules" :desc="My cool ruleset" ]
+            ''')
+            self.len(1, nodes)
+
+            self.nn(nodes[0].get('author'))
+            self.eq(nodes[0].get('created'), 1580601600000)
+            self.eq(nodes[0].get('updated'), 1648771200000)
+            self.eq(nodes[0].get('name'), 'my rules')
+            self.eq(nodes[0].get('desc'), 'My cool ruleset')
+
+            nodes = await core.nodes('''
+                [ meta:rule=*
+                    :created=20200202 :updated=20220401 :author=*
+                    :name=" My  Rule" :desc="My cool rule"
+                    :text="while TRUE { BAD }"
+                    <(has)+ { meta:ruleset }
+                    +(matches)> { [inet:ipv4=123.123.123] }
+                ]
+            ''')
+            self.len(1, nodes)
+
+            self.nn(nodes[0].get('author'))
+            self.eq(nodes[0].get('created'), 1580601600000)
+            self.eq(nodes[0].get('updated'), 1648771200000)
+            self.eq(nodes[0].get('name'), 'my rule')
+            self.eq(nodes[0].get('desc'), 'My cool rule')
+            self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
+
+            self.len(1, await core.nodes('meta:rule -> ps:contact'))
+            self.len(1, await core.nodes('meta:ruleset -> ps:contact'))
+            self.len(1, await core.nodes('meta:ruleset -(has)> meta:rule -(matches)> *'))

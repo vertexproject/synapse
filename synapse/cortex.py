@@ -36,6 +36,8 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
+import synapse.lib.urlhelp as s_urlhelp
+import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -48,10 +50,12 @@ import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
+import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
 import synapse.lib.stormlib.auth as s_stormlib_auth  # NOQA
 import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
+import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
@@ -61,10 +65,13 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
+import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
 import synapse.lib.stormlib.version as s_stormlib_version  # NOQA
+import synapse.lib.stormlib.ethereum as s_stormlib_ethereum  # NOQA
 import synapse.lib.stormlib.modelext as s_stormlib_modelext  # NOQA
+import synapse.lib.stormlib.notifications as s_stormlib_notifications  # NOQA
 
 logger = logging.getLogger(__name__)
 stormlogger = logging.getLogger('synapse.storm')
@@ -568,7 +575,7 @@ class CoreApi(s_cell.CellApi):
         '''
         layr = self.cell.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         self.user.confirm(('sync',), gateiden=layr.iden)
 
@@ -947,6 +954,28 @@ class CoreApi(s_cell.CellApi):
         async for byts in self.cell.axon.get(s_common.uhex(sha256)):
             yield byts
 
+    @s_cell.adminapi()
+    async def getUserNotif(self, indx):
+        return await self.cell.getUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def delUserNotif(self, indx):
+        return await self.cell.delUserNotif(indx)
+
+    @s_cell.adminapi()
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    @s_cell.adminapi()
+    async def iterUserNotifs(self, useriden, size=None):
+        async for item in self.cell.iterUserNotifs(useriden, size=size):
+            yield item
+
+    @s_cell.adminapi()
+    async def watchAllUserNotifs(self, offs=None):
+        async for item in self.cell.watchAllUserNotifs(offs=offs):
+            yield item
+
 class Cortex(s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -960,10 +989,16 @@ class Cortex(s_cell.Cell):  # type: ignore
     # For the cortex, nexslog:en defaults to True
     confbase = copy.deepcopy(s_cell.Cell.confbase)
     confbase['nexslog:en']['default'] = True  # type: ignore
+    confbase['mirror']['hidedocs'] = False  # type: ignore
+    confbase['mirror']['hidecmdl'] = False  # type: ignore
 
     confdefs = {
         'axon': {
             'description': 'A telepath URL for a remote axon.',
+            'type': 'string'
+        },
+        'jsonstor': {
+            'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
         'cron:enable': {
@@ -1025,6 +1060,16 @@ class Cortex(s_cell.Cell):  # type: ignore
                 'string',
             ],
         },
+        'storm:interface:search': {
+            'default': True,
+            'description': 'Enable Storm search interfaces for lookup mode.',
+            'type': 'boolean',
+        },
+        'storm:interface:scrape': {
+            'default': True,
+            'description': 'Enable Storm scrape interfaces when using $lib.scrape APIs.',
+            'type': 'boolean',
+        },
         'http:proxy': {
             'description': 'An aiohttp-socks compatible proxy URL to use storm HTTP API.',
             'type': 'string',
@@ -1057,6 +1102,8 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.views = {}
         self.layers = {}
+        self.viewsbylayer = collections.defaultdict(list)
+
         self.modules = {}
         self.splicers = {}
         self.feedfuncs = {}
@@ -1096,6 +1143,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self.axon = None  # type: s_axon.AxonApi
         self.axready = asyncio.Event()
+        self.axoninfo = {}
 
         self.view = None  # The default/main view
 
@@ -1116,6 +1164,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         self._initSplicers()
         self._initStormLibs()
         self._initFeedFuncs()
+
+        self.modsbyiface = {}
+        self.stormiface_search = self.conf.get('storm:interface:search')
+        self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
         self._initCortexHttpApi()
 
@@ -1156,21 +1208,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.pkghive = await pkghive.dict()
         self.svchive = await svchive.dict()
 
-        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})
-        # TODO: 3.0.0 conversion will truncate this hive key
-        for name, locked in self.deprlocks.items():
-
-            form = self.model.form(name)
-            if form is not None:
-                form.locked = locked
-
-            prop = self.model.prop(name)
-            if prop is not None:
-                prop.locked = locked
-
-            _type = self.model.type(name)
-            if _type is not None:
-                _type.locked = locked
+        await self._initDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
         await self._initPureStormCmds()
@@ -1182,6 +1220,27 @@ class Cortex(s_cell.Cell):  # type: ignore
         })
 
         await self.auth.addAuthGate('cortex', 'cortex')
+
+    async def getStormIfaces(self, name):
+
+        mods = self.modsbyiface.get(name)
+        if mods is not None:
+            return mods
+
+        mods = []
+        for moddef in self.stormmods.values():
+
+            ifaces = moddef.get('interfaces')
+            if ifaces is None:
+                continue
+
+            if name not in ifaces:
+                continue
+
+            mods.append(moddef)
+
+        self.modsbyiface[name] = tuple(mods)
+        return mods
 
     async def getPermDef(self, perm):
         if self.permlook is None:
@@ -1247,10 +1306,16 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
+        await self._initJsonStor()
+
         if self.isactive:
             await self._checkNexsIndx()
-            await self._checkLayerModels()
+
         await self._initCoreMods()
+
+        if self.isactive:
+            await self._checkLayerModels()
+
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1467,7 +1532,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return retn
 
-    async def isTagValid(self, tagname):
+    def isTagValid(self, tagname):
         '''
         Check if a tag name is valid according to tag model regular expressions.
 
@@ -2034,8 +2099,24 @@ class Cortex(s_cell.Cell):  # type: ignore
     async def getStormMods(self):
         return self.stormmods
 
-    async def getStormMod(self, name):
-        return self.stormmods.get(name)
+    async def getStormMod(self, name, reqvers=None):
+
+        mdef = self.stormmods.get(name)
+        if mdef is None or reqvers is None:
+            return mdef
+
+        pkgvers = mdef.get('pkgvers')
+        if pkgvers is None:
+            mesg = f'getStormMod: requested storm module {name}@{reqvers}' \
+                    'has no version information to check.'
+            logger.warning(mesg)
+            return
+
+        if isinstance(pkgvers, tuple):
+            pkgvers = '%d.%d.%d' % pkgvers
+
+        if s_version.matches(pkgvers, reqvers):
+            return mdef
 
     def getDataModel(self):
         return self.model
@@ -2150,6 +2231,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         NOTE: This will *not* persist the package (allowing service dynamism).
         '''
+        self.modsbyiface.clear()
         name = pkgdef.get('name')
 
         mods = pkgdef.get('modules', ())
@@ -2162,12 +2244,16 @@ class Cortex(s_cell.Cell):  # type: ignore
         # now actually load...
         self.stormpkgs[name] = pkgdef
 
+        pkgvers = pkgdef.get('version')
+
         # copy the mods dict and smash the ref so
         # updates are atomic and dont effect running
         # storm queries.
         stormmods = self.stormmods.copy()
         for mdef in mods:
+            mdef = mdef.copy()
             modname = mdef.get('name')
+            mdef['pkgvers'] = pkgvers
             stormmods[modname] = mdef
 
         self.stormmods = stormmods
@@ -2193,6 +2279,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         Reverse the process of loadStormPkg()
         '''
+        self.modsbyiface.clear()
         for mdef in pkgdef.get('modules', ()):
             modname = mdef.get('name')
             self.stormmods.pop(modname, None)
@@ -2504,13 +2591,20 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
-    @s_nexus.Pusher.onPushAuto('model:univ:add')
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...
         if not name.startswith('_'):
             mesg = 'ext univ name must start with "_"'
             raise s_exc.BadPropDef(name=name, mesg=mesg)
 
+        base = '.' + name
+        if base in self.model.props:
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate universal property {base}',
+                                    prop=name)
+        await self._push('model:univ:add', name, tdef, info)
+
+    @s_nexus.Pusher.onPush('model:univ:add')
+    async def _addUnivProp(self, name, tdef, info):
         self.model.addUnivProp(name, tdef, info)
 
         await self.extunivs.set(name, (name, tdef, info))
@@ -2557,12 +2651,20 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
 
-    @s_nexus.Pusher.onPushAuto('model:prop:add')
     async def addFormProp(self, form, prop, tdef, info):
         if not prop.startswith('_') and not form.startswith('_'):
             mesg = 'Extended prop must begin with "_" or be added to an extended form.'
             raise s_exc.BadPropDef(prop=prop, mesg=mesg)
+        _form = self.model.form(form)
+        if _form is None:
+            raise s_exc.NoSuchForm(mesg='Form {form} does not exist.', name=form)
+        if _form.prop(prop):
+            raise s_exc.DupPropName(mesg=f'Cannot add duplicate form prop {form} {prop}',
+                                     form=form, prop=prop)
+        await self._push('model:prop:add', form, prop, tdef, info)
 
+    @s_nexus.Pusher.onPush('model:prop:add')
+    async def _addFormProp(self, form, prop, tdef, info):
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
@@ -2732,7 +2834,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(iden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=iden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
         async for item in layr.syncNodeEdits(offs, wait=wait):
             yield item
@@ -2841,11 +2943,13 @@ class Cortex(s_cell.Cell):  # type: ignore
                 newlayer(bool):  whether to emit a new layer item first
             wait(bool): when the end of the log is hit, whether to continue to wait for new entries and yield them
         '''
-        topoffs = await self.getNexsIndx()  # The latest offset when this function started
         catchingup = True                   # whether we've caught up to topoffs
         layrsadded = {}                     # layriden -> True.  Captures all the layers added while catching up
         todo = set()                        # outstanding futures of active live streaming from layers
         layrgenrs = {}                      # layriden -> genr.  maps active layers to that layer's async generator
+
+        # The offset to start from once the catch-up phase is complete
+        topoffs = max(layr.nodeeditlog.index() for layr in self.layers.values())
 
         if offsdict is None:
             offsdict = {}
@@ -2962,6 +3066,131 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
         self.onfini(self.stormvars)
 
+    async def _initDeprLocks(self):
+        self.deprlocks = await self.hive.get(('cortex', 'model', 'deprlocks'), {})  # type: s_hive.Node
+        # TODO: 3.0.0 conversion will truncate this hive key
+
+        if self.inaugural:
+            locks = (
+                # 2.87.0 - lock out incorrect crypto model
+                ('crypto:currency:transaction:inputs', True),
+                ('crypto:currency:transaction:outputs', True),
+            )
+            for k, v in locks:
+                await self._hndlsetDeprLock(k, v)
+
+        for name, locked in self.deprlocks.items():
+
+            form = self.model.form(name)
+            if form is not None:
+                form.locked = locked
+
+            prop = self.model.prop(name)
+            if prop is not None:
+                prop.locked = locked
+
+            _type = self.model.type(name)
+            if _type is not None:
+                _type.locked = locked
+
+    async def _initJsonStor(self):
+
+        self.jsonurl = self.conf.get('jsonstor')
+        if self.jsonurl is not None:
+
+            async def onlink(proxy: s_telepath.Proxy):
+                logger.debug(f'Connected to remote jsonstor {s_urlhelp.sanitizeUrl(self.jsonurl)}')
+
+            self.jsonstor = await s_telepath.Client.anit(self.jsonurl, onlink=onlink)
+        else:
+            path = os.path.join(self.dirn, 'jsonstor')
+            jsoniden = s_common.guid((self.iden, 'jsonstor'))
+
+            idenpath = os.path.join(path, 'cell.guid')
+            # check that the jsonstor cell GUID is what it should be. If not, update it.
+            # ( bugfix for first release where cell was allowed to generate it's own iden )
+            if os.path.isfile(idenpath):
+
+                with open(idenpath, 'r') as fd:
+                    existiden = fd.read()
+
+                if jsoniden != existiden:
+                    with open(idenpath, 'w') as fd:
+                        fd.write(jsoniden)
+
+            conf = {'cell:guid': jsoniden}
+            self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
+
+        self.onfini(self.jsonstor)
+
+    async def getJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getPathObj(path)
+
+    async def hasJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.hasPathObj(path)
+
+    async def getJsonObjs(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.getPathObjs(path):
+            yield item
+
+    async def getJsonObjProp(self, path, prop):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getPathObjProp(path, prop)
+
+    async def delJsonObj(self, path):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delPathObj(path)
+
+    async def delJsonObjProp(self, path, prop):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delPathObjProp(path, prop)
+
+    async def setJsonObj(self, path, item):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.setPathObj(path, item)
+
+    async def setJsonObjProp(self, path, prop, item):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.setPathObjProp(path, prop, item)
+
+    async def getUserNotif(self, indx):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.getUserNotif(indx)
+
+    async def delUserNotif(self, indx):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.delUserNotif(indx)
+
+    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        return await self.jsonstor.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
+
+    async def iterUserNotifs(self, useriden, size=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.iterUserNotifs(useriden, size=size):
+            yield item
+
+    async def watchAllUserNotifs(self, offs=None):
+        if self.jsonurl is not None:
+            await self.jsonstor.waitready()
+        async for item in self.jsonstor.watchAllUserNotifs(offs=offs):
+            yield item
+
     async def _initCoreAxon(self):
         turl = self.conf.get('axon')
         if turl is None:
@@ -2973,27 +3202,26 @@ class Cortex(s_cell.Cell):  # type: ignore
                 conf['http:proxy'] = proxyurl
 
             self.axon = await s_axon.Axon.anit(path, conf=conf)
+            self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
             self.axready.set()
             return
 
-        async def teleloop():
-            self.axready.clear()
-            while not self.isfini:
-                try:
-                    self.axon = await s_telepath.openurl(turl)
-                    self.axon.onfini(teleloop)
-                    self.dynitems['axon'] = self.axon
-                    self.axready.set()
-                    return
-                except asyncio.CancelledError:  # TODO:  remove once >= py 3.8 only
-                    raise
-                except Exception as e:
-                    logger.warning('remote axon error: %r' % (e,))
-                await self.waitfini(1)
+        async def onlink(proxy: s_telepath.Proxy):
+            logger.debug(f'Connected to remote axon {s_urlhelp.sanitizeUrl(turl)}')
 
-        self.schedCoro(teleloop())
+            async def fini():
+                self.axready.clear()
+
+            self.axoninfo = await proxy.getCellInfo()
+
+            proxy.onfini(fini)
+            self.axready.set()
+
+        self.axon = await s_telepath.Client.anit(turl, onlink=onlink)
+        self.dynitems['axon'] = self.axon
+        self.onfini(self.axon)
 
     async def _initStormCmds(self):
         '''
@@ -3144,7 +3372,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if len(path) == 2:
                 layr = self.getLayer(path[1])
                 if layr is None:
-                    raise s_exc.NoSuchLayer(iden=path[1])
+                    raise s_exc.NoSuchLayer(mesg=f'No such layer {path[1]}', iden=path[1])
 
                 return await self.layerapi.anit(self, link, user, layr)
 
@@ -3160,7 +3388,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if view is not None:
                 return await self.viewapi.anit(self, link, user, view)
 
-        raise s_exc.NoSuchPath(path=path)
+        raise s_exc.NoSuchPath(mesg=f'Invalid telepath path={path}', path=path)
 
     async def getModelDict(self):
         return self.model.getModelDict()
@@ -3329,6 +3557,13 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         return view
 
+    def _calcViewsByLayer(self):
+        # keep track of views by layer
+        self.viewsbylayer.clear()
+        for view in self.views.values():
+            for layr in view.layers:
+                self.viewsbylayer[layr.iden].append(view)
+
     async def _initCoreViews(self):
 
         defiden = self.cellinfo.get('defaultview')
@@ -3361,6 +3596,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             await self.cellinfo.set('defaultview', iden)
             self.view = self.getView(iden)
 
+        self._calcViewsByLayer()
+
     async def addView(self, vdef, nexs=True):
 
         vdef['iden'] = s_common.guid()
@@ -3386,7 +3623,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         for lyriden in vdef['layers']:
             if lyriden not in self.layers:
-                raise s_exc.NoSuchLayer(iden=lyriden)
+                raise s_exc.NoSuchLayer(mesg=f'No such layer {lyriden}', iden=lyriden)
 
         creator = vdef.get('creator', self.auth.rootuser.iden)
         user = await self.auth.reqUser(creator)
@@ -3410,6 +3647,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         view = await self._loadView(node)
         view.init2()
 
+        self._calcViewsByLayer()
         return await view.pack()
 
     async def delView(self, iden):
@@ -3441,12 +3679,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.hive.pop(('cortex', 'views', iden))
         await view.delete()
 
+        self._calcViewsByLayer()
         await self.auth.delAuthGate(iden)
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=iden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
         return await self._push('layer:del', iden)
 
@@ -3488,6 +3727,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             raise s_exc.NoSuchView(iden=iden)
 
         await view.setLayers(layers)
+        self._calcViewsByLayer()
 
     def getLayer(self, iden=None):
         '''
@@ -3625,7 +3865,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await user.setAdmin(True, gateiden=iden, logged=False)
 
         # forward wind the new layer to the current model version
-        await layr.setModelVers(s_modelrev.maxvers)
+        await layr._setModelVers(s_modelrev.maxvers)
 
         if self.isactive:
             await layr.initLayerActive()
@@ -3633,6 +3873,16 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layr.initLayerPassive()
 
         return await layr.pack()
+
+    def _checkMaxNodes(self, delta=1):
+
+        if self.maxnodes is None:
+            return
+
+        remain = self.maxnodes - self.nodecount
+        if remain < delta:
+            mesg = f'Cortex is at node:count limit: {self.maxnodes}'
+            raise s_exc.HitLimit(mesg=mesg)
 
     async def _initLayr(self, layrinfo, nexsoffs=None):
         '''
@@ -3844,7 +4094,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         layr = self.getLayer(layriden)
         if layr is None:
             mesg = f'No layer found with iden: {layriden}'
-            raise s_exc.NoSuchLayer(mesg=mesg)
+            raise s_exc.NoSuchLayer(mesg=mesg, iden=layriden)
         return await layr.saveNodeEdits(edits, meta)
 
     async def cloneLayer(self, iden, ldef=None):
@@ -3861,7 +4111,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.layers.get(iden, None)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=iden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
         ldef = ldef or {}
         ldef['iden'] = s_common.guid()
@@ -3944,35 +4194,41 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:enable')
     async def enableStormDmon(self, iden):
-        ddef = self.stormdmonhive.get(iden)
-        if ddef is None:
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
             return False
 
-        curv = ddef.get('enabled')
+        if dmon.enabled:
+            return False
 
-        ddef['enabled'] = True
-        await self.stormdmonhive.set(iden, ddef)
+        dmon.enabled = True
+        dmon.ddef['enabled'] = True
 
-        if self.isactive and not curv:
-            dmon = self.stormdmons.getDmon(iden)
+        await self.stormdmonhive.set(iden, dmon.ddef)
+
+        if self.isactive:
             await dmon.run()
+
         return True
 
     @s_nexus.Pusher.onPushAuto('storm:dmon:disable')
     async def disableStormDmon(self, iden):
 
-        ddef = self.stormdmonhive.get(iden)
-        if ddef is None:
+        dmon = self.stormdmons.getDmon(iden)
+        if dmon is None:
             return False
 
-        curv = ddef.get('enabled')
+        if not dmon.enabled:
+            return False
 
-        ddef['enabled'] = False
-        await self.stormdmonhive.set(iden, ddef)
+        dmon.enabled = False
+        dmon.ddef['enabled'] = False
 
-        if self.isactive and curv:
-            dmon = self.stormdmons.getDmon(iden)
+        await self.stormdmonhive.set(iden, dmon.ddef)
+
+        if self.isactive:
             await dmon.stop()
+
         return True
 
     @s_nexus.Pusher.onPush('storm:dmon:add')
@@ -4216,7 +4472,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         s_common.deprecated('addFeedData(syn.nodeedits, ...)')
         for item in items:
             item = s_common.unjsonsafe_nodeedits(item)
-            await snap.applyNodeEdits(item)
+            await snap.saveNodeEdits(item, None)
 
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
@@ -4239,9 +4495,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
 
-    def _viewFromOpts(self, opts):
+    def _viewFromOpts(self, opts, user=None):
 
-        user = self._userFromOpts(opts)
+        if user is None:
+            user = self._userFromOpts(opts)
 
         viewiden = opts.get('view')
         if viewiden is None:
@@ -4556,7 +4813,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         Args:
             name (str): The name of the feed record format.
             items (list): A list of items to ingest.
-            iden (str): The iden of a view to use.
+            viewiden (str): The iden of a view to use.
                 If a view is not specified, the default view is used.
         '''
 
@@ -4976,7 +5233,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
             yield item
@@ -4997,7 +5254,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
             yield item
@@ -5017,7 +5274,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
             yield item
@@ -5041,7 +5298,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
             yield item
@@ -5063,7 +5320,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         '''
         layr = self.getLayer(layriden)
         if layr is None:
-            raise s_exc.NoSuchLayer(iden=layriden)
+            raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
         async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
             yield item

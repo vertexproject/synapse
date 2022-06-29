@@ -2,84 +2,142 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+
+import synapse.lib.chop as s_chop
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
+def cpesplit(text):
+    part = ''
+    parts = []
+
+    genr = iter(text)
+    try:
+        while True:
+
+            c = next(genr)
+
+            if c == '\\':
+                c += next(genr)
+
+            if c == ':':
+                parts.append(part)
+                part = ''
+                continue
+
+            part += c
+
+    except StopIteration:
+        parts.append(part)
+
+    return parts
+
+class Cpe22Str(s_types.Str):
+    '''
+    CPE 2.2 Formatted String
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    def __init__(self, modl, name, info, opts):
+        opts['lower'] = True
+        s_types.Str.__init__(self, modl, name, info, opts)
+        self.setNormFunc(list, self._normPyList)
+        self.setNormFunc(tuple, self._normPyList)
+
+    def _normPyStr(self, valu):
+
+        text = valu.lower()
+        if text.startswith('cpe:/'):
+            parts = chopCpe22(text)
+        elif text.startswith('cpe:2.3:'):
+            parts = cpesplit(text[8:])
+        else:
+            mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+
+        return zipCpe22(parts), {}
+
+    def _normPyList(self, parts):
+        return zipCpe22(parts), {}
+
+def zipCpe22(parts):
+    parts = list(parts)
+    while parts and parts[-1] in ('', '*'):
+        parts.pop()
+    text = ':'.join(parts[:7])
+    return f'cpe:/{text}'
+
+def chopCpe22(text):
+    '''
+    CPE 2.2 Formatted String
+    https://cpe.mitre.org/files/cpe-specification_2.2.pdf
+    '''
+    if not text.startswith('cpe:/'):
+        mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
+        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+    _, text = text.split(':/', 1)
+    parts = cpesplit(text)
+    if len(parts) > 7:
+        mesg = f'CPE 2.2 string has {len(parts)} parts, expected <= 7.'
+        raise s_exc.BadTypeValu(valu=text, mesg=mesg)
+
+    return parts
+
 class Cpe23Str(s_types.Str):
     '''
     CPE 2.3 Formatted String
 
-    https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
+    ::
 
-    (Section 6.2)
+        https://nvlpubs.nist.gov/nistpubs/Legacy/IR/nistir7695.pdf
 
-    cpe:2.3: part : vendor : product : version : update : edition :
-        language : sw_edition : target_sw : target_hw : other
+        (Section 6.2)
 
-    * = "any"
-    - = N/A
+        cpe:2.3: part : vendor : product : version : update : edition :
+            language : sw_edition : target_sw : target_hw : other
+
+        * = "any"
+        - = N/A
     '''
     def __init__(self, modl, name, info, opts):
         opts['lower'] = True
         s_types.Str.__init__(self, modl, name, info, opts)
 
-    def _splitCpe23(self, text):
-
-        part = ''
-        parts = []
-
-        genr = iter(text)
-        try:
-            while True:
-
-                c = next(genr)
-
-                if c == '\\':
-                    c += next(genr)
-
-                if c == ':':
-                    parts.append(part)
-                    part = ''
-                    continue
-
-                part += c
-
-        except StopIteration:
-            parts.append(part)
-
-        return parts
-
     def _normPyStr(self, valu):
-
-        if not valu.startswith('cpe:2.3:'):
+        text = valu.lower()
+        if text.startswith('cpe:2.3:'):
+            parts = cpesplit(text[8:])
+            if len(parts) != 11:
+                mesg = f'CPE 2.3 string has {len(parts)} fields, expected 11.'
+                raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
+        elif text.startswith('cpe:/'):
+            # automatically normalize CPE 2.2 format to CPE 2.3
+            parts = chopCpe22(text)
+            extsize = 11 - len(parts)
+            parts.extend(['*' for _ in range(extsize)])
+        else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
 
-        text, info = s_types.Str._normPyStr(self, valu)
-        parts = self._splitCpe23(text)
-
-        if len(parts) != 13:
-            mesg = f'CPE 2.3 string has {len(parts)} parts, expected 13.'
-            raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
         subs = {
-            'part': parts[2],
-            'vendor': parts[3],
-            'product': parts[4],
-            'version': parts[5],
-            'update': parts[6],
-            'edition': parts[7],
-            'language': parts[8],
-            'sw_edition': parts[9],
-            'target_sw': parts[10],
-            'target_hw': parts[11],
-            'other': parts[12],
+            'v2_2': parts,
+            'part': parts[0],
+            'vendor': parts[1],
+            'product': parts[2],
+            'version': parts[3],
+            'update': parts[4],
+            'edition': parts[5],
+            'language': parts[6],
+            'sw_edition': parts[7],
+            'target_sw': parts[8],
+            'target_hw': parts[9],
+            'other': parts[10],
         }
 
-        return ':'.join(parts), {'subs': subs}
+        return 'cpe:2.3:' + ':'.join(parts), {'subs': subs}
 
 class SemVer(s_types.Int):
     '''
@@ -152,7 +210,6 @@ class ItModule(s_module.CoreModule):
         self.model.form('it:dev:regkey').onAdd(self._onFormMakeDevStr)
         self.model.prop('it:prod:softver:arch').onSet(self._onPropSoftverArch)
         self.model.prop('it:prod:softver:vers').onSet(self._onPropSoftverVers)
-        self.model.prop('it:prod:softver:software').onSet(self._onPropSoftverSoft)
 
     def bruteVersionStr(self, valu):
         '''
@@ -191,17 +248,6 @@ class ItModule(s_module.CoreModule):
         pprop = node.ndef[1]
         await node.snap.addNode('it:dev:str', pprop)
 
-    async def _onPropSoftverSoft(self, node, oldv):
-        # Check to see if name is available and set it if possible
-        prop = node.get('software')
-        if prop:
-            opts = {'vars': {'soft': prop}}
-            nodes = await node.snap.nodes('it:prod:soft=$soft', opts=opts)
-            if nodes:
-                name = nodes[0].get('name')
-                if name:
-                    await node.set('software:name', name)
-
     async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
         prop = node.get('arch')
@@ -239,6 +285,9 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
                     'doc': 'A NIST CPE 2.3 Formatted String',
                 }),
+                ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
+                    'doc': 'A NIST CPE 2.2 Formatted String',
+                }),
             ),
             'types': (
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
@@ -269,7 +318,12 @@ class ItModule(s_module.CoreModule):
                 ('it:hosturl', ('comp', {'fields': (('host', 'it:host'), ('url', 'inet:url'))}), {
                     'doc': 'A url hosted on or served by a host or system.',
                 }),
-                ('it:sec:cve', ('str', {'lower': True, 'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
+                ('it:screenshot', ('guid', {}), {
+                    'doc': 'A screenshot of a host.',
+                    'interfaces': ('it:host:activity',),
+                }),
+                ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
+                                        'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
                     'doc': 'A vulnerability as designated by a Common Vulnerabilities and Exposures (CVE) number.',
                     'ex': 'cve-2012-0158'
                 }),
@@ -321,9 +375,21 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Windows registry key/value pair.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
-                    'doc': 'A arbitrary, unversioned software product.',
+                    'doc': 'A software product.',
                 }),
-
+                ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
+                    'doc': 'A software product name.',
+                }),
+                ('it:prod:hardware', ('guid', {}), {
+                    'doc': 'A specification for a piece of IT hardware.',
+                }),
+                ('it:prod:component', ('guid', {}), {
+                    'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
+                }),
+                ('it:prod:hardwaretype', ('taxonomy', {}), {
+                    'doc': 'An IT hardware type taxonomy.',
+                    'interfaces': ('taxonomy',),
+                }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
 
@@ -448,6 +514,12 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:rule', ('guid', {}), {
                     'doc': 'A YARA rule unique identifier.',
                 }),
+                ('it:sec:stix:bundle', ('guid', {}), {
+                    'doc': 'A STIX bundle.',
+                }),
+                ('it:sec:stix:indicator', ('guid', {}), {
+                    'doc': 'A STIX indicator pattern.',
+                }),
                 ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
                     'doc': 'A YARA rule match to a file.',
                 }),
@@ -473,6 +545,8 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:impfunc', ('str', {'lower': 1}), {
                     'doc': 'A function from an imported library.',
                 }),
+                ('it:sec:c2:config', ('guid', {}), {
+                    'doc': 'An extracted C2 config from an executable.'}),
             ),
 
             'interfaces': (
@@ -488,6 +562,8 @@ class ItModule(s_module.CoreModule):
                             'doc': 'The host on which the activity occurred.'}),
                         ('time', ('time', {}), {
                             'doc': 'The time that the activity started.'}),
+                        ('sandbox:file', ('file:bytes', {}), {
+                            'doc': 'The initial sample given to a sandbox environment to analyze.'}),
                     ),
                 }),
             ),
@@ -520,11 +596,19 @@ class ItModule(s_module.CoreModule):
                     ('os', ('it:prod:softver', {}), {
                         'doc': 'The operating system of the host.'
                     }),
+                    ('os:name', ('it:prod:softname', {}), {
+                        'doc': 'A software product name for the host operating system. Used for entity resolution.',
+                    }),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The hardware specification for this host.',
+                    }),
                     ('manu', ('str', {}), {
-                        'doc': 'The manufacturer of the host.',
+                        'deprecated': True,
+                        'doc': 'Please use :hardware:make.',
                     }),
                     ('model', ('str', {}), {
-                        'doc': 'The product model of the host.',
+                        'deprecated': True,
+                        'doc': 'Please use :hardware:model.',
                     }),
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.',
@@ -548,7 +632,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:domain', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the domain.',
                     }),
                     ('desc', ('str', {}), {
@@ -559,7 +643,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:network', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the network.',
                     }),
                     ('desc', ('str', {}), {
@@ -615,7 +699,7 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:group', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True, 'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the group.',
                     }),
                     ('desc', ('str', {}), {
@@ -680,6 +764,13 @@ class ItModule(s_module.CoreModule):
                         'doc': 'URL available on the host.',
                     }),
                 )),
+                ('it:screenshot', {}, (
+                    ('image', ('file:bytes', {}), {
+                        'doc': 'The image file.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the screenshot.'})
+                )),
                 ('it:dev:str', {}, (
                     ('norm', ('str', {'lower': True}), {
                         'doc': 'Lower case normalized version of the it:dev:str.',
@@ -698,6 +789,9 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
                 ('it:sec:cpe', {}, (
+                    ('v2_2', ('it:sec:cpe:v2_2', {}), {
+                        'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
+                    }),
                     ('part', ('str', {'lower': True, 'strip': True}), {
                         'ro': True,
                         'doc': 'The "part" field from the CPE 2.3 string.'}),
@@ -837,10 +931,10 @@ class ItModule(s_module.CoreModule):
                     ('software', ('it:prod:soft', {}), {
                         'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.',
                     }),
-                    ('name', ('str', {'strip': True}), {
+                    ('name', ('it:prod:softname', {}), {
                         'doc': 'The primary name for the ATT&CK software.',
                     }),
-                    ('names', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Associated names for the ATT&CK software.',
                     }),
                     ('desc', ('str', {'strip': True}), {
@@ -904,12 +998,41 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file representing the value of the registry key, if the value is binary data.',
                     }),
                 )),
-
+                ('it:prod:hardwaretype', {}, ()),
+                ('it:prod:hardware', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The display name for this hardware specification.'}),
+                    ('type', ('it:prod:hardwaretype', {}), {
+                        'doc': 'The type of hardware.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A brief description of the hardware.'}),
+                    ('cpe', ('it:sec:cpe', {}), {
+                        'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
+                    ('make', ('ou:name', {}), {
+                        'doc': 'The name of the organization which manufactures this hardware.'}),
+                    ('model', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The model name or number for this hardware specification.'}),
+                    ('version', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'Version string associated with this hardware specification.'}),
+                    ('released', ('time', {}), {
+                        'doc': 'The initial release date for this hardware.'}),
+                    ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of it:prod:hadware parts included in this hardware specification.'}),
+                )),
+                ('it:prod:component', {}, (
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The hardware specification of this component.'}),
+                    ('serial', ('str', {}), {
+                        'doc': 'The serial number of this componenent.'}),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The it:host which has this component installed.'}),
+                )),
                 ('it:prod:soft', {}, (
-                    ('name', ('str', {'lower': True, 'strip': True}), {
+                    ('name', ('it:prod:softname', {}), {
                         'doc': 'Name of the software.',
                     }),
-                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software.',
                     }),
                     ('desc', ('str', {}), {
@@ -952,6 +1075,8 @@ class ItModule(s_module.CoreModule):
                     ('islib', ('bool', {}), {
                         'doc': 'Set to True if the software is a library.'}),
                 )),
+
+                ('it:prod:softname', {}, ()),
 
                 ('it:adid', {}, ()),
                 ('it:os:ios:idfa', {}, ()),
@@ -1002,10 +1127,18 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software associated with this version instance.',
                     }),
                     ('software:name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name of the software at a particular version.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:prod:softver:name.',
                     }),
-                    ('names', ('array', {'type': 'it:dev:str', 'uniq': True, 'sorted': True}), {
+                    ('name', ('it:prod:softname', {}), {
+                        'doc': 'Name of the software version.',
+                    }),
+                    ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software version.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the software.',
+                        'disp': {'hint': 'text'},
                     }),
                     ('cpe', ('it:sec:cpe', {}), {
                         'doc': 'The NIST CPE 2.3 string specifying this software version',
@@ -1175,7 +1308,11 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The exit code for the process.',
                     }),
                     ('user', ('inet:user', {}), {
+                        'deprecated': True,
                         'doc': 'The user name of the process owner.',
+                    }),
+                    ('account', ('it:account', {}), {
+                        'doc': 'The account of the process owner.',
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',
@@ -1188,6 +1325,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('killedby', ('it:exec:proc', {}), {
                         'doc': 'The process which killed this process.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:thread', {}, (
@@ -1209,6 +1349,9 @@ class ItModule(s_module.CoreModule):
                     ('src:thread', ('it:exec:thread', {}), {
                         'doc': 'The thread which created this thread.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:loadlib', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1228,6 +1371,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The library file that was loaded.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:mmap', {}, (
@@ -1261,6 +1407,9 @@ class ItModule(s_module.CoreModule):
                     ('hash:sha256', ('hash:sha256', {}), {
                         'doc': 'A SHA256 hash of the memory map. Bytes may optionally be present in the axon.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:mutex', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1277,6 +1426,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('name', ('it:dev:mutex', {}), {
                         'doc': 'The mutex string.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:pipe', {}, (
@@ -1295,10 +1447,16 @@ class ItModule(s_module.CoreModule):
                     ('name', ('it:dev:pipe', {}), {
                         'doc': 'The named pipe string.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:url', {}, (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The main process executing code that requested the URL.',
+                    }),
+                    ('browser', ('it:prod:softver', {}), {
+                        'doc': 'The software version of the browser.',
                     }),
                     ('host', ('it:host', {}), {
                         'doc': 'The host running the process that requested the URL. Typically the same host referenced in :proc, if present.',
@@ -1312,6 +1470,18 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that was requested.',
                     }),
+                    ('page:pdf', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as a PDF file.',
+                    }),
+                    ('page:html', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an HTML file.',
+                    }),
+                    ('page:image', ('file:bytes', {}), {
+                        'doc': 'The rendered DOM saved as an image.',
+                    }),
+                    ('http:request', ('inet:http:request', {}), {
+                        'doc': 'The HTTP request made to retrieve the intial URL contents.',
+                    }),
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
@@ -1323,6 +1493,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('client:port', ('inet:port', {}), {
                         'doc': 'The client port during the URL retrieval..'
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:bind', {}, (
@@ -1349,6 +1522,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('server:port', ('inet:port', {}), {
                         'doc': 'The bound (listening) TCP port.'
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:fs:file', {}, (
@@ -1419,6 +1595,9 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was created.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:del', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1449,6 +1628,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was deleted.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:file:read', {}, (
@@ -1481,6 +1663,9 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was read.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:file:write', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1512,6 +1697,9 @@ class ItModule(s_module.CoreModule):
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was modified.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:get', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1528,6 +1716,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was read.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
                 ('it:exec:reg:set', {}, (
@@ -1546,6 +1737,9 @@ class ItModule(s_module.CoreModule):
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was written to.',
                     }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
+                    }),
                 )),
                 ('it:exec:reg:del', {}, (
                     ('proc', ('it:exec:proc', {}), {
@@ -1562,6 +1756,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('reg', ('it:dev:regval', {}), {
                         'doc': 'The registry key or value that was deleted.',
+                    }),
+                    ('sandbox:file', ('file:bytes', {}), {
+                        'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
 
@@ -1605,6 +1802,26 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The version of the rule at the time of match.'}),
                 )),
 
+                ('it:sec:stix:bundle', {}, (
+                    ('id', ('str', {}), {
+                        'doc': 'The id field from the STIX bundle.'}),
+                )),
+
+                ('it:sec:stix:indicator', {}, (
+                    ('id', ('str', {}), {
+                        'doc': 'The STIX id field from the indicator pattern.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the STIX indicator pattern.'}),
+                    ('pattern', ('str', {}), {
+                        'doc': 'The STIX indicator pattern text.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the indicator pattern was first created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the indicator pattern was last modified.'}),
+                    ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The label strings embedded in the STIX indicator pattern.'}),
+                )),
+
                 ('it:app:yara:rule', {}, (
                     ('text', ('str', {}), {
                         'doc': 'The YARA rule text.',
@@ -1616,8 +1833,14 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Contact info for the author of the YARA rule.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The current version of the rule.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time the YARA rule was initially created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time the YARA rule was most recently modified.'}),
                     ('enabled', ('bool', {}), {
                         'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family the rule is designed to detect.'}),
                 )),
 
                 ('it:app:yara:match', {}, (
@@ -1684,6 +1907,26 @@ class ItModule(s_module.CoreModule):
 
                 ('it:reveng:impfunc', {}, ()),
 
+                ('it:sec:c2:config', {}, (
+                    ('family', ('it:prod:softname', {}), {
+                        'doc': 'The name of the software family which uses the config.'}),
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file that the C2 config was extracted from.'}),
+                    ('servers', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
+                    ('mutex', ('it:dev:mutex', {}), {
+                        'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
+                    ('campaigncode', ('it:dev:str', {}), {
+                        'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
+                    ('crypto:key', ('crypto:key', {}), {
+                        'doc': 'Static key material used to encrypt C2 communications.'}),
+                    ('connect:delay', ('duration', {}), {
+                        'doc': 'The time delay from first execution to connecting to the C2 server.'}),
+                    ('connect:interval', ('duration', {}), {
+                        'doc': 'The configured duration to sleep between connections to the C2 server.'}),
+                    ('raw', ('data', {}), {
+                        'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
+                )),
             ),
         }
         name = 'it'

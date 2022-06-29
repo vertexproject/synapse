@@ -26,7 +26,7 @@ class LayerTest(s_t_utils.SynTest):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():
-            self.eq(layr.layrvers, 6)
+            self.eq(layr.layrvers, 8)
 
     async def test_layer_verify(self):
 
@@ -34,6 +34,8 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
             buid = nodes[0].buid
+
+            await core.nodes('[ ou:org=* :names=(hehe, haha) ]')
 
             errors = [e async for e in core.getLayer().verify()]
             self.len(0, errors)
@@ -67,6 +69,16 @@ class LayerTest(s_t_utils.SynTest):
             self.len(0, errors)
 
             core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+
+            config = {'scanall': False, 'scans': {'tagindex': {'include': ('foo',)}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+
+            config = {'scanall': False, 'scans': {'tagindex': {'include': ('baz',)}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(0, errors)
+
             errors = [e async for e in core.getLayer().verifyAllTags()]
             self.len(1, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
@@ -79,6 +91,11 @@ class LayerTest(s_t_utils.SynTest):
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
 
+            core.getLayer()._testDelFormValuStor(buid, 'inet:ipv4')
+            errors = [e async for e in core.getLayer().verifyByProp('inet:ipv4', None)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo.bar ]')
@@ -87,7 +104,7 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.len(1, errors)
-            self.eq(errors[0][0], 'SpurPropKeyForIndx')
+            self.eq(errors[0][0], 'SpurPropKeyForIndex')
 
         async with self.getTestCore() as core:
 
@@ -101,8 +118,238 @@ class LayerTest(s_t_utils.SynTest):
             core.getLayer()._testAddPropIndx(buid, 'inet:ipv4', 'asn', 30)
             errors = [e async for e in core.getLayer().verify()]
             self.len(2, errors)
+            self.eq(errors[0][0], 'NoNodeForTagIndex')
+            self.eq(errors[1][0], 'NoNodeForPropIndex')
+
+        # Smash in a bad stortype into a sode.
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            layr = core.getLayer()
+            sode = await layr.getStorNode(buid)
+            asn = sode['props']['asn']
+            sode['props']['asn'] = (asn[0], 8675309)
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoStorTypeForProp')
+            self.eq(errors[1][0], 'NoStorTypeForProp')
+
+            sode['props'] = None
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(4, errors)
+            for err in errors:
+                self.eq(err[0], 'NoValuForPropIndex')
+
+        # Check arrays
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+
+            nodes = await core.nodes('[ ps:contact=* :names=(foo, bar)]')
+            buid = nodes[0].buid
+
+            core.getLayer()._testAddPropArrayIndx(buid, 'ps:contact', 'names', ('baz',))
+
+            scanconf = {'autofix': 'index'}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'SpurPropArrayKeyForIndex')
+
+            errors = [e async for e in layr.verifyAllProps()]
+            self.len(0, errors)
+
+            sode = await layr.getStorNode(buid)
+            names = sode['props']['names']
+            sode['props']['names'] = (names[0], 8675309)
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            scanconf = {'include': [('ps:contact', 'names')]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(3, errors)
+            self.eq(errors[0][0], 'NoStorTypeForProp')
+            self.eq(errors[1][0], 'NoStorTypeForPropArray')
+            self.eq(errors[2][0], 'NoStorTypeForPropArray')
+
+            sode = await layr.getStorNode(buid)
+            names = sode['props']['names']
+            sode['props'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(3, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+
+            sode['props'] = None
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(5, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[3][0], 'NoValuForPropIndex')
+            self.eq(errors[4][0], 'NoValuForPropIndex')
+
+            await core.nodes('ps:contact | delnode --force')
+
+            core.getLayer()._testAddPropArrayIndx(buid, 'ps:contact', 'names', ('foo',))
+
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(3, errors)
+            self.eq(errors[0][0], 'NoNodeForPropIndex')
+            self.eq(errors[1][0], 'NoNodeForPropArrayIndex')
+            self.eq(errors[2][0], 'NoNodeForPropArrayIndex')
+
+            q = "$lib.model.ext.addForm('_test:array', array, ({'type': 'int'}), ({}))"
+            await core.nodes(q)
+            nodes = await core.nodes('[ _test:array=(1, 2, 3) ]')
+            buid = nodes[0].buid
+            core.getLayer()._testDelFormValuStor(buid, '_test:array')
+
+            scanconf = {'include': [('_test:array', None)]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(4, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
+
+            scanconf = {'include': [('_test:array', None)], 'autofix': 'index'}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(4, errors)
+            self.eq(errors[0][0], 'NoValuForPropIndex')
+            self.eq(errors[1][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[2][0], 'NoValuForPropArrayIndex')
+            self.eq(errors[3][0], 'NoValuForPropArrayIndex')
+
+            scanconf = {'include': [('_test:array', None)]}
+            errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+            self.len(0, errors)
+
+        # test autofix for tagindex verify
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ]')
+            buid = nodes[0].buid
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            # test autofix=node
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+
+            config = {'scans': {'tagindex': {'autofix': 'node'}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
             self.eq(errors[0][0], 'NoTagForTagIndex')
-            self.eq(errors[1][0], 'NoPropForPropIndex')
+
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+            # test autofix=index
+            core.getLayer()._testDelTagStor(buid, 'inet:ipv4', 'foo')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+
+            config = {'scans': {'tagindex': {'autofix': 'index'}}}
+            errors = [e async for e in core.getLayer().verify(config=config)]
+            self.len(1, errors)
+            self.eq(errors[0][0], 'NoTagForTagIndex')
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +#foo'))
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(0, errors)
+
+        async with self.getTestCore() as core:
+            await core.addTagProp('score', ('int', {}), {})
+
+            layr = core.getLayer()
+            errors = [e async for e in layr.verifyAllBuids()]
+            self.len(0, errors)
+
+            errors = [e async for e in layr.verifyAllProps()]
+            self.len(0, errors)
+
+            errors = [e async for e in layr.verifyAllTagProps()]
+            self.len(0, errors)
+
+            layr._testAddTagPropIndx(buid, 'inet:ipv4', 'foo', 'score', 5)
+
+            scanconf = {'include': ['newp']}
+            errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
+            self.len(0, errors)
+
+            errors = [e async for e in layr.verifyAllTagProps()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoNodeForTagPropIndex')
+            self.eq(errors[1][0], 'NoNodeForTagPropIndex')
+
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#foo:score=5 ]')
+            buid = nodes[0].buid
+
+            layr._testAddTagPropIndx(buid, 'inet:ipv4', 'foo', 'score', 6)
+
+            scanconf = {'autofix': 'index'}
+            errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'SpurTagPropKeyForIndex')
+            self.eq(errors[1][0], 'SpurTagPropKeyForIndex')
+
+            errors = [e async for e in layr.verifyAllTagProps()]
+            self.len(0, errors)
+
+            sode = await layr.getStorNode(buid)
+            score = sode['tagprops']['foo']['score']
+            sode['tagprops']['foo']['score'] = (score[0], 8675309)
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoStorTypeForTagProp')
+            self.eq(errors[1][0], 'NoStorTypeForTagProp')
+
+            sode = await layr.getStorNode(buid)
+            sode['tagprops']['foo'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoValuForTagPropIndex')
+            self.eq(errors[1][0], 'NoValuForTagPropIndex')
+
+            sode = await layr.getStorNode(buid)
+            sode['tagprops'] = {}
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoPropForTagPropIndex')
+            self.eq(errors[1][0], 'NoPropForTagPropIndex')
+
+            sode = await layr.getStorNode(buid)
+            sode['tagprops'] = None
+            layr.setSodeDirty(buid, sode, sode.get('form'))
+
+            errors = [e async for e in core.getLayer().verify()]
+            self.len(2, errors)
+            self.eq(errors[0][0], 'NoPropForTagPropIndex')
+            self.eq(errors[1][0], 'NoPropForTagPropIndex')
+
+            scanconf = {'autofix': 'newp'}
+
+            with self.raises(s_exc.BadArg):
+                errors = [e async for e in layr.verifyAllTags(scanconf=scanconf)]
+
+            with self.raises(s_exc.BadArg):
+                errors = [e async for e in layr.verifyAllProps(scanconf=scanconf)]
+
+            with self.raises(s_exc.BadArg):
+                errors = [e async for e in layr.verifyAllTagProps(scanconf=scanconf)]
 
     async def test_layer_abrv(self):
 
@@ -381,6 +628,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_splices(self):
 
+        self.skip('fragile order and deprecated')
         async with self.getTestCore() as core:
 
             layr = core.view.layers[0]
@@ -626,10 +874,11 @@ class LayerTest(s_t_utils.SynTest):
     async def test_layer_stortype_hugenum(self):
         stor = s_layer.StorTypeHugeNum(self, None)
 
-        vals = [-99999.9, -0.0000000001, -42.1, -0.0, 0.0, 0.000001, 42.1, 99999.9, 2**63 + 1.1]
+        vals = ['-99999.9', '-0.00000000000000000001', '-42.1', '0', '0.000001', '42.1',
+                '99999.9', '730750818665451459101842', '-730750818665451459101842']
 
         for valu, indx in ((v, stor.indx(v)) for v in vals):
-            self.eqish(valu, stor.decodeIndx(indx[0]), places=3)
+            self.eq(valu, stor.decodeIndx(indx[0]))
 
     async def test_layer_stortype_ival(self):
         stor = s_layer.StorTypeIval(self)
@@ -1301,6 +1550,111 @@ class LayerTest(s_t_utils.SynTest):
 
             self.checkLayrvers(core)
 
+    async def test_layer_v7(self):
+        async with self.getRegrCore('2.78.0-tagprop-missing-indx') as core:
+            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            # Our malformed node was migrated properly.
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].get('asn'), 20)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'words')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.3')
+            # Our partially malformed node was migrated properly.
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020303))
+            self.eq(nodes[0].get('asn'), 20)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'bar')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.2')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020302))
+            self.eq(nodes[0].get('asn'), 10)
+            self.eq(nodes[0].getTag('foo'), (None, None))
+            self.eq(nodes[0].getTagProp('foo', 'comment'), 'foo')
+
+            nodes = await core.nodes('inet:ipv4=1.2.3.1')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020301))
+            self.eq(nodes[0].get('asn'), 10)
+            self.eq(nodes[0].getTag('bar'), (None, None))
+            self.none(nodes[0].getTagProp('foo', 'comment'))
+
+            self.checkLayrvers(core)
+
+    async def test_layer_v8(self):
+        async with self.getRegrCore('2.85.1-hugenum-indx') as core:
+
+            nodes = await core.nodes('inet:fqdn:_huge=1.23')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array=(1.23, 2.34)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array*[=1.23]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array*[=2.34]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn._univhuge=2.34')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('._univhuge=2.34')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray=(3.45, 4.56)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray*[=3.45]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn._hugearray*[=4.56]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('._hugearray=(3.45, 4.56)')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('._hugearray*[=3.45]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('._hugearray*[=4.56]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('inet:fqdn#bar:cool:huge=1.23')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('#bar:cool:huge=1.23')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('inet:fqdn:_huge:array = (1.23, 10E-21)')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['_huge:array'], ('1.23', '0.00000000000000000001'))
+
+            nodes = await core.nodes('inet:fqdn._hugearray = (3.45, 10E-21)')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
+
+            nodes = await core.nodes('inet:fqdn:_huge:array*[=10E-21]')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['_huge:array'], ('1.23', '0.00000000000000000001'))
+
+            nodes = await core.nodes('inet:fqdn._hugearray*[=10E-21]')
+            self.len(1, nodes)
+            self.eq(nodes[0].props['._hugearray'], ('3.45', '0.00000000000000000001'))
+
+            nodes = await core.nodes('inet:fqdn:_huge=0.00000000000000000001')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.props.get('_huge'), '0.00000000000000000001')
+            self.eq(node.props.get('._univhuge'), '0.00000000000000000001')
+            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+            self.eq(node.props.get('._hugearray'), ('3.45', '0.00000000000000000001'))
+
+            self.checkLayrvers(core)
+
     async def test_layer_logedits_default(self):
         async with self.getTestCore() as core:
             self.true(core.getLayer().logedits)
@@ -1581,3 +1935,74 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, nodes)
 
             self.checkLayrvers(core)
+
+    async def test_layer_edit_perms(self):
+
+        async with self.getTestCore() as core:
+
+            viewiden = await core.callStorm('''
+                $lyr = $lib.layer.add()
+                $view = $lib.view.add(($lyr.iden,))
+                return($view.iden)
+            ''')
+
+            opts = {'view': viewiden}
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[ test:str=bar ]', opts=opts)
+
+            await core.nodes('''
+                [ test:str=foo
+                    :hehe=bar
+                    +#foo:score=2
+                    +#foo.bar
+                    <(refs)+ { test:str=bar }
+                ]
+                $node.data.set(foo, bar)
+            ''', opts=opts)
+
+            await core.nodes('''
+                test:str=foo
+                [ <(refs)- { test:str=bar } ]
+                $node.data.pop(foo)
+                | delnode
+            ''', opts=opts)
+
+            layr = core.views[viewiden].layers[0]
+
+            nodeedits = []
+            async for _, edits, _ in layr.iterNodeEditLog():
+                nodeedits.extend(edits)
+
+            perms = [perm for permoffs, perm in s_layer.getNodeEditPerms(nodeedits)]
+
+            self.eq({
+                ('node', 'add', 'test:str'),
+                ('node', 'del', 'test:str'),
+
+                ('node', 'add', 'syn:tag'),
+
+                ('node', 'prop', 'set', 'test:str:.created'),
+                ('node', 'prop', 'del', 'test:str:.created'),
+
+                ('node', 'prop', 'set', 'test:str:hehe'),
+                ('node', 'prop', 'del', 'test:str:hehe'),
+
+                ('node', 'prop', 'set', 'syn:tag:up'),
+                ('node', 'prop', 'set', 'syn:tag:base'),
+                ('node', 'prop', 'set', 'syn:tag:depth'),
+                ('node', 'prop', 'set', 'syn:tag:.created'),
+
+                ('node', 'tag', 'add', 'foo'),
+                ('node', 'tag', 'del', 'foo'),
+
+                ('node', 'tag', 'add', 'foo', 'bar'),
+                ('node', 'tag', 'del', 'foo', 'bar'),
+
+                ('node', 'data', 'set', 'foo'),
+                ('node', 'data', 'pop', 'foo'),
+
+                ('node', 'edge', 'add', 'refs'),
+                ('node', 'edge', 'del', 'refs'),
+            }, set(perms))

@@ -21,6 +21,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:compromise', ('guid', {}), {
                     'doc': 'An instance of a compromise and its aggregate impact.',
                 }),
+                ('risk:mitigation', ('guid', {}), {
+                    'doc': 'A mitigation for a specific risk:vuln.',
+                }),
                 ('risk:attacktype', ('taxonomy', {}), {
                     'doc': 'An attack type taxonomy.',
                     'interfaces': ('taxonomy',),
@@ -32,6 +35,19 @@ class RiskModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
+                ('risk:mitigation', {}, (
+                    ('vuln', ('risk:vuln', {}), {
+                        'doc': 'The vulnerability that this mitigation addresses.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'A brief name for this risk mitigation.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the mitigation approach for the vulnerability.'}),
+                    ('software', ('it:prod:softver', {}), {
+                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                )),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.',
@@ -151,16 +167,22 @@ class RiskModule(s_module.CoreModule):
                     ('software', ('it:prod:softver', {}), {
                         'doc': 'The vulnerable software.',
                     }),
+                    ('hardware', ('it:prod:hardware', {}), {
+                        'doc': 'The vulnerable hardware.',
+                    }),
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The vulnerable material specification.',
                     }),
                     ('item', ('mat:item', {}), {
                         'doc': 'The vulnerable material item.',
                     }),
+                    ('host', ('it:host', {}), {
+                        'doc': 'The vulnerable host.'
+                    })
                 )),
 
                 ('risk:alert', {}, (
-                    ('type', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('type', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'An alert type.',
                     }),
                     ('name', ('str', {}), {
@@ -182,7 +204,7 @@ class RiskModule(s_module.CoreModule):
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
-                    ('name', ('str', {'lower': True, 'onespace': True, 'strip': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for the compromise event.',
                     }),
                     ('desc', ('str', {}), {
@@ -231,6 +253,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('response:cost', ('econ:price', {}), {
                         'doc': 'The economic cost of the response and mitigation efforts.',
+                    }),
+                    ('theft:price', ('econ:price', {}), {
+                        'doc': 'The total value of the theft of assets.',
                     }),
                     ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency type for the econ:price fields.',

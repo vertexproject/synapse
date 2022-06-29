@@ -302,8 +302,11 @@ class Cli(s_base.Base):
         Prompt for user input from stdin.
         '''
         if self.sess is None:
-            hist = FileHistory(s_common.getSynPath(self.histfile))
-            self.sess = PromptSession(history=hist)
+            histfp = s_common.getSynPath(self.histfile)
+            # Ensure the file is read/writeable
+            with s_common.genfile(histfp):
+                pass
+            self.sess = PromptSession(history=FileHistory(histfp))
 
         if text is None:
             text = self.cmdprompt

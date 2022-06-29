@@ -5,9 +5,13 @@ import contextlib
 import ctypes as c
 
 import synapse.exc as s_exc
+import synapse.lib.const as s_const
 
 logger = logging.getLogger(__name__)
+
 import synapse.lib.platforms.common as s_pcommon
+
+meminfo_total_fallback_log = False
 
 def initHostInfo():
     return {
@@ -45,11 +49,51 @@ def getFileMappedRegion(filename):
 
 def getTotalMemory():
     '''
-    Get the total amount of memory in the system
+    Get the total amount of memory in the system.
+
+    Notes:
+        This attempts to get information from cgroup data before falling
+        back to ``/proc/meminfo`` data.
+
+    Returns:
+        int: The number of bytes of memory available in the system.
     '''
-    # Unlike /proc/meminfo, this gives a correct value when running inside a memory-limited container
-    with open(f'/sys/fs/cgroup/memory/memory.limit_in_bytes') as f:
-        return int(f.read())
+    # cgroup based checks should be reliable when running inside of memory
+    # limited containers. This cgroupv1 based check is generally safe on
+    # older systems using cgroupv1 still.
+    # Reference
+    # https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt
+    fp = '/sys/fs/cgroup/memory/memory.limit_in_bytes'
+    if os.path.isfile(fp):
+        with open(fp) as f:
+            return int(f.read())
+    # A host (or container) using cgroupv2 with a max memory enabled will have
+    # a memory.max file available.
+    # Reference
+    # https://www.kernel.org/doc/Documentation/cgroup-v2.txt
+    fp = '/sys/fs/cgroup/memory.max'
+    if os.path.isfile(fp):
+        with open(fp) as f:
+            valu = f.read()
+            if valu.strip() != 'max':
+                return int(valu)
+    # /proc/meminfo is a fallback we can try to use in the event that
+    # we find ourselves in a situation where there is not a memory cap.
+    # if this happens inside of a container which does not have a maximum
+    # memory cap, we could mis-represent the available memory.
+    # Reference
+    # https://www.kernel.org/doc/Documentation/filesystems/proc.txt
+    fp = '/proc/meminfo'
+    if os.path.isfile(fp):
+        global meminfo_total_fallback_log
+        if meminfo_total_fallback_log is False:
+            # Only warn about this fallback one per process.
+            logger.debug('Unable to use cgroup information to determine total memory, using /proc/meminfo')
+            meminfo_total_fallback_log = True
+        return getAvailableMemory()
+
+    logger.warning('Unable to find max memory limit')  # pragma: no cover
+    return 0  # pragma: no cover
 
 def getAvailableMemory():
     '''
@@ -60,10 +104,10 @@ def getAvailableMemory():
     with open(f'/proc/meminfo') as f:
         for line in f:
             if line.startswith('MemFree'):
-                free = int(line.split()[1]) * 1024
+                free = int(line.split()[1]) * s_const.kibibyte
 
             elif line.startswith('MemAvailable'):
-                return int(line.split()[1]) * 1024
+                return int(line.split()[1]) * s_const.kibibyte
 
     return free
 
@@ -87,7 +131,7 @@ def getCurrentLockedMemory():
         for line in smaps:
             if line.startswith('Locked:'):
                 kb = int(line.split()[1])
-                sum += kb * 1024
+                sum += kb * s_const.kibibyte
 
     return sum
 

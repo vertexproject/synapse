@@ -157,12 +157,34 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
-hugectx = decimal.Context(prec=15)
+hugectx = decimal.Context(prec=48)
 def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
     '''
     return decimal.Decimal(valu, context=hugectx)
+
+def hugeadd(x, y):
+    '''
+    Add two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.add(x, y)
+
+def hugesub(x, y):
+    '''
+    Subtract two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.subtract(x, y)
+
+hugeexp = decimal.Decimal('1E-24')
+def hugeround(x):
+    '''
+    Round a decimal.Decimal with proper precision for synapse hugenums.
+    '''
+    return hugectx.quantize(x, hugeexp)
+
+def hugemod(x, y):
+    return hugectx.divmod(x, y)
 
 def vertup(vstr):
     '''
@@ -399,14 +421,17 @@ def reqdir(*paths):
 
 def getDirSize(*paths):
     '''
-    Returns:
-        Tuple of total real and total apparent size of all normal files and directories underneath *paths plus *paths
-        itself
-
-        Equivalent to `du -B 1 -s` and `du -bs`
+    Get the size of a directory.
 
     Args:
-        *paths ([str,...]): A list of path elements
+        *paths (str): A list of path elements.
+
+    Notes:
+        This is equivalent to ``du -B 1 -s`` and ``du -bs``.
+
+    Returns:
+        tuple: Tuple of total real and total apparent size of all normal files and directories underneath
+        ``*paths`` plus ``*paths`` itself.
     '''
     def getsize(path):
         try:
@@ -479,6 +504,22 @@ def yamlmod(obj, *paths):
             yamlsave({**oldobj, **obj}, *paths)
         else:
             yamlsave(obj, *paths)
+
+def yamlpop(key, *paths):
+    '''
+    Pop a key out of a yaml file.
+
+    Args:
+        key (str): Name of the key to remove.
+        *paths: Path to a yaml file. The file must be a map / dictionary.
+
+    Returns:
+        None
+    '''
+    obj = yamlload(*paths)
+    if obj is not None:
+        obj.pop(key, None)
+        yamlsave(obj, *paths)
 
 def verstr(vtup):
     '''
@@ -626,8 +667,7 @@ def firethread(f):
     return callmeth
 
 def worker(meth, *args, **kwargs):
-    thr = threading.Thread(target=meth, args=args, kwargs=kwargs)
-    thr.setDaemon(True)
+    thr = threading.Thread(target=meth, args=args, kwargs=kwargs, daemon=True)
     thr.start()
     return thr
 
@@ -718,6 +758,7 @@ def setlogging(mlogger, defval=None, structlog=None):
     Args:
         mlogger (logging.Logger): Reference to a logging.Logger()
         defval (str): Default log level. May be an integer.
+        structlog (bool): Enabled structured (jsonl) logging output.
 
     Notes:
         This calls logging.basicConfig and should only be called once per process.
@@ -745,9 +786,10 @@ def setlogging(mlogger, defval=None, structlog=None):
 
     return ret
 
+syndir_default = '~/.syn'
 syndir = os.getenv('SYN_DIR')
 if syndir is None:
-    syndir = '~/.syn'
+    syndir = syndir_default
 
 def envbool(name, defval='false'):
     '''
@@ -762,7 +804,6 @@ def envbool(name, defval='false'):
 
     Returns:
         boolean: True if the envar is set, false if it is set to a false value.
-
     '''
     return os.getenv(name, defval).lower() not in ('0', 'false')
 
@@ -1033,12 +1074,12 @@ class aclosing(contextlib.AbstractAsyncContextManager):
     """Async context manager for safely finalizing an asynchronously cleaned-up
     resource such as an async generator, calling its ``aclose()`` method.
 
-    Code like this:
+    Code like this::
 
         async with aclosing(<module>.fetch(<arguments>)) as agen:
             <block>
 
-    is equivalent to this:
+    is equivalent to this::
 
         agen = <module>.fetch(<arguments>)
         try:

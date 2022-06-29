@@ -1,10 +1,7 @@
 import os
-import asyncio
 import hashlib
 
-import synapse.exc as s_exc
 import synapse.common as s_common
-
 
 import synapse.tools.pushfile as s_pushfile
 

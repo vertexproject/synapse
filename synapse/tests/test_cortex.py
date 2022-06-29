@@ -1,4 +1,6 @@
+import os
 import copy
+import json
 import time
 import asyncio
 import logging
@@ -8,15 +10,19 @@ from unittest.mock import patch
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.telepath as s_telepath
 
+import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
 import synapse.tools.backup as s_tools_backup
+import synapse.tools.promote as s_tools_promote
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -27,6 +33,215 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_cellguid(self):
+        iden = s_common.guid()
+        conf = {'cell:guid': iden}
+        async with self.getTestCore(conf=conf) as core00:
+            async with self.getTestCore(conf=conf) as core01:
+                self.eq(core00.iden, core01.iden)
+                self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
+                self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
+                self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+
+    async def test_cortex_handoff(self):
+
+        with self.getTestDir() as dirn:
+            ahadir = s_common.genpath(dirn, 'aha00')
+            coredir0 = s_common.genpath(dirn, 'core00')
+            coredir1 = s_common.genpath(dirn, 'core01')
+            coredir2 = s_common.genpath(dirn, 'core02',)
+
+            conf = {
+                'aha:name': 'aha',
+                'aha:network': 'newp',
+                'provision:listen': 'tcp://127.0.0.1:0',
+            }
+            async with await s_aha.AhaCell.anit(ahadir, conf=conf) as aha:
+
+                provaddr, provport = aha.provdmon.addr
+                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
+
+                ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.newp&ca=newp')
+                aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
+
+                provurl = await aha.addAhaSvcProv('00.cortex')
+                coreconf = {'aha:provision': provurl, 'nexslog:en': False}
+
+                async with self.getTestCore(dirn=coredir0, conf=coreconf) as core00:
+
+                    with self.raises(s_exc.BadArg):
+                        await core00.handoff(core00.getLocalUrl())
+
+                    provinfo = {'mirror': '00.cortex'}
+                    provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+
+                    # provision with the new hostname and mirror config
+                    coreconf = {'aha:provision': provurl}
+                    async with self.getTestCore(dirn=coredir1, conf=coreconf) as core01:
+
+                        # test out connecting to the leader but having aha chose a mirror
+                        async with s_telepath.loadTeleCell(core01.dirn):
+                            # wait for the mirror to think it's ready...
+                            await asyncio.wait_for(core01.nexsroot.ready.wait(), timeout=3)
+                            async with await s_telepath.openurl('aha://cortex...?mirror=true') as proxy:
+                                self.eq(await core01.getCellRunId(), await proxy.getCellRunId())
+
+                        await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
+                        self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
+
+                        self.true(core00.isactive)
+                        self.false(core01.isactive)
+
+                        outp = s_output.OutPutStr()
+                        argv = ('--svcurl', core01.getLocalUrl())
+                        await s_tools_promote.main(argv, outp=outp)
+
+                        self.true(core01.isactive)
+                        self.false(core00.isactive)
+
+                        mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
+                        mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
+                        self.eq(mods00, {'mirror': 'aha://01.cortex.newp'})
+                        self.eq(mods01, {'mirror': None})
+
+                        await core00.nodes('[inet:ipv4=5.5.5.5]')
+                        self.len(1, await core01.nodes('inet:ipv4=5.5.5.5'))
+
+                        # After doing the promotion, provision another mirror cortex.
+                        # This pops the mirror config out of the mods file we copied
+                        # from the backup.
+                        provinfo = {'mirror': '01.cortex'}
+                        provurl = await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)
+                        coreconf = {'aha:provision': provurl}
+                        async with self.getTestCore(dirn=coredir2, conf=coreconf) as core02:
+                            self.false(core02.isactive)
+                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex.newp')
+                            mods02 = s_common.yamlload(coredir2, 'cell.mods.yaml')
+                            self.eq(mods02, {})
+                            # The mirror writeback and change distribution works
+                            self.len(0, await core01.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(0, await core00.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(1, await core02.nodes('[inet:ipv4=6.6.6.6]'))
+                            await core00.sync()
+                            self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
+                            self.len(1, await core00.nodes('inet:ipv4=6.6.6.6'))
+
+    async def test_cortex_bugfix_2_80_0(self):
+        async with self.getRegrCore('2.80.0-jsoniden') as core:
+            self.eq(core.jsonstor.iden, s_common.guid((core.iden, 'jsonstor')))
+
+    async def test_cortex_usernotifs(self):
+
+        async def testUserNotifs(core):
+            async with core.getLocalProxy() as proxy:
+                root = core.auth.rootuser.iden
+                indx = await proxy.addUserNotif(root, 'hehe', {'foo': 'bar'})
+                self.nn(indx)
+                item = await proxy.getUserNotif(indx)
+                self.eq(root, item[0])
+                self.eq('hehe', item[2])
+                self.eq({'foo': 'bar'}, item[3])
+                msgs = [x async for x in proxy.iterUserNotifs(root)]
+
+                self.len(1, msgs)
+                self.eq(root, msgs[0][1][0])
+                self.eq('hehe', msgs[0][1][2])
+                self.eq({'foo': 'bar'}, msgs[0][1][3])
+
+                await proxy.delUserNotif(indx)
+                self.none(await proxy.getUserNotif(indx))
+
+                retn = []
+                done = asyncio.Event()
+                async def watcher():
+                    async for item in proxy.watchAllUserNotifs():
+                        retn.append(item)
+                        done.set()
+                        return
+                core.schedCoro(watcher())
+                await asyncio.sleep(0.1)
+                await proxy.addUserNotif(root, 'lolz')
+                await asyncio.wait_for(done.wait(), timeout=2)
+                self.len(1, retn)
+                self.eq(retn[0][1][0], root)
+                self.eq(retn[0][1][2], 'lolz')
+
+        # test a local jsonstor
+        async with self.getTestCore() as core:
+            await testUserNotifs(core)
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testUserNotifs(core)
+
+    async def test_cortex_jsonstor(self):
+
+        async def testCoreJson(core):
+            self.none(await core.getJsonObj('foo'))
+            self.none(await core.getJsonObjProp('foo', 'bar'))
+            self.none(await core.setJsonObj('foo', {'bar': 'baz'}))
+            self.true(await core.setJsonObjProp('foo', 'zip', 'zop'))
+
+            self.true(await core.hasJsonObj('foo'))
+            self.false(await core.hasJsonObj('newp'))
+
+            self.eq('baz', await core.getJsonObjProp('foo', 'bar'))
+            self.eq({'bar': 'baz', 'zip': 'zop'}, await core.getJsonObj('foo'))
+
+            self.true(await core.delJsonObjProp('foo', 'bar'))
+            self.eq({'zip': 'zop'}, await core.getJsonObj('foo'))
+            self.none(await core.delJsonObj('foo'))
+            self.none(await core.getJsonObj('foo'))
+
+            await core.setJsonObj('foo/bar', 'zoinks')
+            items = [x async for x in core.getJsonObjs(('foo'))]
+            self.eq(items, ((('bar',), 'zoinks'),))
+
+        # test with a remote jsonstor
+        async with self.getTestJsonStor() as jsonstor:
+            conf = {'jsonstor': jsonstor.getLocalUrl()}
+            async with self.getTestCore(conf=conf) as core:
+                await testCoreJson(core)
+
+        # test a local jsonstor
+        async with self.getTestCore() as core:
+            await testCoreJson(core)
+
+        # test a local jsonstor and mirror writeback
+        with self.getTestDir() as dirn:
+            path00 = os.path.join(dirn, 'core00')
+            path01 = os.path.join(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                    await testCoreJson(core01)
+                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
+                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
+
+        # test a local jsonstor and mirror sync
+        with self.getTestDir() as dirn:
+            path00 = os.path.join(dirn, 'core00')
+            path01 = os.path.join(dirn, 'core01')
+            conf00 = {'nexslog:en': True}
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                pass
+
+            s_tools_backup.backup(path00, path01)
+            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+                conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
+                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                    await testCoreJson(core00)
+                    await core01.sync()
+                    self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
+                    self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
+
     async def test_cortex_layer_mirror(self):
 
         # test a layer mirror from a layer
@@ -104,15 +319,17 @@ class CortexTest(s_t_utils.SynTest):
                 layr00iden = layr00.get('iden')
                 view00 = await core00.addView({'layers': (layr00iden,)})
                 view00iden = view00.get('iden')
+                view00opts = {'view': view00iden}
 
                 layr00url = core00.getLocalUrl(share=f'*/view/{view00iden}')
 
                 layr01 = await core01.addLayer({'mirror': layr00url})
                 layr01iden = layr01.get('iden')
                 view01 = await core01.addView({'layers': (layr01iden,)})
+                view01opts = {'view': view01.get('iden')}
 
-                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts={'view': view01.get('iden')}))
-                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts={'view': view00.get('iden')}))
+                self.len(1, await core01.nodes('[ inet:fqdn=vertex.link ]', opts=view01opts))
+                self.len(1, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
 
                 info00 = await core00.callStorm(f'return($lib.layer.get({layr00iden}).getMirrorStatus())')
                 self.false(info00.get('mirror'))
@@ -122,6 +339,15 @@ class CortexTest(s_t_utils.SynTest):
                 self.nn(info01['local']['size'])
                 self.nn(info01['remote']['size'])
                 self.eq(info01['local']['size'], info01['remote']['size'])
+
+                await core00.nodes('trigger.add node:del --form inet:fqdn --query {[test:str=foo]}', opts=view00opts)
+
+                await core01.nodes('inet:fqdn=vertex.link | delnode', opts=view01opts)
+                self.len(0, await core00.nodes('inet:fqdn=vertex.link', opts=view00opts))
+                self.len(1, await core00.nodes('test:str=foo', opts=view00opts))
+
+                layr = core01.getLayer(layr01iden)
+                await layr.storNodeEdits((), {})
 
     async def test_cortex_must_upgrade(self):
 
@@ -133,6 +359,154 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadStorageVersion):
                 async with await s_cortex.Cortex.anit(dirn) as core:
                     pass
+
+    async def test_cortex_stormiface(self):
+        pkgdef = {
+            'name': 'foobar',
+            'modules': [
+                {'name': 'foobar',
+                 'interfaces': ['lookup'],
+                 'storm': '''
+                     function lookup(tokens) {
+                        $looks = $lib.list()
+                        for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
+                        return($looks)
+                     }
+                    /* coverage mop up */
+                    [ ou:org=* ]
+                 '''
+                },
+                {'name': 'search0',
+                 'interfaces': ['search'],
+                 'storm': '''
+                     function search(tokens) {
+                        emit ((0), foo)
+                        emit ((10), baz)
+                     }
+                 '''
+                },
+                {'name': 'search1',
+                 'interfaces': ['search'],
+                 'storm': '''
+                     function search(tokens) {
+                        emit ((1), bar)
+                        emit ((11), faz)
+                     }
+                    /* coverage mop up */
+                    [ ou:org=* ]
+                 '''
+                },
+                {'name': 'coverage', 'storm': ''},
+                {'name': 'boom', 'interfaces': ['boom'], 'storm': '''
+                    function boom() { $lib.raise(omg, omg) return() }
+                    function boomgenr() { emit ((0), woot) $lib.raise(omg, omg) }
+                '''},
+            ]
+        }
+
+        conf = {'provenance:en': False}
+        async with self.getTestCore(conf=conf) as core:
+
+            self.none(core.modsbyiface.get('lookup'))
+
+            mods = await core.getStormIfaces('lookup')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('lookup'))
+
+            await core.loadStormPkg(pkgdef)
+
+            mods = await core.getStormIfaces('lookup')
+            self.len(1, mods)
+            self.len(1, core.modsbyiface.get('lookup'))
+
+            todo = s_common.todo('lookup', ('vertex.link', 'woot.com'))
+            vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq(((('inet:fqdn', 'vertex.link'), ('inet:fqdn', 'woot.com')),), vals)
+
+            todo = s_common.todo('newp')
+            vals = [r async for r in core.view.callStormIface('lookup', todo)]
+            self.eq([], vals)
+
+            vals = [r async for r in core.view.mergeStormIface('lookup', todo)]
+            self.eq([], vals)
+
+            todo = s_common.todo('search', ('hehe', 'haha'))
+            vals = [r async for r in core.view.mergeStormIface('search', todo)]
+            self.eq(((0, 'foo'), (1, 'bar'), (10, 'baz'), (11, 'faz')), vals)
+
+            with self.raises(s_exc.StormRaise):
+                todo = s_common.todo('boomgenr')
+                [r async for r in core.view.mergeStormIface('boom', todo)]
+
+            todo = s_common.todo('boom')
+            vals = [r async for r in core.view.callStormIface('boom', todo)]
+            self.eq((), vals)
+
+            await core._dropStormPkg(pkgdef)
+            self.none(core.modsbyiface.get('lookup'))
+
+            mods = await core.getStormIfaces('lookup')
+            self.len(0, mods)
+            self.len(0, core.modsbyiface.get('lookup'))
+
+    async def test_cortex_lookup_search_dedup(self):
+        pkgdef = {
+            'name': 'foobar',
+            'modules': [
+                {'name': 'foobar',
+                 'interfaces': ['search'],
+                 'storm': '''
+                    function getBuid(form, valu) {
+                        *$form?=$valu
+                        return($lib.hex.decode($node.iden()))
+                    }
+                    function search(tokens) {
+                        $score = (0)
+                        for $tok in $tokens {
+                            $buid = $getBuid("inet:email", $tok)
+                            if $buid { emit ($score, $buid) }
+                            $buid = $getBuid("test:str", $tok)
+                            if $buid { emit ($score, $buid) }
+                            $score = ($score + 10)
+                        }
+                    }
+                 '''
+                 },
+            ]
+        }
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('[ inet:email=foo@bar.com ]')
+
+            nodes = await core.nodes('foo@bar.com', opts={'mode': 'lookup'})
+            buid = nodes[0].buid
+            self.eq(['inet:email'], [n.ndef[0] for n in nodes])
+
+            # scrape results are not deduplicated
+            nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
+            self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
+
+            await core.loadStormPkg(pkgdef)
+            self.len(1, await core.getStormIfaces('search'))
+
+            todo = s_common.todo('search', ('foo@bar.com',))
+            vals = [r async for r in core.view.mergeStormIface('search', todo)]
+            self.eq(((0, buid),), vals)
+
+            await core.nodes('[ test:str=hello ]')
+
+            # search iface results *are* deduplicated against themselves
+            nodes = await core.nodes('hello hello', opts={'mode': 'search'})
+            self.eq(['test:str'], [n.ndef[0] for n in nodes])
+
+    async def test_cortex_lookmiss(self):
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('1.2.3.4 vertex.link', opts={'mode': 'lookup'})
+            miss = [m for m in msgs if m[0] == 'look:miss']
+            self.len(2, miss)
+            self.eq(('inet:ipv4', 16909060), miss[0][1]['ndef'])
+            self.eq(('inet:fqdn', 'vertex.link'), miss[1][1]['ndef'])
 
     async def test_cortex_axonapi(self):
 
@@ -212,9 +586,9 @@ class CortexTest(s_t_utils.SynTest):
             divert $lib.true $x(hithere)
             '''
             nodes = await core.nodes(storm)
-            self.len(2, nodes)
-            self.len(2, [n for n in nodes if n.ndef[0] == 'ou:org'])
-            self.len(2, await core.nodes('ou:org +#baz'))
+            self.len(4, nodes)
+            self.len(4, [n for n in nodes if n.ndef[0] == 'ou:org'])
+            self.len(4, await core.nodes('ou:org +#baz'))
 
             storm = '''
             function x(y) {
@@ -229,7 +603,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes(storm)
             self.len(2, nodes)
             self.len(2, [n for n in nodes if n.ndef[0] == 'inet:fqdn'])
-            self.len(2, await core.nodes('ou:org +#faz'))
+            self.len(4, await core.nodes('ou:org +#faz'))
 
             # functions that don't return a generator
             storm = '''
@@ -293,7 +667,7 @@ class CortexTest(s_t_utils.SynTest):
             mesgs = await core.stormlist(storm)
             self.len(3, [m for m in mesgs if (m[0] == 'print' and m[1]['mesg'] == 'heythere')])
             self.len(2, [m for m in mesgs if (m[0] == 'node' and m[1][0][0] == 'inet:fqdn')])
-            self.len(2, await core.nodes('ou:org +#camel'))
+            self.len(4, await core.nodes('ou:org +#camel'))
 
             storm = 'function foo(n) {} divert $lib.true $foo($node)'
             mesgs = await core.stormlist(storm)
@@ -357,6 +731,23 @@ class CortexTest(s_t_utils.SynTest):
             '''
             self.len(2, await core.nodes(storm))
             self.eq(orgcount + 4, len(await core.nodes('ou:org')))
+
+            # running pernode with runtsafe args
+            storm = '''
+                function y(nn) { yield $nn }
+                [ test:str=foo test:str=bar ]
+                $n=$lib.null $n=$node divert $lib.true $y($n)
+            '''
+            self.sorteq(['foo', 'bar'], [n.ndef[1] for n in await core.nodes(storm)])
+
+            # empty input with non-runtsafe args
+            storm = '''
+            function x(y) {
+                [ ou:org=* ]
+            }
+            divert $lib.true $x($node)
+            '''
+            self.len(0, await core.nodes(storm))
 
     async def test_cortex_limits(self):
         async with self.getTestCore(conf={'max:nodes': 10}) as core:
@@ -627,19 +1018,29 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            iden = await core.callStorm('''
-                $que = $lib.queue.add(foo)
+            with self.getStructuredAsyncLoggerStream('synapse.storm.log',
+                                                     'Running dmon') as stream:
+                iden = await core.callStorm('''
+                    $que = $lib.queue.add(foo)
 
-                $ddef = $lib.dmon.add(${
-                    $lib.print(hi)
-                    $lib.warn(omg)
-                    $que = $lib.queue.get(foo)
-                    $que.put(done)
-                })
+                    $ddef = $lib.dmon.add(${
+                        $lib.print(hi)
+                        $lib.warn(omg)
+                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $lib.log.info($s, ({"iden": $auto.iden}))
+                        $que = $lib.queue.get(foo)
+                        $que.put(done)
+                    })
 
-                $que.get()
-                return($ddef.iden)
-            ''')
+                    $que.get()
+                    return($ddef.iden)
+                ''')
+                self.true(await stream.wait(6))
+
+            buf = stream.getvalue()
+            mesg = json.loads(buf.split('\n')[0])
+            self.eq(mesg.get('message'), f'Running dmon {iden}')
+            self.eq(mesg.get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}
             logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
@@ -1027,7 +1428,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(2, await snap.nodes('#foo.bar'))
                 self.len(1, await snap.nodes('test:str#foo.bar'))
 
-                with self.raises(s_exc.NoSuchProp):
+                with self.raises(s_exc.NoSuchForm):
                     await snap.nodes('test:newp#foo.bar')
 
             async with await wcore.snap() as snap:
@@ -1273,6 +1674,15 @@ class CortexTest(s_t_utils.SynTest):
 
             async for node in core.eval('test:str="foo bar" [ -:tick ]'):
                 self.none(node.get('tick'))
+
+            msgs = await core.stormlist('test:str [ -:newp ]')
+            self.stormIsInErr('No property named newp.', msgs)
+
+            msgs = await core.stormlist('test:str -test:str:newp')
+            self.stormIsInErr('No property named test:str:newp.', msgs)
+
+            msgs = await core.stormlist('test:str +test:newp>newp')
+            self.stormIsInErr('No property named test:newp.', msgs)
 
             async for node in core.eval('[test:guid="*" :tick=2001]'):
                 self.true(s_common.isguid(node.ndef[1]))
@@ -1722,13 +2132,16 @@ class CortexTest(s_t_utils.SynTest):
             warns = [msg for msg in mesgs if msg[0] == 'warn']
             self.len(1, warns)
             emesg = "BadTypeValu [10] during pivot: value is below min=20"
-            self.eq(warns[0][1], {'name': 'int', 'valu': 10,
+            self.eq(warns[0][1], {'name': 'int', 'valu': '10',
                                   'mesg': emesg})
             nodes = [msg for msg in mesgs if msg[0] == 'node']
             self.len(1, nodes)
             self.eq(nodes[0][1][0], ('test:type10', 'test'))
 
-            # Bad pivots go here
+            msgs = await core.stormlist('test:int :loc -> test:newp')
+            self.stormIsInErr('No property named test:newp', msgs)
+
+            # Bad pivot syntax go here
             for q in ['test:pivcomp :lulz <- *',
                       'test:pivcomp :lulz <+- *',
                       'test:pivcomp :lulz <- test:str',
@@ -2606,12 +3019,18 @@ class CortexBasicTest(s_t_utils.SynTest):
                     as stream:
                 await alist(core.storm('help ask'))
                 self.true(await stream.wait(4))
+
+            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help foo} as [root]') \
+                    as stream:
+                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
+                self.true(await stream.wait(4))
+
             # Bad syntax
             mesgs = await alist(core.storm(' | | | '))
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'init'])
             self.len(1, [mesg for mesg in mesgs if mesg[0] == 'fini'])
             # Lark sensitive test
-            self.stormIsInErr("No terminal defined for '|'", mesgs)
+            self.stormIsInErr("Unexpected token '|'", mesgs)
             errs = [mesg[1] for mesg in mesgs if mesg[0] == 'err']
             self.eq(errs[0][0], 'BadSyntax')
 
@@ -3513,6 +3932,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(500, slab.mapasync)
 
     async def test_feed_syn_nodes(self):
+
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
         async with self.getTestCore(conf=copy.deepcopy(conf)) as core0:
 
@@ -3791,6 +4211,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodelist0 = []
             nodelist0.extend(await core0.nodes('[ test:str=foo ]'))
             nodelist0.extend(await core0.nodes('[ inet:ipv4=1.2.3.4 .seen=(2012,2014) +#foo.bar=(2012, 2014) ]'))
+            nodelist0.extend(await core0.nodes('[ test:int=42 ]'))
+            await core0.nodes('test:int=42 | delnode')
 
             with self.raises(s_exc.NoSuchLayer):
                 async for _, nodeedits in prox0.syncLayerNodeEdits(0, layriden='asdf', wait=False):
@@ -3804,6 +4226,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             async for _, nodeedits in prox0.syncLayerNodeEdits(0, wait=False):
                 editlist.append(nodeedits)
 
+            deledit = editlist.pop(len(editlist) - 1)
+
             async with self.getTestCoreAndProxy() as (core1, prox1):
 
                 await prox1.addFeedData('syn.nodeedits', editlist)
@@ -3811,10 +4235,20 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodelist1 = []
                 nodelist1.extend(await core1.nodes('test:str'))
                 nodelist1.extend(await core1.nodes('inet:ipv4'))
+                nodelist1.extend(await core1.nodes('test:int'))
 
                 nodelist0 = [node.pack() for node in nodelist0]
                 nodelist1 = [node.pack() for node in nodelist1]
                 self.eq(nodelist0, nodelist1)
+
+                await core1.nodes('trigger.add node:del --form test:int --query {[test:int=7]}')
+
+                self.len(1, await core1.nodes('test:int=42'))
+
+                await prox1.addFeedData('syn.nodeedits', [deledit])
+
+                self.len(0, await core1.nodes('test:int=42'))
+                self.len(1, await core1.nodes('test:int=7'))
 
                 # Try a nodeedits we might get from cmdr
                 cmdrnodeedits = s_common.jsonsafe_nodeedits(editlist[1])
@@ -4387,6 +4821,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
+            q = '''
+            [ file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e
+                :mime:pe:compiled="1992/06/19 22:22:17.000"
+            ]
+            -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)'''
+            self.len(1, await core.nodes(q))
+
     async def test_storm_filter(self):
         async with self.getTestCore() as core:
             q = '[test:str=test +#test=(2018,2019)]'
@@ -4564,10 +5005,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await self.asyncraises(s_exc.SynErr, core01.delView(core01.view.iden))
 
+                    # get the nexus index
+                    nexusind = core01.nexsroot.nexslog.index()
+
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
                 async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+
+                    # check that startup does not create any events
+                    self.eq(nexusind, core01.nexsroot.nexslog.index())
 
                     await core00.nodes('[ inet:fqdn=woot.com ]')
                     await core01.sync()
@@ -4831,7 +5278,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await core.getPropNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, core.getPropNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchProp, core.getPropNorm('test:newp', 'newp'))
@@ -4842,7 +5289,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await prox.getPropNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getPropNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchProp, prox.getPropNorm('test:newp', 'newp'))
@@ -4854,7 +5301,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await core.getTypeNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': []})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, core.getTypeNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:newp', 'newp'))
@@ -4865,7 +5312,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             norm, info = await prox.getTypeNorm('test:comp', ('1234', '1234'))
             self.eq(norm, (1234, '1234'))
-            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': ()})
+            self.eq(info, {'subs': {'hehe': 1234, 'haha': '1234'}, 'adds': (('test:int', 1234, {}),)})
 
             await self.asyncraises(s_exc.BadTypeValu, prox.getTypeNorm('test:int', 'newp'))
             await self.asyncraises(s_exc.NoSuchType, prox.getTypeNorm('test:newp', 'newp'))
@@ -5223,6 +5670,24 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(core.model.prop('inet:ipv4._visi'))
                 self.none(core.model.form('inet:ipv4').prop('._visi'))
 
+                vdef2 = await core.view.fork()
+                opts = {'view': vdef2.get('iden')}
+
+                await core.addTagProp('added', ('time', {}), {})
+
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar ]')
+                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo.bar:added="2049" ]', opts=opts)
+
+                with self.raises(s_exc.CantDelProp):
+                    await core.delTagProp('added')
+
+                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo.bar:added ]', opts=opts)
+                await core.delTagProp('added')
+
+                await core.addForm('_hehe:array', 'array', {'type': 'int'}, {})
+                await core.nodes('[ _hehe:array=(1,2,3) ]')
+                self.len(1, await core.nodes('_hehe:array=(1,2,3)'))
+
                 # test the remote APIs
                 async with core.getLocalProxy() as prox:
 
@@ -5266,11 +5731,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.none(core.model.form('_hehe:hoho'))
 
                     with self.raises(s_exc.BadPropDef):
-                        await prox.addFormProp('test:str', '_blah:blah_blah', ('int', {}), {})
+                        await prox.addFormProp('test:str', '_blah:blah^blah', ('int', {}), {})
                     with self.raises(s_exc.BadPropDef):
-                        await prox.addUnivProp('_blah:blah_blah', ('int', {}), {})
+                        await prox.addUnivProp('_blah:blah^blah', ('int', {}), {})
                     with self.raises(s_exc.BadPropDef):
-                        await prox.addTagProp('_blah:blah_blah', ('int', {}), {})
+                        await prox.addTagProp('_blah:blah^blah', ('int', {}), {})
 
     async def test_cortex_axon(self):
         async with self.getTestCore() as core:
@@ -5514,7 +5979,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         }
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
-                # await core.addStormPkg(base_pkg)
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('name')
                 with self.raises(s_exc.SchemaViolation) as cm:
@@ -5538,7 +6002,21 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 pkg = copy.deepcopy(base_pkg)
                 pkg.pop('version')
-                await core.pkghive.set('boom_pkg', pkg)
+                with self.raises(s_exc.SchemaViolation) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "data must contain ['name', 'version'] properties")
+
+                pkg = copy.deepcopy(base_pkg)
+                pkg['commands'][0]['cmdargs'] = ((
+                    '--debug',
+                    {'default': False},
+                    {'help': 'Words'},
+                ),)
+                with self.raises(s_exc.SchemaViolation) as cm:
+                    await core.addStormPkg(pkg)
+                self.eq(cm.exception.errinfo.get('mesg'),
+                        "data must contain only specified items")
 
     async def test_cortex_view_persistence(self):
         with self.getTestDir() as dirn:

@@ -2,7 +2,6 @@ import csv
 from unittest import mock
 
 import synapse.common as s_common
-import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 
@@ -43,7 +42,7 @@ class CsvToolTest(s_t_utils.SynTest):
     def _getOldSynVers(self):
         return (0, 0, 0)
 
-    async def test_csvtool(self):
+    async def test_csvtool_import(self):
 
         async with self.getTestCore() as core:
 
@@ -72,6 +71,26 @@ class CsvToolTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 await s_csvtool.main(argv, outp=outp)
                 outp.expect('Cortex version 0.0.0 is outside of the csvtool supported range')
+
+            view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
+
+            optspath = s_common.genpath(dirn, 'optsfile.yaml')
+            s_common.yamlsave({'vars': {'hehe': 'haha'}}, optspath)
+
+            q = '''
+            for ($ipv4, $fqdn, $note) in $rows {
+                $note = $lib.str.format('{n} - {h}', n=$note, h=$hehe)
+                [ inet:dns:a?=($fqdn,$ipv4) ]  { | note.add $note }
+            }'''
+            with s_common.genfile(stormpath) as fd:
+                fd.truncate()
+                fd.write(q.encode())
+
+            argv = ['--cortex', url, '--view', view, '--optsfile', optspath, stormpath, csvpath]
+            outp = self.getTestOutp()
+            self.eq(0, await s_csvtool.main(argv, outp=outp))
+            self.len(0, await core.nodes('meta:note'))
+            self.len(2, await core.nodes('meta:note', opts={'view': view}))
 
     async def test_csvtool_missingvals(self):
 
@@ -192,3 +211,27 @@ class CsvToolTest(s_t_utils.SynTest):
                 outp = self.getTestOutp()
                 await s_csvtool.main(argv, outp=outp)
                 outp.expect(f'Cortex version 0.0.0 is outside of the csvtool supported range')
+
+            view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
+            await core.nodes('[test:int=50]', opts={'view': view})
+
+            optspath = s_common.genpath(dirn, 'optsfile.yaml')
+            s_common.yamlsave({'vars': {'hehe': 'haha'}}, optspath)
+
+            q = '''test:int $lib.csv.emit($node, $hehe)'''
+            with s_common.genfile(stormpath) as fd:
+                fd.truncate()
+                fd.write(q.encode())
+
+            argv = ['--cortex', url, '--view', view, '--optsfile', optspath, '--export', stormpath, csvpath]
+            outp = self.getTestOutp()
+            self.eq(0, await s_csvtool.main(argv, outp=outp))
+
+            with open(csvpath, 'r') as fd:
+                rows = [row for row in csv.reader(fd)]
+                self.eq(rows, (['20', 'haha'], ['30', 'haha'], ['40', 'haha'], ['50', 'haha']))
+
+            argv = ['--cortex', url, '--view', 'newp', '--export', stormpath, csvpath]
+            outp = self.getTestOutp()
+            self.eq(-1, await s_csvtool.main(argv, outp=outp))
+            self.true(outp.expect('View is not a guid'))

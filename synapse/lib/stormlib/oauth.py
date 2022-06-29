@@ -1,5 +1,3 @@
-import asyncio
-
 import yarl
 from oauthlib import oauth1
 
@@ -9,7 +7,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class OAuthV1Lib(s_stormtypes.Lib):
     '''
-    A Storm library to handle oauth v1 authentication
+    A Storm library to handle oauth v1 authentication.
     '''
     _storm_locals = (
         {
@@ -21,7 +19,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
                 'type': 'function', '_funcname': '_methClient',
                 'args': (
                     {'name': 'ckey', 'type': 'str',
-                     'desc': 'The OAuthV1 Consumer Key to store and use for sigining requests.'},
+                     'desc': 'The OAuthV1 Consumer Key to store and use for signing requests.'},
                     {'name': 'csecret', 'type': 'str',
                      'desc': 'The OAuthV1 Consumer Secret used to sign requests.'},
                     {'name': 'atoken', 'type': 'str',
@@ -55,7 +53,7 @@ class OAuthV1Lib(s_stormtypes.Lib):
 @s_stormtypes.registry.registerType
 class OAuthV1Client(s_stormtypes.StormType):
     '''
-    A client for doing OAuth Authentication from Storm
+    A client for doing OAuth Authentication from Storm.
     '''
     _storm_locals = (
         {

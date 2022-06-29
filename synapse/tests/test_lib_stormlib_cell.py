@@ -1,8 +1,10 @@
 import synapse.exc as s_exc
 
-import synapse.lib.stormlib.cell as s_cell
+import synapse.lib.const as s_const
+import synapse.lib.stormlib.cell as s_stormlib_cell
 
 import synapse.tests.utils as s_test
+import synapse.tests.test_lib_stormsvc as s_t_stormsvc
 
 class StormCellTest(s_test.SynTest):
 
@@ -25,9 +27,9 @@ class StormCellTest(s_test.SynTest):
 
             # New cores have stormvar set to the current max version fix
             vers = await core.callStorm('return ( $lib.globals.get($key) )',
-                                        {'vars': {'key': s_cell.runtime_fixes_key}})
+                                        {'vars': {'key': s_stormlib_cell.runtime_fixes_key}})
             self.nn(vers)
-            self.eq(vers, s_cell.getMaxHotFixes())
+            self.eq(vers, s_stormlib_cell.getMaxHotFixes())
 
             user = await core.addUser('bob')
             opts = {'user': user.get('iden')}
@@ -43,6 +45,32 @@ class StormCellTest(s_test.SynTest):
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.cell.getHealthCheck() )', opts=opts)
+
+    async def test_stormlib_cell_uptime(self):
+
+        async with self.getTestCoreProxSvc(s_t_stormsvc.StormvarServiceCell) as (core, prox, svc):
+
+            day = await core.callStorm('return($lib.time.format($lib.time.now(), "%Y-%m-%d"))')
+
+            msgs = await core.stormlist('uptime')
+            self.stormIsInPrint('up 00:00:', msgs)
+            self.stormIsInPrint(f'since {day}', msgs)
+
+            msgs = await core.stormlist('uptime stormvar')
+            self.stormIsInPrint('up 00:00:', msgs)
+            self.stormIsInPrint(f'since {day}', msgs)
+
+            msgs = await core.stormlist('uptime newp')
+            self.stormIsInErr('No service with name/iden: newp', msgs)
+
+            svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour) / 1000
+            msgs = await core.stormlist('uptime stormvar')
+            self.stormIsInPrint('up 1D 02:00:', msgs)
+            self.stormIsInPrint(day, msgs)
+
+            resp = await core.callStorm('return($lib.cell.uptime())')
+            self.eq(core.startms, resp['starttime'])
+            self.lt(resp['uptime'], s_const.minute)
 
     async def test_stormfix_autoadds(self):
 
@@ -143,6 +171,41 @@ class StormCellTest(s_test.SynTest):
             q = '$lib.debug=$lib.true $r = $lib.cell.hotFixesApply() $lib.print("r={r}", r=$r)'
 
             msgs = await core.stormlist(q)
-            self.stormIsInPrint('Applied fix (2, 0, 0)', msgs)
+            self.stormIsInPrint('Applied hotfix (2, 0, 0)', msgs)
 
             self.len(2, await core.nodes('crypto:currency:coin'))
+
+    async def test_stormfix_cpe2_2(self):
+
+        async with self.getTestCore() as core:
+            view0 = core.getView().iden
+            view1 = await core.callStorm('return ( $lib.view.get().fork().iden )')
+            view2 = await core.callStorm('return($lib.view.add(($lib.layer.add().iden,)).iden)')
+            # Create it:sec:cpe nodes and strip off the :v2_2 property
+            nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*] [-:v2_2]',
+                                      opts={'view': view0})
+            self.none(nodes[0].get('v2_2'))
+            nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:vertex:testsss:*:*:*:*:*:*:*:*] [-:v2_2]',
+                                     opts={'view': view1})
+            self.none(nodes[0].get('v2_2'))
+            nodes = await core.nodes('[it:sec:cpe=cpe:2.3:a:vertex:stuffff:*:*:*:*:*:*:*:*] [-:v2_2]',
+                                     opts={'view': view2})
+            self.none(nodes[0].get('v2_2'))
+
+            self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
+            self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
+            self.len(0, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
+
+            # Set the hotfix valu
+            opts = {'vars': {'key': s_stormlib_cell.runtime_fixes_key, 'valu': (2, 0, 0)}}
+            await core.callStorm('$lib.globals.set($key, $valu)', opts)
+
+            # Run all hotfixes.
+            msgs = await core.stormlist('$lib.cell.hotFixesApply()')
+
+            self.stormIsInPrint('Applying hotfix (3, 0, 0) for [Populate it:sec:cpe:v2_2', msgs)
+            self.stormIsInPrint('Applied hotfix (3, 0, 0)', msgs)
+
+            self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view0}))
+            self.len(2, await core.nodes('it:sec:cpe:v2_2', opts={'view': view1}))
+            self.len(1, await core.nodes('it:sec:cpe:v2_2', opts={'view': view2}))
