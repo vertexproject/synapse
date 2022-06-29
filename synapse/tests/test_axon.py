@@ -298,6 +298,22 @@ words|word|wrd'''
         for row in rows:
             self.len(3, row)
 
+        # CSV With embedded newlines
+        data = '''i,s,nonce
+0,"foo
+bar baz",
+1,"foo
+bar baz",v
+2,"foo
+bar baz",vv
+'''
+        size, sha256 = await axon.put(data.encode())
+        rows = [row async for row in axon.csvrows(s_common.ehex(sha256))]
+        self.len(4, rows)
+        nlchunk = 'foo\nbar baz'
+        erows = [['i', 's', 'nonce'], ['0', nlchunk, ''], ['1', nlchunk, 'v'], ['2', nlchunk, 'vv'], ]
+        self.eq(rows, erows)
+
         # CSV with bad dialect
         with self.raises(s_exc.BadArg):
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), dialect='newp')]
