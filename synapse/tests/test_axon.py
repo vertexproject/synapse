@@ -322,9 +322,9 @@ bar baz",vv
         with self.raises(s_exc.BadArg) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), newp='newp')]
 
-        # data that isn't a text file
-        with self.raises(s_exc.BadDataValu) as cm:
-            rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
+        # # data that isn't a text file
+        # with self.raises(s_exc.BadDataValu) as cm:
+        #     rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
 
         # This is pulled from CPython's csv test suite to throw a CSV error.
         size, sha256 = await axon.put('"a'.encode())

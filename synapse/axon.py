@@ -1084,18 +1084,25 @@ class Axon(s_cell.Cell):
             return reader
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
-        queue = _DequeueHelper(collections.deque())
-        reader = self._getCsvReader(queue, dialect, **fmtparams)
 
-        async for line in self.readlines(sha256):
-            queue.append(line)
+        with tempfile.SpooledTemporaryFile(mode='a+', max_size=MAX_SPOOL_SIZE) as fd:
 
-            try:
-                row = next(reader)
-            except csv.Error as e:
-                raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
-            else:
-                yield row
+            # This is prone to byte alignment issues
+            async for chunk in self.get(s_common.uhex(sha256)):
+                fd.write(chunk.decode())
+            fd.seek(0)
+
+            reader = self._getCsvReader(fd, dialect, **fmtparams)
+
+            while True:
+                try:
+                    row = next(reader)
+                except csv.Error as e:
+                    raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
+                except StopIteration:  # No more data available to read
+                    return
+                else:
+                    yield row
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
