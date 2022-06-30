@@ -694,6 +694,24 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
 
+                headers = {'range': 'bytes=,2-'}
+                async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('10', resp.headers.get('content-length'))
+                    self.eq('bytes 2-11/12', resp.headers.get('content-range'))
+
+                headers = {'range': 'bytes=2-4,8-11'}
+                async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('3', resp.headers.get('content-length'))
+                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+
+                headers = {'range': 'bytes=2-4'}
+                async with sess.head(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('3', resp.headers.get('content-length'))
+                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+
     async def test_axon_blob_v00_v01(self):
 
         async with self.getRegrAxon('blobv00-blobv01') as axon:

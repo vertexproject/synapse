@@ -200,7 +200,7 @@ class AxonHttpBySha256V1(AxonFileHandler):
 
         sha256b = s_common.uhex(sha256)
 
-        self._setGetHeaders(sha256b)
+        await self._setSha256Headers(sha256b)
 
         self.set_header('Content-Disposition', 'attachment')
         self.set_header('Content-Type', 'application/octet-stream')
@@ -1074,7 +1074,7 @@ class Axon(s_cell.Cell):
 
     async def getByteRange(self, sha256, soff, eoff):
 
-        if not self.byterange:
+        if not self.byterange: # pragma: no cover
             mesg = 'This axon does not support byte ranges.'
             raise s_exc.FeatureNotSupported(mesg=mesg)
 
