@@ -118,9 +118,9 @@ class CvssLib(s_stormtypes.Lib):
                 name, valu = item.split(':')
 
                 if i == 0 and name == 'CVSS':
-                    if valu != '3.1':
-                        raise s_exc.BadArg(mesg='Currently only version 3.1 is supported.', vers=valu)
-                    continue
+                    if valu == '3.1':
+                        continue
+                    raise s_exc.BadArg(mesg='Currently only version 3.1 is supported.', vers=valu)
 
                 prop = vect2prop.get(name)
                 if prop is None:
