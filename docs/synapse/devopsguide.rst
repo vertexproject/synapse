@@ -523,7 +523,7 @@ seen in the services ``cell.yaml`` file.
 Trimming the Nexus Log
 ----------------------
 
-The Nexus log can be trimmed to reduce the storage size of any Cell that has Nexus logging enabled.
+The Nexus log can be trimmed to reduce the storage size of any Synapse Service that has Nexus logging enabled.
 This is commonly done before taking backups to reduce to their size.
 
 For a Cortex **without** any mirrors, this is best accomplished in Storm via the following query::
