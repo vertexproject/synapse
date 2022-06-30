@@ -693,3 +693,24 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(206, resp.status)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+
+    async def test_axon_blob_v00_v01(self):
+
+        async with self.getRegrAxon('blobv00-blobv01') as axon:
+
+            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
+            offsitems = list(axon.blobslab.scanByFull(db=axon.offsets))
+            self.eq(offsitems, (
+                (sha256 + (4).to_bytes(8, 'big'), (0).to_bytes(8, 'big')),
+                (sha256 + (8).to_bytes(8, 'big'), (1).to_bytes(8, 'big')),
+                (sha256 + (12).to_bytes(8, 'big'), (2).to_bytes(8, 'big')),
+            ))
+
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=4)]
+            self.eq(b'asdf', b''.join(bytslist))
+
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=4)]
+            self.eq(b'dfqw', b''.join(bytslist))
+
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=6)]
+            self.eq(b'dfqwer', b''.join(bytslist))
