@@ -55,15 +55,15 @@ class CryptoModule(s_module.CoreModule):
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:proxytoken', ('guid', {}), {
-                    'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate a specific non-fungible token.',
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:proxytokenall', ('guid', {}), {
-                    'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate all non-fungible tokens.',
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:proxytokens', ('guid', {}), {
-                    'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate fungible tokens.',
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 # TODO crypto:smart:effect:call - call another smart contract
