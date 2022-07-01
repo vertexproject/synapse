@@ -295,6 +295,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     crypto:smart:effect:proxytokens=*
                         :index=0
                         :transaction=*
+                        :contract=*
                         :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
                         :amount=0xff
@@ -304,9 +305,11 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('index'), 0)
             self.nn(node.get('owner'))
             self.nn(node.get('proxy'))
+            self.nn(node.get('contract'))
             self.eq(node.get('amount'), 'ff')
             self.len(2, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:address'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:smart:contract'))
 
             nodes = await core.nodes('''
                 [
