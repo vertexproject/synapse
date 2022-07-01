@@ -226,12 +226,17 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :exitcode=0
                     :exited=20210202
                     :sandbox:file=*
+                    :name=RunDLL32
+                    :path=c:/windows/system32/rundll32.exe
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
             self.nn(nodes[0].get('killedby'))
             self.eq(nodes[0].get('exitcode'), 0)
             self.eq(nodes[0].get('exited'), 1612224000000)
+            self.eq(nodes[0].get('name'), 'RunDLL32')
+            self.eq(nodes[0].get('path'), 'c:/windows/system32/rundll32.exe')
+            self.eq(nodes[0].get('path:base'), 'rundll32.exe')
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
 

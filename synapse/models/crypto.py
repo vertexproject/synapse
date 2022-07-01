@@ -36,12 +36,35 @@ class CryptoModule(s_module.CoreModule):
                 }),
                 ('crypto:smart:effect:transfertoken', ('guid', {}), {
                     'doc': 'A smart contract effect which transfers ownership of a non-fungible token.',
+                    'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:transfertokens', ('guid', {}), {
                     'doc': 'A smart contract effect which transfers fungible tokens.',
+                    'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:edittokensupply', ('guid', {}), {
                     'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:minttoken', ('guid', {}), {
+                    'doc': 'A smart contract effect which creates a new non-fungible token.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:burntoken', ('guid', {}), {
+                    'doc': 'A smart contract effect which destroys a non-fungible token.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:proxytoken', ('guid', {}), {
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:proxytokenall', ('guid', {}), {
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:proxytokens', ('guid', {}), {
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
+                    'interfaces': ('crypto:smart:effect',),
                 }),
                 # TODO crypto:smart:effect:call - call another smart contract
                 # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
@@ -127,6 +150,17 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:x509:signedfile', ('comp', {'fields': (('cert', 'crypto:x509:cert'), ('file', 'file:bytes'))}), {
                     'doc': 'A digital signature relationship between an X.509 certificate and a file.',
+                }),
+            ),
+
+            'interfaces': (
+                ('crypto:smart:effect', {
+                    'props': (
+                        ('index', ('int', {}), {
+                            'doc': 'The order of the effect within the effects of one transaction.'}),
+                        ('transaction', ('crypto:currency:transaction', {}), {
+                            'doc': 'The transaction where the smart contract was called.'}),
+                    ),
                 }),
             ),
 
@@ -251,8 +285,6 @@ class CryptoModule(s_module.CoreModule):
                 )),
 
                 ('crypto:smart:effect:transfertoken', {}, (
-                    ('transaction', ('crypto:currency:transaction', {}), {
-                        'doc': 'The transaction where the smart contract was called.'}),
                     ('token', ('crypto:smart:token', {}), {
                         'doc': 'The non-fungible token that was transferred.'}),
                     ('from', ('crypto:currency:address', {}), {
@@ -262,27 +294,60 @@ class CryptoModule(s_module.CoreModule):
                 )),
 
                 ('crypto:smart:effect:transfertokens', {}, (
-                    ('transaction', ('crypto:currency:transaction', {}), {
-                        'doc': 'The transaction where the smart contract was called.'}),
                     ('contract', ('crypto:smart:contract', {}), {
                         'doc': 'The contract which defines the tokens.'}),
                     ('from', ('crypto:currency:address', {}), {
-                        'doc': 'The address the NFT was transferred from.'}),
+                        'doc': 'The address the tokens were transferred from.'}),
                     ('to', ('crypto:currency:address', {}), {
-                        'doc': 'The address the NFT was transferred to.'}),
+                        'doc': 'The address the tokens were transferred to.'}),
                     ('amount', ('hugenum', {}), {
                         'doc': 'The number of tokens transferred.'}),
                 )),
 
                 ('crypto:smart:effect:edittokensupply', {}, (
-                    ('transaction', ('crypto:currency:transaction', {}), {
-                        'doc': 'The transaction where the smart contract was called.'}),
                     ('contract', ('crypto:smart:contract', {}), {
                         'doc': 'The contract which defines the tokens.'}),
                     ('amount', ('hugenum', {}), {
                         'doc': 'The number of tokens added or removed if negative.'}),
                     ('totalsupply', ('hugenum', {}), {
                         'doc': 'The total supply of tokens after this modification.'}),
+                )),
+
+                ('crypto:smart:effect:minttoken', {}, (
+                    ('token', ('crypto:smart:token', {}), {
+                        'doc': 'The non-fungible token that was created.'}),
+                )),
+
+                ('crypto:smart:effect:burntoken', {}, (
+                    ('token', ('crypto:smart:token', {}), {
+                        'doc': 'The non-fungible token that was destroyed.'}),
+                )),
+
+                ('crypto:smart:effect:proxytoken', {}, (
+                    ('owner', ('crypto:currency:address', {}), {
+                        'doc': 'The address granting proxy authority to manipulate non-fungible tokens.'}),
+                    ('proxy', ('crypto:currency:address', {}), {
+                        'doc': 'The address granted proxy authority to manipulate non-fungible tokens.'}),
+                    ('token', ('crypto:smart:token', {}), {
+                        'doc': 'The specific token being granted access to.'}),
+                )),
+
+                ('crypto:smart:effect:proxytokenall', {}, (
+                    ('owner', ('crypto:currency:address', {}), {
+                        'doc': 'The address granting/denying proxy authority to manipulate all non-fungible tokens of the owner.'}),
+                    ('proxy', ('crypto:currency:address', {}), {
+                        'doc': 'The address granted/denied proxy authority to manipulate all non-fungible tokens of the owner.'}),
+                    ('approval', ('bool', {}), {
+                        'doc': 'The approval status.'}),
+                )),
+
+                ('crypto:smart:effect:proxytokens', {}, (
+                    ('owner', ('crypto:currency:address', {}), {
+                        'doc': 'The address granting proxy authority to manipulate fungible tokens.'}),
+                    ('proxy', ('crypto:currency:address', {}), {
+                        'doc': 'The address granted proxy authority to manipulate fungible tokens.'}),
+                    ('amount', ('hex', {}), {
+                        'doc': 'The hex encoded amount of tokens the proxy is allowed to manipulate.'}),
                 )),
 
                 ('crypto:currency:address', {}, (

@@ -226,6 +226,90 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [
+                    crypto:smart:effect:minttoken=*
+                        :index=0
+                        :token=(2bdea834252a220b61aadf592cc0de66, 30)
+                        :transaction=*
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('token'))
+            self.nn(node.get('transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:minttoken -> crypto:smart:token'))
+            self.len(1, await core.nodes('crypto:smart:effect:minttoken -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:burntoken=*
+                        :index=0
+                        :token=(2bdea834252a220b61aadf592cc0de66, 30)
+                        :transaction=*
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('token'))
+            self.nn(node.get('transaction'))
+            self.len(1, await core.nodes('crypto:smart:effect:burntoken -> crypto:smart:token'))
+            self.len(1, await core.nodes('crypto:smart:effect:burntoken -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:proxytoken=*
+                        :index=0
+                        :token=(2bdea834252a220b61aadf592cc0de66, 30)
+                        :transaction=*
+                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('token'))
+            self.nn(node.get('owner'))
+            self.nn(node.get('proxy'))
+            self.len(1, await core.nodes('crypto:smart:effect:minttoken -> crypto:smart:token'))
+            self.len(1, await core.nodes('crypto:smart:effect:minttoken -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:proxytokenall=*
+                        :index=0
+                        :transaction=*
+                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :approval=$lib.true
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('owner'))
+            self.nn(node.get('proxy'))
+            self.true(node.get('approval'))
+            self.len(2, await core.nodes('crypto:smart:effect:proxytokenall -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:proxytokenall -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:proxytokens=*
+                        :index=0
+                        :transaction=*
+                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :amount=0xff
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('owner'))
+            self.nn(node.get('proxy'))
+            self.eq(node.get('amount'), 'ff')
+            self.len(2, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
                     crypto:smart:token=(2bdea834252a220b61aadf592cc0de66, 30)
                         :owner=eth/aaaa
                         :nft:url = https://coin.vertex.link/nfts/30
