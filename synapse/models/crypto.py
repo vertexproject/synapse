@@ -321,13 +321,18 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:smart:effect:proxytoken', {}, (
                     ('owner', ('crypto:currency:address', {}), {
-                        'doc': 'The address granting/denying proxy authority to manipulate non-fungible tokens.'}),
+                        'doc': 'The address granting proxy authority to manipulate non-fungible tokens.'}),
                     ('proxy', ('crypto:currency:address', {}), {
-                        'doc': 'The address granted/denied proxy authority to manipulate non-fungible tokens.'}),
+                        'doc': 'The address granted proxy authority to manipulate non-fungible tokens.'}),
                     ('token', ('crypto:smart:token', {}), {
                         'doc': 'The specific token being granted access to.'}),
-                    ('alltokens', ('bool', {}), {
-                        'doc': 'Whether the proxy was granted access to all NFTS for the owner.'}),
+                )),
+
+                ('crypto:smart:effect:proxytokenall', {}, (
+                    ('owner', ('crypto:currency:address', {}), {
+                        'doc': 'The address granting/denying proxy authority to manipulate all non-fungible tokens.'}),
+                    ('proxy', ('crypto:currency:address', {}), {
+                        'doc': 'The address granted/denied proxy authority to manipulate all non-fungible tokens.'}),
                     ('approval', ('bool', {}), {
                         'doc': 'The approval status.'}),
                 )),
