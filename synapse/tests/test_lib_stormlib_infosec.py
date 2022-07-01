@@ -136,6 +136,14 @@ class InfoSecTest(s_test.SynTest):
             valu = await core.callStorm(scmd, opts={'vars': {'vect': vec7}})
             self.eq(res7, valu)
 
+            vect = f'CVSS:3.1/{vec7}'
+            valu = await core.callStorm(scmd, opts={'vars': {'vect': vect}})
+            self.eq(res7, valu)
+
+            vect = f'CVSS:3.0/{vec7}'
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(scmd, opts={'vars': {'vect': vect}})
+
             vect = 'AV:A/AC:L/PR:H/UI:R/S:C/C:H/I:N/A:L/E:P/RL:T/RC:U/CR:H/IR:L/AR:M/MAV:X/MAC:H/MPR:L/MUI:N/MS:U/MC:H/MI:L/MA:N'
             valu = await core.callStorm('return($lib.infosec.cvss.vectToProps($vect))', opts={'vars': {'vect': vect}})
             self.eq(valu, {
