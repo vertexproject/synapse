@@ -342,6 +342,8 @@ class CryptoModule(s_module.CoreModule):
                 )),
 
                 ('crypto:smart:effect:proxytokens', {}, (
+                    ('contract', ('crypto:smart:contract', {}), {
+                        'doc': 'The contract which defines the tokens.'}),
                     ('owner', ('crypto:currency:address', {}), {
                         'doc': 'The address granting proxy authority to manipulate fungible tokens.'}),
                     ('proxy', ('crypto:currency:address', {}), {
