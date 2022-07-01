@@ -5,6 +5,83 @@ Synapse Changelog
 *****************
 
 
+v2.100.0 - 2022-06-30
+=====================
+
+Features and Enhancements
+-------------------------
+- Support parsing CVSS version 3.1 prefix values.
+  (`#2732 <https://github.com/vertexproject/synapse/pull/2732>`_)
+
+Bugfixes
+--------
+- Normalize tag value lists in ``snap.addTag()`` to properly handle JSON
+  inputs from HTTP APIs.
+  (`#2734 <https://github.com/vertexproject/synapse/pull/2734>`_)
+- Fix an issue that allowed multiple concurrent streaming backups to occur.
+  (`#2725 <https://github.com/vertexproject/synapse/pull/2725>`_)
+
+Improved Documentation
+----------------------
+- Add an entry to the devops task documentation for trimming Nexus logs.
+  (`#2730 <https://github.com/vertexproject/synapse/pull/2730>`_)
+- Update the list of available Rapid Power-Ups.
+  (`#2735 <https://github.com/vertexproject/synapse/pull/2735>`_)
+
+
+v2.99.0 - 2022-06-23
+====================
+
+Features and Enhancements
+-------------------------
+- Add an extensible STIX 2.1 import library, ``$lib.stix.import``. The
+  function ``$lib.stix.import.ingest()`` can be used to STIX bundles into a
+  Cortex via Storm.
+  (`#2727 <https://github.com/vertexproject/synapse/pull/2727>`_)
+- Add a Storm ``uptime`` command to display the uptime of a Cortex or a Storm
+  Service configured on the Cortex.
+  (`#2728 <https://github.com/vertexproject/synapse/pull/2728>`_)
+- Add ``--view`` and ``--optsfile`` arguments to ``synapse.tools.csvtool``.
+  (`#2726 <https://github.com/vertexproject/synapse/pull/2726>`_)
+
+Bugfixes
+--------
+- Fix an issue getting the maximum available memory for a host running with
+  Linux cgroupsv2 apis.
+  (`#2728 <https://github.com/vertexproject/synapse/pull/2728>`_)
+
+v2.98.0 - 2022-06-17
+====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``econ`` model.
+  (`#2717 <https://github.com/vertexproject/synapse/pull/2717>`_)
+
+  ``econ:acct:balance``
+    Add ``total:received`` and ``total:sent`` properties to record total
+    currency sent and received by the account.
+
+- Add additional debug logging for Aha provisioning.
+  (`#2722 <https://github.com/vertexproject/synapse/pull/2722>`_)
+- Adjust whitespace requirements on Storm grammar related to tags.
+  (`#2721 <https://github.com/vertexproject/synapse/pull/2721>`_)
+- Always run the function provided to the Storm ``divert`` command per node.
+  (`#2718 <https://github.com/vertexproject/synapse/pull/2718>`_)
+
+Bugfixes
+--------
+- Fix an issue that prevented function arguments named ``func`` in Storm
+  function calls.
+  (`#2715 <https://github.com/vertexproject/synapse/pull/2715>`_)
+- Ensure that active coroutines have been cancelled when changing a Cell from
+  active to passive status; before starting any passive coroutines.
+  (`#2713 <https://github.com/vertexproject/synapse/pull/2713>`_)
+- Fix an issue where ``Nexus._tellAhaReady`` was registering with the Aha
+  service when the Cell did not have a proper Aha service name set.
+  (`#2723 <https://github.com/vertexproject/synapse/pull/2723>`_)
+
+
 v2.97.0 - 2022-06-06
 ====================
 
