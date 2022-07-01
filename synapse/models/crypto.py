@@ -334,9 +334,9 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:smart:effect:proxytokens', {}, (
                     ('owner', ('crypto:currency:address', {}), {
-                        'doc': 'The address granting/denying proxy authority to manipulate fungible tokens.'}),
+                        'doc': 'The address granting proxy authority to manipulate fungible tokens.'}),
                     ('proxy', ('crypto:currency:address', {}), {
-                        'doc': 'The address granted/denied proxy authority to manipulate fungible tokens.'}),
+                        'doc': 'The address granted proxy authority to manipulate fungible tokens.'}),
                     ('amount', ('hex', {}), {
                         'doc': 'The hex encoded amount of tokens the proxy is allowed to manipulate.'}),
                 )),
