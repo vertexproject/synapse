@@ -55,11 +55,15 @@ class CryptoModule(s_module.CoreModule):
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:proxytoken', ('guid', {}), {
-                    'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate a specific non-fungible token.',
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
+                ('crypto:smart:effect:proxytokenall', ('guid', {}), {
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 ('crypto:smart:effect:proxytokens', ('guid', {}), {
-                    'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate non-fungible tokens.',
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
                 # TODO crypto:smart:effect:call - call another smart contract
@@ -293,9 +297,9 @@ class CryptoModule(s_module.CoreModule):
                     ('contract', ('crypto:smart:contract', {}), {
                         'doc': 'The contract which defines the tokens.'}),
                     ('from', ('crypto:currency:address', {}), {
-                        'doc': 'The address the NFT was transferred from.'}),
+                        'doc': 'The address the tokens were transferred from.'}),
                     ('to', ('crypto:currency:address', {}), {
-                        'doc': 'The address the NFT was transferred to.'}),
+                        'doc': 'The address the tokens were transferred to.'}),
                     ('amount', ('hugenum', {}), {
                         'doc': 'The number of tokens transferred.'}),
                 )),
@@ -321,20 +325,29 @@ class CryptoModule(s_module.CoreModule):
 
                 ('crypto:smart:effect:proxytoken', {}, (
                     ('owner', ('crypto:currency:address', {}), {
-                        'doc': 'The address granting proxy authority to manipulate a specific non-fungible token.'}),
+                        'doc': 'The address granting proxy authority to manipulate non-fungible tokens.'}),
                     ('proxy', ('crypto:currency:address', {}), {
-                        'doc': 'The address granted proxy authority to manipulate a specific non-fungible token.'}),
+                        'doc': 'The address granted proxy authority to manipulate non-fungible tokens.'}),
                     ('token', ('crypto:smart:token', {}), {
                         'doc': 'The specific token being granted access to.'}),
                 )),
 
-                ('crypto:smart:effect:proxytokens', {}, (
+                ('crypto:smart:effect:proxytokenall', {}, (
                     ('owner', ('crypto:currency:address', {}), {
-                        'doc': 'The address granting/denying proxy authority to manipulate non-fungible tokens.'}),
+                        'doc': 'The address granting/denying proxy authority to manipulate all non-fungible tokens of the owner.'}),
                     ('proxy', ('crypto:currency:address', {}), {
-                        'doc': 'The address granted/denied proxy authority to manipulate non-fungible tokens.'}),
+                        'doc': 'The address granted/denied proxy authority to manipulate all non-fungible tokens of the owner.'}),
                     ('approval', ('bool', {}), {
                         'doc': 'The approval status.'}),
+                )),
+
+                ('crypto:smart:effect:proxytokens', {}, (
+                    ('owner', ('crypto:currency:address', {}), {
+                        'doc': 'The address granting proxy authority to manipulate fungible tokens.'}),
+                    ('proxy', ('crypto:currency:address', {}), {
+                        'doc': 'The address granted proxy authority to manipulate fungible tokens.'}),
+                    ('amount', ('hex', {}), {
+                        'doc': 'The hex encoded amount of tokens the proxy is allowed to manipulate.'}),
                 )),
 
                 ('crypto:currency:address', {}, (
