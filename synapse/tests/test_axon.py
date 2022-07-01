@@ -674,6 +674,9 @@ class AxonTest(s_t_utils.SynTest):
             sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
             await axon.save(sha256, genr())
 
+            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=2)]
+            self.eq(b'as', b''.join(bytslist))
+
             bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=4)]
             self.eq(b'asdf', b''.join(bytslist))
 

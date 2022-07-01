@@ -1105,23 +1105,17 @@ class Axon(s_cell.Cell):
 
     async def _getBytsOffsSize(self, sha256, offs, size):
 
-        total = 0
+        remain = size
         async for byts in self._getBytsOffs(sha256, offs):
 
             blen = len(byts)
-
-            nexttotal = total + blen
-            if nexttotal == size:
-                yield byts
+            if blen >= remain:
+                yield byts[:remain]
                 return
 
-            if nexttotal < size:
-                yield byts
-                total = nexttotal
-                continue
+            remain -= blen
 
-            yield byts[:nexttotal - size]
-            return
+            yield byts
 
     async def dels(self, sha256s):
         '''
