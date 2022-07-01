@@ -176,7 +176,8 @@ class AxonFileHandler(s_httpapi.Handler):
         if self.ranges:
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
-            async for byts in self.axon().getByteRange(sha256b, soff, eoff):
+            size = eoff - soff
+            async for byts in self.axon().get(sha256b, soff, size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
@@ -846,12 +847,14 @@ class Axon(s_cell.Cell):
                 yield item
             await asyncio.sleep(0)
 
-    async def get(self, sha256):
+    async def get(self, sha256, offs=None, size=None):
         '''
         Get bytes of a file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file in bytes.
+            offs (int): The offset to start reading from.
+            size (int): The total number of bytes to read.
 
         Examples:
 
@@ -875,8 +878,23 @@ class Axon(s_cell.Cell):
         fhash = s_common.ehex(sha256)
         logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
-        async for byts in self._get(sha256):
-            yield byts
+        if offs is not None or size is not None:
+
+            if not self.byterange:  # pragma: no cover
+                mesg = 'This axon does not support byte ranges.'
+                raise s_exc.FeatureNotSupported(mesg=mesg)
+
+            if offs < 0:
+                raise s_exc.BadArg(mesg='Offs must be >= 0', offs=offs)
+            if size < 1:
+                raise s_exc.BadArg(mesg='Size must be >= 1', size=size)
+
+            async for byts in self._getBytsOffsSize(sha256, offs, size):
+                yield byts
+
+        else:
+            async for byts in self._get(sha256):
+                yield byts
 
     async def _get(self, sha256):
 
@@ -1072,16 +1090,6 @@ class Axon(s_cell.Cell):
         lkey = sha256 + offs.to_bytes(8, 'big')
         for offskey, indxbyts in self.blobslab.scanByRange(lkey, db=self.offsets):
             return int.from_bytes(offskey[32:], 'big'), indxbyts
-
-    async def getByteRange(self, sha256, soff, eoff):
-
-        if not self.byterange: # pragma: no cover
-            mesg = 'This axon does not support byte ranges.'
-            raise s_exc.FeatureNotSupported(mesg=mesg)
-
-        size = eoff - soff
-        async for byts in self._getBytsOffsSize(sha256, soff, size):
-            yield byts
 
     async def _getBytsOffs(self, sha256, offs):
 
