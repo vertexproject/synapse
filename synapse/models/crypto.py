@@ -58,6 +58,10 @@ class CryptoModule(s_module.CoreModule):
                     'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate a specific non-fungible token.',
                     'interfaces': ('crypto:smart:effect',),
                 }),
+                ('crypto:smart:effect:proxytokenall', ('guid', {}), {
+                    'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate all non-fungible tokens.',
+                    'interfaces': ('crypto:smart:effect',),
+                }),
                 ('crypto:smart:effect:proxytokens', ('guid', {}), {
                     'doc': 'A smart contract effect which grants a non-owner address the ability to maniuplate fungible tokens.',
                     'interfaces': ('crypto:smart:effect',),

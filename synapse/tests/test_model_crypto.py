@@ -274,7 +274,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [
-                    crypto:smart:effect:proxytokens=*
+                    crypto:smart:effect:proxytokenall=*
                         :index=0
                         :transaction=*
                         :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
@@ -287,6 +287,24 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.nn(node.get('owner'))
             self.nn(node.get('proxy'))
             self.true(node.get('approval'))
+            self.len(2, await core.nodes('crypto:smart:effect:proxytokenall -> crypto:currency:address'))
+            self.len(1, await core.nodes('crypto:smart:effect:proxytokenall -> crypto:currency:transaction'))
+
+            nodes = await core.nodes('''
+                [
+                    crypto:smart:effect:proxytokens=*
+                        :index=0
+                        :transaction=*
+                        :owner=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :proxy=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
+                        :amount=0xff
+                ]''')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('index'), 0)
+            self.nn(node.get('owner'))
+            self.nn(node.get('proxy'))
+            self.eq(node.get('amount'), 'ff')
             self.len(2, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:address'))
             self.len(1, await core.nodes('crypto:smart:effect:proxytokens -> crypto:currency:transaction'))
 
