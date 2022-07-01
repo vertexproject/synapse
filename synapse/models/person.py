@@ -296,6 +296,9 @@ class PsModule(s_module.CoreModule):
                     ('name', ('ps:name', {}), {
                         'doc': 'The person name listed for the contact.',
                     }),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of this contact.',
+                    }),
                     ('title', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The job/org title listed for this contact.',
                     }),
@@ -385,7 +388,10 @@ class PsModule(s_module.CoreModule):
                     }),
                     # A few probable multi-fields for entity resolution
                     ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The person name listed for the contact.',
+                        'doc': 'An array of associated names/aliases for the person.',
+                    }),
+                    ('orgnames', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of associated names/aliases for the organization.',
                     }),
                     ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated email addresses.',

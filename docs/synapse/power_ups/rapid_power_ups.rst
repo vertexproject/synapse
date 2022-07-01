@@ -22,6 +22,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-Certspotter <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-certspotter/index.html>`_
 - `Synapse-Crtsh <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-crtsh/index.html>`_
 - `Synapse-Datadog <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-datadog/index.html>`_
+- `Synapse-DomainIQ <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-domainiq/index.html>`_
 - `Synapse-Etherscan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-etherscan/index.html>`_
 - `Synapse-Flashpoint <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-flashpoint/index.html>`_
 - `Synapse-Google-CT <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-google-ct/index.html>`_
@@ -31,10 +32,12 @@ The following Rapid Power-Ups are available:
 - `Synapse-Intezer-Analyze <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-intezer-analyze/index.html>`_
 - `Synapse-Jira <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-jira/index.html>`_
 - `Synapse-Malshare <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-malshare/index.html>`_
+- `Synapse-Mandiant <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mandiant/index.html>`_
 - `Synapse-MISP (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-misp/index.html>`_
 - `Synapse-MITRE ATT&CK (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-attack/index.html>`_
 - `Synapse-MITRE-CVE <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-mitre-cve/index.html>`_
 - `Synapse-PassiveTotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-passivetotal/index.html>`_
+- `Synapse-ReversingLabs <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-reversinglabs/index.html>`_
 - `Synapse-Shodan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-shodan/index.html>`_
 - `Synapse-SpyCloud <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spycloud/index.html>`_
 - `Synapse-TeamCymru <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-teamcymru/index.html>`_

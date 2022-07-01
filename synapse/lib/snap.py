@@ -183,6 +183,9 @@ class ProtoNode:
         if tagnode is None:
             return
 
+        if isinstance(valu, list):
+            valu = tuple(valu)
+
         if valu != (None, None):
             try:
                 valu, _ = self.ctx.snap.core.model.type('ival').norm(valu)

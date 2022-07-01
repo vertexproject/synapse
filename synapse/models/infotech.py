@@ -514,6 +514,12 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:rule', ('guid', {}), {
                     'doc': 'A YARA rule unique identifier.',
                 }),
+                ('it:sec:stix:bundle', ('guid', {}), {
+                    'doc': 'A STIX bundle.',
+                }),
+                ('it:sec:stix:indicator', ('guid', {}), {
+                    'doc': 'A STIX indicator pattern.',
+                }),
                 ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
                     'doc': 'A YARA rule match to a file.',
                 }),
@@ -1295,6 +1301,9 @@ class ItModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The start time for the process.',
                     }),
+                    ('name', ('str', {}), {
+                        'doc': 'The display name specified by the process.',
+                    }),
                     ('exited', ('time', {}), {
                         'doc': 'The time the process exited.',
                     }),
@@ -1310,6 +1319,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',
+                    }),
+                    ('path:base', ('file:base', {}), {
+                        'doc': 'The file basename of the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
                         'doc': 'The path to the executable which started the process.',
@@ -1794,6 +1806,26 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The sensor host node that produced the hit.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the rule at the time of match.'}),
+                )),
+
+                ('it:sec:stix:bundle', {}, (
+                    ('id', ('str', {}), {
+                        'doc': 'The id field from the STIX bundle.'}),
+                )),
+
+                ('it:sec:stix:indicator', {}, (
+                    ('id', ('str', {}), {
+                        'doc': 'The STIX id field from the indicator pattern.'}),
+                    ('name', ('str', {}), {
+                        'doc': 'The name of the STIX indicator pattern.'}),
+                    ('pattern', ('str', {}), {
+                        'doc': 'The STIX indicator pattern text.'}),
+                    ('created', ('time', {}), {
+                        'doc': 'The time that the indicator pattern was first created.'}),
+                    ('updated', ('time', {}), {
+                        'doc': 'The time that the indicator pattern was last modified.'}),
+                    ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The label strings embedded in the STIX indicator pattern.'}),
                 )),
 
                 ('it:app:yara:rule', {}, (
