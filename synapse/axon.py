@@ -200,7 +200,8 @@ class AxonHttpBySha256V1(AxonFileHandler):
 
         sha256b = s_common.uhex(sha256)
 
-        await self._setSha256Headers(sha256b)
+        if not await self._setSha256Headers(sha256b):
+            return
 
         self.set_header('Content-Disposition', 'attachment')
         self.set_header('Content-Type', 'application/octet-stream')
@@ -1083,27 +1084,24 @@ class Axon(s_cell.Cell):
             yield byts
 
     async def _getBytsOffs(self, sha256, offs):
-            indx = self._offsToIndx(sha256, offs)
 
-            first = True
+        first = True
+        boff, indxbyts = self._offsToIndx(sha256, offs)
 
-            boff, indxbyts = self._offsToIndx(sha256, offs)
+        for bkey, byts in self.blobslab.scanByRange(sha256 + indxbyts, db=self.blobs):
 
-            for bkey, byts in self.blobslab.scanByRange(sha256 + indxbyts, db=self.blobs):
+            await asyncio.sleep(0)
 
-                await asyncio.sleep(0)
+            if bkey[:32] != sha256:
+                return
 
-                cursha = bkey[:32]
-                if bkey[:32] != sha256:
-                    return
+            if first:
+                first = False
+                delt = boff - offs
+                yield byts[-delt:]
+                continue
 
-                if first:
-                    first = False
-                    delt = boff - offs
-                    yield byts[-delt:]
-                    continue
-
-                yield byts
+            yield byts
 
     async def _getBytsOffsSize(self, sha256, offs, size):
 
