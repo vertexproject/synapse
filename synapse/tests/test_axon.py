@@ -696,18 +696,30 @@ class AxonTest(s_t_utils.SynTest):
                     self.eq(206, resp.status)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'dfq')
 
                 headers = {'range': 'bytes=,2-'}
                 async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
                     self.eq(206, resp.status)
                     self.eq('10', resp.headers.get('content-length'))
                     self.eq('bytes 2-11/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'dfqwerzxcv')
 
                 headers = {'range': 'bytes=2-4,8-11'}
                 async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
                     self.eq(206, resp.status)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'dfq')
 
                 headers = {'range': 'bytes=2-4'}
                 async with sess.head(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:

@@ -889,6 +889,10 @@ class Axon(s_cell.Cell):
             if size < 1:
                 raise s_exc.BadArg(mesg='Size must be >= 1', size=size)
 
+            fsize = await self.size(sha256)
+            if offs > fsize:
+                raise s_exc.BadArg(mesg='Starting offset greater than size of the blob.', offs=offs, fsize=fsize)
+
             async for byts in self._getBytsOffsSize(sha256, offs, size):
                 yield byts
 
