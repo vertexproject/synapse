@@ -1066,7 +1066,7 @@ class Axon(s_cell.Cell):
             async with await s_queue.AQueue.anit() as sq:
 
                 fut = s_coro.executor(self._readlines, fd, sq, sha256)
-                logger.info(f'made {fut}')
+
                 while not sq.isfini:
                     slice = await sq.slice()
                     for line in slice:
