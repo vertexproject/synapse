@@ -1301,6 +1301,9 @@ class ItModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The start time for the process.',
                     }),
+                    ('name', ('str', {}), {
+                        'doc': 'The display name specified by the process.',
+                    }),
                     ('exited', ('time', {}), {
                         'doc': 'The time the process exited.',
                     }),
@@ -1316,6 +1319,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',
+                    }),
+                    ('path:base', ('file:base', {}), {
+                        'doc': 'The file basename of the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
                         'doc': 'The path to the executable which started the process.',
