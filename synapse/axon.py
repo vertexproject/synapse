@@ -1090,7 +1090,6 @@ class Axon(s_cell.Cell):
             tchunk = b''
             i = 0
             async for chunk in self.get(s_common.uhex(sha256)):
-                await asyncio.sleep(0)
                 if tchunk:
                     tchunk = tchunk + chunk
                 else:
@@ -1103,6 +1102,8 @@ class Axon(s_cell.Cell):
                     continue
                 else:
                     tchunk = b''
+                finally:
+                    await asyncio.sleep(0)
 
             if tchunk:
                 raise s_exc.BadDataValu(mesg=f'Unable to decode all of file when loading', sha256=sha256)
