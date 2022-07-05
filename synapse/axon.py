@@ -1087,7 +1087,6 @@ class Axon(s_cell.Cell):
 
         with tempfile.SpooledTemporaryFile(mode='a+', max_size=MAX_SPOOL_SIZE) as fd:
 
-            # This is prone to byte alignment issues
             tchunk = b''
             i = 0
             async for chunk in self.get(s_common.uhex(sha256)):
