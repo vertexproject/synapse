@@ -1104,17 +1104,13 @@ class Axon(s_cell.Cell):
 
                 fut = s_coro.executor(self._csvrows, fd, sq, sha256, dialect, **fmtparams)
 
-                poison = False
-                while True:
+                while not sq.isfini:
                     slice = await sq.slice()
                     for row in slice:
                         if row is None:
-                            poison = True
-                            break
-                        else:
-                            yield row
-                    if poison:
-                        break
+                            await sq.fini()
+                            continue
+                        yield row
 
                 await fut
 
