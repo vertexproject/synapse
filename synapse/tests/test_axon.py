@@ -264,7 +264,7 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
         info = await axon.getCellInfo()
-        if info.get('features', {}).get('byterange') and not isinstance(axon, s_axon.AxonApi):
+        if info.get('features', {}).get('byterange') and not isinstance(axon, (s_telepath.Proxy, s_telepath.Client)):
             logger.info('Running range test for {axon}')
             # hand insert a genr to control offset sizes
             def genr():
