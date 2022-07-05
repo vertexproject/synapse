@@ -136,9 +136,19 @@ class AxonFileHandler(s_httpapi.Handler):
         if len(self.ranges):
             status = 206
             soff, eoff = self.ranges[0]
+
+            # Cannot read past blobsize
+            if soff > self.blobsize:
+                self.set_status(416)
+                return False
+            cont_len = eoff - soff
+            if cont_len < 1:
+                self.set_status(416)
+                return False
+
             # ranges are *inclusive*...
             self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
-            self.set_header('Content-Length', str(eoff - soff))
+            self.set_header('Content-Length', str(cont_len))
             # TODO eventually support multi-range returns
         else:
             self.set_header('Content-Length', str(self.blobsize))

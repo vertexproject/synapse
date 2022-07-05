@@ -721,11 +721,21 @@ class AxonTest(s_t_utils.SynTest):
                         buf = buf + byts
                     self.eq(buf, b'dfq')
 
+                # HEAD tests
                 headers = {'range': 'bytes=2-4'}
                 async with sess.head(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
                     self.eq(206, resp.status)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+
+                headers = {'range': 'bytes=20-40'}
+                async with sess.head(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
+                    self.eq(416, resp.status)
+
+                headers = {'range': 'bytes=20-4'}
+                async with sess.head(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}',
+                                     headers=headers) as resp:
+                    self.eq(416, resp.status)
 
     async def test_axon_blob_v00_v01(self):
 
