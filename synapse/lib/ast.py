@@ -934,9 +934,7 @@ class CmdOper(Oper):
 
             # must pull through the genr to get opts set
             # ( many commands expect self.opts is set at run() )
-            # logger.info('Calling pullone')
             genr, empty = await pullone(genx())
-            # logger.info(f'pulled one {genr=} {empty=}')
 
             try:
                 if runtsafe:

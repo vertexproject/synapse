@@ -78,7 +78,6 @@ def claim(typ, **info):
     Add an entry to the provenance stack for the duration of the context
     '''
     stack = s_task.varget('provstack')
-    # logger.info(f'claim: {typ} {info} Provenance stack length {len(stack)=}')
     if len(stack) > ProvenanceStackLimit:
         baseframe = stack.provs[1]
         recent_frames = stack.provs[-6:]
