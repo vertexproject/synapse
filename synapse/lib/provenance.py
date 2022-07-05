@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import pathlib
 import contextlib
 
@@ -12,6 +13,8 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
+
+logger = logging.getLogger(__name__)
 
 '''
 Provenance tracks the reason and path how a particular hypergraph operation
@@ -29,6 +32,7 @@ on that stack frame).
 '''
 
 ProvenanceEnabled = True
+ProvenanceStackLimit = 256
 
 class _ProvStack:
     def __init__(self):
@@ -74,8 +78,7 @@ def claim(typ, **info):
     Add an entry to the provenance stack for the duration of the context
     '''
     stack = s_task.varget('provstack')
-
-    if len(stack) > 256:
+    if len(stack) > ProvenanceStackLimit:
         baseframe = stack.provs[1]
         recent_frames = stack.provs[-6:]
         raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',
