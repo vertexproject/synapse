@@ -2053,7 +2053,7 @@ class LibAxon(Lib):
         sha256 = await tostr(sha256)
         dialect = await tostr(dialect)
         fmtparams = await toprim(fmtparams)
-        async for item in self.runt.snap.core.axon.csvrows(sha256, dialect, **fmtparams):
+        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
             yield item
             await asyncio.sleep(0)
 

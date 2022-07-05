@@ -1028,28 +1028,56 @@ class Axon(s_cell.Cell):
             for _, item in unpk.feed(byts):
                 yield item
 
-    async def readlines(self, sha256):
-        remain = ''
-        async for byts in self.get(s_common.uhex(sha256)):
+    @contextlib.asynccontextmanager
+    async def open(self, sha256, mode='r'):
+
+        link, fobj = await s_link.linkfile(mode=mode)
+
+        async def fill():
+            async for byts in self.get(sha256):
+                await link.send(byts)
+            await link.fini()
+
+        self.schedCoro(fill())
+
+        try:
+            yield fobj
+
+        finally:
+            fobj.close()
+            await link.fini()
+
+    def _readlines(self, fobj, queue, sha256):
             try:
-                text = remain + byts.decode()
-            except UnicodeDecodeError as e:
-                raise s_exc.BadDataValu(mesg=f'Unable to decode line: {e}', sha256=sha256)
+                for line in fobj:
+                    line = line.rstrip('\n')
+                    queue.put(line)
+            except (UnicodeDecodeError) as e:
+                raise s_exc.BadDataValu(mesg=f'Error processing file: {e}', sha256=sha256) from None
+            except Exception:
+                logger.exception('Error processing file.')
+                raise
+            finally:
+                queue.put(None)
 
-            lines = text.split('\n')
-            if len(lines) == 1:
-                remain = text
-                continue
+    async def readlines(self, sha256):
 
-            remain = lines[-1]
-            for line in lines[:-1]:
-                yield line
+        async with self.open(s_common.uhex(sha256)) as fd:
+            async with await s_queue.AQueue.anit() as sq:
 
-        if remain:
-            yield remain
+                fut = s_coro.executor(self._readlines, fd, sq, sha256)
+                logger.info(f'made {fut}')
+                while not sq.isfini:
+                    slice = await sq.slice()
+                    for line in slice:
+                        if line is None:
+                            await sq.fini()
+                            continue
+                        yield line
 
-    @staticmethod
-    def _getCsvReader(lines, dialect, **fmtparams) -> csv.reader:
+                await fut
+
+    def _getCsvReader(self, lines, dialect, **fmtparams) -> csv.reader:
         dialect = dialect.lower()
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
@@ -1064,30 +1092,11 @@ class Axon(s_cell.Cell):
         else:
             return reader
 
-    @contextlib.asynccontextmanager
-    async def open(self, sha256, mode='r'):
-
-        link, fobj = await s_link.linkfile(mode=mode)
-
-        async def fill():
-            async for byts in self.get(sha256):
-                await link.send(byts)
-            await link.fini()
-
-        self.schedCoro(fill())
-
-        yield fobj
-
-        fobj.close()
-        await link.fini()
-
     def _csvrows(self, fobj, queue, sha256, dialect, **fmtparams):
         try:
             reader = self._getCsvReader(fobj, dialect, **fmtparams)
             for row in reader:
                 queue.put(row)
-        except StopIteration:
-            pass
         except (UnicodeDecodeError, csv.Error) as e:
             raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
         except Exception:
@@ -1098,7 +1107,7 @@ class Axon(s_cell.Cell):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        async with self.open(s_common.uhex(sha256)) as fd:
+        async with self.open(sha256) as fd:
 
             async with await s_queue.AQueue.anit() as sq:
 

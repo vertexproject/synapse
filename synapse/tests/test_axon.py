@@ -254,7 +254,6 @@ class AxonTest(s_t_utils.SynTest):
         (lsize, l256) = await axon.put(linesbuf)
         (jsize, j256) = await axon.put(jsonsbuf)
         (bsize, b256) = await axon.put(b'\n'.join((jsonsbuf, linesbuf)))
-
         lines = [item async for item in axon.readlines(s_common.ehex(l256))]
         self.eq(('asdf', '', 'qwer'), lines)
         jsons = [item async for item in axon.jsonlines(s_common.ehex(j256))]
@@ -269,6 +268,16 @@ class AxonTest(s_t_utils.SynTest):
         with self.raises(s_exc.BadDataValu) as cm:
             lines = [item async for item in axon.readlines(s_common.ehex(bin256))]
 
+        # readlines byte alignment test
+        csize = s_axon.CHUNK_SIZE
+        stuff = (csize - 3) * 'v'
+        lines = [stuff, '.ॐwords']
+        buf = '\n'.join(lines)
+        size, sha256 = await axon.put(buf.encode())
+        lines = [item async for item in axon.readlines(s_common.ehex(sha256))]
+        self.len(2, lines)
+        self.eq(lines[1], '.ॐwords')
+
         # regular csv
         data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
 Jack,McGinnis,220 hobo Av.,Phila, PA,09119
@@ -279,7 +288,7 @@ Jack,McGinnis,220 hobo Av.,Phila, PA,09119
 Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
         data = '\n'.join([data for _ in range(10)])
         size, sha256 = await axon.put(data.encode())
-        rows = [row async for row in axon.csvrows(s_common.ehex(sha256))]
+        rows = [row async for row in axon.csvrows(sha256)]
         self.len(70, rows)
         for row in rows:
             self.len(6, row)
@@ -293,7 +302,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
         data = '''foo|bar|baz
 words|word|wrd'''
         size, sha256 = await axon.put(data.encode())
-        rows = [row async for row in axon.csvrows(s_common.ehex(sha256), delimiter='|')]
+        rows = [row async for row in axon.csvrows(sha256, delimiter='|')]
         self.len(2, rows)
         for row in rows:
             self.len(3, row)
@@ -308,26 +317,23 @@ bar baz",v
 bar baz",vv
 '''
         size, sha256 = await axon.put(data.encode())
-        rows = [row async for row in axon.csvrows(s_common.ehex(sha256))]
+        rows = [row async for row in axon.csvrows(sha256)]
         self.len(4, rows)
         nlchunk = 'foo\nbar baz'
         erows = [['i', 's', 'nonce'], ['0', nlchunk, ''], ['1', nlchunk, 'v'], ['2', nlchunk, 'vv'], ]
         self.eq(rows, erows)
 
         # CSV with bad dialect
-        logger.info('Bad dialect')
         with self.raises(s_exc.BadArg):
-            rows = [row async for row in axon.csvrows(s_common.ehex(sha256), dialect='newp')]
+            rows = [row async for row in axon.csvrows(sha256, dialect='newp')]
 
         # Bad fmtparams
-        logger.info('Bad fmtparams')
         with self.raises(s_exc.BadArg) as cm:
-            rows = [row async for row in axon.csvrows(s_common.ehex(sha256), newp='newp')]
+            rows = [row async for row in axon.csvrows(sha256, newp='newp')]
 
         # data that isn't a text file
-        logger.info('Bad not text file')
         with self.raises(s_exc.BadDataValu) as cm:
-            rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
+            rows = [row async for row in axon.csvrows(bin256)]
 
         # Single column csv blob with byte alignment issues
         fslm = csv.field_size_limit()
@@ -340,7 +346,7 @@ bar baz",vv
         rem = csize - len(buf)
         buf = buf + b'v' * (rem - 3) + b'\n' + '.ॐwords'.encode()
         size, sha256 = await axon.put(buf)
-        rows = [item async for item in axon.csvrows(s_common.ehex(sha256))]
+        rows = [item async for item in axon.csvrows(sha256)]
         self.len(129, rows)
         for row in rows:
             self.len(1, row)
@@ -349,7 +355,7 @@ bar baz",vv
         # This is pulled from CPython's csv test suite to throw a CSV error.
         size, sha256 = await axon.put('"a'.encode())
         with self.raises(s_exc.BadDataValu) as cm:
-            rows = [row async for row in axon.csvrows(s_common.ehex(sha256), strict=True)]
+            rows = [row async for row in axon.csvrows(sha256, strict=True)]
 
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
