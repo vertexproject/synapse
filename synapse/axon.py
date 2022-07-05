@@ -1083,7 +1083,79 @@ class Axon(s_cell.Cell):
         else:
             return reader
 
+    @contextlib.asynccontextmanager
+    async def open(self, sha256, mode='r'):
+
+        event = asyncio.Event()
+        import synapse.lib.link as s_link
+
+        link, fobj = await s_link.linkfile(mode=mode)
+
+        async def fill():
+            async for byts in self.get(sha256):
+                event.clear()
+                logger.info('clear!')
+                await link.send(byts)
+                logger.info(f'set! {byts=}')
+                event.set()
+            await link.fini()
+
+        self.schedCoro(fill())
+
+        yield fobj, event
+
+        fobj.close()
+        await link.fini()
+
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
+
+        async with self.open(s_common.uhex(sha256)) as (fd, event):
+
+            import synapse.lib.coro as s_coro
+            import synapse.lib.queue as s_queue
+            sq = await s_queue.AQueue.anit()
+
+            def doit(fobj, queue):
+                reader = self._getCsvReader(fobj, dialect, **fmtparams)
+                i = 0
+                try:
+                    while True:
+                        logger.info('Reading!')
+                        row = next(reader)
+                        logger.info(f'Read {row=} {i=}')
+                        i = i + 1
+                        queue.put(row)
+                except StopIteration:
+                    pass
+                except csv.Error as e:
+                    raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
+                except Exception:
+                    logger.exception('Error processing csv.')
+                    raise
+                finally:
+                    logger.info('poison')
+                    queue.put(None)
+
+            fut = s_coro.executor(doit, fd, sq)
+            await asyncio.sleep(0)
+            poison = False
+            # await event.wait()
+            while True:
+                slice = await sq.slice()
+                for row in slice:
+                    if row is None:
+                        logger.info('ROW NONE')
+                        poison = True
+                        break
+                    else:
+                        logger.info(f'sliced row: {row=}')
+                        yield row
+                if poison:
+                    break
+            await fut
+            # print(fut)
+
+    async def csvrows2(self, sha256, dialect='excel', **fmtparams):
 
         with tempfile.SpooledTemporaryFile(mode='a+', max_size=MAX_SPOOL_SIZE) as fd:
 
