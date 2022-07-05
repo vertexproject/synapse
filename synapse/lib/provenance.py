@@ -32,6 +32,7 @@ on that stack frame).
 '''
 
 ProvenanceEnabled = True
+ProvenanceStackLimit = 256
 
 class _ProvStack:
     def __init__(self):
@@ -78,7 +79,7 @@ def claim(typ, **info):
     '''
     stack = s_task.varget('provstack')
     # logger.info(f'claim: {typ} {info} Provenance stack length {len(stack)=}')
-    if len(stack) > 256:
+    if len(stack) > ProvenanceStackLimit:
         baseframe = stack.provs[1]
         recent_frames = stack.provs[-6:]
         raise s_exc.RecursionLimitHit(mesg='Hit provenance claim recursion limit',

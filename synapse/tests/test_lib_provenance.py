@@ -1,4 +1,5 @@
 import hashlib
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
