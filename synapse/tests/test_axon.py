@@ -315,14 +315,17 @@ bar baz",vv
         self.eq(rows, erows)
 
         # CSV with bad dialect
+        logger.info('Bad dialect')
         with self.raises(s_exc.BadArg):
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), dialect='newp')]
 
         # Bad fmtparams
+        logger.info('Bad fmtparams')
         with self.raises(s_exc.BadArg) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), newp='newp')]
 
         # data that isn't a text file
+        logger.info('Bad not text file')
         with self.raises(s_exc.BadDataValu) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
 

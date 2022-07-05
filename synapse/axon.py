@@ -5,7 +5,6 @@ import hashlib
 import logging
 import tempfile
 import contextlib
-import collections
 
 import aiohttp
 import aiohttp_socks
@@ -14,8 +13,11 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
+import synapse.lib.link as s_link
 import synapse.lib.const as s_const
+import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
@@ -595,27 +597,6 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             yield item
 
 
-class _DequeueHelper:
-    '''
-    Thin helper for the collections.dequeue class.
-
-    Provides an __iter__ method that allows the queue to
-    be appended to while iterating over it.
-    '''
-    def __init__(self, queue):
-        self.queue = queue
-
-    def __repr__(self):  # pragma: no cover
-        return f'<{self.__class__.__name__} object at 0x{id(self)} queue={repr(self.queue)}>'
-
-    def append(self, item):
-        self.queue.append(item)
-
-    def __iter__(self):
-        while self.queue:
-            item = self.queue.popleft()
-            yield item
-
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -1086,113 +1067,56 @@ class Axon(s_cell.Cell):
     @contextlib.asynccontextmanager
     async def open(self, sha256, mode='r'):
 
-        event = asyncio.Event()
-        import synapse.lib.link as s_link
-
         link, fobj = await s_link.linkfile(mode=mode)
 
         async def fill():
             async for byts in self.get(sha256):
-                event.clear()
-                logger.info('clear!')
                 await link.send(byts)
-                logger.info(f'set! {byts=}')
-                event.set()
             await link.fini()
 
         self.schedCoro(fill())
 
-        yield fobj, event
+        yield fobj
 
         fobj.close()
         await link.fini()
 
+    def _csvrows(self, fobj, queue, sha256, dialect, **fmtparams):
+        try:
+            reader = self._getCsvReader(fobj, dialect, **fmtparams)
+            for row in reader:
+                queue.put(row)
+        except StopIteration:
+            pass
+        except (UnicodeDecodeError, csv.Error) as e:
+            raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
+        except Exception:
+            logger.exception('Error processing csv.')
+            raise
+        finally:
+            queue.put(None)
+
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        async with self.open(s_common.uhex(sha256)) as (fd, event):
+        async with self.open(s_common.uhex(sha256)) as fd:
 
-            import synapse.lib.coro as s_coro
-            import synapse.lib.queue as s_queue
-            sq = await s_queue.AQueue.anit()
+            async with await s_queue.AQueue.anit() as sq:
 
-            def doit(fobj, queue):
-                reader = self._getCsvReader(fobj, dialect, **fmtparams)
-                i = 0
-                try:
-                    while True:
-                        logger.info('Reading!')
-                        row = next(reader)
-                        logger.info(f'Read {row=} {i=}')
-                        i = i + 1
-                        queue.put(row)
-                except StopIteration:
-                    pass
-                except csv.Error as e:
-                    raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
-                except Exception:
-                    logger.exception('Error processing csv.')
-                    raise
-                finally:
-                    logger.info('poison')
-                    queue.put(None)
+                fut = s_coro.executor(self._csvrows, fd, sq, sha256, dialect, **fmtparams)
 
-            fut = s_coro.executor(doit, fd, sq)
-            await asyncio.sleep(0)
-            poison = False
-            # await event.wait()
-            while True:
-                slice = await sq.slice()
-                for row in slice:
-                    if row is None:
-                        logger.info('ROW NONE')
-                        poison = True
+                poison = False
+                while True:
+                    slice = await sq.slice()
+                    for row in slice:
+                        if row is None:
+                            poison = True
+                            break
+                        else:
+                            yield row
+                    if poison:
                         break
-                    else:
-                        logger.info(f'sliced row: {row=}')
-                        yield row
-                if poison:
-                    break
-            await fut
-            # print(fut)
 
-    async def csvrows2(self, sha256, dialect='excel', **fmtparams):
-
-        with tempfile.SpooledTemporaryFile(mode='a+', max_size=MAX_SPOOL_SIZE) as fd:
-
-            tchunk = b''
-            i = 0
-            async for chunk in self.get(s_common.uhex(sha256)):
-                if tchunk:
-                    tchunk = tchunk + chunk
-                else:
-                    tchunk = chunk
-                i = i + 1
-                try:
-                    fd.write(tchunk.decode())
-                except UnicodeDecodeError:
-                    logger.exception(f'Unable to append line for {i} {chunk[:10]}...{chunk[-10:]}')
-                    continue
-                else:
-                    tchunk = b''
-                finally:
-                    await asyncio.sleep(0)
-
-            if tchunk:
-                raise s_exc.BadDataValu(mesg=f'Unable to decode all of file when loading', sha256=sha256)
-
-            fd.seek(0)
-
-            reader = self._getCsvReader(fd, dialect, **fmtparams)
-
-            while True:
-                try:
-                    row = next(reader)
-                except csv.Error as e:
-                    raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
-                except StopIteration:  # No more data available to read
-                    return
-                else:
-                    yield row
+                await fut
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
