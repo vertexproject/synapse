@@ -337,9 +337,7 @@ bar baz",vv
         rem = csize - len(buf)
         buf = buf + b'v' * (rem - 3) + b'\n' + '.ॐwords'.encode()
         size, sha256 = await axon.put(buf)
-        logger.warning(f'alighment test with {s_common.ehex(sha256)}')
         rows = [item async for item in axon.csvrows(s_common.ehex(sha256))]
-        logger.warning(f'got data for {s_common.ehex(sha256)}')
         self.len(129, rows)
         for row in rows:
             self.len(1, row)

@@ -1098,7 +1098,7 @@ class Axon(s_cell.Cell):
                 try:
                     fd.write(tchunk.decode())
                 except UnicodeDecodeError:
-                    logger.exception(f'Unable to append line for {i=} {chunk[:10]}...{chunk[-10:]}')
+                    logger.exception(f'Unable to append line for {i} {chunk[:10]}...{chunk[-10:]}')
                     continue
                 else:
                     tchunk = b''
