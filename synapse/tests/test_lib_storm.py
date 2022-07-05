@@ -3658,3 +3658,35 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint("nest1", msgs)
             self.stormIsInPrint("nest2", msgs)
             self.stormIsInPrint("nest3", msgs)
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            await core.nodes('[(media:news=* :org=foo) (inet:ipv4=1.2.3.4 +#test:score=1)]')
+
+            q = 'media:news:org #test'
+            self.len(2, await core.nodes(q))
+            self.len(1, await core.nodes('#test'))
+
+            q = 'media:news:org #test:score'
+            self.len(2, await core.nodes(q))
+            self.len(1, await core.nodes('#test:score'))
+
+            q = 'media:news:org#test'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No form media:news:org', msgs)
+
+            q = 'media:news:org#test:score'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('No form media:news:org', msgs)
+
+            q = 'media:news:org#test.*.bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+            q = '#test.*.bar'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+            q = 'media:news:org#test.*.bar:score'
+            msgs = await core.stormlist(q)
+            self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)

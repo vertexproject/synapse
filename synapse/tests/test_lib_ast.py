@@ -1518,6 +1518,8 @@ class AstTest(s_test.SynTest):
             q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
+            self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
+
     async def test_ast_function_scope(self):
 
         async with self.getTestCore() as core:
