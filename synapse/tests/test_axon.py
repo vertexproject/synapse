@@ -1,6 +1,6 @@
-import csv
 import io
 import os
+import csv
 import shutil
 import asyncio
 import hashlib
@@ -298,17 +298,53 @@ words|word|wrd'''
         for row in rows:
             self.len(3, row)
 
+        # CSV With embedded newlines
+        data = '''i,s,nonce
+0,"foo
+bar baz",
+1,"foo
+bar baz",v
+2,"foo
+bar baz",vv
+'''
+        size, sha256 = await axon.put(data.encode())
+        rows = [row async for row in axon.csvrows(s_common.ehex(sha256))]
+        self.len(4, rows)
+        nlchunk = 'foo\nbar baz'
+        erows = [['i', 's', 'nonce'], ['0', nlchunk, ''], ['1', nlchunk, 'v'], ['2', nlchunk, 'vv'], ]
+        self.eq(rows, erows)
+
         # CSV with bad dialect
+        logger.info('Bad dialect')
         with self.raises(s_exc.BadArg):
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), dialect='newp')]
 
         # Bad fmtparams
+        logger.info('Bad fmtparams')
         with self.raises(s_exc.BadArg) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(sha256), newp='newp')]
 
         # data that isn't a text file
+        logger.info('Bad not text file')
         with self.raises(s_exc.BadDataValu) as cm:
             rows = [row async for row in axon.csvrows(s_common.ehex(bin256))]
+
+        # Single column csv blob with byte alignment issues
+        fslm = csv.field_size_limit()
+        csize = s_axon.CHUNK_SIZE
+        buf = b''
+        while True:
+            buf = buf + (b'v' * fslm) + b'\n'
+            if csize - len(buf) < fslm:
+                break
+        rem = csize - len(buf)
+        buf = buf + b'v' * (rem - 3) + b'\n' + '.ॐwords'.encode()
+        size, sha256 = await axon.put(buf)
+        rows = [item async for item in axon.csvrows(s_common.ehex(sha256))]
+        self.len(129, rows)
+        for row in rows:
+            self.len(1, row)
+        self.eq(rows[-1], ['.ॐwords'])
 
         # This is pulled from CPython's csv test suite to throw a CSV error.
         size, sha256 = await axon.put('"a'.encode())

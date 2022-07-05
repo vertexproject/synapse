@@ -5,7 +5,6 @@ import hashlib
 import logging
 import tempfile
 import contextlib
-import collections
 
 import aiohttp
 import aiohttp_socks
@@ -14,8 +13,11 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
+import synapse.lib.link as s_link
 import synapse.lib.const as s_const
+import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
@@ -595,27 +597,6 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             yield item
 
 
-class _DequeueHelper:
-    '''
-    Thin helper for the collections.dequeue class.
-
-    Provides an __iter__ method that allows the queue to
-    be appended to while iterating over it.
-    '''
-    def __init__(self, queue):
-        self.queue = queue
-
-    def __repr__(self):  # pragma: no cover
-        return f'<{self.__class__.__name__} object at 0x{id(self)} queue={repr(self.queue)}>'
-
-    def append(self, item):
-        self.queue.append(item)
-
-    def __iter__(self):
-        while self.queue:
-            item = self.queue.popleft()
-            yield item
-
 class Axon(s_cell.Cell):
 
     cellapi = AxonApi
@@ -1083,19 +1064,55 @@ class Axon(s_cell.Cell):
         else:
             return reader
 
+    @contextlib.asynccontextmanager
+    async def open(self, sha256, mode='r'):
+
+        link, fobj = await s_link.linkfile(mode=mode)
+
+        async def fill():
+            async for byts in self.get(sha256):
+                await link.send(byts)
+            await link.fini()
+
+        self.schedCoro(fill())
+
+        yield fobj
+
+        fobj.close()
+        await link.fini()
+
+    def _csvrows(self, fobj, queue, sha256, dialect, **fmtparams):
+        try:
+            reader = self._getCsvReader(fobj, dialect, **fmtparams)
+            for row in reader:
+                queue.put(row)
+        except StopIteration:
+            pass
+        except (UnicodeDecodeError, csv.Error) as e:
+            raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
+        except Exception:
+            logger.exception('Error processing csv.')
+            raise
+        finally:
+            queue.put(None)
+
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
-        queue = _DequeueHelper(collections.deque())
-        reader = self._getCsvReader(queue, dialect, **fmtparams)
 
-        async for line in self.readlines(sha256):
-            queue.append(line)
+        async with self.open(s_common.uhex(sha256)) as fd:
 
-            try:
-                row = next(reader)
-            except csv.Error as e:
-                raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
-            else:
-                yield row
+            async with await s_queue.AQueue.anit() as sq:
+
+                fut = s_coro.executor(self._csvrows, fd, sq, sha256, dialect, **fmtparams)
+
+                while not sq.isfini:
+                    slice = await sq.slice()
+                    for row in slice:
+                        if row is None:
+                            await sq.fini()
+                            continue
+                        yield row
+
+                await fut
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
