@@ -883,6 +883,8 @@ workflows:
       - doctests
       - python38
       - python38_replay
+      - python310
+      - python310_replay
 
   weekly:
     triggers:
