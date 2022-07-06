@@ -1078,6 +1078,36 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('diff', opts=altview))
 
+            q = '''
+            [ ou:name=foo +(bar)> {[ ou:name=bar ]} ]
+            { for $i in $lib.range(1001) { $node.data.set($i, $i) }}
+            '''
+            nodes = await core.nodes(q, opts=altview)
+
+            visi = await core.auth.addUser('visi')
+            await visi.setPasswd('secret')
+
+            altview['user'] = visi.iden
+
+            uppriden = core.views[viewiden].layers[0].iden
+            lowriden = core.views[viewiden].layers[1].iden
+
+            await visi.addRule((True, ('view',)), gateiden=viewiden)
+            await visi.addRule((True, ('node',)), gateiden=uppriden)
+            await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
+            await visi.addRule((True, ('node', 'prop')), gateiden=lowriden)
+            await visi.addRule((True, ('node', 'data')), gateiden=lowriden)
+
+            with self.raises(s_exc.AuthDeny):
+                await core.nodes('ou:name | merge --apply', opts=altview)
+
+            self.len(0, await core.nodes('ou:name=foo'))
+
+            await visi.addRule((True, ('node', 'edge')), gateiden=lowriden)
+
+            await core.nodes('ou:name | merge --apply', opts=altview)
+            self.len(1, await core.nodes('ou:name=foo -(bar)> *'))
+
     async def test_storm_merge_opts(self):
 
         async with self.getTestCore() as core:
@@ -1155,6 +1185,196 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
             nodes = await core.nodes('ou:org=(org3,)')
             self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
+
+    async def test_storm_movenodes(self):
+
+        async with self.getTestCore() as core:
+            view2iden = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = {'view': view2iden}
+
+            view3iden = await core.callStorm('return($lib.view.get().fork().iden)', opts=view2)
+            view3 = {'view': view3iden}
+
+            layrs = await core.callStorm('return($lib.view.get().layers)', opts=view3)
+            layr3 = layrs[0]['iden']
+            layr2 = layrs[1]['iden']
+            layr1 = layrs[2]['iden']
+
+            await core.addTagProp('score', ('int', {}), {})
+
+            msgs = await core.stormlist('[ inet:fqdn=foo.com ] | movenodes --destlayer $node')
+            self.stormIsInErr('movenodes arguments must be runtsafe.', msgs)
+
+            msgs = await core.stormlist('ou:org | movenodes')
+            self.stormIsInErr('You may only move nodes in views with multiple layers.', msgs)
+
+            msgs = await core.stormlist('ou:org | movenodes --destlayer foo', opts=view2)
+            self.stormIsInErr('No layer with iden foo in this view', msgs)
+
+            msgs = await core.stormlist('ou:org | movenodes --srclayers foo', opts=view2)
+            self.stormIsInErr('No layer with iden foo in this view', msgs)
+
+            msgs = await core.stormlist(f'ou:org | movenodes --srclayers {layr2} --destlayer {layr2}', opts=view2)
+            self.stormIsInErr('cannot also be the destination layer', msgs)
+
+            msgs = await core.stormlist(f'ou:org | movenodes --precedence foo', opts=view2)
+            self.stormIsInErr('No layer with iden foo in this view', msgs)
+
+            msgs = await core.stormlist(f'ou:org | movenodes --precedence {layr2}', opts=view2)
+            self.stormIsInErr('must be included when specifying precedence', msgs)
+
+            q = '''
+            [ ou:org=(foo,)
+                :desc=layr1
+                .seen=2022
+                +#hehe.haha=2022
+                +#one:score=1
+                +(bar)> {[ ou:org=(bar,) ]}
+            ]
+            $node.data.set(foo, bar)
+            '''
+            nodes = await core.nodes(q)
+            nodeiden = nodes[0].iden()
+
+            msgs = await core.stormlist('ou:org | movenodes', opts=view2)
+            self.stormIsInPrint(f'{layr2} add {nodeiden}', msgs)
+            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:.created', msgs)
+            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:desc', msgs)
+            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#hehe.haha', msgs)
+            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org#one:score', msgs)
+            self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org DATA', msgs)
+            self.stormIsInPrint(f'{layr2} add {nodeiden} ou:org +(bar)>', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden}', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org:.created', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org:desc', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#hehe.haha', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org#one:score', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org DATA', msgs)
+            self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org +(bar)>', msgs)
+
+            nodes = await core.nodes('ou:org | movenodes --apply', opts=view2)
+
+            self.len(0, await core.nodes('ou:org=(foo,)'))
+
+            sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
+            sode = sodes[0]
+            self.eq(sode['props'].get('desc')[0], 'layr1')
+            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1640995200001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1640995200001))
+            self.eq(sode['tagprops'].get('one').get('score')[0], 1)
+            self.len(1, await core.nodes('ou:org=(foo,) -(bar)> *', opts=view2))
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
+            self.eq(data, 'bar')
+
+            q = '''
+            [ ou:org=(foo,)
+                :desc=overwritten
+                .seen=2023
+                +#hehe.haha=2023
+                +#one:score=2
+                +#two:score=1
+                +(baz)> {[ ou:org=(baz,) ]}
+            ]
+            $node.data.set(foo, baz)
+            $node.data.set(bar, baz)
+            '''
+            await core.nodes(q)
+
+            nodes = await core.nodes('ou:org | movenodes --apply', opts=view3)
+
+            self.len(0, await core.nodes('ou:org=(foo,)'))
+            self.len(0, await core.nodes('ou:org=(foo,)', opts=view2))
+
+            sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
+            sode = sodes[0]
+            self.eq(sode['props'].get('desc')[0], 'layr1')
+            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1672531200001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
+            self.eq(sode['tagprops'].get('one').get('score')[0], 1)
+            self.eq(sode['tagprops'].get('two').get('score')[0], 1)
+            self.len(1, await core.nodes('ou:org=(foo,) -(bar)> *', opts=view3))
+            self.len(1, await core.nodes('ou:org=(foo,) -(baz)> *', opts=view3))
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view3)
+            self.eq(data, 'bar')
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(bar))', opts=view3)
+            self.eq(data, 'baz')
+
+            q = f'ou:org | movenodes --apply --srclayers {layr3} --destlayer {layr2}'
+            nodes = await core.nodes(q, opts=view3)
+
+            sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
+            sode = sodes[0]
+            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1672531200001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
+            self.eq(sode['tagprops'].get('one').get('score')[0], 1)
+            self.eq(sode['tagprops'].get('two').get('score')[0], 1)
+            self.len(1, await core.nodes('ou:org=(foo,) -(bar)> *', opts=view2))
+            self.len(1, await core.nodes('ou:org=(foo,) -(baz)> *', opts=view2))
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
+            self.eq(data, 'bar')
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(bar))', opts=view2)
+            self.eq(data, 'baz')
+
+            q = '''
+            [ ou:org=(foo,)
+                :desc=prio
+                .seen=2024
+                +#hehe.haha=2024
+                +#one:score=2
+                +#two:score=2
+                +(prio)> {[ ou:org=(prio,) ]}
+            ]
+            $node.data.set(foo, prio)
+            $node.data.set(bar, prio)
+            '''
+            await core.nodes(q)
+
+            q = f'ou:org | movenodes --apply --precedence {layr1} {layr2} {layr3}'
+            nodes = await core.nodes(q, opts=view3)
+
+            sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
+            sode = sodes[0]
+            self.eq(sode['props'].get('desc')[0], 'prio')
+            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1704067200001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1704067200001))
+            self.eq(sode['tagprops'].get('one').get('score')[0], 2)
+            self.eq(sode['tagprops'].get('two').get('score')[0], 2)
+            self.len(1, await core.nodes('ou:org=(foo,) -(bar)> *', opts=view3))
+            self.len(1, await core.nodes('ou:org=(foo,) -(baz)> *', opts=view3))
+            self.len(1, await core.nodes('ou:org=(foo,) -(prio)> *', opts=view3))
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view3)
+            self.eq(data, 'prio')
+            data = await core.callStorm('ou:org=(foo,) return($node.data.get(bar))', opts=view3)
+            self.eq(data, 'prio')
+
+            for i in range(1001):
+                await core.addFormProp('ou:org', f'_test{i}', ('int', {}), {})
+
+            await core.nodes('''
+            [ ou:org=(cov,) ]
+
+            { for $i in $lib.range(1001) {
+                $prop = $lib.str.format('_test{i}', i=$i)
+                [ :$prop = $i
+                  +#$prop:score = $i
+                  +($i)> { ou:org=(cov,) }
+                ]
+                $node.data.set($prop, $i)
+            }}
+            ''')
+
+            q = f'ou:org | movenodes --apply --srclayers {layr1} --destlayer {layr2}'
+            nodes = await core.nodes(q, opts=view3)
+
+            sodes = await core.callStorm('ou:org=(cov,) return($node.getStorNodes())', opts=view2)
+            sode = sodes[0]
+            self.len(1002, sode['props'])
+            self.len(1001, sode['tags'])
+            self.len(1001, sode['tagprops'])
+            self.len(1001, await core.callStorm('ou:org=(cov,) return($node.data.list())', opts=view2))
+
+            msgs = await core.stormlist('ou:org=(cov,) -(*)> * | count | spin', opts=view2)
+            self.stormIsInPrint('1001', msgs)
 
     async def test_storm_embeds(self):
 
