@@ -253,6 +253,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('time'), 1612224000000)
             self.len(1, await core.nodes('it:av:prochit -> it:av:sig'))
             self.len(1, await core.nodes('it:av:prochit -> it:exec:proc'))
+            self.len(1, await core.nodes('it:av:signame=foobar -> it:av:sig'))
 
             nodes = await core.nodes('''[
                 it:app:yara:procmatch=*
@@ -567,6 +568,8 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('sig:name'), 'bar.baz.faz')
                 self.eq(node.get('sig:soft'), prod1)
                 await self.checkNodes(core, (('it:prod:soft', prod1),))
+
+                self.len(1, await core.nodes('it:av:signame=bar.baz.faz -> it:av:sig'))
 
                 # Test 'vers' semver brute forcing
                 testvectors = [
