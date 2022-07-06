@@ -388,7 +388,10 @@ class PsModule(s_module.CoreModule):
                     }),
                     # A few probable multi-fields for entity resolution
                     ('names', ('array', {'type': 'ps:name', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The person name listed for the contact.',
+                        'doc': 'An array of associated names/aliases for the person.',
+                    }),
+                    ('orgnames', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
+                        'doc': 'An array of associated names/aliases for the organization.',
                     }),
                     ('emails', ('array', {'type': 'inet:email', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated email addresses.',

@@ -10,7 +10,6 @@ their services.
 Documentation for specific Advanced Power-Ups can be found here:
 
 - `Synapse Backup <https://synapse.docs.vertex.link/projects/backup/en/latest/>`_
-- `Synapse Domainiq <https://synapse.docs.vertex.link/projects/domainiq/en/latest/>`_
 - `Synapse Fileparser <https://synapse.docs.vertex.link/projects/fileparser/en/latest/>`_
 - `Synapse Maxmind <https://synapse.docs.vertex.link/projects/maxmind/en/latest/>`_
 - `Synapse Metrics <https://synapse.docs.vertex.link/projects/metrics/en/latest/>`_
