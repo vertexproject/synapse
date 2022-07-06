@@ -1527,7 +1527,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if task is not None:
             task.cancel()
             try:
-                await task
+                retn = await asyncio.gather(task, return_exceptions=True)
+                if isinstance(retn[0], Exception):
+                    raise retn[0]
             except asyncio.CancelledError:
                 pass
             except Exception:  # pragma: no cover
