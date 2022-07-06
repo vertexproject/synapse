@@ -5,7 +5,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class LibHashes(s_stormtypes.Lib):
     '''
-    A Storm Library for hashing strings of bytes
+    A Storm Library for hashing bytes
     '''
     _storm_locals = (
         {'name': 'md5', 'desc': 'Retrieve an MD5 hash of a byte string.',
