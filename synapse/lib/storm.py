@@ -3194,7 +3194,7 @@ class MoveNodesCmd(Cmd):
 
     Examples:
 
-        // Move sodes for ou:org nodes to the top layer
+        // Move storage nodes for ou:org nodes to the top layer
 
         ou:org | movenodes --apply
 
@@ -3202,7 +3202,7 @@ class MoveNodesCmd(Cmd):
 
         ou:org | movenodes
 
-        // In a view with many layers, only move sodes from the bottom layer
+        // In a view with many layers, only move storage nodes from the bottom layer
         // to the top layer.
 
         $layers = $lib.view.get().layers
@@ -3211,8 +3211,8 @@ class MoveNodesCmd(Cmd):
 
         ou:org | movenodes --srclayers $bot --destlayer $top
 
-        // In a view with many layers, move sodes to the top layer and prioritize
-        // sodes values from the bottom layer over the other layers.
+        // In a view with many layers, move storage nodes to the top layer and
+        // prioritize values from the bottom layer over the other layers.
 
         $layers = $lib.view.get().layers
         $top = $layers.0.iden
@@ -3228,9 +3228,9 @@ class MoveNodesCmd(Cmd):
         pars.add_argument('--apply', default=False, action='store_true',
                           help='Execute the move changes.')
         pars.add_argument('--srclayers', default=None, nargs='*',
-                          help='Specify layers to move sodes from (defaults to all below the top layer)')
+                          help='Specify layers to move storage nodes from (defaults to all below the top layer)')
         pars.add_argument('--destlayer', default=None,
-                          help='Layer to move sodes to (defaults to the top layer)')
+                          help='Layer to move storage nodes to (defaults to the top layer)')
         pars.add_argument('--precedence', default=None, nargs='*',
                           help='Layer precedence for resolving conflicts (defaults to bottom up)')
         return pars
@@ -3285,7 +3285,7 @@ class MoveNodesCmd(Cmd):
             srclayrs = self.opts.srclayers
             for layr in srclayrs:
                 if layr not in layridens:
-                    mesg = f'No layer with iden {layr} in this view, cannot move sodes.'
+                    mesg = f'No layer with iden {layr} in this view, cannot move nodes.'
                     raise s_exc.BadOperArg(mesg=mesg, layr=layr)
         else:
             srclayrs = [layr.iden for layr in runt.snap.view.layers[1:]]
@@ -3293,7 +3293,7 @@ class MoveNodesCmd(Cmd):
         if self.opts.destlayer:
             self.destlayr = self.opts.destlayer
             if self.destlayr not in layridens:
-                mesg = f'No layer with iden {self.destlayr} in this view, cannot move sodes.'
+                mesg = f'No layer with iden {self.destlayr} in this view, cannot move nodes.'
                 raise s_exc.BadOperArg(mesg=mesg, layr=self.destlayr)
         else:
             self.destlayr = runt.snap.view.layers[0].iden
