@@ -594,6 +594,24 @@ class ScrapeTest(s_t_utils.SynTest):
         }
         self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
 
+        defanged = '''
+        http[:]//test1.com
+        https[:]//test2.com
+        http[://]test3.com
+        https[://]test4.com
+        http(:)//test5.com
+        https(:)//test6.com
+        '''
+        exp = {
+            'http://test1.com', 'test1.com',
+            'https://test2.com', 'test2.com',
+            'http://test3.com', 'test3.com',
+            'https://test4.com', 'test4.com',
+            'http://test5.com', 'test5.com',
+            'https://test6.com', 'test6.com',
+        }
+        self.eq(exp, {n[1] for n in s_scrape.scrape(defanged)})
+
         # Test scrape without re-fang
         defanged = 'HXXP[:]//example.com?faz=hxxp and im talking about HXXP over here'
         self.eq({'example.com'}, {n[1] for n in s_scrape.scrape(defanged, refang=False)})
