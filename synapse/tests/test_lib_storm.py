@@ -1186,7 +1186,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('ou:org=(org3,)')
             self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
 
-    async def test_storm_movesodes(self):
+    async def test_storm_movenodes(self):
 
         async with self.getTestCore() as core:
             view2iden = await core.callStorm('return($lib.view.get().fork().iden)')
@@ -1202,25 +1202,25 @@ class StormTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            msgs = await core.stormlist('[ inet:fqdn=foo.com ] | movesodes --destlayer $node')
-            self.stormIsInErr('movesodes arguments must be runtsafe.', msgs)
+            msgs = await core.stormlist('[ inet:fqdn=foo.com ] | movenodes --destlayer $node')
+            self.stormIsInErr('movenodes arguments must be runtsafe.', msgs)
 
-            msgs = await core.stormlist('ou:org | movesodes')
+            msgs = await core.stormlist('ou:org | movenodes')
             self.stormIsInErr('You may only move nodes in views with multiple layers.', msgs)
 
-            msgs = await core.stormlist('ou:org | movesodes --destlayer foo', opts=view2)
+            msgs = await core.stormlist('ou:org | movenodes --destlayer foo', opts=view2)
             self.stormIsInErr('No layer with iden foo in this view', msgs)
 
-            msgs = await core.stormlist('ou:org | movesodes --srclayers foo', opts=view2)
+            msgs = await core.stormlist('ou:org | movenodes --srclayers foo', opts=view2)
             self.stormIsInErr('No layer with iden foo in this view', msgs)
 
-            msgs = await core.stormlist(f'ou:org | movesodes --srclayers {layr2} --destlayer {layr2}', opts=view2)
+            msgs = await core.stormlist(f'ou:org | movenodes --srclayers {layr2} --destlayer {layr2}', opts=view2)
             self.stormIsInErr('cannot also be the destination layer', msgs)
 
-            msgs = await core.stormlist(f'ou:org | movesodes --precedence foo', opts=view2)
+            msgs = await core.stormlist(f'ou:org | movenodes --precedence foo', opts=view2)
             self.stormIsInErr('No layer with iden foo in this view', msgs)
 
-            msgs = await core.stormlist(f'ou:org | movesodes --precedence {layr2}', opts=view2)
+            msgs = await core.stormlist(f'ou:org | movenodes --precedence {layr2}', opts=view2)
             self.stormIsInErr('must be included when specifying precedence', msgs)
 
             q = '''
@@ -1236,7 +1236,7 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             nodeiden = nodes[0].iden()
 
-            msgs = await core.stormlist('ou:org | movesodes', opts=view2)
+            msgs = await core.stormlist('ou:org | movenodes', opts=view2)
             self.stormIsInPrint(f'{layr2} add {nodeiden}', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:.created', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:desc', msgs)
@@ -1252,7 +1252,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org DATA', msgs)
             self.stormIsInPrint(f'{layr1} delete {nodeiden} ou:org +(bar)>', msgs)
 
-            nodes = await core.nodes('ou:org | movesodes --apply', opts=view2)
+            nodes = await core.nodes('ou:org | movenodes --apply', opts=view2)
 
             self.len(0, await core.nodes('ou:org=(foo,)'))
 
@@ -1280,7 +1280,7 @@ class StormTest(s_t_utils.SynTest):
             '''
             await core.nodes(q)
 
-            nodes = await core.nodes('ou:org | movesodes --apply', opts=view3)
+            nodes = await core.nodes('ou:org | movenodes --apply', opts=view3)
 
             self.len(0, await core.nodes('ou:org=(foo,)'))
             self.len(0, await core.nodes('ou:org=(foo,)', opts=view2))
@@ -1299,7 +1299,7 @@ class StormTest(s_t_utils.SynTest):
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(bar))', opts=view3)
             self.eq(data, 'baz')
 
-            q = f'ou:org | movesodes --apply --srclayers {layr3} --destlayer {layr2}'
+            q = f'ou:org | movenodes --apply --srclayers {layr3} --destlayer {layr2}'
             nodes = await core.nodes(q, opts=view3)
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
@@ -1329,7 +1329,7 @@ class StormTest(s_t_utils.SynTest):
             '''
             await core.nodes(q)
 
-            q = f'ou:org | movesodes --apply --precedence {layr1} {layr2} {layr3}'
+            q = f'ou:org | movenodes --apply --precedence {layr1} {layr2} {layr3}'
             nodes = await core.nodes(q, opts=view3)
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
@@ -1363,7 +1363,7 @@ class StormTest(s_t_utils.SynTest):
             }}
             ''')
 
-            q = f'ou:org | movesodes --apply --srclayers {layr1} --destlayer {layr2}'
+            q = f'ou:org | movenodes --apply --srclayers {layr1} --destlayer {layr2}'
             nodes = await core.nodes(q, opts=view3)
 
             sodes = await core.callStorm('ou:org=(cov,) return($node.getStorNodes())', opts=view2)

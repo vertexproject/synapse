@@ -3184,7 +3184,7 @@ class MergeCmd(Cmd):
             runt.snap.livenodes.pop(node.buid, None)
             yield await runt.snap.getNodeByBuid(node.buid), path
 
-class MoveSodesCmd(Cmd):
+class MoveNodesCmd(Cmd):
     '''
     Move storage nodes between layers.
 
@@ -3196,11 +3196,11 @@ class MoveSodesCmd(Cmd):
 
         // Move sodes for ou:org nodes to the top layer
 
-        ou:org | movesodes --apply
+        ou:org | movenodes --apply
 
-        // Print out what the movesodes command *would* do but dont.
+        // Print out what the movenodes command *would* do but dont.
 
-        ou:org | movesodes
+        ou:org | movenodes
 
         // In a view with many layers, only move sodes from the bottom layer
         // to the top layer.
@@ -3209,7 +3209,7 @@ class MoveSodesCmd(Cmd):
         $top = $layers.0.iden
         $bot = $layers."-1".iden
 
-        ou:org | movesodes --srclayers $bot --destlayer $top
+        ou:org | movenodes --srclayers $bot --destlayer $top
 
         // In a view with many layers, move sodes to the top layer and prioritize
         // sodes values from the bottom layer over the other layers.
@@ -3219,9 +3219,9 @@ class MoveSodesCmd(Cmd):
         $mid = $layers.1.iden
         $bot = $layers.2.iden
 
-        ou:org | movesodes --precedence $bot $top $mid
+        ou:org | movenodes --precedence $bot $top $mid
     '''
-    name = 'movesodes'
+    name = 'movenodes'
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
@@ -3272,7 +3272,7 @@ class MoveSodesCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         if not self.runtsafe:
-            mesg = 'movesodes arguments must be runtsafe.'
+            mesg = 'movenodes arguments must be runtsafe.'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         if len(runt.snap.view.layers) < 2:
