@@ -108,6 +108,8 @@ setup(
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
         'pytz>=2021.3,<2022.2',
+        'beautifulsoup4>=4.11.1,<5.0',
+        'html5lib>=1.1,<2.0',
     ],
 
     extras_require={
