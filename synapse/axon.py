@@ -1048,32 +1048,31 @@ class Axon(s_cell.Cell):
             await link.fini()
 
     def _readlines(self, fobj, queue, sha256):
-            try:
-                for line in fobj:
-                    line = line.rstrip('\n')
-                    queue.put(line)
-            except (UnicodeDecodeError) as e:
-                raise s_exc.BadDataValu(mesg=f'Error processing file: {e}', sha256=sha256) from None
-            except Exception:
-                logger.exception('Error processing file.')
-                raise
-            finally:
-                queue.put(None)
+        try:
+            for line in fobj:
+                line = line.rstrip('\n')
+                queue.put(line)
+        except (UnicodeDecodeError) as e:
+            raise s_exc.BadDataValu(mesg=f'Error processing file: {e}', sha256=sha256) from None
+        except Exception:
+            logger.exception('Error processing file.')
+            raise
+        finally:
+            queue.put(None)
 
     async def readlines(self, sha256):
 
         async with self.open(s_common.uhex(sha256)) as fd:
-            async with await s_queue.AQueue.anit() as sq:
+            async with await s_queue.S2AQueue.anit(max_entries=128) as sq:
 
                 fut = s_coro.executor(self._readlines, fd, sq, sha256)
 
                 while not sq.isfini:
-                    slice = await sq.slice()
-                    for line in slice:
-                        if line is None:
-                            await sq.fini()
-                            continue
-                        yield line
+                    line = await sq.get()
+                    if line is None:
+                        await sq.fini()
+                        continue
+                    yield line
 
                 await fut
 
@@ -1109,17 +1108,16 @@ class Axon(s_cell.Cell):
 
         async with self.open(sha256) as fd:
 
-            async with await s_queue.AQueue.anit() as sq:
+            async with await s_queue.S2AQueue.anit(max_entries=128) as sq:
 
                 fut = s_coro.executor(self._csvrows, fd, sq, sha256, dialect, **fmtparams)
 
                 while not sq.isfini:
-                    slice = await sq.slice()
-                    for row in slice:
-                        if row is None:
-                            await sq.fini()
-                            continue
-                        yield row
+                    row = await sq.get()
+                    if row is None:
+                        await sq.fini()
+                        continue
+                    yield row
 
                 await fut
 
