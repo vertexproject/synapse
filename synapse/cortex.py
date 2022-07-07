@@ -3257,6 +3257,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.TagPruneCmd)
         self.addStormCmd(s_storm.ViewExecCmd)
         self.addStormCmd(s_storm.IntersectCmd)
+        self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)
