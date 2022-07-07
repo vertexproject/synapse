@@ -45,75 +45,88 @@ class AQueue(s_base.Base):
 
 class S2AQueue(s_base.Base):
     '''
-    Sync single producer, async single consumer finite queue with blocking at empty and full.
+    Sync producer, async consumer finite queue with blocking at empty and full.
     '''
-    async def __anit__(self, max_entries, drain_level=None):
-        '''
-        Args:
-            max_entries (int): the maximum number of entries that can be in the queue.
-            drain_level (Optional[int]): once the queue is full, no more entries will be admitted until the number of
-                entries falls below this parameter.  Defaults to half of max_entries.
-        '''
+    async def __anit__(self, maxsize):
 
         await s_base.Base.__anit__(self)
-        self.deq = collections.deque()
-        self.notdrainingevent = threading.Event()
-        self.notdrainingevent.set()
-        self.notemptyevent = asyncio.Event()
-        self.max_entries = max_entries
-        self.drain_level = max_entries // 2 if drain_level is None else drain_level
-        assert self.drain_level
+        self.fifo = collections.deque()
+        self.maxsize = maxsize
+
+        self.closed = False
+        self.notfull = threading.Event()
+        self.notempty = asyncio.Event()
 
         async def _onfini():
-            self.notemptyevent.set()
-            self.notdrainingevent.set()
+            self.notfull.set()
+            self.notempty.set()
+
         self.onfini(_onfini)
+
+    def close(self):
+        if self.closed:
+            return
+
+        self.closed = True
+        self.notfull.set()
+        self.notempty.set()
+        self.fifo.append(s_common.novalu)
 
     async def get(self):
         '''
-        Async pend retrieve on the queue
+        Return the next entry from the queue. Returns s_common.novalu when fini'd.
         '''
-        while not self.isfini:
-            try:
-                val = self.deq.popleft()
-                break
-            except IndexError:
-                self.notemptyevent.clear()
-                if len(self.deq):
-                    continue
-                await self.notemptyevent.wait()
-        else:
-            return None
+        if self.isfini:
+            return s_common.novalu
 
-        if not self.notdrainingevent.is_set() and len(self.deq) < self.drain_level:
-            self.notdrainingevent.set()
+        if len(self.fifo) == 0 and not self.closed:
+            self.notempty.clear()
+            await self.notempty.wait()
 
-        return val
+        if self.isfini:
+            return s_common.novalu
+
+        size = len(self.fifo)
+        if size == 0 and self.closed:
+            return s_common.novalu
+
+        retn = self.fifo.popleft()
+
+        if size == self.maxsize:
+            self.notfull.set()
+
+        if retn is s_common.novalu:
+            await self.fini()
+
+        return retn
 
     def put(self, item):
         '''
-        Put onto the queue.  Pend if the queue is full or draining.
+        Put onto the queue. Returns False if the queue is fini'd.
         '''
+        if self.isfini or self.closed:
+            return False
+
+        if len(self.fifo) == self.maxsize:
+            self.notfull.clear()
+            self.notfull.wait()
+
+        if self.isfini or self.closed:
+            return False
+
+        self.fifo.append(item)
+
+        if len(self.fifo) == 1:
+            self.notempty.set()
+
+        return True
+
+    async def __aiter__(self):
         while not self.isfini:
-            if len(self.deq) >= self.max_entries:
-                self.notdrainingevent.clear()
-            if not self.notdrainingevent.is_set():
-                self.notdrainingevent.wait()
-                continue
-            break
-        else:
-            return
-
-        self.deq.append(item)
-
-        # asyncio.Event.is_set is trivially threadsafe, though Event.set is not
-
-        if not self.notemptyevent.is_set():
-            self.loop.call_soon_threadsafe(self.notemptyevent.set)
-
-    def __len__(self):
-        return len(self.deq)
-
+            retn = await self.get()
+            if retn is s_common.novalu:
+                return
+            yield retn
 
 class Queue:
     '''

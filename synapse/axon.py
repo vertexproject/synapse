@@ -1038,7 +1038,7 @@ class Axon(s_cell.Cell):
                 await link.send(byts)
             await link.fini()
 
-        self.schedCoro(fill())
+        link.schedCoro(fill())
 
         try:
             yield fobj
@@ -1047,79 +1047,69 @@ class Axon(s_cell.Cell):
             fobj.close()
             await link.fini()
 
-    def _readlines(self, fobj, queue, sha256):
-        try:
-            for line in fobj:
-                line = line.rstrip('\n')
-                queue.put(line)
-        except (UnicodeDecodeError) as e:
-            raise s_exc.BadDataValu(mesg=f'Error processing file: {e}', sha256=sha256) from None
-        except Exception:
-            logger.exception('Error processing file.')
-            raise
-        finally:
-            queue.put(None)
-
     async def readlines(self, sha256):
 
         async with self.open(s_common.uhex(sha256)) as fd:
-            async with await s_queue.S2AQueue.anit(max_entries=128) as sq:
 
-                fut = s_coro.executor(self._readlines, fd, sq, sha256)
+            async with await s_queue.S2AQueue.anit(10) as sq:
 
-                while not sq.isfini:
-                    line = await sq.get()
-                    if line is None:
-                        await sq.fini()
-                        continue
-                    yield line
+                def fill():
+                    try:
+                        for line in fd:
+                            if not sq.put(line.rstrip('\n')):
+                                return
+                    finally:
+                        sq.close()
 
-                await fut
+                futu = s_coro.executor(fill)
 
-    def _getCsvReader(self, lines, dialect, **fmtparams) -> csv.reader:
+                async for item in sq:
+                    yield item
+
+                try:
+                    await futu
+                except UnicodeDecodeError as e:
+                    mesg = 'Error decoding unicode bytes.'
+                    raise s_exc.BadDataValu(mesg=mesg)
+
+    def _getCsvReader(self, fd, dialect, **fmtparams) -> csv.reader:
+
         dialect = dialect.lower()
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
 
         try:
-            reader = csv.reader(lines, dialect, **fmtparams)
+            return csv.reader(fd, dialect, **fmtparams)
         except TypeError as e:
-            if 'invalid keyword' in str(e):
-                raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}') from None
-            else:  # pragma: no cover
-                raise
-        else:
-            return reader
-
-    def _csvrows(self, fobj, queue, sha256, dialect, **fmtparams):
-        try:
-            reader = self._getCsvReader(fobj, dialect, **fmtparams)
-            for row in reader:
-                queue.put(row)
-        except (UnicodeDecodeError, csv.Error) as e:
-            raise s_exc.BadDataValu(mesg=f'Error processing csv row: {e}', sha256=sha256) from None
-        except Exception:
-            logger.exception('Error processing csv.')
-            raise
-        finally:
-            queue.put(None)
+            raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}') from None
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
         async with self.open(sha256) as fd:
 
-            async with await s_queue.S2AQueue.anit(max_entries=128) as sq:
+            async with await s_queue.S2AQueue.anit(10) as sq:
 
-                fut = s_coro.executor(self._csvrows, fd, sq, sha256, dialect, **fmtparams)
+                def fill():
+                    try:
+                        for row in self._getCsvReader(fd, dialect, **fmtparams):
+                            if not sq.put(row):
+                                return
+                    finally:
+                        sq.close()
 
-                while not sq.isfini:
-                    row = await sq.get()
-                    if row is None:
-                        await sq.fini()
-                        continue
+                futu = s_coro.executor(fill)
+
+                async for row in sq:
                     yield row
 
-                await fut
+                try:
+                    await futu
+                except csv.Error as e:
+                    mesg = f'CSV error: {str(e)}'
+                    raise s_exc.BadDataValu(mesg=mesg)
+                except UnicodeDecodeError as e:
+                    mesg = 'Error decoding unicode bytes.'
+                    raise s_exc.BadDataValu(mesg=mesg)
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
