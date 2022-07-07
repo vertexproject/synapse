@@ -5405,6 +5405,16 @@ class StatTally(Prim):
                   ),
                   'returns': {'type': 'int',
                               'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
+        {'name': 'sorted', 'desc': 'Yield counter, value pairs in sorted order.',
+         'type': {'type': 'function', '_funcname': 'sorted',
+                  'args': (
+                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
+                       'type': 'bool', 'default': False},
+                      {'name': 'reverse', 'desc': 'Sort by descending order instead of ascending order.',
+                       'type': 'bool', 'default': False},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'Tuple of (counter, value) in sorted order.'}}},
     )
     _ismutable = True
 
@@ -5417,6 +5427,7 @@ class StatTally(Prim):
         return {
             'inc': self.inc,
             'get': self.get,
+            'sorted': self.sorted,
         }
 
     async def __aiter__(self):
@@ -5439,6 +5450,14 @@ class StatTally(Prim):
     async def iter(self):
         for item in tuple(self.counters.items()):
             yield item
+
+    async def sorted(self, byname=False, reverse=False):
+        if byname:
+            for item in sorted(self.counters.items(), reverse=reverse):
+                yield item
+        else:
+            for item in sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse):
+                yield item
 
 @registry.registerLib
 class LibLayer(Lib):

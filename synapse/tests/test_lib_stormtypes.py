@@ -2988,6 +2988,66 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
             self.stormIsInPrint('tally.len()=2', mesgs)
 
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                for ($k, $v) in $tally.sorted() {
+                    $lib.print('{k}={v}', k=$k, v=$v)
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
+            self.eq(prints[0], 'foo=1')
+            self.eq(prints[1], 'bar=2')
+            self.eq(prints[2], 'baz=3')
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                for ($k, $v) in $tally.sorted(reverse=$lib.true) {
+                    $lib.print('{k}={v}', k=$k, v=$v)
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
+            self.eq(prints[0], 'baz=3')
+            self.eq(prints[1], 'bar=2')
+            self.eq(prints[2], 'foo=1')
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                for ($k, $v) in $tally.sorted(byname=$lib.true) {
+                    $lib.print('{k}={v}', k=$k, v=$v)
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
+            self.eq(prints[0], 'bar=2')
+            self.eq(prints[1], 'baz=3')
+            self.eq(prints[2], 'foo=1')
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                for ($k, $v) in $tally.sorted(byname=$lib.true, reverse=$lib.true) {
+                    $lib.print('{k}={v}', k=$k, v=$v)
+                }
+            '''
+            mesgs = await core.stormlist(q)
+            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
+            self.eq(prints[0], 'foo=1')
+            self.eq(prints[1], 'baz=3')
+            self.eq(prints[2], 'bar=2')
+
     async def test_storm_lib_layer(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
