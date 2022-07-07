@@ -2802,7 +2802,8 @@ class VarValue(Value):
         if valu is not s_common.novalu:
             return valu
 
-        raise s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name)
+        raise s_exc.NoSuchVar(mesg=f'Missing variable: {self.name}', name=self.name,
+                              runtsafe=runt.isRuntVar(self.name))
 
 class VarDeref(Value):
 
