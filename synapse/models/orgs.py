@@ -140,6 +140,15 @@ class OuModule(s_module.CoreModule):
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
+                ('ou:conflict', ('guid', {}), {
+                    'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
+                }),
+                ('ou:support', ('guid', {}), {
+                    'doc': 'Represents assessed support of a campaign by an org or other campaign.',
+                }),
+                ('ou:contribution', ('guid', {}), {
+                    'doc': 'Represents a specific instance of providing support to a campaign.',
+                }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
                 }),
@@ -411,6 +420,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org team responsible for carrying out the campaign.',
                     }),
                 )),
+                ('ou:conflict', {}, ()),
+                ('ou:support', {}, ()),
+
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
