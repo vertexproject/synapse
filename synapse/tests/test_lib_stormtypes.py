@@ -2235,6 +2235,22 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 1506826320000)
 
+            query = '''$valu="10/1/2017 1:22-01:30"
+            $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M%z")
+            [test:int=$parsed]
+            '''
+            nodes = await core.nodes(query)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 1506826320000)
+
+            query = '''$valu="10/1/2017 3:52+01:00"
+            $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M%z")
+            [test:int=$parsed]
+            '''
+            nodes = await core.nodes(query)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[1], 1506826320000)
+
             # Sad case for parse
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y--%H:%MTZ")

@@ -2494,6 +2494,9 @@ class LibTime(Lib):
             mesg = f'Error during time parsing - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
+        if dt.tzinfo is not None:
+            # Convert the aware dt to UTC, then strip off the tzinfo
+            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
 
     async def _sleep(self, valu):
