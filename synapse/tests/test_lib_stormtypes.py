@@ -2988,6 +2988,46 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('tally: foo=2 baz=0', mesgs)
             self.stormIsInPrint('tally.len()=2', mesgs)
 
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                return($tally.sorted())
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, [('foo', 1), ('bar', 2), ('baz', 3)])
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                return($tally.sorted(reverse=$lib.true))
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, [('baz', 3), ('bar', 2), ('foo', 1)])
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                return($tally.sorted(byname=$lib.true))
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, [('bar', 2), ('baz', 3), ('foo', 1)])
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 2)
+                $tally.inc(baz, 3)
+                return($tally.sorted(byname=$lib.true, reverse=$lib.true))
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
+
     async def test_storm_lib_layer(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
