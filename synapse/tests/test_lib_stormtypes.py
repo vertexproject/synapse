@@ -2993,60 +2993,40 @@ class StormTypesTest(s_test.SynTest):
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                for ($k, $v) in $tally.sorted() {
-                    $lib.print('{k}={v}', k=$k, v=$v)
-                }
+                return($tally.sorted())
             '''
-            mesgs = await core.stormlist(q)
-            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
-            self.eq(prints[0], 'foo=1')
-            self.eq(prints[1], 'bar=2')
-            self.eq(prints[2], 'baz=3')
+            vals = await core.callStorm(q)
+            self.eq(vals, [('foo', 1), ('bar', 2), ('baz', 3)])
 
             q = '''
                 $tally = $lib.stats.tally()
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                for ($k, $v) in $tally.sorted(reverse=$lib.true) {
-                    $lib.print('{k}={v}', k=$k, v=$v)
-                }
+                return($tally.sorted(reverse=$lib.true))
             '''
-            mesgs = await core.stormlist(q)
-            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
-            self.eq(prints[0], 'baz=3')
-            self.eq(prints[1], 'bar=2')
-            self.eq(prints[2], 'foo=1')
+            vals = await core.callStorm(q)
+            self.eq(vals, [('baz', 3), ('bar', 2), ('foo', 1)])
 
             q = '''
                 $tally = $lib.stats.tally()
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                for ($k, $v) in $tally.sorted(byname=$lib.true) {
-                    $lib.print('{k}={v}', k=$k, v=$v)
-                }
+                return($tally.sorted(byname=$lib.true))
             '''
-            mesgs = await core.stormlist(q)
-            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
-            self.eq(prints[0], 'bar=2')
-            self.eq(prints[1], 'baz=3')
-            self.eq(prints[2], 'foo=1')
+            vals = await core.callStorm(q)
+            self.eq(vals, [('bar', 2), ('baz', 3), ('foo', 1)])
 
             q = '''
                 $tally = $lib.stats.tally()
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                for ($k, $v) in $tally.sorted(byname=$lib.true, reverse=$lib.true) {
-                    $lib.print('{k}={v}', k=$k, v=$v)
-                }
+                return($tally.sorted(byname=$lib.true, reverse=$lib.true))
             '''
-            mesgs = await core.stormlist(q)
-            prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
-            self.eq(prints[0], 'foo=1')
-            self.eq(prints[1], 'baz=3')
-            self.eq(prints[2], 'bar=2')
+            vals = await core.callStorm(q)
+            self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
 
     async def test_storm_lib_layer(self):
 
