@@ -2535,6 +2535,9 @@ class LibTime(Lib):
             mesg = f'Error during time parsing - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
+        if dt.tzinfo is not None:
+            # Convert the aware dt to UTC, then strip off the tzinfo
+            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
 
     async def _sleep(self, valu):
@@ -5446,6 +5449,16 @@ class StatTally(Prim):
                   ),
                   'returns': {'type': 'int',
                               'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
+        {'name': 'sorted', 'desc': 'Get a list of (counter, value) tuples in sorted order.',
+         'type': {'type': 'function', '_funcname': 'sorted',
+                  'args': (
+                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
+                       'type': 'bool', 'default': False},
+                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
+                       'type': 'bool', 'default': False},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'List of (counter, value) tuples in sorted order.'}}},
     )
     _ismutable = True
 
@@ -5458,6 +5471,7 @@ class StatTally(Prim):
         return {
             'inc': self.inc,
             'get': self.get,
+            'sorted': self.sorted,
         }
 
     async def __aiter__(self):
@@ -5480,6 +5494,12 @@ class StatTally(Prim):
     async def iter(self):
         for item in tuple(self.counters.items()):
             yield item
+
+    async def sorted(self, byname=False, reverse=False):
+        if byname:
+            return list(sorted(self.counters.items(), reverse=reverse))
+        else:
+            return list(sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse))
 
 @registry.registerLib
 class LibLayer(Lib):

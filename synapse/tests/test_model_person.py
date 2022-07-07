@@ -114,6 +114,7 @@ class PsModelTest(s_t_utils.SynTest):
                     'address': '1 Iron Suit Drive, San Francisco, CA, 22222, USA',
                     'imid': (490154203237518, 310150123456789),
                     'names': ('vi', 'si'),
+                    'orgnames': ('vertex', 'project'),
                     'emails': ('visi@vertex.link', 'v@vtx.lk'),
                     'web:accts': (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')),
                     'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
@@ -146,6 +147,7 @@ class PsModelTest(s_t_utils.SynTest):
                 self.eq(node.get('imid:imei'), 490154203237518)
                 self.eq(node.get('imid:imsi'), 310150123456789)
                 self.eq(node.get('names'), ('si', 'vi'))
+                self.eq(node.get('orgnames'), ('project', 'vertex'))
                 self.eq(node.get('emails'), ('v@vtx.lk', 'visi@vertex.link'))
                 self.eq(node.get('web:accts'), (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')))
                 self.eq(node.get('users'), ('invisigoth', 'visi'))
