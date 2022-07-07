@@ -5410,7 +5410,7 @@ class StatTally(Prim):
                   'args': (
                       {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
                        'type': 'bool', 'default': False},
-                      {'name': 'reverse', 'desc': 'Sort by descending order instead of ascending order.',
+                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
                        'type': 'bool', 'default': False},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
