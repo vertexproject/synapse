@@ -104,6 +104,8 @@ class Link(s_base.Base):
 
         self.iden = s_common.guid()
 
+        writer._transport.set_write_buffer_limits(0)
+
         self.reader = reader
         self.writer = writer
 
