@@ -1,4 +1,5 @@
 import hashlib
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -82,9 +83,11 @@ class ProvenanceTest(s_t_utils.SynTest):
             self.eq(provstacks, correct)
 
             # Force recursion exception to be thrown
-            q = '.created ' + '| uniq' * 257
-            with self.raises(s_exc.RecursionLimitHit) as cm:
-                await real.nodes(q)
+
+            with mock.patch.object(s_provenance, 'ProvenanceStackLimit', 10):
+                q = '.created ' + '| uniq' * 20
+                with self.raises(s_exc.RecursionLimitHit) as cm:
+                    await real.nodes(q)
 
             self.eq(cm.exception.get('type'), 'stormcmd')
             self.eq(cm.exception.get('info'), {'name': 'uniq'})

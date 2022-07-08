@@ -6,7 +6,7 @@ import subprocess
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '2.99.0'
+VERSION = '2.100.0'
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -108,6 +108,7 @@ setup(
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
         'pytz>=2021.3,<2022.2',
+        'beautifulsoup4[html5lib]>=4.11.1,<5.0',
     ],
 
     extras_require={
@@ -129,7 +130,7 @@ setup(
             'pycodestyle>=2.8.0,<3.0.0',
             'bump2version>=1.0.1,<1.1.0',
             'pytest-xdist>=2.4.0,<3.0.0',
-            'coverage>=6.2,<6.3',
+            'coverage>=6.4.1,<7.0.0',
         ],
     },
 

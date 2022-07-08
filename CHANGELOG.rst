@@ -5,6 +5,30 @@ Synapse Changelog
 *****************
 
 
+v2.100.0 - 2022-06-30
+=====================
+
+Features and Enhancements
+-------------------------
+- Support parsing CVSS version 3.1 prefix values.
+  (`#2732 <https://github.com/vertexproject/synapse/pull/2732>`_)
+
+Bugfixes
+--------
+- Normalize tag value lists in ``snap.addTag()`` to properly handle JSON
+  inputs from HTTP APIs.
+  (`#2734 <https://github.com/vertexproject/synapse/pull/2734>`_)
+- Fix an issue that allowed multiple concurrent streaming backups to occur.
+  (`#2725 <https://github.com/vertexproject/synapse/pull/2725>`_)
+
+Improved Documentation
+----------------------
+- Add an entry to the devops task documentation for trimming Nexus logs.
+  (`#2730 <https://github.com/vertexproject/synapse/pull/2730>`_)
+- Update the list of available Rapid Power-Ups.
+  (`#2735 <https://github.com/vertexproject/synapse/pull/2735>`_)
+
+
 v2.99.0 - 2022-06-23
 ====================
 

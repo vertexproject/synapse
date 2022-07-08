@@ -3475,6 +3475,15 @@ class Layer(s_nexus.Pusher):
             prop = self.getAbrvProp(abrv)
             yield prop[0], valu
 
+    async def iterNodeDataKeys(self, buid):
+        '''
+        Return a generator of all a buid's node data keys
+        '''
+        for lkey in self.dataslab.scanKeysByPref(buid, db=self.nodedata):
+            abrv = lkey[32:]
+            prop = self.getAbrvProp(abrv)
+            yield prop[0]
+
     async def iterLayerNodeEdits(self):
         '''
         Scan the full layer and yield artificial sets of nodeedits.
