@@ -35,6 +35,7 @@ asdfhash = hashlib.sha256(abuf).digest()
 emptyhash = hashlib.sha256(b'').digest()
 pennhash = hashlib.sha256(pbuf).digest()
 rgryhash = hashlib.sha256(rbuf).digest()
+newphash = s_common.buid('newp')
 
 fields = [
     {'name': 'file', 'sha256': s_common.ehex(asdfhash), 'filename': 'file'},
@@ -265,8 +266,14 @@ class AxonTest(s_t_utils.SynTest):
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
         binsize, bin256 = await axon.put(bin_buf)
-        with self.raises(s_exc.BadDataValu) as cm:
+        with self.raises(s_exc.BadDataValu):
             lines = [item async for item in axon.readlines(s_common.ehex(bin256))]
+
+        with self.raises(s_exc.NoSuchFile):
+            lines = [item async for item in axon.readlines(s_common.ehex(newphash))]
+
+        with self.raises(s_exc.NoSuchFile):
+            lines = [item async for item in axon.jsonlines(s_common.ehex(newphash))]
 
         # readlines byte alignment test
         csize = s_axon.CHUNK_SIZE
@@ -334,6 +341,9 @@ bar baz",vv
         # data that isn't a text file
         with self.raises(s_exc.BadDataValu) as cm:
             rows = [row async for row in axon.csvrows(bin256)]
+
+        with self.raises(s_exc.NoSuchFile):
+            lines = [item async for item in axon.csvrows(newphash)]
 
         # Single column csv blob with byte alignment issues
         fslm = csv.field_size_limit()

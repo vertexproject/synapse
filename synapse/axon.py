@@ -710,6 +710,10 @@ class Axon(s_cell.Cell):
         self.axonhist.add(item, tick=tick)
         self.axonseqn.add(item)
 
+    async def _reqHas(self, sha256):
+        if not await self.has(sha256):
+            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+
     async def history(self, tick, tock=None):
         '''
         Yield hash rows for files that existing in the Axon after a given point in time.
@@ -767,8 +771,7 @@ class Axon(s_cell.Cell):
         Raises:
             synapse.exc.NoSuchFile: If the file does not exist.
         '''
-        if not await self.has(sha256):
-            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+        await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
         logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
@@ -882,8 +885,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A dictionary containing hashes of the file.
         '''
-        if not await self.has(sha256):
-            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+        await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
         logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
@@ -1041,6 +1043,8 @@ class Axon(s_cell.Cell):
     async def readlines(self, sha256):
 
         sha256 = s_common.uhex(sha256)
+        await self._reqHas(sha256)
+
         link00, sock00 = await s_link.linksock()
 
         todo = s_common.todo(_spawn_readlines, sock00)
@@ -1064,7 +1068,7 @@ class Axon(s_cell.Cell):
                 await link00.fini()
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
-
+        await self._reqHas(sha256)
         if dialect not in csv.list_dialects():
             raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
 
