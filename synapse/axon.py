@@ -1031,8 +1031,6 @@ class Axon(s_cell.Cell):
     async def _sha256ToLink(self, sha256, link):
         try:
             async for byts in self.get(sha256):
-                if link.isfini:
-                    return
                 await link.send(byts)
                 await asyncio.sleep(0)
         finally:
@@ -1057,7 +1055,11 @@ class Axon(s_cell.Cell):
                     if mesg is None:
                         return
 
-                    yield s_common.result(mesg).rstrip('\n')
+                    line = s_common.result(mesg)
+                    if line is None:
+                        return
+
+                    yield line.rstrip('\n')
 
             finally:
                 sock00.close()
@@ -1084,7 +1086,11 @@ class Axon(s_cell.Cell):
                     if mesg is None:
                         return
 
-                    yield s_common.result(mesg)
+                    row = s_common.result(mesg)
+                    if row is None:
+                        return
+
+                    yield row
 
             finally:
                 sock00.close()
@@ -1377,15 +1383,14 @@ def _spawn_readlines(sock):
                 for line in fd:
                     sock.sendall(s_msgpack.en((True, line)))
 
+                sock.sendall(s_msgpack.en((True, None)))
+
             except UnicodeDecodeError as e:
                 raise s_exc.BadDataValu(mesg=str(e))
 
     except Exception as e:
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
-
-    finally:
-        sock.shutdown(1)
 
 def _spawn_readrows(sock, dialect, fmtparams):
     try:
@@ -1396,6 +1401,8 @@ def _spawn_readrows(sock, dialect, fmtparams):
 
                 for row in csv.reader(fd, dialect, **fmtparams):
                     sock.sendall(s_msgpack.en((True, row)))
+
+                sock.sendall(s_msgpack.en((True, None)))
 
             except TypeError as e:
                 raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}')
@@ -1410,6 +1417,3 @@ def _spawn_readrows(sock, dialect, fmtparams):
     except Exception as e:
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
-
-    finally:
-        sock.shutdown(1)
