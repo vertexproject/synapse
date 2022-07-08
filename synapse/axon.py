@@ -1047,69 +1047,67 @@ class Axon(s_cell.Cell):
             fobj.close()
             await link.fini()
 
+    async def _sha256ToLink(self, sha256, link):
+        try:
+            async for byts in self.get(sha256):
+                if link.isfini:
+                    return
+                await link.send(byts)
+                await asyncio.sleep(0)
+        finally:
+            link.txfini()
+
     async def readlines(self, sha256):
 
-        async with self.open(s_common.uhex(sha256)) as fd:
+        sha256 = s_common.uhex(sha256)
+        link00, sock00 = await s_link.linksock()
 
-            async with await s_queue.S2AQueue.anit(10) as sq:
+        todo = s_common.todo(_spawn_readlines, sock00)
+        async with await s_base.Base.anit() as scope:
 
-                def fill():
-                    try:
-                        for line in fd:
-                            if not sq.put(line.rstrip('\n')):
-                                return
-                    finally:
-                        sq.close()
+            scope.schedCoro(s_coro.spawn(todo))
+            scope.schedCoro(self._sha256ToLink(sha256, link00))
 
-                futu = s_coro.executor(fill)
+            try:
 
-                async for item in sq:
-                    yield item
+                while not self.isfini:
 
-                try:
-                    await futu
-                except UnicodeDecodeError as e:
-                    mesg = 'Error decoding unicode bytes.'
-                    raise s_exc.BadDataValu(mesg=mesg)
+                    mesg = await link00.rx()
+                    if mesg is None:
+                        return
 
-    def _getCsvReader(self, fd, dialect, **fmtparams) -> csv.reader:
+                    yield s_common.result(mesg).rstrip('\n')
 
-        dialect = dialect.lower()
-        if dialect not in csv.list_dialects():
-            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
-
-        try:
-            return csv.reader(fd, dialect, **fmtparams)
-        except TypeError as e:
-            raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}') from None
+            finally:
+                sock00.shutdown(2)
+                await link00.fini()
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        async with self.open(sha256) as fd:
+        if dialect not in csv.list_dialects():
+            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
 
-            async with await s_queue.S2AQueue.anit(10) as sq:
+        link00, sock00 = await s_link.linksock()
 
-                def fill():
-                    try:
-                        for row in self._getCsvReader(fd, dialect, **fmtparams):
-                            if not sq.put(row):
-                                return
-                    finally:
-                        sq.close()
+        todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
+        async with await s_base.Base.anit() as scope:
 
-                futu = s_coro.executor(fill)
+            scope.schedCoro(s_coro.spawn(todo))
+            scope.schedCoro(self._sha256ToLink(sha256, link00))
 
-                async for row in sq:
-                    yield row
+            try:
 
-                try:
-                    await futu
-                except csv.Error as e:
-                    mesg = f'CSV error: {str(e)}'
-                    raise s_exc.BadDataValu(mesg=mesg)
-                except UnicodeDecodeError as e:
-                    mesg = 'Error decoding unicode bytes.'
-                    raise s_exc.BadDataValu(mesg=mesg)
+                while not self.isfini:
+
+                    mesg = await link00.rx()
+                    if mesg is None:
+                        return
+
+                    yield s_common.result(mesg)
+
+            finally:
+                sock00.shutdown(2)
+                await link00.fini()
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
@@ -1388,3 +1386,49 @@ class Axon(s_cell.Cell):
                     'ok': False,
                     'mesg': mesg,
                 }
+
+def _spawn_readlines(sock):
+    try:
+        with sock.makefile('r') as fd:
+
+            try:
+
+                for line in fd:
+                    sock.sendall(s_msgpack.en((True, line)))
+
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=str(e))
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
+
+    finally:
+        sock.shutdown(1)
+
+def _spawn_readrows(sock, dialect, fmtparams):
+    try:
+
+        with sock.makefile('r') as fd:
+
+            try:
+
+                for row in csv.reader(fd, dialect, **fmtparams):
+                    sock.sendall(s_msgpack.en((True, row)))
+
+            except TypeError as e:
+                raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}')
+
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=str(e))
+
+            except csv.Error as e:
+                mesg = f'CSV error: {str(e)}'
+                raise s_exc.BadDataValu(mesg=mesg)
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
+
+    finally:
+        sock.shutdown(1)

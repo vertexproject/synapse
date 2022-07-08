@@ -255,6 +255,9 @@ class Link(s_base.Base):
 
             raise
 
+    def txfini(self):
+        self.sock.shutdown(1)
+
     async def recv(self, size):
         return await self.reader.read(size)
 
