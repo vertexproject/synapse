@@ -1380,7 +1380,7 @@ class Axon(s_cell.Cell):
                     'mesg': mesg,
                 }
 
-def _spawn_readlines(sock):
+def _spawn_readlines(sock): # pragma: no cover
     try:
         with sock.makefile('r') as fd:
 
@@ -1398,7 +1398,7 @@ def _spawn_readlines(sock):
         mesg = s_common.retnexc(e)
         sock.sendall(s_msgpack.en(mesg))
 
-def _spawn_readrows(sock, dialect, fmtparams):
+def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
     try:
 
         with sock.makefile('r') as fd:
