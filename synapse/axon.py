@@ -570,7 +570,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                 async for row in axon.csvrows(sha256):
                     await dostuff(row)
 
-            Get the rows from a tab seperated file and process them::
+            Get the rows from a tab separated file and process them::
 
                 async for row in axon.csvrows(sha256, delimiter='\t'):
                     await dostuff(row)
