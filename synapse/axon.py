@@ -1028,25 +1028,6 @@ class Axon(s_cell.Cell):
             for _, item in unpk.feed(byts):
                 yield item
 
-    @contextlib.asynccontextmanager
-    async def open(self, sha256, mode='r'):
-
-        link, fobj = await s_link.linkfile(mode=mode)
-
-        async def fill():
-            async for byts in self.get(sha256):
-                await link.send(byts)
-            await link.fini()
-
-        link.schedCoro(fill())
-
-        try:
-            yield fobj
-
-        finally:
-            fobj.close()
-            await link.fini()
-
     async def _sha256ToLink(self, sha256, link):
         try:
             async for byts in self.get(sha256):
@@ -1079,7 +1060,7 @@ class Axon(s_cell.Cell):
                     yield s_common.result(mesg).rstrip('\n')
 
             finally:
-                sock00.shutdown(2)
+                sock00.close()
                 await link00.fini()
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
@@ -1106,7 +1087,7 @@ class Axon(s_cell.Cell):
                     yield s_common.result(mesg)
 
             finally:
-                sock00.shutdown(2)
+                sock00.close()
                 await link00.fini()
 
     async def jsonlines(self, sha256):

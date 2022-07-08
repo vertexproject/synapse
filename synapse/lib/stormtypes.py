@@ -1840,7 +1840,7 @@ class LibAxon(Lib):
                   'returns': {'name': 'yields', 'type': 'any',
                               'desc': 'A JSON object parsed from a line of text.'}}},
         {'name': 'csvrows', 'desc': '''
-            Yields CSV rows from a CSV file  file stored in the Axon.
+            Yields CSV rows from a CSV file stored in the Axon.
 
             Notes:
                 The dialect and fmtparams expose the Python csv.reader() parameters.
