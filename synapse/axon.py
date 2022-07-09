@@ -136,9 +136,20 @@ class AxonFileHandler(s_httpapi.Handler):
         if len(self.ranges):
             status = 206
             soff, eoff = self.ranges[0]
+
+            # Negative lengths are invalid
+            cont_len = eoff - soff
+            if cont_len < 1:
+                self.set_status(416)
+                return False
+
+            # Reading past the blobsize results in a 0 len response.
+            if soff >= self.blobsize:
+                cont_len = '0'
+
             # ranges are *inclusive*...
             self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
-            self.set_header('Content-Length', str(eoff - soff))
+            self.set_header('Content-Length', str(cont_len))
             # TODO eventually support multi-range returns
         else:
             self.set_header('Content-Length', str(self.blobsize))
@@ -176,7 +187,8 @@ class AxonFileHandler(s_httpapi.Handler):
         if self.ranges:
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
-            async for byts in self.axon().getByteRange(sha256b, soff, eoff):
+            size = eoff - soff
+            async for byts in self.axon().get(sha256b, soff, size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
@@ -846,12 +858,14 @@ class Axon(s_cell.Cell):
                 yield item
             await asyncio.sleep(0)
 
-    async def get(self, sha256):
+    async def get(self, sha256, offs=None, size=None):
         '''
         Get bytes of a file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file in bytes.
+            offs (int): The offset to start reading from.
+            size (int): The total number of bytes to read.
 
         Examples:
 
@@ -869,14 +883,35 @@ class Axon(s_cell.Cell):
         Raises:
             synapse.exc.NoSuchFile: If the file does not exist.
         '''
-        if not await self.has(sha256):
+        fsize = await self.size(sha256)
+        if fsize is None:
             raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
 
         fhash = s_common.ehex(sha256)
         logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
 
-        async for byts in self._get(sha256):
-            yield byts
+        if offs is not None or size is not None:
+
+            if not self.byterange:  # pragma: no cover
+                mesg = 'This axon does not support byte ranges.'
+                raise s_exc.FeatureNotSupported(mesg=mesg)
+
+            if offs < 0:
+                raise s_exc.BadArg(mesg='Offs must be >= 0', offs=offs)
+            if size < 1:
+                raise s_exc.BadArg(mesg='Size must be >= 1', size=size)
+
+            if offs >= fsize:
+                # If we try to read past the file, yield empty bytes and return.
+                yield b''
+                return
+
+            async for byts in self._getBytsOffsSize(sha256, offs, size):
+                yield byts
+
+        else:
+            async for byts in self._get(sha256):
+                yield byts
 
     async def _get(self, sha256):
 
@@ -1073,20 +1108,17 @@ class Axon(s_cell.Cell):
         for offskey, indxbyts in self.blobslab.scanByRange(lkey, db=self.offsets):
             return int.from_bytes(offskey[32:], 'big'), indxbyts
 
-    async def getByteRange(self, sha256, soff, eoff):
-
-        if not self.byterange: # pragma: no cover
-            mesg = 'This axon does not support byte ranges.'
-            raise s_exc.FeatureNotSupported(mesg=mesg)
-
-        size = eoff - soff
-        async for byts in self._getBytsOffsSize(sha256, soff, size):
-            yield byts
-
     async def _getBytsOffs(self, sha256, offs):
 
         first = True
-        boff, indxbyts = self._offsToIndx(sha256, offs)
+
+        boffindx = self._offsToIndx(sha256, offs)
+
+        if boffindx is None:
+            yield b''
+            return
+
+        boff, indxbyts = boffindx
 
         for bkey, byts in self.blobslab.scanByRange(sha256 + indxbyts, db=self.blobs):
 
@@ -1104,7 +1136,12 @@ class Axon(s_cell.Cell):
             yield byts
 
     async def _getBytsOffsSize(self, sha256, offs, size):
-
+        '''
+        Implementation dependent method to stream size # of bytes from the Axon,
+        starting a given offset.
+        '''
+        # This implementation assumes that the offs provided is < the maximum
+        # size of the sha256 value being asked for.
         remain = size
         async for byts in self._getBytsOffs(sha256, offs):
 

@@ -263,6 +263,45 @@ class AxonTest(s_t_utils.SynTest):
                 jsons.append(item)
         self.eq(({'foo': 'bar'}, {'baz': 'faz'}), jsons)
 
+        info = await axon.getCellInfo()
+        if info.get('features', {}).get('byterange') and not isinstance(axon, (s_telepath.Proxy, s_telepath.Client)):
+            logger.info(f'Running range test for {axon}')
+            # hand insert a genr to control offset sizes
+            def genr():
+                yield b'asdf'
+                yield b'qwer'
+                yield b'zxcv'
+
+            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
+            await axon.save(sha256, genr())
+
+            bytslist = [b async for b in axon.get(sha256, 0, size=2)]
+            self.eq(b'as', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 0, size=12)]
+            self.eq(b'asdfqwerzxcv', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 0, size=13)]
+            self.eq(b'asdfqwerzxcv', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 0, size=4)]
+            self.eq(b'asdf', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 2, size=4)]
+            self.eq(b'dfqw', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 2, size=6)]
+            self.eq(b'dfqwer', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 11, size=6)]
+            self.eq(b'v', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 12, size=6)]
+            self.eq(b'', b''.join(bytslist))
+
+            bytslist = [b async for b in axon.get(sha256, 13, size=6)]
+            self.eq(b'', b''.join(bytslist))
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -291,6 +330,7 @@ class AxonTest(s_t_utils.SynTest):
             await self.runAxonTestHttp(axon)
 
     async def runAxonTestHttp(self, axon):
+        # This test assumes a heavy axon object.
         host, port = await axon.addHttpsPort(0, host='127.0.0.1')
 
         newb = await axon.auth.addUser('newb')
@@ -459,6 +499,108 @@ class AxonTest(s_t_utils.SynTest):
                 item = await resp.json()
                 self.eq('err', item.get('status'))
                 self.eq('SchemaViolation', item.get('code'))
+
+            info = await axon.getCellInfo()
+            if info.get('features', {}).get('byterange'):
+                # hand insert a genr to control offset sizes
+                def genr():
+                    yield b'asdf'
+                    yield b'qwer'
+                    yield b'zxcv'
+
+                sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
+                await axon.save(sha256, genr())
+                shatext = s_common.ehex(sha256)
+
+                headers = {'range': 'bytes=2-4'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('3', resp.headers.get('content-length'))
+                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'dfq')
+
+                headers = {'range': 'bytes=,2-'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('10', resp.headers.get('content-length'))
+                    self.eq('bytes 2-11/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'dfqwerzxcv')
+
+                # eoff > blobsize
+                # headers = {'range': 'bytes=10-20'}
+                # async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                #     self.eq(206, resp.status)
+                #     self.eq('2', resp.headers.get('content-length'))
+                #     self.eq('bytes 10-11/12', resp.headers.get('content-range'))
+                #     buf = b''
+                #     async for byts in resp.content.iter_chunked(1024):
+                #         buf = buf + byts
+                #     self.eq(buf, b'cv')
+
+                headers = {'range': 'bytes=10-11'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('2', resp.headers.get('content-length'))
+                    self.eq('bytes 10-11/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'cv')
+
+                headers = {'range': 'bytes=11-11'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('1', resp.headers.get('content-length'))
+                    self.eq('bytes 11-11/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'v')
+
+                headers = {'range': 'bytes=20-40'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('0', resp.headers.get('content-length'))
+                    self.eq('bytes 20-40/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'')
+
+                headers = {'range': 'bytes=2-4,8-11'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('3', resp.headers.get('content-length'))
+                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'dfq')
+
+                # HEAD tests
+                headers = {'range': 'bytes=2-4'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('3', resp.headers.get('content-length'))
+                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
+
+                # invalid byte range?
+                # headers = {'range': 'bytes=20-40'}
+                # async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                #     self.eq(206, resp.status)
+                #     self.eq('0', resp.headers.get('content-length'))
+                #     self.eq('bytes 20-40/12', resp.headers.get('content-range'))
+
+                # Negative size
+                headers = {'range': 'bytes=20-4'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(416, resp.status)
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
@@ -662,59 +804,6 @@ class AxonTest(s_t_utils.SynTest):
                 resp = await axon.postfiles(fields, url)
                 self.true(resp.get('ok'))
 
-    async def test_axon_range(self):
-
-        async with self.getTestAxon() as axon:
-            # hand insert a genr to control offset sizes
-            def genr():
-                yield b'asdf'
-                yield b'qwer'
-                yield b'zxcv'
-
-            sha256 = hashlib.sha256(b'asdfqwerzxcv').digest()
-            await axon.save(sha256, genr())
-
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=2)]
-            self.eq(b'as', b''.join(bytslist))
-
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=4)]
-            self.eq(b'asdf', b''.join(bytslist))
-
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=4)]
-            self.eq(b'dfqw', b''.join(bytslist))
-
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=6)]
-            self.eq(b'dfqwer', b''.join(bytslist))
-
-            await axon.auth.rootuser.setPasswd('secret')
-            host, port = await axon.addHttpsPort(0, host='127.0.0.1')
-
-            shatext = s_common.ehex(sha256)
-            async with self.getHttpSess(auth=('root', 'secret'), port=port) as sess:
-                headers = {'range': 'bytes=2-4'}
-                async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
-                    self.eq('3', resp.headers.get('content-length'))
-                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
-
-                headers = {'range': 'bytes=,2-'}
-                async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
-                    self.eq('10', resp.headers.get('content-length'))
-                    self.eq('bytes 2-11/12', resp.headers.get('content-range'))
-
-                headers = {'range': 'bytes=2-4,8-11'}
-                async with sess.get(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
-                    self.eq('3', resp.headers.get('content-length'))
-                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
-
-                headers = {'range': 'bytes=2-4'}
-                async with sess.head(f'https://root:secret@127.0.0.1:{port}/api/v1/axon/files/by/sha256/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
-                    self.eq('3', resp.headers.get('content-length'))
-                    self.eq('bytes 2-4/12', resp.headers.get('content-range'))
-
     async def test_axon_blob_v00_v01(self):
 
         async with self.getRegrAxon('blobv00-blobv01') as axon:
@@ -727,11 +816,11 @@ class AxonTest(s_t_utils.SynTest):
                 (sha256 + (12).to_bytes(8, 'big'), (2).to_bytes(8, 'big')),
             ))
 
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 0, size=4)]
+            bytslist = [b async for b in axon.get(sha256, 0, size=4)]
             self.eq(b'asdf', b''.join(bytslist))
 
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=4)]
+            bytslist = [b async for b in axon.get(sha256, 2, size=4)]
             self.eq(b'dfqw', b''.join(bytslist))
 
-            bytslist = [b async for b in axon._getBytsOffsSize(sha256, 2, size=6)]
+            bytslist = [b async for b in axon.get(sha256, 2, size=6)]
             self.eq(b'dfqwer', b''.join(bytslist))
