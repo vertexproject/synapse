@@ -28,24 +28,24 @@ class LibGen(s_stormtypes.Lib):
     _storm_lib_path = ('gen',)
 
     _storm_query = '''
-    function orgByName(name) {
-        ou:name=$name -> ou:org
-        return($node)
-        [ ou:org=* :name=$name ]
-        return($node)
-    }
+        function orgByName(name) {
+            ou:name=$name -> ou:org
+            return($node)
+            [ ou:org=* :name=$name ]
+            return($node)
+        }
 
-    function orgByFqdn(fqdn) {
-        inet:fqdn=$fqdn -> ou:org
-        return($node)
-        [ ou:org=* :dns:mx+=$fqdn ]
-        return($node)
-    }
+        function orgByFqdn(fqdn) {
+            inet:fqdn=$fqdn -> ou:org
+            return($node)
+            [ ou:org=* :dns:mx+=$fqdn ]
+            return($node)
+        }
 
-    function industryByName(name) {
-        ou:industryname=$name -> ou:industry
-        return($node)
-        [ ou:industry=* :name=$name ]
-        return($node)
-    }
+        function industryByName(name) {
+            ou:industryname=$name -> ou:industry
+            return($node)
+            [ ou:industry=* :name=$name ]
+            return($node)
+        }
     '''
