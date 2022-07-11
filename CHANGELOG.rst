@@ -5,6 +5,33 @@ Synapse Changelog
 *****************
 
 
+v2.101.0 - TBD
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``xxx`` model.
+  (`#xxx <https://github.com/vertexproject/synapse/pull/xxx>`_)
+
+  ``econ:acct:balance``
+    Add ``total:received`` and ``total:sent`` properties to record total
+    currency sent and received by the account.
+
+- Add a new Storm function, ``$lib.mime.html.totext()``, to extract inner tag
+  text from HTML strings.
+  (`#2744 <https://github.com/vertexproject/synapse/pull/2744>`_)
+- Add Storm functions ``$lib.crypto.hashes.md5()``,
+  ``$lib.crypto.hashes.sha1()``, ``$lib.crypto.hashes.sha256()`` and
+  ``$lib.crypto.hashes.sha512()`` to allow hashing bytes directly in Storm.
+  (`#2743 <https://github.com/vertexproject/synapse/pull/2743>`_)
+
+Bugfixes
+--------
+
+Improved Documentation
+----------------------
+
+
 v2.100.0 - 2022-06-30
 =====================
 
