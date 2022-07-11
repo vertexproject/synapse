@@ -17,30 +17,30 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
-- Updates to the ``crypto``, ``infotech``, ``ps``, ``transport``, model.
+- Updates to the ``crypto``, ``infotech``, ``ps``, and ``transport`` models.
   (`#2720 <https://github.com/vertexproject/synapse/pull/2720>`_)
   (`#2738 <https://github.com/vertexproject/synapse/pull/2738>`_)
   (`#2739 <https://github.com/vertexproject/synapse/pull/2739>`_)
   (`#2747 <https://github.com/vertexproject/synapse/pull/2747>`_)
 
   ``crypto:smart:effect:minttoken``
-    Add a new form to model smart contract effects which creates
+    Add a new form to model smart contract effects which create
     non-fungible tokens.
 
   ``crypto:smart:effect:burntoken```
-    Add a new form to model smart contract effects which destroys
+    Add a new form to model smart contract effects which destroy
     non-fungible tokens.
 
- ``crypto:smart:effect:proxytoken``
+  ``crypto:smart:effect:proxytoken``
     Add a new form that tracks grants for a non-owner address the ability to
     manipulate a specific non-fungible token.
 
- ``crypto:smart:effect:proxytokenall``
+  ``crypto:smart:effect:proxytokenall``
     Add a new form that tracks grants for a non-owner address the ability to
-    maniuplate all of the non-fungible token.
+    manipulate all of the non-fungible tokens.
 
   ``crypto:smart:effect:proxytokens``
-    Add a new form that tracks grants for a  non-owner address to manipulate
+    Add a new form that tracks grants for a non-owner address to manipulate
     fungible tokens.
 
   ``it:av:signame``
@@ -53,11 +53,11 @@ Features and Enhancements
     executable for the process.
 
   ``ps:contact``
-    Add a ``orgnames`` secondary propery to track an array of orgnames
+    Add an ``orgnames`` secondary property to track an array of orgnames
     associated with a contact.
 
   ``transport:sea:vessel``
-    Add a ``make`` and ``model`` secondary properties to track information
+    Add ``make`` and ``model`` secondary properties to track information
     about the vessel.
 
 - Add a new Storm command, ``movenodes``, that can be used to move a node
@@ -73,7 +73,7 @@ Features and Enhancements
   ``$lib.crypto.hashes.sha1()``, ``$lib.crypto.hashes.sha256()`` and
   ``$lib.crypto.hashes.sha512()`` to allow hashing bytes directly in Storm.
   (`#2743 <https://github.com/vertexproject/synapse/pull/2743>`_)
-- Add a ``Axon.csvrows()`` API for streaming CSV rows from an Axon, and an
+- Add an ``Axon.csvrows()`` API for streaming CSV rows from an Axon, and a
   corresponding ``$lib.axon.csvrows()`` Storm API.
   (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
 - Expand Synapse requirements to include updated versions of the
@@ -88,9 +88,9 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fix the ``$lib.time.parse()`` when ``%z`` is used in the format specifier.
+- Fix ``$lib.time.parse()`` when ``%z`` is used in the format specifier.
   (`#2749 <https://github.com/vertexproject/synapse/pull/2749>`_)
-- Non-string form form-data fields are now serialized as JSON when using the
+- Non-string form-data fields are now serialized as JSON when using the
   ``Axon.postfiles()`` API.
   (`#2751 <https://github.com/vertexproject/synapse/pull/2751>`_)
 - Fix a byte-alignment issue in the ``Axon.readlines()`` API.
