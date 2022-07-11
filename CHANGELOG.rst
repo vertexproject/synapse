@@ -96,9 +96,6 @@ Bugfixes
 - Fix a byte-alignment issue in the ``Axon.readlines()`` API.
   (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
 
-Improved Documentation
-----------------------
-
 
 v2.100.0 - 2022-06-30
 =====================
