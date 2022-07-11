@@ -1167,13 +1167,7 @@ class Axon(s_cell.Cell):
 
         first = True
 
-        boffindx = self._offsToIndx(sha256, offs)
-
-        if boffindx is None:
-            yield b''
-            return
-
-        boff, indxbyts = boffindx
+        boff, indxbyts = self._offsToIndx(sha256, offs)
 
         for bkey, byts in self.blobslab.scanByRange(sha256 + indxbyts, db=self.blobs):
 
