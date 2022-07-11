@@ -17,6 +17,12 @@ Features and Enhancements
     Add ``total:received`` and ``total:sent`` properties to record total
     currency sent and received by the account.
 
+- Add a new Storm command, ``movenodes``, that can be used to move a node
+  entirely from one layer to another.
+  (`#2714 <https://github.com/vertexproject/synapse/pull/2714>`_)
+- Add a ``sorted()`` method to the ``storm:stat:tally`` object, to simplify
+  handling of tallied data.
+  (`#2748 <https://github.com/vertexproject/synapse/pull/2748>`_)
 - Add a new Storm function, ``$lib.mime.html.totext()``, to extract inner tag
   text from HTML strings.
   (`#2744 <https://github.com/vertexproject/synapse/pull/2744>`_)
@@ -24,9 +30,28 @@ Features and Enhancements
   ``$lib.crypto.hashes.sha1()``, ``$lib.crypto.hashes.sha256()`` and
   ``$lib.crypto.hashes.sha512()`` to allow hashing bytes directly in Storm.
   (`#2743 <https://github.com/vertexproject/synapse/pull/2743>`_)
+- Add a ``Axon.csvrows()`` API for streaming CSV rows from an Axon, and an
+  corresponding ``$lib.axon.csvrows()`` Storm API.
+  (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``pycryptome``, ``pygments``, and ``scalecodec`` modules.
+  (`#2752 <https://github.com/vertexproject/synapse/pull/2752>`_)
+- Add range support to ``Axon.get()`` to read bytes from a given offset and
+  size. The ``/api/v1/axon/files/by/sha256/<SHA-256>`` HTTP API has been
+  updated to support a ``Range`` header that accepts a ``bytes`` value to read
+  a subset of bytes that way as well.
+  (`#2731 <https://github.com/vertexproject/synapse/pull/2731>`_)
+  (`#2755 <https://github.com/vertexproject/synapse/pull/2755>`_)
 
 Bugfixes
 --------
+- Fix the ``$lib.time.parse()`` when ``%z`` is used in the format specifier.
+  (`#2749 <https://github.com/vertexproject/synapse/pull/2749>`_)
+- Non-string form form-data fields are now serialized as JSON when using the
+  ``Axon.postfiles()`` API.
+  (`#2751 <https://github.com/vertexproject/synapse/pull/2751>`_)
+- Fix a byte-alignment issue in the ``Axon.readlines()`` API.
+  (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
 
 Improved Documentation
 ----------------------
