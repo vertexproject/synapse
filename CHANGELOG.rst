@@ -8,14 +8,54 @@ Synapse Changelog
 v2.101.0 - TBD
 =====================
 
+Automatic Migrations
+--------------------
+- Create nodes for the updated properties noted in the data model updates
+  listed below. See :ref:`datamigration` for more information about automatic
+  migrations.
+
+
 Features and Enhancements
 -------------------------
-- Updates to the ``xxx`` model.
-  (`#xxx <https://github.com/vertexproject/synapse/pull/xxx>`_)
+- Updates to the ``crypto``, ``infotech``, ``ps``, ``transport``, model.
+  (`#2720 <https://github.com/vertexproject/synapse/pull/2720>`_)
 
-  ``econ:acct:balance``
-    Add ``total:received`` and ``total:sent`` properties to record total
-    currency sent and received by the account.
+  ``crypto:smart:effect:minttoken``
+    Add a new form to model smart contract effects which creates
+    non-fungible tokens.
+
+  ``crypto:smart:effect:burntoken```
+    Add a new form to model smart contract effects which destroys
+    non-fungible tokens.
+
+ ``crypto:smart:effect:proxytoken``
+    Add a new form that tracks grants for a non-owner address the ability to
+    manipulate a specific non-fungible token.
+
+ ``crypto:smart:effect:proxytokenall``
+    Add a new form that tracks grants for a non-owner address the ability to
+    maniuplate all of the non-fungible token.
+
+  ``crypto:smart:effect:proxytokens``
+    Add a new form that tracks grants for a  non-owner address to manipulate
+    fungible tokens.
+
+  ``it:av:signame``
+    Add a new form to track AV signature names. Migrate
+    ``it:av:filehit:sig:name`` and ``it:av:sig:name`` to use the new form.
+
+  ``it:exec:proc``
+    Add a ``name`` secondary property to track the display name of a process.
+    Add a ``path:base`` secondary property to track the basename of the
+    executable for the process.
+
+  ``ps:contact``
+    Add a ``orgnames`` secondary propery to track an array of orgnames
+    associated with a contact.
+
+  ``transport:sea:vessel``
+    Add a ``make`` and ``model`` secondary properties to track information
+    about the vessel.
 
 - Add a new Storm command, ``movenodes``, that can be used to move a node
   entirely from one layer to another.
