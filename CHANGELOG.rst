@@ -19,6 +19,9 @@ Features and Enhancements
 -------------------------
 - Updates to the ``crypto``, ``infotech``, ``ps``, ``transport``, model.
   (`#2720 <https://github.com/vertexproject/synapse/pull/2720>`_)
+  (`#2738 <https://github.com/vertexproject/synapse/pull/2738>`_)
+  (`#2739 <https://github.com/vertexproject/synapse/pull/2739>`_)
+  (`#2747 <https://github.com/vertexproject/synapse/pull/2747>`_)
 
   ``crypto:smart:effect:minttoken``
     Add a new form to model smart contract effects which creates
