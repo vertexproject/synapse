@@ -639,17 +639,6 @@ bar baz",vv'''
                         buf = buf + byts
                     self.eq(buf, b'dfqwerzxcv')
 
-                # eoff > blobsize
-                # headers = {'range': 'bytes=10-20'}
-                # async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                #     self.eq(206, resp.status)
-                #     self.eq('2', resp.headers.get('content-length'))
-                #     self.eq('bytes 10-11/12', resp.headers.get('content-range'))
-                #     buf = b''
-                #     async for byts in resp.content.iter_chunked(1024):
-                #         buf = buf + byts
-                #     self.eq(buf, b'cv')
-
                 headers = {'range': 'bytes=10-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
                     self.eq(206, resp.status)
@@ -670,16 +659,6 @@ bar baz",vv'''
                         buf = buf + byts
                     self.eq(buf, b'v')
 
-                headers = {'range': 'bytes=20-40'}
-                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
-                    self.eq('0', resp.headers.get('content-length'))
-                    self.eq('bytes 20-40/12', resp.headers.get('content-range'))
-                    buf = b''
-                    async for byts in resp.content.iter_chunked(1024):
-                        buf = buf + byts
-                    self.eq(buf, b'')
-
                 headers = {'range': 'bytes=2-4,8-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
                     self.eq(206, resp.status)
@@ -697,12 +676,30 @@ bar baz",vv'''
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
 
-                # invalid byte range?
-                # headers = {'range': 'bytes=20-40'}
-                # async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                #     self.eq(206, resp.status)
-                #     self.eq('0', resp.headers.get('content-length'))
-                #     self.eq('bytes 20-40/12', resp.headers.get('content-range'))
+                headers = {'range': 'bytes=10-11'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('2', resp.headers.get('content-length'))
+                    self.eq('bytes 10-11/12', resp.headers.get('content-range'))
+
+                headers = {'range': 'bytes=11-11'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('1', resp.headers.get('content-length'))
+                    self.eq('bytes 11-11/12', resp.headers.get('content-range'))
+
+                # Reading past blobsize isn't valid HTTP
+                headers = {'range': 'bytes=10-20'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(416, resp.status)
+
+                headers = {'range': 'bytes=11-12'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(416, resp.status)
+
+                headers = {'range': 'bytes=20-40'}
+                async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(416, resp.status)
 
                 # Negative size
                 headers = {'range': 'bytes=20-4'}

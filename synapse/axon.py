@@ -146,9 +146,14 @@ class AxonFileHandler(s_httpapi.Handler):
                 self.set_status(416)
                 return False
 
-            # Reading past the blobsize results in a 0 len response.
+            # Reading past the blobsize is invalid
             if soff >= self.blobsize:
-                cont_len = '0'
+                self.set_status(416)
+                return False
+
+            if soff + cont_len > self.blobsize:
+                self.set_status(416)
+                return False
 
             # ranges are *inclusive*...
             self.set_header('Content-Range', f'bytes {soff}-{eoff-1}/{self.blobsize}')
