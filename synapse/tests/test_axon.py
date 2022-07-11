@@ -311,7 +311,7 @@ Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
 
         # CSV with alternative delimiter
         data = '''foo|bar|baz
-        words|word|wrd'''
+words|word|wrd'''
         size, sha256 = await axon.put(data.encode())
         rows = [row async for row in axon.csvrows(sha256, delimiter='|')]
         self.len(2, rows)
@@ -325,7 +325,8 @@ bar baz",
 1,"foo
 bar baz",v
 2,"foo
-bar baz",vv'''
+bar baz",vv
+'''
         size, sha256 = await axon.put(data.encode())
         rows = [row async for row in axon.csvrows(sha256)]
         self.len(4, rows)
