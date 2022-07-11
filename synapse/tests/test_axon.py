@@ -580,6 +580,12 @@ bar baz",vv'''
                 self.gt(len(byts), 1)
                 self.eq(bbuf, b''.join(byts))
 
+            # HEAD
+            async with sess.head(f'{url_dl}/{bbufhash_h}') as resp:
+                self.eq(200, resp.status)
+                self.eq('33554437', resp.headers.get('content-length'))
+                self.none(resp.headers.get('content-range'))
+
             # DELETE method by sha256
             async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
@@ -638,6 +644,16 @@ bar baz",vv'''
                     async for byts in resp.content.iter_chunked(1024):
                         buf = buf + byts
                     self.eq(buf, b'dfqwerzxcv')
+
+                headers = {'range': 'bytes=0-11'}
+                async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
+                    self.eq(206, resp.status)
+                    self.eq('12', resp.headers.get('content-length'))
+                    self.eq('bytes 0-11/12', resp.headers.get('content-range'))
+                    buf = b''
+                    async for byts in resp.content.iter_chunked(1024):
+                        buf = buf + byts
+                    self.eq(buf, b'asdfqwerzxcv')
 
                 headers = {'range': 'bytes=10-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
