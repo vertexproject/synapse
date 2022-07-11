@@ -1,3 +1,4 @@
+import csv
 import json
 import asyncio
 import hashlib
@@ -12,8 +13,11 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
+import synapse.lib.link as s_link
 import synapse.lib.const as s_const
+import synapse.lib.queue as s_queue
 import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
@@ -547,6 +551,37 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.readlines(sha256):
             yield item
 
+    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+        '''
+        Yield CSV rows from a CSV file.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file.
+            dialect (str): The CSV dialect to use.
+            **fmtparams: The CSV dialect format parameters.
+
+        Notes:
+            The dialect and fmtparams expose the Python csv.reader() parameters.
+
+        Examples:
+
+            Get the rows from a CSV file and process them::
+
+                async for row in axon.csvrows(sha256):
+                    await dostuff(row)
+
+            Get the rows from a tab separated file and process them::
+
+                async for row in axon.csvrows(sha256, delimiter='\t'):
+                    await dostuff(row)
+
+        Yields:
+            list: Decoded CSV rows.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        async for item in self.cell.csvrows(sha256, dialect, **fmtparams):
+            yield item
+
     async def jsonlines(self, sha256):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
@@ -560,6 +595,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'get'))
         async for item in self.cell.jsonlines(sha256):
             yield item
+
 
 class Axon(s_cell.Cell):
 
@@ -674,6 +710,10 @@ class Axon(s_cell.Cell):
         self.axonhist.add(item, tick=tick)
         self.axonseqn.add(item)
 
+    async def _reqHas(self, sha256):
+        if not await self.has(sha256):
+            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+
     async def history(self, tick, tock=None):
         '''
         Yield hash rows for files that existing in the Axon after a given point in time.
@@ -731,8 +771,7 @@ class Axon(s_cell.Cell):
         Raises:
             synapse.exc.NoSuchFile: If the file does not exist.
         '''
-        if not await self.has(sha256):
-            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+        await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
         logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
@@ -846,8 +885,7 @@ class Axon(s_cell.Cell):
         Returns:
             dict: A dictionary containing hashes of the file.
         '''
-        if not await self.has(sha256):
-            raise s_exc.NoSuchFile(mesg='Axon does not contain the requested file.', sha256=s_common.ehex(sha256))
+        await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
         logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
@@ -992,22 +1030,75 @@ class Axon(s_cell.Cell):
             for _, item in unpk.feed(byts):
                 yield item
 
+    async def _sha256ToLink(self, sha256, link):
+        try:
+            async for byts in self.get(sha256):
+                await link.send(byts)
+                await asyncio.sleep(0)
+        finally:
+            link.txfini()
+
     async def readlines(self, sha256):
-        remain = ''
-        async for byts in self.get(s_common.uhex(sha256)):
-            text = remain + byts.decode()
 
-            lines = text.split('\n')
-            if len(lines) == 1:
-                remain = text
-                continue
+        sha256 = s_common.uhex(sha256)
+        await self._reqHas(sha256)
 
-            remain = lines[-1]
-            for line in lines[:-1]:
-                yield line
+        link00, sock00 = await s_link.linksock()
 
-        if remain:
-            yield remain
+        todo = s_common.todo(_spawn_readlines, sock00)
+        async with await s_base.Base.anit() as scope:
+
+            scope.schedCoro(s_coro.spawn(todo))
+            scope.schedCoro(self._sha256ToLink(sha256, link00))
+
+            try:
+
+                while not self.isfini:
+
+                    mesg = await link00.rx()
+                    if mesg is None:
+                        return
+
+                    line = s_common.result(mesg)
+                    if line is None:
+                        return
+
+                    yield line.rstrip('\n')
+
+            finally:
+                sock00.close()
+                await link00.fini()
+
+    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+        await self._reqHas(sha256)
+        if dialect not in csv.list_dialects():
+            raise s_exc.BadArg(mesg=f'Invalid CSV dialect, use one of {csv.list_dialects()}')
+
+        link00, sock00 = await s_link.linksock()
+
+        todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
+        async with await s_base.Base.anit() as scope:
+
+            scope.schedCoro(s_coro.spawn(todo))
+            scope.schedCoro(self._sha256ToLink(sha256, link00))
+
+            try:
+
+                while not self.isfini:
+
+                    mesg = await link00.rx()
+                    if mesg is None:
+                        return
+
+                    row = s_common.result(mesg)
+                    if row is None:
+                        return
+
+                    yield row
+
+            finally:
+                sock00.close()
+                await link00.fini()
 
     async def jsonlines(self, sha256):
         async for line in self.readlines(sha256):
@@ -1093,6 +1184,8 @@ class Axon(s_cell.Cell):
                         valu = self.get(s_common.uhex(sha256))
                     else:
                         valu = field.get('value')
+                        if not isinstance(valu, str):
+                            valu = json.dumps(valu)
 
                     data.add_field(field.get('name'),
                                    valu,
@@ -1286,3 +1379,47 @@ class Axon(s_cell.Cell):
                     'ok': False,
                     'mesg': mesg,
                 }
+
+def _spawn_readlines(sock): # pragma: no cover
+    try:
+        with sock.makefile('r') as fd:
+
+            try:
+
+                for line in fd:
+                    sock.sendall(s_msgpack.en((True, line)))
+
+                sock.sendall(s_msgpack.en((True, None)))
+
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=str(e))
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))
+
+def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
+    try:
+
+        with sock.makefile('r') as fd:
+
+            try:
+
+                for row in csv.reader(fd, dialect, **fmtparams):
+                    sock.sendall(s_msgpack.en((True, row)))
+
+                sock.sendall(s_msgpack.en((True, None)))
+
+            except TypeError as e:
+                raise s_exc.BadArg(mesg=f'Invalid csv format parameter: {str(e)}')
+
+            except UnicodeDecodeError as e:
+                raise s_exc.BadDataValu(mesg=str(e))
+
+            except csv.Error as e:
+                mesg = f'CSV error: {str(e)}'
+                raise s_exc.BadDataValu(mesg=mesg)
+
+    except Exception as e:
+        mesg = s_common.retnexc(e)
+        sock.sendall(s_msgpack.en(mesg))

@@ -90,12 +90,16 @@ class TransportTest(s_test.SynTest):
                     :flag=us
                     :imo="IMO 1234567"
                     :built=2020
+                    :make="The Vertex Project"
+                    :model="Speed Boat 9000"
                     :length=20m
                     :beam=10m
                     :operator=*
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
+            self.eq('the vertex project', vessel.get('make'))
+            self.eq('speed boat 9000', vessel.get('model'))
             self.eq('us', vessel.get('flag'))
             self.eq('imo1234567', vessel.get('imo'))
             self.eq(1577836800000, vessel.get('built'))
