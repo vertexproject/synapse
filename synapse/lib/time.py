@@ -41,7 +41,7 @@ def _rawparse(text, base=None, chop=False):
 
         elif tlen == 8:
             dt = datetime.datetime.strptime(text, '%Y%m%d')
-
+        # Cutoff for applying TZ info is below!
         elif tlen == 10:
             dt = datetime.datetime.strptime(text, '%Y%m%d%H')
 
