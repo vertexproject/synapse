@@ -15,6 +15,7 @@ EPOCH = datetime.datetime(1970, 1, 1)
 tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\w+|\+\w))')
 
 tz_hm_re = regex.compile(r'\d((?P<modifier>\+|\-)(?P<hours>\d{1,2}):?(?P<minutes>\d{2}))($|(\-\w+|\+\w))')
+tz_hm_re = regex.compile(r'\d{4}[\D]*\d{2}[\D]*\d{2}\D*\d{2}.*((?P<modifier>\+|\-)(?P<hours>\d{1,2}):?(?P<minutes>\d{2}))($|(\-\w+|\+\w))')
 
 # tz_hm_re = regex.compile(r'\d((?P<modifier>\+|\-)(?P<hours>2[0-3]|[0-1][0-9]|[0-9]):?(?P<minutes>\d{2}))($|(\-\w+|\+\w))')
 
@@ -22,8 +23,11 @@ def _rawparse(text, base=None, chop=False):
 
     text = text.strip().lower().replace(' ', '')
 
+    parsed_tz = False
     if base is None:
         text, base = parsetz(text)
+        if base != 0:
+            parsed_tz = True
 
     text = (''.join([c for c in text if c.isdigit()]))
 
@@ -34,12 +38,15 @@ def _rawparse(text, base=None, chop=False):
 
     try:
         if tlen == 4:
+            assert parsed_tz is False
             dt = datetime.datetime.strptime(text, '%Y')
 
         elif tlen == 6:
+            assert parsed_tz is False
             dt = datetime.datetime.strptime(text, '%Y%m')
 
         elif tlen == 8:
+            assert parsed_tz is False
             dt = datetime.datetime.strptime(text, '%Y%m%d')
         # Cutoff for applying TZ info is below!
         elif tlen == 10:

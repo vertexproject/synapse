@@ -58,10 +58,11 @@ class TimeTest(s_t_utils.SynTest):
 
         # shorthand
         utc = s_time.parse('2020-07')
-        self.eq(s_time.parse('2020-07-04:00'), utc + 4 * s_time.onehour)
+        self.eq(s_time.parse('2020-07-04:00'), utc + 3 * s_time.onehour * 24)
 
         utc = s_time.parse('2020-07-07')
-        self.eq(s_time.parse('2020-07-07 +4:00'), utc - 4 * s_time.onehour)
+        with self.raises(s_exc.BadTypeValu):
+            s_time.parse('2020-07-07 +4:00')
         self.eq(s_time.parse('2020-07-07 +04:00'), utc - 4 * s_time.onehour)
 
         utc = s_time.parse('2020-07-07 16:29')
