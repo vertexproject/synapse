@@ -410,6 +410,15 @@ bar baz",vv
             bytslist = [b async for b in axon.get(sha256, 13, size=6)]
             self.eq(b'', b''.join(bytslist))
 
+            with self.raises(s_exc.BadArg):
+                bytslist = [b async for b in axon.get(sha256, 1, size=-1)]
+
+            with self.raises(s_exc.BadArg):
+                bytslist = [b async for b in axon.get(sha256, -1, size=1)]
+
+            with self.raises(s_exc.BadArg):
+                bytslist = [b async for b in axon.get(sha256, 0, size=0)]
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -470,6 +479,10 @@ bar baz",vv
                 self.eq(403, resp.status)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
+
+            async with sess.head(f'{url_dl}/{asdfhash_h}') as resp:
+                self.eq(403, resp.status)
+                item = await resp.json()
 
             async with sess.post(url_de) as resp:
                 self.eq(403, resp.status)
