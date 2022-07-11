@@ -256,3 +256,15 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:prod:soft'))
             self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:prod:softver'))
             self.len(1, await core.nodes('it:prod:softname="baz faz" -> it:mitre:attack:software'))
+
+    async def test_modelrev_0_2_10(self):
+
+        async with self.getRegrCore('model-0.2.10') as core:
+
+            nodes = await core.nodes('it:av:filehit -> it:av:signame')
+            self.len(1, nodes)
+            self.eq('baz', nodes[0].ndef[1])
+
+            self.len(1, await core.nodes('it:av:signame=foobar -> it:av:sig'))
+
+            self.len(1, await core.nodes('it:av:signame=baz -> it:av:filehit'))

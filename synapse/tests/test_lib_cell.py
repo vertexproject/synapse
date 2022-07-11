@@ -1250,7 +1250,7 @@ class CellTest(s_t_utils.SynTest):
                             s_common.gendir(os.path.join(backdirn, name))
 
                         with mock.patch.object(s_cell.Cell, 'runBackup', _fakeBackup):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup', remove=True))
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup'))
                             with self.raises(asyncio.TimeoutError):
                                 await asyncio.wait_for(arch, timeout=0.1)
 
@@ -1259,9 +1259,36 @@ class CellTest(s_t_utils.SynTest):
                             await asyncio.sleep(3.0)
 
                         with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup2', remove=True))
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup2'))
                             with self.raises(asyncio.TimeoutError):
                                 await asyncio.wait_for(arch, timeout=0.1)
+
+                        evt0 = asyncio.Event()
+                        evt1 = asyncio.Event()
+                        orig = s_cell.Cell.iterNewBackupArchive
+
+                        async def _slowFakeBackup2(self, name=None, wait=True):
+                            evt0.set()
+                            s_common.gendir(os.path.join(backdirn, name))
+                            await asyncio.sleep(3.0)
+
+                        async def _iterNewDup(self, user, name=None, remove=False):
+                            try:
+                                await orig(self, user, name=name, remove=remove)
+                            except asyncio.CancelledError:
+                                evt1.set()
+                                raise
+
+                        with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup2):
+                            with mock.patch.object(s_cell.Cell, 'iterNewBackupArchive', _iterNewDup):
+                                arch = s_t_utils.alist(proxy.iterNewBackupArchive('dupbackup', remove=True))
+                                task = core.schedCoro(arch)
+                                await asyncio.wait_for(evt0.wait(), timeout=2)
+
+                        fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadystreaming', remove=True))
+                        await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
+                        task.cancel()
+                        await asyncio.wait_for(evt1.wait(), timeout=2)
 
                     with self.raises(s_exc.BadArg):
                         async for msg in proxy.iterNewBackupArchive('bkup'):
