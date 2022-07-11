@@ -147,7 +147,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Represents assessed support of a campaign by an org or other campaign.',
                 }),
                 ('ou:contribution', ('guid', {}), {
-                    'doc': 'Represents a specific instance of providing support to a campaign.',
+                    'doc': 'Represents a specific instance of contributing material support to a campaign.',
                 }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
@@ -420,9 +420,35 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org team responsible for carrying out the campaign.',
                     }),
                 )),
-                ('ou:conflict', {}, ()),
-                ('ou:support', {}, ()),
-
+                ('ou:conflict', {}, (
+                    ('name', ('str', {'onespace': True}), {
+                        'doc': 'The name of the conflict.'}),
+                    ('started', ('time', {}), {
+                        'doc': 'The time the conflict began.'}),
+                    ('timeline', ('meta:timeline', {}), {
+                        'doc': 'A timeline of significant events related to the conflict.'}),
+                )),
+                # TODO - should this be just -(supports)> ?
+                ('ou:support', {}, (
+                    ('campaign', ('ou:campaign', {}), {
+                        'doc': 'The campaign being supported.'}),
+                )),
+                ('ou:contribution', {}, (
+                    # use -(includes)> to link individual nodes contributed?
+                    ('from', ('ps:contact', {}), {
+                        'doc': 'The contact information of the contributor.'}),
+                    ('campaign', ('ou:campaign', {}), {
+                        'doc': 'The campaign receiving the contribution.'}),
+                    ('bundle', ('econ:acct:payment', {}), {}),
+                    ('payment', ('econ:acct:payment', {}), {}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The assessed value of the contribution.'}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used for the assessed value.'}),
+                    ('time': ('time', {}), {
+                        'doc': 'The time the contribution occurred.'}),
+                    # ('place',
+                )),
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {

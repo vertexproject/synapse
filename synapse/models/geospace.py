@@ -387,7 +387,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The latitude/longitude reading at the time.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'The place which includes the latlong value.'}),
-                        ('place:name', ('geo:name', {}), {
+                        ('name', ('geo:name', {}), {
                             'doc': 'The purported place name. Used for entity resolution.'}),
                     )),
 
