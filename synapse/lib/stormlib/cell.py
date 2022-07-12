@@ -102,6 +102,14 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'getHealthCheck', 'desc': 'Get healthcheck information about the Cortex.',
          'type': {'type': 'function', '_funcname': '_getHealthCheck', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing healthcheck information.', }}},
+        {'name': 'getMirrorUrls', 'desc': 'Get mirror Telepath URLs for an AHA configured service.',
+         'type': {'type': 'function', '_funcname': '_getMirrorUrls',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                       'desc': 'The name, or iden, of the service to get mirror URLs for '
+                               '(defaults to the Cortex if not provided).'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A list of Telepath URLs.', }}},
         {'name': 'hotFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
          'type': {'type': 'function', '_funcname': '_hotFixesApply', 'args': (),
                   'returns': {'type': 'list',
@@ -142,6 +150,7 @@ class CellLib(s_stormtypes.Lib):
             'getBackupInfo': self._getBackupInfo,
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
+            'getMirrorUrls': self._getMirrorUrls,
             'hotFixesApply': self._hotFixesApply,
             'hotFixesCheck': self._hotFixesCheck,
             'trimNexsLog': self._trimNexsLog,
@@ -224,6 +233,25 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getHealthCheck()
+
+    async def _getMirrorUrls(self, name=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.cell.getMirrorUrls() requires admin privs.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        name = await s_stormtypes.tostr(name, noneok=True)
+
+        if name is None:
+            return await self.runt.snap.core.getMirrorUrls()
+
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            mesg = f'No service with name/iden: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await ssvc.proxy.waitready()
+        return await ssvc.proxy.getMirrorUrls()
 
     async def _trimNexsLog(self, consumers=None, timeout=30):
         if not self.runt.isAdmin():

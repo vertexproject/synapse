@@ -179,7 +179,7 @@ class AhaApi(s_cell.CellApi):
 
     async def getAhaSvcMirrors(self, name):
         '''
-        Return list AHA svcinfo dictionaries for mirrors of a service.
+        Return list of AHA svcinfo dictionaries for mirrors of a service.
         '''
         svcinfo = await self.cell.getAhaSvc(name)
         if svcinfo is None:
