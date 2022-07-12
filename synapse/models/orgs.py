@@ -143,9 +143,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:conflict', ('guid', {}), {
                     'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
                 }),
-                ('ou:support', ('guid', {}), {
-                    'doc': 'Represents assessed support of a campaign by an org or other campaign.',
-                }),
                 ('ou:contribution', ('guid', {}), {
                     'doc': 'Represents a specific instance of contributing material support to a campaign.',
                 }),
@@ -428,7 +425,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org team responsible for carrying out the campaign.',
                     }),
                     ('conflict', ('ou:conflict', {}), {
-                        'doc': 'Used to record this campaign as one of the primary participants in a conflict.',
+                        'doc': 'The conflict in which this campaign is a primary participant.',
                     }),
                 )),
                 ('ou:conflict', {}, (

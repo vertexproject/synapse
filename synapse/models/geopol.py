@@ -8,25 +8,30 @@ class PolModule(s_module.CoreModule):
 
                 'types': (
 
-                    ('pol:country',
-                        ('guid', {}),
+                    ('pol:country', ('guid', {}),
                         {'doc': 'A GUID for a country.'}
                     ),
 
-                    ('pol:iso2',
-                        ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}),
-                        {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}
-                    ),
+                    ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}),
+                        {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}),
 
-                    ('pol:iso3',
-                        ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}),
-                        {'doc': 'The 3 digit ISO country code.', 'ex': 'usa'}
-                    ),
+                    ('pol:iso3', ('str', {'lower': True, 'regex': '^[a-z0-9]{3}$'}),
+                        {'doc': 'The 3 digit ISO country code.', 'ex': 'usa'}),
 
-                    ('pol:isonum',
-                        ('int', {}),
-                        {'doc': 'The ISO integer country code.', 'ex': '840'}
-                    ),
+                    ('pol:isonum', ('int', {}),
+                        {'doc': 'The ISO integer country code.', 'ex': '840'}),
+
+                    ('pol:election', ('guid', {}), {
+                        'doc': 'An election to hold government office.'}),
+                    ('pol:office', ('guid', {}), {
+                        'doc': 'A governmental office.'}),
+                    ('pol:term', ('guid', {}), {
+                        'doc': 'A specific term in office.'}),
+                    ('pol:candidate', ('guid', {}), {
+                        'doc': 'A candidate for office in a specific election.'}),
+                    ('pol:pollingplace', ('guid', {}), {
+                        'doc': 'An official place where ballots may be cast for a specific election.'}),
+                    # TODO precinct / jurisdiction?
 
                 ),
 
@@ -42,7 +47,66 @@ class PolModule(s_module.CoreModule):
                         ('pop', ('int', {}), {}),
                         ('tld', ('inet:fqdn', {}), {}),
                     )),
-
+                    ('pol:election', {}, (
+                        ('name', ('str', {'onespace': True, 'lower': True}), {
+                            'ex': '2022 united states congressional midterm election',
+                            'doc': 'The name of the election.'}),
+                        ('time', ('time', {}), {
+                            'doc': 'The date of the election.'}),
+                    )),
+                    ('pol:office', {}, (
+                        ('title', ('ou:jobtitle', {}), {
+                            'ex': 'united states senator',
+                            'doc': 'The title of the political office.'}),
+                        ('loc', ('loc', {}), {
+                            'doc': 'The geo-political location of jurisdiction for the office.'}),
+                        ('govbody', ('ou:org', {}), {
+                            'doc': 'The governmental body which contains the office.'}),
+                    )),
+                    ('pol:term', {}, (
+                        ('office', ('pol:office', {}), {
+                            'doc': 'The office held for the term.'}),
+                        ('start', ('time', {}), {
+                            'doc': 'The start of the term of office.'}),
+                        ('end', ('time', {}), {
+                            'doc': 'The of the term of office.'}),
+                        ('election', ('pol:election', {}), {
+                            'doc': 'The election that determined who held office during the term.'}),
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The contact information of the person who held office during the term.'}),
+                        ('party', ('ou:org', {}), {
+                            'doc': 'The political party of the person who held office during the term.'}),
+                    )),
+                    ('pol:candidate', {}, (
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The contact information of the candidate.'}),
+                        ('campaign', ('ou:campaign', {}), {
+                            'doc': 'The official campaign to elect the candidate.'}),
+                        ('election', ('pol:election', {}), {
+                            'doc': 'The election that the candidate is running in.'}),
+                        ('office', ('pol:office', {}), {
+                            'doc': 'The political office that the candidate is running for.'}),
+                        ('winner', ('bool', {}), {
+                            'doc': 'Records the outcome of the election.'}),
+                        ('party', ('ou:org', {}), {
+                            'doc': 'The declated political party of the candidate.'}),
+                    )),
+                    ('pol:pollingplace', {}, (
+                        ('election', ('pol:election', {}), {
+                            'doc': 'The election that the polling place is designated for.'}),
+                        ('name', ('geo:name', {}), {
+                            'doc': 'The name of the polling place at the time. This may differ from the official place name.'}),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place where votes were cast.'}),
+                        ('opens', ('time', {}), {
+                            'doc': 'The time that the polling place is scheduled to open.'}),
+                        ('closes', ('time', {}), {
+                            'doc': 'The time that the polling place is scheduled to close.'}),
+                        ('opened', ('time', {}), {
+                            'doc': 'The time that the polling place opened.'}),
+                        ('closed', ('time', {}), {
+                            'doc': 'The time that the polling place closed.'}),
+                    )),
                 ),
 
             }),
