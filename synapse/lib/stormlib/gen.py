@@ -23,7 +23,7 @@ class LibGen(s_stormtypes.Lib):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the industry.'},
                   ),
-                  'returns': {'type': 'storm:node', 'desc': 'An ou:org node with the given name.'}}},
+                  'returns': {'type': 'storm:node', 'desc': 'An ou:industry node with the given name.'}}},
     )
     _storm_lib_path = ('gen',)
 
