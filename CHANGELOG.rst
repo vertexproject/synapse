@@ -89,6 +89,7 @@ Features and Enhancements
   a subset of bytes that way as well.
   (`#2731 <https://github.com/vertexproject/synapse/pull/2731>`_)
   (`#2755 <https://github.com/vertexproject/synapse/pull/2755>`_)
+  (`#2758 <https://github.com/vertexproject/synapse/pull/2758>`_)
 
 Bugfixes
 --------
