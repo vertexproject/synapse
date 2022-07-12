@@ -9,6 +9,7 @@ import base64
 import pprint
 import struct
 import asyncio
+import decimal
 import inspect
 import logging
 import binascii
@@ -4397,6 +4398,117 @@ class Bool(Prim):
     def __hash__(self):
         return hash((self._storm_typename, self.value()))
 
+@registry.registerType
+class HugeNum(Prim):
+    '''
+    Implements the Storm API for a hugenum instance.
+    '''
+    _storm_typename = 'hugenum'
+    _ismutable = False
+
+    def __init__(self, valu, path=None):
+        try:
+            valu = s_common.hugenum(valu)
+        except decimal.DecimalException as e:
+            mesg = f'Failed to make hugenum from {valu!r}'
+            raise s_exc.BadCast(mesg=mesg) from e
+
+        Prim.__init__(self, valu, path=path)
+
+    def __str__(self):
+        return str(self.value())
+
+    def __int__(self):
+        return int(self.value())
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.valu))
+
+    def __eq__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return self.value() == othr
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return self.value() == othr
+        elif isinstance(othr, HugeNum):
+            return self.value() == othr.value()
+        return False
+
+    def __lt__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return self.value() < othr
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return self.value() < othr
+        elif isinstance(othr, HugeNum):
+            return self.value() < othr.value()
+
+        mesg = f"'<' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __add__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return HugeNum(s_common.hugeadd(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return HugeNum(s_common.hugeadd(self.value(), othr))
+        elif isinstance(othr, HugeNum):
+            return HugeNum(s_common.hugeadd(self.value(), othr.value()))
+
+        mesg = f"'+' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __radd__ = __add__
+
+    def __sub__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return HugeNum(s_common.hugesub(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return HugeNum(s_common.hugesub(self.value(), othr))
+        elif isinstance(othr, HugeNum):
+            return HugeNum(s_common.hugesub(self.value(), othr.value()))
+
+        mesg = f"'-' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rsub__(self, othr):
+        othr = HugeNum(othr)
+        return othr.__sub__(self)
+
+    def __mul__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return HugeNum(s_common.hugemul(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return HugeNum(s_common.hugemul(self.value(), othr))
+        elif isinstance(othr, HugeNum):
+            return HugeNum(s_common.hugemul(self.value(), othr.value()))
+
+        mesg = f"'*' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return HugeNum(s_common.hugediv(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return HugeNum(s_common.hugediv(self.value(), othr))
+        elif isinstance(othr, HugeNum):
+            return HugeNum(s_common.hugediv(self.value(), othr.value()))
+
+        mesg = f"'/' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rtruediv__(self, othr):
+        othr = HugeNum(othr)
+        return othr.__truediv__(self)
+
+    async def stormrepr(self):
+        return str(self.value())
+
 @registry.registerLib
 class LibUser(Lib):
     '''
@@ -8400,6 +8512,9 @@ def fromprim(valu, path=None, basetypes=True):
     if isinstance(valu, bool):
         return Bool(valu, path=path)
 
+    if isinstance(valu, (float, decimal.Decimal)):
+        return HugeNum(valu, path=path)
+
     if isinstance(valu, StormType):
         return valu
 
@@ -8443,6 +8558,19 @@ async def tobool(valu, noneok=False):
     except Exception:
         mesg = f'Failed to make a boolean from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg)
+
+async def tonumber(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    if isinstance(valu, HugeNum):
+        return valu
+
+    if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
+        return HugeNum(valu, noneok=noneok)
+
+    return await toint(valu, noneok=noneok)
 
 async def toint(valu, noneok=False):
 

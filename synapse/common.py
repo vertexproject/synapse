@@ -162,6 +162,8 @@ def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
     '''
+    if isinstance(valu, float):
+        valu = str(valu)
     return decimal.Decimal(valu, context=hugectx)
 
 def hugeadd(x, y):
@@ -175,6 +177,18 @@ def hugesub(x, y):
     Subtract two decimal.Decimal with proper precision to support synapse hugenums.
     '''
     return hugectx.subtract(x, y)
+
+def hugemul(x, y):
+    '''
+    Multiply two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.multiply(x, y)
+
+def hugediv(x, y):
+    '''
+    Divide two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.divide(x, y)
 
 hugeexp = decimal.Decimal('1E-24')
 def hugeround(x):

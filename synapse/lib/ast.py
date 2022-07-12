@@ -25,12 +25,12 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-from synapse.lib.stormtypes import tobool, toint, toprim, tostr, undef
+from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, undef
 
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
-    return float(x) if '.' in x else s_stormtypes.intify(x)
+    return s_stormtypes.HugeNum(x) if '.' in x else s_stormtypes.intify(x)
 
 class AstNode:
     '''
@@ -2845,25 +2845,31 @@ class DollarExpr(Value):
         return await self.kids[0].compute(runt, path)
 
 async def expr_add(x, y):
-    return await toint(x) + await toint(y)
+    return await s_stormtypes.tonumber(x) + await s_stormtypes.tonumber(y)
 async def expr_sub(x, y):
-    return await toint(x) - await toint(y)
+    return await s_stormtypes.tonumber(x) - await s_stormtypes.tonumber(y)
 async def expr_mul(x, y):
-    return await toint(x) * await toint(y)
+    return await s_stormtypes.tonumber(x) * await s_stormtypes.tonumber(y)
+
 async def expr_div(x, y):
-    return await toint(x) // await toint(y)
+    x = await s_stormtypes.tonumber(x)
+    y = await s_stormtypes.tonumber(y)
+    if isinstance(x, int) and isinstance(y, int):
+        return x // y
+    return x / y
+
 async def expr_eq(x, y):
     return await toprim(x) == await toprim(y)
 async def expr_ne(x, y):
     return await toprim(x) != await toprim(y)
 async def expr_gt(x, y):
-    return await toint(x) > await toint(y)
+    return await tonumber(x) > await tonumber(y)
 async def expr_lt(x, y):
-    return await toint(x) < await toint(y)
+    return await tonumber(x) < await tonumber(y)
 async def expr_ge(x, y):
-    return await toint(x) >= await toint(y)
+    return await tonumber(x) >= await tonumber(y)
 async def expr_le(x, y):
-    return await toint(x) <= await toint(y)
+    return await tonumber(x) <= await tonumber(y)
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
     return x.startswith(y)
