@@ -185,6 +185,10 @@ class StormTypesRegistry:
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
         funcname = rtype.pop('_funcname')
+        if funcname == '_storm_query':
+            # Sentinel used for future validation of pure storm
+            # functions defined in _storm_query data.
+            return
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args', ())
