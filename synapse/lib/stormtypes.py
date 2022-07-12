@@ -4421,6 +4421,9 @@ class HugeNum(Prim):
     def __int__(self):
         return int(self.value())
 
+    def __float__(self):
+        return float(self.value())
+
     def __hash__(self):
         return hash((self._storm_typename, self.valu))
 
@@ -8568,7 +8571,7 @@ async def tonumber(valu, noneok=False):
         return valu
 
     if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
-        return HugeNum(valu, noneok=noneok)
+        return HugeNum(valu)
 
     return await toint(valu, noneok=noneok)
 
