@@ -5,15 +5,16 @@ Synapse Changelog
 *****************
 
 
-v2.101.0 - TBD
+v2.101.0 - 2022-07-12
 =====================
 
 Automatic Migrations
 --------------------
-- Create nodes for the updated properties noted in the data model updates
-  listed below. See :ref:`datamigration` for more information about automatic
-  migrations.
-
+- Create nodes in the Cortex for the updated properties noted in the data
+  model updates listed below.
+- Axon indices are migrated to account for storing offset information to
+  support the new offset and size API options.
+- See :ref:`datamigration` for more information about automatic migrations.
 
 Features and Enhancements
 -------------------------
@@ -63,6 +64,9 @@ Features and Enhancements
 - Add a new Storm command, ``movenodes``, that can be used to move a node
   entirely from one layer to another.
   (`#2714 <https://github.com/vertexproject/synapse/pull/2714>`_)
+- Add a new Storm library, ``$lib.gen``, to assist with creating nodes based
+  on secondary property based deconfliction.
+ (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
 - Add a ``sorted()`` method to the ``storm:stat:tally`` object, to simplify
   handling of tallied data.
   (`#2748 <https://github.com/vertexproject/synapse/pull/2748>`_)
