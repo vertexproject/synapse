@@ -98,6 +98,7 @@ Bugfixes
 - Non-string form-data fields are now serialized as JSON when using the
   ``Axon.postfiles()`` API.
   (`#2751 <https://github.com/vertexproject/synapse/pull/2751>`_)
+  (`#2759 <https://github.com/vertexproject/synapse/pull/2759>`_)
 - Fix a byte-alignment issue in the ``Axon.readlines()`` API.
   (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
 
