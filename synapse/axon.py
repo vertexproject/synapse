@@ -1436,7 +1436,7 @@ class Axon(s_cell.Cell):
                         valu = self.get(s_common.uhex(sha256))
                     else:
                         valu = field.get('value')
-                        if not isinstance(valu, str):
+                        if not isinstance(valu, (bytes, str)):
                             valu = json.dumps(valu)
 
                     data.add_field(field.get('name'),
