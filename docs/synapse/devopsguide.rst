@@ -913,6 +913,6 @@ Cortex Configuration Options
 .. include:: autodocs/conf_cortex.rst
 
 .. _index:              ../index.html
-.. _Synapse-Backup: ../projects/backup/en/latest/
-.. _Synapse-S3: ../projects/s3/en/latest/
+.. _Synapse-Backup: ../../../projects/backup/en/latest/
+.. _Synapse-S3: ../../../projects/s3/en/latest/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
