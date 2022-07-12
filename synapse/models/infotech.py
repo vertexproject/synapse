@@ -1287,11 +1287,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The (optional) clear text password for this password hash.',
                     }),
                 )),
-                ('it:cmd', {}, (
-                    ('desc', ('str', {}), {
-                        'doc': 'A description of the effects of the command.'
-                    }),
-                )),
+                ('it:cmd', {}, ()),
                 ('it:exec:proc', {}, (
                     ('host', ('it:host', {}), {
                         'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
