@@ -184,6 +184,14 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A title for a position within an org.',
                 }),
             ),
+            'edges': (
+                (('ou:org', 'uses', None), {
+                    'doc': 'The ou:org makes use of the target node.'}),
+                (('ou:org', 'supports', 'ou:campaign'), {
+                    'doc': 'The ou:org supports the ou:campaign.'}),
+                (('ou:campaign', 'supports', 'ou:campaign'), {
+                    'doc': 'The source ou:campaign supports the target ou:campaign.'}),
+            ),
             'forms': (
                 ('ou:jobtype', {}, ()),
                 ('ou:jobtitle', {}, ()),
@@ -419,19 +427,19 @@ class OuModule(s_module.CoreModule):
                     ('team', ('ou:team', {}), {
                         'doc': 'The org team responsible for carrying out the campaign.',
                     }),
+                    ('conflict', ('ou:conflict', {}), {
+                        'doc': 'Used to record this campaign as one of the primary participants in a conflict.',
+                    }),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
                         'doc': 'The name of the conflict.'}),
                     ('started', ('time', {}), {
                         'doc': 'The time the conflict began.'}),
+                    ('ended', ('time', {}), {
+                        'doc': 'The time the conflict ended.'}),
                     ('timeline', ('meta:timeline', {}), {
                         'doc': 'A timeline of significant events related to the conflict.'}),
-                )),
-                # TODO - should this be just -(supports)> ?
-                ('ou:support', {}, (
-                    ('campaign', ('ou:campaign', {}), {
-                        'doc': 'The campaign being supported.'}),
                 )),
                 ('ou:contribution', {}, (
                     # use -(includes)> to link individual nodes contributed?
@@ -439,15 +447,22 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The contact information of the contributor.'}),
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'The campaign receiving the contribution.'}),
-                    ('bundle', ('econ:acct:payment', {}), {}),
-                    ('payment', ('econ:acct:payment', {}), {}),
                     ('value', ('econ:price', {}), {
                         'doc': 'The assessed value of the contribution.'}),
                     ('currency', ('econ:currency', {}), {
                         'doc': 'The currency used for the assessed value.'}),
-                    ('time': ('time', {}), {
+                    ('time', ('time', {}), {
                         'doc': 'The time the contribution occurred.'}),
-                    # ('place',
+                    ('materials:spec', ('mat:spec', {}), {
+                        'doc': 'The specification of material items contributed.'}),
+                    ('material:count', ('int', {}), {
+                        'doc': 'The number of material items contributed.'}),
+                    ('monitary:payment', ('econ:acct:payment', {}), {
+                        'doc': 'Payment details for a monetary contribution.'}),
+                    ('personnel:count', ('int', {}), {
+                        'doc': 'Number of personnel contributed to the campaign.'}),
+                    ('personnel:jobtitle', ('ou:jobtitle', {}), {
+                        'doc': 'Title or designation for the contributed personnel.'}),
                 )),
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (

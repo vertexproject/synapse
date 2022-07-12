@@ -314,7 +314,7 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
                     ('geo:telem', ('guid', {}), {
-                        'doc': 'A geospatial position of a node at a given time. The node should be linked via -(at)> edges.',
+                        'doc': 'A geospatial position of a node at a given time. The node should be linked via -(seenat)> edges.',
                     }),
 
                     ('geo:json', ('data', {'schema': geojsonschema}), {
@@ -350,6 +350,10 @@ class GeoModule(s_module.CoreModule):
                     ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
                         'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
                     }),
+                ),
+                'edges': (
+                    ((None, 'seenat', 'geo:telem'), {
+                        'doc': 'The source node was seen at the geo:telem node place and time.',
                 ),
 
                 'forms': (
@@ -387,7 +391,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The latitude/longitude reading at the time.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'The place which includes the latlong value.'}),
-                        ('name', ('geo:name', {}), {
+                        ('place:name', ('geo:name', {}), {
                             'doc': 'The purported place name. Used for entity resolution.'}),
                     )),
 
