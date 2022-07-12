@@ -41,6 +41,7 @@ fields = [
     {'name': 'file', 'sha256': s_common.ehex(asdfhash), 'filename': 'file'},
     {'name': 'zip_password', 'value': 'test'},
     {'name': 'dict', 'value': {'foo': 'bar'}},
+    {'name': 'bytes', 'value': b'coolbytes'},
 ]
 
 asdfretn = (8, asdfhash)
@@ -82,6 +83,12 @@ class HttpPushFile(s_httpapi.StreamHandler):
 
         assert item['body'] == b'asdfasdf'
         assert item['filename'] == 'file'
+
+        item = files.get('bytes')[0]
+
+        assert item['body'] == b'coolbytes'
+        assert item['filename'] == 'bytes'
+
         assert args.get('zip_password') == [b'test']
         assert args.get('dict') == [b'{"foo": "bar"}']
         self.sendRestRetn(self.gotsize)
@@ -855,18 +862,19 @@ bar baz",vv
             $fields = $lib.list(
                 $lib.dict(name=file, sha256=$sha256, filename=file),
                 $lib.dict(name=zip_password, value=test),
-                $lib.dict(name=dict, value=$lib.dict(foo=bar))
+                $lib.dict(name=dict, value=$lib.dict(foo=bar)),
+                $lib.dict(name=bytes, value=$bytes)
             )
             $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
                                         fields=$fields, ssl_verify=(0))
             return($resp)
             '''
-            opts = {'vars': {'sha256': s_common.ehex(sha256)}}
+            opts = {'vars': {'sha256': s_common.ehex(sha256), 'bytes': b'coolbytes'}}
             resp = await core.callStorm(q, opts=opts)
             self.true(resp['ok'])
             self.eq(200, resp['code'])
 
-            opts = {'vars': {'sha256': s_common.ehex(s_common.buid())}}
+            opts = {'vars': {'sha256': s_common.ehex(s_common.buid()), 'bytes': ''}}
             resp = await core.callStorm(q, opts=opts)
             self.false(resp['ok'])
             self.isin('Axon does not contain the requested file.', resp.get('err'))
