@@ -1899,13 +1899,13 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm('return((1 < 1.23))'))
             self.true(await core.callStorm('return((1.23 < 2.34))'))
             self.true(await core.callStorm('return((1.23 < $lib.cast(float, 2.34)))'))
-            self.true(await core.callStorm('return(($lib.cast(float, 2.34) < 1.23))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 1.23) < 2.34))'))
 
             self.true(await core.callStorm('return((1.23 <= 2))'))
             self.true(await core.callStorm('return((1 <= 1.23))'))
             self.true(await core.callStorm('return((1.23 <= 2.34))'))
             self.true(await core.callStorm('return((1.23 <= $lib.cast(float, 2.34)))'))
-            self.true(await core.callStorm('return(($lib.cast(float, 2.34) <= 1.23))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 1.23) <= 2.34))'))
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '2d2d2958944fea3cabb5b7ef36e5c7e9')
