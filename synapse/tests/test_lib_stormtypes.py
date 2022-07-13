@@ -5592,6 +5592,48 @@ class StormTypesTest(s_test.SynTest):
             self.len(6, items)
             self.eq(items[5][1], 'e45bbb7e03acacf4d1cca4c16af1ec0c51d777d10e53ed3155bd3d8deb398f3f')
 
+            data = '''John,Doe,120 jefferson st.,Riverside, NJ, 08075
+Jack,McGinnis,220 hobo Av.,Phila, PA,09119
+"John ""Da Man""",Repici,120 Jefferson St.,Riverside, NJ,08075
+Stephen,Tyler,"7452 Terrace ""At the Plaza"" road",SomeTown,SD, 91234
+,Blankman,,SomeTown, SD, 00298
+"Joan ""the bone"", Anne",Jet,"9th, at Terrace plc",Desert City,CO,00123
+Bob,Smith,Little House at the end of Main Street,Gomorra,CA,12345'''
+            size, sha256 = await core.axon.put(data.encode())
+            sha256 = s_common.ehex(sha256)
+            q = '''
+            $genr = $lib.axon.csvrows($sha256)
+            for $row in $genr {
+                $lib.fire(csvrow, row=$row)
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'sha256': sha256}})
+            rows = [m[1].get('data').get('row') for m in msgs if m[0] == 'storm:fire']
+            self.len(7, rows)
+            for row in rows:
+                self.len(6, row)
+            names = [row[0] for row in rows]
+            self.len(7, names)
+            self.isin('', names)
+            self.isin('Bob', names)
+            self.isin('John "Da Man"', names)
+
+            data = '''foo\tbar\tbaz
+words\tword\twrd'''
+            size, sha256 = await core.axon.put(data.encode())
+            sha256 = s_common.ehex(sha256)
+            # Note: The tab delimiter in the query here is double quoted
+            # so that we decode it in the Storm parser.
+            q = '''
+            $genr = $lib.axon.csvrows($sha256, delimiter="\\t")
+            for $row in $genr {
+                $lib.fire(csvrow, row=$row)
+            }
+            '''
+            msgs = await core.stormlist(q, opts={'vars': {'sha256': sha256}})
+            rows = [m[1].get('data').get('row') for m in msgs if m[0] == 'storm:fire']
+            self.eq(rows, [['foo', 'bar', 'baz'], ['words', 'word', 'wrd']])
+
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:

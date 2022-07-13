@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import collections
 
 import synapse.exc as s_exc
