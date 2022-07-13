@@ -308,7 +308,6 @@ testmodel = {
             ('huge', ('test:hugenum', {}), {}),
         )),
 
-
         ('test:str', {}, (
             ('bar', ('ndef', {}), {}),
             ('baz', ('nodeprop', {}), {}),
