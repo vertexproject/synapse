@@ -109,7 +109,7 @@ class CellLib(s_stormtypes.Lib):
                        'desc': 'The name, or iden, of the service to get mirror URLs for '
                                '(defaults to the Cortex if not provided).'},
                   ),
-                  'returns': {'type': 'dict', 'desc': 'A list of Telepath URLs.', }}},
+                  'returns': {'type': 'list', 'desc': 'A list of Telepath URLs.', }}},
         {'name': 'hotFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
          'type': {'type': 'function', '_funcname': '_hotFixesApply', 'args': (),
                   'returns': {'type': 'list',
