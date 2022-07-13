@@ -4489,7 +4489,7 @@ class HugeNum(Prim):
         return float(self.value())
 
     def __hash__(self):
-        return hash((self._storm_typename, self.valu))
+        return hash((self._storm_typename, self.value()))
 
     def __eq__(self, othr):
         if isinstance(othr, float):

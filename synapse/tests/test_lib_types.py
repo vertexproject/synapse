@@ -449,7 +449,12 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('[ test:float=inf ]')
             self.len(1, nodes)
+
             nodes = await core.nodes('[ test:float=(42.1) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 42.1))
+
+            nodes = await core.nodes('[ test:float=($lib.cast(float, 42.1)) ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:float', 42.1))
 

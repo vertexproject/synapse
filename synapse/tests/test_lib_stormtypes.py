@@ -1874,6 +1874,20 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('There are 6 items in the set', msgs)
 
+            q = '''
+            $list = (
+                1, 2, 3, 4,
+                (2), (3), (4), (5),
+                (3.0), (4.0), (5.0), (6.0),
+                $lib.cast(float, 4), $lib.cast(float, 5), $lib.cast(float, 6), $lib.cast(float, 7)
+            )
+            $set = $lib.set()
+            $set.adds($list)
+            $lib.print('There are {count} items in the set', count=$lib.len($set))
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('There are 13 items in the set', msgs)
+
     async def test_storm_path(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
@@ -5175,6 +5189,7 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20, await s_stormtypes.toint(20))
         self.eq(20, await s_stormtypes.toint('20'))
         self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('20')))
+        self.eq(20, await s_stormtypes.toint(s_stormtypes.HugeNum('20')))
 
         self.eq('asdf', await s_stormtypes.tostr('asdf'))
         self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Str('asdf')))
@@ -5191,6 +5206,8 @@ class StormTypesTest(s_test.SynTest):
         self.true(await s_stormtypes.tobool(boolprim))
         self.true(await s_stormtypes.tobool(1))
         self.false(await s_stormtypes.tobool(0))
+        self.true(await s_stormtypes.tobool(s_stormtypes.HugeNum('1')))
+        self.false(await s_stormtypes.tobool(s_stormtypes.HugeNum('0')))
         # no bool <- int <- str
         self.true(await s_stormtypes.tobool('1'))
         self.true(await s_stormtypes.tobool(s_stormtypes.Str('0')))
@@ -5215,6 +5232,7 @@ class StormTypesTest(s_test.SynTest):
         self.none(await s_stormtypes.tostr(None, noneok=True))
         self.none(await s_stormtypes.toint(None, noneok=True))
         self.none(await s_stormtypes.tobool(None, noneok=True))
+        self.none(await s_stormtypes.tonumber(None, noneok=True))
 
     async def test_stormtypes_layer_edits(self):
 
@@ -5732,3 +5750,38 @@ words\tword\twrd'''
             # Type safety still matters
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('yield $lib.layer.get().liftByProp(ou:org, not_a_guid)', opts=opts)
+
+    async def test_stormtypes_hugenum(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.BadCast):
+                s_stormtypes.HugeNum('beepbeep')
+
+            huge = s_stormtypes.HugeNum(1.23)
+
+            self.eq(huge, 1.23)
+            self.ne(huge, 'foo')
+            self.lt(huge, 2.34)
+            self.eq(huge + 2.34, 3.57)
+            self.eq(huge - 0.23, 1.0)
+            self.eq(huge * 1.0, 1.23)
+            self.eq(huge / 1.0, 1.23)
+
+            with self.assertRaises(TypeError):
+                self.lt(huge, 'foo')
+
+            with self.assertRaises(TypeError):
+                huge + 'foo'
+
+            with self.assertRaises(TypeError):
+                huge - 'foo'
+
+            with self.assertRaises(TypeError):
+                huge * 'foo'
+
+            with self.assertRaises(TypeError):
+                huge / 'foo'
+
+            msgs = await core.stormlist('$lib.print((1.23))')
+            self.eq(msgs[1][1]['mesg'], '1.23')
