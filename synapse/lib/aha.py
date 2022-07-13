@@ -190,9 +190,7 @@ class AhaApi(s_cell.CellApi):
 
         svciden = svcinfo['svcinfo']['iden']
 
-        mirrors = await self.cell.getAhaSvcMirrors(svciden)
-
-        return s_msgpack.deepcopy(mirrors)
+        return await self.cell.getAhaSvcMirrors(svciden)
 
     async def delAhaSvc(self, name, network=None):
         '''
