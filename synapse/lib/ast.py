@@ -2850,15 +2850,15 @@ class DollarExpr(Value):
         return await self.kids[0].compute(runt, path)
 
 async def expr_add(x, y):
-    return await s_stormtypes.tonumber(x) + await s_stormtypes.tonumber(y)
+    return await tonumber(x) + await tonumber(y)
 async def expr_sub(x, y):
-    return await s_stormtypes.tonumber(x) - await s_stormtypes.tonumber(y)
+    return await tonumber(x) - await tonumber(y)
 async def expr_mul(x, y):
-    return await s_stormtypes.tonumber(x) * await s_stormtypes.tonumber(y)
+    return await tonumber(x) * await tonumber(y)
 
 async def expr_div(x, y):
-    x = await s_stormtypes.tonumber(x)
-    y = await s_stormtypes.tonumber(y)
+    x = await tonumber(x)
+    y = await tonumber(y)
     if isinstance(x, int) and isinstance(y, int):
         return x // y
     return x / y
