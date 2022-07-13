@@ -1405,6 +1405,10 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = typeitem.norm(valu)
+
+        if typeitem.stormtype is not None:
+            return typeitem.stormtype(norm)
+
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1419,6 +1423,10 @@ class LibBase(Lib):
 
         try:
             norm, info = typeitem.norm(valu)
+
+            if typeitem.stormtype is not None:
+                return (True, typeitem.stormtype(norm))
+
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
             return (False, None)
@@ -4467,6 +4475,20 @@ class HugeNum(Prim):
     '''
     Implements the Storm API for a hugenum instance.
     '''
+    _storm_locals = (
+        {'name': 'scaleb', 'desc': '''
+            Return the hugenum multiplied by 10**other
+
+            Example:
+                Multiply the value by 10**-18::
+
+                    $baz.scaleb(-18)''',
+         'type': {'type': 'function', '_funcname': '_methScaleb',
+                  'args': (
+                      {'name': 'other', 'type': 'int', 'desc': 'The amount to adjust the exponent.', },
+                  ),
+                  'returns': {'type': 'hugenum', 'desc': 'The exponent adjusted hugenum.', }}},
+    )
     _storm_typename = 'hugenum'
     _ismutable = False
 
@@ -4478,6 +4500,16 @@ class HugeNum(Prim):
             raise s_exc.BadCast(mesg=mesg) from e
 
         Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'scaleb': self._methScaleb,
+        }
+
+    async def _methScaleb(self, other):
+        newv = s_common.hugescaleb(self.value(), await toint(other))
+        return HugeNum(newv)
 
     def __str__(self):
         return str(self.value())

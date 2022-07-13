@@ -17,6 +17,7 @@ import synapse.lib.layer as s_layer
 import synapse.lib.config as s_config
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.grammar as s_grammar
+import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class Type:
 
     _opt_defs = ()
     stortype: int = None  # type: ignore
+    stormtype = None
 
     # a fast-access way to determine if the type is an array
     # ( due to hot-loop needs in the storm runtime )
@@ -599,7 +601,31 @@ class Guid(Type):
             ('^=', byts, self.stortype),
         )
 
+    def _strDecimals(self, valu):
+
+        if isinstance(valu, decimal.Decimal):
+            return str(valu)
+
+        if isinstance(valu, (tuple, list)):
+            retn = []
+            for v in valu:
+                try:
+                    retn.append(self._strDecimals(v))
+                except s_exc.NoSuchType:
+                    pass
+            return tuple(retn)
+
+        if isinstance(valu, dict):
+            retn = {}
+            for k, v in valu.items():
+                try:
+                    retn[k] = self.str_decimals(v)
+                except s_exc.NoSuchType:
+                    pass
+            return retn
+
     def _normPyList(self, valu):
+        valu = self._strDecimals(valu)
         return s_common.guid(valu), {}
 
     def _normPyStr(self, valu):
@@ -689,6 +715,7 @@ hugemax = 730750818665451459101842
 class HugeNum(Type):
 
     stortype = s_layer.STOR_TYPE_HUGENUM
+    stormtype = s_stormtypes.HugeNum
 
     _opt_defs = (
         ('modulo', None),  # type: ignore

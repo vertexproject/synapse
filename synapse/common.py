@@ -157,13 +157,15 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
-hugectx = decimal.Context(prec=48)
+hugectx = decimal.Context(prec=49)
 def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
     '''
     if isinstance(valu, float):
         valu = str(valu)
+    if isinstance(valu, str) and valu.startswith('0x'):
+        valu = int(valu, 0)
     return decimal.Decimal(valu, context=hugectx)
 
 def hugeadd(x, y):
@@ -189,6 +191,12 @@ def hugediv(x, y):
     Divide two decimal.Decimal with proper precision to support synapse hugenums.
     '''
     return hugectx.divide(x, y)
+
+def hugescaleb(x, y):
+    '''
+    Return the first operand with its exponent adjusted by the second.
+    '''
+    return hugectx.scaleb(x, y)
 
 hugeexp = decimal.Decimal('1E-24')
 def hugeround(x):
