@@ -5214,6 +5214,11 @@ class StormTypesTest(s_test.SynTest):
         self.true(await s_stormtypes.tobool(s_stormtypes.Str('asdf')))
         self.false(await s_stormtypes.tobool(s_stormtypes.Str('')))
 
+        self.eq(20, await s_stormtypes.tonumber('20'))
+        self.eq(20.1, await s_stormtypes.tonumber(20.1))
+        self.eq(20.1, await s_stormtypes.tonumber('20.1'))
+        self.eq(20.1, await s_stormtypes.tonumber(s_stormtypes.HugeNum('20.1')))
+
         with self.raises(s_exc.BadCast):
             await s_stormtypes.toint(s_stormtypes.Prim(()))
 
@@ -5767,6 +5772,7 @@ words\tword\twrd'''
             self.eq(huge - 0.23, 1.0)
             self.eq(huge * 1.0, 1.23)
             self.eq(huge / 1.0, 1.23)
+            self.eq(huge, float(huge))
 
             with self.assertRaises(TypeError):
                 self.lt(huge, 'foo')
@@ -5785,3 +5791,6 @@ words\tword\twrd'''
 
             msgs = await core.stormlist('$lib.print((1.23))')
             self.eq(msgs[1][1]['mesg'], '1.23')
+
+            nodes = await core.nodes('[ test:int=(1.23) ]')
+            self.eq(nodes[0].ndef, ('test:int', 1))
