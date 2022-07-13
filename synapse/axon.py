@@ -363,12 +363,14 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await s_cell.CellApi.__anit__(self, cell, link, user)
         await s_share.Share.__anit__(self, link, None)
 
-    async def get(self, sha256):
+    async def get(self, sha256, offs=None, size=None):
         '''
         Get bytes of a file.
 
         Args:
             sha256 (bytes): The sha256 hash of the file in bytes.
+            offs (int): The offset to start reading from.
+            size (int): The total number of bytes to read.
 
         Examples:
 
@@ -387,7 +389,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             synapse.exc.NoSuchFile: If the file does not exist.
         '''
         await self._reqUserAllowed(('axon', 'get'))
-        async for byts in self.cell.get(sha256):
+        async for byts in self.cell.get(sha256, offs=offs, size=size):
             yield byts
 
     async def has(self, sha256):
@@ -1434,7 +1436,7 @@ class Axon(s_cell.Cell):
                         valu = self.get(s_common.uhex(sha256))
                     else:
                         valu = field.get('value')
-                        if not isinstance(valu, str):
+                        if not isinstance(valu, (bytes, str)):
                             valu = json.dumps(valu)
 
                     data.add_field(field.get('name'),
