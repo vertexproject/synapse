@@ -22,19 +22,20 @@ class PolModule(s_module.CoreModule):
                         {'doc': 'The ISO integer country code.', 'ex': '840'}),
 
                     ('pol:election', ('guid', {}), {
-                        'doc': 'An election to hold government office.'}),
+                        'doc': 'An election involving one or more races for office.'}),
+                    ('pol:race', ('guid', {}), {
+                        'doc': 'A .'}),
                     ('pol:office', ('guid', {}), {
                         'doc': 'A governmental office.'}),
                     ('pol:term', ('guid', {}), {
-                        'doc': 'A specific term in office.'}),
+                        'doc': 'A term in office held by a specific individual.'}),
                     ('pol:candidate', ('guid', {}), {
-                        'doc': 'A candidate for office in a specific election.'}),
+                        'doc': 'A candidate for office in a specific race.'}),
                     ('pol:pollingplace', ('guid', {}), {
                         'doc': 'An official place where ballots may be cast for a specific election.'}),
-                    # TODO precinct / jurisdiction?
-
+                    # TODO districts
+                    # TODO referendums
                 ),
-
                 'forms': (
 
                     ('pol:country', {}, (
@@ -54,12 +55,25 @@ class PolModule(s_module.CoreModule):
                         ('time', ('time', {}), {
                             'doc': 'The date of the election.'}),
                     )),
+                    # TODO jurisdiction / districts
+                    ('pol:race', {}, (
+                        ('election', ('pol:election', {}), {
+                            'doc': 'The election that the candidate is running in.'}),
+                        ('office', ('pol:office', {}), {
+                            'doc': 'The political office that the candidate is running for.'}),
+                        ('voters', ('int', {}), {
+                            'doc': 'The number of eligible voters for this race.'}),
+                        ('turnout', ('int', {}), {
+                            'doc': 'The number of individuals who voted in this race.'}),
+                    )),
                     ('pol:office', {}, (
                         ('title', ('ou:jobtitle', {}), {
                             'ex': 'united states senator',
                             'doc': 'The title of the political office.'}),
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location of jurisdiction for the office.'}),
+                        ('position', ('ou:position', {}), {
+                            'doc': 'The position this office holds in the org chart for the governing body.'}),
+                        ('termlimit', ('int', {}), {
+                            'doc': 'The maximum number of times a single person may hold the office.'}),
                         ('govbody', ('ou:org', {}), {
                             'doc': 'The governmental body which contains the office.'}),
                     )),
@@ -80,12 +94,10 @@ class PolModule(s_module.CoreModule):
                     ('pol:candidate', {}, (
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The contact information of the candidate.'}),
+                        ('race', ('pol:race', {}), {
+                            'doc': 'The race the candidate is participating in.'}),
                         ('campaign', ('ou:campaign', {}), {
                             'doc': 'The official campaign to elect the candidate.'}),
-                        ('election', ('pol:election', {}), {
-                            'doc': 'The election that the candidate is running in.'}),
-                        ('office', ('pol:office', {}), {
-                            'doc': 'The political office that the candidate is running for.'}),
                         ('winner', ('bool', {}), {
                             'doc': 'Records the outcome of the election.'}),
                         ('party', ('ou:org', {}), {
