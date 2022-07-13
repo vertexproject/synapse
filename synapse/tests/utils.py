@@ -196,6 +196,7 @@ testmodel = {
         ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
+        ('test:hugenum', ('hugenum', {}), {}),
 
         ('test:arrayprop', ('guid', {}), {}),
         ('test:arrayform', ('array', {'type': 'int'}), {}),
@@ -302,6 +303,11 @@ testmodel = {
         ('test:data', {}, (
             ('data', ('test:data', {}), {}),
         )),
+
+        ('test:hugenum', {}, (
+            ('huge', ('test:hugenum', {}), {}),
+        )),
+
 
         ('test:str', {}, (
             ('bar', ('ndef', {}), {}),

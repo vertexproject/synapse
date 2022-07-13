@@ -1429,7 +1429,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _guid(self, *args):
         if args:
-            args = await toprim(args)
+            args = await toprim(args, allow_decimal=False)
             return s_common.guid(args)
         return s_common.guid()
 
@@ -8451,7 +8451,10 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None):
+async def toprim(valu, path=None, allow_decimal=True):
+
+    if not allow_decimal and isinstance(valu, HugeNum):
+        return str(valu.value())
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -8460,7 +8463,7 @@ async def toprim(valu, path=None):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v))
+                retn.append(await toprim(v, allow_decimal=allow_decimal))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -8469,7 +8472,7 @@ async def toprim(valu, path=None):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v)
+                retn[k] = await toprim(v, allow_decimal=allow_decimal)
             except s_exc.NoSuchType:
                 pass
         return retn
