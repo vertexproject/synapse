@@ -619,7 +619,8 @@ class Guid(Type):
             retn = {}
             for k, v in valu.items():
                 try:
-                    retn[k] = self.str_decimals(v)
+                    key = self._strDecimals(k)
+                    retn[key] = self._strDecimals(v)
                 except s_exc.NoSuchType:
                     pass
             return retn

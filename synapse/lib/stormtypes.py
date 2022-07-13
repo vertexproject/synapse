@@ -8568,7 +8568,8 @@ async def toprim(valu, path=None, allow_decimal=True):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v, allow_decimal=allow_decimal)
+                key = await toprim(k, allow_decimal=allow_decimal)
+                retn[key] = await toprim(v, allow_decimal=allow_decimal)
             except s_exc.NoSuchType:
                 pass
         return retn
