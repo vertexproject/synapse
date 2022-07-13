@@ -1832,6 +1832,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:hugenum=(1.23 + 4.56) ]')
             self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:hugenum', '5.79'))\
+
+            nodes = await core.nodes('[ test:hugenum=$lib.cast(float, 5.79) ]')
+            self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:hugenum', '5.79'))
 
             self.eq('2.23', await core.callStorm('return((1.23 + 1))'))
@@ -1850,13 +1854,58 @@ class AstTest(s_test.SynTest):
             self.eq('1.025', await core.callStorm('return((1.23 / 1.2))'))
             self.eq('2.5', await core.callStorm('return((3 / 1.2))'))
 
+            self.eq('2.43', await core.callStorm('return((1.23 + $lib.cast(float, 1.2)))'))
+            self.eq('0.03', await core.callStorm('return((1.23 - $lib.cast(float, 1.2)))'))
+            self.eq('1.476', await core.callStorm('return((1.23 * $lib.cast(float, 1.2)))'))
+            self.eq('1.025', await core.callStorm('return((1.23 / $lib.cast(float, 1.2)))'))
+
             self.false(await core.callStorm('return((1.23 = 1))'))
             self.false(await core.callStorm('return((1 = 1.23))'))
             self.false(await core.callStorm('return((1.23 = 2.34))'))
+            self.false(await core.callStorm('return((1.23 = $lib.cast(float, 2.34)))'))
+            self.false(await core.callStorm('return(($lib.cast(float, 2.34) = 1.23))'))
 
             self.true(await core.callStorm('return((1.23 = 1.23))'))
             self.true(await core.callStorm('return((1.0 = 1))'))
             self.true(await core.callStorm('return((1 = 1.0))'))
+            self.true(await core.callStorm('return((1.23 = $lib.cast(float, 1.23)))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 1.23) = 1.23))'))
+
+            self.true(await core.callStorm('return((1.23 != 1))'))
+            self.true(await core.callStorm('return((1 != 1.23))'))
+            self.true(await core.callStorm('return((1.23 != 2.34))'))
+            self.true(await core.callStorm('return((1.23 != $lib.cast(float, 2.34)))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 2.34) != 1.23))'))
+
+            self.false(await core.callStorm('return((1.23 != 1.23))'))
+            self.false(await core.callStorm('return((1.0 != 1))'))
+            self.false(await core.callStorm('return((1 != 1.0))'))
+            self.false(await core.callStorm('return((1.23 != $lib.cast(float, 1.23)))'))
+            self.false(await core.callStorm('return(($lib.cast(float, 1.23) != 1.23))'))
+
+            self.true(await core.callStorm('return((1.23 > 1))'))
+            self.true(await core.callStorm('return((2 > 1.23))'))
+            self.true(await core.callStorm('return((2.34 > 1.23))'))
+            self.true(await core.callStorm('return((2.34 > $lib.cast(float, 1.23)))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 2.34) > 1.23))'))
+
+            self.true(await core.callStorm('return((1.23 >= 1))'))
+            self.true(await core.callStorm('return((2 >= 1.23))'))
+            self.true(await core.callStorm('return((2.34 >= 1.23))'))
+            self.true(await core.callStorm('return((2.34 >= $lib.cast(float, 1.23)))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 2.34) >= 1.23))'))
+
+            self.true(await core.callStorm('return((1.23 < 2))'))
+            self.true(await core.callStorm('return((1 < 1.23))'))
+            self.true(await core.callStorm('return((1.23 < 2.34))'))
+            self.true(await core.callStorm('return((1.23 < $lib.cast(float, 2.34)))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 2.34) < 1.23))'))
+
+            self.true(await core.callStorm('return((1.23 <= 2))'))
+            self.true(await core.callStorm('return((1 <= 1.23))'))
+            self.true(await core.callStorm('return((1.23 <= 2.34))'))
+            self.true(await core.callStorm('return((1.23 <= $lib.cast(float, 2.34)))'))
+            self.true(await core.callStorm('return(($lib.cast(float, 2.34) <= 1.23))'))
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '2d2d2958944fea3cabb5b7ef36e5c7e9')
