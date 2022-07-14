@@ -5791,6 +5791,3 @@ words\tword\twrd'''
 
             msgs = await core.stormlist('$lib.print((1.23))')
             self.eq(msgs[1][1]['mesg'], '1.23')
-
-            nodes = await core.nodes('[ test:int=(1.23) ]')
-            self.eq(nodes[0].ndef, ('test:int', 1))
