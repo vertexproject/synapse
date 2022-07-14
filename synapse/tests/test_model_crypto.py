@@ -352,10 +352,16 @@ class CryptoModelTest(s_t_utils.SynTest):
 
             huge = '730750818665451459101841.000000000000000000000002'
             huge2 = '730750818665451459101841.0000000000000000000000015'
+            huge3 = '730750818665451459101841.000000000000000000000001'
 
             self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge} ]'))
             self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge2} ]'))
             self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
+
+            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge3} ]'))
+            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
+            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge2}'))
+            self.len(1, await core.nodes(f'crypto:currency:transaction:value={huge3}'))
 
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
