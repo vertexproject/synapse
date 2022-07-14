@@ -120,6 +120,12 @@ class AxonHttpDelV1(s_httpapi.Handler):
 
 class AxonFileHandler(s_httpapi.Handler):
 
+    def axon(self):
+        return self.cell
+
+    async def getAxonInfo(self):
+        return await self.axon().getCellInfo()
+
     async def _setSha256Headers(self, sha256b):
 
         self.ranges = []
@@ -127,12 +133,11 @@ class AxonFileHandler(s_httpapi.Handler):
         self.blobsize = await self.axon().size(sha256b)
         if self.blobsize is None:
             self.set_status(404)
-            self.finish()
             return False
 
         status = 200
-
-        if self.axon().byterange:
+        info = await self.getAxonInfo()
+        if info.get('features', {}).get('byterange'):
             self.set_header('Accept-Ranges', 'bytes')
             self._chopRangeHeader()
 
@@ -209,9 +214,6 @@ class AxonFileHandler(s_httpapi.Handler):
             await asyncio.sleep(0)
 
 class AxonHttpBySha256V1(AxonFileHandler):
-
-    def axon(self):
-        return self.cell
 
     async def head(self, sha256):
 
