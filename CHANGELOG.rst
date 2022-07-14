@@ -4,6 +4,20 @@
 Synapse Changelog
 *****************
 
+v2.101.1 - 2022-07-14
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the Storm ``scrape`` command could fail to run with
+  inbound nodes.
+  (`#2761 <https://github.com/vertexproject/synapse/pull/2761>`_)
+- Fix broken links in documentation.
+  (`#2763 <https://github.com/vertexproject/synapse/pull/2763>`_)
+- Fix an issue with the Axon ``AxonHttpBySha256V1`` API handler to address
+  related to detecting ``Range`` support in the Axon.
+  (`#2764 <https://github.com/vertexproject/synapse/pull/2764>`_)
+
 
 v2.101.0 - 2022-07-12
 =====================
