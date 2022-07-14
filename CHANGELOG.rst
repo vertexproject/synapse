@@ -4,6 +4,118 @@
 Synapse Changelog
 *****************
 
+v2.101.1 - 2022-07-14
+=====================
+
+Bugfixes
+--------
+- Fix an issue where the Storm ``scrape`` command could fail to run with
+  inbound nodes.
+  (`#2761 <https://github.com/vertexproject/synapse/pull/2761>`_)
+- Fix broken links in documentation.
+  (`#2763 <https://github.com/vertexproject/synapse/pull/2763>`_)
+- Fix an issue with the Axon ``AxonHttpBySha256V1`` API handler related to
+  detecting ``Range`` support in the Axon.
+  (`#2764 <https://github.com/vertexproject/synapse/pull/2764>`_)
+
+
+v2.101.0 - 2022-07-12
+=====================
+
+Automatic Migrations
+--------------------
+- Create nodes in the Cortex for the updated properties noted in the data
+  model updates listed below.
+- Axon indices are migrated to account for storing offset information to
+  support the new offset and size API options.
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto``, ``infotech``, ``ps``, and ``transport`` models.
+  (`#2720 <https://github.com/vertexproject/synapse/pull/2720>`_)
+  (`#2738 <https://github.com/vertexproject/synapse/pull/2738>`_)
+  (`#2739 <https://github.com/vertexproject/synapse/pull/2739>`_)
+  (`#2747 <https://github.com/vertexproject/synapse/pull/2747>`_)
+
+  ``crypto:smart:effect:minttoken``
+    Add a new form to model smart contract effects which create
+    non-fungible tokens.
+
+  ``crypto:smart:effect:burntoken```
+    Add a new form to model smart contract effects which destroy
+    non-fungible tokens.
+
+  ``crypto:smart:effect:proxytoken``
+    Add a new form that tracks grants for a non-owner address the ability to
+    manipulate a specific non-fungible token.
+
+  ``crypto:smart:effect:proxytokenall``
+    Add a new form that tracks grants for a non-owner address the ability to
+    manipulate all of the non-fungible tokens.
+
+  ``crypto:smart:effect:proxytokens``
+    Add a new form that tracks grants for a non-owner address to manipulate
+    fungible tokens.
+
+  ``it:av:signame``
+    Add a new form to track AV signature names. Migrate
+    ``it:av:filehit:sig:name`` and ``it:av:sig:name`` to use the new form.
+
+  ``it:exec:proc``
+    Add a ``name`` secondary property to track the display name of a process.
+    Add a ``path:base`` secondary property to track the basename of the
+    executable for the process.
+
+  ``ps:contact``
+    Add an ``orgnames`` secondary property to track an array of orgnames
+    associated with a contact.
+
+  ``transport:sea:vessel``
+    Add ``make`` and ``model`` secondary properties to track information
+    about the vessel.
+
+- Add a new Storm command, ``movenodes``, that can be used to move a node
+  entirely from one layer to another.
+  (`#2714 <https://github.com/vertexproject/synapse/pull/2714>`_)
+- Add a new Storm library, ``$lib.gen``, to assist with creating nodes based
+  on secondary property based deconfliction.
+ (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
+- Add a ``sorted()`` method to the ``storm:stat:tally`` object, to simplify
+  handling of tallied data.
+  (`#2748 <https://github.com/vertexproject/synapse/pull/2748>`_)
+- Add a new Storm function, ``$lib.mime.html.totext()``, to extract inner tag
+  text from HTML strings.
+  (`#2744 <https://github.com/vertexproject/synapse/pull/2744>`_)
+- Add Storm functions ``$lib.crypto.hashes.md5()``,
+  ``$lib.crypto.hashes.sha1()``, ``$lib.crypto.hashes.sha256()`` and
+  ``$lib.crypto.hashes.sha512()`` to allow hashing bytes directly in Storm.
+  (`#2743 <https://github.com/vertexproject/synapse/pull/2743>`_)
+- Add an ``Axon.csvrows()`` API for streaming CSV rows from an Axon, and a
+  corresponding ``$lib.axon.csvrows()`` Storm API.
+  (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
+- Expand Synapse requirements to include updated versions of the
+  ``pycryptome``, ``pygments``, and ``scalecodec`` modules.
+  (`#2752 <https://github.com/vertexproject/synapse/pull/2752>`_)
+- Add range support to ``Axon.get()`` to read bytes from a given offset and
+  size. The ``/api/v1/axon/files/by/sha256/<SHA-256>`` HTTP API has been
+  updated to support a ``Range`` header that accepts a ``bytes`` value to read
+  a subset of bytes that way as well.
+  (`#2731 <https://github.com/vertexproject/synapse/pull/2731>`_)
+  (`#2755 <https://github.com/vertexproject/synapse/pull/2755>`_)
+  (`#2758 <https://github.com/vertexproject/synapse/pull/2758>`_)
+
+Bugfixes
+--------
+- Fix ``$lib.time.parse()`` when ``%z`` is used in the format specifier.
+  (`#2749 <https://github.com/vertexproject/synapse/pull/2749>`_)
+- Non-string form-data fields are now serialized as JSON when using the
+  ``Axon.postfiles()`` API.
+  (`#2751 <https://github.com/vertexproject/synapse/pull/2751>`_)
+  (`#2759 <https://github.com/vertexproject/synapse/pull/2759>`_)
+- Fix a byte-alignment issue in the ``Axon.readlines()`` API.
+  (`#2719 <https://github.com/vertexproject/synapse/pull/2719>`_)
+
 
 v2.100.0 - 2022-06-30
 =====================

@@ -875,6 +875,12 @@ class SynTest(unittest.TestCase):
             async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
                 yield core
 
+    @contextlib.asynccontextmanager
+    async def getRegrAxon(self, vers, conf=None):
+        with self.getRegrDir('axons', vers) as dirn:
+            async with await s_axon.Axon.anit(dirn, conf=conf) as axon:
+                yield axon
+
     def skipIfNoInternet(self):  # pragma: no cover
         '''
         Allow skipping a test if SYN_TEST_SKIP_INTERNET envar is set.
