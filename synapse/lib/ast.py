@@ -3161,9 +3161,11 @@ class EditNodeAdd(Edit):
         NOTE: CALLER MUST CHECK PERMS
         '''
         vals = await self.kids[2].compute(runt, path)
-        vals = await s_stormtypes.toprim(vals)
 
         try:
+            if isinstance(form.type, s_types.Guid):
+                vals = await s_stormtypes.toprim(vals)
+
             for valu in form.type.getTypeVals(vals):
                 try:
                     newn = await runt.snap.addNode(form.name, valu)
