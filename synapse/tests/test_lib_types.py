@@ -1,4 +1,5 @@
 import math
+import decimal
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
