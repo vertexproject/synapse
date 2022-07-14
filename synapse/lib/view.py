@@ -384,7 +384,7 @@ class View(s_nexus.Pusher):  # type: ignore
         except s_stormctrl.StormReturn as e:
             # Catch return( ... ) values and return the
             # primitive version of that item.
-            return await s_stormtypes.toprim(e.item, allow_decimal=False)
+            return await s_stormtypes.toprim(e.item)
 
         except asyncio.CancelledError:
             logger.warning(f'callStorm cancelled',

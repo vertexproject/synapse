@@ -601,32 +601,7 @@ class Guid(Type):
             ('^=', byts, self.stortype),
         )
 
-    def _strDecimals(self, valu):
-
-        if isinstance(valu, decimal.Decimal):
-            return str(valu)
-
-        if isinstance(valu, (tuple, list)):
-            retn = []
-            for v in valu:
-                try:
-                    retn.append(self._strDecimals(v))
-                except s_exc.NoSuchType:
-                    pass
-            return tuple(retn)
-
-        if isinstance(valu, dict):
-            retn = {}
-            for k, v in valu.items():
-                try:
-                    key = self._strDecimals(k)
-                    retn[key] = self._strDecimals(v)
-                except s_exc.NoSuchType:
-                    pass
-            return retn
-
     def _normPyList(self, valu):
-        valu = self._strDecimals(valu)
         return s_common.guid(valu), {}
 
     def _normPyStr(self, valu):

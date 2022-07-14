@@ -1460,7 +1460,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _guid(self, *args):
         if args:
-            args = await toprim(args, allow_decimal=False)
+            args = await toprim(args)
             return s_common.guid(args)
         return s_common.guid()
 
@@ -8547,10 +8547,7 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None, allow_decimal=True):
-
-    if not allow_decimal and isinstance(valu, HugeNum):
-        return str(valu.value())
+async def toprim(valu, path=None):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -8559,7 +8556,7 @@ async def toprim(valu, path=None, allow_decimal=True):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v, allow_decimal=allow_decimal))
+                retn.append(await toprim(v))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -8568,11 +8565,13 @@ async def toprim(valu, path=None, allow_decimal=True):
         retn = {}
         for k, v in valu.items():
             try:
-                key = await toprim(k, allow_decimal=allow_decimal)
-                retn[key] = await toprim(v, allow_decimal=allow_decimal)
+                retn[k] = await toprim(v)
             except s_exc.NoSuchType:
                 pass
         return retn
+
+    if isinstance(valu, HugeNum):
+        return str(valu.value())
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)
@@ -8626,6 +8625,38 @@ def fromprim(valu, path=None, basetypes=True):
         raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
 
     return valu
+
+async def tocmprvalu(valu):
+
+    if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType, HugeNum)) or valu is None:
+        return valu
+
+    if isinstance(valu, (tuple, list)):
+        retn = []
+        for v in valu:
+            try:
+                retn.append(await toprim(v))
+            except s_exc.NoSuchType:
+                pass
+        return tuple(retn)
+
+    if isinstance(valu, dict):
+        retn = {}
+        for k, v in valu.items():
+            try:
+                retn[k] = await toprim(v)
+            except s_exc.NoSuchType:
+                pass
+        return retn
+
+    if isinstance(valu, Prim):
+        return await s_coro.ornot(valu.value)
+
+    if isinstance(valu, s_node.Node):
+        return valu.ndef[1]
+
+    mesg = 'Unable to convert object to value for comparison.'
+    raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
 
 def ismutable(valu):
     if isinstance(valu, StormType):

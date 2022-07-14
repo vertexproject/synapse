@@ -25,7 +25,7 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, undef
+from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
 
 logger = logging.getLogger(__name__)
 
@@ -2864,9 +2864,9 @@ async def expr_div(x, y):
     return x / y
 
 async def expr_eq(x, y):
-    return await toprim(x) == await toprim(y)
+    return await tocmprvalu(x) == await tocmprvalu(y)
 async def expr_ne(x, y):
-    return await toprim(x) != await toprim(y)
+    return await tocmprvalu(x) != await tocmprvalu(y)
 async def expr_gt(x, y):
     return await tonumber(x) > await tonumber(y)
 async def expr_lt(x, y):
