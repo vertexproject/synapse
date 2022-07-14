@@ -5791,3 +5791,11 @@ words\tword\twrd'''
 
             msgs = await core.stormlist('$lib.print((1.23))')
             self.eq(msgs[1][1]['mesg'], '1.23')
+
+            q = '''
+            [ inet:fqdn=foo.com ]
+            $foo = (1.23)
+            $bar = $node
+            [ ps:contact=(test, $foo, $bar) ]
+            '''
+            self.len(2, await core.nodes(q))

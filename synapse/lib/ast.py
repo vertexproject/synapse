@@ -3161,6 +3161,7 @@ class EditNodeAdd(Edit):
         NOTE: CALLER MUST CHECK PERMS
         '''
         vals = await self.kids[2].compute(runt, path)
+        vals = await s_stormtypes.toprim(vals)
 
         try:
             for valu in form.type.getTypeVals(vals):
