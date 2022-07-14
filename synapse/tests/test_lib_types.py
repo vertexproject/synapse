@@ -345,6 +345,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, t.norm, 'newp')
         self.eq(t.norm(True)[0], 1)
         self.eq(t.norm(False)[0], 0)
+        self.eq(t.norm(decimal.Decimal('1.0'))[0], 1)
 
         # Test merge
         self.eq(30, t.merge(20, 30))

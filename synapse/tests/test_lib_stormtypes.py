@@ -5219,6 +5219,10 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20.1, await s_stormtypes.tonumber('20.1'))
         self.eq(20.1, await s_stormtypes.tonumber(s_stormtypes.HugeNum('20.1')))
 
+        self.eq(True, await s_stormtypes.tocmprvalu(boolprim))
+        self.eq((1, 3), await s_stormtypes.tocmprvalu([1, s_exc.SynErr, 3]))
+        self.eq({'foo': 'bar'}, await s_stormtypes.tocmprvalu({'foo': 'bar', 'exc': s_exc.SynErr}))
+
         with self.raises(s_exc.BadCast):
             await s_stormtypes.toint(s_stormtypes.Prim(()))
 
@@ -5788,6 +5792,11 @@ words\tword\twrd'''
 
             with self.assertRaises(TypeError):
                 huge / 'foo'
+
+            self.eq('15', await core.callStorm('return($lib.cast(hugenum, 0xf))'))
+            self.eq((True, '15'), await core.callStorm('return($lib.trycast(hugenum, 0xf))'))
+
+            self.eq('0.0123', await core.callStorm('$foo=(1.23) return($foo.scaleb(-2))'))
 
             msgs = await core.stormlist('$lib.print((1.23))')
             self.eq(msgs[1][1]['mesg'], '1.23')
