@@ -17,6 +17,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-AlienVault <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-alienvault/index.html>`_
 - `Synapse-Apollo <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-apollo/index.html>`_
 - `Synapse-Blockchain <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-blockchain/index.html>`_
+- `Synapse-Blockchair <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-blockchair/index.html>`_
 - `Synapse-Blockcypher <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-blockcypher/index.html>`_
 - `Synapse-Censys <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-censys/index.html>`_
 - `Synapse-Certspotter <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-certspotter/index.html>`_
