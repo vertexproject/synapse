@@ -1274,7 +1274,7 @@ class LibBase(Lib):
                   'returns': {'type': 'prim',
                               'desc': 'A deep copy of the primitive object.', }}},
         {'name': 'hugenum', 'desc': 'Get a Storm HugeNum object.',
-         'type': {'type': 'function', '_funcname': '_dict',
+         'type': {'type': 'function', '_funcname': '_hugenum',
                   'args': (
                       {'name': 'value', 'type': 'any',
                        'desc': 'Value for the hugenum.', },
