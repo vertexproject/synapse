@@ -178,7 +178,7 @@ def hugesub(x, y):
 
 def hugescaleb(x, y):
     '''
-    Return the first operand with its exponent adjusted by the second.
+    Return the first operand with its exponent adjusted by the second operand.
     '''
     return hugectx.scaleb(x, y)
 
