@@ -5793,10 +5793,11 @@ words\tword\twrd'''
             with self.assertRaises(TypeError):
                 huge / 'foo'
 
+            self.eq('15', await core.callStorm('return($lib.hugenum(0xf))'))
             self.eq('15', await core.callStorm('return($lib.cast(hugenum, 0xf))'))
             self.eq((True, '15'), await core.callStorm('return($lib.trycast(hugenum, 0xf))'))
 
-            self.eq('0.0123', await core.callStorm('$foo=(1.23) return($foo.scaleb(-2))'))
+            self.eq('0.0123', await core.callStorm('return($lib.hugenum(1.23).scaleb(-2))'))
 
             msgs = await core.stormlist('$lib.print((1.23))')
             self.eq(msgs[1][1]['mesg'], '1.23')

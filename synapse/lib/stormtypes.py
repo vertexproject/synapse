@@ -1273,6 +1273,13 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'prim',
                               'desc': 'A deep copy of the primitive object.', }}},
+        {'name': 'hugenum', 'desc': 'Get a Storm HugeNum object.',
+         'type': {'type': 'function', '_funcname': '_dict',
+                  'args': (
+                      {'name': 'value', 'type': 'any',
+                       'desc': 'Value for the hugenum.', },
+                  ),
+                  'returns': {'type': 'hugenum', 'desc': 'A HugeNum object.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1311,6 +1318,7 @@ class LibBase(Lib):
             'pprint': self._pprint,
             'sorted': self._sorted,
             'import': self._libBaseImport,
+            'hugenum': self._hugenum,
             'trycast': self.trycast,
         }
 
@@ -1587,6 +1595,10 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
+
+    @stormfunc(readonly=True)
+    async def _hugenum(self, value):
+        return HugeNum(value)
 
 @registry.registerLib
 class LibPs(Lib):
