@@ -1273,13 +1273,6 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'prim',
                               'desc': 'A deep copy of the primitive object.', }}},
-        {'name': 'hugenum', 'desc': 'Get a Storm HugeNum object.',
-         'type': {'type': 'function', '_funcname': '_hugenum',
-                  'args': (
-                      {'name': 'value', 'type': 'any',
-                       'desc': 'Value for the hugenum.', },
-                  ),
-                  'returns': {'type': 'hugenum', 'desc': 'A HugeNum object.', }}},
     )
 
     def __init__(self, runt, name=()):
@@ -1318,7 +1311,6 @@ class LibBase(Lib):
             'pprint': self._pprint,
             'sorted': self._sorted,
             'import': self._libBaseImport,
-            'hugenum': self._hugenum,
             'trycast': self.trycast,
         }
 
@@ -1414,9 +1406,6 @@ class LibBase(Lib):
 
         norm, info = typeitem.norm(valu)
 
-        if typeitem.stormtype is not None:
-            return typeitem.stormtype(norm)
-
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1431,9 +1420,6 @@ class LibBase(Lib):
 
         try:
             norm, info = typeitem.norm(valu)
-
-            if typeitem.stormtype is not None:
-                return (True, typeitem.stormtype(norm))
 
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
@@ -1595,10 +1581,6 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
-
-    @stormfunc(readonly=True)
-    async def _hugenum(self, value):
-        return HugeNum(value)
 
 @registry.registerLib
 class LibPs(Lib):
@@ -4483,13 +4465,13 @@ class Bool(Prim):
         return hash((self._storm_typename, self.value()))
 
 @registry.registerType
-class HugeNum(Prim):
+class Number(Prim):
     '''
-    Implements the Storm API for a hugenum instance.
+    Implements the Storm API for a number instance.
     '''
     _storm_locals = (
         {'name': 'scaleb', 'desc': '''
-            Return the hugenum multiplied by 10**other
+            Return the number multiplied by 10**other
 
             Example:
                 Multiply the value by 10**-18::
@@ -4499,16 +4481,16 @@ class HugeNum(Prim):
                   'args': (
                       {'name': 'other', 'type': 'int', 'desc': 'The amount to adjust the exponent.', },
                   ),
-                  'returns': {'type': 'hugenum', 'desc': 'The exponent adjusted hugenum.', }}},
+                  'returns': {'type': 'number', 'desc': 'The exponent adjusted number.', }}},
     )
-    _storm_typename = 'hugenum'
+    _storm_typename = 'number'
     _ismutable = False
 
     def __init__(self, valu, path=None):
         try:
             valu = s_common.hugenum(valu)
         except decimal.DecimalException as e:
-            mesg = f'Failed to make hugenum from {valu!r}'
+            mesg = f'Failed to make number from {valu!r}'
             raise s_exc.BadCast(mesg=mesg) from e
 
         Prim.__init__(self, valu, path=path)
@@ -4521,7 +4503,7 @@ class HugeNum(Prim):
 
     async def _methScaleb(self, other):
         newv = s_common.hugescaleb(self.value(), await toint(other))
-        return HugeNum(newv)
+        return Number(newv)
 
     def __str__(self):
         return str(self.value())
@@ -4541,7 +4523,7 @@ class HugeNum(Prim):
             return self.value() == othr
         elif isinstance(othr, (int, decimal.Decimal)):
             return self.value() == othr
-        elif isinstance(othr, HugeNum):
+        elif isinstance(othr, Number):
             return self.value() == othr.value()
         return False
 
@@ -4551,7 +4533,7 @@ class HugeNum(Prim):
             return self.value() < othr
         elif isinstance(othr, (int, decimal.Decimal)):
             return self.value() < othr
-        elif isinstance(othr, HugeNum):
+        elif isinstance(othr, Number):
             return self.value() < othr.value()
 
         mesg = f"comparison not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
@@ -4560,11 +4542,11 @@ class HugeNum(Prim):
     def __add__(self, othr):
         if isinstance(othr, float):
             othr = s_common.hugenum(othr)
-            return HugeNum(s_common.hugeadd(self.value(), othr))
+            return Number(s_common.hugeadd(self.value(), othr))
         elif isinstance(othr, (int, decimal.Decimal)):
-            return HugeNum(s_common.hugeadd(self.value(), othr))
-        elif isinstance(othr, HugeNum):
-            return HugeNum(s_common.hugeadd(self.value(), othr.value()))
+            return Number(s_common.hugeadd(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugeadd(self.value(), othr.value()))
 
         mesg = f"'+' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
@@ -4574,27 +4556,27 @@ class HugeNum(Prim):
     def __sub__(self, othr):
         if isinstance(othr, float):
             othr = s_common.hugenum(othr)
-            return HugeNum(s_common.hugesub(self.value(), othr))
+            return Number(s_common.hugesub(self.value(), othr))
         elif isinstance(othr, (int, decimal.Decimal)):
-            return HugeNum(s_common.hugesub(self.value(), othr))
-        elif isinstance(othr, HugeNum):
-            return HugeNum(s_common.hugesub(self.value(), othr.value()))
+            return Number(s_common.hugesub(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugesub(self.value(), othr.value()))
 
         mesg = f"'-' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
     def __rsub__(self, othr):
-        othr = HugeNum(othr)
+        othr = Number(othr)
         return othr.__sub__(self)
 
     def __mul__(self, othr):
         if isinstance(othr, float):
             othr = s_common.hugenum(othr)
-            return HugeNum(s_common.hugemul(self.value(), othr))
+            return Number(s_common.hugemul(self.value(), othr))
         elif isinstance(othr, (int, decimal.Decimal)):
-            return HugeNum(s_common.hugemul(self.value(), othr))
-        elif isinstance(othr, HugeNum):
-            return HugeNum(s_common.hugemul(self.value(), othr.value()))
+            return Number(s_common.hugemul(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugemul(self.value(), othr.value()))
 
         mesg = f"'*' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
@@ -4604,17 +4586,17 @@ class HugeNum(Prim):
     def __truediv__(self, othr):
         if isinstance(othr, float):
             othr = s_common.hugenum(othr)
-            return HugeNum(s_common.hugediv(self.value(), othr))
+            return Number(s_common.hugediv(self.value(), othr))
         elif isinstance(othr, (int, decimal.Decimal)):
-            return HugeNum(s_common.hugediv(self.value(), othr))
-        elif isinstance(othr, HugeNum):
-            return HugeNum(s_common.hugediv(self.value(), othr.value()))
+            return Number(s_common.hugediv(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugediv(self.value(), othr.value()))
 
         mesg = f"'/' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
         raise TypeError(mesg)
 
     def __rtruediv__(self, othr):
-        othr = HugeNum(othr)
+        othr = Number(othr)
         return othr.__truediv__(self)
 
     async def stormrepr(self):
@@ -8582,7 +8564,7 @@ async def toprim(valu, path=None):
                 pass
         return retn
 
-    if isinstance(valu, HugeNum):
+    if isinstance(valu, Number):
         return str(valu.value())
 
     if isinstance(valu, Prim):
@@ -8627,7 +8609,7 @@ def fromprim(valu, path=None, basetypes=True):
         return Bool(valu, path=path)
 
     if isinstance(valu, (float, decimal.Decimal)):
-        return HugeNum(valu, path=path)
+        return Number(valu, path=path)
 
     if isinstance(valu, StormType):
         return valu
@@ -8640,7 +8622,7 @@ def fromprim(valu, path=None, basetypes=True):
 
 async def tocmprvalu(valu):
 
-    if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType, HugeNum)) or valu is None:
+    if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType, Number)) or valu is None:
         return valu
 
     if isinstance(valu, (tuple, list)):
@@ -8710,11 +8692,11 @@ async def tonumber(valu, noneok=False):
     if noneok and valu is None:
         return None
 
-    if isinstance(valu, HugeNum):
+    if isinstance(valu, Number):
         return valu
 
     if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
-        return HugeNum(valu)
+        return Number(valu)
 
     return await toint(valu, noneok=noneok)
 

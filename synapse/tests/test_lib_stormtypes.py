@@ -5189,7 +5189,7 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20, await s_stormtypes.toint(20))
         self.eq(20, await s_stormtypes.toint('20'))
         self.eq(20, await s_stormtypes.toint(s_stormtypes.Str('20')))
-        self.eq(20, await s_stormtypes.toint(s_stormtypes.HugeNum('20')))
+        self.eq(20, await s_stormtypes.toint(s_stormtypes.Number('20')))
 
         self.eq('asdf', await s_stormtypes.tostr('asdf'))
         self.eq('asdf', await s_stormtypes.tostr(s_stormtypes.Str('asdf')))
@@ -5206,8 +5206,8 @@ class StormTypesTest(s_test.SynTest):
         self.true(await s_stormtypes.tobool(boolprim))
         self.true(await s_stormtypes.tobool(1))
         self.false(await s_stormtypes.tobool(0))
-        self.true(await s_stormtypes.tobool(s_stormtypes.HugeNum('1')))
-        self.false(await s_stormtypes.tobool(s_stormtypes.HugeNum('0')))
+        self.true(await s_stormtypes.tobool(s_stormtypes.Number('1')))
+        self.false(await s_stormtypes.tobool(s_stormtypes.Number('0')))
         # no bool <- int <- str
         self.true(await s_stormtypes.tobool('1'))
         self.true(await s_stormtypes.tobool(s_stormtypes.Str('0')))
@@ -5217,7 +5217,7 @@ class StormTypesTest(s_test.SynTest):
         self.eq(20, await s_stormtypes.tonumber('20'))
         self.eq(20.1, await s_stormtypes.tonumber(20.1))
         self.eq(20.1, await s_stormtypes.tonumber('20.1'))
-        self.eq(20.1, await s_stormtypes.tonumber(s_stormtypes.HugeNum('20.1')))
+        self.eq(20.1, await s_stormtypes.tonumber(s_stormtypes.Number('20.1')))
 
         self.eq(True, await s_stormtypes.tocmprvalu(boolprim))
         self.eq((1, 3), await s_stormtypes.tocmprvalu([1, s_exc.SynErr, 3]))
@@ -5760,14 +5760,14 @@ words\tword\twrd'''
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('yield $lib.layer.get().liftByProp(ou:org, not_a_guid)', opts=opts)
 
-    async def test_stormtypes_hugenum(self):
+    async def test_stormtypes_number(self):
 
         async with self.getTestCore() as core:
 
             with self.raises(s_exc.BadCast):
-                s_stormtypes.HugeNum('beepbeep')
+                s_stormtypes.Number('beepbeep')
 
-            huge = s_stormtypes.HugeNum(1.23)
+            huge = s_stormtypes.Number(1.23)
 
             self.eq(huge, 1.23)
             self.ne(huge, 'foo')
@@ -5793,11 +5793,11 @@ words\tword\twrd'''
             with self.assertRaises(TypeError):
                 huge / 'foo'
 
-            self.eq('15', await core.callStorm('return($lib.hugenum(0xf))'))
+            self.eq('15', await core.callStorm('return($lib.math.number(0xf))'))
             self.eq('15', await core.callStorm('return($lib.cast(hugenum, 0xf))'))
             self.eq((True, '15'), await core.callStorm('return($lib.trycast(hugenum, 0xf))'))
 
-            self.eq('0.0123', await core.callStorm('return($lib.hugenum(1.23).scaleb(-2))'))
+            self.eq('0.0123', await core.callStorm('return($lib.math.number(1.23).scaleb(-2))'))
 
             msgs = await core.stormlist('$lib.print((1.23))')
             self.eq(msgs[1][1]['mesg'], '1.23')

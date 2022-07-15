@@ -30,7 +30,7 @@ from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmp
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
-    return s_stormtypes.HugeNum(x) if '.' in x else s_stormtypes.intify(x)
+    return s_stormtypes.Number(x) if '.' in x else s_stormtypes.intify(x)
 
 class AstNode:
     '''
