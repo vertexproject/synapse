@@ -2044,3 +2044,8 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes(f'_test:hugearray*[={huge1}]'))
             self.len(1, await core.nodes(f'_test:hugearray*[={huge2}]'))
             self.len(1, await core.nodes(f'_test:hugearray*[={huge3}]'))
+
+    async def test_layer_fromfuture(self):
+        with self.raises(s_exc.BadStorageVersion):
+            async with self.getRegrCore('future-layrvers') as core:
+                pass
