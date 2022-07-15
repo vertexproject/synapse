@@ -19,6 +19,7 @@ The types of filter operations within Storm are highly flexible and consist of t
 - `Filters Using Extended Comparison Operators`_
 - `Compound Filters`_
 - `Subquery Filters`_
+- `Double Colon Syntax`_
 
 In most cases, the criteria and available comparators for lift operations (:ref:`storm-ref-lift`) are also available for filter operations.
 
@@ -915,7 +916,7 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
     <inet:fqdn> +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#aka.trend.thr.pawnstorm }
 
 
-- From an initial set of IP addresses, return only those IPs registered to an Autonomous System (AS) whois name starts with “makonix”:
+- From an initial set of IPv4 addresses, return only those IPv4s registered to an Autonomous System (AS) whose name starts with "makonix":
 
 
 .. storm-pre:: inet:ipv4 +{ :asn -> inet:asn +:name^="makonix" }
@@ -931,3 +932,55 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 ::
 
     <file:bytes> +{ -> it:av:filehit }>=10
+
+
+.. _double_colon_syntax:
+
+Double Colon Syntax
+---------------------
+
+Storm includes a shortened syntax that can be used to reference a secondary property of an **adjacent** node. The symbol for this syntax is ``::``, so it is referred to as "double colon" syntax. Double colon syntax expresses something that is similar (in concept, though not in practice) to a secondary-to-secondary property pivot. The syntax expresses navigation:
+
+- From a **secondary property** of a form (such as ``inet:ipv4:asn``), to
+- The **form** for that secondary property (i.e., ``inet:asn``), to
+- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
+
+Despite its similarity to a pivot operation, double colon syntax is commonly used for:
+
+- **Filter operations** (specifically, as a more concise alternative to certain :ref:`filter-subquery`)
+- **Variable assignment** (see :ref:`storm-adv-vars`)
+- Defining an :ref:`gloss-embed-col` in the Synapse UI (Optic)
+
+**Syntax:**
+
+*<query>* **+ | -:** *<prop>* **::** *<prop>*
+
+*<query>* **+ | -:** *<prop>* **::** *<prop>* **=** *<pval>*
+
+**Examples:**
+
+*Filter Example*
+
+- From an initial set of IPv4 addresses, return only those IPv4s registered to an Autonomous System (AS) whose name starts with "makonix":
+
+.. storm-pre:: inet:ipv4 +:asn::name^="makonix"
+::
+
+    <inet:ipv4> +:asn::name^="makonix"
+
+Note that this example of double colon syntax is equivalent to the following subquery filter (referenced above):
+
+::
+    
+    <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
+
+*Variable Assignment Example*
+
+- Set the variable ``$name`` to the name of the Autonomous System (AS) associated with a given IPv4 address:
+
+.. storm-pre:: inet:ipv4 $name=:asn::name
+::
+    
+    <inet:ipv4> $name=:asn::name
+
+
