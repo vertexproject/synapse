@@ -2213,8 +2213,10 @@ class Layer(s_nexus.Pusher):
             form = form.name
 
         try:
-            abrv = self.getPropAbrv(form, propname)
-
+            if prop.isform:
+                abrv = self.getPropAbrv(form, None)
+            else:
+                abrv = self.getPropAbrv(form, propname)
         except s_exc.NoSuchAbrv:
             return
 
@@ -2238,18 +2240,21 @@ class Layer(s_nexus.Pusher):
                 continue
 
             sode.update(s_msgpack.un(byts))
-            pval = sode['props'].get(propname)
-            if pval is None:
+            if prop.isform:
+                valu = sode['valu']
+            else:
+                valu = sode['props'].get(propname)
+
+            if valu is None:
                 self.layrslab.delete(lkey, buid, db=self.byprop)
                 sode.clear()
                 continue
 
-            valu, _ = pval
+            valu = valu[0]
             if isarray:
                 for aval in valu:
-                    indx = hugestor.indx(aval)[0]
                     try:
-                        indx = hugestor.indx(valu)[0]
+                        indx = hugestor.indx(aval)[0]
                     except Exception:
                         logger.warning(f'Invalid value {valu} for prop {propname} for buid {buid}')
                         continue
@@ -2274,7 +2279,6 @@ class Layer(s_nexus.Pusher):
         try:
             ftpabrv = self.getTagPropAbrv(form, tag, prop)
             tpabrv = self.getTagPropAbrv(None, tag, prop)
-
         except s_exc.NoSuchAbrv:
             return
 

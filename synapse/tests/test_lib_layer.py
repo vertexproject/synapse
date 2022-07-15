@@ -2007,3 +2007,40 @@ class LayerTest(s_t_utils.SynTest):
                 ('node', 'edge', 'add', 'refs'),
                 ('node', 'edge', 'del', 'refs'),
             }, set(perms))
+
+    async def test_layer_v9(self):
+        async with self.getRegrCore('2.101.1-hugenum-indxprec') as core:
+
+            huge1 = '730750818665451459101841.000000000000000000000001'
+            huge2 = '730750818665451459101841.000000000000000000000002'
+            huge3 = '730750818665451459101841.000000000000000000000003'
+
+            nodes = await core.nodes(f'econ:purchase:price={huge1}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('econ:purchase', '99a453112c45570ac2ccc6b941b09035'))
+
+            nodes = await core.nodes(f'econ:purchase:price={huge2}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('econ:purchase', '95afaf2b258160e0845f899ffff5115c'))
+
+            nodes = await core.nodes(f'inet:fqdn:_hugearray*[={huge1}]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'test1.com'))
+
+            nodes = await core.nodes(f'inet:fqdn:_hugearray*[={huge3}]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'test2.com'))
+
+            nodes = await core.nodes(f'inet:fqdn#test:hugetp={huge1}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'test3.com'))
+
+            nodes = await core.nodes(f'inet:fqdn#test:hugetp={huge2}')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:fqdn', 'test4.com'))
+
+            self.len(1, await core.nodes(f'_test:huge={huge1}'))
+            self.len(1, await core.nodes(f'_test:huge={huge2}'))
+            self.len(1, await core.nodes(f'_test:hugearray*[={huge1}]'))
+            self.len(1, await core.nodes(f'_test:hugearray*[={huge2}]'))
+            self.len(1, await core.nodes(f'_test:hugearray*[={huge3}]'))
