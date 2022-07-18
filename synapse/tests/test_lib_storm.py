@@ -1184,7 +1184,25 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[ ou:org=(org3,) +#glob.tags +#more.glob.tags +#more.gob.tags ]', opts=altview)
             await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
             nodes = await core.nodes('ou:org=(org3,)')
-            self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
+            exp = ['glob', 'more', 'more.glob', 'more.glob.tags', 'glob.tags']
+            self.sorteq(list(nodes[0].tags.keys()), exp)
+
+            q = '''
+            [ file:bytes=*
+              :md5=00000a5758eea935f817dd1490a322a5
+
+              inet:ssl:cert=(1.2.3.4, $node)
+            ]
+            '''
+            await core.nodes(q, opts=altview)
+
+            self.len(0, await core.nodes('hash:md5'))
+            await core.nodes('file:bytes | merge --apply', opts=altview)
+            self.len(1, await core.nodes('hash:md5'))
+
+            self.len(0, await core.nodes('inet:ipv4'))
+            await core.nodes('inet:ssl:cert | merge --apply', opts=altview)
+            self.len(1, await core.nodes('inet:ipv4'))
 
     async def test_storm_movenodes(self):
 
