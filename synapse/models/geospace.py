@@ -351,9 +351,10 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
                     }),
                 ),
+
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
-                        'doc': 'The source node was seen at the geo:telem node place and time.',
+                        'doc': 'The source node was seen at the geo:telem node place and time.'}),
                 ),
 
                 'forms': (

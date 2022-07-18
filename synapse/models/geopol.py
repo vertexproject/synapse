@@ -84,8 +84,8 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The start of the term of office.'}),
                         ('end', ('time', {}), {
                             'doc': 'The end of the term of office.'}),
-                        ('election', ('pol:election', {}), {
-                            'doc': 'The election that determined who held office during the term.'}),
+                        ('race', ('pol:race', {}), {
+                            'doc': 'The race that determined who held office during the term.'}),
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The contact information of the person who held office during the term.'}),
                         ('party', ('ou:org', {}), {
