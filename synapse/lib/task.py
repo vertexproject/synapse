@@ -14,7 +14,7 @@ class Task(s_base.Base):
     The synapse Task object implements concepts similar to process trees
     for asyncio.Task instances.
     '''
-    async def __anit__(self, boss, task, name, user, info=None, root=None):
+    async def __anit__(self, boss, task, name, user, info=None, root=None, iden=None):
 
         await s_base.Base.__anit__(self)
 
@@ -25,7 +25,7 @@ class Task(s_base.Base):
 
         task._syn_task = self
 
-        self.iden = info.get('iden')
+        self.iden = iden
         if self.iden is None:
             self.iden = s_common.guid()
 

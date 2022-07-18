@@ -24,13 +24,14 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    async def promote(self, name, user, info=None):
+    async def promote(self, name, user, info=None, taskiden=None):
         '''
         Promote the currently running task.
 
         Args:
             name (str): The name of the task.
             user: The User who owns the task.
+            taskiden: An optional GUID for the task.
             info: An optional information dictionary containing information about the task.
 
         Returns:
@@ -42,7 +43,7 @@ class Boss(s_base.Base):
 
         if synt is not None:
 
-            if info is not None and info.get('iden') is not None: # pragma: no cover
+            if taskiden is not None and synt.iden != taskiden:
                 logger.warning('Iden specified for existing task. Ignored.')
 
             if synt.root is None:
@@ -52,7 +53,7 @@ class Boss(s_base.Base):
             synt.root = None
             return synt
 
-        return await s_task.Task.anit(self, task, name, user, info=info)
+        return await s_task.Task.anit(self, task, name, user, info=info, iden=taskiden)
 
     async def execute(self, coro, name, user, info=None):
         '''

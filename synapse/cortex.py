@@ -4571,8 +4571,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        taskinfo = {'query': text, 'iden': opts.get('task')}
-        await self.boss.promote('storm:export', user=user, info=taskinfo)
+        taskinfo = {'query': text}
+        taskiden = opts.get('task')
+        await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
         spooldict = await s_spooled.Dict.anit()
         async with await self.snap(user=user, view=view) as snap:
@@ -4611,9 +4612,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        taskinfo = {'name': 'syn.nodes', 'sha256': sha256, 'iden': opts.get('task')}
+        taskiden = opts.get('task')
+        taskinfo = {'name': 'syn.nodes', 'sha256': sha256}
 
-        await self.boss.promote('feeddata', user=user, info=taskinfo)
+        await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
         # ensure that the user can make all node edits in the layer
         user.confirm(('node',), gateiden=view.layers[0].iden)
