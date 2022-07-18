@@ -3605,23 +3605,6 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('foo', msgs)
             self.stormNotInPrint('vertex.link', msgs)
 
-    async def test_storm_argserr(self):
-
-        async with self.getTestCore() as core:
-
-            iden00 = await core.callStorm('[inet:ipv4=0] return($node.iden())')
-            iden01 = await core.callStorm('[inet:ipv4=1] return($node.iden())')
-
-            opts = {
-                'vars': {
-                    'iden00': iden00,
-                    'iden01': iden01,
-                },
-            }
-
-            mesgs = await core.stormlist('iden ($iden00, $iden01)', opts=opts)
-            self.stormIsInErr('Invalid value for type (str)', mesgs)
-
     async def test_storm_version(self):
 
         async with self.getTestCore() as core:
