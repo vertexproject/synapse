@@ -43,7 +43,7 @@ class Boss(s_base.Base):
 
         if synt is not None:
 
-            if taskiden is not None and synt.iden != taskiden:
+            if taskiden is not None and synt.iden != taskiden: # pragma: no cover
                 logger.warning('Iden specified for existing task. Ignored.')
 
             if synt.root is None:
