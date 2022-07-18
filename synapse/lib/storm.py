@@ -3190,8 +3190,7 @@ class MergeCmd(Cmd):
 
                 await sync()
 
-                # TODO API to clear one node from the snap cache?
-                runt.snap.livenodes.pop(node.buid, None)
+                runt.snap.clearCachedNode(node.buid)
                 yield await runt.snap.getNodeByBuid(node.buid), path
 
 class MoveNodesCmd(Cmd):
