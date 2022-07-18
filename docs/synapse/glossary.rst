@@ -93,6 +93,34 @@ Cell
 The Cell is a basic building block of Synapse services, including the Cortex. See :ref:`dev_architecture` for more
 information about what a Cell provides.
 
+.. _gloss-col-embed:
+
+Column, Embed
+-------------
+
+In :ref:`gloss-optic`, a column in Tabular display mode that displays a property value from an adjacent node.
+
+.. _gloss-col-prop:
+
+Column, Property
+----------------
+
+In :ref:`gloss-optic`, a column in Tabular display mode that displays a property value from the specified form.
+
+.. _gloss-col-tag:
+
+Column, Tag
+-----------
+
+In :ref:`gloss-optic`, a column in Tabular display mode that displays the **timestamps** associated with the specified tag. (Technically, Optic displays two columns - one for each of the min / max timestamps, if present).
+
+.. _gloss-col-tagglob:
+
+Column, Tag Glob
+----------------
+
+In :ref:`gloss-optic`, a column in Tabular display mode that displays any **tags** that match the specified tag or tag glob pattern.
+
 .. _gloss-comparator:
 
 Comparator
@@ -255,6 +283,17 @@ Directed Graph
 
 See :ref:`gloss-graph-directed`.
 
+.. _gloss-display-mode:
+
+Display Mode
+------------
+
+In :ref:`gloss-optic`, a means of visualizing data using the :ref:`gloss-research-tool`. Optic supports four display modes, namely:
+
+- **Tabular mode,** which displays data and tags in tables (rows of results with configurable columns).
+- **Force Graph mode,** which projects data into a directed graph-like view of nodes and their interconnections.
+- **Statistics (stats) mode,** which automatically summarizes data using histogram (bar) and sunburst charts.
+- **Geospatial mode,** which can be used to plot geolocation data on a map projection.
 
 .. _gloss-dmon:
 
@@ -291,6 +330,13 @@ In Synapse, a lightweight (light) edge is a mechanism that links two arbitrary f
 verb that describes the linking relationship. Light edges are not forms and so do not support secondary 
 properties or tags. They are meant to simplify performance, representation of data, and Synapse hypergraph
 navigation for many use cases. Contrast with :ref:`gloss-form-edge`.
+
+.. _gloss-embed-col:
+
+Embed Column
+------------
+
+See :ref:`gloss-col-embed`.
 
 .. _gloss-extended-comp-op:
 
@@ -409,6 +455,13 @@ See :ref:`gloss-know-fused`.
 
 G
 =
+
+.. _gloss-global-workspace:
+
+Global Default Workspace
+------------------------
+
+See :ref:`gloss-workspace-global`.
 
 .. _gloss-global-uniq-id:
 
@@ -658,6 +711,13 @@ is a form; ``inet:fqdn=woot.com`` is a node.
 
 See :ref:`data-node` in the :ref:`data-model-terms` document for additional detail.
 
+.. _gloss-node-action:
+
+Node Action
+-----------
+
+In :ref:`gloss-optic`, a saved, named Storm query or command (action) that can be executed via a right-click context menu option for specified forms (nodes).
+
 .. _gloss-node-data:
 
 Node Data
@@ -708,6 +768,16 @@ different based on the specific node being operated on).
 
 Contrast with :ref:`gloss-runtsafe`.
 
+O
+=
+
+.. _gloss-optic:
+
+Optic
+-----
+
+The Synapse user interface (UI).
+
 P
 =
 
@@ -757,6 +827,13 @@ Within Synapse, properties are individual elements that define a :ref:`gloss-for
 values) that comprise a :ref:`gloss-node`. Every property in Synapse must have a defined :ref:`gloss-type`.
 
 See the :ref:`data-props` section in the :ref:`data-model-terms` document for additional detail.
+
+.. _gloss-prop-col:
+
+Property Column
+---------------
+
+See :ref:`gloss-col-prop`.
 
 .. _gloss-prop-derived:
 
@@ -844,6 +921,13 @@ Repr
 Short for "representation". The repr of a :ref:`gloss-prop` defines how the property should be displayed in cases where
 the display format differs from the storage format. For example, date/time values in Synapse are stored in epoch
 milliseconds but are displayed in human-friendly "yyyy/mm/dd hh:mm:ss.mmm" format.
+
+.. _gloss-research-tool:
+
+Research Tool
+-------------
+
+See :ref:`gloss-tool-research`.
 
 .. _gloss-root-tag:
 
@@ -996,6 +1080,20 @@ Tag, Root
 Within Synapse, the highest (leftmost) tag element in a tag hierarchy. For example, for the tag ``#foo.bar.baz``,
 ``foo`` is the root tag.
 
+.. _gloss-tag-col:
+
+Tag Column
+----------
+
+See :ref:`gloss-col-tag`.
+
+.. _gloss-tagglob-col:
+
+Tag Glob Column
+---------------
+
+See :ref:`gloss-col-tagglob`.
+
 .. _gloss-telepath:
 
 Telepath
@@ -1003,6 +1101,20 @@ Telepath
 
 Telepath is a lightweight remote procedure call (RPC) protocol used in Synapse. See :ref:`arch-telepath` in the
 :ref:`dev_architecture` guide for additional detail.
+
+.. _gloss-tool-research:
+
+Tool, Research
+--------------
+
+In :ref:`gloss-optic`, the primary tool used to ingest, enrich, explore, visualize, and annotate Synapse data.
+
+.. _gloss-tool-workspaces:
+
+Tool, Workspaces
+----------------
+
+In :ref:`gloss-optic`, the tool used to configure and manage a user's Workspaces (see :ref:`gloss-workspace`).
 
 .. _gloss-traverse:
 
@@ -1128,6 +1240,30 @@ In multi-layer systems, a view consists of the set of layers that should be visi
 order in which the layers should be instantiated for that view.  Order matters because typically only the topmost layer
 is writeable by that view's users, with subsequent (lower) layers read-only. Explicit actions can push upper-layer
 writes downward (merge) into lower layers.
+
+W
+=
+
+.. _gloss-workspace:
+
+Workspace
+---------
+
+In :ref:`gloss-optic`, a Workspace is a customizable user environment. Users may configure one or more Workspaces; different Workspaces may be designed to support different analysis tasks.
+
+.. _gloss-workspace-global:
+
+Workspace, Global Default
+-------------------------
+
+In :ref:`gloss-optic`, a Workspace that has been pre-configured with various custom settings and distributed for use. A Global Default Workspace can be used to share a set of baseline Workspace customizations with a particular group or team.
+
+.. _gloss-workspaces-tool:
+
+Workspaces Tool
+---------------
+
+See :ref:`gloss-tool-workspaces`.
 
 
 .. _storm:node:data: https://synapse.docs.vertex.link/en/latest/synapse/autodocs/stormtypes_prims.html#storm-node-data
