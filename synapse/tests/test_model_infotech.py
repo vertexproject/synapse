@@ -862,10 +862,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.nn(node.get('account'))
                 self.len(1, await core.nodes('it:exec:proc -> it:account'))
 
-                nodes = await core.nodes('it:cmd [ :desc="A RAR command." ]')
+                nodes = await core.nodes('it:cmd')
                 self.len(1, nodes)
                 self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
-                self.eq(nodes[0].get('desc'), 'A RAR command.')
 
                 m0 = s_common.guid()
                 mprops = {

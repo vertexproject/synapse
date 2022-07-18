@@ -188,6 +188,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The ou:org supports the ou:campaign.'}),
                 (('ou:campaign', 'supports', 'ou:campaign'), {
                     'doc': 'The source ou:campaign supports the target ou:campaign.'}),
+                (('ou:contribution', 'includes', None), {
+                    'doc': 'The contribution includes the specific node.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -439,7 +441,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A timeline of significant events related to the conflict.'}),
                 )),
                 ('ou:contribution', {}, (
-                    # use -(includes)> to link individual nodes contributed?
                     ('from', ('ps:contact', {}), {
                         'doc': 'The contact information of the contributor.'}),
                     ('campaign', ('ou:campaign', {}), {
