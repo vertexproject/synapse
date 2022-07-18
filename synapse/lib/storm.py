@@ -4552,27 +4552,7 @@ class ScrapeCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        if self.runtsafe and len(self.opts.values):
-
-            # a bit of a special case.  we may be runtsafe with 0
-            async for nodepath in genr:
-                if not self.opts.doyield:
-                    yield nodepath
-
-            for item in self.opts.values:
-                text = str(await s_stormtypes.toprim(item))
-
-                try:
-                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
-                        addnode = await runt.snap.addNode(form, valu)
-                        if self.opts.doyield:
-                            yield addnode, runt.initPath(addnode)
-
-                except s_exc.BadTypeValu as e:
-                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
-
-            return
-
+        node = None
         async for node, path in genr:  # type: s_node.Node, s_node.Path
 
             refs = await s_stormtypes.toprim(self.opts.refs)
@@ -4609,6 +4589,20 @@ class ScrapeCmd(Cmd):
 
             if not self.opts.doyield:
                 yield node, path
+
+        if self.runtsafe and node is None:
+
+            for item in self.opts.values:
+                text = str(await s_stormtypes.toprim(item))
+
+                try:
+                    for form, valu in s_scrape.scrape(text, refang=self.opts.dorefang):
+                        addnode = await runt.snap.addNode(form, valu)
+                        if self.opts.doyield:
+                            yield addnode, runt.initPath(addnode)
+
+                except s_exc.BadTypeValu as e:
+                    await runt.warn(f'BadTypeValue for {form}="{valu}"')
 
 class SpliceListCmd(Cmd):
     '''
