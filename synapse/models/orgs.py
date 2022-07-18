@@ -451,7 +451,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency used for the assessed value.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time the contribution occurred.'}),
-                    ('materials:spec', ('mat:spec', {}), {
+                    ('material:spec', ('mat:spec', {}), {
                         'doc': 'The specification of material items contributed.'}),
                     ('material:count', ('int', {}), {
                         'doc': 'The number of material items contributed.'}),
