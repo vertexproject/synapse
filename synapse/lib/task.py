@@ -2,6 +2,7 @@ import copy
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -24,14 +25,21 @@ class Task(s_base.Base):
 
         task._syn_task = self
 
+        self.iden = info.get('iden')
+        if self.iden is None:
+            self.iden = s_common.guid()
+
         self.task = task                # the real task...
-        self.iden = s_common.guid()
         self.tick = s_common.now()
         self.name = name
         self.user = user
         self.root = root
         self.info = info
         self.kids = {}
+
+        if self.boss.tasks.get(self.iden) is not None:
+            mesg = 'Specified task iden already exists!'
+            raise s_exc.BadArg(mesg=mesg)
 
         self.boss.tasks[self.iden] = self
         if root is not None:
