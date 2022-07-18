@@ -24,9 +24,9 @@ class PolModule(s_module.CoreModule):
                     ('pol:election', ('guid', {}), {
                         'doc': 'An election involving one or more races for office.'}),
                     ('pol:race', ('guid', {}), {
-                        'doc': 'A .'}),
+                        'doc': 'An individual race for office.'}),
                     ('pol:office', ('guid', {}), {
-                        'doc': 'A governmental office.'}),
+                        'doc': 'An elected or appointed office held by an individual during a term.'}),
                     ('pol:term', ('guid', {}), {
                         'doc': 'A term in office held by a specific individual.'}),
                     ('pol:candidate', ('guid', {}), {
