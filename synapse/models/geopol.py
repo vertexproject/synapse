@@ -58,9 +58,9 @@ class PolModule(s_module.CoreModule):
                     # TODO jurisdiction / districts
                     ('pol:race', {}, (
                         ('election', ('pol:election', {}), {
-                            'doc': 'The election that the candidate is running in.'}),
+                            'doc': 'The election that includes the race.'}),
                         ('office', ('pol:office', {}), {
-                            'doc': 'The political office that the candidate is running for.'}),
+                            'doc': 'The political office that the candidates in the race are running for.'}),
                         ('voters', ('int', {}), {
                             'doc': 'The number of eligible voters for this race.'}),
                         ('turnout', ('int', {}), {
@@ -107,7 +107,7 @@ class PolModule(s_module.CoreModule):
                         ('election', ('pol:election', {}), {
                             'doc': 'The election that the polling place is designated for.'}),
                         ('name', ('geo:name', {}), {
-                            'doc': 'The name of the polling place at the time. This may differ from the official place name.'}),
+                            'doc': 'The name of the polling place at the time of the election. This may differ from the official place name.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'The place where votes were cast.'}),
                         ('opens', ('time', {}), {
