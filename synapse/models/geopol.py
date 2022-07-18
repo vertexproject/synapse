@@ -83,7 +83,7 @@ class PolModule(s_module.CoreModule):
                         ('start', ('time', {}), {
                             'doc': 'The start of the term of office.'}),
                         ('end', ('time', {}), {
-                            'doc': 'The of the term of office.'}),
+                            'doc': 'The end of the term of office.'}),
                         ('election', ('pol:election', {}), {
                             'doc': 'The election that determined who held office during the term.'}),
                         ('contact', ('ps:contact', {}), {
@@ -99,7 +99,7 @@ class PolModule(s_module.CoreModule):
                         ('campaign', ('ou:campaign', {}), {
                             'doc': 'The official campaign to elect the candidate.'}),
                         ('winner', ('bool', {}), {
-                            'doc': 'Records the outcome of the election.'}),
+                            'doc': 'Records the outcome of the race.'}),
                         ('party', ('ou:org', {}), {
                             'doc': 'The declated political party of the candidate.'}),
                     )),

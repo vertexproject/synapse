@@ -455,7 +455,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The specification of material items contributed.'}),
                     ('material:count', ('int', {}), {
                         'doc': 'The number of material items contributed.'}),
-                    ('monitary:payment', ('econ:acct:payment', {}), {
+                    ('monetary:payment', ('econ:acct:payment', {}), {
                         'doc': 'Payment details for a monetary contribution.'}),
                     ('personnel:count', ('int', {}), {
                         'doc': 'Number of personnel contributed to the campaign.'}),
