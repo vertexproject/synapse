@@ -1938,6 +1938,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file that the C2 config was extracted from.'}),
                     ('servers', ('array', {'type': 'inet:url'}), {
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
+                    ('proxies', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
+                    ('listens', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of listen URLs that the software should bind.'}),
+                    ('dns:resolvers', ('array', {'type': 'inet:server'}), {
+                        'doc': 'An array of inet:servers to use when resolving DNS names.'}),
                     ('mutex', ('it:dev:mutex', {}), {
                         'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
                     ('campaigncode', ('it:dev:str', {}), {
@@ -1950,6 +1956,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The configured duration to sleep between connections to the C2 server.'}),
                     ('raw', ('data', {}), {
                         'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
+                    ('http:headers', ('array', {'type': 'inet:http:header'}), {
+                        'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
                 )),
             ),
         }
