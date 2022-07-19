@@ -273,6 +273,9 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('inet:ipv4', 10, 'inet:ipv4'), {})
 
+            with self.raises(s_exc.BadArg):
+                core.model.addEdge(('meta:rule', 'matches', None), {})
+
             model = await core.getModelDict()
             self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
 
