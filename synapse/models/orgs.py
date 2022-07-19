@@ -184,10 +184,6 @@ class OuModule(s_module.CoreModule):
             'edges': (
                 (('ou:org', 'uses', None), {
                     'doc': 'The ou:org makes use of the target node.'}),
-                (('ou:org', 'supports', 'ou:campaign'), {
-                    'doc': 'The ou:org supports the ou:campaign.'}),
-                (('ou:campaign', 'supports', 'ou:campaign'), {
-                    'doc': 'The source ou:campaign supports the target ou:campaign.'}),
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
             ),
