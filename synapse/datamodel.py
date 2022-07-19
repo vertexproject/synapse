@@ -412,6 +412,16 @@ class Form:
         propdefs = [p.getPropDef() for p in self.props.values() if not p.isuniv]
         return (self.name, self.info, propdefs)
 
+class Edge:
+
+    def __init__(self, modl, edgetype, edgeinfo):
+        self.modl = modl
+        self.edgetype = edgetype
+        self.edgeinfo = edgeinfo
+
+    def pack(self):
+        return (self.edgetype, self.edgeinfo)
+
 class Model:
     '''
     The data model used by a Cortex hypergraph.
@@ -421,6 +431,7 @@ class Model:
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
+        self.edges = {}  # (n1form, verb, n2form): Edge()
         self.ifaces = {}  # name: <ifdef>
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
@@ -432,13 +443,16 @@ class Model:
         self.arraysbytype = collections.defaultdict(list)
         # TODO use this for <nodes> -> foo:iface
         self.formsbyiface = collections.defaultdict(list)
+        self.edgesbyn1 = collections.defaultdict(list)
+        self.edgesbyn2 = collections.defaultdict(list)
 
         self._type_pends = collections.defaultdict(list)
         self._modeldef = {
             'ctors': [],
             'types': [],
             'forms': [],
-            'univs': []
+            'univs': [],
+            'edges': [],
         }
 
         # add the primitive base types
@@ -587,12 +601,14 @@ class Model:
         mdef['univs'] = [u.getPropDef() for u in self.univs.values()]
         mdef['tagprops'] = [t.getTagPropDef() for t in self.tagprops.values()]
         mdef['interfaces'] = list(self.ifaces.items())
+        mdef['edges'] = [e.pack() for e in self.edges.values()]
         return [('all', mdef)]
 
     def getModelDict(self):
         retn = {
             'types': {},
             'forms': {},
+            'edges': [],
             'univs': {},
             'tagprops': {},
             'interfaces': self.ifaces.copy()
@@ -609,6 +625,9 @@ class Model:
 
         for pobj in self.tagprops.values():
             retn['tagprops'][pobj.name] = pobj.pack()
+
+        for eobj in self.edges.values():
+            retn['edges'].append(eobj.pack())
 
         return retn
 
@@ -693,6 +712,42 @@ class Model:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs)
+
+        # now we can load edge definitions...
+        for _, mdef in mods:
+            for etype, einfo in mdef.get('edges', ()):
+                self.addEdge(etype, einfo)
+
+    def addEdge(self, edgetype, edgeinfo):
+
+        n1form, verb, n2form = edgetype
+
+        if n1form is not None:
+            self._reqFormName(n1form)
+
+        if n2form is not None:
+            self._reqFormName(n2form)
+
+        if not isinstance(verb, str):
+            mesg = f'Edge definition verb must be a string: {edgetype}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if self.edges.get(edgetype) is not None:
+            mesg = f'Duplicate edge declared: {edgetype}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        edge = Edge(self, edgetype, edgeinfo)
+
+        self.edges[edgetype] = edge
+        self.edgesbyn1[n1form].append(edge)
+        self.edgesbyn2[n2form].append(edge)
+
+    def _reqFormName(self, name):
+        form = self.forms.get(name)
+        if form is None:
+            mesg = f'No form named {name}.'
+            raise s_exc.NoSuchForm(mesg=mesg)
+        return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
         base = self.types.get(basename)

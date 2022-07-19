@@ -259,3 +259,22 @@ class DataModelTest(s_t_utils.SynTest):
             mesg = f'Comp forms with secondary properties that are not read-only ' \
                    f'are present in the model: {[n.ndef[1] for n in nodes]}'
             self.len(0, nodes, mesg)
+
+    async def test_datamodel_edges(self):
+
+        async with self.getTestCore() as core:
+
+            with self.raises(s_exc.NoSuchForm):
+                core.model.addEdge(('hehe', 'woot', 'newp'), {})
+
+            with self.raises(s_exc.NoSuchForm):
+                core.model.addEdge(('inet:ipv4', 'woot', 'newp'), {})
+
+            with self.raises(s_exc.BadArg):
+                core.model.addEdge(('inet:ipv4', 10, 'inet:ipv4'), {})
+
+            model = await core.getModelDict()
+            self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
+
+            model = (await core.getModelDefs())[0][1]
+            self.isin(('meta:rule', 'matches', None), [e[0] for e in model['edges']])
