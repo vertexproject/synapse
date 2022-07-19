@@ -478,6 +478,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A unique command-line string.',
                     'ex': 'foo.exe --dostuff bar',
                 }),
+                ('it:query', ('str', {'strip': True}), {
+                    'doc': 'A unqiue query string.',
+                }),
+                ('it:exec:query', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
+                    'doc': 'An instance of an executed query.',
+                }),
                 ('it:exec:mutex', ('guid', {}), {
                     'doc': 'A mutex created by a process at runtime.',
                 }),
@@ -1339,6 +1346,13 @@ class ItModule(s_module.CoreModule):
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
+                )),
+                ('it:query', {}, ()),
+                ('it:exec:query', {}, (
+                    ('text', ('it:query', {}), {
+                        'doc': 'The query string that was executed.'}),
+                    ('opts', ('data', {}), {
+                        'doc': 'An opaque JSON object containing query paramters and options.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {
