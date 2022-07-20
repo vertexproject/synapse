@@ -42,7 +42,6 @@ Images are built using Bash scripts. All of the images can be built directly wit
 
         $ ./docker/build_all.sh <optional_image_tag>
 
-This builds a base image that has Synapse installed into it, which then builds and tags all of the above images.
 If the image tag is not provided, it will tag the images with ``:dev_build``.
 
 Building a Specific Application Image
@@ -60,11 +59,15 @@ A specific application images can be built as well.
 
 If the image tag is not provided, it will tag the image with ``:dev_build``.
 
-Building the Base Image
------------------------
+Building the ``vertexproject/synapse`` image
+--------------------------------------------
 
-The internal build image can be built manually, and will be tagged as ``synbuild:base``.
+The bare image with only Synapse installed on it can be built like the following:
 
     ::
 
-        $ ./docker/build_base.sh
+        $ docker build --pull -t vertexproject/synapse:$TAG -f docker/images/synapse/Dockerfile .
+
+        # Example of building directly with the tag mytag
+
+        $ docker build --pull -t vertexproject/synapse:mytag -f docker/images/synapse/Dockerfile .
