@@ -230,6 +230,10 @@ class CellApi(s_base.Base):
     async def readyToMirror(self):
         return await self.cell.readyToMirror()
 
+    @adminapi()
+    async def getMirrorUrls(self):
+        return await self.cell.getMirrorUrls()
+
     @adminapi(log=True)
     async def cullNexsLog(self, offs):
         '''
@@ -985,6 +989,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.backdirn = backdirn
         self.backuprunning = False  # Whether a backup is currently running
+        self.backupstreaming = False  # Whether a temporary new backup is currently streaming
         self.backmonostart = None  # If a backup is running, when did it start (monotonic timer)
         self.backstartdt = None  # Last backup start time
         self.backenddt = None  # Last backup end time
@@ -1526,7 +1531,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if task is not None:
             task.cancel()
             try:
-                await task
+                retn = await asyncio.gather(task, return_exceptions=True)
+                if isinstance(retn[0], Exception):
+                    raise retn[0]
             except asyncio.CancelledError:
                 pass
             except Exception:  # pragma: no cover
@@ -1833,75 +1840,86 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
-        success = False
-        loglevel = logging.WARNING
-
-        if name is None:
-            name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
-
-        path = self._reqBackDirn(name)
-        if os.path.isdir(path):
-            mesg = 'Backup with name already exists'
-            raise s_exc.BadArg(mesg=mesg)
-
-        link = s_scope.get('link')
-        linkinfo = await link.getSpawnInfo()
-        linkinfo['logconf'] = await self._getSpawnLogConf()
+        if self.backupstreaming:
+            raise s_exc.BackupAlreadyRunning(mesg='Another streaming backup is already running')
 
         try:
-            await self.runBackup(name)
-        except Exception:
             if remove:
-                logger.debug(f'Removing {path}')
-                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                logger.debug(f'Removed {path}')
-            raise
+                self.backupstreaming = True
 
-        await self.boss.promote('backup:stream', user=user, info={'name': name})
+            success = False
+            loglevel = logging.WARNING
 
-        ctx = multiprocessing.get_context('spawn')
+            if name is None:
+                name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
-        proc = None
-        mesg = 'Streaming complete'
+            path = self._reqBackDirn(name)
+            if os.path.isdir(path):
+                mesg = 'Backup with name already exists'
+                raise s_exc.BadArg(mesg=mesg)
 
-        def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
-            proc.start()
-            return proc
+            link = s_scope.get('link')
+            linkinfo = await link.getSpawnInfo()
+            linkinfo['logconf'] = await self._getSpawnLogConf()
 
-        try:
-            proc = await s_coro.executor(getproc)
+            try:
+                await self.runBackup(name)
+            except Exception:
+                if remove:
+                    logger.debug(f'Removing {path}')
+                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                    logger.debug(f'Removed {path}')
+                raise
 
-            await s_coro.executor(proc.join)
+            await self.boss.promote('backup:stream', user=user, info={'name': name})
 
-        except (asyncio.CancelledError, Exception) as e:
+            ctx = multiprocessing.get_context('spawn')
 
-            # We want to log all exceptions here, an asyncio.CancelledError
-            # could be the result of a remote link terminating due to the
-            # backup stream being completed, prior to this function
-            # finishing.
-            logger.exception('Error during backup streaming.')
+            proc = None
+            mesg = 'Streaming complete'
 
-            if proc:
-                proc.terminate()
+            def getproc():
+                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
+                proc.start()
+                return proc
 
-            mesg = repr(e)
-            raise
+            try:
+                proc = await s_coro.executor(getproc)
 
-        else:
-            success = True
-            loglevel = logging.DEBUG
-            self.backlastuploaddt = datetime.datetime.now()
+                await s_coro.executor(proc.join)
+
+            except (asyncio.CancelledError, Exception) as e:
+
+                # We want to log all exceptions here, an asyncio.CancelledError
+                # could be the result of a remote link terminating due to the
+                # backup stream being completed, prior to this function
+                # finishing.
+                logger.exception('Error during backup streaming.')
+
+                if proc:
+                    proc.terminate()
+
+                mesg = repr(e)
+                raise
+
+            else:
+                success = True
+                loglevel = logging.DEBUG
+                self.backlastuploaddt = datetime.datetime.now()
+
+            finally:
+                if remove:
+                    logger.debug(f'Removing {path}')
+                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                    logger.debug(f'Removed {path}')
+
+                phrase = 'successfully' if success else 'with failure'
+                logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
+                raise s_exc.DmonSpawn(mesg=mesg)
 
         finally:
             if remove:
-                logger.debug(f'Removing {path}')
-                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                logger.debug(f'Removed {path}')
-
-            phrase = 'successfully' if success else 'with failure'
-            logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
-            raise s_exc.DmonSpawn(mesg=mesg)
+                self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None):
         user = self.auth.user(iden)
@@ -2710,6 +2728,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._bootProvConf(provconf)
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
+
+    async def getMirrorUrls(self):
+        if self.ahaclient is None:
+            raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
+
+        await self.ahaclient.waitready()
+
+        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        if mirrors is None:
+            mesg = 'Service must be configured with AHA to enumerate mirror URLs'
+            raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
+
+        return [f'aha://{svc["svcname"]}.{svc["svcnetw"]}' for svc in mirrors]
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):

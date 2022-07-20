@@ -49,6 +49,7 @@ import synapse.lib.stormwhois as s_stormwhois  # NOQA
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
 import synapse.lib.stormlib.log as s_stormlib_log  # NOQA
 import synapse.lib.stormlib.xml as s_stormlib_xml  # NOQA
@@ -57,6 +58,7 @@ import synapse.lib.stormlib.cell as s_stormlib_cell  # NOQA
 import synapse.lib.stormlib.imap as s_stormlib_imap  # NOQA
 import synapse.lib.stormlib.ipv6 as s_stormlib_ipv6  # NOQA
 import synapse.lib.stormlib.json as s_stormlib_json  # NOQA
+import synapse.lib.stormlib.mime as s_stormlib_mime  # NOQA
 import synapse.lib.stormlib.smtp as s_stormlib_smtp  # NOQA
 import synapse.lib.stormlib.stix as s_stormlib_stix  # NOQA
 import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
@@ -65,6 +67,7 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
+import synapse.lib.stormlib.hashes as s_stormlib_hashes # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
@@ -3255,6 +3258,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addStormCmd(s_storm.TagPruneCmd)
         self.addStormCmd(s_storm.ViewExecCmd)
         self.addStormCmd(s_storm.IntersectCmd)
+        self.addStormCmd(s_storm.MoveNodesCmd)
         self.addStormCmd(s_storm.BackgroundCmd)
         self.addStormCmd(s_storm.SpliceListCmd)
         self.addStormCmd(s_storm.SpliceUndoCmd)

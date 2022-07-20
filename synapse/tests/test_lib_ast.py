@@ -2226,3 +2226,23 @@ class AstTest(s_test.SynTest):
             '''
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('some special string', mesgs)
+
+            q = '''
+            [ inet:fqdn=foo.com ]
+            +:newp
+            $bar=:newp
+            $lib.print($bar)
+            $bar=bar
+            '''
+            with self.raises(s_exc.NoSuchVar) as err:
+                await core.nodes(q)
+            self.true(err.exception.errinfo.get('runtsafe'))
+
+            q = '''
+            [ inet:ipv4=1.2.3.4 ]
+            { +:asn $bar=:asn }
+            $lib.print($bar)
+            '''
+            with self.raises(s_exc.NoSuchVar) as err:
+                await core.nodes(q)
+            self.false(err.exception.errinfo.get('runtsafe'))

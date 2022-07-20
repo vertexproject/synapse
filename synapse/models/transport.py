@@ -166,6 +166,10 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
                     ('built', ('time', {}), {
                         'doc': 'The year the vessel was constructed.'}),
+                    ('make', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The make of the vessel.'}),
+                    ('model', ('str', {'lower': True, 'strip': True}), {
+                        'doc': 'The model of the vessel.'}),
                     ('operator', ('ps:contact', {}), {
                         'doc': 'The contact information of the operator.'}),
                     # TODO tonnage / gross tonnage?

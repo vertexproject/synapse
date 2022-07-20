@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 import synapse.exc as s_exc
+import synapse.lib.const as s_const
 import synapse.lib.stormtypes as s_stormtypes
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,14 @@ class CellLib(s_stormtypes.Lib):
         {'name': 'getHealthCheck', 'desc': 'Get healthcheck information about the Cortex.',
          'type': {'type': 'function', '_funcname': '_getHealthCheck', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing healthcheck information.', }}},
+        {'name': 'getMirrorUrls', 'desc': 'Get mirror Telepath URLs for an AHA configured service.',
+         'type': {'type': 'function', '_funcname': '_getMirrorUrls',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                       'desc': 'The name, or iden, of the service to get mirror URLs for '
+                               '(defaults to the Cortex if not provided).'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'A list of Telepath URLs.', }}},
         {'name': 'hotFixesApply', 'desc': 'Apply known data migrations and fixes via storm.',
          'type': {'type': 'function', '_funcname': '_hotFixesApply', 'args': (),
                   'returns': {'type': 'list',
@@ -124,6 +133,14 @@ class CellLib(s_stormtypes.Lib):
                        'desc': 'Time (in seconds) to wait for consumers to catch-up before culling.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The offset that was culled (up to and including).'}}},
+        {'name': 'uptime', 'desc': 'Get update data for the Cortex or a connected Service.',
+         'type': {'type': 'function', '_funcname': '_uptime',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                       'desc': 'The name, or iden, of the service to get uptime data for '
+                               '(defaults to the Cortex if not provided).'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary containing uptime data.', }}},
     )
     _storm_lib_path = ('cell',)
 
@@ -133,9 +150,11 @@ class CellLib(s_stormtypes.Lib):
             'getBackupInfo': self._getBackupInfo,
             'getSystemInfo': self._getSystemInfo,
             'getHealthCheck': self._getHealthCheck,
+            'getMirrorUrls': self._getMirrorUrls,
             'hotFixesApply': self._hotFixesApply,
             'hotFixesCheck': self._hotFixesCheck,
             'trimNexsLog': self._trimNexsLog,
+            'uptime': self._uptime,
         }
 
     async def _hotFixesApply(self):
@@ -215,6 +234,25 @@ class CellLib(s_stormtypes.Lib):
             raise s_exc.AuthDeny(mesg=mesg)
         return await self.runt.snap.core.getHealthCheck()
 
+    async def _getMirrorUrls(self, name=None):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.cell.getMirrorUrls() requires admin privs.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        name = await s_stormtypes.tostr(name, noneok=True)
+
+        if name is None:
+            return await self.runt.snap.core.getMirrorUrls()
+
+        ssvc = self.runt.snap.core.getStormSvc(name)
+        if ssvc is None:
+            mesg = f'No service with name/iden: {name}'
+            raise s_exc.NoSuchName(mesg=mesg)
+
+        await ssvc.proxy.waitready()
+        return await ssvc.proxy.getMirrorUrls()
+
     async def _trimNexsLog(self, consumers=None, timeout=30):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.trimNexsLog() requires admin privs.'
@@ -226,3 +264,22 @@ class CellLib(s_stormtypes.Lib):
             consumers = [await s_stormtypes.tostr(turl) async for turl in s_stormtypes.toiter(consumers)]
 
         return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)
+
+    async def _uptime(self, name=None):
+
+        name = await s_stormtypes.tostr(name, noneok=True)
+
+        if name is None:
+            info = await self.runt.snap.core.getSystemInfo()
+        else:
+            ssvc = self.runt.snap.core.getStormSvc(name)
+            if ssvc is None:
+                mesg = f'No service with name/iden: {name}'
+                raise s_exc.NoSuchName(mesg=mesg)
+            await ssvc.proxy.waitready()
+            info = await ssvc.proxy.getSystemInfo()
+
+        return {
+            'starttime': info['cellstarttime'],
+            'uptime': info['celluptime'],
+        }

@@ -19,6 +19,7 @@ The types of filter operations within Storm are highly flexible and consist of t
 - `Filters Using Extended Comparison Operators`_
 - `Compound Filters`_
 - `Subquery Filters`_
+- `Embedded Property Syntax`_
 
 In most cases, the criteria and available comparators for lift operations (:ref:`storm-ref-lift`) are also available for filter operations.
 
@@ -915,7 +916,7 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
     <inet:fqdn> +{ -> inet:dns:a:fqdn :ipv4 -> inet:ipv4 +#aka.trend.thr.pawnstorm }
 
 
-- From an initial set of IP addresses, return only those IPs registered to an Autonomous System (AS) whois name starts with “makonix”:
+- From an initial set of IPv4 addresses, return only those IPv4s registered to an Autonomous System (AS) whose name starts with "makonix":
 
 
 .. storm-pre:: inet:ipv4 +{ :asn -> inet:asn +:name^="makonix" }
@@ -931,3 +932,82 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 ::
 
     <file:bytes> +{ -> it:av:filehit }>=10
+
+
+.. _embed_prop_syntax:
+
+Embedded Property Syntax
+------------------------
+
+Storm includes a shortened syntax consisting of two colons (``::``) that can be used to reference a secondary property
+of an **adjacent** node. Because the syntax can be used to "pull in" a property or property value from a nearby node,
+it is known as "embedded property syntax".
+
+Embedded property syntax expresses something that is similar (in concept, though not in practice) to a
+secondary-to-secondary property pivot (see :ref:`storm-ref-pivot`). The syntax expresses navigation:
+
+- From a **secondary property** of a form (such as ``inet:ipv4:asn``), to
+- The **form** for that secondary property (i.e., ``inet:asn``), to
+- A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
+
+This process can be repeated to reference properties of forms more than one pivot away.
+
+Despite its similarity to a pivot operation, embedded property syntax is commonly used for:
+
+- **Filter operations** (specifically, as a more concise alternative to certain :ref:`filter-subquery`)
+- **Variable assignment** (see :ref:`storm-adv-vars`)
+- Defining an :ref:`gloss-embed-col` in the Synapse UI (Optic)
+
+
+**Syntax:**
+
+*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>*
+
+*<query>* [ **+ | -** ] **:** *<prop>* **::** *<prop>* **=** *<pval>*
+
+.. NOTE::
+  In Storm, the leading colon (i.e., the colon before the name of the initial secondary property) is **required**.
+  When using this syntax to create an embed column in Optic, the initial colon should be **omitted** (i.e.,
+  ``asn::name`` vs ``:asn::name``). Optic will prepend the initial colon for you.
+
+
+**Examples:**
+
+
+*Filter Example - Single Pivot*
+
+- From an initial set of IPv4 addresses, return only those IPv4s registered to an Autonomous System (AS) whose name 
+  starts with "makonix":
+
+.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] inet:ipv4 +:asn::name^="makonix"
+::
+
+    <inet:ipv4> +:asn::name^="makonix"
+
+Note that this example of embedded property syntax is equivalent to the following subquery filter (referenced above):
+
+::
+    
+    <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
+
+
+*Filter Example - Multiple Pivots*
+
+- From an initial set of ``it:exec:file:read`` operations, return only those operations where the base file name
+  of the PDB path of the file performing the read operation is ``moonclient2.pdb``:
+
+.. storm-pre:: [ ( it:exec:file:read=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 ) ( file:bytes=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 :mime:pe:pdbpath='e:/code/moon1.5/release/moonclient2.pdb' ) ] it:exec:file:read +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
+::
+  
+  <it:exec:file:read> +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
+
+
+*Variable Assignment Example*
+
+- Set the variable ``$name`` to the name of the Autonomous System (AS) associated with a given IPv4 address:
+
+.. storm-pre:: inet:ipv4 $name=:asn::name
+::
+    
+    <inet:ipv4> $name=:asn::name
+

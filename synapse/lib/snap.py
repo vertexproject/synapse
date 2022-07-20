@@ -183,6 +183,9 @@ class ProtoNode:
         if tagnode is None:
             return
 
+        if isinstance(valu, list):
+            valu = tuple(valu)
+
         if valu != (None, None):
             try:
                 valu, _ = self.ctx.snap.core.model.type('ival').norm(valu)
@@ -586,6 +589,9 @@ class Snap(s_base.Base):
         self.tagnorms.clear()
         self.buidcache.clear()
         self.livenodes.clear()
+
+    def clearCachedNode(self, buid):
+        self.livenodes.pop(buid, None)
 
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)

@@ -185,6 +185,10 @@ class StormTypesRegistry:
     def _validateFunction(self, obj, info, name):
         rtype = info.get('type')
         funcname = rtype.pop('_funcname')
+        if funcname == '_storm_query':
+            # Sentinel used for future validation of pure storm
+            # functions defined in _storm_query data.
+            return
         locl = getattr(obj, funcname, None)
         assert locl is not None, f'bad _funcname=[{funcname}] for {obj} {info.get("name")}'
         args = rtype.get('args', ())
@@ -470,6 +474,7 @@ class Lib(StormType):
     A collection of storm methods under a name
     '''
     _ismutable = False
+    _storm_query = None
     _storm_typename = 'storm:lib'
 
     def __init__(self, runt, name=()):
@@ -481,6 +486,20 @@ class Lib(StormType):
 
     def addLibFuncs(self):
         self.locls.update(self.getObjLocals())
+
+    async def initLibAsync(self):
+
+        if self._storm_query is not None:
+
+            query = await self.runt.snap.core.getStormQuery(self._storm_query)
+            self.modrunt = await self.runt.getModRuntime(query)
+
+            self.runt.onfini(self.modrunt)
+
+            async for item in self.modrunt.execute():
+                await asyncio.sleep(0)  # pragma: no cover
+
+            self.locls.update(self.modrunt.vars)
 
     async def stormrepr(self):
         if '__module__' in self.locls:
@@ -500,7 +519,11 @@ class Lib(StormType):
             raise s_exc.NoSuchName(mesg=f'Cannot find name [{name}]', name=name)
 
         ctor = slib[2].get('ctor', Lib)
-        return ctor(self.runt, name=path)
+        libinst = ctor(self.runt, name=path)
+
+        await libinst.initLibAsync()
+
+        return libinst
 
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.runt.dyncall(iden, todo, gatekeys=gatekeys)
@@ -1839,6 +1862,34 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'any',
                               'desc': 'A JSON object parsed from a line of text.'}}},
+        {'name': 'csvrows', 'desc': '''
+            Yields CSV rows from a CSV file stored in the Axon.
+
+            Notes:
+                The dialect and fmtparams expose the Python csv.reader() parameters.
+
+            Example:
+                Get the rows from a given csv file::
+
+                    for $row in $lib.axon.csvrows($sha256) {
+                        $dostuff($row)
+                    }
+
+                Get the rows from a given tab separated file::
+
+                    for $row in $lib.axon.csvrows($sha256, delimiter="\\t") {
+                        $dostuff($row)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'csvrows',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file.'},
+                      {'name': 'dialect', 'type': 'str', 'desc': 'The default CSV dialect to use.',
+                       'default': 'excel'},
+                      {'name': '**fmtparams', 'type': 'any', 'desc': 'Format arguments.'},
+                  ),
+                  'returns': {'name': 'yields', 'type': 'list',
+                              'desc': 'A list of strings from the CSV file.'}}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1852,6 +1903,7 @@ class LibAxon(Lib):
             'list': self.list,
             'readlines': self.readlines,
             'jsonlines': self.jsonlines,
+            'csvrows': self.csvrows,
         }
 
     def strify(self, item):
@@ -2015,6 +2067,18 @@ class LibAxon(Lib):
 
         async for item in axon.hashes(offs, wait=wait, timeout=timeout):
             yield (item[0], s_common.ehex(item[1][0]), item[1][1])
+
+    async def csvrows(self, sha256, dialect='excel', **fmtparams):
+
+        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.snap.core.getAxon()
+
+        sha256 = await tostr(sha256)
+        dialect = await tostr(dialect)
+        fmtparams = await toprim(fmtparams)
+        async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
+            yield item
+            await asyncio.sleep(0)
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -2494,6 +2558,9 @@ class LibTime(Lib):
             mesg = f'Error during time parsing - {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu,
                                           format=format) from None
+        if dt.tzinfo is not None:
+            # Convert the aware dt to UTC, then strip off the tzinfo
+            dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
         return int((dt - s_time.EPOCH).total_seconds() * 1000)
 
     async def _sleep(self, valu):
@@ -5405,6 +5472,16 @@ class StatTally(Prim):
                   ),
                   'returns': {'type': 'int',
                               'desc': 'The value of the counter, or 0 if the counter does not exist.', }}},
+        {'name': 'sorted', 'desc': 'Get a list of (counter, value) tuples in sorted order.',
+         'type': {'type': 'function', '_funcname': 'sorted',
+                  'args': (
+                      {'name': 'byname', 'desc': 'Sort by counter name instead of value.',
+                       'type': 'bool', 'default': False},
+                      {'name': 'reverse', 'desc': 'Sort in descending order instead of ascending order.',
+                       'type': 'bool', 'default': False},
+                  ),
+                  'returns': {'type': 'list',
+                              'desc': 'List of (counter, value) tuples in sorted order.'}}},
     )
     _ismutable = True
 
@@ -5417,6 +5494,7 @@ class StatTally(Prim):
         return {
             'inc': self.inc,
             'get': self.get,
+            'sorted': self.sorted,
         }
 
     async def __aiter__(self):
@@ -5439,6 +5517,12 @@ class StatTally(Prim):
     async def iter(self):
         for item in tuple(self.counters.items()):
             yield item
+
+    async def sorted(self, byname=False, reverse=False):
+        if byname:
+            return list(sorted(self.counters.items(), reverse=reverse))
+        else:
+            return list(sorted(self.counters.items(), key=lambda x: x[1], reverse=reverse))
 
 @registry.registerLib
 class LibLayer(Lib):

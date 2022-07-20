@@ -447,8 +447,11 @@ class ItModule(s_module.CoreModule):
                 ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
-                ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', ('str', {'lower': True})))}), {
+                ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
                    'doc': 'A signature name within the namespace of an antivirus engine name.'
+                }),
+                ('it:av:signame', ('str', {'lower': True}), {
+                    'doc': 'An antivirus signature name.',
                 }),
                 ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
                     'doc': 'A file that triggered an alert on a specific antivirus signature.',
@@ -1215,7 +1218,7 @@ class ItModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The anti-virus product which contains the signature.',
                     }),
-                    ('name', ('str', {'lower': True}), {
+                    ('name', ('it:av:signame', {}), {
                         'ro': True,
                         'doc': 'The signature name.'
                     }),
@@ -1227,6 +1230,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A reference URL for information about the signature.',
                     })
                 )),
+                ('it:av:signame', {}, ()),
                 ('it:av:filehit', {}, (
                     ('file', ('file:bytes', {}), {
                         'ro': True,
@@ -1236,7 +1240,7 @@ class ItModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The signature that the file triggered on.'
                     }),
-                    ('sig:name', ('str', {'lower': True}), {
+                    ('sig:name', ('it:av:signame', {}), {
                         'ro': True,
                         'doc': 'The signature name.',
                     }),
@@ -1301,6 +1305,9 @@ class ItModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The start time for the process.',
                     }),
+                    ('name', ('str', {}), {
+                        'doc': 'The display name specified by the process.',
+                    }),
                     ('exited', ('time', {}), {
                         'doc': 'The time the process exited.',
                     }),
@@ -1316,6 +1323,9 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',
+                    }),
+                    ('path:base', ('file:base', {}), {
+                        'doc': 'The file basename of the executable of the process.',
                     }),
                     ('src:exe', ('file:path', {}), {
                         'doc': 'The path to the executable which started the process.',
