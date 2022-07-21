@@ -1,6 +1,7 @@
 '''
 Time related utilities for synapse "epoch millis" time values.
 '''
+import logging
 import datetime
 
 from dateutil.relativedelta import relativedelta
@@ -10,16 +11,24 @@ import regex
 
 import synapse.exc as s_exc
 
+logger = logging.getLogger(__name__)
+
 EPOCH = datetime.datetime(1970, 1, 1)
 
-tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):(\d{2}))($|(\-\w+|\+\w))')
+tz_hm_re = regex.compile(r'\d((\+|\-)(\d{1,2}):?(\d{2}))($|(\-\w+|\+\w))')
 
 def _rawparse(text, base=None, chop=False):
-
+    otext = text
     text = text.strip().lower().replace(' ', '')
 
+    parsed_tz = False
     if base is None:
         text, base = parsetz(text)
+        if base != 0:
+            parsed_tz = True
+
+    if parsed_tz:
+        logger.info(f'parsed tx for {otext} to {text}, {base=}')
 
     text = (''.join([c for c in text if c.isdigit()]))
 
@@ -30,15 +39,27 @@ def _rawparse(text, base=None, chop=False):
 
     try:
         if tlen == 4:
+            if parsed_tz:
+                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                                        valu=otext)
             dt = datetime.datetime.strptime(text, '%Y')
 
         elif tlen == 6:
+            if parsed_tz:
+                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                                        valu=otext)
             dt = datetime.datetime.strptime(text, '%Y%m')
 
         elif tlen == 8:
+            if parsed_tz:
+                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                                        valu=otext)
             dt = datetime.datetime.strptime(text, '%Y%m%d')
 
         elif tlen == 10:
+            if parsed_tz:
+                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                                        valu=otext)
             dt = datetime.datetime.strptime(text, '%Y%m%d%H')
 
         elif tlen == 12:
@@ -51,10 +72,10 @@ def _rawparse(text, base=None, chop=False):
             dt = datetime.datetime.strptime(text, '%Y%m%d%H%M%S%f')
 
         else:
-            raise s_exc.BadTypeValu(valu=text, name='time',
+            raise s_exc.BadTypeValu(valu=otext, name='time',
                                     mesg='Unknown time format')
     except ValueError as e:
-        raise s_exc.BadTypeValu(mesg=str(e))
+        raise s_exc.BadTypeValu(mesg=str(e), valu=otext)
 
     return dt, base, tlen
 
