@@ -37,25 +37,25 @@ def _rawparse(text, base=None, chop=False):
     try:
         if tlen == 4:
             if parsed_tz:
-                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
                                         valu=otext)
             dt = datetime.datetime.strptime(text, '%Y')
 
         elif tlen == 6:
             if parsed_tz:
-                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
                                         valu=otext)
             dt = datetime.datetime.strptime(text, '%Y%m')
 
         elif tlen == 8:
             if parsed_tz:
-                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
                                         valu=otext)
             dt = datetime.datetime.strptime(text, '%Y%m%d')
 
         elif tlen == 10:
             if parsed_tz:
-                raise s_exc.BadTypeValu(mesg='Not enouugh information to parse timezone properly.',
+                raise s_exc.BadTypeValu(mesg=f'Not enough information to parse timezone properly for {otext}.',
                                         valu=otext)
             dt = datetime.datetime.strptime(text, '%Y%m%d%H')
 
@@ -70,7 +70,7 @@ def _rawparse(text, base=None, chop=False):
 
         else:
             raise s_exc.BadTypeValu(valu=otext, name='time',
-                                    mesg='Unknown time format')
+                                    mesg=f'Unknown time format for {otext}')
     except ValueError as e:
         raise s_exc.BadTypeValu(mesg=str(e), valu=otext)
 
