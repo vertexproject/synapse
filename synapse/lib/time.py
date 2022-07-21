@@ -27,9 +27,6 @@ def _rawparse(text, base=None, chop=False):
         if base != 0:
             parsed_tz = True
 
-    if parsed_tz:
-        logger.info(f'parsed tx for {otext} to {text}, {base=}')
-
     text = (''.join([c for c in text if c.isdigit()]))
 
     if chop:
