@@ -78,6 +78,12 @@ class TimeTest(s_t_utils.SynTest):
 
         # invalid shorthand times with timezones are invalid
         tvs = (
+            '2020+3:00',
+            '2020+300',
+            '2020-3:00',
+            '2020-300',
+            '2020+03:00',
+            '2020-03:00',
             '2020-07-04:00',
             '2020-07-07 +4:00',
             '2020-07-07 +04:01',
