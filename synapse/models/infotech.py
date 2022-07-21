@@ -1353,6 +1353,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The query string that was executed.'}),
                     ('opts', ('data', {}), {
                         'doc': 'An opaque JSON object containing query paramters and options.'}),
+                    ('api:url', ('inet:url', {}), {
+                        'doc': 'The URL of the API endpoint the query was sent to.'}),
+                    ('language', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the language that the query is expressed in.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {

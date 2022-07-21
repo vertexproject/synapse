@@ -1286,3 +1286,23 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(('https://0.0.0.0:443',), node.get('listens'))
             self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
             self.eq(('udp://8.8.8.8:53',), node.get('dns:resolvers'))
+
+    async def test_infotech_query(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ it:exec:query=*
+                    :text="SELECT * FROM threats"
+                    :language="SQL"
+                    :opts=({"foo": "bar"})
+                    :api:url=https://vertex.link/api/v1.
+                    :time=20220720
+                    // we can assume the rest of the interface props work
+                ]
+            ''')
+            self.eq(1658275200000, nodes[0].get('time'))
+            self.eq('sql', nodes[0].get('language'))
+            self.eq({"foo": "bar"}, nodes[0].get('opts'))
+            self.eq('SELECT * FROM threats', nodes[0].get('text'))
+            self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
