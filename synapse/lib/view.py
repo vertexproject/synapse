@@ -368,7 +368,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
         taskiden = opts.get('task')
-        taskinfo = {'query': text, 'opts': opts}
+        taskinfo = {'query': text}
         await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await self.snap(user=user) as snap:
