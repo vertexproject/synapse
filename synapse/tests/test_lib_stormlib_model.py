@@ -128,27 +128,27 @@ class StormlibModelTest(s_test.SynTest):
 
                 # Error conditions - set
                 mesgs = await core.stormlist('model.edge.set missing')
-                self.stormIsInPrint('The argument <key> is required', mesgs)
+                self.stormIsInErr('The argument <key> is required', mesgs)
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.edge.set refs newp foo')
 
                 mesgs = await core.stormlist('model.edge.set refs doc')
-                self.stormIsInPrint('The argument <valu> is required', mesgs)
+                self.stormIsInErr('The argument <valu> is required', mesgs)
 
                 with self.raises(s_exc.NoSuchName):
                     await core.nodes('model.edge.set newp doc yowza')
 
                 # Error conditions - get
                 mesgs = await core.stormlist('model.edge.get')
-                self.stormIsInPrint('The argument <verb> is required', mesgs)
+                self.stormIsInErr('The argument <verb> is required', mesgs)
 
                 with self.raises(s_exc.NoSuchName):
                     await core.nodes('model.edge.get newp')
 
                 # Error conditions - del
                 mesgs = await core.stormlist('model.edge.del missing')
-                self.stormIsInPrint('The argument <key> is required', mesgs)
+                self.stormIsInErr('The argument <key> is required', mesgs)
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.edge.del refs newp')
