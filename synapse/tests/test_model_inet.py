@@ -1301,6 +1301,18 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(valu, expected)
 
+            url = 'http://0.0.0.0/index.html?foo=bar'
+            valu = t.norm(url)
+            expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/index.html',
+                'params': '?foo=bar',
+                'ipv4': 0,
+                'port': 80,
+                'base': 'http://0.0.0.0/index.html'
+            }})
+            self.eq(valu, expected)
+
             # Form Tests ======================================================
             async with await core.snap() as snap:
                 valu = 'https://vertexmc:hunter2@vertex.link:1337/coolthings?a=1'
