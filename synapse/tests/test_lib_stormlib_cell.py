@@ -1,5 +1,6 @@
 import synapse.exc as s_exc
 
+import synapse.lib.aha as s_aha
 import synapse.lib.const as s_const
 import synapse.lib.stormlib.cell as s_stormlib_cell
 
@@ -71,6 +72,93 @@ class StormCellTest(s_test.SynTest):
             resp = await core.callStorm('return($lib.cell.uptime())')
             self.eq(core.startms, resp['starttime'])
             self.lt(resp['uptime'], s_const.minute)
+
+    async def test_stormlib_cell_getmirrors(self):
+
+        conf = {
+            'aha:name': 'aha',
+            'aha:network': 'mynet',
+            'provision:listen': 'tcp://127.0.0.1:0',
+        }
+        async with self.getTestCell(s_aha.AhaCell, conf=conf) as aha:
+
+            provaddr, provport = aha.provdmon.addr
+            aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
+
+            ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.mynet&ca=mynet')
+            aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.mynet',)
+
+            provurl = await aha.addAhaSvcProv('00.cortex')
+            coreconf = {'aha:provision': provurl}
+
+            async with self.getTestCore(conf=coreconf) as core00:
+
+                user = await core00.addUser('low')
+                with self.raises(s_exc.AuthDeny):
+                    await core00.callStorm('return($lib.cell.getMirrorUrls())', opts={'user': user.get('iden')})
+
+                self.eq([], await core00.callStorm('return($lib.cell.getMirrorUrls())'))
+
+                provinfo = {'mirror': '00.cortex'}
+                provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+
+                coreconf = {'aha:provision': provurl}
+                async with self.getTestCore(conf=coreconf) as core01:
+
+                    await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
+                    self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
+
+                    expurls = ['aha://01.cortex.mynet']
+
+                    self.eq(expurls, await core00.callStorm('return($lib.cell.getMirrorUrls())'))
+                    self.eq(expurls, await core01.callStorm('return($lib.cell.getMirrorUrls())'))
+
+                provurl = await aha.addAhaSvcProv('00.testsvc')
+                svcconf = {'aha:provision': provurl}
+
+                async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc00:
+
+                    await self.addSvcToCore(svc00, core00, svcname='testsvc')
+
+                    with self.raises(s_exc.NoSuchName):
+                        await core00.callStorm('return($lib.cell.getMirrorUrls(name=newp))')
+
+                    self.eq([], await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
+
+                    provinfo = {'mirror': '00.testsvc'}
+                    provurl = await aha.addAhaSvcProv('01.testsvc', provinfo=provinfo)
+
+                    svcconf = {'aha:provision': provurl}
+                    async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc01:
+
+                        await svc01.sync()
+
+                        expurls = ('aha://01.testsvc.mynet',)
+
+                        self.eq(expurls, await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
+
+                    await aha.delAhaSvc('00.testsvc.mynet')
+
+                    with self.raises(s_exc.NoSuchName):
+                        await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')
+
+        # No AHA case
+
+        async with self.getTestCore() as core:
+
+            emesg = 'Enumerating mirror URLs is only supported when AHA is configured'
+
+            with self.raises(s_exc.BadConfValu) as cm:
+                await core.callStorm('return($lib.cell.getMirrorUrls())')
+                self.eq(emesg, cm.exception.get('mesg'))
+
+            async with self.getTestCell(s_t_stormsvc.StormvarServiceCell) as svc:
+
+                await self.addSvcToCore(svc, core, svcname='testsvc')
+
+                with self.raises(s_exc.BadConfValu) as cm:
+                    await core.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')
+                    self.eq(emesg, cm.exception.get('mesg'))
 
     async def test_stormfix_autoadds(self):
 

@@ -310,7 +310,11 @@ class GeoModule(s_module.CoreModule):
                 'types': (
 
                     ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
+                        'deprecated': True,
                         'doc': 'Records a node latitude/longitude in space-time.'
+                    }),
+                    ('geo:telem', ('guid', {}), {
+                        'doc': 'A geospatial position of a node at a given time. The node should be linked via -(seenat)> edges.',
                     }),
 
                     ('geo:json', ('data', {'schema': geojsonschema}), {
@@ -348,6 +352,11 @@ class GeoModule(s_module.CoreModule):
                     }),
                 ),
 
+                'edges': (
+                    ((None, 'seenat', 'geo:telem'), {
+                        'doc': 'The source node was seen at the geo:telem node place and time.'}),
+                ),
+
                 'forms': (
 
                     ('geo:name', {}, ()),
@@ -372,6 +381,19 @@ class GeoModule(s_module.CoreModule):
                         ('loc', ('loc', {}), {
                             'doc': 'The geo-political location string for the node.'}),
 
+                    )),
+
+                    ('geo:telem', {}, (
+                        ('time', ('time', {}), {
+                            'doc': 'The time that the node was at the position.'}),
+                        ('desc', ('str', {}), {
+                            'doc': 'A description of the telemetry sample.'}),
+                        ('latlong', ('geo:latlong', {}), {
+                            'doc': 'The latitude/longitude reading at the time.'}),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'The place which includes the latlong value.'}),
+                        ('place:name', ('geo:name', {}), {
+                            'doc': 'The purported place name. Used for entity resolution.'}),
                     )),
 
                     ('geo:place', {}, (

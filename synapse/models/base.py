@@ -66,7 +66,14 @@ class BaseModule(s_module.CoreModule):
                 ('graph:timeedge', ('timeedge', {}), {
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
             ),
-
+            'edges': (
+                ((None, 'refs', None), {
+                    'doc': 'The source node contains a reference to the target node.'}),
+                (('meta:ruleset', 'has', 'meta:rule'), {
+                    'doc': 'The meta:ruleset includes the meta:rule.'}),
+                (('meta:rule', 'matches', None), {
+                    'doc': 'The meta:rule has matched on target node.'}),
+            ),
             'forms': (
 
                 ('meta:source', {}, (
