@@ -3706,7 +3706,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInErr('data.cond must be one of', mesgs)
 
             mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')
-            self.stormIsInPrint('Missing a required option: --query', mesgs)
+            self.stormIsInErr('Missing a required option: --query', mesgs)
 
             mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --query {test:str}')
             self.stormIsInErr('tag must not be present for node:add or node:del', mesgs)
@@ -4240,7 +4240,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = 'cron.at --day +1'
                 mesgs = await core.stormlist(q)
-                self.stormIsInPrint('The argument <query> is required', mesgs)
+                self.stormIsInErr('The argument <query> is required', mesgs)
 
                 q = 'cron.at --dt nope {#foo}'
                 mesgs = await core.stormlist(q)
