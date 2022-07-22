@@ -135,6 +135,9 @@ class ProjectModule(s_module.CoreModule):
                         ('ext:url', ('inet:url', {}), {
                             'doc': 'A URL to the ticket in an external system.'}),
 
+                        ('ext:creator', ('ps:contact', {}), {
+                            'doc': 'Ticket creator contact information from an external system.'}),
+
                         ('epic', ('proj:epic', {}), {
                             'doc': 'The epic that includes the ticket.'}),
 
