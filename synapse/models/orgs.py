@@ -140,6 +140,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:campaign', ('guid', {}), {
                     'doc': 'Represents an orgs activity in pursuit of a goal.',
                 }),
+                ('ou:conflict', ('guid', {}), {
+                    'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
+                }),
+                ('ou:contribution', ('guid', {}), {
+                    'doc': 'Represents a specific instance of contributing material support to a campaign.',
+                }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
                 }),
@@ -174,6 +180,12 @@ class OuModule(s_module.CoreModule):
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
+            ),
+            'edges': (
+                (('ou:org', 'uses', None), {
+                    'doc': 'The ou:org makes use of the target node.'}),
+                (('ou:contribution', 'includes', None), {
+                    'doc': 'The contribution includes the specific node.'}),
             ),
             'forms': (
                 ('ou:jobtype', {}, ()),
@@ -410,6 +422,41 @@ class OuModule(s_module.CoreModule):
                     ('team', ('ou:team', {}), {
                         'doc': 'The org team responsible for carrying out the campaign.',
                     }),
+                    ('conflict', ('ou:conflict', {}), {
+                        'doc': 'The conflict in which this campaign is a primary participant.',
+                    }),
+                )),
+                ('ou:conflict', {}, (
+                    ('name', ('str', {'onespace': True}), {
+                        'doc': 'The name of the conflict.'}),
+                    ('started', ('time', {}), {
+                        'doc': 'The time the conflict began.'}),
+                    ('ended', ('time', {}), {
+                        'doc': 'The time the conflict ended.'}),
+                    ('timeline', ('meta:timeline', {}), {
+                        'doc': 'A timeline of significant events related to the conflict.'}),
+                )),
+                ('ou:contribution', {}, (
+                    ('from', ('ps:contact', {}), {
+                        'doc': 'The contact information of the contributor.'}),
+                    ('campaign', ('ou:campaign', {}), {
+                        'doc': 'The campaign receiving the contribution.'}),
+                    ('value', ('econ:price', {}), {
+                        'doc': 'The assessed value of the contribution.'}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used for the assessed value.'}),
+                    ('time', ('time', {}), {
+                        'doc': 'The time the contribution occurred.'}),
+                    ('material:spec', ('mat:spec', {}), {
+                        'doc': 'The specification of material items contributed.'}),
+                    ('material:count', ('int', {}), {
+                        'doc': 'The number of material items contributed.'}),
+                    ('monetary:payment', ('econ:acct:payment', {}), {
+                        'doc': 'Payment details for a monetary contribution.'}),
+                    ('personnel:count', ('int', {}), {
+                        'doc': 'Number of personnel contributed to the campaign.'}),
+                    ('personnel:jobtitle', ('ou:jobtitle', {}), {
+                        'doc': 'Title or designation for the contributed personnel.'}),
                 )),
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
