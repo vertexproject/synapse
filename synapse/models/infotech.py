@@ -479,7 +479,7 @@ class ItModule(s_module.CoreModule):
                     'ex': 'foo.exe --dostuff bar',
                 }),
                 ('it:query', ('str', {'strip': True}), {
-                    'doc': 'A unqiue query string.',
+                    'doc': 'A unique query string.',
                 }),
                 ('it:exec:query', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
