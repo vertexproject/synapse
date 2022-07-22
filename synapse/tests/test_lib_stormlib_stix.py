@@ -364,3 +364,54 @@ class StormLibStixTest(s_test.SynTest):
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, [n for n in nodes if n[0][0] == 'it:cmd'])
             self.stormIsInWarn("STIX bundle ingest has no relationship definition for: ('threat-actor', 'gronks', 'threat-actor')", msgs)
+
+    async def test_stix_export_custom(self):
+
+        async with self.getTestCore() as core:
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+
+                    // register a custom object type so we pass validation
+                    // (dictionary contents are reserved for future use )
+
+                    $config.custom.objects.mitigation = ({})
+
+                    $config.forms."risk:mitigation" = ({
+                        "default": "mitigation",
+                        "stix": {
+                            "mitigation": {
+                                "props": {
+                                    "name": "{+:name return(:name)} return($node.repr())",
+                                    "created": "return($lib.stix.export.timestamp(.created))",
+                                    "modified": "return($lib.stix.export.timestamp(.created))",
+                                },
+                            },
+                        },
+                    })
+
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                [ risk:mitigation=c4f6dc09f1e1e6b7e7b05c9ce4186ce8 :name="patch stuff and junk" ]
+
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+
+            self.eq('mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
+            self.eq('patch stuff and junk', bund['objects'][1]['name'])
+            self.nn(bund['objects'][1]['created'])
+            self.nn(bund['objects'][1]['modified'])
+
+            with self.raises(s_exc.BadConfValu):
+                await core.callStorm('''
+                    init {
+                        $config = $lib.stix.export.config()
+                        $config.custom.objects.NEWP = ({})
+                        $bundle = $lib.stix.export.bundle(config=$config)
+                    }
+                    fini { return($bundle) }
+                ''')
