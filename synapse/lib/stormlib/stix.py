@@ -4,6 +4,8 @@ import asyncio
 import logging
 import datetime
 
+import regex
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.coro as s_coro
@@ -24,11 +26,18 @@ def uuid4(valu=None):
     guid = s_common.guid(valu=valu)
     return str(uuid.UUID(guid, version=4))
 
+stixname_re = regex.compile('^[a-z0-9_]{3,250}$')
+
 SYN_STIX_EXTENSION_ID = f'extension-definition--{uuid4("bf1c0a4d90ee557ac05055385971f17c")}'
 
 _DefaultConfig = {
 
     'maxsize': 10000,
+
+    'custom': {
+        'objects': {
+        },
+    },
 
     'forms': {
 
@@ -453,6 +462,18 @@ def _validateConfig(core, config):
 
     maxsize = config.get('maxsize', 10000)
 
+    alltypes = stix_all.copy()
+
+    custom = config.get('custom')
+    if custom is not None:
+        objdefs = custom.get('objects')
+        if objdefs is not None:
+            for name, info in objdefs.items():
+                if not stixname_re.match(name):
+                    mesg = 'Invalid custom object name. Must match regex: ^[a-z0-9_]{3,250}$'
+                    raise s_exc.BadConfValu(mesg=mesg)
+                alltypes.add(name)
+
     if not isinstance(maxsize, int):
         mesg = f'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
@@ -477,7 +498,7 @@ def _validateConfig(core, config):
             mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixdef not in stix_all:
+        if stixdef not in alltypes:
             mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
             raise s_exc.BadConfValu(mesg=mesg)
 
@@ -492,7 +513,7 @@ def _validateConfig(core, config):
 
         for stixtype, stixinfo in stixmaps.items():
 
-            if stixtype not in stix_all:
+            if stixtype not in alltypes:
                 mesg = f'STIX Bundle config has unknown STIX type {stixtype} for form {formname}.'
                 raise s_exc.BadConfValu(mesg=mesg)
 
