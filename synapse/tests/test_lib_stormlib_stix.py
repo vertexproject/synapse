@@ -394,7 +394,7 @@ class StormLibStixTest(s_test.SynTest):
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
 
-                [ risk:mitigation=c4f6dc09f1e1e6b7e7b05c9ce4186ce8 :name="patch stuff and junk" ]
+                [ risk:mitigation=c4f6dc09f1e1e6b7e7b05c9ce4186ce8 :name="patch stuff and do things" ]
 
                 $bundle.add($node)
 
@@ -402,7 +402,7 @@ class StormLibStixTest(s_test.SynTest):
             ''')
 
             self.eq('mitigation--2df2a437-e372-468b-b989-d01753603659', bund['objects'][1]['id'])
-            self.eq('patch stuff and junk', bund['objects'][1]['name'])
+            self.eq('patch stuff and do things', bund['objects'][1]['name'])
             self.nn(bund['objects'][1]['created'])
             self.nn(bund['objects'][1]['modified'])
 
