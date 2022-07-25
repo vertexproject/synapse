@@ -1,6 +1,7 @@
 import asyncio
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.boss as s_boss
 import synapse.tests.utils as s_test
 
@@ -43,7 +44,7 @@ class BossTest(s_test.SynTest):
             with self.getAsyncLoggerStream('synapse.lib.boss',
                                            'Iden specified for existing task') as stream:
 
-                iden = '1234'
+                iden = s_common.guid()
 
                 async def double_promote():
                     await boss.promote(f'double', None, taskiden=iden)

@@ -1,5 +1,6 @@
 import asyncio
 
+import synapse.exc as s_exc
 import synapse.lib.boss as s_boss
 import synapse.lib.task as s_task
 import synapse.tests.utils as s_test
@@ -48,3 +49,9 @@ class TaskTest(s_test.SynTest):
         await asyncio.create_task(taskfunc())
 
         self.eq(s_task.varget('test'), 'foo')
+
+    async def test_task_iden(self):
+        with self.raises(s_exc.BadArg):
+            await s_task.Task.anit(None, asyncio.current_task(), None, None, iden=10)
+        with self.raises(s_exc.BadArg):
+            await s_task.Task.anit(None, asyncio.current_task(), None, None, iden='woot')
