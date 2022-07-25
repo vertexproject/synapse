@@ -5865,6 +5865,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.AuthDeny, core.enableCronJob(iden))
                 await self.asyncraises(s_exc.AuthDeny, core.disableCronJob(iden))
 
+    async def test_cortex_cron_deluser(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setAdmin(True)
+
+            asvisi = {'user': visi.iden}
+            await core.stormlist('cron.add --daily 13:37 {$lib.print(woot)}', opts=asvisi)
+            await core.auth.delUser(visi.iden)
+
+            self.len(1, await core.callStorm('return($lib.cron.list())'))
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('$lib.print(woot)', msgs)
+
     async def test_cortex_migrationmode(self):
         async with self.getTestCore() as core:
             async with core.getLocalProxy(user='root') as prox:

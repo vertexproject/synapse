@@ -5185,7 +5185,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             info = cron.pack()
 
             user = self.auth.user(cron.creator)
-            info['username'] = user.name
+            if user is not None:
+                info['username'] = user.name
 
             crons.append(info)
 
