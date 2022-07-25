@@ -70,7 +70,7 @@ class BaseModule(s_module.CoreModule):
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
                 (('meta:note', 'about', None), {
-                    'doc': 'The ``meta:note'
+                    'doc': 'The meta:note is about the target node.'
                 }),
                 (('meta:ruleset', 'has', 'meta:rule'), {
                     'doc': 'The meta:ruleset includes the meta:rule.'}),
