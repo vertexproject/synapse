@@ -1,5 +1,6 @@
 import asyncio
 
+import synapse.exc as s_exc
 import synapse.lib.boss as s_boss
 import synapse.tests.utils as s_test
 
@@ -26,6 +27,10 @@ class BossTest(s_test.SynTest):
             self.eq('haha', synt.info.get('hehe'))
 
             synt0 = await boss.execute(testloop(), 'testloop', None, info={'foo': 'bar'})
+            iden = synt0.iden
+
+            with self.raises(s_exc.BadArg):
+                _ = await boss.execute(asyncio.sleep(1), 'testsleep', None, iden=iden)
 
             await evnt.wait()
 
@@ -34,3 +39,16 @@ class BossTest(s_test.SynTest):
             await synt0.kill()
 
             self.len(1, boss.ps())
+
+            with self.getAsyncLoggerStream('synapse.lib.boss',
+                                           'Iden specified for existing task') as stream:
+
+                iden = '1234'
+
+                async def double_promote():
+                    await boss.promote(f'double', None, taskiden=iden)
+                    await boss.promote(f'double', None, taskiden=iden + iden)
+
+                coro = boss.schedCoro(double_promote())
+                self.true(await stream.wait(timeout=6))
+                await coro
