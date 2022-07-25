@@ -69,6 +69,9 @@ class BaseModule(s_module.CoreModule):
             'edges': (
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
+                (('meta:note', 'about', None), {
+                    'doc': 'The ``meta:note'
+                }),
                 (('meta:ruleset', 'has', 'meta:rule'), {
                     'doc': 'The meta:ruleset includes the meta:rule.'}),
                 (('meta:rule', 'matches', None), {
