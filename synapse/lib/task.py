@@ -25,6 +25,15 @@ class Task(s_base.Base):
 
         task._syn_task = self
 
+        if iden is not None:
+            if not isinstance(iden, str):
+                mesg = 'The task iden specified must be a string.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not s_common.isguid(iden):
+                mesg = 'The task iden specified must match the regular expression: ^[a-f0-9]{32}$'
+                raise s_exc.BadArg(mesg=mesg)
+
         self.iden = iden
         if self.iden is None:
             self.iden = s_common.guid()

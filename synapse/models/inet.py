@@ -866,7 +866,7 @@ class Url(s_types.Str):
                 hostparts = f'{hostparts}:{port}'
 
         if proto != 'file':
-            if not subs.get('fqdn') and not subs.get('ipv4') and not subs.get('ipv6'):
+            if (not subs.get('fqdn')) and (subs.get('ipv4') is None) and (subs.get('ipv6') is None):
                 raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                         mesg='Missing address/url') from None
 

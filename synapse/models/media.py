@@ -31,18 +31,23 @@ class MediaModule(s_module.CoreModule):
                     'ex': 'lorum ipsum',
                     'disp': {'hint': 'text'},
                 }),
+                ('publisher', ('ou:org', {}), {
+                    'doc': 'The organization which published the news.',
+                }),
+                ('publisher:name', ('ou:name', {}), {
+                    'doc': 'The name the publishing org used to publish the news.',
+                }),
                 ('published', ('time', {}), {
                     'doc': 'The date the news item was published.',
                     'ex': '20161201180433',
                 }),
                 ('org', ('ou:alias', {}), {
-                    'doc': 'The org alias which published the news.',
-                    'ex': 'microsoft',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use :publisher:name.',
                 }),
                 ('author', ('ps:name', {}), {
-                    'doc': 'The free-form author of the news.',
                     'deprecated': True,
-                    'ex': 'stark,anthony'
+                    'doc': 'Deprecated. Please use :authors array of ps:contact nodes.',
                 }),
                 ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of authors of the news item.',
