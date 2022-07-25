@@ -789,19 +789,21 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             evnt = asyncio.Event()
-            iden = None
+            iden = s_common.guid()
 
             async def runLongStorm():
                 q = f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'
-                async for mesg in core.storm(q):
-                    nonlocal iden
+                async for mesg in core.storm(q, opts={'task': iden}):
                     if mesg[0] == 'init':
-                        iden = mesg[1]['task']
+                        self.true(mesg[1]['task'] == iden)
                     evnt.set()
 
             task = core.schedCoro(runLongStorm())
 
             self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+
+            with self.raises(s_exc.BadArg):
+                await core.schedCoro(core.stormlist('inet:ipv4', opts={'task': iden}))
 
             # Verify that the long query got truncated
             msgs = await core.stormlist('ps.list')
