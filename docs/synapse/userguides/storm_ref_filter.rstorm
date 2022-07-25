@@ -987,7 +987,7 @@ Despite its similarity to a pivot operation, embedded property syntax is commonl
 Note that this example of embedded property syntax is equivalent to the following subquery filter (referenced above):
 
 ::
-    
+
     <inet:ipv4> +{ :asn -> inet:asn +:name^="makonix" }
 
 
@@ -998,7 +998,7 @@ Note that this example of embedded property syntax is equivalent to the followin
 
 .. storm-pre:: [ ( it:exec:file:read=1fe9e8690b76f84680468b4018cc3655 :sandbox:file=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 ) ( file:bytes=sha256:708840e33fe6632ba75fcf86564e0a2ece4f7b265390afe15aa5ae383a917e65 :mime:pe:pdbpath='e:/code/moon1.5/release/moonclient2.pdb' ) ] it:exec:file:read +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
 ::
-  
+
   <it:exec:file:read> +:sandbox:file::mime:pe:pdbpath::base=moonclient2.pdb
 
 
@@ -1008,6 +1008,5 @@ Note that this example of embedded property syntax is equivalent to the followin
 
 .. storm-pre:: inet:ipv4 $name=:asn::name
 ::
-    
-    <inet:ipv4> $name=:asn::name
 
+    <inet:ipv4> $name=:asn::name
