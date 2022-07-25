@@ -1,9 +1,10 @@
 import json
 import uuid
-import regex
 import asyncio
 import logging
 import datetime
+
+import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
