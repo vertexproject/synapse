@@ -2084,6 +2084,8 @@ class Parser:
         self.prog = prog
         self.descr = descr
 
+        self.exc = None
+
         self.root = root
         self.exited = False
         self.mesgs = []
@@ -2361,8 +2363,7 @@ class Parser:
                 self._printf(text)
 
         if mesg is not None:
-            self._printf('')
-            self._printf(f'ERROR: {mesg}')
+            self.exc = s_exc.BadArg(mesg=mesg)
 
         self.exited = True
         return False
@@ -2486,6 +2487,9 @@ class Cmd:
 
         for line in self.pars.mesgs:
             await self.runt.snap.printf(line)
+
+        if self.pars.exc is not None:
+            raise self.pars.exc
 
         return not self.pars.exited
 

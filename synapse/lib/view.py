@@ -367,8 +367,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         self.core._logStormQuery(text, user, opts.get('mode', 'storm'))
 
-        info = {'query': text, 'opts': opts}
-        await self.core.boss.promote('storm', user=user, info=info)
+        taskiden = opts.get('task')
+        taskinfo = {'query': text}
+        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await self.snap(user=user) as snap:
             async for node in snap.eval(text, opts=opts, user=user):
@@ -421,7 +422,9 @@ class View(s_nexus.Pusher):  # type: ignore
         MSG_QUEUE_SIZE = 1000
         chan = asyncio.Queue(MSG_QUEUE_SIZE)
 
-        synt = await self.core.boss.promote('storm', user=user, info={'query': text})
+        taskinfo = {'query': text}
+        taskiden = opts.get('task')
+        synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
 
@@ -532,9 +535,13 @@ class View(s_nexus.Pusher):  # type: ignore
             yield mesg
 
     async def iterStormPodes(self, text, opts=None):
+
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
-        await self.core.boss.promote('storm', user=user, info={'query': text})
+
+        taskinfo = {'query': text}
+        taskiden = opts.get('task')
+        await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         async with await self.snap(user=user) as snap:
             async for pode in snap.iterStormPodes(text, opts=opts, user=user):
