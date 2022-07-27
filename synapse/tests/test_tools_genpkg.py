@@ -70,7 +70,7 @@ class GenPkgTest(s_test.SynTest):
             await s_genpkg.main(argv)
 
             msgs = await core.stormlist('testpkgcmd')
-            self.stormIsInPrint('argument <foo> is required', msgs)
+            self.stormIsInErr('argument <foo> is required', msgs)
             msgs = await core.stormlist('$mod=$lib.import(testmod) $lib.print($mod)')
             self.stormIsInPrint('Imported Module testmod', msgs)
 

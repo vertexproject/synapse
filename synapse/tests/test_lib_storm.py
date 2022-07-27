@@ -2825,7 +2825,8 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('--hehe')
         self.none(pars.parse_args(['--lol']))
-        self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
+        mesg = "Expected 0 positional arguments. Got 1: ['--lol']"
+        self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
@@ -2837,12 +2838,14 @@ class StormTest(s_t_utils.SynTest):
         self.isin('  --help                      : Display the command usage.', pars.mesgs)
         self.isin('Arguments:', pars.mesgs)
         self.isin('  <hehe>                      : No help available', pars.mesgs)
+        self.none(pars.exc)
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
         opts = pars.parse_args(['newp', '-h'])
         self.none(opts)
-        self.isin('ERROR: Extra arguments and flags are not supported with the help flag: hehe newp -h', pars.mesgs)
+        mesg = 'Extra arguments and flags are not supported with the help flag: hehe newp -h'
+        self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
@@ -2932,45 +2935,38 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='*', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='+', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('foo', type='int')
         self.none(pars.parse_args(['asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         # argument count mismatch
         pars = s_storm.Parser()
         pars.add_argument('--ques')
         self.none(pars.parse_args(['--ques']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("An argument is required for --ques", helptext)
+        self.eq("An argument is required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2)
         self.none(pars.parse_args(['--ques', 'lolz']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("2 arguments are required for --ques", helptext)
+        self.eq("2 arguments are required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2, type='int')
         self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): lolz", helptext)
+        self.eq("Invalid value for type (int): lolz", pars.exc.errinfo['mesg'])
 
         # test time argtype
         ttyp = s_datamodel.Model().type('time')
@@ -2987,8 +2983,7 @@ class StormTest(s_t_utils.SynTest):
 
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (time): hehe", helptext)
+        self.eq("Invalid value for type (time): hehe", pars.exc.errinfo['mesg'])
 
         # test ival argtype
         ityp = s_datamodel.Model().type('ival')
@@ -3013,8 +3008,7 @@ class StormTest(s_t_utils.SynTest):
 
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (ival): hehe", helptext)
+        self.eq("Invalid value for type (ival): hehe", pars.exc.errinfo['mesg'])
 
         # check adding argument with invalid type
         with self.raises(s_exc.BadArg):
@@ -3768,20 +3762,20 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+            self.stormIsInErr("Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
 
             msgs = await core.stormlist('help yield')
             self.stormIsInPrint('No commands found matching "yield"', msgs)
 
             q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
+            self.stormIsInErr("Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
 
             await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments", msgs)
+            self.stormIsInErr("Expected 0 positional arguments", msgs)
 
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)

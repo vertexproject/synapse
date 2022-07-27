@@ -464,3 +464,22 @@ class GeoTest(s_t_utils.SynTest):
             self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[ test:distoff=-3km ]')
+
+    async def test_model_geospace_telem(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ geo:telem=*
+                    :time=20220618
+                    :latlong=(10.1, 3.0)
+                    :desc=foobar
+                    :place:name=woot
+                    :place={[geo:place=* :name=woot]}
+                ]
+            ''')
+            self.eq(1655510400000, nodes[0].get('time'))
+            self.eq((10.1, 3.0), nodes[0].get('latlong'))
+            self.eq('foobar', nodes[0].get('desc'))
+            self.eq('woot', nodes[0].get('place:name'))
+            self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))

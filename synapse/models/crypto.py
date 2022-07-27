@@ -375,8 +375,20 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The cryptographic algorithm which uses the key material.'}),
                     ('public', ('hex', {}), {
                         'doc': 'The hex encoded public key material if the algorithm has a public/private key pair.'}),
+                    ('public:md5', ('hash:md5', {}), {
+                        'doc': 'The MD5 hash of the public key in raw binary form.'}),
+                    ('public:sha1', ('hash:sha1', {}), {
+                        'doc': 'The SHA1 hash of the public key in raw binary form.'}),
+                    ('public:sha256', ('hash:sha256', {}), {
+                        'doc': 'The SHA256 hash of the public key in raw binary form.'}),
                     ('private', ('hex', {}), {
                         'doc': 'The hex encoded private key material. All symmetric keys are private.'}),
+                    ('private:md5', ('hash:md5', {}), {
+                        'doc': 'The MD5 hash of the private key in raw binary form.'}),
+                    ('private:sha1', ('hash:sha1', {}), {
+                        'doc': 'The SHA1 hash of the private key in raw binary form.'}),
+                    ('private:sha256', ('hash:sha256', {}), {
+                        'doc': 'The SHA256 hash of the private key in raw binary form.'}),
                     ('seed:passwd', ('inet:passwd', {}), {
                         'doc': 'The seed password used to generate the key material.'}),
                     ('seed:algorithm', ('crypto:algorithm', {}), {

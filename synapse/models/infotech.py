@@ -478,6 +478,13 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A unique command-line string.',
                     'ex': 'foo.exe --dostuff bar',
                 }),
+                ('it:query', ('str', {'strip': True}), {
+                    'doc': 'A unique query string.',
+                }),
+                ('it:exec:query', ('guid', {}), {
+                    'interfaces': ('it:host:activity',),
+                    'doc': 'An instance of an executed query.',
+                }),
                 ('it:exec:mutex', ('guid', {}), {
                     'doc': 'A mutex created by a process at runtime.',
                 }),
@@ -1340,6 +1347,17 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
                 )),
+                ('it:query', {}, ()),
+                ('it:exec:query', {}, (
+                    ('text', ('it:query', {}), {
+                        'doc': 'The query string that was executed.'}),
+                    ('opts', ('data', {}), {
+                        'doc': 'An opaque JSON object containing query paramters and options.'}),
+                    ('api:url', ('inet:url', {}), {
+                        'doc': 'The URL of the API endpoint the query was sent to.'}),
+                    ('language', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the language that the query is expressed in.'}),
+                )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The process which contains the thread.',
@@ -1924,6 +1942,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The file that the C2 config was extracted from.'}),
                     ('servers', ('array', {'type': 'inet:url'}), {
                         'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
+                    ('proxies', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
+                    ('listens', ('array', {'type': 'inet:url'}), {
+                        'doc': 'An array of listen URLs that the software should bind.'}),
+                    ('dns:resolvers', ('array', {'type': 'inet:server'}), {
+                        'doc': 'An array of inet:servers to use when resolving DNS names.'}),
                     ('mutex', ('it:dev:mutex', {}), {
                         'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
                     ('campaigncode', ('it:dev:str', {}), {
@@ -1936,6 +1960,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The configured duration to sleep between connections to the C2 server.'}),
                     ('raw', ('data', {}), {
                         'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
+                    ('http:headers', ('array', {'type': 'inet:http:header'}), {
+                        'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
                 )),
             ),
         }
