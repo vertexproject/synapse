@@ -315,61 +315,42 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
-  check_docker_smoketests:
-    description: "Check docker smoke test results"
-    steps:
-      - run:
-          name: validate docker smoketest
-          command: |
-            sleep 60
-            docker ps
-            docker container ls -a
-            docker logs test01
-            docker logs test02
-            docker logs test03
-            docker logs test04
-            docker logs test05
-            docker logs test06
-            dstatus01=`docker inspect test01 --format '{{.State.Health.Status}}'`
-            dstatus02=`docker inspect test02 --format '{{.State.Health.Status}}'`
-            dstatus03=`docker inspect test03 --format '{{.State.Health.Status}}'`
-            dstatus04=`docker inspect test04 --format '{{.State.Health.Status}}'`
-            dstatus05=`docker inspect test05 --format '{{.State.Health.Status}}'`
-            dstatus06=`docker inspect test06 --format '{{.State.Health.Status}}'`
-            docker stop test01
-            docker stop test02
-            docker stop test03
-            docker stop test04
-            docker stop test05
-            docker stop test06
-            docker rm test01
-            docker rm test02
-            docker rm test03
-            docker rm test04
-            docker rm test05
-            docker rm test06
-            if [ $dstatus01 != "healthy" ]; then exit 1; fi
-            if [ $dstatus02 != "healthy" ]; then exit 1; fi
-            if [ $dstatus03 != "healthy" ]; then exit 1; fi
-            if [ $dstatus04 != "healthy" ]; then exit 1; fi
-            if [ $dstatus05 != "healthy" ]; then exit 1; fi
-            if [ $dstatus06 != "healthy" ]; then exit 1; fi
-            exit 0
 
   do_docker_login:
     description: "Login to docker"
+    parameters:
+      use_ecr:
+        type: boolean
+        default: false
+    steps:
+      - when:
+          condition: << parameters.use_ecr >>
+          steps:
+            - run:
+                name: docker login with ECR
+                command: |
+                  apk add python3 py3-pip
+                  python3 -m pip install awscli
+                  aws ecr get-login-password | docker login --username AWS --password-stdin $AWS_ECR_REGISTRY
+      - unless:
+          condition: << parameters.use_ecr >>
+          steps:
+            - run:
+                name: docker login
+                command: |
+                  docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+
+  do_docker_bash:
+    description: "Add bash"
     steps:
       - run:
-          name: docker login
+          name: install bash
           command: |
-            docker login --username "${DOCKER_USERNAME}" --password "${DOCKER_PASSWORD}"
+            apk add bash
 
-  deploy_docker_tags:
-    description: "Deploy current tag images to docker"
+  do_docker_prep:
+    description: "Login to docker, install packages and set commit."
     steps:
-      - checkout
-      - setup_remote_docker
-      - do_docker_login
       - run:
           name: install python
           command: |
@@ -378,150 +359,105 @@ commands:
           name: setcommit
           command: |
             python3 setup.py setcommit
+
+  build_docker:
+    description: "Build a docker image"
+    parameters:
+      image-tag:
+        type: string
+    steps:
+      - checkout
+      - setup_remote_docker
+      - do_docker_prep
+      - do_docker_bash
       - run:
           name: build images
           command: |
-            docker build -t vertexproject/synapse:${CIRCLE_TAG} -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse:${CIRCLE_TAG}-py37 -f docker/images/synapse/Dockerfile-py37 .
-            docker build -t vertexproject/synapse-aha:${CIRCLE_TAG} -f docker/images/aha/Dockerfile .
-            docker build -t vertexproject/synapse-axon:${CIRCLE_TAG} -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:${CIRCLE_TAG} -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:${CIRCLE_TAG} -f docker/images/cryotank/Dockerfile .
-            docker build -t vertexproject/synapse-stemcell:${CIRCLE_TAG} -f docker/images/stemcell/Dockerfile .
-            docker build -t vertexproject/synapse-jsonstor:${CIRCLE_TAG} -f docker/images/jsonstor/Dockerfile .
+            docker/build_all.sh << parameters.image-tag >>
       - run:
-          name: smoke test image
+          name: smoke test images
           command: |
-            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG} -m synapse.servers.cortex --help
-            dstatus00=$?
-            if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_TAG}-py37 -m synapse.servers.cortex --help
-            dstatus01=$?
-            if [ $dstatus01 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-aha:${CIRCLE_TAG}
-            docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_TAG}
-            docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_TAG}
-            docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_TAG}
-            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_TAG}
-            docker run -d --name test06 vertexproject/synapse-jsonstor:${CIRCLE_TAG}
-      - check_docker_smoketests
+            docker/scripts/test_all.sh << parameters.image-tag >>
       - run:
-          name: tag and push container
+          name: save images to workspace
           command: |
-            docker push vertexproject/synapse:${CIRCLE_TAG}
-            docker push vertexproject/synapse:${CIRCLE_TAG}-py37
-            docker push vertexproject/synapse-aha:${CIRCLE_TAG}
-            docker push vertexproject/synapse-axon:${CIRCLE_TAG}
-            docker push vertexproject/synapse-cortex:${CIRCLE_TAG}
-            docker push vertexproject/synapse-cryotank:${CIRCLE_TAG}
-            docker push vertexproject/synapse-stemcell:${CIRCLE_TAG}
-            docker push vertexproject/synapse-jsonstor:${CIRCLE_TAG}
+            mkdir -p workspace
+            docker/scripts/save_all.sh workspace/images.tar.gz << parameters.image-tag >>
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - images.tar.gz
 
-  deploy_docker_2xx:
-    description: "Build current release tag to docker as v2.x.x"
+  load_docker_from_workspace:
+    description: "Load the docker images from workspace"
+    parameters:
+      use_ecr:
+        type: boolean
+        default: false
     steps:
-      - checkout
       - setup_remote_docker
-      - do_docker_login
+      - attach_workspace:
+          at: /tmp/workspace
       - run:
-          name: install python
+          name: load image
           command: |
-            apk add python3 py3-pip git
-      - run:
-          name: setcommit
-          command: |
-            python3 setup.py setcommit
-      - run:
-          name: build image
-          command: |
-            docker build -t vertexproject/synapse:v2.x.x -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse:v2.x.x-py37 -f docker/images/synapse/Dockerfile-py37 .
-            docker build -t vertexproject/synapse-aha:v2.x.x -f docker/images/aha/Dockerfile .
-            docker build -t vertexproject/synapse-axon:v2.x.x -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:v2.x.x -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:v2.x.x -f docker/images/cryotank/Dockerfile .
-            docker build -t vertexproject/synapse-stemcell:v2.x.x -f docker/images/stemcell/Dockerfile .
-            docker build -t vertexproject/synapse-jsonstor:v2.x.x -f docker/images/jsonstor/Dockerfile .
-      - run:
-          name: smoke test image
-          command: |
-            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x -m synapse.servers.cortex --help
-            dstatus00=$?
-            if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run --rm -it --entrypoint python vertexproject/synapse:v2.x.x-py37 -m synapse.servers.cortex --help
-            dstatus01=$?
-            if [ $dstatus01 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-aha:v2.x.x
-            docker run -d --name test02 vertexproject/synapse-axon:v2.x.x
-            docker run -d --name test03 vertexproject/synapse-cortex:v2.x.x
-            docker run -d --name test04 vertexproject/synapse-cryotank:v2.x.x
-            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:v2.x.x
-            docker run -d --name test06 vertexproject/synapse-jsonstor:v2.x.x
-      - check_docker_smoketests
-      - run:
-          name: tag and push container
-          command: |
-            docker push vertexproject/synapse:v2.x.x
-            docker push vertexproject/synapse:v2.x.x-py37
-            docker push vertexproject/synapse-aha:v2.x.x
-            docker push vertexproject/synapse-axon:v2.x.x
-            docker push vertexproject/synapse-cortex:v2.x.x
-            docker push vertexproject/synapse-cryotank:v2.x.x
-            docker push vertexproject/synapse-stemcell:v2.x.x
-            docker push vertexproject/synapse-jsonstor:v2.x.x
+            gunzip /tmp/workspace/images.tar.gz
+            docker load -i /tmp/workspace/images.tar
+      - do_docker_login:
+          use_ecr: << parameters.use_ecr >>
 
-  deploy_docker_branches:
-    description: "Deploy current branch images to docker"
+  push_docker_image:
+    description: "Push a docker image up to a registry"
+    parameters:
+      registry:
+        type: string
+        default: ""
+      image-tag:
+        type: string
+      source-tag:
+        type: string
+        default: ""
     steps:
-      - checkout
-      - setup_remote_docker
-      - do_docker_login
+      - do_docker_bash
       - run:
-          name: install python
+          name: retag images
           command: |
-            apk add python3 py3-pip git
+            docker/scripts/retag_all.sh << parameters.source-tag >> << parameters.image-tag >>
       - run:
-          name: setcommit
+          name: push images
           command: |
-            python3 setup.py setcommit
+            docker/scripts/push_all.sh << parameters.image-tag >> << parameters.registry >>
+
+  delete_docker_image:
+    description: "Delete a image from the workspace"
+    steps:
       - run:
-          name: build images
+          name: wipe image
           command: |
-            docker build -t vertexproject/synapse:${CIRCLE_BRANCH} -f docker/images/synapse/Dockerfile .
-            docker build -t vertexproject/synapse:${CIRCLE_BRANCH}-py37 -f docker/images/synapse/Dockerfile-py37 .
-            docker build -t vertexproject/synapse-aha:${CIRCLE_BRANCH} -f docker/images/aha/Dockerfile .
-            docker build -t vertexproject/synapse-axon:${CIRCLE_BRANCH} -f docker/images/axon/Dockerfile .
-            docker build -t vertexproject/synapse-cortex:${CIRCLE_BRANCH} -f docker/images/cortex/Dockerfile .
-            docker build -t vertexproject/synapse-cryotank:${CIRCLE_BRANCH} -f docker/images/cryotank/Dockerfile .
-            docker build -t vertexproject/synapse-stemcell:${CIRCLE_BRANCH} -f docker/images/stemcell/Dockerfile .
-            docker build -t vertexproject/synapse-jsonstor:${CIRCLE_BRANCH} -f docker/images/jsonstor/Dockerfile .
+            mkdir -p workspace
+            echo "" > ./workspace/images.tar.gz
+      - persist_to_workspace:
+          root: workspace
+          paths:
+            - images.tar.gz
+
+  check_tag_for_major_release:
+    description: "Check circle_tag to see if its a major release and export it, halt if not."
+    steps:
       - run:
-          name: smoke test image
+          name: check tag for major release
           command: |
-            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH} -m synapse.servers.cortex --help
-            dstatus00=$?
-            if [ $dstatus00 != "0" ]; then exit 1; fi
-            docker run --rm -it --entrypoint python vertexproject/synapse:${CIRCLE_BRANCH}-py37 -m synapse.servers.cortex --help
-            dstatus01=$?
-            if [ $dstatus01 != "0" ]; then exit 1; fi
-            docker run -d --name test01 vertexproject/synapse-aha:${CIRCLE_BRANCH}
-            docker run -d --name test02 vertexproject/synapse-axon:${CIRCLE_BRANCH}
-            docker run -d --name test03 vertexproject/synapse-cortex:${CIRCLE_BRANCH}
-            docker run -d --name test04 vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
-            docker run -d --name test05 -e SYN_STEM_CELL_CTOR=synapse.lib.cell.Cell vertexproject/synapse-stemcell:${CIRCLE_BRANCH}
-            docker run -d --name test06 vertexproject/synapse-jsonstor:${CIRCLE_BRANCH}
-      - check_docker_smoketests
-      - run:
-          name: tag and push container
-          command: |
-            docker push vertexproject/synapse:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse:${CIRCLE_BRANCH}-py37
-            docker push vertexproject/synapse-aha:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse-axon:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse-cortex:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse-cryotank:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse-stemcell:${CIRCLE_BRANCH}
-            docker push vertexproject/synapse-jsonstor:${CIRCLE_BRANCH}
+            # Pull major tag
+            IFS="."
+            read MAJOR MINOR PATCH \<< EOF
+            $CIRCLE_TAG
+            EOF
+            unset IFS
+            # Exit early if we're a non-numeric patch value.
+            echo $PATCH | grep -E "[^0-9]" && circleci-agent step halt && exit 0
+            DOCKER_TAG=$MAJOR.x.x
+            echo "Found DOCKER_TAG=${DOCKER_TAG}"
+            echo "export DOCKER_TAG=${DOCKER_TAG}" >> $BASH_ENV
 
 jobs:
 
@@ -694,23 +630,87 @@ jobs:
       - deploy_pypi_wheel_build
       - deploy_pypi_upload
 
-  docker_tags:
+  build_docker_branch:
     docker:
       - image: docker:20.10.1
     steps:
-      - deploy_docker_tags
+      - build_docker:
+          image-tag: ${CIRCLE_BRANCH}
 
-  docker_branches:
+  push_docker_branch:
     docker:
       - image: docker:20.10.1
     steps:
-      - deploy_docker_branches
+      - checkout
+      - load_docker_from_workspace
+      - push_docker_image:
+          image-tag: ${CIRCLE_BRANCH}
 
-  docker_tags_2xx:
+  push_docker_branch_ecr:
     docker:
       - image: docker:20.10.1
     steps:
-      - deploy_docker_2xx
+      - checkout
+      - load_docker_from_workspace:
+          use_ecr: true
+      - push_docker_image:
+          image-tag: ${CIRCLE_BRANCH}
+          registry: ${AWS_ECR_REGISTRY}
+
+  delete_docker_branch:
+    docker:
+      - image: docker:20.10.1
+    steps:
+      - delete_docker_image
+
+  build_docker_tag:
+    docker:
+      - image: docker:20.10.1
+    steps:
+      - build_docker:
+          image-tag: ${CIRCLE_BRANCH}
+
+  push_docker_tag:
+    docker:
+      - image: docker:20.10.1
+    # Use a shell override to force a login shell that loads profile for each step.
+    shell: /bin/sh -leo pipefail
+    environment:
+      - BASH_ENV: /etc/profile
+    steps:
+      - checkout
+      - load_docker_from_workspace
+      - push_docker_image:
+          image-tag: ${CIRCLE_TAG}
+      - check_tag_for_major_release
+      - push_docker_image:
+          image-tag: ${DOCKER_TAG}
+          source-tag: ${CIRCLE_TAG}
+
+  push_docker_tag_ecr:
+    docker:
+      - image: docker:20.10.1
+    # Use a shell override to force a login shell that loads profile for each step.
+    shell: /bin/sh -leo pipefail
+    environment:
+      - BASH_ENV: /etc/profile
+    steps:
+      - checkout
+      - load_docker_from_workspace
+      - push_docker_image:
+          image-tag: ${CIRCLE_TAG}
+      - check_tag_for_major_release
+      - push_docker_image:
+          image-tag: ${DOCKER_TAG}
+          source-tag: ${CIRCLE_TAG}
+          registry: ${AWS_ECR_REGISTRY}
+
+  delete_docker_tag:
+    docker:
+      - image: docker:20.10.1
+    steps:
+      - delete_docker_image
+
 
 workflows:
   version: 2
@@ -792,7 +792,8 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: PublicPypiAccess
+          context:
+            - PublicPypiAccess
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
@@ -807,24 +808,13 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: PublicPypiAccess
+          context:
+            - PublicPypiAccess
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
-
-      - docker_branches:
-          requires:
-            - doctests
-            - python37
-            - python38
-            - python_package_smoketest
-          context: SynapseDockerCloudUpload
-          filters:
-            branches:
-              only:
-                - master
 
       - gh-release/dorelease:
           requires:
@@ -834,42 +824,68 @@ workflows:
             - python37_replay
             - python38_replay
             - python_package_smoketest
-          context: GithubMachine
+          context:
+            - GithubMachine
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
-      - docker_tags:
+      - build_docker_branch:
           requires:
             - doctests
             - python37
             - python38
-            - python37_replay
-            - python38_replay
-            - python_package_smoketest
-          context: SynapseDockerCloudUpload
+          filters:
+            branches:
+              only:
+                - master
+
+      - push_docker_branch:
+          requires:
+            - build_docker_branch
+          context:
+            - SynapseDockerCloudUpload
+
+      - push_docker_branch_ecr:
+          requires:
+            - build_docker_branch
+          context:
+            - AWSEcrPusherOSS
+
+      - delete_docker_branch:
+          requires:
+            - push_docker_branch
+            - push_docker_branch_ecr
+
+      - build_docker_tag:
+          requires:
+            - doctests
+            - python37
+            - python38
           filters:
             tags:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
 
-      - docker_tags_2xx:
+      - push_docker_tag:
           requires:
-            - doctests
-            - python37
-            - python38
-            - python37_replay
-            - python38_replay
-            - python_package_smoketest
-          context: SynapseDockerCloudUpload
-          filters:
-            tags:
-              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
-            branches:
-              ignore: /.*/
+            - build_docker_tag
+          context:
+            - SynapseDockerCloudUpload
+
+      - push_docker_tag_ecr:
+          requires:
+            - build_docker_tag
+          context:
+            - AWSEcrPusherOSS
+
+      - delete_docker_tag:
+          requires:
+            - push_docker_tag
+            - push_docker_tag_ecr
 
   nightly:
     triggers:

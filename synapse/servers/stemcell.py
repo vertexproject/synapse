@@ -29,7 +29,7 @@ def getStemCell(dirn):
             raise s_exc.NoSuchCtor(mesg=f'Unable to resolve ctor [{ctorname}]', ctor=ctorname)
         return ctor
 
-    mesg = f'No such file: {cellyaml} and SYN_STEM_CELL_CTOR environmt variable is not set.'
+    mesg = f'No such file: {cellyaml} and SYN_STEM_CELL_CTOR environment variable is not set.'
     raise s_exc.NoSuchFile(mesg=mesg, path=cellyaml)
 
 async def main(argv, outp=s_output.stdout):  # pragma: no cover
