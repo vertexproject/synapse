@@ -260,6 +260,24 @@ class AxonHttpBySha256V1(AxonFileHandler):
         resp = await self.cell.del_(sha256b)
         return self.sendRestRetn(resp)
 
+class AxonHttpBySha256InvalidV1(AxonFileHandler):
+
+    async def _handle_err(self, sha256):
+        if not await self.reqAuthUser():
+            return
+
+        self.set_status(404)
+        self.sendRestErr()
+
+    async def head(self, sha256):
+        return await self._handle_err(sha256)
+
+    async def get(self, sha256):
+        return await self._handle_err(sha256)
+
+    async def delete(self, sha256):
+        return await self._handle_err(sha256)
+
 class UpLoad(s_base.Base):
     '''
     An object used to manage uploads to the Axon.
@@ -863,6 +881,7 @@ class Axon(s_cell.Cell):
         self.addHttpApi('/api/v1/axon/files/put', AxonHttpUploadV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/has/sha256/([0-9a-fA-F]{64}$)', AxonHttpHasV1, {'cell': self})
         self.addHttpApi('/api/v1/axon/files/by/sha256/([0-9a-fA-F]{64}$)', AxonHttpBySha256V1, {'cell': self})
+        self.addHttpApi('/api/v1/axon/files/by/sha256/(.*)', AxonHttpBySha256InvalidV1, {'cell': self})
 
     def _addSyncItem(self, item, tick=None):
         self.axonhist.add(item, tick=tick)
