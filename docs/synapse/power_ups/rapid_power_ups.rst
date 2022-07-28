@@ -26,7 +26,6 @@ The following Rapid Power-Ups are available:
 - `Synapse-DomainIQ <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-domainiq/index.html>`_
 - `Synapse-Etherscan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-etherscan/index.html>`_
 - `Synapse-Flashpoint <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-flashpoint/index.html>`_
-- `Synapse-Google-CT <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-google-ct/index.html>`_
 - `Synapse-Google-Search <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-google-search/index.html>`_
 - `Synapse-GreyNoise <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-greynoise/index.html>`_
 - `Synapse-HybridAnalysis <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-hybridanalysis/index.html>`_
