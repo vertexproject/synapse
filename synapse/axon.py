@@ -271,14 +271,14 @@ class AxonHttpBySha256InvalidV1(AxonFileHandler):
         if send_err:
             self.sendRestErr('BadArg', f'Hash is not a SHA-256: {sha256}')
 
-    async def head(self, sha256):
-        return await self._handle_err(sha256, send_err=False)
+    async def delete(self, sha256):
+        return await self._handle_err(sha256)
 
     async def get(self, sha256):
         return await self._handle_err(sha256)
 
-    async def delete(self, sha256):
-        return await self._handle_err(sha256)
+    async def head(self, sha256):
+        return await self._handle_err(sha256, send_err=False)
 
 class UpLoad(s_base.Base):
     '''
