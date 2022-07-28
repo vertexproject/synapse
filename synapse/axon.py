@@ -133,6 +133,7 @@ class AxonFileHandler(s_httpapi.Handler):
         self.blobsize = await self.axon().size(sha256b)
         if self.blobsize is None:
             self.set_status(404)
+            self.sendRestErr('NoSuchFile', f'SHA-256 not found: {s_common.ehex(sha256b)}')
             return False
 
         status = 200
@@ -262,15 +263,16 @@ class AxonHttpBySha256V1(AxonFileHandler):
 
 class AxonHttpBySha256InvalidV1(AxonFileHandler):
 
-    async def _handle_err(self, sha256):
+    async def _handle_err(self, sha256, send_err=True):
         if not await self.reqAuthUser():
             return
 
         self.set_status(404)
-        self.sendRestErr()
+        if send_err:
+            self.sendRestErr('BadArg', f'Hash is not a SHA-256: {sha256}')
 
     async def head(self, sha256):
-        return await self._handle_err(sha256)
+        return await self._handle_err(sha256, send_err=False)
 
     async def get(self, sha256):
         return await self._handle_err(sha256)
