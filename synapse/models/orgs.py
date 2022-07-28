@@ -196,7 +196,7 @@ class OuModule(s_module.CoreModule):
                 (('ou:campaign', 'targets', None), {
                     'doc': 'The campaign targeted the target nodes.'}),
                 (('ou:campaign', 'uses', None), {
-                    'doc': 'The attack used the target nodes to facilitate the attack.'}),
+                    'doc': 'The campaign made use of the target node.'}),
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
             ),
