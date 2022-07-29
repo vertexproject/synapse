@@ -791,11 +791,12 @@ class StormTest(s_t_utils.SynTest):
 
             # test that a user without perms can diff but not apply
             await visi.addRule((True, ('view', 'read')))
-            async with core.getLocalProxy(user='visi') as asvisi:
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval('merge --diff --apply', opts={'view': view}))
 
-                msgs = await alist(asvisi.storm('ps:person | merge --diff', opts={'view': view}))
-                self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
+            msgs = await core.stormlist('merge --diff --apply', opts={'view': view, 'user': visi.iden})
+            self.stormIsInErr('must have permission node.del.inet:fqdn', msgs)
+
+            msgs = await core.stormlist('ps:person | merge --diff', opts={'view': view, 'user': visi.iden})
+            self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
 
             # merge all the nodes with anything stored in the top layer...
             await core.callStorm('''
@@ -1974,9 +1975,8 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_spin(self):
 
         async with self.getTestCore() as core:
-
-            await self.agenlen(0, core.eval('[ test:str=foo test:str=bar ] | spin'))
-            await self.agenlen(2, core.eval('test:str=foo test:str=bar'))
+            self.len(0, await core.nodes('[ test:str=foo test:str=bar ] | spin'))
+            self.len(2, await core.nodes('test:str=foo test:str=bar'))
 
     async def test_storm_reindex_sudo(self):
 
@@ -1990,30 +1990,32 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_count(self):
 
-        async with self.getTestCoreAndProxy() as (realcore, core):
-            await self.agenlen(2, core.eval('[ test:str=foo test:str=bar ]'))
-
-            mesgs = await alist(core.storm('test:str=foo test:str=bar | count |  [+#test.tag]'))
-            nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=foo test:str=bar ]')
             self.len(2, nodes)
-            prints = [mesg for mesg in mesgs if mesg[0] == 'print']
-            self.len(1, prints)
-            self.eq(prints[0][1].get('mesg'), 'Counted 2 nodes.')
 
-            mesgs = await alist(core.storm('test:str=newp | count'))
-            prints = [mesg for mesg in mesgs if mesg[0] == 'print']
-            self.len(1, prints)
-            self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')
-            nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
+            msgs = await core.stormlist('test:str=foo test:str=bar | count')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+            self.stormIsInPrint('Counted 2 nodes.', msgs)
+
+            msgs = await core.stormlist('test:str=foo test:str=bar | count --yield')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(2, nodes)
+            self.stormIsInPrint('Counted 2 nodes.', msgs)
+
+            msgs = await alist(core.storm('test:str=newp | count'))
+            self.stormIsInPrint('Counted 0 nodes.', msgs)
+            nodes = [m for m in msgs if m[0] == 'node']
             self.len(0, nodes)
 
     async def test_storm_uniq(self):
         async with self.getTestCore() as core:
             q = "[test:comp=(123, test) test:comp=(123, duck) test:comp=(123, mode)]"
-            await self.agenlen(3, core.eval(q))
-            nodes = await alist(core.eval('test:comp -> *'))
+            self.len(3, await core.nodes(q))
+            nodes = await core.nodes('test:comp -> *')
             self.len(3, nodes)
-            nodes = await alist(core.eval('test:comp -> * | uniq | count'))
+            nodes = await core.nodes('test:comp -> * | uniq')
             self.len(1, nodes)
 
     async def test_storm_once_cmd(self):
@@ -2027,7 +2029,7 @@ class StormTest(s_t_utils.SynTest):
 
             # run it again and see all the things get swatted to the floor
             q = 'test:str=foo | once tagger | [+#less.cool.tag]'
-            await self.agenlen(0, core.eval(q))
+            self.len(0, await core.nodes(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
@@ -2052,7 +2054,7 @@ class StormTest(s_t_utils.SynTest):
             # it kinda works like asof in stormtypes, so if as is too far out,
             # we won't update it
             q = 'test:str=foo | once tagger --asof -30days | [+#another.tag]'
-            await self.agenlen(0, core.eval(q))
+            self.len(0, await core.nodes(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
@@ -2102,28 +2104,29 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_iden(self):
         async with self.getTestCore() as core:
             q = "[test:str=beep test:str=boop]"
-            nodes = await alist(core.eval(q))
+            nodes = await core.nodes(q)
             self.len(2, nodes)
             idens = [node.iden() for node in nodes]
 
             iq = ' '.join(idens)
             # Demonstrate the iden lift does pass through previous nodes in the pipeline
-            mesgs = await core.nodes(f'[test:str=hehe] | iden {iq} | count')
-            self.len(3, mesgs)
+            nodes = await core.nodes(f'[test:str=hehe] | iden {iq}')
+            self.len(3, nodes)
 
             q = 'iden newp'
             with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             q = 'iden deadb33f'
             with self.getLoggerStream('synapse.lib.snap', 'iden must be 32 bytes') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             # Runtsafety test
             q = 'test:str=hehe | iden $node.iden()'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_minmax(self):
 
