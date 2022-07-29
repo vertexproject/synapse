@@ -3,6 +3,8 @@ import random
 import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
 
+randinst = random.SystemRandom()
+
 @s_stormtypes.registry.registerLib
 class LibRandom(s_stormtypes.Lib):
     '''
@@ -27,4 +29,4 @@ class LibRandom(s_stormtypes.Lib):
     async def _int(self, maxval, minval=0):
         maxval = await s_stormtypes.toint(maxval)
         minval = await s_stormtypes.toint(minval)
-        return random.randint(minval, maxval)
+        return randinst.randint(minval, maxval)
