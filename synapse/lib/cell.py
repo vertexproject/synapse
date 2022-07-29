@@ -1735,11 +1735,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         # This is a new process: configure logging
         s_common.setlogging(logger, **logconf)
+        try:
 
-        with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
-            pipe.send('captured')
-            logger.debug('Acquired LMDB transactions')
-            s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+            with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
+                pipe.send('captured')
+                logger.debug('Acquired LMDB transactions')
+                s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+        except Exception:
+            logger.exception(f'Error running backup of {srcdir}')
+            raise
 
         logger.debug('Backup process completed')
 
