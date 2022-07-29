@@ -1744,8 +1744,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception:
             logger.exception(f'Error running backup of {srcdir}')
             raise
-        else:
-            logger.debug('Backup process completed')
+
+        logger.debug('Backup process completed')
 
     def _reqBackConf(self):
         if self.backdirn is None:
