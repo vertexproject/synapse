@@ -184,7 +184,7 @@ See also :ref:`storm-parallel`.
 count
 -----
 
-The ``count`` command enumerates the number of nodes returned from a given Storm query and displays the resultant nodes and associated node count.
+The ``count`` command enumerates the number of nodes returned from a given Storm query and displays the final tally. The associated nodes can also be displayed with the --yield option.
 
 **Syntax:**
 
