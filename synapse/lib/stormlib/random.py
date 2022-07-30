@@ -1,6 +1,6 @@
 import random
 
-import synapse.common as s_common
+import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
 
 randinst = random.SystemRandom()
@@ -29,4 +29,7 @@ class LibRandom(s_stormtypes.Lib):
     async def _int(self, maxval, minval=0):
         maxval = await s_stormtypes.toint(maxval)
         minval = await s_stormtypes.toint(minval)
+        if minval > maxval:
+            raise s_exc.BadArg(mesg=f'Minval must be less than or equal to maxval, minval={minval}, maxval={maxval}',
+                               minval=minval, maxval=maxval)
         return randinst.randint(minval, maxval)
