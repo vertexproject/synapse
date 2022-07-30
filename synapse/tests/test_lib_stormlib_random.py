@@ -16,4 +16,7 @@ class TestLibStormRandom(s_test.SynTest):
             self.eq(valu, 0)
 
             with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.random.int(-1))')
+
+            with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.random.int(maxval=0, minval=1))')
