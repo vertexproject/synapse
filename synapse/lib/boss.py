@@ -1,7 +1,10 @@
 import asyncio
+import logging
 
 import synapse.lib.base as s_base
 import synapse.lib.task as s_task
+
+logger = logging.getLogger(__name__)
 
 class Boss(s_base.Base):
 
@@ -24,13 +27,14 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    async def promote(self, name, user, info=None):
+    async def promote(self, name, user, info=None, taskiden=None):
         '''
         Promote the currently running task.
 
         Args:
             name (str): The name of the task.
             user: The User who owns the task.
+            taskiden: An optional GUID for the task.
             info: An optional information dictionary containing information about the task.
 
         Returns:
@@ -42,6 +46,9 @@ class Boss(s_base.Base):
 
         if synt is not None:
 
+            if taskiden is not None and synt.iden != taskiden:
+                logger.warning(f'Iden specified for existing task={synt}. Ignored.')
+
             if synt.root is None:
                 return synt
 
@@ -49,11 +56,11 @@ class Boss(s_base.Base):
             synt.root = None
             return synt
 
-        return await s_task.Task.anit(self, task, name, user, info=info)
+        return await s_task.Task.anit(self, task, name, user, info=info, iden=taskiden)
 
-    async def execute(self, coro, name, user, info=None):
+    async def execute(self, coro, name, user, info=None, iden=None):
         '''
         Create a synapse task from the given coroutine.
         '''
         task = self.schedCoro(coro)
-        return await s_task.Task.anit(self, task, name, user, info=info)
+        return await s_task.Task.anit(self, task, name, user, info=info, iden=iden)

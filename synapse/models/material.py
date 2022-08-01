@@ -9,6 +9,8 @@ class MatModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
+                ('mat:type', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of material item/specification types.'}),
                 ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
                 ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
                 ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
@@ -18,12 +20,12 @@ class MatModule(s_module.CoreModule):
             'forms': (
 
                 ('mat:item', {}, (
-
-                    ('name', ('str', {'lower': True}), {'doc': 'The human readable name of the material item.'}),
-
+                    ('name', ('str', {'lower': True}), {
+                        'doc': 'The name of the material item.'}),
+                    ('type', ('mat:type', {}), {
+                        'doc': 'The taxonomy type of the item.'}),
                     ('spec', ('mat:spec', {}), {
-                        'doc': 'The mat:spec of which this item is an instance.',
-                    }),
+                        'doc': 'The specification which defines this item.'}),
 
                     ('place', ('geo:place', {}), {'doc': 'The most recent place the item is known to reside.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node.'}),
@@ -31,12 +33,13 @@ class MatModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geo-political location string for the node.',
                     }),
-
-                    # TODO add baseline things like dimensions / mass / etc?
                 )),
 
                 ('mat:spec', {}, (
-                    ('name', ('str', {'lower': True}), {'doc': 'The human readable name of the material spec.'}),
+                    ('name', ('str', {'lower': True}), {
+                        'doc': 'The name of the material specification.'}),
+                    ('type', ('mat:type', {}), {
+                        'doc': 'The taxonomy type for the specification.'}),
                 )),
 
                 ('mat:itemimage', {}, (

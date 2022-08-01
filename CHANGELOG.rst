@@ -4,6 +4,172 @@
 Synapse Changelog
 *****************
 
+v2.102.0 - 2022-07-25
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto``, ``geo``, ``inet``, ``mat``, ``media``, ``ou``,
+  ``pol``, and ``proj`` models.
+  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
+  (`#2771 <https://github.com/vertexproject/synapse/pull/2771>`_)
+
+  ``crypto:key``
+    Add ``public:md5``, ``public:sha1``, and ``public:sha256`` secondary
+    properties to record those hashes for the public key.
+    Add ``private:md5``, ``private:sha1``, and ``private:sha256`` secondary
+    properties to record those hashes for the public key.
+
+  ``geo:nloc``
+    The ``geo:nloc`` form has been deprecated.
+
+  ``geo:telem``
+    Add a new form to record a the location of a given node at a given time.
+    This replaces the use of ``geo:nloc``.
+
+  ``it:sec:c2:config``
+    Add a ``proxies`` secondary property to record proxy URLS used to
+    communicate to a C2 server.
+    Add a ``listens`` secondary property to record urls the software should
+    bind.
+    Add a ``dns:resolvers`` secondary property to record DNS servers the
+    software should use.
+    Add a ``http:headers`` secondary property to record HTTP headers the
+    software should use.
+
+  ``it:exec:query``
+    Add a new form to record an instance of a query executed on a host.
+
+  ``it:query``
+    Add a new form to record query strings.
+
+  ``mat:type``
+    Add a taxonomy type to record taxonomies of material specifications or
+    items.
+
+  ``mat:item``
+    Add a ``type`` secondary property to record the item type.
+
+  ``mat:spec``
+    Add a ``type`` secondary property to record the item type.
+
+  ``media:news``
+    Add a ``publisher`` secondary property to record the org that published
+    the news.
+    Add a ``publisher:name`` secondary property to record the name of the org.
+    Deprecate the ``org`` secondary property.
+
+  ``ou:campaign``
+    Add a ``conflict`` secondary property to record the primary conflict
+    associated the campaign.
+
+  ``ou:conflict``
+    Add a new form to record a conflict between two or more campaigns which
+    have mutually exclusive goals.
+
+  ``ou:contribution``
+    Add a new form to represent contributing material support to a campaign.
+
+  ``pol:election``
+    Add a new form to record an election.
+
+  ``pol:race``
+    Add a new form to record indivdual races in an election.
+
+  ``pol:office``
+    Add a new form to record an appointed or elected office.
+
+  ``pol:term``
+    Add a new form to record the term in office for an individual.
+
+  ``pol:candidate``
+    Add a form to record a candidate for a given race.
+
+  ``pol:pollingplace``
+    Add a form to record the polling locations for a given election.
+
+  ``proj:ticket``
+    Add a ``ext:creator`` secondary form to record contact information from
+    and external system.
+
+- Annotate the following light edges.
+  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
+
+  ``about``
+    A light edge created by the Storm ``note.add`` command, which records
+    the relationship between a ``meta:note`` node and the target node.
+
+  ``includes``
+    When used with a ``ou:contribution`` node, the edge indicates the target
+    node was the contribution made.
+
+  ``has``
+    When used with a ``meta:ruleset`` and ``meta:rule`` node, indicates
+    the ruleset contains the rule.
+
+  ``matches``
+    When used with a ``meta:rule`` node, the edge indicates the target
+    node matches the rule.
+
+  ``refs``
+    A light edge where the source node refers to the target node.
+
+  ``seenat``
+    When used with a ``geo:telem`` target node, the edge indicates the source
+    node was seen a a given location.
+
+  ``uses``
+    When used with a ``ou:org`` node, the edge indicates the target node
+    is used by the organization.
+
+- Commonly used light edges are now being annotated in the model, and are
+  available through Cortex APIs which expose the data model.
+  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
+- Make Storm command argument parsing errors into exceptions. Previously the
+  argument parsing would cause the Storm runtime to be torn down with
+  ``print`` messages, which could be missed. This now means that automations
+  which have a invalid Storm command invocation will fail loudly.
+  (`#2769 <https://github.com/vertexproject/synapse/pull/2769>`_)
+- Allow a Storm API caller to set the task identifier by setting the ``task``
+  value in the Storm ``opts`` dictionary.
+  (`#2768 <https://github.com/vertexproject/synapse/pull/2768>`_)
+  (`#2774 <https://github.com/vertexproject/synapse/pull/2774>`_)
+- Add support for registering and exporting custom STIX objects with the
+  ``$lib.stix`` Storm APIS.
+  (`#2773 <https://github.com/vertexproject/synapse/pull/2773>`_)
+- Add APIS and Storm APIs for enumerating mirrors that have been registered
+  with AHA.
+  (`#2760 <https://github.com/vertexproject/synapse/pull/2760>`_)
+
+Bugfixes
+--------
+- Ensure that auto-adds are created when merging part of a View when using
+  the Storm ``merge --apply`` command.
+  (`#2770 <https://github.com/vertexproject/synapse/pull/2770>`_)
+- Add missing support for handling timezone offsets without colon separators
+  when normalizing ``time`` values. ``time`` values which contain timezone
+  offsets and not enough data to resolve minute level resolution will now fail
+  to parse.
+  (`#2772 <https://github.com/vertexproject/synapse/pull/2772>`_)
+- Fix an issue when normalizing ``inet:url`` values when the host value was
+  the IPv4 address ``0.0.0.0``.
+  (`#2771 <https://github.com/vertexproject/synapse/pull/2771>`_)
+- Fix an issue with the Storm ``cron.list`` command, where the command failed
+  to run when a user had been deleted.
+  (`#2776 <https://github.com/vertexproject/synapse/pull/2776>`_)
+
+Improved Documentation
+----------------------
+- Update the Storm user documentation to include the Embedded Property syntax,
+  which is a shorthand (``::``) that can be used to reference properties on
+  adjacent nodes.
+  (`#2767 <https://github.com/vertexproject/synapse/pull/2767>`_)
+- Update the Synapse Glossary.
+  (`#2767 <https://github.com/vertexproject/synapse/pull/2767>`_)
+- Update Devops documentation to clarify the Aha URLs which end with``...``
+  are intentional.
+  (`#2775 <https://github.com/vertexproject/synapse/pull/2775>`_)
+
 v2.101.1 - 2022-07-14
 =====================
 

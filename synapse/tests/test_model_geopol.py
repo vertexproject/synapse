@@ -43,3 +43,89 @@ class GeoPolModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.nn(core.model.type('pol:country'))  # guid
             self.nn(core.model.type('pol:isonum'))  # int
+
+    async def test_model_geopol_election(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ pol:election=* :name="2024 US Presidential Election" :time=2024-11-03 ]
+            ''')
+            self.eq(1730592000000, nodes[0].get('time'))
+            self.eq('2024 us presidential election', nodes[0].get('name'))
+
+            nodes = await core.nodes('''
+                [ pol:office=*
+                    :title=POTUS
+                    :position={[ou:position=*]}
+                    :govbody={[ou:org=* :name="Office of the President"]}
+                    :termlimit=2
+                ]
+            ''')
+            self.eq('potus', nodes[0].get('title'))
+            self.eq(2, nodes[0].get('termlimit'))
+            self.len(1, await core.nodes('pol:office:title=potus -> ou:org'))
+            self.len(1, await core.nodes('pol:office:title=potus -> ou:jobtitle'))
+            self.len(1, await core.nodes('pol:office:title=potus -> ou:position'))
+
+            nodes = await core.nodes('''
+                [ pol:race=*
+                    :election={pol:election}
+                    :office={pol:office:title=potus}
+                    :voters=500
+                    :turnout=499
+                ]
+            ''')
+            self.eq(500, nodes[0].get('voters'))
+            self.eq(499, nodes[0].get('turnout'))
+            self.len(1, await core.nodes('pol:race -> pol:office +:title=potus'))
+            self.len(1, await core.nodes('pol:race -> pol:election +:time=20241103'))
+
+            nodes = await core.nodes('''
+                [ pol:candidate=*
+                    :race={pol:race}
+                    :contact={[ps:contact=* :name=whippit]}
+                    :winner=$lib.true
+                    :campaign={[ou:campaign=* :name=whippit4prez ]}
+                    :party={[ou:org=* :name=vertex]}
+                ]
+            ''')
+            self.eq(1, nodes[0].get('winner'))
+            self.len(1, await core.nodes('pol:candidate -> pol:race'))
+            self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('pol:candidate -> ps:contact +:name=whippit'))
+            self.len(1, await core.nodes('pol:candidate -> ou:campaign +:name=whippit4prez'))
+
+            nodes = await core.nodes('''
+                [ pol:term=*
+                    :office={pol:office:title=potus}
+                    :contact={ps:contact:name=whippit}
+                    :race={pol:race}
+                    :party={ou:org:name=vertex}
+                    :start=20250120
+                    :end=20290120
+                ]
+            ''')
+            self.eq(1737331200000, nodes[0].get('start'))
+            self.eq(1863561600000, nodes[0].get('end'))
+            self.len(1, await core.nodes('pol:term -> pol:race'))
+            self.len(1, await core.nodes('pol:term -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('pol:term -> pol:office +:title=potus'))
+            self.len(1, await core.nodes('pol:term -> ps:contact +:name=whippit'))
+
+            nodes = await core.nodes('''
+                [ pol:pollingplace=*
+                    :place={[ geo:place=* :name=library ]}
+                    :election={pol:election}
+                    :name=pollingplace00
+                    :opens=202411030800-05:00
+                    :closes=202411032000-05:00
+                    :opened=202411030800-05:00
+                    :closed=202411032000-05:00
+                ]
+            ''')
+            self.eq(1730638800000, nodes[0].get('opens'))
+            self.eq(1730682000000, nodes[0].get('closes'))
+            self.eq(1730638800000, nodes[0].get('opened'))
+            self.eq(1730682000000, nodes[0].get('closed'))
+            self.len(1, await core.nodes('pol:pollingplace -> pol:election'))
+            self.len(1, await core.nodes('pol:pollingplace -> geo:place +:name=library'))
+            self.len(1, await core.nodes('pol:pollingplace -> geo:name +geo:name=pollingplace00'))

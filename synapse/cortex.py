@@ -69,6 +69,7 @@ import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.hashes as s_stormlib_hashes # NOQA
+import synapse.lib.stormlib.random as s_stormlib_random # NOQA
 import synapse.lib.stormlib.scrape as s_stormlib_scrape  # NOQA
 import synapse.lib.stormlib.infosec as s_stormlib_infosec  # NOQA
 import synapse.lib.stormlib.project as s_stormlib_project  # NOQA
@@ -4572,7 +4573,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('storm:export', user=user, info={'query': text})
+        taskinfo = {'query': text}
+        taskiden = opts.get('task')
+        await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
         spooldict = await s_spooled.Dict.anit()
         async with await self.snap(user=user, view=view) as snap:
@@ -4611,7 +4614,10 @@ class Cortex(s_cell.Cell):  # type: ignore
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
 
-        await self.boss.promote('feeddata', user=user, info={'name': 'syn.nodes', 'sha256': sha256})
+        taskiden = opts.get('task')
+        taskinfo = {'name': 'syn.nodes', 'sha256': sha256}
+
+        await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
         # ensure that the user can make all node edits in the layer
         user.confirm(('node',), gateiden=view.layers[0].iden)
@@ -5181,7 +5187,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             info = cron.pack()
 
             user = self.auth.user(cron.creator)
-            info['username'] = user.name
+            if user is not None:
+                info['username'] = user.name
 
             crons.append(info)
 
