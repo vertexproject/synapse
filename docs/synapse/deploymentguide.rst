@@ -271,6 +271,12 @@ Create the ``/srv/syn/00.cortex/docker-compose.yaml`` file with contents::
 
     Don't forget to replace your one-time use provisioning URL!
 
+.. note::
+
+    The values ``aha://axon...`` and ``aha://jsonstor...`` can be used as-is without changing
+    them because the AHA network (provided by the provisioning server) is automatically subtituted
+    in any ``aha://`` scheme URL ending with ``...``
+
 Start the container::
 
     docker-compose --file /srv/syn/00.cortex/docker-compose.yaml pull

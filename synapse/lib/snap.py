@@ -590,6 +590,9 @@ class Snap(s_base.Base):
         self.buidcache.clear()
         self.livenodes.clear()
 
+    def clearCachedNode(self, buid):
+        self.livenodes.pop(buid, None)
+
     async def printf(self, mesg):
         await self.fire('print', mesg=mesg)
 

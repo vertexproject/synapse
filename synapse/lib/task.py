@@ -2,6 +2,7 @@ import copy
 import asyncio
 import logging
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -13,7 +14,7 @@ class Task(s_base.Base):
     The synapse Task object implements concepts similar to process trees
     for asyncio.Task instances.
     '''
-    async def __anit__(self, boss, task, name, user, info=None, root=None):
+    async def __anit__(self, boss, task, name, user, info=None, root=None, iden=None):
 
         await s_base.Base.__anit__(self)
 
@@ -24,14 +25,30 @@ class Task(s_base.Base):
 
         task._syn_task = self
 
+        if iden is not None:
+            if not isinstance(iden, str):
+                mesg = 'The task iden specified must be a string.'
+                raise s_exc.BadArg(mesg=mesg)
+
+            if not s_common.isguid(iden):
+                mesg = 'The task iden specified must match the regular expression: ^[a-f0-9]{32}$'
+                raise s_exc.BadArg(mesg=mesg)
+
+        self.iden = iden
+        if self.iden is None:
+            self.iden = s_common.guid()
+
         self.task = task                # the real task...
-        self.iden = s_common.guid()
         self.tick = s_common.now()
         self.name = name
         self.user = user
         self.root = root
         self.info = info
         self.kids = {}
+
+        if self.boss.tasks.get(self.iden) is not None:
+            mesg = 'Specified task iden already exists!'
+            raise s_exc.BadArg(mesg=mesg)
 
         self.boss.tasks[self.iden] = self
         if root is not None:

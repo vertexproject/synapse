@@ -230,6 +230,10 @@ class CellApi(s_base.Base):
     async def readyToMirror(self):
         return await self.cell.readyToMirror()
 
+    @adminapi()
+    async def getMirrorUrls(self):
+        return await self.cell.getMirrorUrls()
+
     @adminapi(log=True)
     async def cullNexsLog(self, offs):
         '''
@@ -1731,11 +1735,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         # This is a new process: configure logging
         s_common.setlogging(logger, **logconf)
+        try:
 
-        with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
-            pipe.send('captured')
-            logger.debug('Acquired LMDB transactions')
-            s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+            with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
+                pipe.send('captured')
+                logger.debug('Acquired LMDB transactions')
+                s_t_backup.txnbackup(lmdbinfo, srcdir, dstdir)
+        except Exception:
+            logger.exception(f'Error running backup of {srcdir}')
+            raise
 
         logger.debug('Backup process completed')
 
@@ -2724,6 +2732,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._bootProvConf(provconf)
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
+
+    async def getMirrorUrls(self):
+        if self.ahaclient is None:
+            raise s_exc.BadConfValu(mesg='Enumerating mirror URLs is only supported when AHA is configured')
+
+        await self.ahaclient.waitready()
+
+        mirrors = await self.ahaclient.getAhaSvcMirrors(self.ahasvcname)
+        if mirrors is None:
+            mesg = 'Service must be configured with AHA to enumerate mirror URLs'
+            raise s_exc.NoSuchName(mesg=mesg, name=self.ahasvcname)
+
+        return [f'aha://{svc["svcname"]}.{svc["svcnetw"]}' for svc in mirrors]
 
     @classmethod
     async def initFromArgv(cls, argv, outp=None):

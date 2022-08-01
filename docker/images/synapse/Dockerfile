@@ -11,7 +11,6 @@ ENV SYN_LOG_LEVEL="WARNING"
 COPY synapse /build/synapse/synapse
 COPY setup.py /build/synapse/setup.py
 COPY MANIFEST.in /build/synapse/MANIFEST.in
-COPY synapse/docker/start-cron.sh /start-cron.sh
 
 COPY docker/bootstrap.sh /build/synapse/bootstrap.sh
 RUN /build/synapse/bootstrap.sh

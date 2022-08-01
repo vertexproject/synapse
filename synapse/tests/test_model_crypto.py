@@ -45,13 +45,28 @@ class CryptoModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 crypto:currency:address=btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2
                 [ :seed={
-                    [ crypto:key=* :algorithm=aes256 :private=00000000 :public=ffffffff :seed:passwd=s3cret :seed:algorithm=pbkdf2 ]
+                    [ crypto:key=*
+                        :algorithm=aes256
+                        :private=00000000
+                        :private:md5=$md5
+                        :private:sha1=$sha1
+                        :private:sha256=$sha256
+                        :public=ffffffff
+                        :public:md5=$md5
+                        :public:sha1=$sha1
+                        :public:sha256=$sha256
+                        :seed:passwd=s3cret
+                        :seed:algorithm=pbkdf2 ]
                 }]
-            ''')
+            ''', opts={'vars': {'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
 
             self.len(1, await core.nodes('crypto:algorithm=aes256'))
             self.len(1, await core.nodes('crypto:key:algorithm=aes256 +:private=00000000 +:public=ffffffff +:seed:algorithm=pbkdf2 +:seed:passwd=s3cret'))
             self.len(1, await core.nodes('inet:passwd=s3cret -> crypto:key -> crypto:currency:address'))
+
+            self.len(2, await core.nodes('crypto:key -> hash:md5'))
+            self.len(2, await core.nodes('crypto:key -> hash:sha1'))
+            self.len(2, await core.nodes('crypto:key -> hash:sha256'))
 
             nodes = await core.nodes('inet:client=1.2.3.4 -> crypto:currency:client -> crypto:currency:address')
             self.eq(nodes[0].get('coin'), 'btc')

@@ -125,6 +125,11 @@ class CortexTest(s_t_utils.SynTest):
                             await core00.sync()
                             self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
                             self.len(1, await core00.nodes('inet:ipv4=6.6.6.6'))
+                            # list mirrors
+                            exp = ['aha://00.cortex.newp', 'aha://02.cortex.newp']
+                            self.sorteq(exp, await core00.getMirrorUrls())
+                            self.sorteq(exp, await core01.getMirrorUrls())
+                            self.sorteq(exp, await core02.getMirrorUrls())
 
     async def test_cortex_bugfix_2_80_0(self):
         async with self.getRegrCore('2.80.0-jsoniden') as core:
@@ -5859,6 +5864,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # Rando user can't enable/disable cron jobs
                 await self.asyncraises(s_exc.AuthDeny, core.enableCronJob(iden))
                 await self.asyncraises(s_exc.AuthDeny, core.disableCronJob(iden))
+
+    async def test_cortex_cron_deluser(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setAdmin(True)
+
+            asvisi = {'user': visi.iden}
+            await core.stormlist('cron.add --daily 13:37 {$lib.print(woot)}', opts=asvisi)
+            await core.auth.delUser(visi.iden)
+
+            self.len(1, await core.callStorm('return($lib.cron.list())'))
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('$lib.print(woot)', msgs)
 
     async def test_cortex_migrationmode(self):
         async with self.getTestCore() as core:

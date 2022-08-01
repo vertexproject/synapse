@@ -791,11 +791,12 @@ class StormTest(s_t_utils.SynTest):
 
             # test that a user without perms can diff but not apply
             await visi.addRule((True, ('view', 'read')))
-            async with core.getLocalProxy(user='visi') as asvisi:
-                await self.agenraises(s_exc.AuthDeny, asvisi.eval('merge --diff --apply', opts={'view': view}))
 
-                msgs = await alist(asvisi.storm('ps:person | merge --diff', opts={'view': view}))
-                self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
+            msgs = await core.stormlist('merge --diff --apply', opts={'view': view, 'user': visi.iden})
+            self.stormIsInErr('must have permission node.del.inet:fqdn', msgs)
+
+            msgs = await core.stormlist('ps:person | merge --diff', opts={'view': view, 'user': visi.iden})
+            self.stormIsInPrint('inet:fqdn = mvmnasde.com', msgs)
 
             # merge all the nodes with anything stored in the top layer...
             await core.callStorm('''
@@ -1184,7 +1185,25 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('[ ou:org=(org3,) +#glob.tags +#more.glob.tags +#more.gob.tags ]', opts=altview)
             await core.nodes('diff | merge --include-tags glob.* more.gl** --apply', opts=altview)
             nodes = await core.nodes('ou:org=(org3,)')
-            self.sorteq(list(nodes[0].tags.keys()), ['more.glob', 'more.glob.tags', 'glob.tags'])
+            exp = ['glob', 'more', 'more.glob', 'more.glob.tags', 'glob.tags']
+            self.sorteq(list(nodes[0].tags.keys()), exp)
+
+            q = '''
+            [ file:bytes=*
+              :md5=00000a5758eea935f817dd1490a322a5
+
+              inet:ssl:cert=(1.2.3.4, $node)
+            ]
+            '''
+            await core.nodes(q, opts=altview)
+
+            self.len(0, await core.nodes('hash:md5'))
+            await core.nodes('file:bytes | merge --apply', opts=altview)
+            self.len(1, await core.nodes('hash:md5'))
+
+            self.len(0, await core.nodes('inet:ipv4'))
+            await core.nodes('inet:ssl:cert | merge --apply', opts=altview)
+            self.len(1, await core.nodes('inet:ipv4'))
 
     async def test_storm_movenodes(self):
 
@@ -1956,9 +1975,8 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_spin(self):
 
         async with self.getTestCore() as core:
-
-            await self.agenlen(0, core.eval('[ test:str=foo test:str=bar ] | spin'))
-            await self.agenlen(2, core.eval('test:str=foo test:str=bar'))
+            self.len(0, await core.nodes('[ test:str=foo test:str=bar ] | spin'))
+            self.len(2, await core.nodes('test:str=foo test:str=bar'))
 
     async def test_storm_reindex_sudo(self):
 
@@ -1972,30 +1990,32 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_count(self):
 
-        async with self.getTestCoreAndProxy() as (realcore, core):
-            await self.agenlen(2, core.eval('[ test:str=foo test:str=bar ]'))
-
-            mesgs = await alist(core.storm('test:str=foo test:str=bar | count |  [+#test.tag]'))
-            nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[ test:str=foo test:str=bar ]')
             self.len(2, nodes)
-            prints = [mesg for mesg in mesgs if mesg[0] == 'print']
-            self.len(1, prints)
-            self.eq(prints[0][1].get('mesg'), 'Counted 2 nodes.')
 
-            mesgs = await alist(core.storm('test:str=newp | count'))
-            prints = [mesg for mesg in mesgs if mesg[0] == 'print']
-            self.len(1, prints)
-            self.eq(prints[0][1].get('mesg'), 'Counted 0 nodes.')
-            nodes = [mesg for mesg in mesgs if mesg[0] == 'node']
+            msgs = await core.stormlist('test:str=foo test:str=bar | count')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+            self.stormIsInPrint('Counted 2 nodes.', msgs)
+
+            msgs = await core.stormlist('test:str=foo test:str=bar | count --yield')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(2, nodes)
+            self.stormIsInPrint('Counted 2 nodes.', msgs)
+
+            msgs = await alist(core.storm('test:str=newp | count'))
+            self.stormIsInPrint('Counted 0 nodes.', msgs)
+            nodes = [m for m in msgs if m[0] == 'node']
             self.len(0, nodes)
 
     async def test_storm_uniq(self):
         async with self.getTestCore() as core:
             q = "[test:comp=(123, test) test:comp=(123, duck) test:comp=(123, mode)]"
-            await self.agenlen(3, core.eval(q))
-            nodes = await alist(core.eval('test:comp -> *'))
+            self.len(3, await core.nodes(q))
+            nodes = await core.nodes('test:comp -> *')
             self.len(3, nodes)
-            nodes = await alist(core.eval('test:comp -> * | uniq | count'))
+            nodes = await core.nodes('test:comp -> * | uniq')
             self.len(1, nodes)
 
     async def test_storm_once_cmd(self):
@@ -2009,7 +2029,7 @@ class StormTest(s_t_utils.SynTest):
 
             # run it again and see all the things get swatted to the floor
             q = 'test:str=foo | once tagger | [+#less.cool.tag]'
-            await self.agenlen(0, core.eval(q))
+            self.len(0, await core.nodes(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
@@ -2034,7 +2054,7 @@ class StormTest(s_t_utils.SynTest):
             # it kinda works like asof in stormtypes, so if as is too far out,
             # we won't update it
             q = 'test:str=foo | once tagger --asof -30days | [+#another.tag]'
-            await self.agenlen(0, core.eval(q))
+            self.len(0, await core.nodes(q))
             nodes = await core.nodes('test:str=foo')
             self.len(1, nodes)
             self.notin('less.cool.tag', nodes[0].tags)
@@ -2084,28 +2104,29 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_iden(self):
         async with self.getTestCore() as core:
             q = "[test:str=beep test:str=boop]"
-            nodes = await alist(core.eval(q))
+            nodes = await core.nodes(q)
             self.len(2, nodes)
             idens = [node.iden() for node in nodes]
 
             iq = ' '.join(idens)
             # Demonstrate the iden lift does pass through previous nodes in the pipeline
-            mesgs = await core.nodes(f'[test:str=hehe] | iden {iq} | count')
-            self.len(3, mesgs)
+            nodes = await core.nodes(f'[test:str=hehe] | iden {iq}')
+            self.len(3, nodes)
 
             q = 'iden newp'
             with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             q = 'iden deadb33f'
             with self.getLoggerStream('synapse.lib.snap', 'iden must be 32 bytes') as stream:
-                await self.agenlen(0, core.eval(q))
+                self.len(0, await core.nodes(q))
                 self.true(stream.wait(1))
 
             # Runtsafety test
             q = 'test:str=hehe | iden $node.iden()'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
     async def test_minmax(self):
 
@@ -2807,7 +2828,8 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('--hehe')
         self.none(pars.parse_args(['--lol']))
-        self.isin("ERROR: Expected 0 positional arguments. Got 1: ['--lol']", pars.mesgs)
+        mesg = "Expected 0 positional arguments. Got 1: ['--lol']"
+        self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
@@ -2819,12 +2841,14 @@ class StormTest(s_t_utils.SynTest):
         self.isin('  --help                      : Display the command usage.', pars.mesgs)
         self.isin('Arguments:', pars.mesgs)
         self.isin('  <hehe>                      : No help available', pars.mesgs)
+        self.none(pars.exc)
 
         pars = s_storm.Parser(prog='hehe')
         pars.add_argument('hehe')
         opts = pars.parse_args(['newp', '-h'])
         self.none(opts)
-        self.isin('ERROR: Extra arguments and flags are not supported with the help flag: hehe newp -h', pars.mesgs)
+        mesg = 'Extra arguments and flags are not supported with the help flag: hehe newp -h'
+        self.eq(('BadArg', {'mesg': mesg}), (pars.exc.errname, pars.exc.errinfo))
 
         pars = s_storm.Parser()
         pars.add_argument('--no-foo', default=True, action='store_false')
@@ -2914,45 +2938,38 @@ class StormTest(s_t_utils.SynTest):
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='*', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='+', type='int')
         self.none(pars.parse_args(['--ques', 'asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('foo', type='int')
         self.none(pars.parse_args(['asdf']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): asdf", helptext)
+        self.eq("Invalid value for type (int): asdf", pars.exc.errinfo['mesg'])
 
         # argument count mismatch
         pars = s_storm.Parser()
         pars.add_argument('--ques')
         self.none(pars.parse_args(['--ques']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("An argument is required for --ques", helptext)
+        self.eq("An argument is required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2)
         self.none(pars.parse_args(['--ques', 'lolz']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("2 arguments are required for --ques", helptext)
+        self.eq("2 arguments are required for --ques.", pars.exc.errinfo['mesg'])
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs=2, type='int')
         self.none(pars.parse_args(['--ques', 'lolz', 'hehe']))
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (int): lolz", helptext)
+        self.eq("Invalid value for type (int): lolz", pars.exc.errinfo['mesg'])
 
         # test time argtype
         ttyp = s_datamodel.Model().type('time')
@@ -2969,8 +2986,7 @@ class StormTest(s_t_utils.SynTest):
 
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (time): hehe", helptext)
+        self.eq("Invalid value for type (time): hehe", pars.exc.errinfo['mesg'])
 
         # test ival argtype
         ityp = s_datamodel.Model().type('ival')
@@ -2995,8 +3011,7 @@ class StormTest(s_t_utils.SynTest):
 
         self.none(pars.parse_args(['--yada', 'hehe']))
         self.true(pars.exited)
-        helptext = '\n'.join(pars.mesgs)
-        self.isin("Invalid value for type (ival): hehe", helptext)
+        self.eq("Invalid value for type (ival): hehe", pars.exc.errinfo['mesg'])
 
         # check adding argument with invalid type
         with self.raises(s_exc.BadArg):
@@ -3750,20 +3765,20 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''file:bytes#aka.feye.thr.apt1 ->it:exec:file:add  ->file:path |uniq| ->file:base |uniq ->file:base:ext=doc'''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
+            self.stormIsInErr("Expected 0 positional arguments. Got 2: ['->', 'file:base:ext=doc']", msgs)
 
             msgs = await core.stormlist('help yield')
             self.stormIsInPrint('No commands found matching "yield"', msgs)
 
             q = '''inet:fqdn:zone=earthsolution.org -> inet:dns:request -> file:bytes | uniq -> inet.dns.request'''
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
+            self.stormIsInErr("Expected 0 positional arguments. Got 1: ['->inet.dns.request']", msgs)
 
             await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("ERROR: Expected 0 positional arguments", msgs)
+            self.stormIsInErr("Expected 0 positional arguments", msgs)
 
             q = 'service.add svcrs ssl://svcrs:27492?certname=root'
             msgs = await core.stormlist(q)

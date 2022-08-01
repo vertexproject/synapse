@@ -737,3 +737,47 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:vitals -> inet:fqdn'))
 
             self.len(1, await core.nodes('ou:org [ :vitals=* ] :vitals -> ou:vitals'))
+
+    async def test_ou_conflict(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ou:conflict=*
+                    :name="World War III"
+                    :timeline=*
+                    :started=2049
+                    :ended=2050
+                ]
+            ''')
+
+            self.eq(2493072000000, nodes[0].get('started'))
+            self.eq(2524608000000, nodes[0].get('ended'))
+            self.eq('World War III', nodes[0].get('name'))
+            self.len(1, await core.nodes('ou:conflict -> meta:timeline'))
+
+            nodes = await core.nodes('[ ou:campaign=* :name="good guys" :conflict={ou:conflict} ]')
+            self.len(1, await core.nodes('ou:campaign -> ou:conflict'))
+
+            nodes = await core.nodes('''
+                [ ou:contribution=*
+                    :from={[ps:contact=* :orgname=vertex ]}
+                    :time=20220718
+                    :value=10
+                    :currency=usd
+                    :campaign={ou:campaign:name="good guys"}
+                    :monetary:payment=*
+                    :material:spec=*
+                    :material:count=1
+                    :personnel:jobtitle=analysts
+                    :personnel:count=1
+                ]
+            ''')
+            self.eq(1658102400000, nodes[0].get('time'))
+            self.eq('10', nodes[0].get('value'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq(1, nodes[0].get('material:count'))
+            self.eq(1, nodes[0].get('personnel:count'))
+            self.len(1, await core.nodes('ou:contribution -> ou:campaign'))
+            self.len(1, await core.nodes('ou:contribution -> econ:acct:payment'))
+            self.len(1, await core.nodes('ou:contribution -> mat:spec'))
+            self.len(1, await core.nodes('ou:contribution -> ou:jobtitle +ou:jobtitle=analysts'))
