@@ -90,8 +90,11 @@ class StormCellTest(s_test.SynTest):
 
             provurl = await aha.addAhaSvcProv('00.cortex')
             coreconf = {'aha:provision': provurl}
+            ahawait = aha.waiter(1, 'aha:svcadd')
 
             async with self.getTestCore(conf=coreconf) as core00:
+
+                self.len(1, await ahawait.wait(timeout=6))
 
                 user = await core00.addUser('low')
                 with self.raises(s_exc.AuthDeny):
@@ -101,9 +104,12 @@ class StormCellTest(s_test.SynTest):
 
                 provinfo = {'mirror': '00.cortex'}
                 provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
+                ahawait = aha.waiter(1, 'aha:svcadd')
 
                 coreconf = {'aha:provision': provurl}
                 async with self.getTestCore(conf=coreconf) as core01:
+
+                    self.len(1, await ahawait.wait(timeout=6))
 
                     await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
                     self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
@@ -115,8 +121,11 @@ class StormCellTest(s_test.SynTest):
 
                 provurl = await aha.addAhaSvcProv('00.testsvc')
                 svcconf = {'aha:provision': provurl}
+                ahawait = aha.waiter(1, 'aha:svcadd')
 
                 async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc00:
+
+                    self.len(1, await ahawait.wait(timeout=6))
 
                     await self.addSvcToCore(svc00, core00, svcname='testsvc')
 
