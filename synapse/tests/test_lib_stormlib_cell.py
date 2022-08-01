@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 
 import synapse.lib.aha as s_aha
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.stormlib.cell as s_stormlib_cell
 
@@ -94,7 +95,7 @@ class StormCellTest(s_test.SynTest):
 
             async with self.getTestCore(conf=coreconf) as core00:
 
-                self.len(1, await ahawait.wait(timeout=6))
+                self.gt(len(await ahawait.wait(timeout=6)), 0)  # nexus replay fires 2 events
 
                 user = await core00.addUser('low')
                 with self.raises(s_exc.AuthDeny):
@@ -109,7 +110,8 @@ class StormCellTest(s_test.SynTest):
                 coreconf = {'aha:provision': provurl}
                 async with self.getTestCore(conf=coreconf) as core01:
 
-                    self.len(1, await ahawait.wait(timeout=6))
+                    self.gt(len(await ahawait.wait(timeout=6)), 0)  # nexus replay fires 2 events
+                    await s_coro.event_wait(core01.nexsroot.mirready, timeout=6)
 
                     await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
                     self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
@@ -125,7 +127,7 @@ class StormCellTest(s_test.SynTest):
 
                 async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc00:
 
-                    self.len(1, await ahawait.wait(timeout=6))
+                    self.gt(len(await ahawait.wait(timeout=6)), 0)  # nexus replay fires 2 events
 
                     await self.addSvcToCore(svc00, core00, svcname='testsvc')
 
@@ -136,9 +138,13 @@ class StormCellTest(s_test.SynTest):
 
                     provinfo = {'mirror': '00.testsvc'}
                     provurl = await aha.addAhaSvcProv('01.testsvc', provinfo=provinfo)
+                    ahawait = aha.waiter(1, 'aha:svcadd')
 
                     svcconf = {'aha:provision': provurl}
                     async with self.getTestCell(s_t_stormsvc.StormvarServiceCell, conf=svcconf) as svc01:
+
+                        self.gt(len(await ahawait.wait(timeout=6)), 0)  # nexus replay fires 2 events
+                        await s_coro.event_wait(svc01.nexsroot.mirready, timeout=6)
 
                         await svc01.sync()
 
