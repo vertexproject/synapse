@@ -13,7 +13,7 @@ class LivebackupTest(s_test.SynTest):
 
             svcurl = core.getLocalUrl()
             argv = (
-                '--svcurl', svcurl,
+                '--url', svcurl,
                 '--name', 'visi123',
             )
             outp = s_output.OutPutStr()
