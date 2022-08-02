@@ -3592,8 +3592,8 @@ class EditTagAdd(Edit):
             names = await self.kids[oper_offset].compute(runt, path)
             names = await s_stormtypes.toprim(names)
 
-            if not isinstance(names, (list, tuple)):
-                names = [names]
+            if not isinstance(names, tuple):
+                names = (names,)
 
             for name in names:
 
