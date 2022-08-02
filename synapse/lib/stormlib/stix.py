@@ -778,7 +778,9 @@ stixingest = {
 
 @s_stormtypes.registry.registerLib
 class LibStixImport(s_stormtypes.Lib):
-
+    '''
+    A Storm Library for importing with Stix Version 2.1 data..
+    '''
     _storm_lib_path = ('stix', 'import')
 
     _storm_locals = (  # type: ignore
