@@ -90,7 +90,7 @@ class NexsRoot(s_base.Base):
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
 
-        self.mirready = asyncio.Event()
+        self._mirready = asyncio.Event()  # for testing
 
         self._mirrors: List[ChangeDist] = []
         self._nexskids: Dict[str, 'Pusher'] = {}
@@ -399,7 +399,7 @@ class NexsRoot(s_base.Base):
         if self.client is not None:
             await self.client.fini()
 
-        self.mirready.clear()
+        self._mirready.clear()
 
         self.client = None
 
@@ -469,7 +469,7 @@ class NexsRoot(s_base.Base):
                     # with tellready we move to ready=true when we get a None
                     if item is None:
                         await self.setNexsReady(True)
-                        self.mirready.set()
+                        self._mirready.set()
                         continue
 
                     offs, args = item
