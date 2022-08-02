@@ -28,8 +28,8 @@ async def main(argv, outp=s_output.stdout):
 
     async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.svcurl) as cell:
-            outp.printf(f'Running backup of: {opts.svcurl}')
+        async with await s_telepath.openurl(opts.url) as cell:
+            outp.printf(f'Running backup of: {opts.url}')
             name = await cell.runBackup(name=opts.name)
             outp.printf(f'...backup created: {name}')
     return 0
