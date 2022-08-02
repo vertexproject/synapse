@@ -1352,7 +1352,7 @@ class ItModule(s_module.CoreModule):
                     ('text', ('it:query', {}), {
                         'doc': 'The query string that was executed.'}),
                     ('opts', ('data', {}), {
-                        'doc': 'An opaque JSON object containing query paramters and options.'}),
+                        'doc': 'An opaque JSON object containing query parameters and options.'}),
                     ('api:url', ('inet:url', {}), {
                         'doc': 'The URL of the API endpoint the query was sent to.'}),
                     ('language', ('str', {'lower': True, 'onespace': True}), {
@@ -1508,7 +1508,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The rendered DOM saved as an image.',
                     }),
                     ('http:request', ('inet:http:request', {}), {
-                        'doc': 'The HTTP request made to retrieve the intial URL contents.',
+                        'doc': 'The HTTP request made to retrieve the initial URL contents.',
                     }),
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'

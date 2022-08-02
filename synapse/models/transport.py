@@ -108,7 +108,7 @@ class TransportModule(s_module.CoreModule):
                     ('from:port', ('transport:air:port', {}), {
                         'doc': 'The origin airport of this flight.'}),
                     ('stops', ('array', {'type': 'transport:air:port'}), {
-                        'doc': 'An ordered list of aiport codes for stops which occured during this flight.'}),
+                        'doc': 'An ordered list of airport codes for stops which occurred during this flight.'}),
                     ('cancelled', ('bool', {}), {
                         'doc': 'Set to true for cancelled flights.'}),
                 )),
