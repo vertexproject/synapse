@@ -399,6 +399,8 @@ class NexsRoot(s_base.Base):
         if self.client is not None:
             await self.client.fini()
 
+        self.mirready.clear()
+
         self.client = None
 
         mirurl = self.cell.conf.get('mirror')

@@ -5064,6 +5064,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # write to the Cortex. This will move the core01 ahead of
                 # core00 & core01 can become the leader.
                 await core01.promote()
+                self.false(core01.nexsroot.mirready.is_set())
 
                 self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
                 new_url = core01.getLocalUrl()
