@@ -256,7 +256,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency of the econ:price values.',
                     }),
                     ('costs', ('econ:price', {}), {
-                        'doc': 'The costs/expendatures over the period.',
+                        'doc': 'The costs/expenditures over the period.',
                     }),
                     ('revenue', ('econ:price', {}), {
                         'doc': 'The gross revenue over the period.',
@@ -265,7 +265,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The net profit over the period.',
                     }),
                     ('valuation', ('econ:price', {}), {
-                        'doc': 'The assesed value of the org.',
+                        'doc': 'The assessed value of the org.',
                     }),
                     ('shares', ('int', {}), {
                         'doc': 'The number of shares outstanding.',
