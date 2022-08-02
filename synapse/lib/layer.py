@@ -2239,6 +2239,7 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(lkey, buid, db=self.byprop)
                 continue
 
+            sode.clear()
             sode.update(s_msgpack.un(byts))
             if prop.isform:
                 valu = sode['valu']
@@ -2247,7 +2248,6 @@ class Layer(s_nexus.Pusher):
 
             if valu is None:
                 self.layrslab.delete(lkey, buid, db=self.byprop)
-                sode.clear()
                 continue
 
             valu = valu[0]
@@ -2272,8 +2272,6 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.put(abrv + indx, buid, db=self.byprop)
                 self.layrslab.delete(lkey, buid, db=self.byprop)
 
-            sode.clear()
-
     async def _v8toV9TagProp(self, form, tag, prop):
 
         try:
@@ -2294,18 +2292,17 @@ class Layer(s_nexus.Pusher):
                 self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 continue
 
+            sode.clear()
             sode.update(s_msgpack.un(byts))
 
             props = sode['tagprops'].get(tag)
             if not props:
                 self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                sode.clear()
                 continue
 
             pval = props.get(prop)
             if pval is None:
                 self.layrslab.delete(lkey, buid, db=self.bytagprop)
-                sode.clear()
                 continue
 
             valu, _ = pval
@@ -2324,8 +2321,6 @@ class Layer(s_nexus.Pusher):
             oldindx = lkey[abrvlen:]
             self.layrslab.delete(lkey, buid, db=self.bytagprop)
             self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
-
-            sode.clear()
 
     async def _layrV8toV9(self):
 
