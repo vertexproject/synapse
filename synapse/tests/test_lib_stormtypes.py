@@ -350,6 +350,14 @@ class StormTypesTest(s_test.SynTest):
                 return($lib.hex.encode($lib.hex.decode(010002000300)))
             '''))
 
+            self.eq(255, await core.callStorm('''
+                return($lib.hex.toint(ff))
+            '''))
+
+            self.eq(-1, await core.callStorm('''
+                return($lib.hex.toint(ff, signed=$lib.true))
+            '''))
+
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.hex.decode(asdf))')
 
@@ -358,6 +366,9 @@ class StormTypesTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.hex.decode(010002000300).unpack("<ZZ"))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.toint(asdf))')
 
     async def test_storm_debug(self):
 

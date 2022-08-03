@@ -11,6 +11,15 @@ class HexLib(s_stormtypes.Lib):
     A Storm library which implements helpers for hexadecimal encoded strings.
     '''
     _storm_locals = (
+        {'name': 'toint', 'desc': 'Convert a hexadecimal string to an integer.',
+         'type': {'type': 'function', '_funcname': 'toint',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The hex string to be converted.'},
+                      {'name': 'signed', 'type': 'bool', 'default': True,
+                       'desc': 'If true, convert to a signed integer.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The resulting integer.', }
+        }},
         {'name': 'encode', 'desc': 'Encode bytes into a hexadecimal string.',
          'type': {'type': 'function', '_funcname': 'encode',
                   'args': (
@@ -32,6 +41,7 @@ class HexLib(s_stormtypes.Lib):
     def getObjLocals(self):
         return {
             # TODO 'dump': self.dump,
+            'toint': self.toint,
             'encode': self.encode,
             'decode': self.decode,
         }
@@ -47,3 +57,12 @@ class HexLib(s_stormtypes.Lib):
             return s_common.uhex(valu)
         except binascii.Error as e:
             raise s_exc.BadArg(mesg=f'$lib.hex.decode(): {e}')
+
+    async def toint(self, valu, signed=False):
+        valu = await s_stormtypes.tostr(valu)
+        try:
+            byts = s_common.uhex(valu)
+        except binascii.Error as e:
+            raise s_exc.BadArg(mesg=f'$lib.hex.toint(): {e}')
+
+        return int.from_bytes(byts, 'big', signed=signed)
