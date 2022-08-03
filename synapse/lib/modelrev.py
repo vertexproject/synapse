@@ -8,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 10)
+maxvers = (0, 2, 11)
 
 class ModelRev:
 
