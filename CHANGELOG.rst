@@ -4,6 +4,170 @@
 Synapse Changelog
 *****************
 
+v2.103.0 - TBD
+=====================
+
+Features and Enhancements
+-------------------------
+FIXME model and edge updates.
+- Updates to the ``crypto``, ``geo``, ``inet``, ``mat``, ``media``, ``ou``,
+  ``pol``, and ``proj`` models.
+  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
+  (`#2771 <https://github.com/vertexproject/synapse/pull/2771>`_)
+
+  ``crypto:key``
+    Add ``public:md5``, ``public:sha1``, and ``public:sha256`` secondary
+    properties to record those hashes for the public key.
+    Add ``private:md5``, ``private:sha1``, and ``private:sha256`` secondary
+    properties to record those hashes for the public key.
+
+  ``geo:nloc``
+    The ``geo:nloc`` form has been deprecated.
+
+  ``geo:telem``
+    Add a new form to record a the location of a given node at a given time.
+    This replaces the use of ``geo:nloc``.
+
+  ``it:sec:c2:config``
+    Add a ``proxies`` secondary property to record proxy URLS used to
+    communicate to a C2 server.
+    Add a ``listens`` secondary property to record urls the software should
+    bind.
+    Add a ``dns:resolvers`` secondary property to record DNS servers the
+    software should use.
+    Add a ``http:headers`` secondary property to record HTTP headers the
+    software should use.
+
+  ``it:exec:query``
+    Add a new form to record an instance of a query executed on a host.
+
+  ``it:query``
+    Add a new form to record query strings.
+
+  ``mat:type``
+    Add a taxonomy type to record taxonomies of material specifications or
+    items.
+
+  ``mat:item``
+    Add a ``type`` secondary property to record the item type.
+
+  ``mat:spec``
+    Add a ``type`` secondary property to record the item type.
+
+  ``media:news``
+    Add a ``publisher`` secondary property to record the org that published
+    the news.
+    Add a ``publisher:name`` secondary property to record the name of the org.
+    Deprecate the ``org`` secondary property.
+
+  ``ou:campaign``
+    Add a ``conflict`` secondary property to record the primary conflict
+    associated the campaign.
+
+  ``ou:conflict``
+    Add a new form to record a conflict between two or more campaigns which
+    have mutually exclusive goals.
+
+  ``ou:contribution``
+    Add a new form to represent contributing material support to a campaign.
+
+  ``pol:election``
+    Add a new form to record an election.
+
+  ``pol:race``
+    Add a new form to record indivdual races in an election.
+
+  ``pol:office``
+    Add a new form to record an appointed or elected office.
+
+  ``pol:term``
+    Add a new form to record the term in office for an individual.
+
+  ``pol:candidate``
+    Add a form to record a candidate for a given race.
+
+  ``pol:pollingplace``
+    Add a form to record the polling locations for a given election.
+
+  ``proj:ticket``
+    Add a ``ext:creator`` secondary form to record contact information from
+    and external system.
+
+- Annotate the following light edges.
+  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
+
+  ``about``
+    A light edge created by the Storm ``note.add`` command, which records
+    the relationship between a ``meta:note`` node and the target node.
+
+  ``includes``
+    When used with a ``ou:contribution`` node, the edge indicates the target
+    node was the contribution made.
+
+  ``has``
+    When used with a ``meta:ruleset`` and ``meta:rule`` node, indicates
+    the ruleset contains the rule.
+
+  ``matches``
+    When used with a ``meta:rule`` node, the edge indicates the target
+    node matches the rule.
+
+  ``refs``
+    A light edge where the source node refers to the target node.
+
+  ``seenat``
+    When used with a ``geo:telem`` target node, the edge indicates the source
+    node was seen a a given location.
+
+  ``uses``
+    When used with a ``ou:org`` node, the edge indicates the target node
+    is used by the organization.
+
+- Change the behavior of the Storm ``count`` command to consume nodes.
+  If the previous behavior is desired, use the ``--yield`` option when
+  invoking the ``count`` command.
+  (`#2779 <https://github.com/vertexproject/synapse/pull/2779>`_)
+- Add ``$lib.random.int()`` API to Storm for generating random integers.
+  (`#2783 <https://github.com/vertexproject/synapse/pull/2783>`_)
+- Add a new tool, ``synapse.tools.livebackup`` for taking a live backup of
+  a service.
+  (`#2788 <https://github.com/vertexproject/synapse/pull/2788>`_)
+- The Storm ``$lib.jsonstor.cacheset()`` API now returns a dict containing the
+  path and time. The ``$lib.jsonstor.cacheget()`` API now has a argument to
+  retrieve the entire set of enveloped data.
+  (`#2790 <https://github.com/vertexproject/synapse/pull/2790>`_)
+- Add a HTTP 404 handler for the Axon ``v1/by/sha256/<sha256>`` endpoint which
+  catches invalid ``<sha256>`` values.
+  (`#2780 <https://github.com/vertexproject/synapse/pull/2780>`_)
+- Add helper scripts for doing bulk Synapse Docker image builds and testing.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+
+Bugfixes
+--------
+- Ensure that errors that occur when backing up a service are logged prior
+  to tearing down the subprocess performing the backup.
+  (`#2781 <https://github.com/vertexproject/synapse/pull/2781>`_)
+- Add missing docstring for ``$lib.stix.import``.
+  (`#2786 <https://github.com/vertexproject/synapse/pull/2786>`_)
+- Allow setting tags on a Node from a Storm ``List`` object.
+  (`#2782 <https://github.com/vertexproject/synapse/pull/2782>`_)
+
+Improved Documentation
+----------------------
+- Remove ``synapse-google-ct`` from the list of Rapid Power-Ups.
+  (`#2779 <https://github.com/vertexproject/synapse/pull/2779>`_)
+- Add developer documentation for building Synapse Docker containers.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+- Fix spelling errors in model documentation.
+  (`#2782 <https://github.com/vertexproject/synapse/pull/2782>`_)
+
+Deprecations
+------------
+- The ``vertexproject/synapse:master-py37`` and
+  ``vertexproject/synapse:v2.x.x-py37`` Docker containers are no longer being
+  built.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+
 v2.102.0 - 2022-07-25
 =====================
 
