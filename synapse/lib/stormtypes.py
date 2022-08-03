@@ -7109,6 +7109,14 @@ class LibJsonStor(Lib):
                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
+        {'name': 'cachedat',
+         'desc': 'Retrieve the time an item was cached.',
+         'type': {'type': 'function', '_funcname': 'cachedat',
+                  'args': (
+                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
+                      {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The cached asof time and path or null.'}}},
         {'name': 'cacheget',
          'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
          'type': {'type': 'function', '_funcname': 'cacheget',
@@ -7126,7 +7134,7 @@ class LibJsonStor(Lib):
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'The cached asof time and path.'}}},
     )
 
     def addLibFuncs(self):
@@ -7136,6 +7144,7 @@ class LibJsonStor(Lib):
             'has': self.has,
             'del': self._del,
             'iter': self.iter,
+            'cachedat': self.cachedat,
             'cacheget': self.cacheget,
             'cacheset': self.cacheset,
         })
@@ -7230,6 +7239,30 @@ class LibJsonStor(Lib):
         async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
             yield path, item
 
+    async def cachedat(self, path, key):
+
+        if not self.runt.isAdmin():
+            mesg = '$lib.jsonstor.cachedat() requires admin privileges.'
+            raise s_exc.AuthDeny(mesg=mesg)
+
+        key = await toprim(key)
+        path = await toprim(path)
+
+        if isinstance(path, str):
+            path = tuple(path.split('/'))
+
+        cachepath = path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.snap.core.iden) + cachepath
+
+        cachetick = await self.runt.snap.core.getJsonObjProp(fullpath, prop='asof')
+        if cachetick is None:
+            return None
+
+        return {
+            'asof': cachetick,
+            'path': cachepath,
+        }
+
     async def cacheget(self, path, key, asof='now'):
 
         if not self.runt.isAdmin():
@@ -7269,15 +7302,23 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+        cachepath = path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.snap.core.iden) + cachepath
+
+        now = s_common.now()
 
         envl = {
             'key': key,
-            'asof': s_common.now(),
+            'asof': now,
             'data': valu,
         }
 
         await self.runt.snap.core.setJsonObj(fullpath, envl)
+
+        return {
+            'asof': now,
+            'path': cachepath,
+        }
 
 @registry.registerType
 class UserJson(Prim):
