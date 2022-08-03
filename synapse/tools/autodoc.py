@@ -2,10 +2,11 @@ import copy
 import sys
 import json
 import asyncio
-import inspect
 import logging
 import argparse
 import collections
+
+from typing import Tuple, Dict, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -24,6 +25,12 @@ import synapse.lib.stormtypes as s_stormtypes
 import synapse.tools.genpkg as s_genpkg
 
 logger = logging.getLogger(__name__)
+
+# src / name / target
+EdgeDef = Tuple[Union[str, None], str, Union[str, None]]
+EdgeDict = Dict[str, Union[str, ]]
+Edge = Tuple[EdgeDef, EdgeDict]
+Edges = Tuple[Edge, ...]
 
 poptsToWords = {
     'ex': 'Example',
@@ -358,7 +365,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     doc = enfo.pop('doc', None)
 
                     if src is None:
-                        src = name
+                        src = '*'
                     if dst is None:
                         dst = '*'
 
@@ -381,7 +388,7 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if src is None:
                         src = '*'
                     if dst is None:
-                        dst = name
+                        dst = '*'
 
                     rst.addLines('',
                                  f'    ``{src} -({enam})> {dst}``',
@@ -536,14 +543,6 @@ async def processStormCmds(rst, pkgname, commands):
 
         rst.addLines(*lines)
 
-
-from typing import Tuple, Dict, Union
-
-EdgeKeys = Tuple[Union[str, None], str, Union[str, None]]
-EdgeDict = Dict[str, str]
-Edge = Tuple[EdgeKeys, EdgeDict]
-Edges = Tuple[Edge, ...]
-
 def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
     ret = collections.defaultdict(list)
 
@@ -591,7 +590,6 @@ def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
         if src == form and dst == form:
             ret['source'].append(edge)
             ret['target'].append(edge)
-            continue
 
     return copy.deepcopy(dict(ret))
 
