@@ -39,16 +39,15 @@ class RiskModule(s_module.CoreModule):
             'edges': (
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target nodes.'}),
-
                 (('risk:attack', 'targets', None), {
                     'doc': 'The attack targeted the target nodes.'}),
                 (('risk:attack', 'uses', None), {
                     'doc': 'The attack used the target nodes to facilitate the attack.'}),
-
             ),
             'forms': (
                 ('risk:threat', {}, (
-                    ('name', ('ou:name', {}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'ex': "mandiant's apt1 cluster",
                         'doc': 'The name of the threat cluster.'}),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
@@ -56,6 +55,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
+                    ('org:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization that the threat cluster is attributed to.'}),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'doc': 'A list of techniques employed within the threat cluster.'}),
                 )),

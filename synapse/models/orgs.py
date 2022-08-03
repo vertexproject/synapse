@@ -147,7 +147,7 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Represents a specific instance of contributing material support to a campaign.',
                 }),
                 ('ou:technique', ('guid', {}), {
-                    'doc': 'A discipline specific technique used to achieve a goal.',
+                    'doc': 'A specific technique used to achieve a goal.',
                 }),
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
@@ -479,11 +479,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The normalized name of the technique.'}),
                     ('type', ('ou:technique:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
-                    ('title', ('str', {}), {
-                        'doc': 'A title for the technique.'}),
-                    ('brief', ('str', {}), {
+                    ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A breif description of the technique.'}),
+                        'doc': 'A description of the technique.'}),
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes where the technique was employed.'}),
                     ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
