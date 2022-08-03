@@ -191,6 +191,24 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
 
+            nodes = await core.nodes('''
+                [ risk:threat=*
+                    :name=VTX-APT1
+                    :desc=VTX-APT1
+                    :tag=cno.threat.apt1
+                    :org=*
+                    :org:name=apt1
+                    :techniques=(*,)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('vtx-apt1', nodes[0].get('name'))
+            self.eq('VTX-APT1', nodes[0].get('desc'))
+            self.eq('apt1', nodes[0].get('org:name'))
+            self.eq('cno.threat.apt1', nodes[0].get('tag'))
+            self.nn(nodes[0].get('org'))
+            self.len(1, nodes[0].get('techniques'))
+
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
