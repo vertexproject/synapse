@@ -519,7 +519,7 @@ class ModelRev:
 
             async for buid, propvalu in layr.iterPropRows(formname, prop.name):
 
-                if not isinstance(propvalu, str):
+                if not isinstance(propvalu, str):  # pragma: no cover
                     logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} : invalid prop type')
                     await movetodata(buid, propvalu)
                     continue
@@ -544,8 +544,7 @@ class ModelRev:
                     norm, info = prop.type.norm(newv)
 
                 except (OverflowError, s_exc.BadTypeValu):
-                    oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu}')
+                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} : invalid prop value')
                     await movetodata(buid, propvalu)
                     continue
 

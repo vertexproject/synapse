@@ -273,14 +273,29 @@ class ModelRevTest(s_tests.SynTest):
 
         async with self.getRegrCore('model-0.2.11') as core:
 
-            nodes = await core.nodes('crypto:x509:cert=5b29f3c2eeaca9da23e75b8ba2314a0f')
+            nodes = await core.nodes('crypto:x509:cert=30afb0317adcaf40dab85031b90e42ad')
             self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '0000000000000000000000000000000000000001')
 
-            nodes = await core.nodes('crypto:x509:cert=b5e7769140cd18aac8266e4623785f4b')
+            nodes = await core.nodes('crypto:x509:cert=405b08fca9724ac1122f934e2e4edb3c')
             self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '0000000000000000000000000000000000003039')
 
-            nodes = await core.nodes('crypto:x509:cert=36745e020bc695b8e6d4e28a3ed298f4')
+            nodes = await core.nodes('crypto:x509:cert=6bee0d34d52d60ca867409f2bf775dab')
             self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), 'ffffffffffffffffffffffffffffffffffffcfc7')
 
-            nodes = await core.nodes('crypto:x509:cert')
+            nodes = await core.nodes('crypto:x509:cert=9ece91b7d5b8177488c1168f04ae0bc0')
             self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '00000000000000000000000000000000000000ff')
+
+            nodes = await core.nodes('crypto:x509:cert=8fc59ed63522b50bd31f2d138dd8c8ec $node.data.load(serial:0:2:10)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('serial'))
+            huge = '7307508186654514591018424163581415098279662714800'
+            self.eq(nodes[0].nodedata['serial:0:2:10'], huge)
+
+            nodes = await core.nodes('crypto:x509:cert=fb9545568c38002dcca1f66220c9ab7d $node.data.load(serial:0:2:10)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('serial'))
+            self.eq(nodes[0].nodedata['serial:0:2:10'], 'asdf')
