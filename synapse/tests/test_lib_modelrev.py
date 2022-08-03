@@ -268,3 +268,19 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('it:av:signame=foobar -> it:av:sig'))
 
             self.len(1, await core.nodes('it:av:signame=baz -> it:av:filehit'))
+
+    async def test_modelrev_0_2_11(self):
+
+        async with self.getRegrCore('model-0.2.11') as core:
+
+            nodes = await core.nodes('crypto:x509:cert=5b29f3c2eeaca9da23e75b8ba2314a0f')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert=b5e7769140cd18aac8266e4623785f4b')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert=36745e020bc695b8e6d4e28a3ed298f4')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('crypto:x509:cert')
+            self.len(1, nodes)

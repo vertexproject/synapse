@@ -1,3 +1,4 @@
+import regex
 import logging
 
 import synapse.exc as s_exc
@@ -493,6 +494,9 @@ class ModelRev:
 
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
+        valid = regex.compile(r'^[0-9a-f]{40}$')
+        repl = regex.compile(r'[\s:]')
+
         nodeedits = []
         for layr in layers:
 
@@ -500,28 +504,58 @@ class ModelRev:
                 await layr.storNodeEdits(nodeedits, meta)
                 nodeedits.clear()
 
+            formname = 'crypto:x509:cert'
             prop = self.core.model.prop('crypto:x509:cert:serial')
 
-            async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
-                try:
-                    newv = s_common.ehex(propvalu.to_bytes(20, 'big', signed=True))
-                    norm, info = prop.type.norm(newv)
+            async def movetodata(buid, valu):
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_DEL, (prop.name, valu, prop.type.stortype), ()),
+                        (s_layer.EDIT_NODEDATA_SET, ('serial:0:2:10', valu, None), ()),
+                    )),
+                )
+                if len(nodeedits) >= 1000:
+                    await save()
 
-                except s_exc.BadTypeValu as e: # pragma: no cover
-                    oldm = e.errinfo.get('mesg')
-                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+            async for buid, propvalu in layr.iterPropRows(formname, prop.name):
+
+                if not isinstance(propvalu, str):
+                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} : invalid prop type')
+                    await movetodata(buid, propvalu)
                     continue
 
-                if norm == propvalu:
+                if valid.match(propvalu):
+                    continue
+
+                newv = repl.sub('', propvalu)
+
+                try:
+                    newv = int(newv)
+                except ValueError:
+                    try:
+                        newv = int(newv, 16)
+                    except ValueError:
+                        logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} : invalid prop value')
+                        await movetodata(buid, propvalu)
+                        continue
+
+                try:
+                    newv = s_common.ehex(newv.to_bytes(20, 'big', signed=True))
+                    norm, info = prop.type.norm(newv)
+
+                except (OverflowError, s_exc.BadTypeValu):
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu}')
+                    await movetodata(buid, propvalu)
                     continue
 
                 nodeedits.append(
-                    (buid, prop.form.name, (
+                    (buid, formname, (
                         (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
                     )),
                 )
 
-                if len(nodeedits) >= 1000:  # pragma: no cover
+                if len(nodeedits) >= 1000:
                     await save()
 
             if nodeedits:
