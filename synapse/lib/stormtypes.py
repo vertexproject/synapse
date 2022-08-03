@@ -7109,14 +7109,6 @@ class LibJsonStor(Lib):
                        {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.', 'default': None},
                    ),
                    'returns': {'name': 'Yields', 'type': 'list', 'desc': '(<path>, <item>) tuples.'}}},
-        {'name': 'cachedat',
-         'desc': 'Retrieve the time an item was cached.',
-         'type': {'type': 'function', '_funcname': 'cachedat',
-                  'args': (
-                      {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
-                      {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'The cached asof time and path or null.'}}},
         {'name': 'cacheget',
          'desc': 'Retrieve data stored with cacheset() if it was stored more recently than the asof argument.',
          'type': {'type': 'function', '_funcname': 'cacheget',
@@ -7124,8 +7116,9 @@ class LibJsonStor(Lib):
                       {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
+                      {'name': 'envl', 'type': 'boolean', 'default': False, 'desc': 'Return the full cache envelope.'},
                   ),
-                  'returns': {'type': 'prim', 'desc': 'The cached value or null.'}}},
+                  'returns': {'type': 'prim', 'desc': 'The cached value (or envelope) or null.'}}},
         {'name': 'cacheset',
          'desc': 'Set cache data with an envelope that tracks time for cacheget() use.',
          'type': {'type': 'function', '_funcname': 'cacheset',
@@ -7144,7 +7137,6 @@ class LibJsonStor(Lib):
             'has': self.has,
             'del': self._del,
             'iter': self.iter,
-            'cachedat': self.cachedat,
             'cacheget': self.cacheget,
             'cacheset': self.cacheset,
         })
@@ -7239,31 +7231,7 @@ class LibJsonStor(Lib):
         async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
             yield path, item
 
-    async def cachedat(self, path, key):
-
-        if not self.runt.isAdmin():
-            mesg = '$lib.jsonstor.cachedat() requires admin privileges.'
-            raise s_exc.AuthDeny(mesg=mesg)
-
-        key = await toprim(key)
-        path = await toprim(path)
-
-        if isinstance(path, str):
-            path = tuple(path.split('/'))
-
-        cachepath = path + (s_common.guid(key),)
-        fullpath = ('cells', self.runt.snap.core.iden) + cachepath
-
-        cachetick = await self.runt.snap.core.getJsonObjProp(fullpath, prop='asof')
-        if cachetick is None:
-            return None
-
-        return {
-            'asof': cachetick,
-            'path': cachepath,
-        }
-
-    async def cacheget(self, path, key, asof='now'):
+    async def cacheget(self, path, key, asof='now', envl=False):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheget() requires admin privileges.'
@@ -7271,6 +7239,7 @@ class LibJsonStor(Lib):
 
         key = await toprim(key)
         path = await toprim(path)
+        envl = await tobool(envl)
 
         if isinstance(path, str):
             path = tuple(path.split('/'))
@@ -7285,6 +7254,8 @@ class LibJsonStor(Lib):
         asoftick = timetype.norm(asof)[0]
 
         if cachetick >= asoftick:
+            if envl:
+                return await self.runt.snap.core.getJsonObj(fullpath)
             return await self.runt.snap.core.getJsonObjProp(fullpath, prop='data')
 
         return None
