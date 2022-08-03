@@ -463,8 +463,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The certificate used by the issuer to sign this certificate.',
                     }),
 
-                    ('serial', ('str', {}), {
-                        'doc': 'The serial number string in the certificate.',
+                    ('serial', ('hex', {'size': 40}), {
+                        'doc': 'The hex value of the certificate serial number.',
                     }),
 
                     ('version', ('int', {'enums': x509vers}), {

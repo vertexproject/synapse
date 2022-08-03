@@ -23,6 +23,7 @@ class ModelRev:
             ((0, 2, 8), self.revModel20220315),
             ((0, 2, 9), self.revModel20220509),
             ((0, 2, 10), self.revModel20220706),
+            ((0, 2, 11), self.revModel20220803),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -487,6 +488,44 @@ class ModelRev:
     async def revModel20220706(self, layers):
         await self._propToForm(layers, 'it:av:sig:name', 'it:av:signame')
         await self._propToForm(layers, 'it:av:filehit:sig:name', 'it:av:signame')
+
+    async def revModel20220803(self, layers):
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            prop = self.core.model.prop('crypto:x509:cert:serial')
+
+            async for buid, propvalu in layr.iterPropRows(prop.form.name, prop.name):
+                try:
+                    newv = s_common.ehex(propvalu.to_bytes(20, 'big', signed=True))
+                    norm, info = prop.type.norm(newv)
+
+                except s_exc.BadTypeValu as e: # pragma: no cover
+                    oldm = e.errinfo.get('mesg')
+                    logger.warning(f'error re-norming {prop.form.name}:{prop.name}={propvalu} : {oldm}')
+                    continue
+
+                if norm == propvalu:
+                    continue
+
+                nodeedits.append(
+                    (buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:  # pragma: no cover
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def runStorm(self, text, opts=None):
         '''
