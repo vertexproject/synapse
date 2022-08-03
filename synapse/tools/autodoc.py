@@ -1,3 +1,4 @@
+import copy
 import sys
 import json
 import asyncio
@@ -257,13 +258,15 @@ def processTypes(rst, dochelp, types):
         if info:
             logger.warning(f'Type {name} has unhandled info: {info}')
 
-def processFormsProps(rst, dochelp, forms, univ_names):
+def processFormsProps(rst, dochelp, forms, univ_names, alledges):
     rst.addHead('Forms', lvl=1, link='.. _dm-forms:')
     rst.addLines('',
                  'Forms are derived from types, or base types. Forms represent node types in the graph.'
                  '')
 
     for name, info, props in forms:
+
+        formedges = lookupedgesforform(name, alledges)
 
         doc = dochelp.forms.get(name)
         if not doc.endswith('.'):
@@ -334,6 +337,82 @@ def processFormsProps(rst, dochelp, forms, univ_names):
                              '')
                 for k, v in ptopts.items():
                     rst.addLines('  ' + f'* {k}: ``{v}``')
+
+        if formedges:
+
+            rst.addLines('',
+                         'Light Edges:',
+                         '',
+                         )
+
+            source_edges = formedges.pop('source', None)
+            dst_edges = formedges.pop('target', None)
+            generic_edges = formedges.pop('generic', None)
+
+            if source_edges:
+
+                rst.addLines(f'  Source Edges (on ``{name}`` form):',)
+
+                for (edef, enfo) in source_edges:
+                    src, enam, dst = edef
+                    doc = enfo.pop('doc', None)
+
+                    if src is None:
+                        src = name
+                    if dst is None:
+                        dst = '*'
+
+                    rst.addLines('',
+                                 f'    ``{src} -({enam})> {dst}``',
+                                 f'      {doc}',
+                                 '')
+
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+
+            if dst_edges:
+
+                rst.addLines(f'  Target Edges (on ``{name}`` form):', )
+
+                for (edef, enfo) in dst_edges:
+                    src, enam, dst = edef
+                    doc = enfo.pop('doc', None)
+
+                    if src is None:
+                        src = '*'
+                    if dst is None:
+                        dst = name
+
+                    rst.addLines('',
+                                 f'    ``{src} -({enam})> {dst}``',
+                                 f'      {doc}',
+                                 '')
+
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+
+            if generic_edges:
+
+                rst.addLines('  Generic Edges:', )
+
+                for (edef, enfo) in generic_edges:
+                    src, enam, dst = edef
+
+                    assert src is None
+                    assert dst is None
+
+                    doc = enfo.pop('doc', None)
+
+                    rst.addLines('',
+                                 f'    ``* -({enam})> *``',
+                                 f'        {doc}',
+                                 '')
+
+                    if enfo:
+                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+
+            if formedges:
+                logger.warning(f'{name} has unhandled light edges: {formedges}')
 
 def processUnivs(rst, dochelp, univs):
     rst.addHead('Universal Properties', lvl=1, link='.. _dm-universal-props:')
@@ -457,6 +536,65 @@ async def processStormCmds(rst, pkgname, commands):
 
         rst.addLines(*lines)
 
+
+from typing import Tuple, Dict, Union
+
+EdgeKeys = Tuple[Union[str, None], str, Union[str, None]]
+EdgeDict = Dict[str, str]
+Edge = Tuple[EdgeKeys, EdgeDict]
+Edges = Tuple[Edge, ...]
+
+def lookupedgesforform(form: str, edges: Edges) -> Dict[str, Edges]:
+    ret = collections.defaultdict(list)
+
+    for edge in edges:
+        src, name, dst = edge[0]
+
+        # src and dst may be None, =name, or !=name.
+        # This gives us 9 possible states to consider.
+        # src  |  dst | -> ret
+        # ===================================
+        # none | none | -> generic
+        # none |   != | -> source
+        # none |    = | -> target
+        #   != | none | -> target
+        #    = | none | -> source
+        #   != |    = | -> target
+        #    = |   != | -> source
+        #   != |   != | -> no-op
+        #    = |    = | -> source, target
+
+        if src is None and dst is None:
+            ret['generic'].append(edge)
+            continue
+        if src is None and dst != form:
+            ret['source'].append(edge)
+            continue
+        if src is None and dst == form:
+            ret['target'].append(edge)
+            continue
+        if src != form and dst is None:
+            ret['target'].append(edge)
+            continue
+        if src == form and dst is None:
+            ret['source'].append(edge)
+            continue
+        if src != form and dst == form:
+            ret['target'].append(edge)
+            continue
+        if src == form and dst != form:
+            ret['source'].append(edge)
+            continue
+        if src != form and dst != form:
+            # no-op
+            continue
+        if src == form and dst == form:
+            ret['source'].append(edge)
+            ret['target'].append(edge)
+            continue
+
+    return copy.deepcopy(dict(ret))
+
 async def docModel(outp,
                    core):
     coreinfo = await core.getCoreInfo()
@@ -466,6 +604,7 @@ async def docModel(outp,
     types = model.get('types')
     forms = model.get('forms')
     univs = model.get('univs')
+    edges = model.get('edges')
     props = collections.defaultdict(list)
 
     ctors = sorted(ctors, key=lambda x: x[0])
@@ -510,7 +649,7 @@ async def docModel(outp,
     rst2 = s_autodoc.RstHelp()
     rst2.addHead('Synapse Data Model - Forms', lvl=0)
 
-    processFormsProps(rst2, dochelp, forms, univ_names)
+    processFormsProps(rst2, dochelp, forms, univ_names, alledges=edges)
     processUnivs(rst2, dochelp, univs)
 
     return rst, rst2
