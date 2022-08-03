@@ -15,7 +15,7 @@ class HexLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'toint',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The hex string to be converted.'},
-                      {'name': 'signed', 'type': 'bool', 'default': True,
+                      {'name': 'signed', 'type': 'bool', 'default': False,
                        'desc': 'If true, convert to a signed integer.'},
                   ),
                   'returns': {'type': 'int', 'desc': 'The resulting integer.', }
