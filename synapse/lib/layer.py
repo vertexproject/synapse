@@ -2256,7 +2256,7 @@ class Layer(s_nexus.Pusher):
                     try:
                         indx = hugestor.indx(aval)[0]
                     except Exception:
-                        logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid})')
+                        logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid)}')
                         continue
 
                     self.layrslab.put(abrv + indx, buid, db=self.byarray)
