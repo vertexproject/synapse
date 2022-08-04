@@ -135,7 +135,7 @@ class JsonLib(s_stormtypes.Lib):
         # We have to ensure that we have a valid schema for making the object.
         todo = (compileJsSchema, (schema,), {'use_default': use_default})
         try:
-            await s_coro.spawn(todo, self.runt.spawn_log_conf)
+            await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:

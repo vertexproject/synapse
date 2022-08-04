@@ -218,7 +218,8 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
 
         # Wait to start - the spawn proc has gotten the lock.
         start_timeout = 60
-        started = evt.wait(timeout)
+        # FIXME reconcile this start_timeout with timeout
+        started = evt.wait(start_timeout)
         if started is False:
             raise s_exc.TimeOut(mesg=f'Timeout waiting to start coro for {todo[0]} after {start_timeout} seconds.')
 
