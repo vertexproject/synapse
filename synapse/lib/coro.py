@@ -180,7 +180,6 @@ def _exectodo(que, lock, evt, todo, logconf):
         try:
             evt.set()
             ret = func(*args, **kwargs)
-            logger.debug(f'putting {ret=}')
             que.put(ret)
         except Exception as e:
             logger.exception(f'Error executing spawn function {func}')
