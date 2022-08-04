@@ -68,8 +68,9 @@ class JsonSchema(s_stormtypes.StormType):
     async def _validate(self, item):
         item = await s_stormtypes.toprim(item)
 
+        todo = (runJsSchema, (self.schema, item), {'use_default': self.use_default})
         try:
-            result = await s_coro.spawn((runJsSchema, (self.schema, item), {'use_default': self.use_default}))
+            result = await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)
         except s_exc.SchemaViolation as e:
             return False, {'mesg': e.get('mesg')}
         else:
@@ -132,8 +133,9 @@ class JsonLib(s_stormtypes.Lib):
         schema = await s_stormtypes.toprim(schema)
         use_default = await s_stormtypes.tobool(use_default)
         # We have to ensure that we have a valid schema for making the object.
+        todo = (compileJsSchema, (schema,), {'use_default': use_default})
         try:
-            await s_coro.spawn((compileJsSchema, (schema,), {'use_default': use_default}))
+            await s_coro.spawn(todo, self.runt.spawn_log_conf)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except Exception as e:
