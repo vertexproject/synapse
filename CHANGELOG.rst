@@ -9,119 +9,69 @@ v2.103.0 - TBD
 
 Features and Enhancements
 -------------------------
-FIXME model and edge updates.
-- Updates to the ``crypto``, ``geo``, ``inet``, ``mat``, ``media``, ``ou``,
-  ``pol``, and ``proj`` models.
-  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
-  (`#2771 <https://github.com/vertexproject/synapse/pull/2771>`_)
+- Updates to the ``it``, ``ou``, and ``risk`` models.
+  (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
 
-  ``crypto:key``
-    Add ``public:md5``, ``public:sha1``, and ``public:sha256`` secondary
-    properties to record those hashes for the public key.
-    Add ``private:md5``, ``private:sha1``, and ``private:sha256`` secondary
-    properties to record those hashes for the public key.
-
-  ``geo:nloc``
-    The ``geo:nloc`` form has been deprecated.
-
-  ``geo:telem``
-    Add a new form to record a the location of a given node at a given time.
-    This replaces the use of ``geo:nloc``.
-
-  ``it:sec:c2:config``
-    Add a ``proxies`` secondary property to record proxy URLS used to
-    communicate to a C2 server.
-    Add a ``listens`` secondary property to record urls the software should
-    bind.
-    Add a ``dns:resolvers`` secondary property to record DNS servers the
-    software should use.
-    Add a ``http:headers`` secondary property to record HTTP headers the
-    software should use.
-
-  ``it:exec:query``
-    Add a new form to record an instance of a query executed on a host.
-
-  ``it:query``
-    Add a new form to record query strings.
-
-  ``mat:type``
-    Add a taxonomy type to record taxonomies of material specifications or
-    items.
-
-  ``mat:item``
-    Add a ``type`` secondary property to record the item type.
-
-  ``mat:spec``
-    Add a ``type`` secondary property to record the item type.
-
-  ``media:news``
-    Add a ``publisher`` secondary property to record the org that published
-    the news.
-    Add a ``publisher:name`` secondary property to record the name of the org.
-    Deprecate the ``org`` secondary property.
+  ``it:prod:soft``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the author of the software.
 
   ``ou:campaign``
-    Add a ``conflict`` secondary property to record the primary conflict
-    associated the campaign.
+    Add a ``techniques`` secondary property to record techniques employed by
+    the campaign.
 
-  ``ou:conflict``
-    Add a new form to record a conflict between two or more campaigns which
-    have mutually exclusive goals.
+  ``ou:org``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the org.
 
-  ``ou:contribution``
-    Add a new form to represent contributing material support to a campaign.
+  ``ou:technique``
+    Add a form to record specific techniques used to achieve a goal.
 
-  ``pol:election``
-    Add a new form to record an election.
+  ``ou:technique:taxonomy``
+    Add a form to record analyst defined taxonomy of different techniques.
 
-  ``pol:race``
-    Add a new form to record indivdual races in an election.
+  ``risk:attack``
+    Add a ``techniques`` secondary property to record techniques employed
+    during attack.
+    Deprecate the following secondary properties, in favor of using light
+    edges:
 
-  ``pol:office``
-    Add a new form to record an appointed or elected office.
+      * ``target``
+      * ``target:host``
+      * ``target:org``
+      * ``target:person``
+      * ``target:place``
+      * ``used:email``
+      * ``used:file``
+      * ``used:host``
+      * ``used:server``
+      * ``used:software``
+      * ``used:url``
+      * ``used:vuln``
+      * ``via:email``
+      * ``via:ipv4``
+      * ``via:ipv6``
+      * ``via:phone``
 
-  ``pol:term``
-    Add a new form to record the term in office for an individual.
+  ``risk:compromise``
+    Add a ``techniques`` secondary property to record techniques employed
+    during the compromise.
 
-  ``pol:candidate``
-    Add a form to record a candidate for a given race.
-
-  ``pol:pollingplace``
-    Add a form to record the polling locations for a given election.
-
-  ``proj:ticket``
-    Add a ``ext:creator`` secondary form to record contact information from
-    and external system.
+  ``risk:threat``
+    Add a form to record a threat cluster or subgraph of threat activity to
+    a single group.
 
 - Annotate the following light edges.
-  (`#2757 <https://github.com/vertexproject/synapse/pull/2757>`_)
+  (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
 
-  ``about``
-    A light edge created by the Storm ``note.add`` command, which records
-    the relationship between a ``meta:note`` node and the target node.
-
-  ``includes``
-    When used with a ``ou:contribution`` node, the edge indicates the target
-    node was the contribution made.
-
-  ``has``
-    When used with a ``meta:ruleset`` and ``meta:rule`` node, indicates
-    the ruleset contains the rule.
-
-  ``matches``
-    When used with a ``meta:rule`` node, the edge indicates the target
-    node matches the rule.
-
-  ``refs``
-    A light edge where the source node refers to the target node.
-
-  ``seenat``
-    When used with a ``geo:telem`` target node, the edge indicates the source
-    node was seen a a given location.
+  ``targets``
+    When used with a ``out:org``, ``ou:campaign``, ``risk:threat``, or
+    ``risk:attack`` nodes, the edge indicates the target node was targeted
+    by the source node.
 
   ``uses``
-    When used with a ``ou:org`` node, the edge indicates the target node
-    is used by the organization.
+    When used with a ``ou:campaign`` or ``risk:attack`` node, the edge
+    indicates the target node is used by the source node.
 
 - Change the behavior of the Storm ``count`` command to consume nodes.
   If the previous behavior is desired, use the ``--yield`` option when
