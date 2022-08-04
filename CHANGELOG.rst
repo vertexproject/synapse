@@ -28,11 +28,11 @@ Features and Enhancements
     Add a form to record specific techniques used to achieve a goal.
 
   ``ou:technique:taxonomy``
-    Add a form to record analyst defined taxonomy of different techniques.
+    Add a form to record an analyst defined taxonomy of different techniques.
 
   ``risk:attack``
     Add a ``techniques`` secondary property to record techniques employed
-    during attack.
+    during the attack.
     Deprecate the following secondary properties, in favor of using light
     edges.
 
@@ -65,12 +65,12 @@ Features and Enhancements
   (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
 
   ``targets``
-    When used with a ``out:org``, ``ou:campaign``, ``risk:threat``, or
+    When used with ``ou:org``, ``ou:campaign``, ``risk:threat``, or
     ``risk:attack`` nodes, the edge indicates the target node was targeted
     by the source node.
 
   ``uses``
-    When used with a ``ou:campaign`` or ``risk:attack`` node, the edge
+    When used with an ``ou:campaign`` or ``risk:attack`` node, the edge
     indicates the target node is used by the source node.
 
 - Change the behavior of the Storm ``count`` command to consume nodes.
@@ -83,7 +83,7 @@ Features and Enhancements
   a service.
   (`#2788 <https://github.com/vertexproject/synapse/pull/2788>`_)
 - The Storm ``$lib.jsonstor.cacheset()`` API now returns a dict containing the
-  path and time. The ``$lib.jsonstor.cacheget()`` API now has a argument to
+  path and time. The ``$lib.jsonstor.cacheget()`` API now has an argument to
   retrieve the entire set of enveloped data.
   (`#2790 <https://github.com/vertexproject/synapse/pull/2790>`_)
 - Add a HTTP 404 handler for the Axon ``v1/by/sha256/<sha256>`` endpoint which
