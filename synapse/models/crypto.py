@@ -180,7 +180,7 @@ class CryptoModule(s_module.CoreModule):
                     ('address', ('crypto:currency:address', {}), {
                         'doc': 'The address which received payment from the transaction.'}),
                     ('value', ('econ:price', {}), {
-                        'doc': 'The value of the currency recieved from the transaction.'}),
+                        'doc': 'The value of the currency received from the transaction.'}),
                 )),
                 ('crypto:currency:transaction', {}, (
                     ('hash', ('hex', {}), {

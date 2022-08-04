@@ -469,6 +469,20 @@ bar baz",vv
         bbufhash_h = s_common.ehex(bbufhash)
         emptyhash_h = s_common.ehex(emptyhash)
 
+        # No auth - coverage
+        async with self.getHttpSess() as sess:
+            async with sess.get(f'{url_dl}/foobar') as resp:
+                self.eq(401, resp.status)
+                info = await resp.json()
+                self.eq('NotAuthenticated', info.get('code'))
+            async with sess.head(f'{url_dl}/foobar') as resp:
+                self.eq(401, resp.status)
+                # aiohttp ignores HEAD bodies
+            async with sess.delete(f'{url_dl}/foobar') as resp:
+                self.eq(401, resp.status)
+                info = await resp.json()
+                self.eq('NotAuthenticated', info.get('code'))
+
         # Perms
         async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
 
@@ -517,9 +531,17 @@ bar baz",vv
         async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
             async with sess.get(f'{url_dl}/foobar') as resp:
                 self.eq(404, resp.status)
+                info = await resp.json()
+                self.eq('err', info.get('status'))
+                self.eq('BadArg', info.get('code'))
+                self.eq('Hash is not a SHA-256: foobar', info.get('mesg'))
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(404, resp.status)
+                info = await resp.json()
+                self.eq('err', info.get('status'))
+                self.eq('NoSuchFile', info.get('code'))
+                self.eq(f'SHA-256 not found: {asdfhash_h}', info.get('mesg'))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
@@ -607,7 +629,18 @@ bar baz",vv
                 self.eq('33554437', resp.headers.get('content-length'))
                 self.none(resp.headers.get('content-range'))
 
+            async with sess.head(f'{url_dl}/foobar') as resp:
+                self.eq(404, resp.status)
+                self.eq('0', resp.headers.get('content-length'))
+
             # DELETE method by sha256
+            async with sess.delete(f'{url_dl}/foobar') as resp:
+                self.eq(404, resp.status)
+                info = await resp.json()
+                self.eq('err', info.get('status'))
+                self.eq('BadArg', info.get('code'))
+                self.eq('Hash is not a SHA-256: foobar', info.get('mesg'))
+
             async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
                 self.eq(200, resp.status)
                 item = await resp.json()

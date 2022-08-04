@@ -3955,22 +3955,33 @@ class SpinCmd(Cmd):
 class CountCmd(Cmd):
     '''
     Iterate through query results, and print the resulting number of nodes
-    which were lifted. This does yield the nodes counted.
+    which were lifted. This does not yield the nodes counted, unless the
+    --yield switch is provided.
 
     Example:
 
-        foo:bar:size=20 | count
+        # Count the number of IPV4 nodes with a given ASN.
+        inet:ipv4:asn=20 | count
+
+        # Count the number of IPV4 nodes with a given ASN and yield them.
+        inet:ipv4:asn=20 | count --yield
 
     '''
     name = 'count'
     readonly = True
 
+    def getArgParser(self):
+        pars = Cmd.getArgParser(self)
+        pars.add_argument('-y', '--yield', default=False, action='store_true',
+                          dest='yieldnodes', help='Yield inbound nodes.')
+        return pars
+
     async def execStormCmd(self, runt, genr):
 
         i = 0
         async for item in genr:
-
-            yield item
+            if self.opts.yieldnodes:
+                yield item
             i += 1
 
         await runt.printf(f'Counted {i} nodes.')
