@@ -51,6 +51,14 @@ class HexLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The trimmed hex string.', }
         }},
+        {'name': 'signext', 'desc': 'Sign extension pad a hexadecimal encoded signed integer.',
+         'type': {'type': 'function', '_funcname': 'signext',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'The hex string to pad.'},
+                      {'name': 'length', 'type': 'int', 'desc': 'The number of characters to pad the string to.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The sign extended hex string.', }
+        }},
     )
 
     _storm_lib_path = ('hex',)
@@ -63,6 +71,7 @@ class HexLib(s_stormtypes.Lib):
             'decode': self.decode,
             'fromint': self.fromint,
             'trimext': self.trimext,
+            'signext': self.signext,
         }
 
     async def encode(self, valu):
@@ -114,3 +123,14 @@ class HexLib(s_stormtypes.Lib):
                 continue
             break
         return valu
+
+    async def signext(self, valu, length):
+        valu = await s_stormtypes.tostr(valu)
+        length = await s_stormtypes.toint(length)
+
+        try:
+            if int(valu[0], 16) >> 3 == 0:
+                return valu.rjust(length, '0')
+            return valu.rjust(length, 'f')
+        except ValueError as e:
+            raise s_exc.BadArg(mesg=f'$lib.hex.signext(): {e}')

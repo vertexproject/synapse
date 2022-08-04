@@ -65,6 +65,18 @@ class StormLibHexTest(s_test.SynTest):
                 return($lib.hex.trimext(00ff))
             '''))
 
+            self.eq('00000000ff', await core.callStorm('''
+                return($lib.hex.signext(00ff, 10))
+            '''))
+
+            self.eq('ffffffffff', await core.callStorm('''
+                return($lib.hex.signext(ff, 10))
+            '''))
+
+            self.eq('ffffaf2ff3de000035cb', await core.callStorm('''
+                return($lib.hex.signext(faf2ff3de000035cb, 20))
+            '''))
+
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.hex.decode(asdf))')
 
@@ -85,3 +97,9 @@ class StormLibHexTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 await core.callStorm('return($lib.hex.trimext(foo))')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('return($lib.hex.signext(oo, 20))')
+
+            with self.raises(s_exc.BadCast):
+                await core.callStorm('return($lib.hex.signext(ff, foo))')
