@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.103.0 - TBD
+v2.103.0 - 2022-08-04
 =====================
 
 Features and Enhancements
@@ -34,24 +34,24 @@ Features and Enhancements
     Add a ``techniques`` secondary property to record techniques employed
     during attack.
     Deprecate the following secondary properties, in favor of using light
-    edges:
+    edges.
 
-      * ``target``
-      * ``target:host``
-      * ``target:org``
-      * ``target:person``
-      * ``target:place``
-      * ``used:email``
-      * ``used:file``
-      * ``used:host``
-      * ``used:server``
-      * ``used:software``
-      * ``used:url``
-      * ``used:vuln``
-      * ``via:email``
-      * ``via:ipv4``
-      * ``via:ipv6``
-      * ``via:phone``
+      - ``target``
+      - ``target:host``
+      - ``target:org``
+      - ``target:person``
+      - ``target:place``
+      - ``used:email``
+      - ``used:file``
+      - ``used:host``
+      - ``used:server``
+      - ``used:software``
+      - ``used:url``
+      - ``used:vuln``
+      - ``via:email``
+      - ``via:ipv4``
+      - ``via:ipv6``
+      - ``via:phone``
 
   ``risk:compromise``
     Add a ``techniques`` secondary property to record techniques employed
