@@ -141,6 +141,8 @@ FIXME model and edge updates.
   (`#2780 <https://github.com/vertexproject/synapse/pull/2780>`_)
 - Add helper scripts for doing bulk Synapse Docker image builds and testing.
   (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+- Add ``aha:\\`` support to ``synapse.tools.csvtool``.
+  (`#2791 <https://github.com/vertexproject/synapse/pull/2791>`_)
 
 Bugfixes
 --------
