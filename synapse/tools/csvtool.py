@@ -146,7 +146,7 @@ async def runCsvImport(opts, outp, text, stormopts):
     return 0
 
 async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+    pars = makeargparser(outp)
 
     try:
         opts = pars.parse_args(argv)
@@ -178,7 +178,7 @@ async def main(argv, outp=s_output.stdout):
         else:
             return await runCsvImport(opts, outp, text, stormopts)
 
-def makeargparser():
+def makeargparser(outp):
     desc = '''
     Command line tool for ingesting csv files into a cortex
 
@@ -218,7 +218,7 @@ def makeargparser():
 
     }
     '''
-    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
+    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc, outp=outp)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
     pars.add_argument('--csv-header', default=False, action='store_true',
                       help='Skip the first line from each CSV file.')
