@@ -346,44 +346,6 @@ class StormTypesTest(s_test.SynTest):
         # Remove the modification from the global
         s_stormtypes.registry.undefined_types.discard('storm:type:newp')
 
-    async def test_storm_binstuff(self):
-        async with self.getTestCore() as core:
-            self.eq((1, 2, 3), await core.callStorm('''
-                return($lib.hex.decode(010002000300).unpack("<HHH"))
-            '''))
-
-            self.eq(b'\x03\x00', await core.callStorm('''
-                return($lib.hex.decode(010002000300).slice(4,6))
-            '''))
-
-            self.eq(b'\x03\x00', await core.callStorm('''
-                return($lib.hex.decode(010002000300).slice(4))
-            '''))
-
-            self.eq('010002000300', await core.callStorm('''
-                return($lib.hex.encode($lib.hex.decode(010002000300)))
-            '''))
-
-            self.eq(255, await core.callStorm('''
-                return($lib.hex.toint(ff))
-            '''))
-
-            self.eq(-1, await core.callStorm('''
-                return($lib.hex.toint(ff, signed=$lib.true))
-            '''))
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.decode(asdf))')
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.encode(asdf))')
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.decode(010002000300).unpack("<ZZ"))')
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.toint(asdf))')
-
     async def test_storm_debug(self):
 
         async with self.getTestCore() as core:
