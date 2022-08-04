@@ -751,7 +751,7 @@ def normLogLevel(valu):
             return normLogLevel(valu)
     raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
 
-def setlogging(mlogger, defval=None, structlog=None):
+def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
     '''
     Configure synapse logging.
 
@@ -782,7 +782,8 @@ def setlogging(mlogger, defval=None, structlog=None):
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
             logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
-        mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
+        if log_setup:
+            mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
     return ret
 

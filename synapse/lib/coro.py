@@ -174,16 +174,16 @@ def genrhelp(f):
 
 def _exectodo(que, lock, evt, todo, logconf):
     # This is a new process: configure logging
-    s_common.setlogging(logger, **logconf)
+    s_common.setlogging(logger, log_setup=False, **logconf)
     func, args, kwargs = todo
-    with lock:
-        try:
-            evt.set()
-            ret = func(*args, **kwargs)
-            que.put(ret)
-        except Exception as e:
-            logger.exception(f'Error executing spawn function {func}')
-            que.put(e)
+    # with lock:
+    try:
+        evt.set()
+        ret = func(*args, **kwargs)
+        que.put(ret)
+    except Exception as e:
+        logger.exception(f'Error executing spawn function {func}')
+        que.put(e)
 
 async def spawn(todo, timeout=None, ctx=None, log_conf=None):
     '''
@@ -223,22 +223,36 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         if started is False:
             raise s_exc.TimeOut(mesg=f'Timeout waiting to start coro for {todo[0]} after {start_timeout} seconds.')
 
-        # Now we try to get the lock - once we get the lock, we know
-        # proc has finished its work or exited prematurely.
-        with lock:
-            while True:
-                try:
-                    # we have to block/wait on the queue because the sender
-                    # could need to stream the return value in multiple chunks
-                    retn = que.get(timeout=1)
-                    # now that we've retrieved the response, it should have exited.
+        # Restore original implementation for now.
+        while True:
+            try:
+                # we have to block/wait on the queue because the sender
+                # could need to stream the return value in multiple chunks
+                retn = que.get(timeout=1)
+                # now that we've retrieved the response, it should have exited.
+                proc.join()
+                return retn
+            except queue.Empty:
+                if not proc.is_alive():
                     proc.join()
-                    return retn
-                except queue.Empty:
-                    if not proc.is_alive():
-                        # The process likely exited prematurely.
-                        proc.join()
-                        raise s_exc.SpawnExit(code=proc.exitcode)
+                    raise s_exc.SpawnExit(code=proc.exitcode)
+
+        # # Now we try to get the lock - once we get the lock, we know
+        # # proc has finished its work or exited prematurely.
+        # with lock:
+        #     while True:
+        #         try:
+        #             # we have to block/wait on the queue because the sender
+        #             # could need to stream the return value in multiple chunks
+        #             retn = que.get(timeout=1)
+        #             # now that we've retrieved the response, it should have exited.
+        #             proc.join()
+        #             return retn
+        #         except queue.Empty:
+        #             if not proc.is_alive():
+        #                 # The process likely exited prematurely.
+        #                 proc.join()
+        #                 raise s_exc.SpawnExit(code=proc.exitcode)
 
     try:
 
