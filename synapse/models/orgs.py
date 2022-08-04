@@ -151,7 +151,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:technique:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
-                    'doc': 'An analyst defined taxonomy to classify techniques in different disiplines.',
+                    'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
                 }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',

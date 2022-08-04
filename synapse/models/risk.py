@@ -343,7 +343,7 @@ class RiskModule(s_module.CoreModule):
                     }),
                     ('target:host', ('it:host', {}), {
                         'deprecated': True,
-                        'doc': 'The host was the target of the attack.',
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
                     }),
                     ('target:person', ('ps:person', {}), {
                         'deprecated': True,
