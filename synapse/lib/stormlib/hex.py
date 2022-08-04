@@ -96,7 +96,7 @@ class HexLib(s_stormtypes.Lib):
         try:
             byts = valu.to_bytes(length, 'big', signed=signed)
             return s_common.ehex(byts)
-        except (OverflowError, binascii.Error) as e:
+        except OverflowError as e:
             raise s_exc.BadArg(mesg=f'$lib.hex.fromint(): {e}')
 
     async def trimext(self, valu):
