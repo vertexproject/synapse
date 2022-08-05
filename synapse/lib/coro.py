@@ -172,11 +172,10 @@ def genrhelp(f):
         return GenrHelp(f(*args, **kwargs))
     return func
 
-def _exectodo(que, evt, todo, logconf):
+def _exectodo(que, todo, logconf):
     # This is a new process: configure logging
     s_common.setlogging(logger, **logconf)
     func, args, kwargs = todo
-    evt.set()
     try:
         ret = func(*args, **kwargs)
         que.put(ret)
@@ -206,21 +205,14 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
     if log_conf is None:
         log_conf = {}
 
-    evt = ctx.Event()
     que = ctx.Queue()
     proc = ctx.Process(target=_exectodo,
-                       args=(que, evt, todo, log_conf))
+                       args=(que, todo, log_conf))
 
     def execspawn():
 
         proc.start()
 
-        started = evt.wait(timeout=timeout)
-        if started is False:
-            proc.terminate()
-            raise s_exc.TimeOut(mesg=f'Timeout waiting to start proc for {todo[0]} after {timeout} seconds.')
-
-        # Restore original implementation for now.
         while True:
             try:
                 # we have to block/wait on the queue because the sender
