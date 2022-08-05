@@ -39,7 +39,7 @@ The pivot operations available within Storm are:
 
 .. NOTE::
   
-  Light edges represent a special use case within the Synapse hypergraph; navigating (traversing) light edges (:ref:`light-edge`) is included here as a "pivot-like" operation.
+  Light edges represent a special use case within the Synapse hypergraph; navigating (traversing) light edges (:ref:`data-light-edge`) is included here as a "pivot-like" operation.
 
 See :ref:`storm-ref-syntax` for an explanation of the syntax format used below.
 
