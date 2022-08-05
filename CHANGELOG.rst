@@ -58,8 +58,8 @@ Features and Enhancements
     during the compromise.
 
   ``risk:threat``
-    Add a form to record a threat cluster or subgraph of threat activity to
-    a single group.
+    Add a form to record a threat cluster or subgraph of threat activity
+    attributable to one group.
 
 - Annotate the following light edges.
   (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
