@@ -184,32 +184,25 @@ See also :ref:`storm-parallel`.
 count
 -----
 
-The ``count`` command enumerates the number of nodes returned from a given Storm query and displays the resultant nodes and associated node count.
+The ``count`` command enumerates the number of nodes returned from a given Storm query, displays the node count, and
+optionally displays the associated nodes.
 
 **Syntax:**
 
-
 .. storm-cli:: count --help
-    
 
 **Examples:**
 
 - Count the number of IP address nodes reported by FireEye and associated with the threat group APT1:
 
-
 .. storm-pre:: [inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#aka.feye.thr.apt1]
 .. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | count
 
+- Count the number of IP address nodes reported by FireEye and associated with the threat group APT1 and display
+  the nodes:
 
-- Count the number of DNS A records for the domain woot.com where the lift produces no results:
+.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | count --yield
 
-
-.. storm-cli:: inet:dns:a:fqdn=woot.com | count
-
-
-**Usage Notes:**
-
-- ``count`` does not consume nodes, so Storm will stream the nodes being counted to the CLI output while the command executes. To count nodes without streaming the output, ``count`` can be piped to the `spin`_ command (i.e., *<query>* | count | spin). ``Spin`` consumes nodes and so will prevent nodes processed by the ``count`` command from streaming.
 
 .. _storm-cron:
 
