@@ -1035,7 +1035,10 @@ See :ref:`gloss-tool-stories`.
 Storm
 -----
 
-Storm is the custom, domain-specific language used to interact with data in a Synapse :ref:`gloss-cortex`.
+Storm is the custom query language analysts use to interact with data in Synapse.
+
+Storm can also be used as a programming language for advanced users and developers, though this level of expertise
+is not required for normal use. Many of Synapse's **Power-Ups** (see :ref:`gloss-power-up`) are written in Storm.
 
 See :ref:`storm-ref-intro` for additional detail.
 
