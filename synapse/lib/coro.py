@@ -172,13 +172,12 @@ def genrhelp(f):
         return GenrHelp(f(*args, **kwargs))
     return func
 
-def _exectodo(que, lock, evt, todo, logconf):
+def _exectodo(que, evt, todo, logconf):
     # This is a new process: configure logging
     s_common.setlogging(logger, log_setup=False, **logconf)
     func, args, kwargs = todo
-    # with lock:
+    evt.set()
     try:
-        evt.set()
         ret = func(*args, **kwargs)
         que.put(ret)
     except Exception as e:
@@ -193,6 +192,7 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
+        log_conf (dict): A optional set of logging configuration for the spawned process.
 
     Notes:
         The contents of the todo tuple must be able to be pickled for execution.
@@ -208,20 +208,17 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
 
     evt = ctx.Event()
     que = ctx.Queue()
-    lock = ctx.Lock()
     proc = ctx.Process(target=_exectodo,
-                       args=(que, lock, evt, todo, log_conf))
+                       args=(que, evt, todo, log_conf))
 
     def execspawn():
 
         proc.start()
 
-        # Wait to start - the spawn proc has gotten the lock.
-        start_timeout = 60
-        # FIXME reconcile this start_timeout with timeout
-        started = evt.wait(start_timeout)
+        started = evt.wait(timeout=timeout)
         if started is False:
-            raise s_exc.TimeOut(mesg=f'Timeout waiting to start coro for {todo[0]} after {start_timeout} seconds.')
+            proc.terminate()
+            raise s_exc.TimeOut(mesg=f'Timeout waiting to start proc for {todo[0]} after {timeout} seconds.')
 
         # Restore original implementation for now.
         while True:
@@ -235,24 +232,8 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
             except queue.Empty:
                 if not proc.is_alive():
                     proc.join()
-                    raise s_exc.SpawnExit(code=proc.exitcode)
-
-        # # Now we try to get the lock - once we get the lock, we know
-        # # proc has finished its work or exited prematurely.
-        # with lock:
-        #     while True:
-        #         try:
-        #             # we have to block/wait on the queue because the sender
-        #             # could need to stream the return value in multiple chunks
-        #             retn = que.get(timeout=1)
-        #             # now that we've retrieved the response, it should have exited.
-        #             proc.join()
-        #             return retn
-        #         except queue.Empty:
-        #             if not proc.is_alive():
-        #                 # The process likely exited prematurely.
-        #                 proc.join()
-        #                 raise s_exc.SpawnExit(code=proc.exitcode)
+                    mesg = f'Spawned process {proc} exited for {todo[0]} without a result.'
+                    raise s_exc.SpawnExit(mesg=mesg, code=proc.exitcode)
 
     try:
 
