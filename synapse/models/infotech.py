@@ -1081,9 +1081,10 @@ class ItModule(s_module.CoreModule):
 
                     ('isos', ('bool', {}), {
                         'doc': 'Set to True if the software is an operating system.'}),
-
                     ('islib', ('bool', {}), {
                         'doc': 'Set to True if the software is a library.'}),
+                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of techniques employed by the author of the software.'}),
                 )),
 
                 ('it:prod:softname', {}, ()),
