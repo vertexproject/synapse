@@ -364,7 +364,7 @@ Add Light Edges
 
 Operation that links the specified node(s) to another node or set of nodes (as specified by a Storm expression) using a lightweight edge (light edge).
 
-See :ref:`light-edge` for details on light edges.
+See :ref:`data-light-edge` for details on light edges.
 
 **Syntax:**
 
@@ -436,7 +436,7 @@ Delete Light Edges
 
 Operation that deletes the light edge linking the specified node(s) to the set of nodes specified by a given Storm expression.
 
-See :ref:`light-edge` for details on light edges.
+See :ref:`data-light-edge` for details on light edges.
 
 **Syntax:**
 

@@ -1009,12 +1009,26 @@ A splice is an atomic change made to data within a Cortex, such as node creation
 or setting, modifying, or removing a property. All changes within a Cortex may be retrieved as individual splices within
 the Cortex's splice log.
 
+.. _gloss-spotlight-tool:
+
+Spotlight Tool
+--------------
+
+See :ref:`gloss-tool-spotlight`.
+
 .. _gloss-standard-comp-op:
 
 Standard Comparison Operator
 ----------------------------
 
 See :ref:`gloss-comp-op-standard`.
+
+.. _gloss-stories-tool:
+
+Stories Tool
+------------
+
+See :ref:`gloss-tool-stories`.
 
 .. _gloss-storm:
 
@@ -1108,6 +1122,23 @@ Tool, Research
 --------------
 
 In :ref:`gloss-optic`, the primary tool used to ingest, enrich, explore, visualize, and annotate Synapse data.
+
+.. _gloss-tool-spotlight:
+
+Tool, Spotlight
+---------------
+
+Also known as simply "Spotlight". In :ref:`gloss-optic`, a tool used to load and display PDF or HTML content,
+create an associated ``media:news`` node, and easily extract and link relevant indicators or other nodes.
+
+.. _gloss-tool-stories:
+
+Tool, Stories
+-------------
+
+Also known as simply "Stories". In :ref:`gloss-optic`, a tool used to create, collaborate on, review, and publish
+finished reports. Stories allows you to integrate data directly from the :ref:`gloss-research-tool` into your
+report ("Story").
 
 .. _gloss-tool-workspaces:
 
