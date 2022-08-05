@@ -174,7 +174,7 @@ def genrhelp(f):
 
 def _exectodo(que, evt, todo, logconf):
     # This is a new process: configure logging
-    s_common.setlogging(logger, log_setup=False, **logconf)
+    s_common.setlogging(logger, **logconf)
     func, args, kwargs = todo
     evt.set()
     try:

@@ -2433,9 +2433,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _getSpawnLogConf(self):
         conf = self.conf.get('_log_conf')
-        if conf:
-            return conf
-        return s_common._getLogConfFromEnv()
+        if not conf:
+            conf = s_common._getLogConfFromEnv()
+        conf = conf.copy()
+        conf.update('log_setup', False)
+        return conf
 
     def modCellConf(self, conf):
         '''
