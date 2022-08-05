@@ -1047,8 +1047,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10) ]')
             self.eq('      woot', nodes[0].ndef[1])
 
+            nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10, x) ]')
+            self.eq('xxxxxxwoot', nodes[0].ndef[1])
+
             nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
             self.eq('woot      ', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10, x) ]')
+            self.eq('wootxxxxxx', nodes[0].ndef[1])
 
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)
