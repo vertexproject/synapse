@@ -841,7 +841,6 @@ workflows:
             branches:
               only:
                 - master
-                - dev_libcoro_spawn
 
       - push_docker_branch:
           requires:
