@@ -302,11 +302,12 @@ The pivot and join operator is used to retain the inbound nodes in any of the fo
 Traverse (Walk) Light Edges
 ---------------------------
 
-The traverse (walk) light edges operator ( ``-(<verb>)>`` or ``<(<verb>)-`` ) is used to traverse from a set of inbound nodes to the set of nodes they are linked to by the specified light edge(s). Because a light edge is not a node, the navigation is technically a "traversal" of the light edge as opposed to a property-to-property pivot. (Contrast with :ref:`pivot-to-edge` and :ref:`pivot-across-edge` below.)
+The traverse (walk) light edges operator ( ``-(<verb>)>`` or ``<(<verb>)-`` ) is used to traverse from a set of inbound
+nodes to the set of nodes they are linked to by the specified light edge(s). Because a light edge is not a node, the
+navigation is technically a "traversal" of the light edge as opposed to a property-to-property pivot.
 
-Similar to an edge in a traditional directed graph, light edges have a "direction" (i.e., the  relationship represented by a light edge is "one way"). From a Storm syntax perspective, light edges can be traversed in either direction.
-
-See the Synapse data model background documents on :ref:`form-edge-reps` for a discussion of the use of light  edges vs. edge (digraph) nodes.
+Similar to an edge in a traditional directed graph, light edges have a "direction" (i.e., the relationship represented
+by a light edge is "one way"). From a Storm syntax perspective, light edges can be traversed in either direction.
 
 **Syntax:**
 
@@ -455,9 +456,17 @@ The pivot in and walk (traverse) light edges operator ( ``<-- *`` ) combines a w
 Pivot to Digraph (Edge) Nodes
 -----------------------------
 
-Digraph (edge) nodes (:ref:`form-edge`) are of type ``edge`` or ``timeedge``. These nodes (forms) are unique in that their primary property value is a pair of **node definitions** (type :ref:`gloss-ndef`) - that is, *<form>, <valu>* tuples. (``timeedge`` forms are comprised of two *<form>, <valu>* tuples and an additional *<time>* value). Each  *<form>, <valu>* tuple from the primary property is broken out as secondary property ``:n1`` or ``:n2`` of type *<ndef>*. This means that pivoting to and from digraph nodes is a bit different than pivoting to and from nodes whose properties are a simple *<valu>* or *<pval>*.
+Digraph (edge) nodes (:ref:`form-edge`) are of type ``edge`` or ``timeedge``. These nodes (forms) are unique in that
+their primary property value is a pair of **node definitions** (type :ref:`gloss-ndef`) - that is, *<form>, <valu>*
+tuples. (``timeedge`` forms are comprised of two *<form>, <valu>* tuples and an additional *<time>* value). Each
+*<form>, <valu>* tuple from the primary property is broken out as secondary property ``:n1`` or ``:n2`` of type
+*<ndef>*. This means that pivoting to and from digraph nodes is a bit different than pivoting to and from nodes whose
+properties are a simple *<valu>* or *<pval>*.
 
-See the Synapse data model background documents on :ref:`form-edge-reps` for a discussion of the use of light  edges vs. edge (digraph) nodes.
+.. NOTE::
+  
+  Edge nodes are not formally deprecated, but the use of light edges (see :ref:`data-light-edge`) is now preferred
+  over edge nodes.
 
 **Syntax:**
 
@@ -518,9 +527,14 @@ See the Synapse data model background documents on :ref:`form-edge-reps` for a d
 Pivot Across Digraph (Edge) Nodes
 ---------------------------------
 
-Because digraph nodes represent generic edge relationships, analytically we are often more interested in the nodes on "either side" of the edge than in the digraph node itself. For this reason, the pivot operators have been optimized to allow a syntax for easily navigating "across" these digraphs (edges).
+Because digraph nodes represent generic edge relationships, analytically we are often more interested in the nodes
+on "either side" of the edge than in the digraph node itself. For this reason, the pivot operators have been
+optimized to allow a syntax for easily navigating "across" these digraphs (edges).
 
-See the Synapse data model background documents on :ref:`form-edge-reps` for a discussion of the use of light  edges vs. edge (digraph) nodes.
+.. NOTE::
+  
+  Edge nodes are not formally deprecated, but the use of light edges (see :ref:`data-light-edge`) is now preferred
+  over edge nodes.
 
 **Syntax:**
 

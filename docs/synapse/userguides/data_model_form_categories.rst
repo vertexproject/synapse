@@ -5,11 +5,11 @@
 Data Model - Form Categories
 ============================
 
-Synapse forms can be broadly grouped into conceptual categories based on the object a form is meant to
+Synapse forms can be broadly grouped into conceptual categories based on the **object** a form is meant to
 represent - an :ref:`form-entity`, a :ref:`form-relationship`, or an :ref:`form-event`.
 
-Synapse forms can also be broadly grouped based on how their primary properties (``<form> = <valu>``) are
-formed.
+Synapse forms can also be broadly grouped based on how their **primary properties** (``<form> = <valu>``)
+are formed.
 
 Recall that ``<form> = <valu>`` must be unique for all forms of a given type. In other words, the ``<valu>``
 must be defined so that it uniquely identifies any given node of that form; it represents that form’s "essence"
@@ -65,9 +65,10 @@ node of that form. Comp forms are often (though not universally) used to represe
 
 - **Social networks.** Many online services allow users to establish relationships with other users of that
   service. These relationships may be one-way (you can follow someone on Twitter) or two-way (you can mutually
-  connect with someone on LinkedIn). A given one-way social network relationship can be uniquely defined by the
-  two users (``inet:web:acct``) involved in the relationship: ``inet:web:follows = ( (twitter.com,alice), (twitter.com,bob) )``.
-  (A two-way relationship can be defined by two one-way relationships.)
+  connect with someone on LinkedIn). A given one-way social network relationship ("Alice follows Bob") can be
+  uniquely defined by the two users (``inet:web:acct``) involved in the relationship:
+  ``inet:web:follows = ( (twitter.com,alice), (twitter.com,bob) )``. (A two-way relationship can be defined by
+  two one-way relationships.)
   
   Note that each of the elements in the ``inet:web:follows`` comp form is itself a comp form (``inet:web:acct``).
 
@@ -77,29 +78,16 @@ Guid Form
 ---------
 
 A guid (Globally Unique Identifier) form is uniquely defined by a machine-generated 128-bit number. Guids account
-for cases where it is impossible to uniquely define a thing based on a specific set of properties no matter how 
-many individual elements are factored into a comp form. A guid form can be considered a special case of a 
-:ref:`form-simple` where the typed ``<valu>`` is of type ``<guid>``.
+for cases where it is impossible to uniquely define a thing based on a property or set of properties. Guids are
+also useful for cases where the amount of data available to create a particular object (node) may vary greatly
+(i.e., not all properties / details are available from all data sources).
+
+A guid form can be considered a special case of a :ref:`form-simple` where the typed ``<valu>`` is of type ``<guid>``.
 
 .. NOTE::
   Guid forms can be arbitrary (generated ad-hoc by Synapse) or predictable / deconflictable (generated based on
   a specific set of inputs). See the :ref:`type-guid` section of :ref:`storm-ref-type-specific` for a more
   detailed discussion of this concept.
-
-While certain types of data **could** be represented by a comp form based on a sufficient number of properties
-of the data, there are advantages to using a guid instead:
-
-- In a comp form, the elements used to create the primary property are **required** in order to create a node.
-  Unfortunately, real world data is often incomplete. Using a guid allows all of those elements to be defined
-  as optional secondary properties, so the node can be created with as much (or as little) data as is available.
-- Some data sources provide records can be assumed to be unique in advance (that is, there is no practical reason
-  to attempt to deconflict / deduplicate these records in Synapse). This often applies to event-type forms for
-  large quantities of events. In this case it sufficient to distinguish the nodes from each other using a guid
-  as opposed to being uniqued over a subset of properties.
-- There is a potential performance benefit to representing forms using arbitrary guids in partitcular because
-  they are guaranteed to be unique for a given Cortex. In particular, when ingesting data presumed to be unique,
-  creating guid-based forms vs comp forms eliminates the need to parse and deconflict nodes before they are
-  created. This benefit can be significant over large data sets.
 
 **Examples**
 
@@ -107,21 +95,17 @@ of the data, there are advantages to using a guid instead:
   property or set of properties that uniquely and unambiguously define a person. A person’s full name, date of
   birth, or place of birth (or the combination of all three) are not guaranteed to be fully unique across an
   entire population. Identification numbers (such as Social Security or National ID numbers) are country-specific,
-  and not all countries require each citizen to have an ID number. Even a person’s genome is not guaranteed to
-  be unique (such as in the case of identical twins).
-
-  Secondary properties include the person’s name (including given, middle, or family names) and date of birth.
+  and not all countries require each citizen to have an ID number.
 
 - **Host execution / sandbox data.** The ability to model detailed behavior of a process executing on a host
   (or in a sandbox) is important for disciplines such as incident response and malware analysis. Modeling this
   data is challenging because of the number of effects that execution may have on a system (files read, written,
   or deleted; network activity initiated). Even if we focus on a specific effect ("a process wrote a new file
   to disk"), there are still a number of details that may define a "unique instance" of "process writes file":
-  the specific host (``it:host``) where the process ran, the program (``file:bytes``) that wrote the file to
-  disk, the process (``file:bytes``) that launched the program, the time the execution occurred, the file that
-  was written (``file:bytes``), the file’s path (``file:path``), and so on. While all of these elements could
-  be used to create a comp form, in the "real world" not all of this data may be available in all cases, making
-  a guid a better option for forms such as ``it:exec:file.write``.
+  the specific host where the process ran, the program that wrote the file to disk, the process that launched
+  the program, the time the execution occurred, the file that was written, the file’s path, and so on. While all
+  of these elements could be used to create a comp form, in the "real world" not all of this data may be
+  available in all cases, making a guid a better option for forms such as ``it:exec:file.write``.
 
 .. _form-generic:
 
@@ -130,14 +114,13 @@ Generic Form
 
 The Synapse data model includes a number of "generic" forms that can be used to represent metadata and / or arbitrary data. 
 
-In an ideal world, all data represented in Synapse would be accurately modeled using an appropriate form to
-properly capture the data’s unique (primary property) and contextual (secondary property) characteristics. However,
+In an ideal world, all data represented in Synapse would be accurately modeled using an appropriate form. However,
 designing a new form for the data model may require extended discussion, subject matter expertise, and testing
 against "real world" data - not to mention time to implement model changes. In addition, sometimes data needs
 to be added to a Cortex for reference or analysis purposes where the data simply does not have sufficient detail
 to be represented accurately, even if an appropriate form existed.
 
-The use of generic forms is not ideal - the representation of "generic" data can be lossy, which may impact effective
+The use of generic forms is not ideal - the representation of "generic" data may be lossy, which may impact effective
 analysis. But generic forms may be necessary for adding arbitrary to Synapse, either because an appropriate model
 element does not yet exist but the data is needed now; or because there is no other effective way to represent the data.
 
@@ -145,14 +128,14 @@ These generic forms exist in two primary parts of the data model: ``meta:*`` for
 include:
 
 - ``meta:seen`` nodes, used to represent a data source used to ingest data into Synapse. Data sources may include sensors
-  or third-party connectors such as Synapse Power-Ups. A ``meta:source`` can be linked to the data it provides via a
+  or third-party connectors such as Synapse Power-Ups. A ``meta:source`` is linked to the data it provides via a
   ``-(seen)>`` light edge.
 
 - ``meta:rule`` nodes, used to represent a generic detection rule for cases where a more specific form (such as ``it:av:sig``
   or ``it:app:yara:rule``) is not available.
 
 Some generic forms are "edge forms" (see :ref:`form-edge`, below) used to represent relationships between arbitrary
-forms. Edge forms predate the addition of light edges to the data model and the use of light edges is now preferred.
+forms.
 
 .. _form-edge:
 

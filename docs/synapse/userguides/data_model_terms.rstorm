@@ -9,8 +9,8 @@ Data Model - Terminology
 
 .. NOTE::
   
-  This section describes the Synapse data model from a user perspective. See the :ref:`dm-index` technical documentation
-  for information that may be more useful for developers.
+  This section describes the Synapse data model from a conceptual user perspective. See the :ref:`dm-index`
+  technical documentation for information that may be more useful for developers.
 
 **Synapse is a distributed key-value hypergraph analysis framework.** That is, Synapse is a particular implementation of
 a :ref:`gloss-hypergraph` model; an instance of a Synapse hypergraph is called a Cortex. In our brief discussion of graphs
@@ -28,8 +28,8 @@ and hypergraphs, we pointed out some fundamental concepts related to Synapse's i
   you generally don't explore Synapse's data by traversing edges. Instead, you **pivot** from the properties of one set
   of nodes to the properties of another set of nodes (though you also traverse the occasional light edge).
 
-To start building on those concepts, you need to understand the basic elements of the Synapse data model. The fundamental
-terms and concepts you should be familiar with are:
+To build on those concepts, you need to understand the basic elements of the Synapse data model. The fundamental terms
+and objects you should be familiar with are:
 
 - Type_
 - Form_
@@ -41,8 +41,8 @@ terms and concepts you should be familiar with are:
 .. TIP::
   
   Synapse uses a query language called **Storm** (see :ref:`storm-ref-intro`) to interact with data and tags. Storm
-  allows a user to lift, filter, pivot, and traverse data based on node properties, values, tags, and light edges.
-  Understanding these model elements will improve your ability to use Storm and interact with Synapse data.
+  allows a user to lift, filter, pivot, traverse, and modify data based on node properties, values, tags, and light
+  edges. Understanding these model elements will improve your ability to use Storm and interact with Synapse data.
 
 .. _data-type:
 
@@ -53,15 +53,14 @@ A **type** is the definition of a data element within the Synapse data model. A 
 and enforces how it should look, including how it should be normalized, if necessary, for both storage (including
 indexing) and representation (display).
 
-The Synapse data model includes standard types such as integers and strings, as well as types defined within Synapse.
-These include globally unique identifiers (``guid``), date/time values (``time``), time intervals (``ival``), and
+The Synapse data model includes standard types such as integers and strings, as well as types defined within Synapse
+such as globally unique identifiers (``guid``), date/time values (``time``), time intervals (``ival``), and
 tags (``syn:tag``).
 
 Knowledge domain-specific objects may also be specialized types. For example, an IPv4 address (``inet:ipv4``) is its
-own type. An IPv4 address is ultimately stored as an integer, but the type has additional constraints (i.e., to ensure
-that IPv4s created in Synapse only use integer values that fall within the allowable IPv4 address space). These
-constraints may be defined by a **constructor** (``ctor``) that specifies how a property of that type can be created
-(constructed).
+own type. An IPv4 address is stored as an integer, but the type has additional constraints (i.e., to ensure that
+IPv4s created in Synapse only use integer values that fall within the allowable IPv4 address space). These constraints
+may be defined by a **constructor** (``ctor``) that specifies how a property of that type can be created (constructed).
 
 For the most part, users do not interact with types directly. Types are primarily used "behind the scenes" to define
 and support the Synapse data model. From a user perspective:
@@ -70,9 +69,9 @@ and support the Synapse data model. From a user perspective:
   in Synapse. Forms have **properties** (primary and secondary) and every property is defined as a particular type.
 
 - **Type enforcement** helps prevent "bad data" from getting into Synapse. Synapse has "rules" for how properties
-  of a given type can be created. This helps prevent simple errors like entering an email address value where you
-  need an FQDN, but also ensures (to the extent possible) that values "make sense" for their type (e.g., that a URL
-  looks reasonably like a URL).
+  of a given type can be created. This prevents simple errors like entering an email address value where you need an
+  FQDN, but also ensures (to the extent possible) that values "make sense" for their type (e.g., that a URL looks
+  reasonably like a URL).
 
 - **Type awareness** makes it easier to navigate data within Synapse. Synapse and Storm are "model aware" and know
   which types are used for each property in the model. This simplifies exploring or pivoting across data because 
@@ -111,14 +110,14 @@ Form
 
 A **form** is the definition of an object in the Synapse data model. A form acts as a "template" that tells you how
 to create a particular object (:ref:`data-node`). While the concepts of form and node are closely related, it is useful
-to maintain the distinction between the **template** for creating an object (form) and an instance of a **particular**
-object (node). ``inet:fqdn`` is a form; ``inet:fqdn = woot.com`` is a node.
+to maintain the distinction between the **template** for creating an object (a form) and an instance of a **particular**
+object (a node). ``inet:fqdn`` is a form; ``inet:fqdn = woot.com`` is a node.
 
 A form consists of the following:
 
 - A **primary property.** The primary property must be unique across all possible instances of that form. In addition,
   the primary property must have a specific **type.** In many cases, a form will be its own type - for example, the
-  form ``inet:fqdn`` is of type ``inet:fqdn``. While all forms are types (that is, must be defined as a type), not
+  ``inet:fqdn`` form has a type of ``inet:fqdn``. While all forms are types (that is, must be defined as a type), not
   all types have associated forms.
 - Optional **secondary properties.** Secondary properties must also have a type. Properties may have additional
   constraints, such as:
@@ -132,8 +131,8 @@ universal secondary properties (**universal properties**) that are valid for all
 
 Property_ discusses these concepts in greater detail.
 
-Forms comprise the essential "structure" of the data that analysts work with. Understanding the forms available
-in Synapse to represent various objects or concepts is key for working with Synapse data.
+Forms comprise the essential "structure" of the data that analysts work with. Understanding the forms Synapse uses
+to represent various objects or concepts is key to working with Synapse data.
 
 .. _form-namespace:
 
@@ -154,11 +153,11 @@ related categories makes a large model easier to manage, and also allows Synapse
 of the model most relevant to them.
 
 The second and / or subsequent elements in the form name define the specific "subcategory" or "thing" within the
-form's primary category (e.g., ``inet:fqdn`` to represent a fully qualified domain name (FQDN) within the "Internet"
-(``inet``) category, or ``inet:dns:query`` to represent a query using the DNS protocol within the "Internet" category).
+form's primary category (e.g., ``inet:fqdn`` represents a fully qualified domain name (FQDN) within the "Internet"
+(``inet``) category, and ``inet:dns:query`` represents a query using the DNS protocol within the "Internet" category).
 
-**Properties** have a namespace that extends the form namespace (note that form names are also primary properties).
-See :ref:`data-props` and :ref:`prop-namespace` below for additional detail.
+**Properties** have a namespace that extends the form namespace (form names are also primary properties). See
+:ref:`data-props` and :ref:`prop-namespace` below for additional detail.
 
 Viewing or Working with Forms
 +++++++++++++++++++++++++++++
@@ -189,11 +188,11 @@ A **node** is a unique object within Synapse. Nodes represent standard objects (
 people, conferences, or airplanes. They can also represent more abstract objects such as industries, risks, attacks,
 or goals. However, in Synapse nodes can also represent relationships ("verbs") because many things that would be edges
 in a directed graph are nodes in a Synapse hypergraph. You can think of a node generically as a "thing" - most "things"
-you want to model within Synapse (entities, relationships, events) are nodes.
+you want to model within Synapse are nodes.
 
 Every node consists of the following:
 
-- A **primary property**, represented by the :ref:`data-form` of the node plus its specific value (``<form> = <valu>``).
+- A **primary property**, represented by the :ref:`data-form` of the node plus its value (``<form> = <valu>``).
   All primary properties must be unique for a given form. For example, the primary property of the node for the FQDN
   ``woot.com`` is ``inet:fqdn = woot.com``. The uniqueness of the ``<form> = <valu>`` pair ensures there can be only
   one node in Synapse that represents the domain ``woot.com``. Because this unique pair "defines" the node, the
@@ -231,7 +230,7 @@ In the output above:
   For readability, secondary properties are displayed as **relative properties** within the namespace of the form’s
   primary property (e.g., ``:iszone`` as opposed to ``inet:fqdn:iszone``).
 - ``#rep.moz.500`` is a **tag** indicating that ``www.google.com`` has been reported by web analytics company Moz_ 
-  in their top 500 most popular websites.
+  as one of their top 500 most popular websites.
 
 .. _data-props:
 
@@ -249,7 +248,7 @@ Every :ref:`data-node` consists of (at minimum) a primary property (its form) pl
 primary property (``<form> = <valu>``). When defining a form to represent a particular "thing", the primary property
 must be defined so that its value is unique across all possible instances of that "thing".
 
-The concept of a unique primary property is straightforward for forms that represent simple objects; for example,
+The concept of a unique primary property is straightforward for forms that represent simple objects. For example,
 the "thing" that makes an IP address unique is the IP address itself: ``inet:ipv4 = 1.2.3.4``. Defining a primary 
 property for more complex nodes (such as those representing a :ref:`form-relationship` or an :ref:`form-event`) can
 be more challenging; these forms are often :ref:`gloss-guid` forms.
@@ -265,14 +264,14 @@ secondary property must be defined as an explicit :ref:`data-type`. A :ref:`data
 with their associated values (``<prop> = <pval>``).
 
 Secondary properties may further describe a given form and its associated nodes. For example, the Autonomous System (AS)
-that an IP address belongs to does not "define" the IP (and in fact an IP's associated AS can change), but it provides
-further detail about the IP address.
+that an IP address belongs to (``inet:ipv4:asn``) does not "define" the IP (and in fact an IP's associated AS can 
+change), but it provides further detail about the IP address.
 
 Many secondary properties are derived from a node's primary property (**derived properties**) and are automatically set
 when the node is created. For example, creating the node ``file:path='c:\windows\system32\cmd.exe'`` will automatically
 set the properties ``:base = cmd.exe``, ``:base:ext = exe``, and ``:dir = c:/windows/system32``. Because a node's
-primary property cannot be changed once set, any secondary properties derived from the primary property cannot be
-changed (i.e., are read-only) as well. Non-derived secondary properties can be set, modified, or deleted.
+primary property cannot be changed once set, any secondary properties derived from the primary property **also** 
+cannot be changed (i.e., are read-only). Non-derived secondary properties can be set, modified, or deleted.
 
 Universal Property
 ++++++++++++++++++
@@ -317,9 +316,9 @@ specifically.
 Viewing or Working with Properties
 ++++++++++++++++++++++++++++++++++
 
-Properties are used to describe forms and are defined within the Synapse source code with their respective :ref:`dm-forms`.
+Properties are used to describe forms and are defined within the Synapse `source code`_ with their respective :ref:`dm-forms`.
 Universal properties are not defined "per-form" but have their own section (:ref:`dm-universal-props`) in the online
-documentation.
+technical documentation.
 
 Properties can also be viewed within Synapse. A full list of current properties can be displayed with the following
 Storm command:
@@ -366,13 +365,16 @@ Tags are unique within the Synapse model because tags are both **nodes** and **l
 ``#cno.infra.dns.sink.holed`` can be applied to another node; but the tag itself also exists as the node 
 ``syn:tag = cno.infra.dns.sink.holed``. This difference is illustrated in the example below.
 
-Synapse does not have any pre-defined tags. Users are free to create tags that are meaningful for their analysis.
-See :ref:`analytical-model-tags` for more detail.
+.. TIP::
+  
+  Synapse does not have any pre-defined tags. Users are free to create tags that are meaningful for their analysis.
+  See :ref:`analytical-model-tags` for more detail.
+
 
 Viewing or Working with Tags
 ++++++++++++++++++++++++++++
 
-As tags are nodes (data) within the Synapse, they can be viewed and operated upon just like any other data. Users
+As tags are nodes (data) within the Synapse, they can be viewed and operated upon just like other nodes. Users
 typically interact with data using the Storm query language (:ref:`storm-ref-intro`).
 
 Tag Example
@@ -413,7 +415,7 @@ Light edges are used for performance and flexibility in certain use cases, such 
 - The **only** information you need to record about a relationship is that it exists (that is, no properties are
   required to further "describe" the relationship). An example is ``meta:ruleset -(contains)> meta:rule``.
 - The objects (nodes) involved in the relationship may vary. That is, either the ``n1`` or ``n2`` node (or both)
-  may be any type of node, depending on the context of the relationship. Examples include ``meta:source -(seen)> *``
+  may be **any** kind of node, depending on the context of the relationship. Examples include ``meta:source -(seen)> *``
   (where a data source may "see", observe, or provide data on any ``n2`` object) and ``* -(refs)> *`` (where a
   variety of ``n1`` nodes may "reference" or contain a reference to any ``n2`` node).
 
@@ -432,8 +434,8 @@ Viewing or Working with Light Edges
 +++++++++++++++++++++++++++++++++++
 
 Light edges are not "objects" in Synapse in the same way as forms, types, or properties. (In fact, light edges
-do not exist until you create them.) The Storm :ref:`storm-model` commands (specifically ``model.edge.*`` commands)
-include options for working with light edges that exist in a given Cortex.
+do not exist until you create them.) The Storm :ref:`storm-model` commands (specifically the ``model.edge.*``
+commands) include options for working with light edges that exist in a given Cortex.
 
 Internal to The Vertex Project, we have defined a number of light edges for our own use. Light edges may also be
 created by Vertex-provided components such as Power-Ups (see :ref:`gloss-power-up`). Any light edges used by 
