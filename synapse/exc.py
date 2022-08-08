@@ -32,6 +32,9 @@ class SynErr(Exception):
         return self.errinfo.get(name, defv)
 
     def set(self, name, valu):
+        '''
+        Set a value in the errinfo dict.
+        '''
         self.errinfo[name] = valu
 
 class StormRaise(SynErr):
