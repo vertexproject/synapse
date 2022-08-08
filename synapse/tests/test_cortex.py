@@ -2186,8 +2186,8 @@ class CortexTest(s_t_utils.SynTest):
             tick1 = core.model.type('time').norm('2015')[0]
             tick2 = core.model.type('time').norm('2016')[0]
 
-            await self.agenlen(1, wcore.eval('[ test:str=hehe +#foo=(2014,2016) ]'))
-            await self.agenlen(1, wcore.eval('[ test:str=haha +#bar=2015 ]'))
+            self.len(1, await wcore.nodes('[ test:str=hehe +#foo=(2014,2016) ]'))
+            self.len(1, await wcore.nodes('[ test:str=haha +#bar=2015 ]'))
 
             async with await core.snap() as snap:
 
@@ -2197,12 +2197,27 @@ class CortexTest(s_t_utils.SynTest):
                 node = await snap.getNodeByNdef(('test:str', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick1 + 1))
 
-            await self.agenlen(1, wcore.eval('[ test:str=haha +#bar=2016 ]'))
+                # Sad path with snap.strict=False
+                snap.strict = False
+                waiter = snap.waiter(1, 'warn')
+                ret = await node.addTag('newp.newpnewp', ('2001', '1999'))
+                self.none(ret)
+                msgs = await waiter.wait(timeout=6)
+                self.len(1, msgs)
+                mesg = msgs[0]
+                self.eq(mesg[1].get('mesg'), "Invalid Tag Value: newp.newpnewp=('2001', '1999').")
+
+            self.len(1, await wcore.nodes('[ test:str=haha +#bar=2016 ]'))
 
             async with await core.snap() as snap:
 
                 node = await snap.getNodeByNdef(('test:str', 'haha'))
                 self.eq(node.getTag('bar'), (tick1, tick2 + 1))
+
+            # Sad path
+            with self.raises(s_exc.BadTypeValu) as cm:
+                await core.nodes('test:str=hehe [+#newp.tag=(2022,2001)]')
+            self.eq(cm.exception.get('tag'), 'newp.tag')
 
     async def test_cortex_storm_filt_ival(self):
 

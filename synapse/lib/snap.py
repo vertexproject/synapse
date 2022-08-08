@@ -147,7 +147,8 @@ class ProtoNode:
         try:
             s_common.reqjsonsafe(valu)
         except s_exc.MustBeJsonSafe as e:
-            if self.ctx.snap.strict: raise e
+            if self.ctx.snap.strict:
+                raise e
             return await self.ctx.snap.warn(str(e))
 
         self.nodedata[name] = valu
@@ -282,7 +283,8 @@ class ProtoNode:
                 e.errinfo['prop'] = prop.name
                 e.errinfo['form'] = prop.form.name
                 e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
-                if self.ctx.snap.strict: raise e
+                if self.ctx.snap.strict:
+                    raise e
                 await self.ctx.snap.warn(e)
                 return False
 
