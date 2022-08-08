@@ -190,8 +190,10 @@ class ProtoNode:
             try:
                 valu, _ = self.ctx.snap.core.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
-                if self.ctx.snap.strict: raise e
-                return await self.ctx.snap.warn(f'Invalid Tag Value: {valu}.')
+                if self.ctx.snap.strict:
+                    e.set('tag', tagnode.valu)
+                    raise e
+                return await self.ctx.snap.warn(f'Invalid Tag Value: {tagnode.valu}={valu}.')
 
         tagup = tagnode.get('up')
         if tagup:

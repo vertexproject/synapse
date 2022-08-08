@@ -31,6 +31,9 @@ class SynErr(Exception):
         '''
         return self.errinfo.get(name, defv)
 
+    def set(self, name, valu):
+        self.errinfo.setdefault(name, valu)
+
 class StormRaise(SynErr):
     def __init__(self, name, mesg, info):
         info['mesg'] = mesg
