@@ -4,6 +4,122 @@
 Synapse Changelog
 *****************
 
+v2.103.0 - 2022-08-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``it``, ``ou``, and ``risk`` models.
+  (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
+
+  ``it:prod:soft``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the author of the software.
+
+  ``ou:campaign``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the campaign.
+
+  ``ou:org``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the org.
+
+  ``ou:technique``
+    Add a form to record specific techniques used to achieve a goal.
+
+  ``ou:technique:taxonomy``
+    Add a form to record an analyst defined taxonomy of different techniques.
+
+  ``risk:attack``
+    Add a ``techniques`` secondary property to record techniques employed
+    during the attack.
+    Deprecate the following secondary properties, in favor of using light
+    edges.
+
+      - ``target``
+      - ``target:host``
+      - ``target:org``
+      - ``target:person``
+      - ``target:place``
+      - ``used:email``
+      - ``used:file``
+      - ``used:host``
+      - ``used:server``
+      - ``used:software``
+      - ``used:url``
+      - ``used:vuln``
+      - ``via:email``
+      - ``via:ipv4``
+      - ``via:ipv6``
+      - ``via:phone``
+
+  ``risk:compromise``
+    Add a ``techniques`` secondary property to record techniques employed
+    during the compromise.
+
+  ``risk:threat``
+    Add a form to record a threat cluster or subgraph of threat activity
+    attributable to one group.
+
+- Annotate the following light edges.
+  (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
+
+  ``targets``
+    When used with ``ou:org``, ``ou:campaign``, ``risk:threat``, or
+    ``risk:attack`` nodes, the edge indicates the target node was targeted
+    by the source node.
+
+  ``uses``
+    When used with an ``ou:campaign`` or ``risk:attack`` node, the edge
+    indicates the target node is used by the source node.
+
+- Change the behavior of the Storm ``count`` command to consume nodes.
+  If the previous behavior is desired, use the ``--yield`` option when
+  invoking the ``count`` command.
+  (`#2779 <https://github.com/vertexproject/synapse/pull/2779>`_)
+- Add ``$lib.random.int()`` API to Storm for generating random integers.
+  (`#2783 <https://github.com/vertexproject/synapse/pull/2783>`_)
+- Add a new tool, ``synapse.tools.livebackup`` for taking a live backup of
+  a service.
+  (`#2788 <https://github.com/vertexproject/synapse/pull/2788>`_)
+- The Storm ``$lib.jsonstor.cacheset()`` API now returns a dict containing the
+  path and time. The ``$lib.jsonstor.cacheget()`` API now has an argument to
+  retrieve the entire set of enveloped data.
+  (`#2790 <https://github.com/vertexproject/synapse/pull/2790>`_)
+- Add a HTTP 404 handler for the Axon ``v1/by/sha256/<sha256>`` endpoint which
+  catches invalid ``<sha256>`` values.
+  (`#2780 <https://github.com/vertexproject/synapse/pull/2780>`_)
+- Add helper scripts for doing bulk Synapse Docker image builds and testing.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+- Add ``aha:\\`` support to ``synapse.tools.csvtool``.
+  (`#2791 <https://github.com/vertexproject/synapse/pull/2791>`_)
+
+Bugfixes
+--------
+- Ensure that errors that occur when backing up a service are logged prior
+  to tearing down the subprocess performing the backup.
+  (`#2781 <https://github.com/vertexproject/synapse/pull/2781>`_)
+- Add missing docstring for ``$lib.stix.import``.
+  (`#2786 <https://github.com/vertexproject/synapse/pull/2786>`_)
+- Allow setting tags on a Node from a Storm ``List`` object.
+  (`#2782 <https://github.com/vertexproject/synapse/pull/2782>`_)
+
+Improved Documentation
+----------------------
+- Remove ``synapse-google-ct`` from the list of Rapid Power-Ups.
+  (`#2779 <https://github.com/vertexproject/synapse/pull/2779>`_)
+- Add developer documentation for building Synapse Docker containers.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+- Fix spelling errors in model documentation.
+  (`#2782 <https://github.com/vertexproject/synapse/pull/2782>`_)
+
+Deprecations
+------------
+- The ``vertexproject/synapse:master-py37`` and
+  ``vertexproject/synapse:v2.x.x-py37`` Docker containers are no longer being
+  built.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+
 v2.102.0 - 2022-07-25
 =====================
 
