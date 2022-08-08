@@ -191,7 +191,7 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
-        log_conf (dict): A optional set of logging configuration for the spawned process.
+        log_conf (dict): An optional logging configuration for the spawned process.
 
     Notes:
         The contents of the todo tuple must be able to be pickled for execution.
