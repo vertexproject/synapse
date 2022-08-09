@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.103.1 - 2022-08-08
+NEXTVERS - YYYT-MM-DD
 =====================
 
 Bugfixes
