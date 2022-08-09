@@ -299,3 +299,9 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.none(nodes[0].get('serial'))
             self.eq(nodes[0].nodedata['migration:0_2_10']['serial'], 'asdf')
+
+            nodes = await core.nodes('ps:contact -> ou:jobtitle')
+            self.len(2, nodes)
+            self.eq(('cool guy', 'vice president'), [n.ndef[1] for n in nodes])
+
+            self.len(1, await core.nodes('ou:jobtitle="vice president" -> ps:contact'))
