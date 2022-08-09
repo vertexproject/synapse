@@ -454,6 +454,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 prod0 = s_common.guid()
                 org0 = s_common.guid()
                 person0 = s_common.guid()
+                teqs = (s_common.guid(), s_common.guid())
                 file0 = 'a' * 64
                 acct0 = ('vertex.link', 'pennywise')
                 url0 = 'https://vertex.link/products/balloonmaker'
@@ -466,6 +467,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     'author:email': 'pennywise@vertex.link',
                     'author:acct': acct0,
                     'author:person': person0,
+                    'techniques': teqs,
                     'url': url0,
                 }
                 node = await snap.addNode('it:prod:soft', prod0, sprops)
@@ -477,6 +479,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.eq(node.get('author:acct'), acct0)
                 self.eq(node.get('author:email'), 'pennywise@vertex.link')
                 self.eq(node.get('author:person'), person0)
+                self.eq(node.get('techniques'), tuple(sorted(teqs)))
                 self.false(node.get('isos'))
                 self.false(node.get('islib'))
                 await node.set('isos', True)

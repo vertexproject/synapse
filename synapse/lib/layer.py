@@ -817,7 +817,7 @@ class StorTypeHugeNum(StorType):
         self.fullbyts = b'\xff' * 20
 
     def getHugeIndx(self, norm):
-        scaled = s_common.hugenum(norm).scaleb(24)
+        scaled = s_common.hugescaleb(s_common.hugenum(norm), 24)
         byts = int(s_common.hugeadd(scaled, self.offset)).to_bytes(20, byteorder='big')
         return byts
 
@@ -826,7 +826,7 @@ class StorTypeHugeNum(StorType):
 
     def decodeIndx(self, bytz):
         huge = s_common.hugenum(int.from_bytes(bytz, 'big'))
-        valu = s_common.hugesub(huge, self.offset).scaleb(-24)
+        valu = s_common.hugescaleb(s_common.hugesub(huge, self.offset), -24)
         return '{:f}'.format(valu.normalize(s_common.hugectx))
 
     async def _liftHugeEq(self, liftby, valu):
@@ -2205,6 +2205,151 @@ class Layer(s_nexus.Pusher):
 
         logger.warning('...complete!')
 
+    async def _v8toV9Prop(self, prop):
+
+        propname = prop.name
+        form = prop.form
+        if form:
+            form = form.name
+
+        try:
+            if prop.isform:
+                abrv = self.getPropAbrv(form, None)
+            else:
+                abrv = self.getPropAbrv(form, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        isarray = False
+        if prop.type.stortype & STOR_FLAG_ARRAY:
+            isarray = True
+            araystor = self.stortypes[STOR_TYPE_MSGP]
+
+            for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
+                self.layrslab.delete(lkey, buid, db=self.byarray)
+
+        abrvlen = len(abrv)
+        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
+        sode = collections.defaultdict(dict)
+
+        for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byprop):
+
+            byts = self.layrslab.get(buid, db=self.bybuidv3)
+            if byts is None:
+                self.layrslab.delete(lkey, buid, db=self.byprop)
+                continue
+
+            sode.clear()
+            sode.update(s_msgpack.un(byts))
+            if prop.isform:
+                valu = sode['valu']
+            else:
+                valu = sode['props'].get(propname)
+
+            if valu is None:
+                self.layrslab.delete(lkey, buid, db=self.byprop)
+                continue
+
+            valu = valu[0]
+            if isarray:
+                for aval in valu:
+                    try:
+                        indx = hugestor.indx(aval)[0]
+                    except Exception:
+                        logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid)}')
+                        continue
+
+                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+            else:
+                try:
+                    indx = hugestor.indx(valu)[0]
+                except Exception:
+                    logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid)}')
+                    continue
+
+                if indx == lkey[abrvlen:]:
+                    continue
+                self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                self.layrslab.delete(lkey, buid, db=self.byprop)
+
+    async def _v8toV9TagProp(self, form, tag, prop):
+
+        try:
+            ftpabrv = self.getTagPropAbrv(form, tag, prop)
+            tpabrv = self.getTagPropAbrv(None, tag, prop)
+        except s_exc.NoSuchAbrv:
+            return
+
+        abrvlen = len(ftpabrv)
+
+        hugestor = self.stortypes[STOR_TYPE_HUGENUM]
+        sode = collections.defaultdict(dict)
+
+        for lkey, buid in self.layrslab.scanByPref(ftpabrv, db=self.bytagprop):
+
+            byts = self.layrslab.get(buid, db=self.bybuidv3)
+            if byts is None:
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                continue
+
+            sode.clear()
+            sode.update(s_msgpack.un(byts))
+
+            props = sode['tagprops'].get(tag)
+            if not props:
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                continue
+
+            pval = props.get(prop)
+            if pval is None:
+                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                continue
+
+            valu, _ = pval
+            try:
+                indx = hugestor.indx(valu)[0]
+            except Exception:
+                logger.warning(f'Invalid value {valu} for tagprop {tag}:{prop} for buid {s_common.ehex(buid)}')
+                continue
+
+            if indx == lkey[abrvlen:]:
+                continue
+
+            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
+            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
+
+            oldindx = lkey[abrvlen:]
+            self.layrslab.delete(lkey, buid, db=self.bytagprop)
+            self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
+
+    async def _layrV8toV9(self):
+
+        logger.warning(f'Checking hugenum index values: {self.dirn}')
+
+        for name, prop in self.core.model.props.items():
+            stortype = prop.type.stortype
+            if stortype & STOR_FLAG_ARRAY:
+                stortype = stortype & 0x7fff
+
+            if stortype == STOR_TYPE_HUGENUM:
+                await self._v8toV9Prop(prop)
+
+        tagprops = set()
+        for name, prop in self.core.model.tagprops.items():
+            if prop.type.stortype == STOR_TYPE_HUGENUM:
+                tagprops.add(prop.name)
+
+        for form, tag, prop in self.getTagProps():
+            if form is None or prop not in tagprops:
+                continue
+
+            await self._v8toV9TagProp(form, tag, prop)
+
+        self.meta.set('version', 9)
+        self.layrvers = 9
+
+        logger.warning('...complete!')
+
     async def _initLayerStorage(self):
 
         slabopts = {
@@ -2233,7 +2378,7 @@ class Layer(s_nexus.Pusher):
         metadb = self.layrslab.initdb('layer:meta')
         self.meta = s_lmdbslab.SlabDict(self.layrslab, db=metadb)
         if self.fresh:
-            self.meta.set('version', 8)
+            self.meta.set('version', 9)
 
         self.formcounts = await self.layrslab.getHotCount('count:forms')
 
@@ -2285,8 +2430,11 @@ class Layer(s_nexus.Pusher):
         if self.layrvers < 8:
             await self._layrV7toV8()
 
-        if self.layrvers != 8:
-            mesg = f'Got layer version {self.layrvers}.  Expected 8.  Accidental downgrade?'
+        if self.layrvers < 9:
+            await self._layrV8toV9()
+
+        if self.layrvers != 9:
+            mesg = f'Got layer version {self.layrvers}.  Expected 9.  Accidental downgrade?'
             raise s_exc.BadStorageVersion(mesg=mesg)
 
     async def getLayerSize(self):
