@@ -4,6 +4,15 @@
 Synapse Changelog
 *****************
 
+v2.103.1 - 2022-08-08
+=====================
+
+Bugfixes
+--------
+- Correct a CI issue that prevented the v2.103.0 Docker images from
+  being published.
+  (`#2798 <https://github.com/vertexproject/synapse/pull/2798>`_)
+
 v2.103.0 - 2022-08-05
 =====================
 
