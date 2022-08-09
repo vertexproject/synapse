@@ -2,6 +2,7 @@ import csv
 import sys
 import json
 import asyncio
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.cortex as s_cortex
@@ -16,72 +17,52 @@ import synapse.lib.version as s_version
 
 reqver = '>=0.2.0,<3.0.0'
 
-async def main(argv, outp=s_output.stdout):
-    pars = makeargparser()
+async def runCsvExport(opts, outp, text, stormopts):
+    if not opts.cortex:
+        outp.printf('--export requires --cortex')
+        return -1
 
-    try:
-        opts = pars.parse_args(argv)
-    except s_exc.ParserExit as e:
-        return e.get('status')
+    if len(opts.csvfiles) != 1:
+        outp.printf('--export requires exactly 1 csvfile')
+        return -1
 
-    with open(opts.stormfile, 'r', encoding='utf8') as fd:
-        text = fd.read()
+    path = s_common.genpath(opts.csvfiles[0])
+    outp.printf(f'Exporting CSV rows to: {path}')
 
-    stormopts = {}
-    if opts.optsfile:
-        stormopts = s_common.yamlload(opts.optsfile)
+    async with await s_telepath.openurl(opts.cortex) as core:
 
-    if opts.view:
-        if not s_common.isguid(opts.view):
-            outp.printf(f'View is not a guid {opts.view}')
-            return -1
-        stormopts['view'] = opts.view
+        try:
+            s_version.reqVersion(core._getSynVers(), reqver)
+        except s_exc.BadVersion as e:
+            valu = s_version.fmtVersion(*e.get('valu'))
+            outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
+            outp.printf(f'Please use a version of Synapse which supports {valu}; '
+                        f'current version is {s_version.verstring}.')
+            return 1
 
-    if opts.export:
+        with open(path, 'w') as fd:
 
-        if not opts.cortex:
-            outp.printf('--export requires --cortex')
-            return -1
+            wcsv = csv.writer(fd)
+            # prevent streaming nodes by limiting shown events
+            stormopts['show'] = ('csv:row', 'print', 'warn', 'err')
+            count = 0
+            async for name, info in core.storm(text, opts=stormopts):
 
-        if len(opts.csvfiles) != 1:
-            outp.printf('--export requires exactly 1 csvfile')
-            return -1
+                if name == 'csv:row':
+                    count += 1
+                    wcsv.writerow(info['row'])
+                    continue
 
-        path = s_common.genpath(opts.csvfiles[0])
-        outp.printf(f'Exporting CSV rows to: {path}')
+                if name in ('init', 'fini'):
+                    continue
 
-        async with await s_telepath.openurl(opts.cortex) as core:
+                outp.printf('%s: %r' % (name, info))
 
-            try:
-                s_version.reqVersion(core._getSynVers(), reqver)
-            except s_exc.BadVersion as e:
-                valu = s_version.fmtVersion(*e.get('valu'))
-                outp.printf(f'Cortex version {valu} is outside of the csvtool supported range ({reqver}).')
-                outp.printf(f'Please use a version of Synapse which supports {valu}; '
-                            f'current version is {s_version.verstring}.')
-                return 1
+            outp.printf(f'exported {count} csv rows.')
 
-            with open(path, 'w') as fd:
+    return 0
 
-                wcsv = csv.writer(fd)
-                # prevent streaming nodes by limiting shown events
-                stormopts['show'] = ('csv:row', 'print', 'warn', 'err')
-                count = 0
-                async for name, info in core.storm(text, opts=stormopts):
-
-                    if name == 'csv:row':
-                        count += 1
-                        wcsv.writerow(info['row'])
-                        continue
-
-                    if name in ('init', 'fini'):
-                        continue
-
-                    outp.printf('%s: %r' % (name, info))
-
-                outp.printf(f'exported {count} csv rows.')
-
-        return 0
+async def runCsvImport(opts, outp, text, stormopts):
 
     def iterrows():
         for path in opts.csvfiles:
@@ -164,7 +145,40 @@ async def main(argv, outp=s_output.stdout):
     outp.printf('%d nodes.' % (nodecount, ))
     return 0
 
-def makeargparser():
+async def main(argv, outp=s_output.stdout):
+    pars = makeargparser(outp)
+
+    try:
+        opts = pars.parse_args(argv)
+    except s_exc.ParserExit as e:
+        return e.get('status')
+
+    with open(opts.stormfile, 'r', encoding='utf8') as fd:
+        text = fd.read()
+
+    stormopts = {}
+    if opts.optsfile:
+        stormopts = s_common.yamlload(opts.optsfile)
+
+    if opts.view:
+        if not s_common.isguid(opts.view):
+            outp.printf(f'View is not a guid {opts.view}')
+            return -1
+        stormopts['view'] = opts.view
+
+    async with contextlib.AsyncExitStack() as ctx:
+
+        path = s_common.getSynPath('telepath.yaml')
+        telefini = await s_telepath.loadTeleEnv(path)
+        if telefini is not None:
+            ctx.push_async_callback(telefini)
+
+        if opts.export:
+            return await runCsvExport(opts, outp, text, stormopts)
+        else:
+            return await runCsvImport(opts, outp, text, stormopts)
+
+def makeargparser(outp):
     desc = '''
     Command line tool for ingesting csv files into a cortex
 
@@ -204,7 +218,7 @@ def makeargparser():
 
     }
     '''
-    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc)
+    pars = s_cmd.Parser('synapse.tools.csvtool', description=desc, outp=outp)
     pars.add_argument('--logfile', help='Set a log file to get JSON lines from the server events.')
     pars.add_argument('--csv-header', default=False, action='store_true',
                       help='Skip the first line from each CSV file.')

@@ -223,22 +223,36 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz))'))
 
-            self.none(await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, baz, ({"bam": 1})))'))
+            ret = await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, baz, ({"bam": 1})))')
+            asof = ret.get('asof')
+
+            self.eq({
+                'asof': asof,
+                'data': {'bam': 1},
+                'key': 'baz',
+            }, await core.callStorm('return($lib.jsonstor.get($path))', opts={'vars': ret}))
+
             await asyncio.sleep(0.1)
 
             self.none(await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz))'))
             self.eq({'bam': 1}, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day"))'))
             self.eq({'bam': 1}, await core.callStorm('return($lib.jsonstor.cacheget((foo, bar), baz, asof="-1day"))'))
 
+            self.eq({
+                'asof': asof,
+                'data': {'bam': 1},
+                'key': 'baz',
+            }, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day", envl=$lib.true))'))
+
             self.none(await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, (baz, $lib.true), asof="-1day"))'))
 
-            self.none(await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, (baz, $lib.true), ({"bam": 2})))'))
+            self.nn(await core.callStorm('return($lib.jsonstor.cacheset(foo/bar, (baz, $lib.true), ({"bam": 2})))'))
             await asyncio.sleep(0.1)
 
             scmd = 'return($lib.jsonstor.cacheget(foo/bar, (baz, $lib.true), asof="-1day"))'
             self.eq({'bam': 2}, await core.callStorm(scmd))
 
-            self.none(await core.callStorm('return($lib.jsonstor.cacheset((foo, bar), baz, ({"bam": 3})))'))
+            self.nn(await core.callStorm('return($lib.jsonstor.cacheset((foo, bar), baz, ({"bam": 3})))'))
             await asyncio.sleep(0.1)
 
             self.eq({'bam': 3}, await core.callStorm('return($lib.jsonstor.cacheget(foo/bar, baz, asof="-1day"))'))

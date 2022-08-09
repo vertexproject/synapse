@@ -1207,7 +1207,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
-                        'doc': 'A message sent from one web account to another web account.',
+                        'doc': 'A message sent from one web account to another web account or channel.',
                         'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
                     }),
 
