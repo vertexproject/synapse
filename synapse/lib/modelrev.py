@@ -492,6 +492,9 @@ class ModelRev:
 
     async def revModel20220803(self, layers):
 
+        await self._normPropValu(layers, 'ps:contact:title')
+        await self._propToForm(layers, 'ps:contact:title', 'ou:jobtitle')
+
         meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
 
         valid = regex.compile(r'^[0-9a-f]{40}$')
