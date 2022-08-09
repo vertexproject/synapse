@@ -31,8 +31,8 @@ Features and Enhancements
     ``hex`` type.
 
   ``ps:contact``
-    The type of hte ``title`` secondary property has been changed from a
-    ``str`` to a ``ou:jobtitle``.
+    The type of the ``title`` secondary property has been changed from a
+    ``str`` to an ``ou:jobtitle``.
 
 - Add ``$lib.hex.toint()``, ``$lib.hex.fromint()``, ``$lib.hex.trimext()``
   and ``$lib.hex.signext()`` Storm APIs for handling hex encoded integers.
@@ -41,7 +41,7 @@ Features and Enhancements
   Improve support for unpickling SynErr exceptions.
   (`#2797 <https://github.com/vertexproject/synapse/pull/2797>`_)
 - Add logging configuration to methods which are called in spawned processes,
-  and log exceptions occuring in the processes before tearing them down.
+  and log exceptions occurring in the processes before tearing them down.
   (`#2795 <https://github.com/vertexproject/synapse/pull/2795>`_)
 
 Bugfixes
