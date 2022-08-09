@@ -4,14 +4,59 @@
 Synapse Changelog
 *****************
 
-NEXTVERS - YYYT-MM-DD
+v2.104.0 - 2022-08-09
 =====================
+
+Automatic Migrations
+--------------------
+- Migrate `crypto:x509:cert:serial` from `str` to `hex` type. Existing values
+  which cannot be converted as integers or hex values will be moved into
+  nodedata under the key ``migration:0_2_10`` as ``{'serial': value}``
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+- Migrate ``ps:contact:title`` to the ``ou:jobtitle`` type and create
+  ``ou:jobtitle`` nodes.
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+- Correct hugenum property index values for values with more than
+  28 digits of precision.
+  (`#2766 <https://github.com/vertexproject/synapse/pull/2766>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto`` and ``ps`` models.
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+
+  ``crypto:x509:cert``
+    The ``serial`` secondary property has been changed from a ``str`` to a
+    ``hex`` type.
+
+  ``ps:contact``
+    The type of the ``title`` secondary property has been changed from a
+    ``str`` to an ``ou:jobtitle``.
+
+- Add ``$lib.hex.toint()``, ``$lib.hex.fromint()``, ``$lib.hex.trimext()``
+  and ``$lib.hex.signext()`` Storm APIs for handling hex encoded integers.
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+- Add ``set()`` and ``setdefault()`` APIs on the SynErr exception class.
+  Improve support for unpickling SynErr exceptions.
+  (`#2797 <https://github.com/vertexproject/synapse/pull/2797>`_)
+- Add logging configuration to methods which are called in spawned processes,
+  and log exceptions occurring in the processes before tearing them down.
+  (`#2795 <https://github.com/vertexproject/synapse/pull/2795>`_)
 
 Bugfixes
 --------
+- BadTypeValu errors raised when normalizing a tag timestamp now include
+  the name of the tag being set.
+  (`#2797 <https://github.com/vertexproject/synapse/pull/2797>`_)
 - Correct a CI issue that prevented the v2.103.0 Docker images from
   being published.
   (`#2798 <https://github.com/vertexproject/synapse/pull/2798>`_)
+
+Improved Documentation
+----------------------
+- Update data model documentation.
+  (`#2796 <https://github.com/vertexproject/synapse/pull/2796>`_)
 
 v2.103.0 - 2022-08-05
 =====================
