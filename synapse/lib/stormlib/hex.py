@@ -11,21 +11,21 @@ class HexLib(s_stormtypes.Lib):
     A Storm library which implements helpers for hexadecimal encoded strings.
     '''
     _storm_locals = (
-        {'name': 'encode', 'desc': 'Encode bytes into a big endian hexadecimal string.',
+        {'name': 'encode', 'desc': 'Encode bytes into a hexadecimal string.',
          'type': {'type': 'function', '_funcname': 'encode',
                   'args': (
                       {'name': 'valu', 'type': 'bytes', 'desc': 'The bytes to be encoded into a hex string.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The hex encoded string.', }
         }},
-        {'name': 'decode', 'desc': 'Decode a big endian hexadecimal string into bytes.',
+        {'name': 'decode', 'desc': 'Decode a hexadecimal string into bytes.',
          'type': {'type': 'function', '_funcname': 'decode',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The hex string to be decoded into bytes.'},
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The decoded bytes.', }
         }},
-        {'name': 'toint', 'desc': 'Convert a hexadecimal string to an integer.',
+        {'name': 'toint', 'desc': 'Convert a big endian hexadecimal string to an integer.',
          'type': {'type': 'function', '_funcname': 'toint',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The hex string to be converted.'},
@@ -34,7 +34,7 @@ class HexLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'int', 'desc': 'The resulting integer.', }
         }},
-        {'name': 'fromint', 'desc': 'Convert an integer to a hexadecimal string.',
+        {'name': 'fromint', 'desc': 'Convert an integer to a big endian hexadecimal string.',
          'type': {'type': 'function', '_funcname': 'fromint',
                   'args': (
                       {'name': 'valu', 'type': 'int', 'desc': 'The integer to be converted.'},
