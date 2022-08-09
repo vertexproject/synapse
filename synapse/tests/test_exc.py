@@ -17,6 +17,12 @@ class ExcTest(s_t_utils.SynTest):
         e.set('foo', 'words')
         self.eq("SynErr: foo='words' hehe=1234 mesg='words'", str(e))
 
+        e.setdefault('defv', 1)
+        self.eq("SynErr: defv=1 foo='words' hehe=1234 mesg='words'", str(e))
+
+        e.setdefault('defv', 2)
+        self.eq("SynErr: defv=1 foo='words' hehe=1234 mesg='words'", str(e))
+
     async def test_pickled_synerr(self):
         with self.raises(s_exc.BadSyntax) as cm:
             _ = await s_parser._forkedParseEval('| | | ')

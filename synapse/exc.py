@@ -47,6 +47,15 @@ class SynErr(Exception):
         self.errinfo[name] = valu
         self._setExcMesg()
 
+    def setdefault(self, name, valu):
+        '''
+        Set a value in errinfo dict if it is not already set.
+        '''
+        if name in self.errinfo:
+            return
+        self.errinfo[name] = valu
+        self._setExcMesg()
+
 class StormRaise(SynErr):
     def __init__(self, name, mesg, info):
         info['mesg'] = mesg
