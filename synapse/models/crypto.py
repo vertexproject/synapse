@@ -464,7 +464,7 @@ class CryptoModule(s_module.CoreModule):
                     }),
 
                     ('serial', ('hex', {'size': 40}), {
-                        'doc': 'The hex value of the certificate serial number.',
+                        'doc': 'The certificate serial number as a big endian hex value.',
                     }),
 
                     ('version', ('int', {'enums': x509vers}), {

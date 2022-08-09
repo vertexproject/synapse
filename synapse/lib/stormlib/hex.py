@@ -11,14 +11,14 @@ class HexLib(s_stormtypes.Lib):
     A Storm library which implements helpers for hexadecimal encoded strings.
     '''
     _storm_locals = (
-        {'name': 'encode', 'desc': 'Encode bytes into a hexadecimal string.',
+        {'name': 'encode', 'desc': 'Encode bytes into a big endian hexadecimal string.',
          'type': {'type': 'function', '_funcname': 'encode',
                   'args': (
                       {'name': 'valu', 'type': 'bytes', 'desc': 'The bytes to be encoded into a hex string.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The hex encoded string.', }
         }},
-        {'name': 'decode', 'desc': 'Decode a hexadecimal string into bytes.',
+        {'name': 'decode', 'desc': 'Decode a big endian hexadecimal string into bytes.',
          'type': {'type': 'function', '_funcname': 'decode',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The hex string to be decoded into bytes.'},
