@@ -511,7 +511,7 @@ class ModelRev:
                 nodeedits.append(
                     (buid, formname, (
                         (s_layer.EDIT_PROP_DEL, (prop.name, valu, prop.type.stortype), ()),
-                        (s_layer.EDIT_NODEDATA_SET, ('serial:0:2:10', valu, None), ()),
+                        (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_10', {'serial': valu}, None), ()),
                     )),
                 )
                 if len(nodeedits) >= 1000:

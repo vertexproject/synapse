@@ -289,13 +289,13 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('serial'), '00000000000000000000000000000000000000ff')
 
-            nodes = await core.nodes('crypto:x509:cert=8fc59ed63522b50bd31f2d138dd8c8ec $node.data.load(serial:0:2:10)')
+            nodes = await core.nodes('crypto:x509:cert=8fc59ed63522b50bd31f2d138dd8c8ec $node.data.load(migration:0_2_10)')
             self.len(1, nodes)
             self.none(nodes[0].get('serial'))
             huge = '7307508186654514591018424163581415098279662714800'
-            self.eq(nodes[0].nodedata['serial:0:2:10'], huge)
+            self.eq(nodes[0].nodedata['migration:0_2_10']['serial'], huge)
 
-            nodes = await core.nodes('crypto:x509:cert=fb9545568c38002dcca1f66220c9ab7d $node.data.load(serial:0:2:10)')
+            nodes = await core.nodes('crypto:x509:cert=fb9545568c38002dcca1f66220c9ab7d $node.data.load(migration:0_2_10)')
             self.len(1, nodes)
             self.none(nodes[0].get('serial'))
-            self.eq(nodes[0].nodedata['serial:0:2:10'], 'asdf')
+            self.eq(nodes[0].nodedata['migration:0_2_10']['serial'], 'asdf')
