@@ -3850,10 +3850,10 @@ class Str(Prim):
         return self.valu.startswith(text)
 
     async def _methStrRjust(self, size, fillchar=' '):
-        return self.valu.rjust(await toint(size), fillchar)
+        return self.valu.rjust(await toint(size), await tostr(fillchar))
 
     async def _methStrLjust(self, size, fillchar=' '):
-        return self.valu.ljust(await toint(size), fillchar)
+        return self.valu.ljust(await toint(size), await tostr(fillchar))
 
     async def _methStrReplace(self, oldv, newv, maxv=None):
         if maxv is None:
