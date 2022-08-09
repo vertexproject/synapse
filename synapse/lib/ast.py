@@ -945,6 +945,9 @@ class CmdOper(Oper):
                 if runtsafe or not empty:
                     async for item in scmd.execStormCmd(runt, genr):
                         yield item
+            except s_exc.SynErr as e:
+                e.setdefault('stormcmd', name)
+                raise
             finally:
                 await genr.aclose()
 
