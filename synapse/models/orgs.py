@@ -146,6 +146,13 @@ class OuModule(s_module.CoreModule):
                 ('ou:contribution', ('guid', {}), {
                     'doc': 'Represents a specific instance of contributing material support to a campaign.',
                 }),
+                ('ou:technique', ('guid', {}), {
+                    'doc': 'A specific technique used to achieve a goal.',
+                }),
+                ('ou:technique:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                    'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
+                }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
                 }),
@@ -184,6 +191,12 @@ class OuModule(s_module.CoreModule):
             'edges': (
                 (('ou:org', 'uses', None), {
                     'doc': 'The ou:org makes use of the target node.'}),
+                (('ou:org', 'targets', None), {
+                    'doc': 'The organization targets the target node.'}),
+                (('ou:campaign', 'targets', None), {
+                    'doc': 'The campaign targeted the target nodes.'}),
+                (('ou:campaign', 'uses', None), {
+                    'doc': 'The campaign made use of the target node.'}),
                 (('ou:contribution', 'includes', None), {
                     'doc': 'The contribution includes the specific node.'}),
             ),
@@ -256,7 +269,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency of the econ:price values.',
                     }),
                     ('costs', ('econ:price', {}), {
-                        'doc': 'The costs/expendatures over the period.',
+                        'doc': 'The costs/expenditures over the period.',
                     }),
                     ('revenue', ('econ:price', {}), {
                         'doc': 'The gross revenue over the period.',
@@ -265,7 +278,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The net profit over the period.',
                     }),
                     ('valuation', ('econ:price', {}), {
-                        'doc': 'The assesed value of the org.',
+                        'doc': 'The assessed value of the org.',
                     }),
                     ('shares', ('int', {}), {
                         'doc': 'The number of shares outstanding.',
@@ -425,6 +438,9 @@ class OuModule(s_module.CoreModule):
                     ('conflict', ('ou:conflict', {}), {
                         'doc': 'The conflict in which this campaign is a primary participant.',
                     }),
+                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of techniques employed as part of the campaign.',
+                    }),
                 )),
                 ('ou:conflict', {}, (
                     ('name', ('str', {'onespace': True}), {
@@ -458,6 +474,20 @@ class OuModule(s_module.CoreModule):
                     ('personnel:jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'Title or designation for the contributed personnel.'}),
                 )),
+                ('ou:technique', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The normalized name of the technique.'}),
+                    ('type', ('ou:technique:taxonomy', {}), {
+                        'doc': 'The taxonomy classification of the technique.'}),
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the technique.'}),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes where the technique was employed.'}),
+                    ('mitre:attack:technique', ('it:mitre:attack:technique', {}), {
+                        'doc': 'A mapping to a Mitre ATT&CK technique if applicable.'}),
+                )),
+                ('ou:technique:taxonomy', {}, ()),
                 ('ou:orgtype', {}, ()),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
@@ -527,6 +557,9 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
+                    }),
+                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of techniques employed by the organization.',
                     }),
                 )),
                 ('ou:team', {}, (

@@ -3590,13 +3590,12 @@ class EditTagAdd(Edit):
         async for node, path in genr:
 
             names = await self.kids[oper_offset].compute(runt, path)
-            if not isinstance(names, list):
-                names = [names]
+            names = await s_stormtypes.toprim(names)
+
+            if not isinstance(names, tuple):
+                names = (names,)
 
             for name in names:
-
-                if isinstance(name, list):
-                    name = tuple(name)
 
                 try:
                     normtupl = await runt.snap.getTagNorm(name)

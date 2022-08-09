@@ -1451,7 +1451,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.false(node.hasTag('foo'))
                 self.false(node.hasTag('foo.bar'))
 
-            # Can norm a list of of tag parts into a tag string and use it
+            # Can norm a list of tag parts into a tag string and use it
             nodes = await wcore.nodes("$foo=('foo', 'bar.baz') $foo=$lib.cast('syn:tag', $foo) [test:int=0 +#$foo]")
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'foo.bar_baz'})
@@ -1463,6 +1463,18 @@ class CortexTest(s_t_utils.SynTest):
             # Cannot norm a list of tag parts directly when making tags on a node
             with self.raises(AttributeError):
                 await wcore.nodes("$foo=(('foo', 'bar.baz'),) [test:int=2 +#$foo]")
+
+            # Can set a list of tags directly
+            nodes = await wcore.nodes('$foo=("foo", "bar.baz") [test:int=3 +#$foo]')
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
+
+            nodes = await wcore.nodes('$foo=$lib.list("foo", "bar.baz") [test:int=4 +#$foo]')
+            self.len(1, nodes)
+            self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
+
+            with self.raises(TypeError):
+                await wcore.nodes('$foo=$lib.set("foo", "bar") [test:int=5 +#$foo]')
 
     async def test_base_types1(self):
 
@@ -5064,6 +5076,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # write to the Cortex. This will move the core01 ahead of
                 # core00 & core01 can become the leader.
                 await core01.promote()
+                self.false(core01.nexsroot._mirready.is_set())
 
                 self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
                 new_url = core01.getLocalUrl()
