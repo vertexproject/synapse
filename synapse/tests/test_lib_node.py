@@ -415,6 +415,10 @@ class NodeTest(s_t_utils.SynTest):
             self.none(await node.getData('foo'))
             self.none(await node.getData('bar'))
 
+            # Add sad path for setting invalid node data
+            with self.raises(s_exc.MustBeJsonSafe):
+                await node.setData('newp', {1, 2, 3})
+
     async def test_node_tagprops(self):
         async with self.getTestCore() as core:
             await core.addTagProp('score', ('int', {}), {})
