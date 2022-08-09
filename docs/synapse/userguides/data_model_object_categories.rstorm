@@ -111,11 +111,11 @@ difference between **instance knowledge** and **fused knowledge.**
 
 - Relationship forms can leverage the universal ``.seen`` property to set "first observed" and "last observed"
   times during which an entity existed or a relationship was true. This date range can be viewed as **fused**
-  knowledge - knowledge that summarizes or "fuses" the data from any number of individual observations (instances)
-  of the node over time.
+  knowledge - knowledge that summarizes or "fuses" the data from many individual observations (instances) of the
+  node over time.
 
 Instance knowledge and fused knowledge represent differences in data granularity. Whether to create an event
-form or a relationship form (or both) depends on how much detail is required for a your analysis. This 
+form or a relationship form (or both) depends on how much detail is required for your analysis. This 
 consideration often applies to relationships that change over time, particularly those that may change frequently.
 
 **Example**

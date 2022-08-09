@@ -182,5 +182,5 @@ it can be applied (appended) to any tag.
   
   Synapse still supports the use of tag properties, but their use is now discouraged in most cases in favor of 
   extended model properties. A discussion of extended model elements (forms, properties, etc.) is beyond the scope
-  of this document. Storm libraries for working with extended model elememts can be found here: :ref:`stormlibs-lib-model-ext`.
+  of this document. Storm libraries for working with extended model elements can be found here: :ref:`stormlibs-lib-model-ext`.
 

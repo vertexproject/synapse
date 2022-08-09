@@ -105,7 +105,7 @@ A guid form can be considered a special case of a :ref:`form-simple` where the t
   the specific host where the process ran, the program that wrote the file to disk, the process that launched
   the program, the time the execution occurred, the file that was written, the file’s path, and so on. While all
   of these elements could be used to create a comp form, in the "real world" not all of this data may be
-  available in all cases, making a guid a better option for forms such as ``it:exec:file.write``.
+  available in all cases, making a guid a better option for forms such as ``it:exec:file:write``.
 
 .. _form-generic:
 
