@@ -172,14 +172,18 @@ def genrhelp(f):
         return GenrHelp(f(*args, **kwargs))
     return func
 
-def _exectodo(que, todo):
+def _exectodo(que, todo, logconf):
+    # This is a new process: configure logging
+    s_common.setlogging(logger, **logconf)
     func, args, kwargs = todo
     try:
-        que.put(func(*args, **kwargs))
+        ret = func(*args, **kwargs)
+        que.put(ret)
     except Exception as e:
+        logger.exception(f'Error executing spawn function {func}')
         que.put(e)
 
-async def spawn(todo, timeout=None, ctx=None):
+async def spawn(todo, timeout=None, ctx=None, log_conf=None):
     '''
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
 
@@ -187,6 +191,7 @@ async def spawn(todo, timeout=None, ctx=None):
         todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
+        log_conf (dict): An optional logging configuration for the spawned process.
 
     Notes:
         The contents of the todo tuple must be able to be pickled for execution.
@@ -197,9 +202,12 @@ async def spawn(todo, timeout=None, ctx=None):
     '''
     if ctx is None:
         ctx = multiprocessing.get_context('spawn')
+    if log_conf is None:
+        log_conf = {}
 
     que = ctx.Queue()
-    proc = ctx.Process(target=_exectodo, args=(que, todo))
+    proc = ctx.Process(target=_exectodo,
+                       args=(que, todo, log_conf))
 
     def execspawn():
 
@@ -216,7 +224,8 @@ async def spawn(todo, timeout=None, ctx=None):
             except queue.Empty:
                 if not proc.is_alive():
                     proc.join()
-                    raise s_exc.SpawnExit(code=proc.exitcode)
+                    mesg = f'Spawned process {proc} exited for {todo[0]} without a result.'
+                    raise s_exc.SpawnExit(mesg=mesg, code=proc.exitcode)
 
     try:
 

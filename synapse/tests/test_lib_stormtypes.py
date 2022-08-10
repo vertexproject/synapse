@@ -346,33 +346,6 @@ class StormTypesTest(s_test.SynTest):
         # Remove the modification from the global
         s_stormtypes.registry.undefined_types.discard('storm:type:newp')
 
-    async def test_storm_binstuff(self):
-        async with self.getTestCore() as core:
-            self.eq((1, 2, 3), await core.callStorm('''
-                return($lib.hex.decode(010002000300).unpack("<HHH"))
-            '''))
-
-            self.eq(b'\x03\x00', await core.callStorm('''
-                return($lib.hex.decode(010002000300).slice(4,6))
-            '''))
-
-            self.eq(b'\x03\x00', await core.callStorm('''
-                return($lib.hex.decode(010002000300).slice(4))
-            '''))
-
-            self.eq('010002000300', await core.callStorm('''
-                return($lib.hex.encode($lib.hex.decode(010002000300)))
-            '''))
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.decode(asdf))')
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.encode(asdf))')
-
-            with self.raises(s_exc.BadArg):
-                await core.callStorm('return($lib.hex.decode(010002000300).unpack("<ZZ"))')
-
     async def test_storm_debug(self):
 
         async with self.getTestCore() as core:
@@ -1074,8 +1047,14 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10) ]')
             self.eq('      woot', nodes[0].ndef[1])
 
+            nodes = await core.nodes('$s = woot [ test:str=$s.rjust(10, x) ]')
+            self.eq('xxxxxxwoot', nodes[0].ndef[1])
+
             nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10) ]')
             self.eq('woot      ', nodes[0].ndef[1])
+
+            nodes = await core.nodes('$s = woot [ test:str=$s.ljust(10, x) ]')
+            self.eq('wootxxxxxx', nodes[0].ndef[1])
 
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)

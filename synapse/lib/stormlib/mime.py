@@ -34,4 +34,4 @@ class LibMimeHtml(s_stormtypes.Lib):
     async def totext(self, html):
         html = await s_stormtypes.tostr(html)
         todo = s_common.todo(htmlToText, html)
-        return await s_coro.spawn(todo)
+        return await s_coro.spawn(todo, log_conf=self.runt.spawn_log_conf)

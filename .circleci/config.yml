@@ -668,7 +668,7 @@ jobs:
       - image: docker:20.10.1
     steps:
       - build_docker:
-          image-tag: ${CIRCLE_BRANCH}
+          image-tag: ${CIRCLE_TAG}
 
   push_docker_tag:
     docker:
@@ -875,17 +875,32 @@ workflows:
             - build_docker_tag
           context:
             - SynapseDockerCloudUpload
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
 
       - push_docker_tag_ecr:
           requires:
             - build_docker_tag
           context:
             - AWSEcrPusherOSS
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
 
       - delete_docker_tag:
           requires:
             - push_docker_tag
             - push_docker_tag_ecr
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
 
   nightly:
     triggers:

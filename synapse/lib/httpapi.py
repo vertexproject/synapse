@@ -300,7 +300,8 @@ class Handler(HandlerBase, t_web.RequestHandler):
         self.task = asyncio.current_task()
 
     def on_connection_close(self):
-        self.task.cancel()
+        if hasattr(self, 'task'):
+            self.task.cancel()
 
     async def _reqValidOpts(self, opts):
 
