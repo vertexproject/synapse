@@ -53,6 +53,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the threat cluster.'}),
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
+                    ('publisher:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization who published the threat cluster.'}),
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
                     ('org:loc', ('loc', {}), {
