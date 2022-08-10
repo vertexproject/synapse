@@ -6,16 +6,20 @@ Rapid Power-Up Development
 Developing Rapid Power-Ups, also known as Storm Packages, allows Synapse power
 users to extend the capabilities of the Storm query language, provides ways to
 implement use-case specific commands, embed documentation, and even implement
-customized visual workflows in the commercial Synapse UI.
+customized visual workflows in **Optic**, the commercial Synapse UI.
 
-A Rapid Power-Up consists of a JSON object with various parts whi
-implemented in Storm and deployed as JSON objects
-deployed as self-contained 
+A Rapid Power-Up consists of a **Storm Package** which is a JSON object which
+defines everything used to extend the Storm language and provide additional
+documentation. **Storm Packages** can be loaded directly into your **Cortex**.
+
+In this guide we will discuss the basics of **Storm Package** development and
+discuss a few best practices you can use to ensure they are secure, powerful,
+and easy to use.
 
 Anatomy of a Storm Package
 ==========================
 
-A Storm Package consists of a YAML file which defines the various commands, modules,
+A **Storm Package** consists of a YAML file which defines the various commands, modules,
 documentation, and workflows embedded within the package. 
 
 Minimal Example
@@ -49,7 +53,13 @@ that gets processed and loaded into your Cortex.
 
 .. note::
 
-    A note on namespacing. org/corp then functionality.
+    First, a note on namespacing. To ensure your **Storm Package** is going to play well
+    with other packages, it is important to chose an appropriate namespace for your power-up.
+    In this case, the ``acme`` part of the name is meant to be replaced with your company name
+    or an abreviated version of it. The ``hello`` part is meant to be replaced with an indicator
+    of the type of functionality the **Storm Package** contains.
+
+    Namespace now, thank yourself later.
 
 When you define commands and modules, they will be loaded from files using the location of
 the **Storm Package** YAML file to locate their contents::
@@ -59,7 +69,7 @@ the **Storm Package** YAML file to locate their contents::
 
         modules/
             acme.hello.storm
-            
+
         commands/
             acme.hello.sayhi.storm
 
@@ -81,17 +91,17 @@ To build and load **Storm Packages**, use the ``genpkg`` tool included within Sy
 this example, we will assume you have deployed your Synapse environment according to the
 FIXME Deployment Guide::
 
-    python -m synapse.tools.genpkg acme-hello.yaml --load aha://root@cortex...
+    python -m synapse.tools.genpkg acme-hello.yaml --load aha://cortex...
 
 .. note::
-    
+
     If you added an alternate admin user or used a non-standard naming convention
-    you may need to adjust the ``aha://root@cortex...`` telepath URL to connect to
+    you may need to adjust the ``aha://cortex...`` telepath URL to connect to
     your Cortex.
 
 Once your **Storm Package** has loaded successfully, you can use the Storm CLI to see it in action::
 
-    invisigoth@visi01:~$ python -m synapse.tools.storm aha://root@cortex...
+    invisigoth@visi01:~$ python -m synapse.tools.storm aha://cortex...
 
     Welcome to the Storm interpreter!
 
@@ -177,7 +187,7 @@ protect the API key from disclosure while also allowing users to use it. For exa
         if ($resp.code != 200) {
             $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
         }
-        
+
         return($resp.json())
     }
 
@@ -200,7 +210,7 @@ execute any command with ``--help`` to get a usage statement and enumerate comma
 
     Print the hello message.
 
-    Usage: acme.hello.sayhi [options] 
+    Usage: acme.hello.sayhi [options]
 
     Options:
 
@@ -218,25 +228,25 @@ A more complex command declaration::
     - name: acme.hello.omgopts
       descr: |
           This is a mult-line description containing usage examples.
-  
+
           // run the command with some nodes
           inet:fqdn=acme.newp | acme.hello.omgopts vertex.link
-  
+
           // run the command with some command line switches
           acme.hello.omgopts --debug --hehe haha vertex.link
-  
+
       cmdargs:
 
         - - --hehe
           - type: str
             help: The value of the hehe optional input.
-  
+
         - - --debug
           - type: bool
             default: false
             action: store_true
             help: Enable debug output.
-  
+
         - - fqdn
           - type: str
             help: A mandatory / positional command line argument.
