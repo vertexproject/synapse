@@ -47,7 +47,7 @@ class RiskModule(s_module.CoreModule):
             'forms': (
                 ('risk:threat', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'ex': "mandiant's apt1 cluster",
+                        'ex': "apt1 (mandiant)",
                         'doc': 'The name of the threat cluster.'}),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
@@ -55,8 +55,15 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
+                    ('org:loc', ('loc', {}), {
+                        'doc': 'The assessed location of the organization that the threat cluster is attributed to.'}),
                     ('org:name', ('ou:name', {}), {
+                        'ex': 'apt1',
                         'doc': 'The name of the organization that the threat cluster is attributed to.'}),
+                    ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the organization that the threat cluster is attributed to.'}),
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                        'doc': 'The assessed goals of the threat cluster activity.'}),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'doc': 'A list of techniques employed within the threat cluster.'}),
                 )),
