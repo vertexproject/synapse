@@ -3974,7 +3974,7 @@ class CountCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('-y', '--yield', default=False, action='store_true',
+        pars.add_argument('--yield', default=False, action='store_true',
                           dest='yieldnodes', help='Yield inbound nodes.')
         return pars
 

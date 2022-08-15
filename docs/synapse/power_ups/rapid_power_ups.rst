@@ -39,6 +39,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-PassiveTotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-passivetotal/index.html>`_
 - `Synapse-ReversingLabs <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-reversinglabs/index.html>`_
 - `Synapse-Shodan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-shodan/index.html>`_
+- `Synapse-Spur <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spur/index.html>`_
 - `Synapse-SpyCloud <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spycloud/index.html>`_
 - `Synapse-TeamCymru <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-teamcymru/index.html>`_
 - `Synapse-Tor (Free) <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-tor/index.html>`_
