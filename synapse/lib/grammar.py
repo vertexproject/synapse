@@ -21,6 +21,8 @@ basepropnopivpropre = regex.compile(basepropnopivpropstr)
 whites = set(' \t\n')
 alphaset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
 
+unitset = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZµ')
+
 def isPropName(name):
     return propre.fullmatch(name) is not None
 

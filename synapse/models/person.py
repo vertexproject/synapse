@@ -50,6 +50,9 @@ class PsModule(s_module.CoreModule):
                 ('ps:workhist', ('guid', {}), {
                     'doc': "A GUID representing entry in a contact's work history.",
                 }),
+                ('ps:vitals', ('guid', {}), {
+                    'doc': 'Statistics and demographic data about a person or contact.',
+                }),
             ),
             'forms': (
                 ('ps:workhist', {}, (
@@ -204,6 +207,9 @@ class PsModule(s_module.CoreModule):
                     ('nick', ('inet:user', {}), {
                         'doc': 'A username commonly used by the person.',
                     }),
+                    ('vitals', ('ps:vitals', {}), {
+                        'doc': 'The most recent known vitals for the person.',
+                    }),
                     ('name', ('ps:name', {}), {
                         'doc': 'The localized name for the person.',
                     }),
@@ -292,6 +298,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('person', ('ps:person', {}), {
                         'doc': 'The ps:person GUID which owns this contact.',
+                    }),
+                    ('vitals', ('ps:vitals', {}), {
+                        'doc': 'The most recent known vitals for the contact.',
                     }),
                     ('name', ('ps:name', {}), {
                         'doc': 'The person name listed for the contact.',
@@ -408,6 +417,25 @@ class PsModule(s_module.CoreModule):
                     ('crypto:address', ('crypto:currency:address', {}), {
                         'doc': 'A crypto currency address associated with the contact.'
                     }),
+                )),
+                ('ps:vitals', {}, (
+                    ('asof', ('time', {}), {
+                        'doc': 'The time the vitals were gathered or computed.'}),
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact that the vitals are about.'}),
+                    ('person', ('ps:person', {}), {
+                        'doc': 'The person that the vitals are about.'}),
+                    ('height', ('geo:dist', {}), {
+                        'doc': 'The height of the person or contact.'}),
+                    ('weight', ('mass', {}), {
+                        'doc': 'The weight of the person or contact.'}),
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency that the price values are recorded using.'}),
+                    ('net:worth', ('econ:price', {}), {
+                        'doc': 'The net worth of the contact.'}),
+                    ('annual:income', ('econ:price', {}), {
+                        'doc': 'The yearly income of the contact.'}),
+                    # TODO: eye color etc. color names / rgb values?
                 )),
                 ('ps:contactlist', {}, (
                     ('contacts', ('array', {'type': 'ps:contact', 'uniq': True, 'split': ',', 'sorted': True}), {

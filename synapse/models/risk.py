@@ -39,6 +39,8 @@ class RiskModule(s_module.CoreModule):
             'edges': (
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target nodes.'}),
+                (('risk:threat', 'uses', None), {
+                    'doc': 'The threat cluster uses the target nodes.'}),
                 (('risk:attack', 'targets', None), {
                     'doc': 'The attack targeted the target nodes.'}),
                 (('risk:attack', 'uses', None), {
@@ -53,6 +55,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the threat cluster.'}),
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
+                    ('publisher', ('ou:org', {}), {
+                        'doc': 'The organization who published the threat cluster.'}),
                     ('publisher:name', ('ou:name', {}), {
                         'doc': 'The name of the organization who published the threat cluster.'}),
                     ('org', ('ou:org', {}), {
