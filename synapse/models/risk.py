@@ -13,7 +13,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
                 ('risk:threat', ('guid', {}), {
-                    'doc': 'A threat cluster or subgraph of threat activity reported by an organization.',
+                    'doc': 'A threat cluster or subgraph of threat activity.',
                 }),
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
@@ -36,8 +36,11 @@ class RiskModule(s_module.CoreModule):
                     'ex': 'cno.breach',
                     'interfaces': ('taxonomy',),
                 }),
+                ('risk:tool:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                }),
                 ('risk:tool:software', ('guid', {}), {
-                    'doc': 'A software tool used in threat activity reported by a specific organization.',
+                    'doc': 'A software tool used in threat activity.',
                 }),
             ),
             'edges': (
@@ -79,6 +82,7 @@ class RiskModule(s_module.CoreModule):
                 )),
                 ('risk:tool:software', {}, (
                     ('name', ('str', {'onespace': True, 'lower': True}), {}),
+                    ('desc', ('str', {}), {}),
                     ('type', ('risk:tool:taxonomy', {}), {}),
                     ('publisher', ('ou:org', {}), {}),
                     ('publisher:name', ('ou:name', {}), {}),
