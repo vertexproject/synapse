@@ -66,7 +66,7 @@ class BaseXLib(s_stormtypes.Lib):
             if v is None:
                 mesg = f'$lib.basex.decode() string contains value not in charset: {c}'
                 raise s_exc.BadArg(mesg=mesg)
-            retn = (retn * base) + alpha2num[c]
+            retn = (retn * base) + v
 
         size = (retn.bit_length() + 7) // 8
         return retn.to_bytes(size, 'big')
