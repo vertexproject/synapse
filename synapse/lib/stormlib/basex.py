@@ -12,7 +12,7 @@ class BaseXLib(s_stormtypes.Lib):
         {'name': 'encode', 'desc': 'Encode bytes into a baseX string.',
          'type': {'type': 'function', '_funcname': 'encode',
                   'args': (
-                      {'name': 'bytes', 'type': 'bytes', 'desc': 'The bytes to be encoded into a string.'},
+                      {'name': 'byts', 'type': 'bytes', 'desc': 'The bytes to be encoded into a string.'},
                       {'name': 'charset', 'type': 'str', 'desc': 'The charset used to encode the bytes.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The encoded string.', }
@@ -35,8 +35,8 @@ class BaseXLib(s_stormtypes.Lib):
             'decode': self.decode,
         }
 
-    async def encode(self, valu, charset):
-        if not isinstance(valu, bytes):
+    async def encode(self, byts, charset):
+        if not isinstance(byts, bytes):
             raise s_exc.BadArg(mesg='$lib.basex.encode() requires a bytes argument.')
 
         charset = await s_stormtypes.tostr(charset)
@@ -44,7 +44,7 @@ class BaseXLib(s_stormtypes.Lib):
         retn = []
         base = len(charset)
 
-        num = int.from_bytes(valu, 'big')
+        num = int.from_bytes(byts, 'big')
         if num == 0:
             return charset[0]
 
@@ -54,14 +54,14 @@ class BaseXLib(s_stormtypes.Lib):
 
         return ''.join(retn[::-1])
 
-    async def decode(self, valu, charset):
-        valu = await s_stormtypes.tostr(valu)
+    async def decode(self, text, charset):
+        text = await s_stormtypes.tostr(text)
         charset = await s_stormtypes.tostr(charset)
         alpha2num = {c: o for (o, c) in enumerate(charset)}
 
         retn = 0
         base = len(charset)
-        for c in valu:
+        for c in text:
             v = alpha2num.get(c)
             if v is None:
                 mesg = f'$lib.basex.decode() string contains value not in charset: {c}'
