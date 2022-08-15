@@ -13,9 +13,10 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
                 ('risk:threat', ('guid', {}), {
-                    'doc': 'A threat cluster or subgraph of threat activity attributable to one group.'}),
+                    'doc': 'A threat cluster or subgraph of threat activity reported by an organization.',
+                }),
                 ('risk:attack', ('guid', {}), {
-                    'doc': 'An instance of an actor attacking a target.'
+                    'doc': 'An instance of an actor attacking a target.',
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -34,6 +35,9 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A compromise type taxonomy.',
                     'ex': 'cno.breach',
                     'interfaces': ('taxonomy',),
+                }),
+                ('risk:tool:software', ('guid', {}), {
+                    'doc': 'A software tool used in threat activity reported by a specific organization.',
                 }),
             ),
             'edges': (
@@ -72,6 +76,15 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The assessed goals of the threat cluster activity.'}),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'doc': 'A list of techniques employed within the threat cluster.'}),
+                )),
+                ('risk:tool:software', {}, (
+                    ('name', ('str', {'onespace': True, 'lower': True}), {}),
+                    ('type', ('risk:tool:taxonomy', {}), {}),
+                    ('publisher', ('ou:org', {}), {}),
+                    ('publisher:name', ('ou:name', {}), {}),
+                    ('soft:name', ('it:prod:softname', {}), {}),
+                    ('soft:names', ('array', {'type': 'it:prod:softname'}), {}),
+                    ('publisher:name', ('ou:name', {}), {}),
                 )),
                 ('risk:mitigation', {}, (
                     ('vuln', ('risk:vuln', {}), {

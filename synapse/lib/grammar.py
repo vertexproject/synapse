@@ -38,7 +38,7 @@ def isFormName(name):
 def isBasePropNoPivprop(name):
     return basepropnopivpropre.fullmatch(name) is not None
 
-floatre = regex.compile(r'\s*-?\d+(\.\d+)?')
+floatre = regex.compile(r'\s*-?\d+(\.\d+)?([eE][-+]\d+)?')
 
 def parse_float(text, off):
     match = floatre.match(text[off:])
@@ -48,6 +48,15 @@ def parse_float(text, off):
     s = match.group(0)
 
     return float(s), len(s) + off
+
+def chop_float(text, off):
+    match = floatre.match(text[off:])
+    if match is None:
+        raise s_exc.BadSyntax(at=off, mesg='Invalid float')
+
+    s = match.group(0)
+
+    return s, len(s) + off
 
 def nom(txt, off, cset, trim=True):
     '''

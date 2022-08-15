@@ -729,7 +729,7 @@ class HugeNum(Type):
         text = text.replace(',', '').replace(' ', '')
 
         try:
-            valu, off = s_grammar.parse_float(text, 0)
+            valu, off = s_grammar.chop_float(text, 0)
         except Exception:
             mesg = f'Value does not start with a number: "{rawtext}"'
             raise s_exc.BadTypeValu(mesg=mesg)
