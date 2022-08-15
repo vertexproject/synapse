@@ -15,6 +15,9 @@ class StormLibBaseXTest(s_test.SynTest):
             opts = {'vars': {'valu': b'\xbe+"', 'alpha': b64alpha}}
             self.eq('visi', await core.callStorm('return($lib.basex.encode($valu, $alpha))', opts=opts))
 
+            opts = {'vars': {'valu': b'\x00', 'alpha': b64alpha}}
+            self.eq('A', await core.callStorm('return($lib.basex.encode($valu, $alpha))', opts=opts))
+
             opts = {'vars': {'valu': 'visi', 'alpha': b64alpha}}
             self.eq(b'\xbe+"', await core.callStorm('return($lib.basex.decode($valu, $alpha))', opts=opts))
 
@@ -24,4 +27,16 @@ class StormLibBaseXTest(s_test.SynTest):
 
             with self.raises(s_exc.BadArg):
                 opts = {'vars': {'valu': 'derp', 'alpha': 'visi'}}
-                retn = await core.callStorm('return($lib.basex.encode($lib.hex.decode($valu), $alpha))', opts=opts)
+                retn = await core.callStorm('return($lib.basex.encode($valu, $alpha))', opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'valu': 'derp', 'alpha': 'visi'}}
+                retn = await core.callStorm('return($lib.basex.decode($valu, $alpha))', opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'valu': 10, 'alpha': 'visi'}}
+                retn = await core.callStorm('return($lib.basex.encode($valu, $alpha))', opts=opts)
+
+            with self.raises(s_exc.BadArg):
+                opts = {'vars': {'valu': 10, 'alpha': 'visi'}}
+                retn = await core.callStorm('return($lib.basex.encode($valu, $alpha))', opts=opts)
