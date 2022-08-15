@@ -179,9 +179,6 @@ def hugesub(x, y):
 def hugemul(x, y):
     return hugectx.multiply(x, y)
 
-def hugediv(x, y):
-    return hugectx.divide(x, y)
-
 def hugescaleb(x, y):
     '''
     Return the first operand with its exponent adjusted by the second operand.

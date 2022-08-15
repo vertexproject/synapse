@@ -196,8 +196,13 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=VTX-APT1
                     :desc=VTX-APT1
                     :tag=cno.threat.apt1
+                    :publisher=*
+                    :publisher:name=mandiant
                     :org=*
+                    :org:loc=cn.shanghai
                     :org:name=apt1
+                    :org:names=(comment crew,)
+                    :goals=(*,)
                     :techniques=(*,)
                 ]
             ''')
@@ -205,8 +210,13 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('vtx-apt1', nodes[0].get('name'))
             self.eq('VTX-APT1', nodes[0].get('desc'))
             self.eq('apt1', nodes[0].get('org:name'))
+            self.eq('cn.shanghai', nodes[0].get('org:loc'))
+            self.eq(('comment crew',), nodes[0].get('org:names'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
+            self.eq('mandiant', nodes[0].get('publisher:name'))
             self.nn(nodes[0].get('org'))
+            self.nn(nodes[0].get('publisher'))
+            self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
 
     async def test_model_risk_mitigation(self):
