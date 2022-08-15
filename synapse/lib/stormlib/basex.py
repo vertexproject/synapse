@@ -6,7 +6,7 @@ import synapse.lib.stormtypes as s_stormtypes
 @s_stormtypes.registry.registerLib
 class BaseXLib(s_stormtypes.Lib):
     '''
-    A Storm library which implements helpers for encoding and decoding strings using arbitrary charset.
+    A Storm library which implements helpers for encoding and decoding strings using an arbitrary charset.
     '''
     _storm_locals = (
         {'name': 'encode', 'desc': 'Encode bytes into a baseX string.',
