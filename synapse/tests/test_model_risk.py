@@ -196,8 +196,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name=VTX-APT1
                     :desc=VTX-APT1
                     :tag=cno.threat.apt1
-                    :publisher=*
-                    :publisher:name=mandiant
+                    :reporter=*
+                    :reporter:name=mandiant
                     :org=*
                     :org:loc=cn.shanghai
                     :org:name=apt1
@@ -213,9 +213,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('cn.shanghai', nodes[0].get('org:loc'))
             self.eq(('comment crew',), nodes[0].get('org:names'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
-            self.eq('mandiant', nodes[0].get('publisher:name'))
+            self.eq('mandiant', nodes[0].get('reporter:name'))
             self.nn(nodes[0].get('org'))
-            self.nn(nodes[0].get('publisher'))
+            self.nn(nodes[0].get('reporter'))
             self.len(1, nodes[0].get('goals'))
             self.len(1, nodes[0].get('techniques'))
 
@@ -243,8 +243,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :soft=*
                     :soft:name=cobaltstrike
                     :soft:names=(beacon,)
-                    :publisher=*
-                    :publisher:name=vertex
+                    :reporter=*
+                    :reporter:name=vertex
                     :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
                 ]
@@ -252,8 +252,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('soft'))
 
-            self.nn(nodes[0].get('publisher'))
-            self.eq('vertex', nodes[0].get('publisher:name'))
+            self.nn(nodes[0].get('reporter'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
 
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
             self.eq(('beacon',), nodes[0].get('soft:names'))

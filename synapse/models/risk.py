@@ -62,9 +62,9 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the threat cluster.'}),
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
-                    ('publisher', ('ou:org', {}), {
+                    ('reporter', ('ou:org', {}), {
                         'doc': 'The organization who published the threat cluster.'}),
-                    ('publisher:name', ('ou:name', {}), {
+                    ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization who published the threat cluster.'}),
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
@@ -91,10 +91,10 @@ class RiskModule(s_module.CoreModule):
                     ('type', ('risk:tool:taxonomy', {}), {
                         'doc': 'An analyst specified taxonomy of software tool types.',
                     }),
-                    ('publisher', ('ou:org', {}), {
+                    ('reporter', ('ou:org', {}), {
                         'doc': 'The organization which reported the tool.',
                     }),
-                    ('publisher:name', ('ou:name', {}), {
+                    ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization which reported the tool.',
                     }),
                     ('soft', ('it:prod:soft', {}), {
