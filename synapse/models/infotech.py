@@ -558,7 +558,6 @@ class ItModule(s_module.CoreModule):
                 ('it:sec:c2:config', ('guid', {}), {
                     'doc': 'An extracted C2 config from an executable.'}),
             ),
-
             'interfaces': (
                 ('it:host:activity', {
                     'props': (
@@ -577,7 +576,10 @@ class ItModule(s_module.CoreModule):
                     ),
                 }),
             ),
-
+            'edges': (
+                (('it:exec:query', 'found', None), {
+                    'doc': 'The target node was returned as a result of running the query.'}),
+            ),
             'forms': (
                 ('it:hostname', {}, ()),
 
