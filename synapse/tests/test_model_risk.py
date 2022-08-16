@@ -234,3 +234,32 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
+
+    async def test_model_risk_tool_software(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ risk:tool:software=*
+                    :soft=*
+                    :soft:name=cobaltstrike
+                    :soft:names=(beacon,)
+                    :publisher=*
+                    :publisher:name=vertex
+                    :techniques=(*,)
+                    :tag=cno.mal.cobaltstrike
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('soft'))
+
+            self.nn(nodes[0].get('publisher'))
+            self.eq('vertex', nodes[0].get('publisher:name'))
+
+            self.eq('cobaltstrike', nodes[0].get('soft:name'))
+            self.eq(('beacon',), nodes[0].get('soft:names'))
+
+            self.len(1, nodes[0].get('techniques'))
+            self.len(1, await core.nodes('risk:tool:software -> ou:org'))
+            self.len(1, await core.nodes('risk:tool:software -> it:prod:soft'))
+            self.len(1, await core.nodes('risk:tool:software -> ou:technique'))
+            self.len(1, await core.nodes('risk:tool:software -> syn:tag'))

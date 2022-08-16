@@ -81,14 +81,34 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A list of techniques employed within the threat cluster.'}),
                 )),
                 ('risk:tool:software', {}, (
-                    ('name', ('str', {'onespace': True, 'lower': True}), {}),
-                    ('desc', ('str', {}), {}),
-                    ('type', ('risk:tool:taxonomy', {}), {}),
-                    ('publisher', ('ou:org', {}), {}),
-                    ('publisher:name', ('ou:name', {}), {}),
-                    ('soft:name', ('it:prod:softname', {}), {}),
-                    ('soft:names', ('array', {'type': 'it:prod:softname'}), {}),
-                    ('publisher:name', ('ou:name', {}), {}),
+                    ('tag', ('syn:tag', {}), {
+                        'ex': 'rep.mandiant.tabcteng',
+                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': "A description of the tool's use in threat activity.",
+                    }),
+                    ('type', ('risk:tool:taxonomy', {}), {
+                        'doc': 'An analyst specified taxonomy of software tool types.',
+                    }),
+                    ('publisher', ('ou:org', {}), {
+                        'doc': 'The organization which reported the tool.',
+                    }),
+                    ('publisher:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the tool.',
+                    }),
+                    ('soft', ('it:prod:soft', {}), {
+                        'doc': 'The authoritative software family of the tool.',
+                    }),
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The reported primary name of the tool.',
+                    }),
+                    ('soft:names', ('array', {'type': 'it:prod:softname'}), {
+                        'doc': 'An array of reported alterate names for the tool.',
+                    }),
+                    ('techniques', ('array', {'type': 'ou:technique'}), {
+                        'doc': 'An array of techniques reportedly used by the tool.',
+                    }),
                 )),
                 ('risk:mitigation', {}, (
                     ('vuln', ('risk:vuln', {}), {
