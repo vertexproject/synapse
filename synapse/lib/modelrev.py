@@ -1,3 +1,4 @@
+import regex
 import logging
 
 import synapse.exc as s_exc
@@ -7,7 +8,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 10)
+maxvers = (0, 2, 11)
 
 class ModelRev:
 
@@ -23,6 +24,7 @@ class ModelRev:
             ((0, 2, 8), self.revModel20220315),
             ((0, 2, 9), self.revModel20220509),
             ((0, 2, 10), self.revModel20220706),
+            ((0, 2, 11), self.revModel20220803),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -487,6 +489,82 @@ class ModelRev:
     async def revModel20220706(self, layers):
         await self._propToForm(layers, 'it:av:sig:name', 'it:av:signame')
         await self._propToForm(layers, 'it:av:filehit:sig:name', 'it:av:signame')
+
+    async def revModel20220803(self, layers):
+
+        await self._normPropValu(layers, 'ps:contact:title')
+        await self._propToForm(layers, 'ps:contact:title', 'ou:jobtitle')
+
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        valid = regex.compile(r'^[0-9a-f]{40}$')
+        repl = regex.compile(r'[\s:]')
+
+        nodeedits = []
+        for layr in layers:
+
+            async def save():
+                await layr.storNodeEdits(nodeedits, meta)
+                nodeedits.clear()
+
+            formname = 'crypto:x509:cert'
+            prop = self.core.model.prop('crypto:x509:cert:serial')
+
+            async def movetodata(buid, valu):
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_DEL, (prop.name, valu, prop.type.stortype), ()),
+                        (s_layer.EDIT_NODEDATA_SET, ('migration:0_2_10', {'serial': valu}, None), ()),
+                    )),
+                )
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            async for buid, propvalu in layr.iterPropRows(formname, prop.name):
+
+                if not isinstance(propvalu, str):  # pragma: no cover
+                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} '
+                                   f'for node {s_common.ehex(buid)} : invalid prop type')
+                    await movetodata(buid, propvalu)
+                    continue
+
+                if valid.match(propvalu):
+                    continue
+
+                newv = repl.sub('', propvalu)
+
+                try:
+                    newv = int(newv)
+                except ValueError:
+                    try:
+                        newv = int(newv, 16)
+                    except ValueError:
+                        logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} '
+                                       f'for node {s_common.ehex(buid)} : invalid prop value')
+                        await movetodata(buid, propvalu)
+                        continue
+
+                try:
+                    newv = s_common.ehex(newv.to_bytes(20, 'big', signed=True))
+                    norm, info = prop.type.norm(newv)
+
+                except (OverflowError, s_exc.BadTypeValu):
+                    logger.warning(f'error re-norming {formname}:{prop.name}={propvalu} '
+                                   f'for node {s_common.ehex(buid)} : invalid prop value')
+                    await movetodata(buid, propvalu)
+                    continue
+
+                nodeedits.append(
+                    (buid, formname, (
+                        (s_layer.EDIT_PROP_SET, (prop.name, norm, propvalu, prop.type.stortype), ()),
+                    )),
+                )
+
+                if len(nodeedits) >= 1000:
+                    await save()
+
+            if nodeedits:
+                await save()
 
     async def runStorm(self, text, opts=None):
         '''

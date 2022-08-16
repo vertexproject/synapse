@@ -1323,7 +1323,7 @@ class Axon(s_cell.Cell):
         todo = s_common.todo(_spawn_readlines, sock00)
         async with await s_base.Base.anit() as scope:
 
-            scope.schedCoro(s_coro.spawn(todo))
+            scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
             scope.schedCoro(self._sha256ToLink(sha256, link00))
 
             try:
@@ -1354,7 +1354,7 @@ class Axon(s_cell.Cell):
         todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams)
         async with await s_base.Base.anit() as scope:
 
-            scope.schedCoro(s_coro.spawn(todo))
+            scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
             scope.schedCoro(self._sha256ToLink(sha256, link00))
 
             try:

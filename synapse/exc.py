@@ -14,6 +14,15 @@ class SynErr(Exception):
         displ = ' '.join(['%s=%r' % (p, v) for (p, v) in props])
         return '%s: %s' % (self.__class__.__name__, displ)
 
+    def _setExcMesg(self):
+        '''Should be called when self.errinfo is modified.'''
+        self.args = (self._getExcMsg(),)
+
+    def __setstate__(self, state):
+        '''Pickle support.'''
+        super(SynErr, self).__setstate__(state)
+        self._setExcMesg()
+
     def items(self):
         return {k: v for k, v in self.errinfo.items()}
 
@@ -30,6 +39,22 @@ class SynErr(Exception):
 
         '''
         return self.errinfo.get(name, defv)
+
+    def set(self, name, valu):
+        '''
+        Set a value in the errinfo dict.
+        '''
+        self.errinfo[name] = valu
+        self._setExcMesg()
+
+    def setdefault(self, name, valu):
+        '''
+        Set a value in errinfo dict if it is not already set.
+        '''
+        if name in self.errinfo:
+            return
+        self.errinfo[name] = valu
+        self._setExcMesg()
 
 class StormRaise(SynErr):
     def __init__(self, name, mesg, info):
@@ -214,10 +239,6 @@ class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass
 class NoSuchTagProp(SynErr): pass
 class NoSuchStormSvc(SynErr): pass
-
-class NoSuchStor(SynErr):
-    def __init__(self, name):
-        SynErr.__init__(self, mesg=f'No storage type found named {name!r}', name=name)
 
 class NotANumberCompared(SynErr): pass
 

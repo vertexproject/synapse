@@ -668,7 +668,7 @@ jobs:
       - image: docker:20.10.1
     steps:
       - build_docker:
-          image-tag: ${CIRCLE_BRANCH}
+          image-tag: ${CIRCLE_TAG}
 
   push_docker_tag:
     docker:
@@ -696,9 +696,11 @@ jobs:
       - BASH_ENV: /etc/profile
     steps:
       - checkout
-      - load_docker_from_workspace
+      - load_docker_from_workspace:
+          use_ecr: true
       - push_docker_image:
           image-tag: ${CIRCLE_TAG}
+          registry: ${AWS_ECR_REGISTRY}
       - check_tag_for_major_release
       - push_docker_image:
           image-tag: ${DOCKER_TAG}
@@ -875,17 +877,32 @@ workflows:
             - build_docker_tag
           context:
             - SynapseDockerCloudUpload
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
 
       - push_docker_tag_ecr:
           requires:
             - build_docker_tag
           context:
             - AWSEcrPusherOSS
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
 
       - delete_docker_tag:
           requires:
             - push_docker_tag
             - push_docker_tag_ecr
+          filters:
+            tags:
+              only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
+            branches:
+              ignore: /.*/
 
   nightly:
     triggers:

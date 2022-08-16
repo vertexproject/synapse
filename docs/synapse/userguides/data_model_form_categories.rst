@@ -5,160 +5,107 @@
 Data Model - Form Categories
 ============================
 
-Synapse forms can be broadly grouped into conceptual categories based on the object a form is meant to represent - an :ref:`form-entity`, a :ref:`form-relationship`, or an :ref:`form-event`.
+Synapse forms can be broadly grouped into conceptual categories based on the **object** a form is meant to
+represent - an :ref:`form-entity`, a :ref:`form-relationship`, or an :ref:`form-event`.
 
-Synapse forms can also be broadly grouped based on how their primary properties (``<form> = <valu>``) are structured or formed.
+Synapse forms can also be broadly grouped based on how their **primary properties** (``<form> = <valu>``)
+are formed.
 
-Recall that ``<form> = <valu>`` must be unique for all forms of a given type. In other words, the ``<valu>`` must be defined so that it uniquely identifies any given node of that form; it represents that form’s "essence" or "thinghood" in a way that allows the unambiguous deconfliction of all possible nodes of that form.
+Recall that ``<form> = <valu>`` must be unique for all forms of a given type. In other words, the ``<valu>``
+must be defined so that it uniquely identifies any given node of that form; it represents that form’s "essence"
+or "thinghood" in a way that allows the unambiguous deconfliction of all possible nodes of that form.
 
 Conceptually speaking, the general categories of forms in Synapse are:
 
 - `Simple Form`_
 - `Composite (Comp) Form`_
 - `Guid Form`_
-- `Edge Representations`_
-
-  - `Digraph (Edge) Form`_
-  - `Lightweight (Light) Edge`_
-
 - `Generic Form`_
+- `Digraph (Edge) Form`_
 
-This list represents a conceptual framework to understand the Synapse data model.
+This list represents a conceptual framework for understanding the Synapse data model.
 
 .. _form-simple:
 
 Simple Form
 -----------
 
-A simple form refers to a form whose primary property is a single typed ``<valu>``. They are commonly used to represent an :ref:`form-entity`, and so tend to be the most readily understood from a modeling perspective.
+A simple form refers to a form whose primary property is a single typed ``<valu>``. They are commonly used
+to represent an :ref:`form-entity`, and so tend to be the most readily understood from a modeling perspective.
 
 **Examples**
 
-- **IP addresses.** An IP address (IPv4 or IPv6) must be unique within its address space and can be defined by the address itself: ``inet:ipv4 = 1.2.3.4``. Secondary properties include the associated Autonomous System number and whether the IP belongs to a specialized or reserved group (e.g., private, multicast, etc.).
+- **IP addresses.** An IP address (IPv4 or IPv6) must be unique within its address space and can be defined by
+  the address itself: ``inet:ipv4 = 1.2.3.4``. Secondary properties include the associated Autonomous System
+  number and whether the IP belongs to a specialized or reserved group (e.g., private, multicast, etc.).
 
-- **Email addresses.** An email address must be unique in order to route email to the correct account / individual and can be defined by the address itself: ``inet:email = joe.smith@company.com``. Secondary properties include the domain where the account receives mail and the username for the account.
+- **Email addresses.** An email address must be unique in order to route email to the correct account / individual
+  and can be defined by the address itself: ``inet:email = joe.smith@company.com``. Secondary properties include
+  the domain where the account receives mail and the username for the account.
 
 .. _form-comp:
 
 Composite (Comp) Form
 ---------------------
 
-A composite (comp) form is one where the primary property is a comma-separated list of two or more typed ``<valu>`` elements. While no single element makes the form unique, a combination of elements can uniquely define a given node of that form. Comp forms are often (though not universally) used to represent a :ref:`form-relationship`.
+A composite (comp) form is one where the primary property is a comma-separated list of two or more typed ``<valu>``
+elements. While no single element makes the form unique, a combination of elements can uniquely define a given
+node of that form. Comp forms are often (though not universally) used to represent a :ref:`form-relationship`.
 
 **Examples**
 
-- **Fused DNS A records.** A DNS A record can be uniquely defined by the combination of the domain (``inet:fqdn``) and the IP address (``inet:ipv4``) in the A record. Synapse’s ``inet:dns:a`` form represents the knowledge that a given domain has ever resolved to a specific IP (fused knowledge): ``inet:dns:a = (woot.com, 1.2.3.4)``.
+- **Fused DNS A records.** A DNS A record can be uniquely defined by the combination of the domain (``inet:fqdn``)
+  and the IP address (``inet:ipv4``) in the A record. Synapse’s ``inet:dns:a`` form represents the knowledge that
+  a given domain resolved to a specific IP at some time, or within a time window (fused knowledge):
+  ``inet:dns:a = (woot.com, 1.2.3.4)``. The time window is captured by the universal ``.seen`` property.
 
-- **Web-based accounts.** An account at an online service (such as Github or Gmail) can be uniquely defined by the combination of the domain where the service is hosted (``inet:fqdn``) and the unique user ID (``inet:user``) used to identify the account: ``inet:web:acct = (twitter.com, joeuser)``.
+- **Web-based accounts.** An account at an online service (such as Github or Twitter) can be uniquely defined by
+  the combination of the domain where the service is hosted (``inet:fqdn``) and the unique user ID (``inet:user``)
+  used to identify the account: ``inet:web:acct = (twitter.com, vtxproject)``.
 
-- **Social networks.** Many online services allow users to establish relationships with other users of that service. These relationships may be one-way (you can follow someone on Twitter) or two-way (you can mutually connect with someone on LinkedIn). A given one-way social network relationship can be uniquely defined by the two users (``inet:web:acct``) involved in the relationship: ``inet:web:follows = ((twitter.com,alice), (twitter.com,bob))``. (A two-way relationship can be defined by two one-way relationships.)
+- **Social networks.** Many online services allow users to establish relationships with other users of that
+  service. These relationships may be one-way (you can follow someone on Twitter) or two-way (you can mutually
+  connect with someone on LinkedIn). A given one-way social network relationship ("Alice follows Bob") can be
+  uniquely defined by the two users (``inet:web:acct``) involved in the relationship:
+  ``inet:web:follows = ( (twitter.com,alice), (twitter.com,bob) )``. (A two-way relationship can be defined by
+  two one-way relationships.)
   
   Note that each of the elements in the ``inet:web:follows`` comp form is itself a comp form (``inet:web:acct``).
-  
-- **Subsidiaries.** An organization / sub-organization relationship (e.g., corporation / subsidiary, company / division, government / ministry, etc.) can be uniquely defined by the specific parent / child entities (``ou:org``) involved: ``ou:suborg = (084e295272e839afcf3f1fe10c6c97b9, 237e88a35439fdb566d909e291339154)``.
-  
-  Note that each of the organizations (``ou:org``) in the relationship is represented by a 128-bit Globally Unique Identifier (guid), each an example of a `Guid Form`_.
 
 .. _form-guid:
 
 Guid Form
 ---------
 
-A guid (Globally Unique Identifier) form is uniquely defined by a machine-generated 128-bit number. Guids account for cases where it is impossible to uniquely define a thing based on a specific set of properties no matter how many individual elements are factored into a comp form. A guid form can be considered a special case of a :ref:`form-simple` where the typed ``<valu>`` is of type ``<guid>``.
+A guid (Globally Unique Identifier) form is uniquely defined by a machine-generated 128-bit number. Guids account
+for cases where it is impossible to uniquely define a thing based on a property or set of properties. Guids are
+also useful for cases where the amount of data available to create a particular object (node) may vary greatly
+(i.e., not all properties / details are available from all data sources).
+
+A guid form can be considered a special case of a :ref:`form-simple` where the typed ``<valu>`` is of type ``<guid>``.
 
 .. NOTE::
-  Guid forms can be arbitrary (generated ad-hoc by Synapse) or predictable / deconflictable (generated based on a specific set of inputs). See the :ref:`type-guid` section of :ref:`storm-ref-type-specific` for a more detailed discussion of this concept.
-
-While certain types of data **could** be represented by a comp form based on a sufficient number of properties of the data, there are advantages to using a guid instead:
-
-- in a comp form, the elements used to create the primary property are **required** in order to create a node of that form. It is not uncommon for real world data to be incomplete. Using a guid allows all of those elements to be defined as optional secondary properties, so the node can be created with as much (or as little) data as is available.
-- Some data sources are such that individual records can be considered unique a priori. This often applies to event-type forms for large quantities of events. In this case it sufficient to distinguish the nodes from each other using a guid as opposed to being uniqued over a subset of properties.
-- There is a potential performance benefit to representing forms using arbitrary guids in partitcular because they are guaranteed to be unique for a given Cortex. In particular, when ingesting data presumed to be unique, creating guid-based forms vs comp forms eliminates the need to parse and deconflict nodes before they are created. This benefit can be significant over large data sets.
+  Guid forms can be arbitrary (generated ad-hoc by Synapse) or predictable / deconflictable (generated based on
+  a specific set of inputs). See the :ref:`type-guid` section of :ref:`storm-ref-type-specific` for a more
+  detailed discussion of this concept.
 
 **Examples**
 
-- **People.** Synapse uses a guid as the primary property for a person (``ps:person``) node. There is no single property or set of properties that uniquely and unambiguously define a person. A person’s full name, date of birth, or place of birth (or the combination of all three) are not guaranteed to be fully unique across an entire population. Identification numbers (such as Social Security or National ID numbers) are country-specific, and not all countries require each citizen to have an ID number. Even a person’s genome is not guaranteed to be unique (such as in the case of identical twins).
+- **People.** Synapse uses a guid as the primary property for a person (``ps:person``) node. There is no single
+  property or set of properties that uniquely and unambiguously define a person. A person’s full name, date of
+  birth, or place of birth (or the combination of all three) are not guaranteed to be fully unique across an
+  entire population. Identification numbers (such as Social Security or National ID numbers) are country-specific,
+  and not all countries require each citizen to have an ID number.
 
-  Secondary properties include the person’s name (including given, middle, or family names) and date of birth.
-
-- **Host execution / sandbox data.** The ability to model detailed behavior of a process executing on a host (or in a sandbox) is important for a range of disciplines, including incident response and malware analysis. Modeling this data is challenging because of the number of effects that execution may have on a system (files read, written, or deleted; network activity initiated). Even if we focus on a specific effect ("a process wrote a new file to disk"), there are still a number of details that may define a "unique instance" of "process writes file": the specific host (``it:host``) where the process ran, the program (``file:bytes``) that wrote the file to disk, the process (``file:bytes``) that launched the program, the time the execution occurred, the file that was written (``file:bytes``), the file’s path (``file:path``), and so on. While all of these elements could be used to create a comp form, in the "real world" not all of this data may be available in all cases, making a guid a better option for forms such as ``it:exec:file.write``.
-
-- **Unique DNS responses.** Similar to host execution data, an individual DNS response to a request could potentially be uniqued based on a comp form containing multiple elements (time, DNS query, server that replied, response code, specific response, etc.) However, the same issues described above apply and it is preferable to use a guid for forms such as ``inet:dns:request`` or ``inet:dns:answer``.
-
-.. _form-edge-reps:
-
-Edge Representations
---------------------
-
-Recall that a :ref:`form-relationship` can be the hypergraph equivalent of an edge connecting two nodes in a directed graph. A standard relationship form (such as ``inet:dns:a``) represents a specific relationship ("has DNS A record for") between two explicitly typed nodes (``inet:fqdn`` and ``inet:ipv4``). Synapse's strong typing and type safety ensure that all primary and secondary properties are explicitly typed, which facilitates both normalization of data and the ability to readily pivot across disparate properties that share the same data type. However, this means that types for all primary and secondary properties for a form representing a relationship must be defined in the data model ahead of time.
-
-Some relationships are generic enough to apply to a wide variety of forms. One example is "has": <thing a> "has" <thing b>. While it is possible to explicitly define typed forms for every possible variation of that relationship ("person has telephone number", "company has social media account"), you would still need to update the data model every time a new variation of what is essentially the same "has" relationship is identified.
-
-Synapse provides two options to represent generic "edge-type" relationships between arbitrary forms. Both methods allow this data to be incorporated into a Cortex without code modifications to update the data model: the :ref:`form-edge` and the :ref:`light-edge`.
-
-.. _form-edge:
-
-Digraph (Edge) Form
-+++++++++++++++++++
-
-A digraph form ("edge" form) is a specialized :ref:`form-comp` whose primary property value consists of two ``<form>,<valu>`` pairs  ("node definitions", or ndefs). An edge form is a specialized relationship form that can be used to link two arbitrary forms in a generic relationship. In the "has" example above, a variety of entities (people, organizations) may "have" a variety of things (email addresses, social media accounts, company cars). It would be nice to have a single generic "has" form that could link two arbitrary objects without having to explicitly define relationship forms such as "person has email address" or "company has office location".
-
-Synapse addresses this issue by defining a node’s **ndef** (``<form>,<valu>`` pair) as a data :ref:`data-type`. Properties of type ``ndef`` can thus effectively specify both a type (``<form>``) and a ``<valu>`` at the time of node creation. This allows for generic relationship forms (such as ``edge:has``) that can link two "arbitrary" node types.
-
-Generic edge forms are best suited for representing relationships where you need to capture additional detail about the relationship (via secondary properties) or observations about the relationship (via tags).
-
-.. _light-edge:
-
-Lightweight (Light) Edge
-++++++++++++++++++++++++
-
-Digraph forms are useful, but have some disadvantages in terms of performance, representation, and navigation for many common use cases. Lightweight (light) edges address these limitations.
-
-Similar to edge forms, light edges are used to link two arbitrary forms. However, unlike edge forms, light edges are not forms at all. They consist solely of a user-defined verb (that describes the linking relationship) and the two forms (nodes) being linked. Light edges typically have an implied direction (as many relationships represented by light edges are "one-way"). However, the direction is not an inherent part of the definition of the light edge itself; instead the direction is "defined" via the Storm syntax used to join the nodes. That is, nothing in Synapse prevents you from joining any two forms in any direction via a light edge, but only some of those joins will make sense given the meaning of the edge verb.
-
-Light edges have some advantages over edge forms:
-
-- Because they are nodes, edge forms incur additional performance overhead in general. This overhead is amplified in use cases where the edge represents a many-to-one relationship and the "many" is high. Light edges will always be more efficient than edge forms, and the performance benefit is significant in many cases.
-- Edge forms represent generic relationships, but the edge form itself must still exist in the data model before it can be used. Synapse includes edge forms for common generic relationships (e.g., ``edge:has``), but introducing additional relationships would require extending the data model. Light edges can be created on the fly (with appropriate permissions) as the need arises.
-- The primary property of an edge form is two elements of type :ref:`gloss-ndef`. Because of Synapse's type-awareness, this may exclude edge forms from certain types of navigation (such as wildcard ("refs out" / "refs in") pivots - see :ref:`storm-ref-pivot`). This makes it slightly more complicated to "show me all the things" connected to a given node when those connections may include things linked by edge forms vs. things linked by light edges.
-
-Light edges have some disadvantages - namely, since they are not forms, they cannot store any additional "detail" about the relationship they represent outside of their verb. They do not suppport secondary properties, and you cannot apply tags to light edges.
-
-In addition, because light edges are not forms, they cannot be viewed in a Cortex via Synapse's model introspection features (see :ref:`storm-ref-model-introspect`). The Storm :ref:`storm-model` commands allow you to list and otherwise work with the light edges in a Cortex (note that there are no light edges defined in a Cortex by default).
-
-See the :ref:`storm-ref-data-mod` for detail on creating (or deleting) light edges and the :ref:`storm-ref-pivot` for navigating light edges.
-
-Whether to use an edge form or a light edge to represent data in your Cortex will depend on your specific needs.
-
-Examples
-++++++++
-
-**"References".** There are a number of use cases where it is helpful to note that a thing “references” another thing. Examples include:
-
-- A report (``media:news``) that contains threat indicators, such as hashes (``hash:sha256``), domains (``inet:fqdn``), email addresses (``inet:email``), etc.
-- A photograph (``file:bytes``) that depicts a person (``ps:person``), a location (``geo:place``), a landmark (``mat:item``), etc.
-- A news article (``media:news``) that describes an event such as a conference (``ou:conference``).
-
-"References" is a very simple generic relationship. It is also likely to represent large many-to-one relationships, at least for some use cases; while some blogs may include only a handful of indicators, comprehensive whitepapers or internal documents such as incident reports may contain hundreds or thousands of indicators and referenced objects. "References" is also unlikely to have an associated time element; that is, if a report contains (references) an indicator (such as an FQDN), that relationship is unlikely to change. A report may be revised, but then it is technically a different report; the original still contains the reference.
-
-For these reasons a "references" relationship would be better represented by a light edge vs. an edge form.
-
-**"Has".** There are a number of use cases where it is helpful to note that a thing owns or possesses ("has") another thing. Examples include:
-
-- A company (``ou:org``) owns a corporate office (``geo:place``, ``mat:item``), a range of IP addresses (``inet:cidr4``), or a delivery van (``mat:item``).
-- A person (``ps:person``) has an email address (``inet:email``) or telephone number (``tel:phone``).
-
-In some cases the relationship of a person or organization owning or possessing ("having") a resource (a social media account, or an email address) may be indirectly apparent via existing pivots in the Synapse hypergraph. For example, an organization (``ou:org``) may have a name that is shared by a social media account (``ou:org:name -> inet:web:acct:realname``) where the social media account also references the organization’s web page (``inet:web:acct:webpage -> ou:org:url``). However, it may be desirable to more tightly link an "owning" entity to things that it "has". In addition, there may be things that an organization or person "has" that are not as easily identified via primary and secondary property pivots. In these cases the "has" form can represent this relationship between the "owning" entity and the arbitrary thing owned.
-
-Like "references", "has" seems like a very simple generic relationship. Whether to use an edge form or a light edge depends in part on the number of many-to-one relationships you need to model, and whether you need to capture additional information about the relationship (such as if something was "had" only for a specific period of time).
-
-If the many-to-one is relatively small AND you need to capture data such as a time interval, an edge form (``edge:has``) may be best. For large instances of many-to-one, or cases where things like time are not relevant (or where the time element is captured elsewhere), light edges are preferable.
-
-- An organization (``ou:org``) may "have" an office location (``geo:place``) only for a period of time; the organization may lease or buy a different space if the business grows, for example. If this time element is relevant, an ``edge:has`` node can be used to represent the relationship, with the ``.seen`` property capturing the time interval.
-
-- An IP address (``inet:ipv4`` or ``inet:ipv6``) may be part of a netblock, either directly (``inet:asnet4``, ``inet:cidr4``, ``inet:cidr6``) or as part of a netblock referenced in a network registration record (``inet:whois:iprec``). Depending on the size of the netblock, the many-to-one relationship may be extremely large. In addition, an IP address may be part of more than one netblock / registration record, given network range suballocations and so on. In some cases a time element is irrelevant (i.e., a defined CIDR block is a fixed thing; an IP that is part of a /24 will never **not** be part of that /24). In cases of network registration records, the ``inet:whois:iprec`` form contains time values; if that record changes (specifically, if the IP range is allocated differently) that would represent a new ``inet:whois:iprec`` with a new "has" relationship with the IPs in that range. In these cases (IP as part of CIDR, IP refrenced by netblock in registration record) light edges are preferable - for example, ``inet:cidr4 -(has)> inet:ipv4`` to show an IP is part of a CIDR block or ``inet:whois:iprec -(has)> inet:ipv4`` to show that an IP is part of a netblock referenced in a registration record. These light edges can be represented by a generic verb ("has") or a more relationship-specific verb (e.g., "hasip") depending on preference or need.
-
-**"Went to".** "Went to" can be used to represent that a thing (often a person, potentially an object such as a bus) traveled to a place (a city, an office building, a set of geolocation coordinates) or that a person attended an event (a conference, a party). It would be natural to want to record "when" this event occured, such as via a "time" secondary property (for a single point in time, such as an arrival time). Alternately, the ``.seen`` universal property could be used to record a start and end time if the "went to" needed to capture a duration. Because of this need to track additional information about the relationship, an edge form (``edge:wentto``) would be more appopriate.
+- **Host execution / sandbox data.** The ability to model detailed behavior of a process executing on a host
+  (or in a sandbox) is important for disciplines such as incident response and malware analysis. Modeling this
+  data is challenging because of the number of effects that execution may have on a system (files read, written,
+  or deleted; network activity initiated). Even if we focus on a specific effect ("a process wrote a new file
+  to disk"), there are still a number of details that may define a "unique instance" of "process writes file":
+  the specific host where the process ran, the program that wrote the file to disk, the process that launched
+  the program, the time the execution occurred, the file that was written, the file’s path, and so on. While all
+  of these elements could be used to create a comp form, in the "real world" not all of this data may be
+  available in all cases, making a guid a better option for forms such as ``it:exec:file:write``.
 
 .. _form-generic:
 
@@ -167,17 +114,44 @@ Generic Form
 
 The Synapse data model includes a number of "generic" forms that can be used to represent metadata and / or arbitrary data. 
 
-Arbitrary Data
-++++++++++++++
+In an ideal world, all data represented in Synapse would be accurately modeled using an appropriate form. However,
+designing a new form for the data model may require extended discussion, subject matter expertise, and testing
+against "real world" data - not to mention time to implement model changes. In addition, sometimes data needs
+to be added to a Cortex for reference or analysis purposes where the data simply does not have sufficient detail
+to be represented accurately, even if an appropriate form existed.
 
-In an ideal world, all data represented in a Synapse hypergraph would be accurately modeled using an appropriate form to property capture the data’s unique (primary property) and contextual (secondary property) characteristics. However, designing an appropriate data model may require extended discussion, subject matter expertise, and testing against "real world" data - not to mention development time to implement model changes. In addition, there are use cases where data needs to be added to a Cortex for reference or analysis purposes, but simply does not have sufficient detail to be represented accurately, even if appropriate data forms exist.
+The use of generic forms is not ideal - the representation of "generic" data may be lossy, which may impact effective
+analysis. But generic forms may be necessary for adding arbitrary to Synapse, either because an appropriate model
+element does not yet exist but the data is needed now; or because there is no other effective way to represent the data.
 
-While the use of generic forms is not ideal (the representation of data is lossy, which may impact effective analysis), these forms allow for the addition of arbitrary data to a hypergraph, either because that is the only way the data can be represented; or because an appropriate model does not yet exist but the data is needed now.
+These generic forms exist in two primary parts of the data model: ``meta:*`` forms and ``graph:*`` forms. Examples
+include:
 
-Generic forms such as ``graph:node``, ``graph:edge``, ``graph:timeedge`` and ``graph:event`` can be used for this purpose. Similarly, the generic ``graph:cluster`` node can be used to link (via ``refs`` light edges or  ``edge:refs`` forms) a set of nodes of arbitrary size ("someone says these things are all related") in the absence of greater detail.
+- ``meta:seen`` nodes, used to represent a data source used to ingest data into Synapse. Data sources may include sensors
+  or third-party connectors such as Synapse Power-Ups. A ``meta:source`` is linked to the data it provides via a
+  ``-(seen)>`` light edge.
 
-Metadata
-++++++++
+- ``meta:rule`` nodes, used to represent a generic detection rule for cases where a more specific form (such as ``it:av:sig``
+  or ``it:app:yara:rule``) is not available.
 
-The Synapse data model includes forms such as ``meta:source`` that can be used to track data sources for data ingested into a Cortex. "Sources" may include sensors or third-party services or connectors. Structures such as ``seen`` light edges or ``meta:seen`` forms can be used to track that a particular piece of data (e.g., a node) was observed by or from a particular source.
+Some generic forms are "edge forms" (see :ref:`form-edge`, below) used to represent relationships between arbitrary
+forms.
 
+.. _form-edge:
+
+Digraph (Edge) Form
+-------------------
+
+.. NOTE::
+  
+  The use of light edges (see :ref:`data-light-edge`) is preferred over edge forms (which predate light edges)
+  where possible.
+
+A digraph form ("edge" form) is a specialized :ref:`form-comp` whose primary property value consists of two
+``<form>,<valu>`` pairs  ("node definitions", or ndefs). An edge form is a specialized relationship form that
+can be used to link two arbitrary forms in a generic relationship.
+
+Edge forms have not been officially deprecated. However, edge forms (used to create nodes) incur some additional performance
+overhead vs. light edges (particularly for large numbers of edge nodes). In addition, there are some nuances to working with
+edge nodes using Storm (see :ref:`pivot-to-edge`, for example) that can make navigating Synapse data more complex. For these
+reasons, light edges are now preferred.

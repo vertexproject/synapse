@@ -3628,12 +3628,16 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrLjust',
                   'args': (
                       {'name': 'size', 'type': 'int', 'desc': 'The length of character to left justify.', },
+                      {'name': 'fillchar', 'type': 'str', 'default': ' ',
+                       'desc': 'The character to use for padding.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The left justified string.', }}},
         {'name': 'rjust', 'desc': 'Right justify the string.',
          'type': {'type': 'function', '_funcname': '_methStrRjust',
                   'args': (
                       {'name': 'size', 'type': 'int', 'desc': 'The length of character to right justify.', },
+                      {'name': 'fillchar', 'type': 'str', 'default': ' ',
+                       'desc': 'The character to use for padding.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The right justified string.', }}},
         {'name': 'encode', 'desc': 'Encoding a string value to bytes.',
@@ -3848,11 +3852,11 @@ class Str(Prim):
     async def _methStrStartswith(self, text):
         return self.valu.startswith(text)
 
-    async def _methStrRjust(self, size):
-        return self.valu.rjust(await toint(size))
+    async def _methStrRjust(self, size, fillchar=' '):
+        return self.valu.rjust(await toint(size), await tostr(fillchar))
 
-    async def _methStrLjust(self, size):
-        return self.valu.ljust(await toint(size))
+    async def _methStrLjust(self, size, fillchar=' '):
+        return self.valu.ljust(await toint(size), await tostr(fillchar))
 
     async def _methStrReplace(self, oldv, newv, maxv=None):
         if maxv is None:
