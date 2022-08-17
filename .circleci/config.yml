@@ -696,9 +696,11 @@ jobs:
       - BASH_ENV: /etc/profile
     steps:
       - checkout
-      - load_docker_from_workspace
+      - load_docker_from_workspace:
+          use_ecr: true
       - push_docker_image:
           image-tag: ${CIRCLE_TAG}
+          registry: ${AWS_ECR_REGISTRY}
       - check_tag_for_major_release
       - push_docker_image:
           image-tag: ${DOCKER_TAG}
