@@ -3627,10 +3627,13 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(runt, path)
+            names = await self.kids[0].compute(runt, path)
+            names = await s_stormtypes.toprim(names)
 
-            # special case for backward compatibility
-            if name:
+            if not isinstance(names, tuple):
+                names = (names,)
+
+            for name in names:
 
                 normtupl = await runt.snap.getTagNorm(name)
                 if normtupl is None:
