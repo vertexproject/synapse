@@ -13,9 +13,10 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
                 ('risk:threat', ('guid', {}), {
-                    'doc': 'A threat cluster or subgraph of threat activity attributable to one group.'}),
+                    'doc': 'A threat cluster or subgraph of threat activity.',
+                }),
                 ('risk:attack', ('guid', {}), {
-                    'doc': 'An instance of an actor attacking a target.'
+                    'doc': 'An instance of an actor attacking a target.',
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -35,10 +36,18 @@ class RiskModule(s_module.CoreModule):
                     'ex': 'cno.breach',
                     'interfaces': ('taxonomy',),
                 }),
+                ('risk:tool:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                }),
+                ('risk:tool:software', ('guid', {}), {
+                    'doc': 'A software tool used in threat activity.',
+                }),
             ),
             'edges': (
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target nodes.'}),
+                (('risk:threat', 'uses', None), {
+                    'doc': 'The threat cluster uses the target nodes.'}),
                 (('risk:attack', 'targets', None), {
                     'doc': 'The attack targeted the target nodes.'}),
                 (('risk:attack', 'uses', None), {
@@ -47,18 +56,59 @@ class RiskModule(s_module.CoreModule):
             'forms': (
                 ('risk:threat', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'ex': "mandiant's apt1 cluster",
+                        'ex': "apt1 (mandiant)",
                         'doc': 'The name of the threat cluster.'}),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the threat cluster.'}),
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization who published the threat cluster.'}),
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization who published the threat cluster.'}),
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization that the threat cluster is attributed to.'}),
+                    ('org:loc', ('loc', {}), {
+                        'doc': 'The assessed location of the organization that the threat cluster is attributed to.'}),
                     ('org:name', ('ou:name', {}), {
+                        'ex': 'apt1',
                         'doc': 'The name of the organization that the threat cluster is attributed to.'}),
+                    ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the organization that the threat cluster is attributed to.'}),
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                        'doc': 'The assessed goals of the threat cluster activity.'}),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
                         'doc': 'A list of techniques employed within the threat cluster.'}),
+                )),
+                ('risk:tool:software', {}, (
+                    ('tag', ('syn:tag', {}), {
+                        'ex': 'rep.mandiant.tabcteng',
+                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': "A description of the tool's use in threat activity.",
+                    }),
+                    ('type', ('risk:tool:taxonomy', {}), {
+                        'doc': 'An analyst specified taxonomy of software tool types.',
+                    }),
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization which reported the tool.',
+                    }),
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the tool.',
+                    }),
+                    ('soft', ('it:prod:soft', {}), {
+                        'doc': 'The authoritative software family of the tool.',
+                    }),
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The reported primary name of the tool.',
+                    }),
+                    ('soft:names', ('array', {'type': 'it:prod:softname'}), {
+                        'doc': 'An array of reported alterate names for the tool.',
+                    }),
+                    ('techniques', ('array', {'type': 'ou:technique'}), {
+                        'doc': 'An array of techniques reportedly used by the tool.',
+                    }),
                 )),
                 ('risk:mitigation', {}, (
                     ('vuln', ('risk:vuln', {}), {
