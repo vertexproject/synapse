@@ -292,9 +292,9 @@ class PsModelTest(s_t_utils.SynTest):
                     :person=*
                     :height=6feet
                     :weight=200lbs
-                    :currency=usd
-                    :net:worth=100
-                    :annual:income=1000
+                    :econ:currency=usd
+                    :econ:net:worth=100
+                    :econ:annual:income=1000
                 ]
                 { -> ps:person [ :vitals={ps:vitals} ] }
                 { -> ps:contact [ :vitals={ps:vitals} ] }
@@ -304,9 +304,9 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(1828, nodes[0].get('height'))
             self.eq('90718.4', nodes[0].get('weight'))
 
-            self.eq('usd', nodes[0].get('currency'))
-            self.eq('100', nodes[0].get('net:worth'))
-            self.eq('1000', nodes[0].get('annual:income'))
+            self.eq('usd', nodes[0].get('econ:currency'))
+            self.eq('100', nodes[0].get('econ:net:worth'))
+            self.eq('1000', nodes[0].get('econ:annual:income'))
 
             self.nn(nodes[0].get('person'))
             self.nn(nodes[0].get('contact'))

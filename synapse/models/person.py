@@ -429,11 +429,11 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The height of the person or contact.'}),
                     ('weight', ('mass', {}), {
                         'doc': 'The weight of the person or contact.'}),
-                    ('currency', ('econ:currency', {}), {
+                    ('econ:currency', ('econ:currency', {}), {
                         'doc': 'The currency that the price values are recorded using.'}),
-                    ('net:worth', ('econ:price', {}), {
+                    ('econ:net:worth', ('econ:price', {}), {
                         'doc': 'The net worth of the contact.'}),
-                    ('annual:income', ('econ:price', {}), {
+                    ('econ:annual:income', ('econ:price', {}), {
                         'doc': 'The yearly income of the contact.'}),
                     # TODO: eye color etc. color names / rgb values?
                 )),
