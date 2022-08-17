@@ -387,6 +387,39 @@ standard ``pytest`` invocation to run the test::
 Advanced Features
 =================
 
+Using ``divert`` to implement ``--yield``
+-----------------------------------------
+
+The ``--yield`` option is typically used to allow a **Storm** command which takes nodes as input to optionally
+output the new nodes it added rather than the nodes it received as input. To simplify implementing this convention
+the ``divert`` command was added to **Storm** to handle potentially 
+
+To implement a command with a ``--yield`` option is typically accomplished via the following pattern::
+
+  commands:
+
+    - name: acme.hello.mayyield
+      cmdargs:
+
+        - - --yield
+          - type: bool
+            default: false
+            action: store_true
+            help: Yield newly constructed nodes from the command.
+
+Then within ``storm/commands/acme.hello.mayyield.storm``::
+
+    function nodeGenrFunc(fqdn) {
+        // fake a DNS lookup and make an inet:dns:a
+        [ inet:dns:a=($fqdn, 1.2.3.4) ]
+    }
+
+    divert --yield $cmdopts.yield $nodeGenrFunc($node)
+
+When executed, the ``acme.hello.mayyield`` command will output the nodes received as inputs which is useful for
+pipelining enrichments. If the user specifies ``--yield`` the command will output the resulting ``inet:dns:a``
+nodes constructed by the ``nodeGenrFunc()`` function.
+
 Optic Actions
 -------------
 
@@ -416,11 +449,5 @@ the specified as though it were run like this::
     inet:fqdn=vertex.link | acme.hello.omgopts --debug
 
 Any printed output, including warnings, will be displayed in the ``Console Tool``.
-
-Optic Workflows
----------------
-
-Dependancies
-------------
 
 _Optic: http://woot

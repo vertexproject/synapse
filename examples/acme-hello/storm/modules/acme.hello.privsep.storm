@@ -1,0 +1,14 @@
+function getFooByBar(bar) {
+
+    $apikey = $lib.globals.get(acme:hello:apikey)
+    $headers = ({"apikey": $apikey})
+
+    $url = $lib.str.format("https://acme.newp/api/v1/foo/{bar}", bar=$bar)
+
+    $resp = $lib.inet.http.get($url, headers=$headers)
+    if ($resp.code != 200) {
+        $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
+    }
+
+    return($resp.json())
+}
