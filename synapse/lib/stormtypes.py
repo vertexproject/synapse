@@ -5135,8 +5135,8 @@ class Node(Prim):
                        'default': False, },
                   ),
                   'returns':
-                      {'type': 'list',
-                       'desc': 'The components of tags which match the wildcard component of a glob expression.', }}},
+                      {'type': 'dict',
+                       'desc': 'The tags which have been added/deleted in the new set.', }}},
         {'name': 'isform', 'desc': 'Check if a Node is a given form.',
          'type': {'type': 'function', '_funcname': '_methNodeIsForm',
                   'args': (
