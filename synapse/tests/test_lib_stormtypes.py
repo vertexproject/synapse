@@ -524,7 +524,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz"]), prefix=baz, apply=$lib.true)')
             self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.baz', 'baz', 'baz.foo', 'baz.baz'])
 
-            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz"]), apply=$lib.true)')
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz", ""]), apply=$lib.true)')
             self.sorteq(nodes[0].tags, ['foo', 'baz'])
 
     async def test_storm_lib_base(self):
