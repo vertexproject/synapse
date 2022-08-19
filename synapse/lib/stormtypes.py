@@ -5128,7 +5128,7 @@ class Node(Prim):
         {'name': 'difftags', 'desc': 'Get and optionally apply the difference between the current set of tags and another set.',
          'type': {'type': 'function', '_funcname': '_methNodeDiffTags',
                   'args': (
-                      {'name': 'names', 'type': 'list', 'desc': 'The set to compare against.', },
+                      {'name': 'tags', 'type': 'list', 'desc': 'The set to compare against.', },
                       {'name': 'prefix', 'type': 'str', 'default': None,
                        'desc': 'An optional prefix to match tags under.', },
                       {'name': 'apply', 'type': 'boolean', 'desc': 'If true, apply the diff.',
@@ -5283,32 +5283,34 @@ class Node(Prim):
         return ret
 
     @stormfunc(readonly=True)
-    async def _methNodeDiffTags(self, names, prefix=None, apply=False):
-        newtags = set()
-        names = set(await toprim(names))
-        tagpart = self.valu.snap.core.model.type('syn:tag:part')
-
-        async for name in toiter(names):
-            try:
-                newtags.add(tagpart.norm(name)[0])
-            except s_exc.BadTypeValu:
-                pass
+    async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
+        tags = set(await toprim(tags))
 
         if prefix:
-            prefix = await tostr(prefix)
-            if not prefix.endswith('.'):
-                prefix = f'{prefix}.'
+            prefix = tuple((await tostr(prefix)).split('.'))
+            plen = len(prefix)
 
-            newtags = set([prefix + tag for tag in newtags])
+            tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
             curtags = set()
             for tag in list(self.valu.tags.keys()):
-                if tag.startswith(prefix):
-                    curtags.add(tag)
+                parts = tuple(tag.split('.'))
+                if parts[:plen] == prefix:
+                    curtags.add(parts)
         else:
-            curtags = set(self.valu.tags.keys())
+            tags = set([tuple(tag.split('.')) for tag in tags if tag])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
 
-        adds = newtags - curtags
-        dels = curtags - newtags
+        adds = tags.copy()
+        dels = curtags.copy()
+        for tag in tags:
+            for cur in curtags:
+                if cur[:len(tag)] == tag:
+                    adds.discard(tag)
+                if tag[:len(cur)] == cur:
+                    dels.discard(cur)
+
+        adds = ['.'.join(tag) for tag in adds]
+        dels = ['.'.join(tag) for tag in dels]
 
         if apply:
             for tag in adds:
@@ -5317,7 +5319,7 @@ class Node(Prim):
             for tag in dels:
                 await self.valu.delTag(tag)
 
-        return {'adds': list(adds), 'dels': list(dels)}
+        return {'adds': adds, 'dels': dels}
 
     @stormfunc(readonly=True)
     async def _methNodeValue(self):

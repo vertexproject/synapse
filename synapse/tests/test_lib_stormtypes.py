@@ -506,17 +506,17 @@ class StormTypesTest(s_test.SynTest):
             self.eq(retn['dels'], [])
 
             retn = await core.callStorm('test:str=foo return($node.difftags((["foo", "baz"])))')
-            self.eq(retn['adds'], ["baz"])
-            self.eq(retn['dels'], ["bar"])
+            self.eq(retn['adds'], ['baz'])
+            self.eq(retn['dels'], ['bar'])
 
-            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz"]), apply=$lib.true)')
-            self.sorteq(nodes[0].tags, ["foo", "baz"])
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz.bar"]), apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo', 'baz', 'baz.bar'])
 
             nodes = await core.nodes('test:str=foo [-#$node.tags()]')
             self.eq(nodes[0].tags, {})
 
-            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "bar"]), prefix=test, apply=$lib.true)')
-            self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.bar'])
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz.bar"]), prefix=test, apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.baz', 'test.baz.bar'])
 
             nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz"]), prefix=test, apply=$lib.true)')
             self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.baz'])
