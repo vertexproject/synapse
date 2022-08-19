@@ -10,8 +10,8 @@ v2.105.0 - 2022-08-19
 Features and Enhancements
 -------------------------
 - Add a Number primitive to Storm to facilitate fixed point math
-  operations. Values in expressions which were previously parsed
-  as floating point will now be Numbers by default. Values can also
+  operations. Values in expressions which are parsed as floating
+  point values will now be Numbers by default. Values can also
   be cast to Numbers with ``$lib.math.number()``.
   (`#2762 <https://github.com/vertexproject/synapse/pull/2762>`_)
 - Add ``$lib.basex.encode()`` and ``$lib.basex.decode()`` for
