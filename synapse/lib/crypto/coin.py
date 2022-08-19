@@ -75,9 +75,18 @@ def ether_eip55(body: str):
 def eth_check(match: regex.Match):
     text = match.groupdict().get('valu')  # type: str
     body = text[2:]
+
     ret = ether_eip55(body)
     if ret is None:
         return None, {}
+
+    # Checksum if we're mixed case or not
+    if not body.isupper() and not body.islower():
+        if ret != text:
+            return None, {}
+        return ('eth', text), {}
+
+    # any valid 0x<40 character> hex string is possibly a ETH address.
     return ('eth', ret), {}
 
 def bch_check(match: regex.Match):
