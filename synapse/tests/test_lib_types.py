@@ -1,4 +1,5 @@
 import math
+import decimal
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -363,6 +364,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, t.norm, 'newp')
         self.eq(t.norm(True)[0], 1)
         self.eq(t.norm(False)[0], 0)
+        self.eq(t.norm(decimal.Decimal('1.0'))[0], 1)
 
         # Test merge
         self.eq(30, t.merge(20, 30))
@@ -467,6 +469,14 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('[ test:float=inf ]')
             self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:float=(42.1) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 42.1))
+
+            nodes = await core.nodes('[ test:float=($lib.cast(float, 42.1)) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 42.1))
 
             self.len(1, await core.nodes('[ test:float=42.0 :closed=0.0]'))
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))
