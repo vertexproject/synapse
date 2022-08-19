@@ -491,6 +491,48 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str=knight'))
             self.len(2, await core.nodes('#faz'))
 
+    async def test_storm_node_difftags(self):
+        async with self.getTestCore() as core:
+
+            retn = await core.callStorm('[ test:str=foo ] return($node.difftags((["foo", "bar"])))')
+            self.sorteq(retn['adds'], ['foo', 'bar'])
+            self.eq(retn['dels'], [])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "bar"]), apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo', 'bar'])
+
+            retn = await core.callStorm('[ test:str=foo ] return($node.difftags((["foo", "bar"])))')
+            self.eq(retn['adds'], [])
+            self.eq(retn['dels'], [])
+
+            retn = await core.callStorm('test:str=foo return($node.difftags((["foo", "baz"])))')
+            self.eq(retn['adds'], ['baz'])
+            self.eq(retn['dels'], ['bar'])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz.bar"]), apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo', 'baz', 'baz.bar'])
+
+            nodes = await core.nodes('test:str=foo [-#$node.tags()]')
+            self.eq(nodes[0].tags, {})
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz.bar"]), prefix=test, apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.baz', 'test.baz.bar'])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz"]), prefix=test, apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.baz'])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz"]), prefix=baz, apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['test', 'test.foo', 'test.baz', 'baz', 'baz.foo', 'baz.baz'])
+
+            nodes = await core.nodes('test:str=foo $node.difftags((["foo", "baz", ""]), apply=$lib.true)')
+            self.sorteq(nodes[0].tags, ['foo', 'baz'])
+
+            await core.setTagModel("foo", "regex", (None, "[a-zA-Z]{3}"))
+            async with await core.snap() as snap:
+                snap.strict = False
+                nodes = await snap.nodes('test:str=foo $tags=(["foo", "foo.a"]) [ -#$tags ]')
+                self.eq(list(nodes[0].tags.keys()), ['baz'])
+
     async def test_storm_lib_base(self):
         pdef = {
             'name': 'foo',
