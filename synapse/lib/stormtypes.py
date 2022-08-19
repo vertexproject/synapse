@@ -56,6 +56,7 @@ class StormTypesRegistry:
         'time',
         'prim',
         'undef',
+        'float',
         'integer',
         'storm:lib',  # lib.import
         'generator',

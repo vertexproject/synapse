@@ -5789,8 +5789,6 @@ words\tword\twrd'''
                 huge / 'foo'
 
             self.eq('15', await core.callStorm('return($lib.math.number(0xf))'))
-            self.eq('15', await core.callStorm('return($lib.cast(hugenum, 0xf))'))
-            self.eq((True, '15'), await core.callStorm('return($lib.trycast(hugenum, 0xf))'))
             self.eq(1.23, await core.callStorm('return($lib.math.number(1.23).tofloat())'))
             self.eq('1.23', await core.callStorm('return($lib.math.number(1.23).tostr())'))
             self.eq(1, await core.callStorm('return($lib.math.number(1.23).toint())'))
