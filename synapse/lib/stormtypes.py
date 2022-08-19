@@ -8645,7 +8645,7 @@ async def tocmprvalu(valu):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v))
+                retn.append(await tocmprvalu(v))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -8654,7 +8654,7 @@ async def tocmprvalu(valu):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v)
+                retn[k] = await tocmprvalu(v)
             except s_exc.NoSuchType:
                 pass
         return retn
