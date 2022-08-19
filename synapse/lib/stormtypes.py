@@ -4475,7 +4475,7 @@ class Number(Prim):
     '''
     _storm_locals = (
         {'name': 'scaleb', 'desc': '''
-            Return the number multiplied by 10**other
+            Return the number multiplied by 10**other.
 
             Example:
                 Multiply the value by 10**-18::
@@ -4486,6 +4486,29 @@ class Number(Prim):
                       {'name': 'other', 'type': 'int', 'desc': 'The amount to adjust the exponent.', },
                   ),
                   'returns': {'type': 'number', 'desc': 'The exponent adjusted number.', }}},
+        {'name': 'toint', 'desc': '''
+            Return the number as an integer.
+
+            By default, decimal places will be truncated. Optionally, rounding rules
+            can be specified by providing the name of a Python decimal rounding mode
+            to the 'rounding' argument.
+
+            Example:
+                Round the value stored in $baz up instead of truncating::
+
+                    $baz.toint(rounding=ROUND_UP)''',
+         'type': {'type': 'function', '_funcname': '_methToInt',
+                  'args': (
+                      {'name': 'rounding', 'type': 'str', 'default': None,
+                       'desc': 'An optional rounding mode to use.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The number as an integer.', }}},
+        {'name': 'tostr', 'desc': 'Return the number as a string.',
+         'type': {'type': 'function', '_funcname': '_methToStr',
+                  'returns': {'type': 'str', 'desc': 'The number as a string.', }}},
+        {'name': 'tofloat', 'desc': 'Return the number as a float.',
+         'type': {'type': 'function', '_funcname': '_methToFloat',
+                  'returns': {'type': 'float', 'desc': 'The number as a float.', }}},
     )
     _storm_typename = 'number'
     _ismutable = False
@@ -4502,12 +4525,31 @@ class Number(Prim):
 
     def getObjLocals(self):
         return {
+            'toint': self._methToInt,
+            'tostr': self._methToStr,
+            'tofloat': self._methToFloat,
             'scaleb': self._methScaleb,
         }
 
     async def _methScaleb(self, other):
         newv = s_common.hugescaleb(self.value(), await toint(other))
         return Number(newv)
+
+    async def _methToInt(self, rounding=None):
+        if rounding is None:
+            return int(self.valu)
+
+        try:
+            return int(self.valu.quantize(decimal.Decimal('1'), rounding=rounding))
+        except TypeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'Error rounding number: {str(e)}',
+                                          valurepr=await self.stormrepr()) from None
+
+    async def _methToStr(self):
+        return str(self.valu)
+
+    async def _methToFloat(self):
+        return float(self.valu)
 
     def __str__(self):
         return str(self.value())
@@ -8665,8 +8707,7 @@ async def tocmprvalu(valu):
     if isinstance(valu, s_node.Node):
         return valu.ndef[1]
 
-    mesg = 'Unable to convert object to value for comparison.'
-    raise s_exc.NoSuchType(mesg=mesg, name=valu.__class__.__name__)
+    return valu
 
 def ismutable(valu):
     if isinstance(valu, StormType):
