@@ -4,6 +4,70 @@
 Synapse Changelog
 *****************
 
+v2.105.0 - 2022-08-19
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a Number primitive to Storm to facilitate fixed point math
+  operations. Values in expressions which were previously parsed
+  as floating point will now be Numbers by default. Values can also
+  be cast to Numbers with ``$lib.math.number()``.
+  (`#2762 <https://github.com/vertexproject/synapse/pull/2762>`_)
+- Add ``$lib.basex.encode()`` and ``$lib.basex.decode()`` for
+  encoding and decoding strings using arbitrary charsets.
+  (`#2807 <https://github.com/vertexproject/synapse/pull/2807>`_)
+- The tag removal operator (``-#``) now accepts lists of tags
+  to remove.
+  (`#2808 <https://github.com/vertexproject/synapse/pull/2808>`_)
+- Add a ``$node.difftags()`` API to calculate and optionally apply
+  the difference between a list of tags and those present on a node.
+  (`#2808 <https://github.com/vertexproject/synapse/pull/2808>`_)
+- Scraped Ethereum addresses are now returned in their EIP55
+  checksummed form. This change also applies to lookup mode.
+  (`#2809 <https://github.com/vertexproject/synapse/pull/2809>`_)
+- Updates to the ``mat``, ``ps``, and ``risk`` models.
+  (`#2804 <https://github.com/vertexproject/synapse/pull/2804>`_)
+
+  ``mass``
+    Add a type for storing mass with grams as a base unit.
+
+  ``ps:vitals``
+    Add a form to record statistics and demographic data about a person
+    or contact.
+
+  ``ps:person``
+    Add a ``vitals`` secondary property to record the most recent known
+    vitals for the person.
+
+  ``ps:contact``
+    Add a ``vitals`` secondary property to record the most recent known
+    vitals for the contact.
+
+  ``risk:tool:taxonomy``
+    Add a form to record an analyst defined taxonomy of different tools.
+
+  ``risk:tool:software``
+    Add a form to record software tools used in threat activity.
+
+  ``risk:threat``
+    Add ``reporter``, ``reporter:name``, ``org:loc``, ``org:names``,
+    and ``goals`` secondary properties.
+
+- Annotate the following light edges.
+  (`#2804 <https://github.com/vertexproject/synapse/pull/2804>`_)
+
+  ``uses``
+    When used with ``risk:threat`` nodes, the edge indicates the target
+    node is used by the source node.
+
+Bugfixes
+--------
+- Fix language used in the ``model.deprecated.check`` command.
+  (`#2806 <https://github.com/vertexproject/synapse/pull/2806>`_)
+- Remove the ``-y`` switch in the ``count`` command.
+  (`#2806 <https://github.com/vertexproject/synapse/pull/2806>`_)
+
 v2.104.0 - 2022-08-09
 =====================
 
