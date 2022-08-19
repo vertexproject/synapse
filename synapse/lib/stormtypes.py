@@ -5300,14 +5300,15 @@ class Node(Prim):
             tags = set([tuple(tag.split('.')) for tag in tags if tag])
             curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
 
-        adds = tags.copy()
-        dels = curtags.copy()
-        for tag in tags:
-            for cur in curtags:
-                if cur[:len(tag)] == tag:
-                    adds.discard(tag)
-                if tag[:len(cur)] == cur:
-                    dels.discard(cur)
+        adds = set([tag for tag in tags if tag not in curtags])
+        dels = set()
+        for cur in curtags:
+            clen = len(cur)
+            for tag in tags:
+                if tag[:clen] == cur:
+                    break
+            else:
+                dels.add(cur)
 
         adds = ['.'.join(tag) for tag in adds]
         dels = ['.'.join(tag) for tag in dels]
