@@ -5307,6 +5307,18 @@ class Node(Prim):
                   'returns':
                       {'type': 'list',
                        'desc': 'The components of tags which match the wildcard component of a glob expression.', }}},
+        {'name': 'difftags', 'desc': 'Get and optionally apply the difference between the current set of tags and another set.',
+         'type': {'type': 'function', '_funcname': '_methNodeDiffTags',
+                  'args': (
+                      {'name': 'tags', 'type': 'list', 'desc': 'The set to compare against.', },
+                      {'name': 'prefix', 'type': 'str', 'default': None,
+                       'desc': 'An optional prefix to match tags under.', },
+                      {'name': 'apply', 'type': 'boolean', 'desc': 'If true, apply the diff.',
+                       'default': False, },
+                  ),
+                  'returns':
+                      {'type': 'dict',
+                       'desc': 'The tags which have been added/deleted in the new set.', }}},
         {'name': 'isform', 'desc': 'Check if a Node is a given form.',
          'type': {'type': 'function', '_funcname': '_methNodeIsForm',
                   'args': (
@@ -5351,6 +5363,7 @@ class Node(Prim):
             'delEdge': self._methNodeDelEdge,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
+            'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
             'getByLayer': self.getByLayer,
             'getStorNodes': self.getStorNodes,
@@ -5450,6 +5463,44 @@ class Node(Prim):
                 else:
                     ret.append(groups)
         return ret
+
+    async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
+        tags = set(await toprim(tags))
+
+        if prefix:
+            prefix = tuple((await tostr(prefix)).split('.'))
+            plen = len(prefix)
+
+            tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
+            curtags = set()
+            for tag in list(self.valu.tags.keys()):
+                parts = tuple(tag.split('.'))
+                if parts[:plen] == prefix:
+                    curtags.add(parts)
+        else:
+            tags = set([tuple(tag.split('.')) for tag in tags if tag])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+
+        adds = set([tag for tag in tags if tag not in curtags])
+        dels = set()
+        for cur in curtags:
+            clen = len(cur)
+            for tag in tags:
+                if tag[:clen] == cur:
+                    break
+            else:
+                dels.add(cur)
+
+        adds = ['.'.join(tag) for tag in adds]
+        dels = ['.'.join(tag) for tag in dels]
+        if apply:
+            for tag in adds:
+                await self.valu.addTag(tag)
+
+            for tag in dels:
+                await self.valu.delTag(tag)
+
+        return {'adds': adds, 'dels': dels}
 
     @stormfunc(readonly=True)
     async def _methNodeValue(self):
