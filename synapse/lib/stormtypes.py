@@ -5464,7 +5464,6 @@ class Node(Prim):
                     ret.append(groups)
         return ret
 
-    @stormfunc(readonly=True)
     async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
         tags = set(await toprim(tags))
 
