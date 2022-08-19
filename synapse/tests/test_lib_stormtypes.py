@@ -5794,6 +5794,9 @@ words\tword\twrd'''
             self.eq(1, await core.callStorm('return($lib.math.number(1.23).toint())'))
             self.eq(2, await core.callStorm('return($lib.math.number(1.23).toint(rounding=ROUND_UP))'))
 
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm('return($lib.math.number(1.23).toint(rounding=NEWP))')
+
             self.eq('0.0123', await core.callStorm('return($lib.math.number(1.23).scaleb(-2))'))
 
             msgs = await core.stormlist('$lib.print((1.23))')

@@ -1406,7 +1406,6 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = typeitem.norm(valu)
-
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1421,7 +1420,6 @@ class LibBase(Lib):
 
         try:
             norm, info = typeitem.norm(valu)
-
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
             return (False, None)
@@ -8687,19 +8685,13 @@ async def tocmprvalu(valu):
     if isinstance(valu, (tuple, list)):
         retn = []
         for v in valu:
-            try:
-                retn.append(await tocmprvalu(v))
-            except s_exc.NoSuchType:
-                pass
+            retn.append(await tocmprvalu(v))
         return tuple(retn)
 
     if isinstance(valu, dict):
         retn = {}
         for k, v in valu.items():
-            try:
-                retn[k] = await tocmprvalu(v)
-            except s_exc.NoSuchType:
-                pass
+            retn[k] = await tocmprvalu(v)
         return retn
 
     if isinstance(valu, Prim):
