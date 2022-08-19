@@ -5312,7 +5312,6 @@ class Node(Prim):
 
         adds = ['.'.join(tag) for tag in adds]
         dels = ['.'.join(tag) for tag in dels]
-
         if apply:
             for tag in adds:
                 await self.valu.addTag(tag)
