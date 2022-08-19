@@ -21,6 +21,24 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+    async def test_mass(self):
+
+        async with self.getTestCore() as core:
+
+            mass = core.model.type('mass')
+
+            self.eq('0.000042', mass.norm('42µg')[0])
+            self.eq('0.2', mass.norm('200mg')[0])
+            self.eq('1000', mass.norm('1kg')[0])
+            self.eq('606452.504', mass.norm('1,337 lbs')[0])
+            self.eq('8490337.73', mass.norm('1,337 stone')[0])
+
+            with self.raises(s_exc.BadTypeValu):
+                mass.norm('1337 newps')
+
+            with self.raises(s_exc.BadTypeValu):
+                mass.norm('newps')
+
     def test_velocity(self):
         model = s_datamodel.Model()
         velo = model.type('velocity')

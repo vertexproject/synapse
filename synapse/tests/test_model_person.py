@@ -281,3 +281,35 @@ class PsModelTest(s_t_utils.SynTest):
 
                 self.len(2, await core.nodes('ou:employment^=fulltime'))
                 self.len(1, await core.nodes('ou:employment:base^=salary'))
+
+    async def test_ps_vitals(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ps:vitals=*
+                    :asof=20220815
+                    :contact=*
+                    :person=*
+                    :height=6feet
+                    :weight=200lbs
+                    :econ:currency=usd
+                    :econ:net:worth=100
+                    :econ:annual:income=1000
+                ]
+                { -> ps:person [ :vitals={ps:vitals} ] }
+                { -> ps:contact [ :vitals={ps:vitals} ] }
+            ''')
+            self.len(1, nodes)
+            self.eq(1660521600000, nodes[0].get('asof'))
+            self.eq(1828, nodes[0].get('height'))
+            self.eq('90718.4', nodes[0].get('weight'))
+
+            self.eq('usd', nodes[0].get('econ:currency'))
+            self.eq('100', nodes[0].get('econ:net:worth'))
+            self.eq('1000', nodes[0].get('econ:annual:income'))
+
+            self.nn(nodes[0].get('person'))
+            self.nn(nodes[0].get('contact'))
+
+            self.len(1, await core.nodes('ps:person :vitals -> ps:vitals'))
+            self.len(1, await core.nodes('ps:contact :vitals -> ps:vitals'))

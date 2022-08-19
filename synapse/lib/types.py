@@ -691,6 +691,7 @@ class HugeNum(Type):
     stortype = s_layer.STOR_TYPE_HUGENUM
 
     _opt_defs = (
+        ('units', None),   # type: ignore
         ('modulo', None),  # type: ignore
     )
 
@@ -713,9 +714,38 @@ class HugeNum(Type):
 
         self.modulo = None
 
+        self.units = {}
+        units = self.opts.get('units')
+        if units is not None:
+            for name, mult in units.items():
+                self.units[name] = s_common.hugenum(mult)
+
         modulo = self.opts.get('modulo')
         if modulo is not None:
             self.modulo = s_common.hugenum(modulo)
+
+    def _normHugeText(self, rawtext):
+
+        text = rawtext.lower().strip()
+        text = text.replace(',', '').replace(' ', '')
+
+        try:
+            valu, off = s_grammar.chop_float(text, 0)
+        except Exception:
+            mesg = f'Value does not start with a number: "{rawtext}"'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        huge = s_common.hugenum(valu)
+
+        unit, off = s_grammar.nom(text, off, s_grammar.unitset)
+        if unit:
+            mult = self.units.get(unit)
+            if mult is None:
+                mesg = f'Unknown units for value: "{rawtext}"'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            huge = s_common.hugemul(huge, mult)
+
+        return huge
 
     def norm(self, valu):
 
@@ -725,7 +755,10 @@ class HugeNum(Type):
 
         try:
 
-            huge = s_common.hugenum(valu)
+            if isinstance(valu, str):
+                huge = self._normHugeText(valu)
+            else:
+                huge = s_common.hugenum(valu)
 
             # behave modulo like int/float
             if self.modulo is not None:
