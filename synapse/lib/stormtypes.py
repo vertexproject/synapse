@@ -1406,6 +1406,8 @@ class LibBase(Lib):
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = typeitem.norm(valu)
+        if isinstance(valu, float):
+            return norm
         return fromprim(norm, basetypes=False)
 
     @stormfunc(readonly=True)
@@ -1420,6 +1422,8 @@ class LibBase(Lib):
 
         try:
             norm, info = typeitem.norm(valu)
+            if isinstance(valu, float):
+                return (True, norm)
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
             return (False, None)
