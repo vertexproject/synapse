@@ -8673,7 +8673,7 @@ async def toprim(valu, path=None):
         return retn
 
     if isinstance(valu, Number):
-        return float(valu.value())
+        return str(valu.value())
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)
