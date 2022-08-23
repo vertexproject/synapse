@@ -363,6 +363,7 @@ class Bool(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
 
     def _normPyStr(self, valu):
 
@@ -841,6 +842,8 @@ class IntBase(Type):
             'range=': self._storLiftRange,
         })
 
+        self.setNormFunc(decimal.Decimal, self._normPyDecimal)
+
     def _storLiftRange(self, cmpr, valu):
         minv, minfo = self.norm(valu[0])
         maxv, maxfo = self.norm(valu[1])
@@ -873,6 +876,9 @@ class IntBase(Type):
         def cmpr(valu):
             return valu < norm
         return cmpr
+
+    def _normPyDecimal(self, valu):
+        return self._normPyInt(int(valu))
 
 class Int(IntBase):
 
@@ -1078,6 +1084,7 @@ class Float(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(float, self._normPyFloat)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
 
     def _normPyStr(self, valu):
 
@@ -1130,6 +1137,7 @@ class Ival(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
@@ -1573,6 +1581,7 @@ class Str(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
 
         self.storlifts.update({
             '=': self._storLiftEq,

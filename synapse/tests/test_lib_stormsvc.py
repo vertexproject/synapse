@@ -620,14 +620,12 @@ class StormSvcTest(s_test.SynTest):
                     self.none(await core.getStormPkg('boom'))
                     self.none(core.getStormCmd('badcmd'))
 
-                    # Test for current equality behavior
-                    # will be fixed once stormtypes support equality comparisons
                     scmd = '''
                         $svc = $lib.service.get(prim)
                         if ($svc = $lib.null) { return($lib.false) }
                         else { return($lib.true) }
                     '''
-                    await self.asyncraises(s_exc.SynErr, core.callStorm(scmd))
+                    self.true(await core.callStorm(scmd))
 
                     # execute a pure storm service without inbound nodes
                     # even though it has invalid add/del, it should still work
