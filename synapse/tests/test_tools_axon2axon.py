@@ -1,5 +1,3 @@
-import synapse.lib.output as s_output
-
 import synapse.tests.utils as s_test
 import synapse.tools.axon2axon as s_axon2axon
 
