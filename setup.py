@@ -113,7 +113,7 @@ setup(
 
     extras_require={
         'docs': [
-            'nbconvert==5.6.1',
+            'nbconvert==6.5.1',
             'jupyter-client<=6.1.12',
             'jupyter>=1.0.0,<2.0.0',
             'hide-code>=0.5.2,<0.5.3',
