@@ -16,7 +16,10 @@ Features and Enhancements
 
 Bugfixes
 --------
-
+- Subquery filters did not update runtime variables in the outer scope. This
+  behavior has been updated to make subquery filter behavior consistent with
+  regular subqueries.
+  (`#2815 <https://github.com/vertexproject/synapse/pull/2815>`_)
 - Fix an issue with converting the Number Storm primitive into its Python
   primitive.
   (`#2811 <https://github.com/vertexproject/synapse/pull/2811>`_)
