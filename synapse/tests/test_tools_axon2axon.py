@@ -30,4 +30,4 @@ class Axon2AxonTest(s_test.SynTest):
                 self.isin('Starting transfer at offset: 1', str(outp))
                 self.isin('[         1] - e1b683e26a3aad218df6aa63afe9cf57fdb5dfaf5eb20cddac14305d67f48a02 (6)', str(outp))
 
-                self.eq(-1, await s_axon2axon.main([], outp=outp))
+                self.eq(1, await s_axon2axon.main([], outp=outp))
