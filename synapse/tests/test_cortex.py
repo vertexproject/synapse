@@ -3560,6 +3560,61 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 1 '))
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } > 2 '))
 
+            await core.nodes('[ risk:attack=* +(foo)> {[ test:str=foo ]} ]')
+            await core.nodes('[ risk:attack=* +(foo)> {[ test:str=bar ]} ]')
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } = 1 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } = 2 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } > 0 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } > 1 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } >= 1 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } >= 2 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } < 2 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } < 1 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } <= 1 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } <= 0 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } != 2 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } != 1 $lib.print($valu)'
+            msgs = await core.stormlist(q)
+            self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
+
     async def test_cortex_in(self):
 
         async with self.getTestCore() as core:
