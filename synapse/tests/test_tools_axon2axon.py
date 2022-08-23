@@ -1,4 +1,3 @@
-import synapse.lib.base as s_base
 import synapse.lib.output as s_output
 
 import synapse.tests.utils as s_test
