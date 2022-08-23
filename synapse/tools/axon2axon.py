@@ -22,7 +22,7 @@ async def main(argv, outp=s_output.stdout):
     try:
         opts = pars.parse_args(argv)
     except s_exc.ParserExit:
-        return(-1)
+        return 1
 
     async with await s_base.Base.anit() as base:
 
@@ -39,6 +39,7 @@ async def main(argv, outp=s_output.stdout):
                 async for byts in srcaxon.get(sha256):
                     await fd.write(byts)
                 await fd.save()
+    return 0
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
