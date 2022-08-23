@@ -1,8 +1,11 @@
+import sys
+import asyncio
 import logging
 
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.exc as s_exc
 import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
@@ -11,13 +14,14 @@ logger = logging.getLogger(__name__)
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = s_cmd.Parser(prog='synapse.tools.storm', outp=outp)
+    pars = s_cmd.Parser(prog='synapse.tools.axon2axon')
     pars.add_argument('--offset', type=int, default=0, help='An offset within the source axon to start from.')
     pars.add_argument('src_axon', help='The telepath URL of the source axon.')
     pars.add_argument('dst_axon', help='The telepath URL of the destination axon.')
 
-    opts = pars.parse_args(argv)
-    if pars.exited:
+    try:
+        opts = pars.parse_args(argv)
+    except s_exc.ParserExit:
         return(-1)
 
     async with await s_base.Base.anit() as base:
