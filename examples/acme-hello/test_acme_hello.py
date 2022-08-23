@@ -1,7 +1,9 @@
-import synapse.tests.util as s_test
+import os
+
+import synapse.tests.utils as s_test
 import synapse.tools.genpkg as s_genpkg
 
-dirname = os.path.abspath(__module__.path)
+dirname = os.path.abspath(os.path.dirname(__file__))
 pkgpath = os.path.join(dirname, 'acme-hello.yaml')
 
 class AcmeHelloTest(s_test.SynTest):

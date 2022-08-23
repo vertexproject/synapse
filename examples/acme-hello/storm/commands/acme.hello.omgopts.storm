@@ -1,10 +1,9 @@
-
 // An init {} block only runs once even if there are multiple nodes in the pipeline.
 
 init {
 
     // set global debug (once) if the user specified --debug
-    if $cmdopts.debug { $lib.debug = $lib.true } }
+    if $cmdopts.debug { $lib.debug = $lib.true }
 
     if ($cmdopts.hehe) { $lib.print("User Specified hehe: {hehe}", hehe=$cmdopts.hehe) }
 
