@@ -3611,7 +3611,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } != 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } != 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
