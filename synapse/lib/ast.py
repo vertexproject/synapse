@@ -2139,12 +2139,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return size == valu
 
         return cond
@@ -2153,11 +2157,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2166,11 +2174,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2179,11 +2191,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2192,11 +2208,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2206,12 +2226,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return size != valu
 
         return cond
@@ -2230,7 +2254,8 @@ class SubqCond(Cond):
 
         async def cond(node, path):
             genr = s_common.agen((node, path))
-            async for _ in subq.run(runt, genr):
+            async for _, subp in subq.run(runt, genr):
+                path.vars.update(subp.vars)
                 return True
             return False
 
