@@ -1,62 +1,101 @@
 .. highlight:: none
 
-.. _design-forms-vs-tags:
+.. _design-general:
 
-Design Concepts - Forms vs. Tags
-================================
+Design Concepts - General
+=========================
 
 In designing both data and analytical models, one of the first choices that must be made is whether something should be represented as:
 
 - a form
-- a property on a form
+- a property
+- a light edge
 - a tag
+- a tag associated with a form
 
-While every modeling decision is unique, there are some basic principles that can be used to guide your choices:
+Every modeling decision is unique, and a full discussion of the modeling process is beyond the scope of these documents.
+We include some basic guidance below as background.
 
-- **One-to-one vs. one-to-many.** Since properties (both primary and secondary) are structured as ``<form> = <valu>`` or ``<prop> = <valu>``, any property must have only a single value for a given node. Looked at another way: if there is a characteristic associated with a form that can have more than one value, it should not be represented as a standard secondary property and may be a better candidate for a :ref:`form-relationship` form, a :ref:`data-tag`, or possibly a multi-value :ref:`type-array` property.
+Forms
+-----
 
-- **"Intrinsic-ness".** The more closely related or "intrinsic" something is to an object, the more likely it should be a secondary property or a component of a relationship form. Things that are not highly intrinsic are better candidates for tags that can be applied to relevant nodes.
+In the majority of cases, if there is something you want to represent in Synapse, it should be a form (especially given
+Synapse's hypergraph-based architecture!). Synapse's data model can represent everything from objects, to relationships,
+to events as forms. (See :ref:`data-model-object-categories` for a more detailed discussion.)
 
-- **Objective vs. Assessed.** Broadly speaking, things that are objectively real, factual, or verifiable should be represented in the data model (as forms or properties). Things that represent evaluations or assessments should be represented as tags. (See :ref:`analytical-model-tags-analysis` for further discussion of the types of things commonly represented by tags.)
+Forms are more "fixed" in the data model - more structured and less likely to change. They should be used to represent
+things that are observable or verifiable at some level - this is true even for more abstract forms like "vulnerabilities"
+(``risk:vuln``) or "goals" (``ou:goal``). If something represents an assessment or conclusion, it is likely a better
+candidate for a tag.
 
-While detailed discussion of data and analytical model concepts is beyond the scope of these documents, this section attempts to provide a few concrete examples to illustrate the process.
+In designing a form, we recommend not "over-fitting" the form to a specific use case. As a simple example, an email 
+address is an email address - there is no difference between a email address used as an email sender and an email address
+used to register a domain. Creating two separate objects for ``email:sender`` and ``email:registrant`` confuses the
+**object** (an email address) with **how the object is used**. The "how" is apparent in other parts of the data model (e.g.,
+when used as an email sender, the email address will be present in the ``:from`` property of an ``inet:email:message``).
 
-**Example 1 - Organization Names**
+We also recommend desiging forms broadly - this may require some out-of-the-box thinking to consider how the form may
+apply to other fields, disciplines, or even locales ("how something works" in the United States may be different from how
+it works in Argentina or Malaysia).
 
-A name is a common piece of data associated with an organization. What is the best way to represent a name belonging to an organization?
+Properties
+----------
 
-The answer would be straightforward if all organizations only ever had one name - we could simply create a single ``ou:org:name`` secondary property and use it to record the organization’s official name string. However, even in cases where an organization may have one "official" name, that name may not always be the most intuitive or convenient for use. For example:
+Properties are those details that further define a form. They can be viewed as the form's characteristics - those things
+that further "define" a form. When creating a form, there are probably a number of "things you want to record" about the
+form that immediately come to mind. These are obvious candidates for properties.
 
-- A company's legal name may be something like "Jefferson Partners Architects Pty Ltd" but the company may be informally referred to as "Jefferson Partners".
-- An organization's official name may be in a language or alphabet that is non-native to someone conducting analysis on the organization. It may not be useful for an analyst who speaks Spanish to record an organization's official name in Korean.
+A few considerations when designing properties:
 
-These are a few examples of where it may be useful to record multiple names for an organization. In short:
+- Properties should be highly "intrinsic" to their forms. The more closely related something is to an object, the more
+  likely it should be a property. Things that are not highly intrinsic are better candidates for their own forms, for
+  "relationship" forms, or for tags.
 
-- With respect to **one-to-one vs. one-to-many,** "organization" and "names" is a one-to-many relationship.
-- With respect to **objective vs. assessed,** an organization having a name is an objective fact.
-- With respect to **intrinsic-ness,** a name is reasonably intrinsic to an organization.
+- Consider whether a property has enough "thinghood" to also be its own form (and possibly type).
 
-An array property is most suitable to record multiple names associated with an organization. First, a name is highly intrinsic to an organization. Second, if we simply want to record variations on the organization’s name (including informal names, nicknames, or names in different languages) with no additional information, an array property (``ou:org:names``) comprised of ``ou:name`` values is the simplest way to do this.
+- The data model supports multi-value :ref:`type-array` properties, but arrays are not meant to store an excessive
+  number of values (largely for performance and visualization purposes). In this situation, a "relationship" form
+  might be preferable. Another option would be to "reverse" the property relationship.
+  
+  For example, a compromise (``risk:compromise``) may consist of a number of different attacks (``risk:attack``)
+  representing steps in the overall compromise. Instead of ``risk:compromise`` having an ``:attacks`` array with a
+  large number of values, a ``risk:attack`` has a ``:compromise`` property so that multiple attacks can be linked
+  back to a single compromise.
+ 
+Light Edges
+-----------
 
+Light edges can replace "relationship" forms in cases where:
 
-**Example 2 - Threat Cluster Indicators**
+- You do not need properties to further describe the relationship.
+- You do not need to apply tags to give context to the relationship.
+- The object on one or both sides of the relationship could be any object.
 
-The ability to associate activity with a specific threat cluster, often to aid in the detection of malicious activity or to drive incident response, is central to the knowledge domain of cyber threat data. We refer to the process of associating indicators (domains, IP addresses, files representing tools or malware binaries) with a set of related activity as **threat clustering** (though others may refer to it as "attributing" indicators to a specific "threat group").
+See :ref:`data-light-edge` for additional discussion.
 
-Let’s say you determine that an IP address (``inet:ipv4``) is associated with activity tracked as Threat Cluster 12. Is this association best represented as a form, a property, or a tag?
+Tags
+----
 
-One option would be to create a secondary property on the IPv4 form to indicate that the node was used by Threat Cluster 12 (i.e., ``inet:ipv4:tc=t12``). However, this is problematic for a few reasons:
+Tags should be used in for:
 
-- **One-to-many.** An IP address may not be used exclusively by Threat Cluster 12, either over time or at a single point in time. Different threat actors may compromise the same vulnerable system, either concurrently or at different times. Alternately, an IP address may represent specialized infrastructure (such as a Tor exit node or anonymous VPN endpoint) designed to be used concurrently by multiple individuals. This implies we would potentially need multiple "threat cluster" secondary properties on the node.
+- Observations or assessments that may change. The flexibility to add, remove, and migrate or change tags makes
+  them useful to represent information that may be re-evaluated over time.
+ 
+- Any time you need to arbitrarily group nodes to identify a subset of data or otherwise aid your analysis. For
+  example:
+  
+  - ``media:news`` nodes can represent a wide range of publications, from public whitepapers to internal incident
+    reports. Tags could be used to identify different types of ``media:news`` nodes to make certain nodes easier
+    to select (lift).
+    
+  - Things tracked using tags (such as threat clusters or threat groups) can easily grow to tens or hundreds of
+    thousands of nodes. A report on the threat group will not include every node. A tag can be used to indicate
+    the "key" nodes / data points / items of interest that form the basis of a report.
 
-- **Intrinsic-ness.** A threat cluster "using" an IP address (even if they own the IP range or purchase a Virtual Private Server (VPS) hosted on the IP) is not an intrinsic characteristic of the IP address itself. This impiles that the association of threat cluster and IP should not be tightly coupled in the form of a secondary property.
+- Cases where having a tag on a node provides valuable context for an analyst looking at the node (i.e., knowing
+  that an IP address is a TOR exit node).
 
-A second option would be to create a relationship-type form. This potentially addresses our "intrinsic" concerns by no longer tightly coupling the IP and the threat cluster (via a secondary property) and addresses our one-to-many concern by allowing multiple "relationship" nodes to indicate that a threat cluster uses or has used multiple IP addresses. As with our person-and-email-address example, this could be a generic ``edge:has`` form ("threat cluster has IP address") or a custom form representing this specific relationship.
-
-However, this is not a good design choice based on our **objective vs. assessed** criteria. Theoretically speaking, it should be possible to verify that Threat Cluster 12 did in fact use a particular IP address. However, that statement is really more of an assessment than a "fact":
-
-- "Threat Cluster 12" is really a collection of indicators (hashes, domains, IPs, email addresses, etc.) that someone has assessed are "related" (part of the same Threat Cluster), typically based on evidence that may include phishing emails, similarities in malware binaries, domain whois data, domain resolution data, incident response data, and so on. While it is assumed that Threat Cluster 12 (the set of indicators) is in fact used by an individual, group, or organization (a "threat group"), analysts generally have no concrete idea of the identity or membership of that group. The chance of objectively verifying that the set of indicators associated with "Threat Cluster 12" (including the IP address in question) were in fact all created or used by the same group is typically slim to none. This means that the association of a given IP with Threat Cluster 12 is an assessment as opposed to a verifiable objective fact. This implies that the information should be recorded as a tag as opposed to encoded in a form.
-
-- Assessments by their nature change over time. As we obtain more data, our original evaluation may need to be revised. New information may result in deciding that the IP address was really associated with Threat Cluster 18 and not Threat Cluster 12. Alternately, new information may indicate that Threat Cluster 12 and Threat Cluster 47 are really the same group / set of activity and need to be merged. If information about indicators associated with Threat Clusters is encoded in nodes - and particularly in those nodes' primary properties - the only way to revise this data is to delete and recreate the nodes. It is much simpler to update or change a tag if the assessment represented by that tag later changes.
-
-Using a tag (such as applying ``#cno.threat.t12.use`` to the ``inet:ipv4`` node) gives us the most flexibility in recording the information that the IP was associated with a specific set of malicious activty. In addition, if we know "when" the IP was used by or associated with the threat cluster, we can leverage tag timestamps to record that information.
+Tags Associated with Forms
+--------------------------
+  
+    
