@@ -25,12 +25,12 @@ import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.provenance as s_provenance
 import synapse.lib.stormtypes as s_stormtypes
 
-from synapse.lib.stormtypes import tobool, toint, toprim, tostr, undef
+from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
 
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
-    return float(x) if '.' in x else s_stormtypes.intify(x)
+    return s_stormtypes.Number(x) if '.' in x else s_stormtypes.intify(x)
 
 class AstNode:
     '''
@@ -2139,12 +2139,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return size == valu
 
         return cond
@@ -2153,11 +2157,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2166,11 +2174,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2179,11 +2191,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2192,11 +2208,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2206,12 +2226,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return size != valu
 
         return cond
@@ -2230,7 +2254,8 @@ class SubqCond(Cond):
 
         async def cond(node, path):
             genr = s_common.agen((node, path))
-            async for _ in subq.run(runt, genr):
+            async for _, subp in subq.run(runt, genr):
+                path.vars.update(subp.vars)
                 return True
             return False
 
@@ -2850,25 +2875,31 @@ class DollarExpr(Value):
         return await self.kids[0].compute(runt, path)
 
 async def expr_add(x, y):
-    return await toint(x) + await toint(y)
+    return await tonumber(x) + await tonumber(y)
 async def expr_sub(x, y):
-    return await toint(x) - await toint(y)
+    return await tonumber(x) - await tonumber(y)
 async def expr_mul(x, y):
-    return await toint(x) * await toint(y)
+    return await tonumber(x) * await tonumber(y)
+
 async def expr_div(x, y):
-    return await toint(x) // await toint(y)
+    x = await tonumber(x)
+    y = await tonumber(y)
+    if isinstance(x, int) and isinstance(y, int):
+        return x // y
+    return x / y
+
 async def expr_eq(x, y):
-    return await toprim(x) == await toprim(y)
+    return await tocmprvalu(x) == await tocmprvalu(y)
 async def expr_ne(x, y):
-    return await toprim(x) != await toprim(y)
+    return await tocmprvalu(x) != await tocmprvalu(y)
 async def expr_gt(x, y):
-    return await toint(x) > await toint(y)
+    return await tonumber(x) > await tonumber(y)
 async def expr_lt(x, y):
-    return await toint(x) < await toint(y)
+    return await tonumber(x) < await tonumber(y)
 async def expr_ge(x, y):
-    return await toint(x) >= await toint(y)
+    return await tonumber(x) >= await tonumber(y)
 async def expr_le(x, y):
-    return await toint(x) <= await toint(y)
+    return await tonumber(x) <= await tonumber(y)
 async def expr_prefix(x, y):
     x, y = await tostr(x), await tostr(y)
     return x.startswith(y)
@@ -3157,6 +3188,9 @@ class EditNodeAdd(Edit):
         vals = await self.kids[2].compute(runt, path)
 
         try:
+            if isinstance(form.type, s_types.Guid):
+                vals = await s_stormtypes.toprim(vals)
+
             for valu in form.type.getTypeVals(vals):
                 try:
                     newn = await runt.snap.addNode(form.name, valu)
@@ -3627,21 +3661,26 @@ class EditTagDel(Edit):
 
         async for node, path in genr:
 
-            name = await self.kids[0].compute(runt, path)
+            names = await self.kids[0].compute(runt, path)
+            names = await s_stormtypes.toprim(names)
 
-            # special case for backward compatibility
-            if name:
+            if not isinstance(names, tuple):
+                names = (names,)
 
-                normtupl = await runt.snap.getTagNorm(name)
-                if normtupl is None:
-                    continue
+            for name in names:
 
-                name, info = normtupl
-                parts = name.split('.')
+                # special case for backward compatibility
+                if name:
+                    normtupl = await runt.snap.getTagNorm(name)
+                    if normtupl is None:
+                        continue
 
-                runt.layerConfirm(('node', 'tag', 'del', *parts))
+                    name, info = normtupl
+                    parts = name.split('.')
 
-                await node.delTag(name)
+                    runt.layerConfirm(('node', 'tag', 'del', *parts))
+
+                    await node.delTag(name)
 
             yield node, path
 

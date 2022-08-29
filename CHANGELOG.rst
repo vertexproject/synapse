@@ -4,6 +4,260 @@
 Synapse Changelog
 *****************
 
+v2.106.0 - 2022-08-23
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a new tool, ``synapse.tools.axon2axon``, for copying the data from one
+  Axon to another Axon.
+  (`#2813 <https://github.com/vertexproject/synapse/pull/2813>`_)
+  (`#2816 <https://github.com/vertexproject/synapse/pull/2816>`_)
+
+Bugfixes
+--------
+- Subquery filters did not update runtime variables in the outer scope. This
+  behavior has been updated to make subquery filter behavior consistent with
+  regular subqueries.
+  (`#2815 <https://github.com/vertexproject/synapse/pull/2815>`_)
+- Fix an issue with converting the Number Storm primitive into its Python
+  primitive.
+  (`#2811 <https://github.com/vertexproject/synapse/pull/2811>`_)
+
+v2.105.0 - 2022-08-19
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a Number primitive to Storm to facilitate fixed point math
+  operations. Values in expressions which are parsed as floating
+  point values will now be Numbers by default. Values can also
+  be cast to Numbers with ``$lib.math.number()``.
+  (`#2762 <https://github.com/vertexproject/synapse/pull/2762>`_)
+- Add ``$lib.basex.encode()`` and ``$lib.basex.decode()`` for
+  encoding and decoding strings using arbitrary charsets.
+  (`#2807 <https://github.com/vertexproject/synapse/pull/2807>`_)
+- The tag removal operator (``-#``) now accepts lists of tags
+  to remove.
+  (`#2808 <https://github.com/vertexproject/synapse/pull/2808>`_)
+- Add a ``$node.difftags()`` API to calculate and optionally apply
+  the difference between a list of tags and those present on a node.
+  (`#2808 <https://github.com/vertexproject/synapse/pull/2808>`_)
+- Scraped Ethereum addresses are now returned in their EIP55
+  checksummed form. This change also applies to lookup mode.
+  (`#2809 <https://github.com/vertexproject/synapse/pull/2809>`_)
+- Updates to the ``mat``, ``ps``, and ``risk`` models.
+  (`#2804 <https://github.com/vertexproject/synapse/pull/2804>`_)
+
+  ``mass``
+    Add a type for storing mass with grams as a base unit.
+
+  ``ps:vitals``
+    Add a form to record statistics and demographic data about a person
+    or contact.
+
+  ``ps:person``
+    Add a ``vitals`` secondary property to record the most recent known
+    vitals for the person.
+
+  ``ps:contact``
+    Add a ``vitals`` secondary property to record the most recent known
+    vitals for the contact.
+
+  ``risk:tool:taxonomy``
+    Add a form to record an analyst defined taxonomy of different tools.
+
+  ``risk:tool:software``
+    Add a form to record software tools used in threat activity.
+
+  ``risk:threat``
+    Add ``reporter``, ``reporter:name``, ``org:loc``, ``org:names``,
+    and ``goals`` secondary properties.
+
+- Annotate the following light edges.
+  (`#2804 <https://github.com/vertexproject/synapse/pull/2804>`_)
+
+  ``uses``
+    When used with ``risk:threat`` nodes, the edge indicates the target
+    node is used by the source node.
+
+Bugfixes
+--------
+- Fix language used in the ``model.deprecated.check`` command.
+  (`#2806 <https://github.com/vertexproject/synapse/pull/2806>`_)
+- Remove the ``-y`` switch in the ``count`` command.
+  (`#2806 <https://github.com/vertexproject/synapse/pull/2806>`_)
+
+v2.104.0 - 2022-08-09
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate `crypto:x509:cert:serial` from `str` to `hex` type. Existing values
+  which cannot be converted as integers or hex values will be moved into
+  nodedata under the key ``migration:0_2_10`` as ``{'serial': value}``
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+- Migrate ``ps:contact:title`` to the ``ou:jobtitle`` type and create
+  ``ou:jobtitle`` nodes.
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+- Correct hugenum property index values for values with more than
+  28 digits of precision.
+  (`#2766 <https://github.com/vertexproject/synapse/pull/2766>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``crypto`` and ``ps`` models.
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+
+  ``crypto:x509:cert``
+    The ``serial`` secondary property has been changed from a ``str`` to a
+    ``hex`` type.
+
+  ``ps:contact``
+    The type of the ``title`` secondary property has been changed from a
+    ``str`` to an ``ou:jobtitle``.
+
+- Add ``$lib.hex.toint()``, ``$lib.hex.fromint()``, ``$lib.hex.trimext()``
+  and ``$lib.hex.signext()`` Storm APIs for handling hex encoded integers.
+  (`#2789 <https://github.com/vertexproject/synapse/pull/2789>`_)
+- Add ``set()`` and ``setdefault()`` APIs on the SynErr exception class.
+  Improve support for unpickling SynErr exceptions.
+  (`#2797 <https://github.com/vertexproject/synapse/pull/2797>`_)
+- Add logging configuration to methods which are called in spawned processes,
+  and log exceptions occurring in the processes before tearing them down.
+  (`#2795 <https://github.com/vertexproject/synapse/pull/2795>`_)
+
+Bugfixes
+--------
+- BadTypeValu errors raised when normalizing a tag timestamp now include
+  the name of the tag being set.
+  (`#2797 <https://github.com/vertexproject/synapse/pull/2797>`_)
+- Correct a CI issue that prevented the v2.103.0 Docker images from
+  being published.
+  (`#2798 <https://github.com/vertexproject/synapse/pull/2798>`_)
+
+Improved Documentation
+----------------------
+- Update data model documentation.
+  (`#2796 <https://github.com/vertexproject/synapse/pull/2796>`_)
+
+v2.103.0 - 2022-08-05
+=====================
+
+Features and Enhancements
+-------------------------
+- Updates to the ``it``, ``ou``, and ``risk`` models.
+  (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
+
+  ``it:prod:soft``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the author of the software.
+
+  ``ou:campaign``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the campaign.
+
+  ``ou:org``
+    Add a ``techniques`` secondary property to record techniques employed by
+    the org.
+
+  ``ou:technique``
+    Add a form to record specific techniques used to achieve a goal.
+
+  ``ou:technique:taxonomy``
+    Add a form to record an analyst defined taxonomy of different techniques.
+
+  ``risk:attack``
+    Add a ``techniques`` secondary property to record techniques employed
+    during the attack.
+    Deprecate the following secondary properties, in favor of using light
+    edges.
+
+      - ``target``
+      - ``target:host``
+      - ``target:org``
+      - ``target:person``
+      - ``target:place``
+      - ``used:email``
+      - ``used:file``
+      - ``used:host``
+      - ``used:server``
+      - ``used:software``
+      - ``used:url``
+      - ``used:vuln``
+      - ``via:email``
+      - ``via:ipv4``
+      - ``via:ipv6``
+      - ``via:phone``
+
+  ``risk:compromise``
+    Add a ``techniques`` secondary property to record techniques employed
+    during the compromise.
+
+  ``risk:threat``
+    Add a form to record a threat cluster or subgraph of threat activity
+    attributable to one group.
+
+- Annotate the following light edges.
+  (`#2778 <https://github.com/vertexproject/synapse/pull/2778>`_)
+
+  ``targets``
+    When used with ``ou:org``, ``ou:campaign``, ``risk:threat``, or
+    ``risk:attack`` nodes, the edge indicates the target node was targeted
+    by the source node.
+
+  ``uses``
+    When used with an ``ou:campaign`` or ``risk:attack`` node, the edge
+    indicates the target node is used by the source node.
+
+- Change the behavior of the Storm ``count`` command to consume nodes.
+  If the previous behavior is desired, use the ``--yield`` option when
+  invoking the ``count`` command.
+  (`#2779 <https://github.com/vertexproject/synapse/pull/2779>`_)
+- Add ``$lib.random.int()`` API to Storm for generating random integers.
+  (`#2783 <https://github.com/vertexproject/synapse/pull/2783>`_)
+- Add a new tool, ``synapse.tools.livebackup`` for taking a live backup of
+  a service.
+  (`#2788 <https://github.com/vertexproject/synapse/pull/2788>`_)
+- The Storm ``$lib.jsonstor.cacheset()`` API now returns a dict containing the
+  path and time. The ``$lib.jsonstor.cacheget()`` API now has an argument to
+  retrieve the entire set of enveloped data.
+  (`#2790 <https://github.com/vertexproject/synapse/pull/2790>`_)
+- Add a HTTP 404 handler for the Axon ``v1/by/sha256/<sha256>`` endpoint which
+  catches invalid ``<sha256>`` values.
+  (`#2780 <https://github.com/vertexproject/synapse/pull/2780>`_)
+- Add helper scripts for doing bulk Synapse Docker image builds and testing.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+- Add ``aha:\\`` support to ``synapse.tools.csvtool``.
+  (`#2791 <https://github.com/vertexproject/synapse/pull/2791>`_)
+
+Bugfixes
+--------
+- Ensure that errors that occur when backing up a service are logged prior
+  to tearing down the subprocess performing the backup.
+  (`#2781 <https://github.com/vertexproject/synapse/pull/2781>`_)
+- Add missing docstring for ``$lib.stix.import``.
+  (`#2786 <https://github.com/vertexproject/synapse/pull/2786>`_)
+- Allow setting tags on a Node from a Storm ``List`` object.
+  (`#2782 <https://github.com/vertexproject/synapse/pull/2782>`_)
+
+Improved Documentation
+----------------------
+- Remove ``synapse-google-ct`` from the list of Rapid Power-Ups.
+  (`#2779 <https://github.com/vertexproject/synapse/pull/2779>`_)
+- Add developer documentation for building Synapse Docker containers.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+- Fix spelling errors in model documentation.
+  (`#2782 <https://github.com/vertexproject/synapse/pull/2782>`_)
+
+Deprecations
+------------
+- The ``vertexproject/synapse:master-py37`` and
+  ``vertexproject/synapse:v2.x.x-py37`` Docker containers are no longer being
+  built.
+  (`#2716 <https://github.com/vertexproject/synapse/pull/2716>`_)
+
 v2.102.0 - 2022-07-25
 =====================
 

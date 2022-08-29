@@ -157,11 +157,15 @@ def intify(x):
     except (TypeError, ValueError):
         return None
 
-hugectx = decimal.Context(prec=48)
+hugectx = decimal.Context(prec=49)
 def hugenum(valu):
     '''
     Return a decimal.Decimal with proper precision for use as a synapse hugenum.
     '''
+    if isinstance(valu, float):
+        valu = str(valu)
+    if isinstance(valu, str) and valu.startswith('0x'):
+        valu = int(valu, 0)
     return decimal.Decimal(valu, context=hugectx)
 
 def hugeadd(x, y):
@@ -175,6 +179,24 @@ def hugesub(x, y):
     Subtract two decimal.Decimal with proper precision to support synapse hugenums.
     '''
     return hugectx.subtract(x, y)
+
+def hugemul(x, y):
+    '''
+    Multiply two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.multiply(x, y)
+
+def hugediv(x, y):
+    '''
+    Divide two decimal.Decimal with proper precision to support synapse hugenums.
+    '''
+    return hugectx.divide(x, y)
+
+def hugescaleb(x, y):
+    '''
+    Return the first operand with its exponent adjusted by the second operand.
+    '''
+    return hugectx.scaleb(x, y)
 
 hugeexp = decimal.Decimal('1E-24')
 def hugeround(x):
@@ -751,7 +773,7 @@ def normLogLevel(valu):
             return normLogLevel(valu)
     raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
 
-def setlogging(mlogger, defval=None, structlog=None):
+def setlogging(mlogger, defval=None, structlog=None, log_setup=True):
     '''
     Configure synapse logging.
 
@@ -782,7 +804,8 @@ def setlogging(mlogger, defval=None, structlog=None):
             logging.basicConfig(level=log_level, handlers=(handler,))
         else:
             logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT)
-        mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
+        if log_setup:
+            mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
 
     return ret
 

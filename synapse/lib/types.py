@@ -363,6 +363,7 @@ class Bool(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyInt)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
 
     def _normPyStr(self, valu):
 
@@ -690,6 +691,7 @@ class HugeNum(Type):
     stortype = s_layer.STOR_TYPE_HUGENUM
 
     _opt_defs = (
+        ('units', None),   # type: ignore
         ('modulo', None),  # type: ignore
     )
 
@@ -712,9 +714,38 @@ class HugeNum(Type):
 
         self.modulo = None
 
+        self.units = {}
+        units = self.opts.get('units')
+        if units is not None:
+            for name, mult in units.items():
+                self.units[name] = s_common.hugenum(mult)
+
         modulo = self.opts.get('modulo')
         if modulo is not None:
             self.modulo = s_common.hugenum(modulo)
+
+    def _normHugeText(self, rawtext):
+
+        text = rawtext.lower().strip()
+        text = text.replace(',', '').replace(' ', '')
+
+        try:
+            valu, off = s_grammar.chop_float(text, 0)
+        except Exception:
+            mesg = f'Value does not start with a number: "{rawtext}"'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        huge = s_common.hugenum(valu)
+
+        unit, off = s_grammar.nom(text, off, s_grammar.unitset)
+        if unit:
+            mult = self.units.get(unit)
+            if mult is None:
+                mesg = f'Unknown units for value: "{rawtext}"'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            huge = s_common.hugemul(huge, mult)
+
+        return huge
 
     def norm(self, valu):
 
@@ -724,7 +755,10 @@ class HugeNum(Type):
 
         try:
 
-            huge = s_common.hugenum(valu)
+            if isinstance(valu, str):
+                huge = self._normHugeText(valu)
+            else:
+                huge = s_common.hugenum(valu)
 
             # behave modulo like int/float
             if self.modulo is not None:
@@ -808,6 +842,8 @@ class IntBase(Type):
             'range=': self._storLiftRange,
         })
 
+        self.setNormFunc(decimal.Decimal, self._normPyDecimal)
+
     def _storLiftRange(self, cmpr, valu):
         minv, minfo = self.norm(valu[0])
         maxv, maxfo = self.norm(valu[1])
@@ -840,6 +876,9 @@ class IntBase(Type):
         def cmpr(valu):
             return valu < norm
         return cmpr
+
+    def _normPyDecimal(self, valu):
+        return self._normPyInt(int(valu))
 
 class Int(IntBase):
 
@@ -1045,6 +1084,7 @@ class Float(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(float, self._normPyFloat)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
 
     def _normPyStr(self, valu):
 
@@ -1097,6 +1137,7 @@ class Ival(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyIter)
         self.setNormFunc(tuple, self._normPyIter)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
         self.storlifts.update({
             '@=': self._storLiftAt,
         })
@@ -1540,6 +1581,7 @@ class Str(Type):
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(bool, self._normPyBool)
+        self.setNormFunc(decimal.Decimal, self._normPyInt)
 
         self.storlifts.update({
             '=': self._storLiftEq,

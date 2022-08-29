@@ -12,6 +12,26 @@ class OuModelTest(s_t_utils.SynTest):
             org0 = s_common.guid()
             camp = s_common.guid()
             acto = s_common.guid()
+            teqs = (s_common.guid(), s_common.guid())
+
+            nodes = await core.nodes('''
+                [ ou:technique=*
+                    :name=Woot
+                    :type=lol.woot
+                    :desc=Hehe
+                    :tag=woot.woot
+                    :mitre:attack:technique=T0001
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('woot', nodes[0].get('name'))
+            self.eq('Hehe', nodes[0].get('desc'))
+            self.eq('lol.woot.', nodes[0].get('type'))
+            self.eq('woot.woot', nodes[0].get('tag'))
+            self.eq('T0001', nodes[0].get('mitre:attack:technique'))
+            self.len(1, await core.nodes('ou:technique -> syn:tag'))
+            self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
+            self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
 
             async with await core.snap() as snap:
 
@@ -47,6 +67,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'type': 'MyType',
                     'desc': 'MyDesc',
                     'success': 1,
+                    'techniques': teqs,
                 }
                 node = await snap.addNode('ou:campaign', camp, props=props)
                 self.eq(node.get('org'), org0)
@@ -58,6 +79,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('desc'), 'MyDesc')
                 self.eq(node.get('success'), 1)
                 self.eq(node.get('camptype'), 'get.pizza.')
+                self.eq(node.get('techniques'), tuple(sorted(teqs)))
 
             # type norming first
             # ou:name
@@ -163,6 +185,7 @@ class OuModelTest(s_t_utils.SynTest):
                     'us:cage': '7qe71',
                     'founded': '2015',
                     'dissolved': '2019',
+                    'techniques': teqs,
                 }
                 node = await snap.addNode('ou:org', guid0, oprops)
                 self.eq(node.ndef[1], guid0),
@@ -179,6 +202,7 @@ class OuModelTest(s_t_utils.SynTest):
                 self.eq(node.get('us:cage'), '7qe71')
                 self.eq(node.get('founded'), 1420070400000)
                 self.eq(node.get('dissolved'), 1546300800000)
+                self.eq(node.get('techniques'), tuple(sorted(teqs)))
 
                 self.nn(node.get('logo'))
                 self.len(1, await core.nodes('ou:org -> ou:orgtype'))

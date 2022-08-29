@@ -3,6 +3,30 @@ A data model focused on material objects.
 '''
 import synapse.lib.module as s_module
 
+massunits = {
+    'µg': '0.000001',
+    'microgram': '0.000001',
+    'micrograms': '0.000001',
+
+    'mg': '0.001',
+    'milligram': '0.001',
+    'milligrams': '0.001',
+
+    'g': '1',
+    'grams': '1',
+
+    'kg': '1000',
+    'kilogram': '1000',
+    'kilograms': '1000',
+
+    'lb': '453.592',
+    'lbs': '453.592',
+    'pound': '453.592',
+    'pounds': '453.592',
+
+    'stone': '6350.29',
+}
+
 class MatModule(s_module.CoreModule):
 
     def getModelDefs(self):
@@ -14,7 +38,10 @@ class MatModule(s_module.CoreModule):
                 ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
                 ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
                 ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
-                # TODO add base types for mass / volume
+
+                ('mass', ('hugenum', {'units': massunits}), {
+                    'doc': 'A mass which converts to grams as a base unit.'}),
+                # TODO add base type for volume
             ),
 
             'forms': (

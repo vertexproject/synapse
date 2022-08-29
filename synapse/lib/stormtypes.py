@@ -9,6 +9,7 @@ import base64
 import pprint
 import struct
 import asyncio
+import decimal
 import inspect
 import logging
 import binascii
@@ -55,6 +56,7 @@ class StormTypesRegistry:
         'time',
         'prim',
         'undef',
+        'float',
         'integer',
         'storm:lib',  # lib.import
         'generator',
@@ -1890,6 +1892,17 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A list of strings from the CSV file.'}}},
+        {'name': 'metrics', 'desc': '''
+        Get runtime metrics of the Axon.
+
+        Example:
+            Print the total number of files stored in the Axon::
+
+                $data = $lib.axon.metrics()
+                $lib.print("The Axon has {n} files", n=$data."file:count")
+        ''',
+        'type': {'type': 'function', '_funcname': 'metrics',
+                 'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1904,6 +1917,7 @@ class LibAxon(Lib):
             'readlines': self.readlines,
             'jsonlines': self.jsonlines,
             'csvrows': self.csvrows,
+            'metrics': self.metrics,
         }
 
     def strify(self, item):
@@ -2079,6 +2093,10 @@ class LibAxon(Lib):
         async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
             yield item
             await asyncio.sleep(0)
+
+    async def metrics(self):
+        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -3625,12 +3643,16 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrLjust',
                   'args': (
                       {'name': 'size', 'type': 'int', 'desc': 'The length of character to left justify.', },
+                      {'name': 'fillchar', 'type': 'str', 'default': ' ',
+                       'desc': 'The character to use for padding.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The left justified string.', }}},
         {'name': 'rjust', 'desc': 'Right justify the string.',
          'type': {'type': 'function', '_funcname': '_methStrRjust',
                   'args': (
                       {'name': 'size', 'type': 'int', 'desc': 'The length of character to right justify.', },
+                      {'name': 'fillchar', 'type': 'str', 'default': ' ',
+                       'desc': 'The character to use for padding.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The right justified string.', }}},
         {'name': 'encode', 'desc': 'Encoding a string value to bytes.',
@@ -3845,11 +3867,11 @@ class Str(Prim):
     async def _methStrStartswith(self, text):
         return self.valu.startswith(text)
 
-    async def _methStrRjust(self, size):
-        return self.valu.rjust(await toint(size))
+    async def _methStrRjust(self, size, fillchar=' '):
+        return self.valu.rjust(await toint(size), await tostr(fillchar))
 
-    async def _methStrLjust(self, size):
-        return self.valu.ljust(await toint(size))
+    async def _methStrLjust(self, size, fillchar=' '):
+        return self.valu.ljust(await toint(size), await tostr(fillchar))
 
     async def _methStrReplace(self, oldv, newv, maxv=None):
         if maxv is None:
@@ -4460,6 +4482,186 @@ class Bool(Prim):
 
     def __hash__(self):
         return hash((self._storm_typename, self.value()))
+
+@registry.registerType
+class Number(Prim):
+    '''
+    Implements the Storm API for a number instance.
+    '''
+    _storm_locals = (
+        {'name': 'scaleb', 'desc': '''
+            Return the number multiplied by 10**other.
+
+            Example:
+                Multiply the value by 10**-18::
+
+                    $baz.scaleb(-18)''',
+         'type': {'type': 'function', '_funcname': '_methScaleb',
+                  'args': (
+                      {'name': 'other', 'type': 'int', 'desc': 'The amount to adjust the exponent.', },
+                  ),
+                  'returns': {'type': 'number', 'desc': 'The exponent adjusted number.', }}},
+        {'name': 'toint', 'desc': '''
+            Return the number as an integer.
+
+            By default, decimal places will be truncated. Optionally, rounding rules
+            can be specified by providing the name of a Python decimal rounding mode
+            to the 'rounding' argument.
+
+            Example:
+                Round the value stored in $baz up instead of truncating::
+
+                    $baz.toint(rounding=ROUND_UP)''',
+         'type': {'type': 'function', '_funcname': '_methToInt',
+                  'args': (
+                      {'name': 'rounding', 'type': 'str', 'default': None,
+                       'desc': 'An optional rounding mode to use.', },
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The number as an integer.', }}},
+        {'name': 'tostr', 'desc': 'Return the number as a string.',
+         'type': {'type': 'function', '_funcname': '_methToStr',
+                  'returns': {'type': 'str', 'desc': 'The number as a string.', }}},
+        {'name': 'tofloat', 'desc': 'Return the number as a float.',
+         'type': {'type': 'function', '_funcname': '_methToFloat',
+                  'returns': {'type': 'float', 'desc': 'The number as a float.', }}},
+    )
+    _storm_typename = 'number'
+    _ismutable = False
+
+    def __init__(self, valu, path=None):
+        try:
+            valu = s_common.hugenum(valu)
+        except decimal.DecimalException as e:
+            mesg = f'Failed to make number from {valu!r}'
+            raise s_exc.BadCast(mesg=mesg) from e
+
+        Prim.__init__(self, valu, path=path)
+        self.locls.update(self.getObjLocals())
+
+    def getObjLocals(self):
+        return {
+            'toint': self._methToInt,
+            'tostr': self._methToStr,
+            'tofloat': self._methToFloat,
+            'scaleb': self._methScaleb,
+        }
+
+    async def _methScaleb(self, other):
+        newv = s_common.hugescaleb(self.value(), await toint(other))
+        return Number(newv)
+
+    async def _methToInt(self, rounding=None):
+        if rounding is None:
+            return int(self.valu)
+
+        try:
+            return int(self.valu.quantize(decimal.Decimal('1'), rounding=rounding))
+        except TypeError as e:
+            raise s_exc.StormRuntimeError(mesg=f'Error rounding number: {str(e)}',
+                                          valurepr=await self.stormrepr()) from None
+
+    async def _methToStr(self):
+        return str(self.valu)
+
+    async def _methToFloat(self):
+        return float(self.valu)
+
+    def __str__(self):
+        return str(self.value())
+
+    def __int__(self):
+        return int(self.value())
+
+    def __float__(self):
+        return float(self.value())
+
+    def __hash__(self):
+        return hash((self._storm_typename, self.value()))
+
+    def __eq__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return self.value() == othr
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return self.value() == othr
+        elif isinstance(othr, Number):
+            return self.value() == othr.value()
+        return False
+
+    def __lt__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return self.value() < othr
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return self.value() < othr
+        elif isinstance(othr, Number):
+            return self.value() < othr.value()
+
+        mesg = f"comparison not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __add__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugeadd(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugeadd(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugeadd(self.value(), othr.value()))
+
+        mesg = f"'+' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __radd__ = __add__
+
+    def __sub__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugesub(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugesub(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugesub(self.value(), othr.value()))
+
+        mesg = f"'-' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rsub__(self, othr):
+        othr = Number(othr)
+        return othr.__sub__(self)
+
+    def __mul__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugemul(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugemul(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugemul(self.value(), othr.value()))
+
+        mesg = f"'*' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugediv(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugediv(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugediv(self.value(), othr.value()))
+
+        mesg = f"'/' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    def __rtruediv__(self, othr):
+        othr = Number(othr)
+        return othr.__truediv__(self)
+
+    async def stormrepr(self):
+        return str(self.value())
 
 @registry.registerLib
 class LibUser(Lib):
@@ -5121,6 +5323,18 @@ class Node(Prim):
                   'returns':
                       {'type': 'list',
                        'desc': 'The components of tags which match the wildcard component of a glob expression.', }}},
+        {'name': 'difftags', 'desc': 'Get and optionally apply the difference between the current set of tags and another set.',
+         'type': {'type': 'function', '_funcname': '_methNodeDiffTags',
+                  'args': (
+                      {'name': 'tags', 'type': 'list', 'desc': 'The set to compare against.', },
+                      {'name': 'prefix', 'type': 'str', 'default': None,
+                       'desc': 'An optional prefix to match tags under.', },
+                      {'name': 'apply', 'type': 'boolean', 'desc': 'If true, apply the diff.',
+                       'default': False, },
+                  ),
+                  'returns':
+                      {'type': 'dict',
+                       'desc': 'The tags which have been added/deleted in the new set.', }}},
         {'name': 'isform', 'desc': 'Check if a Node is a given form.',
          'type': {'type': 'function', '_funcname': '_methNodeIsForm',
                   'args': (
@@ -5165,6 +5379,7 @@ class Node(Prim):
             'delEdge': self._methNodeDelEdge,
             'value': self._methNodeValue,
             'globtags': self._methNodeGlobTags,
+            'difftags': self._methNodeDiffTags,
             'isform': self._methNodeIsForm,
             'getByLayer': self.getByLayer,
             'getStorNodes': self.getStorNodes,
@@ -5264,6 +5479,44 @@ class Node(Prim):
                 else:
                     ret.append(groups)
         return ret
+
+    async def _methNodeDiffTags(self, tags, prefix=None, apply=False):
+        tags = set(await toprim(tags))
+
+        if prefix:
+            prefix = tuple((await tostr(prefix)).split('.'))
+            plen = len(prefix)
+
+            tags = set([prefix + tuple(tag.split('.')) for tag in tags if tag])
+            curtags = set()
+            for tag in list(self.valu.tags.keys()):
+                parts = tuple(tag.split('.'))
+                if parts[:plen] == prefix:
+                    curtags.add(parts)
+        else:
+            tags = set([tuple(tag.split('.')) for tag in tags if tag])
+            curtags = set([tuple(tag.split('.')) for tag in self.valu.tags.keys()])
+
+        adds = set([tag for tag in tags if tag not in curtags])
+        dels = set()
+        for cur in curtags:
+            clen = len(cur)
+            for tag in tags:
+                if tag[:clen] == cur:
+                    break
+            else:
+                dels.add(cur)
+
+        adds = ['.'.join(tag) for tag in adds]
+        dels = ['.'.join(tag) for tag in dels]
+        if apply:
+            for tag in adds:
+                await self.valu.addTag(tag)
+
+            for tag in dels:
+                await self.valu.delTag(tag)
+
+        return {'adds': adds, 'dels': dels}
 
     @stormfunc(readonly=True)
     async def _methNodeValue(self):
@@ -7116,8 +7369,9 @@ class LibJsonStor(Lib):
                       {'name': 'path', 'type': 'str|list', 'desc': 'The base path to use for the cache key.', },
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'asof', 'type': 'time', 'default': 'now', 'desc': 'The max cache age.'},
+                      {'name': 'envl', 'type': 'boolean', 'default': False, 'desc': 'Return the full cache envelope.'},
                   ),
-                  'returns': {'type': 'prim', 'desc': 'The cached value or null.'}}},
+                  'returns': {'type': 'prim', 'desc': 'The cached value (or envelope) or null.'}}},
         {'name': 'cacheset',
          'desc': 'Set cache data with an envelope that tracks time for cacheget() use.',
          'type': {'type': 'function', '_funcname': 'cacheset',
@@ -7126,7 +7380,7 @@ class LibJsonStor(Lib):
                       {'name': 'key', 'type': 'prim', 'desc': 'The value to use for the GUID cache key.', },
                       {'name': 'valu', 'type': 'prim', 'desc': 'The data to store.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'dict', 'desc': 'The cached asof time and path.'}}},
     )
 
     def addLibFuncs(self):
@@ -7230,7 +7484,7 @@ class LibJsonStor(Lib):
         async for path, item in self.runt.snap.core.getJsonObjs(fullpath):
             yield path, item
 
-    async def cacheget(self, path, key, asof='now'):
+    async def cacheget(self, path, key, asof='now', envl=False):
 
         if not self.runt.isAdmin():
             mesg = '$lib.jsonstor.cacheget() requires admin privileges.'
@@ -7238,6 +7492,7 @@ class LibJsonStor(Lib):
 
         key = await toprim(key)
         path = await toprim(path)
+        envl = await tobool(envl)
 
         if isinstance(path, str):
             path = tuple(path.split('/'))
@@ -7252,6 +7507,8 @@ class LibJsonStor(Lib):
         asoftick = timetype.norm(asof)[0]
 
         if cachetick >= asoftick:
+            if envl:
+                return await self.runt.snap.core.getJsonObj(fullpath)
             return await self.runt.snap.core.getJsonObjProp(fullpath, prop='data')
 
         return None
@@ -7269,15 +7526,23 @@ class LibJsonStor(Lib):
         if isinstance(path, str):
             path = tuple(path.split('/'))
 
-        fullpath = ('cells', self.runt.snap.core.iden) + path + (s_common.guid(key),)
+        cachepath = path + (s_common.guid(key),)
+        fullpath = ('cells', self.runt.snap.core.iden) + cachepath
+
+        now = s_common.now()
 
         envl = {
             'key': key,
-            'asof': s_common.now(),
+            'asof': now,
             'data': valu,
         }
 
         await self.runt.snap.core.setJsonObj(fullpath, envl)
+
+        return {
+            'asof': now,
+            'path': cachepath,
+        }
 
 @registry.registerType
 class UserJson(Prim):
@@ -8423,6 +8688,9 @@ async def toprim(valu, path=None):
                 pass
         return retn
 
+    if isinstance(valu, Number):
+        return float(valu.value())
+
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)
 
@@ -8464,12 +8732,40 @@ def fromprim(valu, path=None, basetypes=True):
     if isinstance(valu, bool):
         return Bool(valu, path=path)
 
+    if isinstance(valu, (float, decimal.Decimal)):
+        return Number(valu, path=path)
+
     if isinstance(valu, StormType):
         return valu
 
     if basetypes:
         mesg = 'Unable to convert python primitive to StormType.'
         raise s_exc.NoSuchType(mesg=mesg, python_type=valu.__class__.__name__)
+
+    return valu
+
+async def tocmprvalu(valu):
+
+    if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType, Number)) or valu is None:
+        return valu
+
+    if isinstance(valu, (tuple, list)):
+        retn = []
+        for v in valu:
+            retn.append(await tocmprvalu(v))
+        return tuple(retn)
+
+    if isinstance(valu, dict):
+        retn = {}
+        for k, v in valu.items():
+            retn[k] = await tocmprvalu(v)
+        return retn
+
+    if isinstance(valu, Prim):
+        return await s_coro.ornot(valu.value)
+
+    if isinstance(valu, s_node.Node):
+        return valu.ndef[1]
 
     return valu
 
@@ -8507,6 +8803,19 @@ async def tobool(valu, noneok=False):
     except Exception:
         mesg = f'Failed to make a boolean from {valu!r}.'
         raise s_exc.BadCast(mesg=mesg)
+
+async def tonumber(valu, noneok=False):
+
+    if noneok and valu is None:
+        return None
+
+    if isinstance(valu, Number):
+        return valu
+
+    if isinstance(valu, (float, decimal.Decimal)) or (isinstance(valu, str) and '.' in valu):
+        return Number(valu)
+
+    return await toint(valu, noneok=noneok)
 
 async def toint(valu, noneok=False):
 

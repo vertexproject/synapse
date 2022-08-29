@@ -191,6 +191,34 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
 
+            nodes = await core.nodes('''
+                [ risk:threat=*
+                    :name=VTX-APT1
+                    :desc=VTX-APT1
+                    :tag=cno.threat.apt1
+                    :reporter=*
+                    :reporter:name=mandiant
+                    :org=*
+                    :org:loc=cn.shanghai
+                    :org:name=apt1
+                    :org:names=(comment crew,)
+                    :goals=(*,)
+                    :techniques=(*,)
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('vtx-apt1', nodes[0].get('name'))
+            self.eq('VTX-APT1', nodes[0].get('desc'))
+            self.eq('apt1', nodes[0].get('org:name'))
+            self.eq('cn.shanghai', nodes[0].get('org:loc'))
+            self.eq(('comment crew',), nodes[0].get('org:names'))
+            self.eq('cno.threat.apt1', nodes[0].get('tag'))
+            self.eq('mandiant', nodes[0].get('reporter:name'))
+            self.nn(nodes[0].get('org'))
+            self.nn(nodes[0].get('reporter'))
+            self.len(1, nodes[0].get('goals'))
+            self.len(1, nodes[0].get('techniques'))
+
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
@@ -206,3 +234,32 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
+
+    async def test_model_risk_tool_software(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ risk:tool:software=*
+                    :soft=*
+                    :soft:name=cobaltstrike
+                    :soft:names=(beacon,)
+                    :reporter=*
+                    :reporter:name=vertex
+                    :techniques=(*,)
+                    :tag=cno.mal.cobaltstrike
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('soft'))
+
+            self.nn(nodes[0].get('reporter'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
+
+            self.eq('cobaltstrike', nodes[0].get('soft:name'))
+            self.eq(('beacon',), nodes[0].get('soft:names'))
+
+            self.len(1, nodes[0].get('techniques'))
+            self.len(1, await core.nodes('risk:tool:software -> ou:org'))
+            self.len(1, await core.nodes('risk:tool:software -> it:prod:soft'))
+            self.len(1, await core.nodes('risk:tool:software -> ou:technique'))
+            self.len(1, await core.nodes('risk:tool:software -> syn:tag'))

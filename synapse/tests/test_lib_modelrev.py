@@ -268,3 +268,40 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('it:av:signame=foobar -> it:av:sig'))
 
             self.len(1, await core.nodes('it:av:signame=baz -> it:av:filehit'))
+
+    async def test_modelrev_0_2_11(self):
+
+        async with self.getRegrCore('model-0.2.11') as core:
+
+            nodes = await core.nodes('crypto:x509:cert=30afb0317adcaf40dab85031b90e42ad')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '0000000000000000000000000000000000000001')
+
+            nodes = await core.nodes('crypto:x509:cert=405b08fca9724ac1122f934e2e4edb3c')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '0000000000000000000000000000000000003039')
+
+            nodes = await core.nodes('crypto:x509:cert=6bee0d34d52d60ca867409f2bf775dab')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), 'ffffffffffffffffffffffffffffffffffffcfc7')
+
+            nodes = await core.nodes('crypto:x509:cert=9ece91b7d5b8177488c1168f04ae0bc0')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('serial'), '00000000000000000000000000000000000000ff')
+
+            nodes = await core.nodes('crypto:x509:cert=8fc59ed63522b50bd31f2d138dd8c8ec $node.data.load(migration:0_2_10)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('serial'))
+            huge = '7307508186654514591018424163581415098279662714800'
+            self.eq(nodes[0].nodedata['migration:0_2_10']['serial'], huge)
+
+            nodes = await core.nodes('crypto:x509:cert=fb9545568c38002dcca1f66220c9ab7d $node.data.load(migration:0_2_10)')
+            self.len(1, nodes)
+            self.none(nodes[0].get('serial'))
+            self.eq(nodes[0].nodedata['migration:0_2_10']['serial'], 'asdf')
+
+            nodes = await core.nodes('ps:contact -> ou:jobtitle')
+            self.len(2, nodes)
+            self.eq(('cool guy', 'vice president'), [n.ndef[1] for n in nodes])
+
+            self.len(1, await core.nodes('ou:jobtitle="vice president" -> ps:contact'))

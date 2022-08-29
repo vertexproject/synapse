@@ -64,7 +64,7 @@ Storm allows users to perform all of the common operations used to interact with
 
 Additional operations include:
 
-- **Traverse** light edges. (:ref:`light-edge`, :ref:`walk-light-edge`)
+- **Traverse** light edges. (:ref:`data-light-edge`, :ref:`walk-light-edge`)
 - **Pipe** (send) nodes to Storm commands (:ref:`storm-ref-cmd`). Storm supports an extensible set of commands such as :ref:`storm-limit`, :ref:`storm-max`, or :ref:`storm-uniq`. These commands provide specific functionality to further extend the analytical power of Storm. Additional Storm commands allow management of permissions for users and roles, Synapse views and layers, and Synapse's automation features (:ref:`storm-ref-automation`). Available commands can be displayed by running ``help`` from the Storm CLI.
 
 Storm also incorporates a number of :ref:`storm-ops-adv` that provide even greater power and flexibility.

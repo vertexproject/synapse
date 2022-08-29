@@ -123,7 +123,7 @@ stormcmds = [
             init {
 
                 $ok = $lib.true
-                $lib.print("Checking the cortex for 3.0.0 upgrade readiness...")
+                $lib.print("Checking the cortex for model flag day readiness...")
 
                 $locks = $lib.model.deprecated.locks()
 

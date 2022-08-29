@@ -12,8 +12,11 @@ class RiskModule(s_module.CoreModule):
                 ('risk:hasvuln', ('guid', {}), {
                     'doc': 'An instance of a vulnerability present in a target.',
                 }),
+                ('risk:threat', ('guid', {}), {
+                    'doc': 'A threat cluster or subgraph of threat activity.',
+                }),
                 ('risk:attack', ('guid', {}), {
-                    'doc': 'An instance of an actor attacking a target.'
+                    'doc': 'An instance of an actor attacking a target.',
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -33,8 +36,80 @@ class RiskModule(s_module.CoreModule):
                     'ex': 'cno.breach',
                     'interfaces': ('taxonomy',),
                 }),
+                ('risk:tool:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('taxonomy',),
+                }),
+                ('risk:tool:software', ('guid', {}), {
+                    'doc': 'A software tool used in threat activity.',
+                }),
+            ),
+            'edges': (
+                (('risk:threat', 'targets', None), {
+                    'doc': 'The threat cluster targeted the target nodes.'}),
+                (('risk:threat', 'uses', None), {
+                    'doc': 'The threat cluster uses the target nodes.'}),
+                (('risk:attack', 'targets', None), {
+                    'doc': 'The attack targeted the target nodes.'}),
+                (('risk:attack', 'uses', None), {
+                    'doc': 'The attack used the target nodes to facilitate the attack.'}),
             ),
             'forms': (
+                ('risk:threat', {}, (
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'ex': "apt1 (mandiant)",
+                        'doc': 'The name of the threat cluster.'}),
+                    ('desc', ('str', {}), {
+                        'doc': 'A description of the threat cluster.'}),
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'The tag used to annotate nodes that are members of the cluster.'}),
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization who published the threat cluster.'}),
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization who published the threat cluster.'}),
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization that the threat cluster is attributed to.'}),
+                    ('org:loc', ('loc', {}), {
+                        'doc': 'The assessed location of the organization that the threat cluster is attributed to.'}),
+                    ('org:name', ('ou:name', {}), {
+                        'ex': 'apt1',
+                        'doc': 'The name of the organization that the threat cluster is attributed to.'}),
+                    ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the organization that the threat cluster is attributed to.'}),
+                    ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
+                        'doc': 'The assessed goals of the threat cluster activity.'}),
+                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of techniques employed within the threat cluster.'}),
+                )),
+                ('risk:tool:software', {}, (
+                    ('tag', ('syn:tag', {}), {
+                        'ex': 'rep.mandiant.tabcteng',
+                        'doc': 'The tag used to annotate nodes that are part of the tool subgraph.',
+                    }),
+                    ('desc', ('str', {}), {
+                        'doc': "A description of the tool's use in threat activity.",
+                    }),
+                    ('type', ('risk:tool:taxonomy', {}), {
+                        'doc': 'An analyst specified taxonomy of software tool types.',
+                    }),
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization which reported the tool.',
+                    }),
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the tool.',
+                    }),
+                    ('soft', ('it:prod:soft', {}), {
+                        'doc': 'The authoritative software family of the tool.',
+                    }),
+                    ('soft:name', ('it:prod:softname', {}), {
+                        'doc': 'The reported primary name of the tool.',
+                    }),
+                    ('soft:names', ('array', {'type': 'it:prod:softname'}), {
+                        'doc': 'An array of reported alterate names for the tool.',
+                    }),
+                    ('techniques', ('array', {'type': 'ou:technique'}), {
+                        'doc': 'An array of techniques reportedly used by the tool.',
+                    }),
+                )),
                 ('risk:mitigation', {}, (
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that this mitigation addresses.'}),
@@ -262,6 +337,9 @@ class RiskModule(s_module.CoreModule):
                     }),
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
+                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of techniques employed during the compromise.',
+                    }),
                 )),
                 ('risk:attacktype', {}, ()),
                 ('risk:attack', {}, (
@@ -306,54 +384,71 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Contact information associated with the attacker.',
                     }),
                     ('target', ('ps:contact', {}), {
-                        'doc': 'Contact information associated with the target.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
                     }),
                     ('target:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :target to allow entity resolution.',
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
                     }),
                     ('target:host', ('it:host', {}), {
-                        'doc': 'The host was the target of the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
                     }),
                     ('target:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use :target to allow entity resolution.',
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
                     }),
                     ('target:place', ('geo:place', {}), {
-                        'doc': 'The place that was the target of the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(targets)> light weight edges.',
                     }),
                     ('via:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The target host was contacted via the IPv4 address.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('via:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The target host was contacted via the IPv6 address.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('via:email', ('inet:email', {}), {
-                        'doc': 'The target person/org was contacted via the email address.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('via:phone', ('tel:phone', {}), {
-                        'doc': 'The target person/org was contacted via the phone number.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:vuln', ('risk:vuln', {}), {
-                        'doc': 'The actor used the vuln in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:url', ('inet:url', {}), {
-                        'doc': 'The actor used the url in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:host', ('it:host', {}), {
-                        'doc': 'The actor used the host in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:email', ('inet:email', {}), {
-                        'doc': 'The actor used the email in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:file', ('file:bytes', {}), {
-                        'doc': 'The actor used the file in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:server', ('inet:server', {}), {
-                        'doc': 'The actor used the server in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
                     }),
                     ('used:software', ('it:prod:softver', {}), {
-                        'doc': 'The actor used the software in the attack.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use -(uses)> light weight edges.',
+                    }),
+                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'doc': 'A list of techniques employed during the attack.',
                     }),
                 )),
             ),

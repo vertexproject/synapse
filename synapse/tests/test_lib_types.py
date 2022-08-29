@@ -1,4 +1,5 @@
 import math
+import decimal
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.datamodel as s_datamodel
@@ -19,6 +20,24 @@ class TypesTest(s_t_utils.SynTest):
         self.eq(t.info.get('bases'), ())
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
+
+    async def test_mass(self):
+
+        async with self.getTestCore() as core:
+
+            mass = core.model.type('mass')
+
+            self.eq('0.000042', mass.norm('42µg')[0])
+            self.eq('0.2', mass.norm('200mg')[0])
+            self.eq('1000', mass.norm('1kg')[0])
+            self.eq('606452.504', mass.norm('1,337 lbs')[0])
+            self.eq('8490337.73', mass.norm('1,337 stone')[0])
+
+            with self.raises(s_exc.BadTypeValu):
+                mass.norm('1337 newps')
+
+            with self.raises(s_exc.BadTypeValu):
+                mass.norm('newps')
 
     def test_velocity(self):
         model = s_datamodel.Model()
@@ -345,6 +364,7 @@ class TypesTest(s_t_utils.SynTest):
         self.raises(s_exc.BadTypeValu, t.norm, 'newp')
         self.eq(t.norm(True)[0], 1)
         self.eq(t.norm(False)[0], 0)
+        self.eq(t.norm(decimal.Decimal('1.0'))[0], 1)
 
         # Test merge
         self.eq(30, t.merge(20, 30))
@@ -449,6 +469,14 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
             nodes = await core.nodes('[ test:float=inf ]')
             self.len(1, nodes)
+
+            nodes = await core.nodes('[ test:float=(42.1) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 42.1))
+
+            nodes = await core.nodes('[ test:float=($lib.cast(float, 42.1)) ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:float', 42.1))
 
             self.len(1, await core.nodes('[ test:float=42.0 :closed=0.0]'))
             await self.asyncraises(s_exc.BadTypeValu, core.nodes('[ test:float=42.0 :closed=-1.0]'))

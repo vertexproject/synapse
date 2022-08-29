@@ -365,12 +365,18 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('crypto:currency:transaction:value=1e-24'))
             self.len(1, await core.nodes('crypto:currency:transaction:value=0.000000000000000000000001'))
 
-            huge = '730750818665451459101841.00000000000000000002'
-            huge2 = '730750818665451459101841.000000000000000000015'
+            huge = '730750818665451459101841.000000000000000000000002'
+            huge2 = '730750818665451459101841.0000000000000000000000015'
+            huge3 = '730750818665451459101841.000000000000000000000001'
 
             self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge} ]'))
             self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge2} ]'))
             self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
+
+            self.len(1, await core.nodes(f'[ crypto:currency:transaction=* :value={huge3} ]'))
+            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge}'))
+            self.len(2, await core.nodes(f'crypto:currency:transaction:value={huge2}'))
+            self.len(1, await core.nodes(f'crypto:currency:transaction:value={huge3}'))
 
     async def test_norm_lm_ntlm(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
@@ -463,7 +469,7 @@ class CryptoModelTest(s_t_utils.SynTest):
                     :issuer="DN FOO THING"
                     :issuer:cert=$icert
 
-                    :serial=12345
+                    :serial=0000000000000000000000000000000000003039
                     :version=v3
 
                     :validity:notafter=2019
@@ -493,7 +499,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('subject'), "CN=vertex.link")
             self.eq(nodes[0].get('issuer'), "DN FOO THING")
             self.eq(nodes[0].get('issuer:cert'), icert)
-            self.eq(nodes[0].get('serial'), "12345")
+            self.eq(nodes[0].get('serial'), "0000000000000000000000000000000000003039")
             self.eq(nodes[0].get('version'), 2)
 
             self.eq(nodes[0].get('validity:notafter'), 1546300800000)
