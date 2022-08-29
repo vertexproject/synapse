@@ -36,6 +36,7 @@ import collections
 
 import unittest.mock as mock
 
+import vcr
 import aiohttp
 
 from prompt_toolkit.formatted_text import FormattedText
@@ -70,7 +71,11 @@ import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
+import synapse.tools.genpkg as s_genpkg
+
 logger = logging.getLogger(__name__)
+
+logging.getLogger('vcr').setLevel(logging.ERROR)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
@@ -1902,6 +1907,22 @@ class SynTest(unittest.TestCase):
         print_str = '\n'.join([m[1][1].get('mesg', '') for m in mesgs if m[0] == 'err'])
         self.isin(mesg, print_str)
 
+    def stormHasNoErr(self, mesgs):
+        '''
+        Raise an exception if there is a message of type "err" in the list.
+        '''
+        for mesg in mesgs:
+            if mesg[0] == 'err':
+                raise s_exc.SynErr(mesg=f'storm err mesg found: {mesg}')
+
+    def stormHasNoWarnErr(self, mesgs):
+        '''
+        Raise an exception if there is a message of type "err" or "warn" in the list.
+        '''
+        for mesg in mesgs:
+            if mesg[0] in ('err', 'warn'):
+                raise s_exc.SynErr(mesg=f'storm err/warn mesg found: {mesg}')
+
     def istufo(self, obj):
         '''
         Check to see if an object is a tufo.
@@ -2040,3 +2061,33 @@ class SynTest(unittest.TestCase):
         async def coro():
             return await core.nodes(query, opts)
         return await core.schedCoro(coro())
+
+class StormPkgTest(SynTest):
+
+    vcr = None
+    assetdir = None
+    pkgprotos = ()
+
+    @contextlib.asynccontextmanager
+    async def getTestCore(self, conf=None, dirn=None):
+
+        async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
+
+            for pkgproto in self.pkgprotos:
+                self.eq(0, await s_genpkg.main((pkgproto, '--push', core.getLocalUrl())))
+
+            if self.assetdir is not None:
+
+                if self.vcr is None:
+                    self.vcr = vcr.VCR()
+
+                assetdir = s_common.gendir(self.assetdir)
+                vcrname = f'{self.__class__.__name__}.{self._testMethodName}.yaml'
+                cass = self.vcr.use_cassette(s_common.genpath(assetdir, vcrname))
+                await core.enter_context(cass)
+
+            await self.initTestCore(core)
+            yield core
+
+    async def initTestCore(self, core):
+        pass
