@@ -2157,6 +2157,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             cmprvers = require.get('version')
 
             item = require.copy()
+            item.setdefault('descr', None)
 
             cpkg = await self.getStormPkg(pkgname)
 
@@ -2177,6 +2178,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             item = conflict.copy()
             item.setdefault('version', None)
+            item.setdefault('descr', None)
 
             cpkg = await self.getStormPkg(pkgname)
 
