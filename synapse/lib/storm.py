@@ -355,7 +355,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'properties': {
                 'name': {'type': 'string'},
                 'version': {'type': 'string'},
-                'descr': {'type': 'string'},
+                'desc': {'type': 'string'},
             },
             'additionalItems': True,
             'required': ('name', 'version'),
@@ -365,7 +365,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'properties': {
                 'name': {'type': 'string'},
                 'version': {'type': 'string'},
-                'descr': {'type': 'string'},
+                'desc': {'type': 'string'},
             },
             'additionalItems': True,
             'required': ('name',),

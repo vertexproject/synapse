@@ -946,7 +946,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq({
                 'requires': (),
                 'conflicts': (
-                    {'name': 'foobar', 'version': None, 'descr': None, 'ok': False, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': None, 'desc': None, 'ok': False, 'actual': '1.2.3'},
                 )
             }, deps)
 
@@ -955,7 +955,7 @@ class StormTest(s_t_utils.SynTest):
                 'version': '2.2.2',
                 'depends': {
                     'conflicts': (
-                        {'name': 'foobar', 'version': '>=1.0.0', 'descr': 'foo'},
+                        {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo'},
                     ),
                 }
             }
@@ -967,7 +967,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq({
                 'requires': (),
                 'conflicts': (
-                    {'name': 'foobar', 'version': '>=1.0.0', 'descr': 'foo', 'ok': False, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo', 'ok': False, 'actual': '1.2.3'},
                 )
             }, deps)
 
@@ -986,7 +986,7 @@ class StormTest(s_t_utils.SynTest):
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'descr': None, 'ok': False, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None, 'ok': False, 'actual': '1.2.3'},
                 ),
                 'conflicts': ()
             }, deps)
@@ -1009,7 +1009,7 @@ class StormTest(s_t_utils.SynTest):
                 'version': '2.2.2',
                 'depends': {
                     'requires': (
-                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'descr': 'lol'},
+                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol'},
                     ),
                     'conflicts': (
                         {'name': 'foobar', 'version': '>=3.0.0'},
@@ -1022,10 +1022,10 @@ class StormTest(s_t_utils.SynTest):
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
                 'requires': (
-                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'descr': 'lol', 'ok': True, 'actual': '1.2.3'},
+                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol', 'ok': True, 'actual': '1.2.3'},
                 ),
                 'conflicts': (
-                    {'name': 'foobar', 'version': '>=3.0.0', 'descr': None, 'ok': True, 'actual': '1.2.3'},
+                    {'name': 'foobar', 'version': '>=3.0.0', 'desc': None, 'ok': True, 'actual': '1.2.3'},
                 )
             }, deps)
 
@@ -1045,7 +1045,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq({
                 'requires': (),
                 'conflicts': (
-                    {'name': 'newpnewp', 'version': None, 'descr': None, 'ok': True, 'actual': None},
+                    {'name': 'newpnewp', 'version': None, 'desc': None, 'ok': True, 'actual': None},
                 )
             }, deps)
 
