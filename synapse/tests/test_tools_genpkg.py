@@ -207,3 +207,11 @@ class GenPkgTest(s_test.SynTest):
             self.stormIsInPrint('hello foo', msgs)
             msgs = await core.stormlist('dotstorm.bar')
             self.stormIsInPrint('hello bar', msgs)
+
+class TestStormPkgTest(s_test.StormPkgTest):
+    assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'testassets')
+    pkgproto = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml'),)
+
+    async def test_stormpkg_base(self):
+        async with self.getTestCore() as core:
+            pass
