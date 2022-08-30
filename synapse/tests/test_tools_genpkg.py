@@ -210,8 +210,9 @@ class GenPkgTest(s_test.SynTest):
 
 class TestStormPkgTest(s_test.StormPkgTest):
     assetdir = s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'testassets')
-    pkgproto = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml'),)
+    pkgprotos = (s_common.genpath(dirname, 'files', 'stormpkg', 'dotstorm', 'dotstorm.yaml'),)
 
     async def test_stormpkg_base(self):
         async with self.getTestCore() as core:
-            pass
+            msgs = await core.stormlist('dotstorm.bar')
+            self.stormHasNoWarnErr(msgs)
