@@ -839,17 +839,6 @@ class SynTest(unittest.TestCase):
             node = await core.nodes('', opts={'ndefs': (ndef,)})
             self.len(1, node)
 
-    def worker(func, *args, **kwargs):
-        '''
-        Fire a worker thread to run the given func(*args,**kwargs)
-        '''
-        def work():
-            return func(*args, **kwargs)
-
-        thr = threading.Thread(target=work)
-        thr.start()
-        return thr
-
     def printed(self, msgs, text):
         # a helper for testing storm print message output
         for mesg in msgs:
@@ -1432,8 +1421,7 @@ class SynTest(unittest.TestCase):
 
         Args:
             logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message
-            containing the string is written to the log.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message containing the string is written to the log.
 
         Notes:
             The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
@@ -1478,8 +1466,7 @@ class SynTest(unittest.TestCase):
 
         Args:
             logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message
-            containing the string is written to the log.
+            mesg (str): A string which, if provided, sets the StreamEvent event if a message containing the string is written to the log.
 
         Notes:
             The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
@@ -1497,7 +1484,7 @@ class SynTest(unittest.TestCase):
                     await stream.wait(timeout=10)
 
                 data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
+                raw_mesgs = [m for m in data.split('\\n') if m]
                 msgs = [json.loads(m) for m in raw_mesgs]
                 # Do something with messages
 
@@ -1628,15 +1615,18 @@ class SynTest(unittest.TestCase):
             new_stdin(file-like object):  file-like object.
 
         Examples:
-            inp = io.StringIO('stdin stuff\nanother line\n')
-            with self.redirectStdin(inp):
-                main()
+            Patch stdin with a string buffer::
 
-            Here's a way to use this for code that's expecting the stdin buffer to have bytes.
-            inp = Mock()
-            inp.buffer = io.BytesIO(b'input data')
-            with self.redirectStdin(inp):
-                main()
+                inp = io.StringIO('stdin stuff\\nanother line\\n')
+                with self.redirectStdin(inp):
+                    main()
+
+            Here's a way to use this for code that's expecting the stdin buffer to have bytes::
+
+                inp = Mock()
+                inp.buffer = io.BytesIO(b'input data')
+                with self.redirectStdin(inp):
+                    main()
 
         Returns:
             None
@@ -1934,12 +1924,12 @@ class SynTest(unittest.TestCase):
         Check to see if an object is a tufo.
 
         Args:
-            obj (object): Object being inspected. This is validated to be a
-            tuple of length two, containing a str or None as the first value,
-            and a dict as the second value.
+            obj (object): Object being inspected.
 
         Notes:
             This does not make any assumptions about the contents of the dictionary.
+            This validates the object to be a tuple of length two, containing a str
+            or None as the first value, and a dict as the second value.
 
         Returns:
             None
