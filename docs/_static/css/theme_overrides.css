@@ -3,6 +3,11 @@
     max-width: 90%;
 }
 
+/* override table no-wrap */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
 /* Set search window background color to VTX GRAY1 */
 .wy-side-nav-search {
     background-color: #333F48;
