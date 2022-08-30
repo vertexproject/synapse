@@ -1909,19 +1909,25 @@ class SynTest(unittest.TestCase):
 
     def stormHasNoErr(self, mesgs):
         '''
-        Raise an exception if there is a message of type "err" in the list.
+        Raise an AssertionError if there is a message of type "err" in the list.
+
+        Args:
+            mesgs (list): A list of storm messages.
         '''
         for mesg in mesgs:
             if mesg[0] == 'err':
-                raise s_exc.SynErr(mesg=f'storm err mesg found: {mesg}')
+                self.fail(f'storm err mesg found: {mesg}')
 
     def stormHasNoWarnErr(self, mesgs):
         '''
-        Raise an exception if there is a message of type "err" or "warn" in the list.
+        Raise an AssertionError if there is a message of type "err" or "warn" in the list.
+
+        Args:
+            mesgs (list): A list of storm messages.
         '''
         for mesg in mesgs:
             if mesg[0] in ('err', 'warn'):
-                raise s_exc.SynErr(mesg=f'storm err/warn mesg found: {mesg}')
+                self.fail(f'storm err/warn mesg found: {mesg}')
 
     def istufo(self, obj):
         '''
