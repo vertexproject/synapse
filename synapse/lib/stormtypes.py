@@ -1903,6 +1903,17 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A list of strings from the CSV file.'}}},
+        {'name': 'metrics', 'desc': '''
+        Get runtime metrics of the Axon.
+
+        Example:
+            Print the total number of files stored in the Axon::
+
+                $data = $lib.axon.metrics()
+                $lib.print("The Axon has {n} files", n=$data."file:count")
+        ''',
+        'type': {'type': 'function', '_funcname': 'metrics',
+                 'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1917,6 +1928,7 @@ class LibAxon(Lib):
             'readlines': self.readlines,
             'jsonlines': self.jsonlines,
             'csvrows': self.csvrows,
+            'metrics': self.metrics,
         }
 
     def strify(self, item):
@@ -2092,6 +2104,10 @@ class LibAxon(Lib):
         async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
             yield item
             await asyncio.sleep(0)
+
+    async def metrics(self):
+        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
 class LibBytes(Lib):

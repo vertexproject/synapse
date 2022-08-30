@@ -5698,6 +5698,14 @@ words\tword\twrd'''
             rows = [m[1].get('data').get('row') for m in msgs if m[0] == 'storm:fire']
             self.eq(rows, [['foo', 'bar', 'baz'], ['words', 'word', 'wrd']])
 
+            with self.raises(s_exc.AuthDeny):
+                await core.callStorm('return($lib.axon.metrics())', opts={'user': visi.iden})
+
+            self.eq({
+                'file:count': 9,
+                'size:bytes': 651,
+            }, await core.callStorm('return($lib.axon.metrics())'))
+
     async def test_storm_lib_export(self):
 
         async with self.getTestCore() as core:
