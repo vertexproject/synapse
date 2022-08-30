@@ -6,7 +6,7 @@ import logging
 import argparse
 import collections
 
-from typing import Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 EdgeDef = Tuple[Union[str, None], str, Union[str, None]]
 EdgeDict = Dict[str, Union[str, ]]
 Edge = Tuple[EdgeDef, EdgeDict]
-Edges = Tuple[Edge, ...]
+Edges = List[Edge]
 
 poptsToWords = {
     'ex': 'Example',
@@ -357,8 +357,19 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
             generic_edges = formedges.pop('generic', None)
 
             if source_edges:
+                if generic_edges:
+                    source_edges.extend(generic_edges)
 
-                rst.addLines(f'  Source Edges (on ``{name}`` form):',)
+                rst.addLines(f'  Source Edges:',)
+                rst.addLines('   .. list-table::',
+                             '      :header-rows: 1',
+                             # '      :widths: auto',
+                             '',
+                             '      * - source',
+                             '        - verb',
+                             '        - target',
+                             '        - doc',
+                             )
 
                 for (edef, enfo) in source_edges:
                     src, enam, dst = edef
@@ -369,18 +380,29 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
-                    rst.addLines('',
-                                 f'    ``{src} -({enam})> {dst}``',
-                                 f'      {doc}',
-                                 '')
+                    rst.addLines(f'      * - ``{src}``',
+                                 f'        - ``-({enam})>``',
+                                 f'        - ``{dst}``',
+                                 f'        - {doc}',
+                                 )
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
 
             if dst_edges:
+                if generic_edges:
+                    dst_edges.extend(generic_edges)
 
-                rst.addLines(f'  Target Edges (on ``{name}`` form):', )
-
+                rst.addLines(f'  Target Edges:', )
+                rst.addLines('   .. list-table::',
+                             '      :header-rows: 1',
+                             # '      :widths: auto',
+                             '',
+                             '      * - source',
+                             '        - verb',
+                             '        - target',
+                             '        - doc',
+                             )
                 for (edef, enfo) in dst_edges:
                     src, enam, dst = edef
                     doc = enfo.pop('doc', None)
@@ -390,33 +412,15 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
-                    rst.addLines('',
-                                 f'    ``{src} -({enam})> {dst}``',
-                                 f'      {doc}',
-                                 '')
+                    rst.addLines(f'      * - ``{src}``',
+                                 f'        - ``-({enam})>``',
+                                 f'        - ``{dst}``',
+                                 f'        - {doc}',
+                                 )
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
-
-            if generic_edges:
-
-                rst.addLines('  Generic Edges:', )
-
-                for (edef, enfo) in generic_edges:
-                    src, enam, dst = edef
-
-                    assert src is None
-                    assert dst is None
-
-                    doc = enfo.pop('doc', None)
-
-                    rst.addLines('',
-                                 f'    ``* -({enam})> *``',
-                                 f'        {doc}',
-                                 '')
-
-                    if enfo:
-                        logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
+                rst.addLines('', '')
 
             if formedges:
                 logger.warning(f'{name} has unhandled light edges: {formedges}')
