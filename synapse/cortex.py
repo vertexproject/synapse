@@ -2204,8 +2204,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             if require['ok']:
                 continue
 
-            mesg = f'Storm package {name} requires {require.get("name")}{require.get("version")}.'
-            logger.warning(mesg)
+            mesg = f'Storm package {name} requirement {require.get("name")}{require.get("version")} is currently unmet.'
+            logger.info(mesg)
 
         for conflict in deps['conflicts']:
 

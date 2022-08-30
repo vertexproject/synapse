@@ -1033,6 +1033,9 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'zoinkszoinks',
                 'version': '2.2.2',
                 'depends': {
+                    'requires': (
+                        {'name': 'newpnewp', 'version': '1.2.3'},
+                    ),
                     'conflicts': (
                         {'name': 'newpnewp'},
                     ),
@@ -1043,7 +1046,9 @@ class StormTest(s_t_utils.SynTest):
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
-                'requires': (),
+                'requires': (
+                    {'name': 'newpnewp', 'version': '1.2.3', 'desc': None, 'ok': False, 'actual': None},
+                ),
                 'conflicts': (
                     {'name': 'newpnewp', 'version': None, 'desc': None, 'ok': True, 'actual': None},
                 )
