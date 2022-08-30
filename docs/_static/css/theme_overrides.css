@@ -1,11 +1,6 @@
-/* Set the width to 90% of the users screen. */
-.wy-nav-content {
-    max-width: 90%;
-}
-
-/* override table no-wrap */
-.wy-table-responsive table td, .wy-table-responsive table th {
-    white-space: normal;
+/* provide a tight table option */
+.tight-table td {
+    white-space: normal !important;
 }
 
 /* Set search window background color to VTX GRAY1 */
