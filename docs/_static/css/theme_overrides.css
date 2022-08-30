@@ -1,3 +1,8 @@
+/* Set the width to 90% of the users screen. */
+.wy-nav-content {
+    max-width: 90%;
+}
+
 /* provide a tight table option */
 .tight-table td {
     white-space: normal !important;
