@@ -2205,7 +2205,7 @@ class Cortex(s_cell.Cell):  # type: ignore
                 continue
 
             mesg = f'Storm package {name} requirement {require.get("name")}{require.get("version")} is currently unmet.'
-            logger.info(mesg)
+            logger.debug(mesg)
 
         for conflict in deps['conflicts']:
 
