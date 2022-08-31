@@ -2988,7 +2988,12 @@ class TagName(Value):
         if self.isconst:
             return self.constval
 
-        vals = [await tostr(await k.compute(runt, path)) for k in self.kids]
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                raise s_exc.BadTypeValu(mesg='Null values in tag names are not allowed.')
+            vals.append(await tostr(part))
         return '.'.join(vals)
 
 class TagMatch(TagName):
@@ -3623,8 +3628,13 @@ class EditTagAdd(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[oper_offset].compute(runt, path)
-            names = await s_stormtypes.toprim(names)
+            try:
+                names = await self.kids[oper_offset].compute(runt, path)
+                names = await s_stormtypes.toprim(names)
+            except excignore:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
 
             if not isinstance(names, tuple):
                 names = (names,)

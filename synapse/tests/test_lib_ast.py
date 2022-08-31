@@ -511,6 +511,14 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+            q = '$var=$lib.null [test:str=bar +?#base.$var]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].tags, {})
+
+            with self.raises(s_exc.BadTypeValu):
+                q = '$var=$lib.null [test:str=bar +#base.$var]'
+                await core.nodes(q)
 
     async def test_ast_var_in_deref(self):
 
