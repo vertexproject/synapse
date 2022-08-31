@@ -2992,8 +2992,10 @@ class TagName(Value):
         for kid in self.kids:
             part = await kid.compute(runt, path)
             if part is None:
-                raise s_exc.BadTypeValu(mesg='Null values in tag names are not allowed.')
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise s_exc.BadTypeValu(mesg=mesg)
             vals.append(await tostr(part))
+
         return '.'.join(vals)
 
 class TagMatch(TagName):
@@ -3642,6 +3644,9 @@ class EditTagAdd(Edit):
             for name in names:
 
                 try:
+                    if name is None:
+                        raise s_exc.BadTypeValu(mesg='Null tag names are not allowed.')
+
                     normtupl = await runt.snap.getTagNorm(name)
                     if normtupl is None:
                         continue
