@@ -4712,10 +4712,19 @@ class StormTypesTest(s_test.SynTest):
 
             self.len(1, await core.nodes('yield $lib.import(authtest.privsep).x()', opts=asvisi))
 
-            self.nn(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}}))
+            udef = await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}})
+            self.nn(udef)
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
+            pdef = await core.callStorm('$info=$lib.auth.users.byname(visi).pack() $info.key=valu return($info)')
+            self.eq('valu', pdef.pop('key', None))
+            self.eq(udef, pdef)
 
             self.eq(await core.callStorm('return($lib.auth.roles.byname(all).name)'), 'all')
+            rdef = await core.callStorm('return($lib.auth.roles.byname(all))')
+            self.eq(rdef.get('name'), 'all')
+            pdef = await core.callStorm('$info=$lib.auth.roles.byname(all).pack() $info.key=valu return($info)')
+            self.eq('valu', pdef.pop('key', None))
+            self.eq(rdef, pdef)
 
             self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
             self.none(await core.callStorm('return($lib.auth.roles.get($iden))', opts={'vars': {'iden': 'newp'}}))
