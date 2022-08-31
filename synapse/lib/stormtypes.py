@@ -440,7 +440,7 @@ class StormType:
 
         stor = self.stors.get(await tostr(name))
         if stor is None:
-            mesg = f'Setting {name} is not supported on .'
+            mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
         await s_coro.ornot(stor, valu)
@@ -7695,6 +7695,9 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
+        {'name': 'pack', 'desc': 'Get the packed version of the User.',
+         'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
@@ -7838,6 +7841,7 @@ class User(Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
+            'pack': self._methUserPack,
             'tell': self._methUserTell,
             'notify': self._methUserNotify,
             'roles': self._methUserRoles,
@@ -7853,6 +7857,9 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    async def _methUserPack(self):
+        return await self.value()
 
     async def _methUserTell(self, text):
         mesgdata = {
@@ -7976,6 +7983,9 @@ class Role(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'pack', 'desc': 'Get the packed version of the Role.',
+         'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the Role',
          'type': {'type': 'function', '_funcname': '_methRoleAddRule',
                   'args': (
@@ -8031,6 +8041,7 @@ class Role(Prim):
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
+            'pack': self._methRolePack,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
             'setRules': self._methRoleSetRules,
@@ -8049,6 +8060,9 @@ class Role(Prim):
     async def _methRoleGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
         return rdef.get(name)
+
+    async def _methRolePack(self):
+        return await self.value()
 
     async def _methRoleSetRules(self, rules, gateiden=None):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
