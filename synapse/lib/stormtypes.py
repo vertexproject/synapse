@@ -440,7 +440,7 @@ class StormType:
 
         stor = self.stors.get(await tostr(name))
         if stor is None:
-            mesg = f'Setting {name} is not supported on .'
+            mesg = f'Setting {name} is not supported on {self._storm_typename}.'
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
         await s_coro.ornot(stor, valu)
@@ -569,6 +569,12 @@ class LibPkg(Lib):
         {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
          'type': {'type': 'function', '_funcname': '_libPkgList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
+        {'name': 'deps', 'desc': 'Verify the dependencies for a Storm Package.',
+         'type': {'type': 'function', '_funcname': '_libPkgDeps',
+                  'args': (
+                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
     )
     _storm_lib_path = ('pkg',)
 
@@ -579,6 +585,7 @@ class LibPkg(Lib):
             'has': self._libPkgHas,
             'del': self._libPkgDel,
             'list': self._libPkgList,
+            'deps': self._libPkgDeps,
         }
 
     async def _libPkgAdd(self, pkgdef):
@@ -608,6 +615,10 @@ class LibPkg(Lib):
     async def _libPkgList(self):
         pkgs = await self.runt.snap.core.getStormPkgs()
         return list(sorted(pkgs, key=lambda x: x.get('name')))
+
+    async def _libPkgDeps(self, pkgdef):
+        pkgdef = await toprim(pkgdef)
+        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -1892,6 +1903,17 @@ class LibAxon(Lib):
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                               'desc': 'A list of strings from the CSV file.'}}},
+        {'name': 'metrics', 'desc': '''
+        Get runtime metrics of the Axon.
+
+        Example:
+            Print the total number of files stored in the Axon::
+
+                $data = $lib.axon.metrics()
+                $lib.print("The Axon has {n} files", n=$data."file:count")
+        ''',
+        'type': {'type': 'function', '_funcname': 'metrics',
+                 'returns': {'type': 'dict', 'desc': 'A dictionary containing runtime data about the Axon.'}}},
     )
     _storm_lib_path = ('axon',)
 
@@ -1906,6 +1928,7 @@ class LibAxon(Lib):
             'readlines': self.readlines,
             'jsonlines': self.jsonlines,
             'csvrows': self.csvrows,
+            'metrics': self.metrics,
         }
 
     def strify(self, item):
@@ -2081,6 +2104,10 @@ class LibAxon(Lib):
         async for item in self.runt.snap.core.axon.csvrows(s_common.uhex(sha256), dialect, **fmtparams):
             yield item
             await asyncio.sleep(0)
+
+    async def metrics(self):
+        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -4643,6 +4670,20 @@ class Number(Prim):
     def __rtruediv__(self, othr):
         othr = Number(othr)
         return othr.__truediv__(self)
+
+    def __pow__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugepow(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugepow(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugepow(self.value(), othr.value()))
+
+        mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __rpow__ = __pow__
 
     async def stormrepr(self):
         return str(self.value())
@@ -7679,6 +7720,9 @@ class User(Prim):
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``storm:auth:roles`` with the user is a member of.', }}},
+        {'name': 'pack', 'desc': 'Get the packed version of the User.',
+         'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
@@ -7822,6 +7866,7 @@ class User(Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
+            'pack': self._methUserPack,
             'tell': self._methUserTell,
             'notify': self._methUserNotify,
             'roles': self._methUserRoles,
@@ -7837,6 +7882,9 @@ class User(Prim):
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
         }
+
+    async def _methUserPack(self):
+        return await self.value()
 
     async def _methUserTell(self, text):
         mesgdata = {
@@ -7960,6 +8008,9 @@ class Role(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
+        {'name': 'pack', 'desc': 'Get the packed version of the Role.',
+         'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
+                  'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
         {'name': 'addRule', 'desc': 'Add a rule to the Role',
          'type': {'type': 'function', '_funcname': '_methRoleAddRule',
                   'args': (
@@ -8015,6 +8066,7 @@ class Role(Prim):
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
+            'pack': self._methRolePack,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
             'setRules': self._methRoleSetRules,
@@ -8033,6 +8085,9 @@ class Role(Prim):
     async def _methRoleGet(self, name):
         rdef = await self.runt.snap.core.getRoleDef(self.valu)
         return rdef.get(name)
+
+    async def _methRolePack(self):
+        return await self.value()
 
     async def _methRoleSetRules(self, rules, gateiden=None):
         self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)

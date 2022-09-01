@@ -511,6 +511,24 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.sorteq(nodes[0].tags, ('base', 'base.11', 'base.tag1', 'base.tag1.foo', 'base.tag2'))
+            q = '$foo=$lib.null [test:str=bar +?#base.$foo]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].tags, {})
+
+            with self.raises(s_exc.BadTypeValu) as err:
+                q = '$foo=$lib.null [test:str=bar +#base.$foo]'
+                await core.nodes(q)
+            self.isin('Null value from var $foo', err.exception.errinfo.get('mesg'))
+
+            q = 'function foo() { return() } [test:str=bar +?#$foo()]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].tags, {})
+
+            with self.raises(s_exc.BadTypeValu) as err:
+                q = 'function foo() { return() } [test:str=bar +#$foo()]'
+                nodes = await core.nodes(q)
 
     async def test_ast_var_in_deref(self):
 
@@ -1853,6 +1871,10 @@ class AstTest(s_test.SynTest):
             self.eq(1.23, await core.callStorm('return((1.23 / 1))'))
             self.eq(1.025, await core.callStorm('return((1.23 / 1.2))'))
             self.eq(2.5, await core.callStorm('return((3 / 1.2))'))
+
+            self.eq(8, await core.callStorm('return((2 ** 3))'))
+            self.eq(4.84, await core.callStorm('return((2.2 ** 2))'))
+            self.eq(5.76, await core.callStorm('return((2 ** 2.4))'))
 
             self.eq(2.43, await core.callStorm('return((1.23 + $lib.cast(float, 1.2)))'))
             self.eq(0.03, await core.callStorm('return((1.23 - $lib.cast(float, 1.2)))'))

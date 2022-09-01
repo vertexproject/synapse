@@ -658,6 +658,7 @@ ruleClassMap = {
     'exprand': s_ast.ExprAndNode,
     'exprnot': s_ast.UnaryExprNode,
     'exprcmp': s_ast.ExprNode,
+    'exprpow': s_ast.ExprNode,
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,

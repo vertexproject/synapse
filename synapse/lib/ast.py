@@ -2139,12 +2139,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return size == valu
 
         return cond
@@ -2153,11 +2157,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2166,11 +2174,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2179,11 +2191,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2192,11 +2208,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2206,12 +2226,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return size != valu
 
         return cond
@@ -2230,7 +2254,8 @@ class SubqCond(Cond):
 
         async def cond(node, path):
             genr = s_common.agen((node, path))
-            async for _ in subq.run(runt, genr):
+            async for _, subp in subq.run(runt, genr):
+                path.vars.update(subp.vars)
                 return True
             return False
 
@@ -2863,6 +2888,9 @@ async def expr_div(x, y):
         return x // y
     return x / y
 
+async def expr_pow(x, y):
+    return await tonumber(x) ** await tonumber(y)
+
 async def expr_eq(x, y):
     return await tocmprvalu(x) == await tocmprvalu(y)
 async def expr_ne(x, y):
@@ -2888,6 +2916,7 @@ _ExprFuncMap = {
     '-': expr_sub,
     '*': expr_mul,
     '/': expr_div,
+    '**': expr_pow,
     '=': expr_eq,
     '!=': expr_ne,
     '~=': expr_re,
@@ -2963,7 +2992,14 @@ class TagName(Value):
         if self.isconst:
             return self.constval
 
-        vals = [await tostr(await k.compute(runt, path)) for k in self.kids]
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            vals.append(await tostr(part))
+
         return '.'.join(vals)
 
 class TagMatch(TagName):
@@ -3598,8 +3634,13 @@ class EditTagAdd(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[oper_offset].compute(runt, path)
-            names = await s_stormtypes.toprim(names)
+            try:
+                names = await self.kids[oper_offset].compute(runt, path)
+                names = await s_stormtypes.toprim(names)
+            except excignore:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
 
             if not isinstance(names, tuple):
                 names = (names,)
@@ -3607,6 +3648,9 @@ class EditTagAdd(Edit):
             for name in names:
 
                 try:
+                    if name is None:
+                        raise s_exc.BadTypeValu(mesg='Null tag names are not allowed.')
+
                     normtupl = await runt.snap.getTagNorm(name)
                     if normtupl is None:
                         continue

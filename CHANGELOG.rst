@@ -4,6 +4,26 @@
 Synapse Changelog
 *****************
 
+v2.106.0 - 2022-08-23
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a new tool, ``synapse.tools.axon2axon``, for copying the data from one
+  Axon to another Axon.
+  (`#2813 <https://github.com/vertexproject/synapse/pull/2813>`_)
+  (`#2816 <https://github.com/vertexproject/synapse/pull/2816>`_)
+
+Bugfixes
+--------
+- Subquery filters did not update runtime variables in the outer scope. This
+  behavior has been updated to make subquery filter behavior consistent with
+  regular subqueries.
+  (`#2815 <https://github.com/vertexproject/synapse/pull/2815>`_)
+- Fix an issue with converting the Number Storm primitive into its Python
+  primitive.
+  (`#2811 <https://github.com/vertexproject/synapse/pull/2811>`_)
+
 v2.105.0 - 2022-08-19
 =====================
 
@@ -480,7 +500,7 @@ Features and Enhancements
   (`#2714 <https://github.com/vertexproject/synapse/pull/2714>`_)
 - Add a new Storm library, ``$lib.gen``, to assist with creating nodes based
   on secondary property based deconfliction.
- (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
+  (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
 - Add a ``sorted()`` method to the ``storm:stat:tally`` object, to simplify
   handling of tallied data.
   (`#2748 <https://github.com/vertexproject/synapse/pull/2748>`_)
