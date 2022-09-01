@@ -28,7 +28,7 @@ documentation, and workflows embedded within the package.
 Minimal Example
 ---------------
 
-As you can see in the minimal example below, the Storm Package is defined by a YAML file
+As you can see in the minimal example below, the **Storm Package** is defined by a YAML file
 that gets processed and loaded into your Cortex.
 
 ``acme-hello.yaml``::
@@ -106,7 +106,7 @@ this example, we will assume you have deployed your Synapse environment accordin
     you may need to adjust the ``aha://cortex...`` telepath URL to connect to
     your Cortex.
 
-Once your **Storm Package** has loaded successfully, you can use the Storm CLI to see it in action::
+Once your **Storm Package** has loaded successfully, you can use the **Storm** CLI to see it in action::
 
     invisigoth@visi01:~$ python -m synapse.tools.storm aha://cortex...
 
@@ -121,16 +121,13 @@ Once your **Storm Package** has loaded successfully, you can use the Storm CLI t
     complete. 0 nodes in 1 ms (0/sec).
     storm>
 
-Directory Layout
-----------------
-
 Storm Modules
 =============
 
-Deploying **Storm** modules allows you to author powerful library functions that you can use in
-automation or **Storm** commands to facilitate code re-use and enforce privilidge separation boundaries.
+Deploying **Storm Modules** allows you to author powerful library functions that you can use in
+automation or **Storm Commands** to facilitate code re-use and enforce privilidge separation boundaries.
 
-A **Storm** module is specified within the ``modules:`` section of the **Storm Package** YAML file.
+A **Storm Module** is specified within the ``modules:`` section of the **Storm Package** YAML file.
 
 ::
     modules:
@@ -210,7 +207,7 @@ Notice that the ``$apikey`` is being retrieved and used to call the HTTP API but
 Storm Commands
 ==============
 
-Adding Storm Commands to your Cortex via a Storm Package is a great way to extend the functionality
+Adding **Storm Commands** to your Cortex via a **Storm Package** is a great way to extend the functionality
 of your Cortex in a CLI user-friendly way.
 
 Command Line Options
@@ -232,7 +229,7 @@ execute any command with ``--help`` to get a usage statement and enumerate comma
     complete. 0 nodes in 4 ms (0/sec).
     storm>
 
-**Storm** commands may specify command line arguments using a convention which is similar (although not
+**Storm Commands** may specify command line arguments using a convention which is similar (although not
 identical to) Python's ``argparse`` library.
 
 A more complex command declaration::
@@ -467,4 +464,4 @@ the specified as though it were run like this::
 
 Any printed output, including warnings, will be displayed in the **Optic** ``Console Tool``.
 
-_Deployment Guide: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html
+.. _Deployment Guide: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html
