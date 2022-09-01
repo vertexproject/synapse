@@ -5270,6 +5270,8 @@ class StormTypesTest(s_test.SynTest):
         self.eq('20.1', await s_stormtypes.tostor(numb))
         self.eq(['20.1', '20.1'], await s_stormtypes.tostor([numb, numb]))
         self.eq({'foo': '20.1'}, await s_stormtypes.tostor({'foo': numb}))
+        self.eq((1, 3), await s_stormtypes.tostor([1, s_exc.SynErr, 3]))
+        self.eq({'foo': 'bar'}, (await s_stormtypes.tostor({'foo': 'bar', 'exc': s_exc.SynErr})))
 
         self.eq(True, await s_stormtypes.tocmprvalu(boolprim))
         self.eq((1, s_exc.SynErr), await s_stormtypes.tocmprvalu([1, s_exc.SynErr]))
