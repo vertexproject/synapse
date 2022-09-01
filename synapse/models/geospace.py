@@ -382,7 +382,7 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
                     }),
                     ('geo:area', 'synapse.models.geospace.Area', {}, {
-                        'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq/m'
+                        'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq.km'
                     }),
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
                         'doc': 'A Lat/Long string specifying a point on Earth.',
