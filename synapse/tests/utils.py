@@ -2070,7 +2070,7 @@ class StormPkgTest(SynTest):
         async with SynTest.getTestCore(self, conf=None, dirn=None) as core:
 
             for pkgproto in self.pkgprotos:
-                self.eq(0, await s_genpkg.main((pkgproto, '--push', core.getLocalUrl())))
+                self.eq(0, await s_genpkg.main((pkgproto, '--no-docs', '--push', core.getLocalUrl())))
 
             if self.assetdir is not None:
 
