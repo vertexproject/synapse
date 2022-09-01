@@ -195,7 +195,10 @@ def run_apidoc(_):
     from sphinx.ext.apidoc import main
 
     args = ['-M', '--no-toc', '-o', './synapse/autodocs', '../synapse', ]
-    ignores = ['../synapse/tests', '../synapse/vendor']
+    ignores = ['../synapse/tests/test_*',
+               '../synapse/tests/files',
+               '../synapse/tests/nopmod',
+               '../synapse/vendor']
     args.extend(ignores)
     main(args)
 

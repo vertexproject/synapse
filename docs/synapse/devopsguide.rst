@@ -87,6 +87,18 @@ At this point it is safe to use standard tools like ``mv``, ``tar``, and ``scp``
 
     It is important that you use ``synapse.tools.livebackup`` to ensure a transactionally consistant backup.
 
+.. note::
+
+    When taking a backup of a service, the backup is written by the service locally to disk. This may take
+    up storage space equal to the current size of the service. If the service does not have the ``backup:dir`` option
+    configured for a dedicated backup directory (or volume), this backup is made to ``/vertex/storage/backups`` by
+    default. If the volume backing ``/vertex/storage`` reaches a maximum capacity, the backup process will fail.
+
+    To avoid this from being an issue, when using the default configuration, make sure services do not exceed 50% of
+    their storage utilization. For example, a Cortex that has a size of 32GB of utilized space may take up 32GB
+    during a backup. The volume backing ``/vertex/storage`` should be at least 64GB in size to avoid issues taking
+    backups.
+
 It is also worth noting that the newly created backup is a defragmented / optimized copy of the databases.
 We recommend occasionally scheduling a maintenance window to create a "cold backup" using the offline
 ``synapse.tools.backup`` command with the service offline and deploy the backup copy when bringing the service

@@ -156,17 +156,6 @@ class Base:
         Returns:
             The result of item’s own __aenter__ or __enter__() method.
         '''
-        async def fini():
-            meth = getattr(item, '__aexit__', None)
-            if meth is not None:
-                return await meth(None, None, None)
-
-            meth = getattr(item, '__exit__', None)
-            if meth is not None:
-                return meth(None, None, None)
-
-        self.onfini(fini)
-
         entr = getattr(item, '__aenter__', None)
         if entr is not None:
             async def fini():
