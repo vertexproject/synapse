@@ -18,6 +18,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
                 }),
+                ('risk:alert:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of alert types.'
+                }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
@@ -256,8 +259,9 @@ class RiskModule(s_module.CoreModule):
                     })
                 )),
 
+                ('risk:alert:taxonomy', {}, {}),
                 ('risk:alert', {}, (
-                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                    ('type', ('risk:alert:taxonomy', {}), {
                         'doc': 'An alert type.',
                     }),
                     ('name', ('str', {}), {
