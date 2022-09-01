@@ -500,7 +500,7 @@ Features and Enhancements
   (`#2714 <https://github.com/vertexproject/synapse/pull/2714>`_)
 - Add a new Storm library, ``$lib.gen``, to assist with creating nodes based
   on secondary property based deconfliction.
- (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
+  (`#2754 <https://github.com/vertexproject/synapse/pull/2754>`_)
 - Add a ``sorted()`` method to the ``storm:stat:tally`` object, to simplify
   handling of tallied data.
   (`#2748 <https://github.com/vertexproject/synapse/pull/2748>`_)
