@@ -96,7 +96,7 @@ Building / Loading
 
 To build and load **Storm Packages**, use the ``genpkg`` tool included within Synapse. For
 this example, we will assume you have deployed your Synapse environment according to the
-FIXME Deployment Guide::
+`Deployment Guide`_::
 
     python -m synapse.tools.genpkg acme-hello.yaml --load aha://cortex...
 
@@ -154,11 +154,11 @@ runtime and accessible using the implicit variable ``$modconf``::
         }
     }
 
-Priviledged Modules
+Privileged Modules
 -------------------
 
-In order to facilitate delegating permission for priviledged operations, **Storm** modules may specify
-permissions which allow the module to be imported with admin priviledges. It is a best-practice to declare
+In order to facilitate delegating permission for privileged operations, **Storm** modules may specify
+permissions which allow the module to be imported with admin privileges. It is a best-practice to declare
 these permissions within the **Storm** package using the ``perms:`` key before using them::
 
     perms:
@@ -172,13 +172,13 @@ these permissions within the **Storm** package using the ``perms:`` key before u
         asroot:perms:
             - [ acme, hello, user ]
 
-To minimize risk, you must very carefully consider what functions to implement within a priviledged **Storm**
-module! Priviledged modules should contain the absolute minimum required functionality.
+To minimize risk, you must very carefully consider what functions to implement within a privileged **Storm**
+module! Privileged modules should contain the absolute minimum required functionality.
 
-An excellent example use case for a priviledged **Storm** module exists when you have an API key or password
+An excellent example use case for a privileged **Storm** module exists when you have an API key or password
 which you would like to use on a user's behalf without disclosing the actual API key. The **Storm** library
 ``$lib.globals.set(<name>, <valu>)`` and ``$lib.globals.get(<name>)`` can be used to access protected global
-variables which regular users may not access without special permissions.  By implementing a priviledged
+variables which regular users may not access without special permissions.  By implementing a privileged
 **Storm** module which retrieves the API key and uses on the user's behalf without disclosing it, you may
 protect the API key from disclosure while also allowing users to use it. For example,
 ``acme.hello.privsep.storm``::
@@ -205,7 +205,7 @@ protect the API key from disclosure while also allowing users to use it. For exa
         return($resp.json())
     }
 
-Notice that the ``$apikey`` is being retrived and used to call the HTTP API but is not returned to the caller.
+Notice that the ``$apikey`` is being retrieved and used to call the HTTP API but is not returned to the caller.
 
 Storm Commands
 ==============
@@ -233,7 +233,7 @@ execute any command with ``--help`` to get a usage statement and enumerate comma
     storm>
 
 **Storm** commands may specify command line arguments using a convention which is similar (although not
-identitcal to) Python's ``argparse`` library.
+identical to) Python's ``argparse`` library.
 
 A more complex command declaration::
 
@@ -334,7 +334,7 @@ Command Option Conventions
   debug output in any command or functions called from the command.
 
 --yield
-  By default, a command is generally expected to yield the nodes that it recieved as input from the pipeline. In
+  By default, a command is generally expected to yield the nodes that it received as input from the pipeline. In
   some instances it is useful to instruct the command to yield the nodes it creates. For example, if you specify
   ``inet:fqdn`` nodes as input to a DNS resolver command, it may be useful to tell the command to yield the newly
   created ``inet:dns:a`` records rather than the input ``inet:fqdn`` nodes.  Commands frequently use the ``divert``
@@ -352,9 +352,8 @@ Documentation may be specified in the **Storm Package** file that will embed ``m
 package. While there are not currently any CLI tools to view/use this documentation, it is presented in the
 **Power-Ups** tab in the **Help Tool** within the commercial Synapse UI Optic_.
 
-<img>
-
 Markdown documents may be specified for inclusion by adding a ``docs:`` section to the **Storm Package** YAML file::
+
     docs:
         - title: User Guide
           path: docs/userguide.md
@@ -466,4 +465,4 @@ the specified as though it were run like this::
 
 Any printed output, including warnings, will be displayed in the **Optic** ``Console Tool``.
 
-_Optic: http://woot
+_Deployment Guide: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html
