@@ -1,5 +1,5 @@
 function nodeGenrFunc(fqdn) {
-    // fake a DNS lookup and make a few inet:dns:a records...
+    // Fake a DNS lookup and make a few inet:dns:a records...
     [ inet:dns:a=($fqdn, 1.2.3.4) ]
     [ inet:dns:a=($fqdn, 123.123.123.123) ]
 }

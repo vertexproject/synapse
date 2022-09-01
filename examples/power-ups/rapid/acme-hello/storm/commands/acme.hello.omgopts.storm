@@ -2,15 +2,15 @@
 
 init {
 
-    // set global debug (once) if the user specified --debug
+    // Set global debug (once) if the user specified --debug
     if $cmdopts.debug { $lib.debug = $lib.true }
 
     if ($cmdopts.hehe) { $lib.print("User Specified hehe: {hehe}", hehe=$cmdopts.hehe) }
 
     // Normalize the FQDN in case we want to send it to an external system
-    ($ok, $fqdn) = $lib.trycast($cmdopts.fqdn, inet:fqdn)
+    ($ok, $fqdn) = $lib.trycast(inet:fqdn, $cmdopts.fqdn)
     if (not $ok) {
-        $lib.exit("Invalid FQDN Specified: {fqdn}", ipv4=$cmdopts.fqdn)
+        $lib.exit("Invalid FQDN Specified: {fqdn}", fqdn=$cmdopts.fqdn)
     }
 
     // Maybe call an API here or something...

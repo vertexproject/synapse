@@ -15,7 +15,7 @@ desc: Acme-Hello is a minimal example of a Rapid Power-Up.
 perms:
   - perm: [ acme, hello, user ]
     gate: cortex
-    desc: Allows a user to call priviliedged APIs from Acme-Hello.
+    desc: Allows a user to call privileged APIs from Acme-Hello.
 
 docs:
     - title: User Guide
@@ -38,12 +38,12 @@ commands:
 
   - name: acme.hello.omgopts
     descr: |
-        This is a mult-line description containing usage examples.
+        This is a multi-line description containing usage examples.
   
-        // run the command with some nodes
+        // Run the command with some nodes
         inet:fqdn=acme.newp | acme.hello.omgopts vertex.link
   
-        // run the command with some command line switches
+        // Run the command with some command line switches
         acme.hello.omgopts --debug --hehe haha vertex.link
   
     cmdargs:
