@@ -36,6 +36,7 @@ TerminalPygMap = {
     'EXPRDIVIDE': p_t.Operator,
     'EXPRMINUS': p_t.Operator,
     'EXPRPLUS': p_t.Operator,
+    'EXPRPOW': p_t.Operator,
     'EXPRTIMES': p_t.Operator,
     'FOR': p_t.Keyword,
     'FUNCTION': p_t.Keyword,
