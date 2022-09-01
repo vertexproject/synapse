@@ -1201,11 +1201,13 @@ class InetModule(s_module.CoreModule):
                     ('inet:web:logon', ('guid', {}), {
                         'doc': 'An instance of an account authenticating to an Internet-based site or service.'
                     }),
-
                     ('inet:web:memb', ('comp', {'fields': (('acct', 'inet:web:acct'), ('group', 'inet:web:group'))}), {
-                        'doc': 'A web account that is a member of a web group.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use inet:web:member.'
                     }),
-
+                    ('inet:web:member', ('guid', {}), {
+                        'doc': 'Represents a web account membership in a channel or group.',
+                    }),
                     ('inet:web:mesg', ('comp', {'fields': (('from', 'inet:web:acct'), ('to', 'inet:web:acct'), ('time', 'time'))}), {
                         'doc': 'A message sent from one web account to another web account or channel.',
                         'ex': '((twitter.com, invisig0th), (twitter.com, gobbles), 20041012130220)'
@@ -2394,7 +2396,23 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The date / time the account joined the group.'
                         }),
                     )),
-
+                    ('inet:web:member', {}, (
+                        ('acct', ('inet:web:acct', {}), {
+                            'doc': 'The account that is a member of the group or channel.'
+                        }),
+                        ('group', ('inet:web:group', {}), {
+                            'doc': 'The group that the account is a member of.'
+                        }),
+                        ('channel', ('inet:web:channel', {}), {
+                            'doc': 'The channel that the account is a member of.'
+                        }),
+                        ('added', ('time', {}), {
+                            'doc': 'The date / time the account as added to the group or channel.'
+                        }),
+                        ('removed', ('time', {}), {
+                            'doc': 'The date / time the account was removed from the group or channel.'
+                        }),
+                    )),
                     ('inet:web:mesg', {}, (
                         ('from', ('inet:web:acct', {}), {
                             'ro': True,

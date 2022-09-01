@@ -232,7 +232,8 @@ class GeoTest(s_t_utils.SynTest):
             # geo:place
 
             # test inline tuple/float with negative syntax...
-            node = (await alist(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) ]')))[0]
+            node = (await alist(core.eval('[ geo:place="*" :latlong=(-30.0,20.22) :type=woot.woot]')))[0]
+            self.eq(node.get('type'), 'woot.woot.')
             self.eq(node.get('latlong'), (-30.0, 20.22))
 
             async with await core.snap() as snap:
@@ -265,6 +266,8 @@ class GeoTest(s_t_utils.SynTest):
                 opts = {'vars': {'place': parent}}
                 nodes = await core.nodes('geo:place=$place', opts=opts)
                 self.len(1, nodes)
+
+            self.len(1, await core.nodes('geo:place -> geo:place:taxonomy'))
 
             q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}
@@ -483,3 +486,10 @@ class GeoTest(s_t_utils.SynTest):
             self.eq('foobar', nodes[0].get('desc'))
             self.eq('woot', nodes[0].get('place:name'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
+
+    async def test_model_geospace_area(self):
+
+        async with self.getTestCore() as core:
+            area = core.model.type('geo:area')
+            self.eq(1000000, area.norm('1 sq.km')[0])
+            self.eq('1.0 sq.km', area.repr(1000000))

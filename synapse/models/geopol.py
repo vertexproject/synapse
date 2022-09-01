@@ -11,7 +11,9 @@ class PolModule(s_module.CoreModule):
                     ('pol:country', ('guid', {}),
                         {'doc': 'A GUID for a country.'}
                     ),
-
+                    ('pol:vitals', ('guid', {}),
+                        {'doc': 'A set of vital statistics about a country.'}
+                    ),
                     ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}),
                         {'doc': 'The 2 digit ISO country code.', 'ex': 'us'}),
 
@@ -40,13 +42,38 @@ class PolModule(s_module.CoreModule):
 
                     ('pol:country', {}, (
                         ('flag', ('file:bytes', {}), {}),
-                        ('founded', ('time', {}), {}),
                         ('iso2', ('pol:iso2', {}), {}),
                         ('iso3', ('pol:iso3', {}), {}),
                         ('isonum', ('pol:isonum', {}), {}),
-                        ('name', ('str', {'lower': True}), {}),
                         ('pop', ('int', {}), {}),
                         ('tld', ('inet:fqdn', {}), {}),
+
+                        ('name', ('geo:name', {}), {
+                            'doc': 'The name of the country.'}),
+                        ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {
+                            'doc': 'An array of alternate or localized names for the country.'}),
+                        ('place', ('geo:place', {}), {
+                            'doc': 'A geo:place node representing the geospatial properties of the country.'}),
+                        ('founded', ('time', {}), {
+                            'doc': 'The date that the country was founded.'}),
+                        ('dissolved', ('time', {}), {
+                            'doc': 'The date that the country was disolved.'}),
+                        ('vitals', ('ps:vitals', {}), {
+                            'doc': 'The most recent known vitals for the country.'}),
+                    )),
+                    ('pol:vitals', {}, (
+                        ('country', ('pol:country', {}), {
+                            'doc': 'The country that the statistics are about.'}),
+                        ('asof', ('time', {}), {
+                            'doc': 'The time that the vitals were measured.'}),
+                        ('population', ('int', {}), {
+                            'doc': 'The total number of people living in the country.'}),
+                        ('currency', ('econ:currency', {}), {
+                            'doc': 'The national currency.'}),
+                        ('econ:currency', ('econ:currency', {}), {
+                            'doc': 'The currency used to record price properties.'}),
+                        ('econ:gdp', ('econ:price', {}), {
+                            'doc': 'The gross domestic product of the country.'}),
                     )),
                     ('pol:election', {}, (
                         ('name', ('str', {'onespace': True, 'lower': True}), {
@@ -102,6 +129,8 @@ class PolModule(s_module.CoreModule):
                             'doc': 'Records the outcome of the race.'}),
                         ('party', ('ou:org', {}), {
                             'doc': 'The declated political party of the candidate.'}),
+                        ('incumbent', ('bool', {}), {
+                            'doc': 'Set to true if the candidate is an incumbent in this race.'}),
                     )),
                     ('pol:pollingplace', {}, (
                         ('election', ('pol:election', {}), {

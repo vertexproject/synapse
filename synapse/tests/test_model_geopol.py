@@ -3,24 +3,28 @@ import synapse.tests.utils as s_t_utils
 
 class GeoPolModelTest(s_t_utils.SynTest):
 
-    async def test_forms_country(self):
+    async def test_geopol_country(self):
         async with self.getTestCore() as core:
-            formname = 'pol:country'
-            guid = 32 * '0'
-            flag_valu = 'sha256:' + 64 * 'f'
-
-            input_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'VI', 'iso3': 'VIS', 'isonum': 31337,
-                           'name': 'Republic of Visi', 'tld': 'visi', 'pop': 123}
-            expected_props = {'flag': flag_valu, 'founded': 456, 'iso2': 'vi', 'iso3': 'vis', 'isonum': 31337,
-                              'name': 'republic of visi', 'tld': 'visi', 'pop': 123}
-            expected_ndef = (formname, guid)
-
-            async with await core.snap() as snap:
-                node = await snap.addNode(formname, guid, props=input_props)
-
-            self.eq(node.ndef, expected_ndef)
-            for prop, valu in expected_props.items():
-                self.eq(node.get(prop), valu)
+            nodes = await core.nodes('''
+                [ pol:country=*
+                    :founded=2022
+                    :dissolved=2023
+                    :name=visiland
+                    :names=(visitopia,)
+                    :iso2=vi
+                    :iso3=vis
+                    :isonum=31337
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('visiland', nodes[0].get('name'))
+            self.eq(('visitopia',), nodes[0].get('names'))
+            self.eq(1640995200000, nodes[0].get('founded'))
+            self.eq(1672531200000, nodes[0].get('dissolved'))
+            self.eq('vi', nodes[0].get('iso2'))
+            self.eq('vis', nodes[0].get('iso3'))
+            self.eq(31337, nodes[0].get('isonum'))
+            self.len(2, await core.nodes('pol:country -> geo:name'))
 
     async def test_types_iso2(self):
         async with self.getTestCore() as core:

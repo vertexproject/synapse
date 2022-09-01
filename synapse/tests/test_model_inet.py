@@ -2074,6 +2074,27 @@ class InetModelTest(s_t_utils.SynTest):
                 node = await snap.addNode(formname, valu, props=input_props)
                 self.checkNode(node, (expected_ndef, expected_props))
 
+    async def test_web_member(self):
+
+        async with self.getTestCore() as core:
+            msgs = await core.stormlist('''
+                [ inet:web:member=*
+                    :acct=twitter.com/invisig0th
+                    :channel=*
+                    :group=twitter.com/nerds
+                    :added=2022
+                    :removed=2023
+                ]
+            ''')
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            node = nodes[0]
+            self.nn(node[1]['props']['channel'])
+            self.eq(1640995200000, node[1]['props']['added'])
+            self.eq(1672531200000, node[1]['props']['removed'])
+            self.eq(('twitter.com', 'nerds'), node[1]['props']['group'])
+            self.eq(('twitter.com', 'invisig0th'), node[1]['props']['acct'])
+
     async def test_web_mesg(self):
         formname = 'inet:web:mesg'
         valu = (('VERTEX.link', 'visi'), ('vertex.LINK', 'vertexmc'), 0)
