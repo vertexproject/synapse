@@ -1,6 +1,6 @@
 function getFooByBar(bar) {
 
-    /* retrieve an API key from protected storage */
+    // Retrieve an API key from protected storage
     $apikey = $lib.globals.get(acme:hello:apikey)
 
     $headers = ({
@@ -9,13 +9,13 @@ function getFooByBar(bar) {
 
     $url = $lib.str.format("https://acme.newp/api/v1/foo/{bar}", bar=$bar)
 
-    /* use the API key on the callers behalf */
+    // Use the API key on the callers behalf
     $resp = $lib.inet.http.get($url, headers=$headers)
     if ($resp.code != 200) {
         $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
         return($lib.null)
     }
 
-    /* return the JSON response (but not the API key) */
+    // Return the JSON response (but not the API key)
     return($resp.json())
 }
