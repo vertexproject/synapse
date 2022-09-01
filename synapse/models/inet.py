@@ -2407,7 +2407,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The channel that the account is a member of.'
                         }),
                         ('added', ('time', {}), {
-                            'doc': 'The date / time the account as added to the group or channel.'
+                            'doc': 'The date / time the account was added to the group or channel.'
                         }),
                         ('removed', ('time', {}), {
                             'doc': 'The date / time the account was removed from the group or channel.'

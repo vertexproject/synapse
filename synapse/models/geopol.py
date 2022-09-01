@@ -59,7 +59,7 @@ class PolModule(s_module.CoreModule):
                         ('founded', ('time', {}), {
                             'doc': 'The date that the country was founded.'}),
                         ('dissolved', ('time', {}), {
-                            'doc': 'The date that the country was disolved.'}),
+                            'doc': 'The date that the country was dissolved.'}),
                         ('vitals', ('ps:vitals', {}), {
                             'doc': 'The most recent known vitals for the country.'}),
                     )),

@@ -232,19 +232,19 @@ class Dist(s_types.Int):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
-            mesg = 'Distance requires a valid number and unit. No valid number found.'
+            mesg = f'Distance requires a valid number and unit. No valid number found: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
         unit, off = s_grammar.nom(text, off, s_grammar.alphaset)
 
         mult = units.get(unit.lower())
         if mult is None:
-            mesg = f'Unknown unit of distance: {unit}'
+            mesg = f'Unknown unit of distance: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         norm = int(valu * mult) + self.baseoff
         if norm < 0:
-            mesg = 'A geo:dist may not be negative.'
+            mesg = f'A geo:dist may not be negative: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         return norm, {}
@@ -285,19 +285,19 @@ class Area(s_types.Int):
         try:
             valu, off = s_grammar.parse_float(text, 0)
         except Exception:
-            mesg = 'Area requires a valid number and unit, no valid number found.'
+            mesg = f'Area requires a valid number and unit, no valid number found: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
         unit, off = s_grammar.nom(text, off, areachars)
 
         mult = areaunits.get(unit.lower())
         if mult is None:
-            mesg = f'Unknown unit of area: {unit}'
+            mesg = f'Unknown unit of area: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         norm = int(valu * mult)
         if norm < 0:
-            mesg = 'A geo:area may not be negative.'
+            mesg = f'A geo:area may not be negative: {text}'
             raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         return norm, {}
@@ -382,7 +382,7 @@ class GeoModule(s_module.CoreModule):
                         'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
                     }),
                     ('geo:area', 'synapse.models.geospace.Area', {}, {
-                        'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq/km'
+                        'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq/m'
                     }),
                     ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
                         'doc': 'A Lat/Long string specifying a point on Earth.',
