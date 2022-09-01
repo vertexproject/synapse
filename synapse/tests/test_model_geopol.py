@@ -26,6 +26,25 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(31337, nodes[0].get('isonum'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
 
+            nodes = await core.nodes('''
+                    [ pol:vitals=*
+                        :country={pol:country:name=visiland}
+                        :area=1sq.km
+                        :population=1
+                        :currency=usd
+                        :econ:currency=usd
+                        :econ:gdp = 100
+                    ]
+                    { -> pol:country [ :vitals={pol:vitals} ] }
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('country'))
+            self.eq(1, nodes[0].get('population'))
+            self.eq(1000000, nodes[0].get('area'))
+            self.eq('usd', nodes[0].get('currency'))
+            self.eq('100', nodes[0].get('econ:gdp'))
+            self.eq('usd', nodes[0].get('econ:currency'))
+
     async def test_types_iso2(self):
         async with self.getTestCore() as core:
             t = core.model.type('pol:iso2')

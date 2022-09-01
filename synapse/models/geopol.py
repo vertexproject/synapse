@@ -45,7 +45,9 @@ class PolModule(s_module.CoreModule):
                         ('iso2', ('pol:iso2', {}), {}),
                         ('iso3', ('pol:iso3', {}), {}),
                         ('isonum', ('pol:isonum', {}), {}),
-                        ('pop', ('int', {}), {}),
+                        ('pop', ('int', {}), {
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :vitals::population.'}),
                         ('tld', ('inet:fqdn', {}), {}),
 
                         ('name', ('geo:name', {}), {
@@ -66,6 +68,8 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The country that the statistics are about.'}),
                         ('asof', ('time', {}), {
                             'doc': 'The time that the vitals were measured.'}),
+                        ('area', ('geo:area', {}), {
+                            'doc': 'The area of the country.'}),
                         ('population', ('int', {}), {
                             'doc': 'The total number of people living in the country.'}),
                         ('currency', ('econ:currency', {}), {
