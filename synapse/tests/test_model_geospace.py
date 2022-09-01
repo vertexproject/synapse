@@ -493,3 +493,8 @@ class GeoTest(s_t_utils.SynTest):
             area = core.model.type('geo:area')
             self.eq(1000000, area.norm('1 sq.km')[0])
             self.eq('1.0 sq.km', area.repr(1000000))
+            self.eq('1 sq.mm', area.repr(1))
+            with self.raises(s_exc.BadTypeValu):
+                area.norm('asdf')
+            with self.raises(s_exc.BadTypeValu):
+                area.norm('-1')

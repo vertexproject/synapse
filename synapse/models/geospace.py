@@ -312,7 +312,7 @@ class Area(s_types.Int):
                 break
 
         if text is None:
-            text = f'{norm} mm²'
+            text = f'{norm} sq.mm'
 
         return text
 
