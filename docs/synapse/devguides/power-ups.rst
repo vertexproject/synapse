@@ -60,9 +60,9 @@ that gets processed and loaded into your Cortex.
 .. note::
 
     First, a note on namespacing. To ensure your **Storm Package** is going to play well
-    with other packages, it is important to chose an appropriate namespace for your power-up.
+    with other packages, it is important to choose an appropriate namespace for your power-up.
     In this case, the ``acme`` part of the name is meant to be replaced with your company name
-    or an abreviated version of it. The ``hello`` part is meant to be replaced with an indicator
+    or an abbreviated version of it. The ``hello`` part is meant to be replaced with an indicator
     of the type of functionality the **Storm Package** contains.
 
     Namespace now, thank yourself later.
@@ -128,7 +128,7 @@ Storm Modules
 =============
 
 Deploying **Storm** modules allows you to author powerful library functions that you can use in
-automation or **Storm** commands to facilitate code re-use and enforce privilidge separation boundaries.
+automation or **Storm** commands to facilitate code re-use and enforce privilege separation boundaries.
 
 A **Storm** module is specified within the ``modules:`` section of the **Storm Package** YAML file.
 
@@ -150,7 +150,7 @@ runtime and accessible using the implicit variable ``$modconf``::
 
     function bar() {
         for $i in $modconf.othervar {
-            // do something using $i...
+            // Do something using $i...
         }
     }
 
@@ -179,13 +179,13 @@ An excellent example use case for a privileged **Storm** module exists when you 
 which you would like to use on a user's behalf without disclosing the actual API key. The **Storm** library
 ``$lib.globals.set(<name>, <valu>)`` and ``$lib.globals.get(<name>)`` can be used to access protected global
 variables which regular users may not access without special permissions.  By implementing a privileged
-**Storm** module which retrieves the API key and uses on the user's behalf without disclosing it, you may
+**Storm** module which retrieves the API key and uses it on the user's behalf without disclosing it, you may
 protect the API key from disclosure while also allowing users to use it. For example,
 ``acme.hello.privsep.storm``::
 
     function getFooByBar(bar) {
 
-        /* retrieve an API key from protected storage */
+        // Retrieve an API key from protected storage
         $apikey = $lib.globals.get(acme:hello:apikey)
 
         $headers = ({
@@ -194,14 +194,14 @@ protect the API key from disclosure while also allowing users to use it. For exa
 
         $url = $lib.str.format("https://acme.newp/api/v1/foo/{bar}", bar=$bar)
 
-        /* use the API key on the callers behalf */
+        // Use the API key on the callers behalf
         $resp = $lib.inet.http.get($url, headers=$headers)
         if ($resp.code != 200) {
             $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
             return($lib.null)
         }
 
-        /* return the JSON response (but not the API key) */
+        // Return the JSON response (but not the API key)
         return($resp.json())
     }
 
@@ -241,12 +241,12 @@ A more complex command declaration::
 
     - name: acme.hello.omgopts
       descr: |
-          This is a mult-line description containing usage examples.
+          This is a multi-line description containing usage examples.
 
-          // run the command with some nodes
+          // Run the command with some nodes
           inet:fqdn=acme.newp | acme.hello.omgopts vertex.link
 
-          // run the command with some command line switches
+          // Run the command with some command line switches
           acme.hello.omgopts --debug --hehe haha vertex.link
 
       cmdargs:
@@ -269,12 +269,12 @@ A more complete example of help output::
 
     storm> acme.hello.omgopts --help
 
-    This is a mult-line description containing usage examples.
+    This is a multi-line description containing usage examples.
 
-    // run the command with some nodes
+    // Run the command with some nodes
     inet:fqdn=acme.newp | acme.hello.omgopts vertex.link
 
-    // run the command with some command line switches
+    // Run the command with some command line switches
     acme.hello.omgopts --debug --hehe haha vertex.link
 
 
@@ -300,15 +300,15 @@ Command line options are available within the **Storm** command by accessing the
 
     init {
 
-        // set global debug (once) if the user specified --debug
+        // Set global debug (once) if the user specified --debug
         if $cmdopts.debug { $lib.debug = $lib.true }
 
         if ($cmdopts.hehe) { $lib.print("User Specified hehe: {hehe}", hehe=$cmdopts.hehe) }
 
         // Normalize the FQDN in case we want to send it to an external system
-        ($ok, $fqdn) = $lib.trycast($cmdopts.fqdn, inet:fqdn)
+        ($ok, $fqdn) = $lib.trycast(inet:fqdn, $cmdopts.fqdn)
         if (not $ok) {
-            $lib.exit("Invalid FQDN Specified: {fqdn}", ipv4=$cmdopts.fqdn)
+            $lib.exit("Invalid FQDN Specified: {fqdn}", fqdn=$cmdopts.fqdn)
         }
 
         // Maybe call an API here or something...
@@ -332,7 +332,7 @@ Command Option Conventions
 
 --debug
   This option is typically used to enable debug output in the **Storm** interpreter by setting the ``$lib.debug``
-  variable if it us specified. The ``$lib.debug`` variable has a recursive effect and will subsequently enable
+  variable if it is specified. The ``$lib.debug`` variable has a recursive effect and will subsequently enable
   debug output in any command or functions called from the command.
 
 --yield
@@ -428,7 +428,7 @@ To implement a command with a ``--yield`` option is typically accomplished via t
 Then within ``storm/commands/acme.hello.mayyield.storm``::
 
     function nodeGenrFunc(fqdn) {
-        // fake a DNS lookup and make a few inet:dns:a records...
+        // Fake a DNS lookup and make a few inet:dns:a records...
         [ inet:dns:a=($fqdn, 1.2.3.4) ]
         [ inet:dns:a=($fqdn, 123.123.123.123) ]
     }
@@ -461,7 +461,7 @@ nodes.
 
 When selected, the query specified in the ``storm:`` key will be run with the currently selected nodes as input. For example,
 if you right-click on the node ``inet:fqdn=vertex.link`` and select ``actions -> acme-hello -> Hello Omgopts`` it will execute
-the specified as though it were run like this::
+the specified query as though it were run like this::
 
     inet:fqdn=vertex.link | acme.hello.omgopts --debug
 

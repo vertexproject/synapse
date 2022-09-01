@@ -40,10 +40,10 @@ commands:
     descr: |
         This is a multi-line description containing usage examples.
   
-        // run the command with some nodes
+        // Run the command with some nodes
         inet:fqdn=acme.newp | acme.hello.omgopts vertex.link
   
-        // run the command with some command line switches
+        // Run the command with some command line switches
         acme.hello.omgopts --debug --hehe haha vertex.link
   
     cmdargs:
