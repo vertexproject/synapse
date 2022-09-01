@@ -1872,6 +1872,10 @@ class AstTest(s_test.SynTest):
             self.eq(1.025, await core.callStorm('return((1.23 / 1.2))'))
             self.eq(2.5, await core.callStorm('return((3 / 1.2))'))
 
+            self.eq(8, await core.callStorm('return((2 ** 3))'))
+            self.eq(4.84, await core.callStorm('return((2.2 ** 2))'))
+            self.eq(5.76, await core.callStorm('return((2 ** 2.4))'))
+
             self.eq(2.43, await core.callStorm('return((1.23 + $lib.cast(float, 1.2)))'))
             self.eq(0.03, await core.callStorm('return((1.23 - $lib.cast(float, 1.2)))'))
             self.eq(1.476, await core.callStorm('return((1.23 * $lib.cast(float, 1.2)))'))
