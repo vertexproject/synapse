@@ -569,6 +569,12 @@ class LibPkg(Lib):
         {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
          'type': {'type': 'function', '_funcname': '_libPkgList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
+        {'name': 'deps', 'desc': 'Verify the dependencies for a Storm Package.',
+         'type': {'type': 'function', '_funcname': '_libPkgDeps',
+                  'args': (
+                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
     )
     _storm_lib_path = ('pkg',)
 
@@ -579,6 +585,7 @@ class LibPkg(Lib):
             'has': self._libPkgHas,
             'del': self._libPkgDel,
             'list': self._libPkgList,
+            'deps': self._libPkgDeps,
         }
 
     async def _libPkgAdd(self, pkgdef):
@@ -608,6 +615,10 @@ class LibPkg(Lib):
     async def _libPkgList(self):
         pkgs = await self.runt.snap.core.getStormPkgs()
         return list(sorted(pkgs, key=lambda x: x.get('name')))
+
+    async def _libPkgDeps(self, pkgdef):
+        pkgdef = await toprim(pkgdef)
+        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
 
 @registry.registerLib
 class LibDmon(Lib):
