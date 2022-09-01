@@ -8783,6 +8783,31 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
+async def tostor(valu):
+
+    if isinstance(valu, Number):
+        return str(valu.value())
+
+    if isinstance(valu, (tuple, list)):
+        retn = []
+        for v in valu:
+            try:
+                retn.append(await tostor(v))
+            except s_exc.NoSuchType:
+                pass
+        return tuple(retn)
+
+    if isinstance(valu, dict):
+        retn = {}
+        for k, v in valu.items():
+            try:
+                retn[k] = await tostor(v)
+            except s_exc.NoSuchType:
+                pass
+        return retn
+
+    return await toprim(valu)
+
 async def tocmprvalu(valu):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType, Number)) or valu is None:
