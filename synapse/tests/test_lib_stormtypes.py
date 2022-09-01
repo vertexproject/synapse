@@ -5830,6 +5830,7 @@ words\tword\twrd'''
             self.eq(huge - 0.23, 1.0)
             self.eq(huge * 1.0, 1.23)
             self.eq(huge / 1.0, 1.23)
+            self.eq(huge ** 2, 1.5129)
             self.eq(huge, float(huge))
 
             with self.assertRaises(TypeError):
