@@ -569,6 +569,12 @@ class LibPkg(Lib):
         {'name': 'list', 'desc': 'Get a list of Storm Packages loaded in the Cortex.',
          'type': {'type': 'function', '_funcname': '_libPkgList',
                   'returns': {'type': 'list', 'desc': 'A list of Storm Package definitions.', }}},
+        {'name': 'deps', 'desc': 'Verify the dependencies for a Storm Package.',
+         'type': {'type': 'function', '_funcname': '_libPkgDeps',
+                  'args': (
+                      {'name': 'pkgdef', 'type': 'dict', 'desc': 'A Storm Package definition.', },
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'A dictionary listing dependencies and if they are met.', }}},
     )
     _storm_lib_path = ('pkg',)
 
@@ -579,6 +585,7 @@ class LibPkg(Lib):
             'has': self._libPkgHas,
             'del': self._libPkgDel,
             'list': self._libPkgList,
+            'deps': self._libPkgDeps,
         }
 
     async def _libPkgAdd(self, pkgdef):
@@ -608,6 +615,10 @@ class LibPkg(Lib):
     async def _libPkgList(self):
         pkgs = await self.runt.snap.core.getStormPkgs()
         return list(sorted(pkgs, key=lambda x: x.get('name')))
+
+    async def _libPkgDeps(self, pkgdef):
+        pkgdef = await toprim(pkgdef)
+        return await self.runt.snap.core.verifyStormPkgDeps(pkgdef)
 
 @registry.registerLib
 class LibDmon(Lib):
@@ -4659,6 +4670,20 @@ class Number(Prim):
     def __rtruediv__(self, othr):
         othr = Number(othr)
         return othr.__truediv__(self)
+
+    def __pow__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugepow(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugepow(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugepow(self.value(), othr.value()))
+
+        mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __rpow__ = __pow__
 
     async def stormrepr(self):
         return str(self.value())

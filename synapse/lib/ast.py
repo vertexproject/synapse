@@ -2888,6 +2888,9 @@ async def expr_div(x, y):
         return x // y
     return x / y
 
+async def expr_pow(x, y):
+    return await tonumber(x) ** await tonumber(y)
+
 async def expr_eq(x, y):
     return await tocmprvalu(x) == await tocmprvalu(y)
 async def expr_ne(x, y):
@@ -2913,6 +2916,7 @@ _ExprFuncMap = {
     '-': expr_sub,
     '*': expr_mul,
     '/': expr_div,
+    '**': expr_pow,
     '=': expr_eq,
     '!=': expr_ne,
     '~=': expr_re,

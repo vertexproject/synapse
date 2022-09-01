@@ -5838,6 +5838,9 @@ words\tword\twrd'''
             self.eq(huge - 0.23, 1.0)
             self.eq(huge * 1.0, 1.23)
             self.eq(huge / 1.0, 1.23)
+            self.eq(huge ** 2, 1.5129)
+            self.eq(huge ** 2.0, 1.5129)
+            self.eq(huge ** s_stormtypes.Number(2), 1.5129)
             self.eq(huge, float(huge))
 
             with self.assertRaises(TypeError):
@@ -5854,6 +5857,9 @@ words\tword\twrd'''
 
             with self.assertRaises(TypeError):
                 huge / 'foo'
+
+            with self.assertRaises(TypeError):
+                huge ** 'foo'
 
             self.eq(15.0, await core.callStorm('return($lib.math.number(0xf))'))
             self.eq(1.23, await core.callStorm('return($lib.math.number(1.23).tofloat())'))
