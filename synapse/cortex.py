@@ -2139,13 +2139,16 @@ class Cortex(s_cell.Cell):  # type: ignore
             name = pkgdef.get('name', '')
             logger.exception(f'Error loading pkg: {name}, {str(e)}')
 
-    async def _reqStormPkgDeps(self, pkgdef):
+    async def verifyStormPkgDeps(self, pkgdef):
+
+        result = {
+            'requires': [],
+            'conflicts': [],
+        }
 
         deps = pkgdef.get('depends')
         if deps is None:
-            return
-
-        name = pkgdef.get('name')
+            return result
 
         requires = deps.get('requires', ())
         for require in requires:
@@ -2153,33 +2156,64 @@ class Cortex(s_cell.Cell):  # type: ignore
             pkgname = require.get('name')
             cmprvers = require.get('version')
 
-            cpkg = await self.getStormPkg(pkgname)
-            if cpkg is not None:
-                cver = cpkg.get('version')
-                if s_version.matches(cver, cmprvers):
-                    continue
+            item = require.copy()
+            item.setdefault('desc', None)
 
-            mesg = f'Storm package {name} requires {pkgname}{cmprvers}.'
-            raise s_exc.StormPkgRequires(mesg=mesg)
+            cpkg = await self.getStormPkg(pkgname)
+
+            if cpkg is None:
+                item.update({'ok': False, 'actual': None})
+            else:
+                cver = cpkg.get('version')
+                ok = s_version.matches(cver, cmprvers)
+                item.update({'ok': ok, 'actual': cver})
+
+            result['requires'].append(item)
 
         conflicts = deps.get('conflicts', ())
         for conflict in conflicts:
 
             pkgname = conflict.get('name')
+            cmprvers = conflict.get('version')
+
+            item = conflict.copy()
+            item.setdefault('version', None)
+            item.setdefault('desc', None)
 
             cpkg = await self.getStormPkg(pkgname)
+
             if cpkg is None:
+                item.update({'ok': True, 'actual': None})
+            else:
+                cver = cpkg.get('version')
+                ok = cmprvers is not None and not s_version.matches(cver, cmprvers)
+                item.update({'ok': ok, 'actual': cver})
+
+            result['conflicts'].append(item)
+
+        return result
+
+    async def _reqStormPkgDeps(self, pkgdef):
+
+        name = pkgdef.get('name')
+
+        deps = await self.verifyStormPkgDeps(pkgdef)
+
+        for require in deps['requires']:
+
+            if require['ok']:
                 continue
 
-            cmprvers = conflict.get('version')
-            if cmprvers is None:
-                mesg = f'Storm package {name} conflicts with {pkgname}.'
-                raise s_exc.StormPkgConflicts(mesg=mesg)
+            mesg = f'Storm package {name} requirement {require.get("name")}{require.get("version")} is currently unmet.'
+            logger.debug(mesg)
 
-            cver = cpkg.get('version')
-            if s_version.matches(cver, cmprvers):
-                mesg = f'Storm package {name} conflicts with {pkgname}{cmprvers}.'
-                raise s_exc.StormPkgConflicts(mesg=mesg)
+        for conflict in deps['conflicts']:
+
+            if conflict['ok']:
+                continue
+
+            mesg = f'Storm package {name} conflicts with {conflict.get("name")}{conflict.get("version") or ""}.'
+            raise s_exc.StormPkgConflicts(mesg=mesg)
 
     async def _normStormPkg(self, pkgdef, validstorm=True):
         '''

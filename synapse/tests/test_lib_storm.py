@@ -921,69 +921,139 @@ class StormTest(s_t_utils.SynTest):
                 'name': 'foobar',
                 'version': '1.2.3',
             }
+
             await core.addStormPkg(pkgdef)
 
-            with self.raises(s_exc.StormPkgConflicts):
-                await core.addStormPkg({
-                    'name': 'bazfaz',
-                    'version': '2.2.2',
-                    'depends': {
-                        'conflicts': (
-                            {'name': 'foobar'},
-                        ),
-                    }
-                })
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (),
+                'conflicts': (),
+            }, deps)
+
+            pkgdef = {
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'conflicts': (
+                        {'name': 'foobar'},
+                    ),
+                }
+            }
 
             with self.raises(s_exc.StormPkgConflicts):
-                await core.addStormPkg({
-                    'name': 'bazfaz',
-                    'version': '2.2.2',
-                    'depends': {
-                        'conflicts': (
-                            {'name': 'foobar', 'version': '>=1.0.0'},
-                        ),
-                    }
-                })
+                await core.addStormPkg(pkgdef)
 
-            with self.raises(s_exc.StormPkgRequires):
-                await core.addStormPkg({
-                    'name': 'bazfaz',
-                    'version': '2.2.2',
-                    'depends': {
-                        'requires': (
-                            {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
-                        ),
-                    }
-                })
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (),
+                'conflicts': (
+                    {'name': 'foobar', 'version': None, 'desc': None, 'ok': False, 'actual': '1.2.3'},
+                )
+            }, deps)
+
+            pkgdef = {
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'conflicts': (
+                        {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo'},
+                    ),
+                }
+            }
+
+            with self.raises(s_exc.StormPkgConflicts):
+                await core.addStormPkg(pkgdef)
+
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (),
+                'conflicts': (
+                    {'name': 'foobar', 'version': '>=1.0.0', 'desc': 'foo', 'ok': False, 'actual': '1.2.3'},
+                )
+            }, deps)
+
+            pkgdef = {
+                'name': 'bazfaz',
+                'version': '2.2.2',
+                'depends': {
+                    'requires': (
+                        {'name': 'foobar', 'version': '>=2.0.0,<3.0.0'},
+                    ),
+                }
+            }
+
+            await core.addStormPkg(pkgdef)
+
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (
+                    {'name': 'foobar', 'version': '>=2.0.0,<3.0.0', 'desc': None, 'ok': False, 'actual': '1.2.3'},
+                ),
+                'conflicts': ()
+            }, deps)
 
             pkgdef = {
                 'name': 'lolzlolz',
                 'version': '1.2.3',
             }
+
             await core.addStormPkg(pkgdef)
 
-            await core.addStormPkg({
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (),
+                'conflicts': (),
+            }, deps)
+
+            pkgdef = {
                 'name': 'bazfaz',
                 'version': '2.2.2',
                 'depends': {
                     'requires': (
-                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0'},
+                        {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol'},
                     ),
                     'conflicts': (
                         {'name': 'foobar', 'version': '>=3.0.0'},
                     ),
                 }
-            })
+            }
 
-            await core.addStormPkg({
+            await core.addStormPkg(pkgdef)
+
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (
+                    {'name': 'lolzlolz', 'version': '>=1.0.0,<2.0.0', 'desc': 'lol', 'ok': True, 'actual': '1.2.3'},
+                ),
+                'conflicts': (
+                    {'name': 'foobar', 'version': '>=3.0.0', 'desc': None, 'ok': True, 'actual': '1.2.3'},
+                )
+            }, deps)
+
+            pkgdef = {
                 'name': 'zoinkszoinks',
                 'version': '2.2.2',
                 'depends': {
+                    'requires': (
+                        {'name': 'newpnewp', 'version': '1.2.3'},
+                    ),
                     'conflicts': (
                         {'name': 'newpnewp'},
                     ),
                 }
-            })
+            }
+
+            await core.addStormPkg(pkgdef)
+
+            deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
+            self.eq({
+                'requires': (
+                    {'name': 'newpnewp', 'version': '1.2.3', 'desc': None, 'ok': False, 'actual': None},
+                ),
+                'conflicts': (
+                    {'name': 'newpnewp', 'version': None, 'desc': None, 'ok': True, 'actual': None},
+                )
+            }, deps)
 
             # force old-cron behavior which lacks a view
             await core.nodes('cron.add --hourly 03 { inet:ipv4 }')
