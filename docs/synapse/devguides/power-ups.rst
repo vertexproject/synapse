@@ -84,6 +84,7 @@ the **Storm Package** YAML file to locate their contents::
 
     function woot(text) {
         $lib.print($text)
+        return($lib.null)
     }
 
 ``storm/commands/acme.hello.sayhi.storm``::
