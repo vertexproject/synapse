@@ -348,8 +348,54 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
         props = [blob for blob in props if blob[0] not in univ_names]
         if props:
 
+            rst.addLines('', '', f'  Properties:', )
+            rst.addLines('   .. list-table::',
+                         '      :header-rows: 1',
+                         '      :widths: 10 10 10 70',
+                         '      :class: tight-table',
+                         '',
+                         '      * - name',
+                         '        - type',
+                         '        - doc',
+                         '        - opts',
+                         )
+
             for pname, (ptname, ptopts), popts in props:
-                pass
+
+                hpname = pname
+                if ':' in pname:
+                    hpname = pname.replace(':', raw_back_slash_colon)
+
+                _ = popts.pop('doc', None)
+                doc = dochelp.props.get((name, pname))
+                if not doc.endswith('.'):
+                    logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
+                    doc = doc + '.'
+
+                if popts:
+
+                    # rst.addLines('  ' + 'It has the following property options set:',
+                    #              ''
+                    #              )
+                    for k, v in popts.items():
+                        k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                        # rst.addLines('  ' + f'* {k}: ``{v}``')
+
+                hptlink = f'dm-type-{ptname.replace(":", "-")}'
+
+                if ptopts:
+                    # rst.addLines('  ' + "Its type has the following options set:",
+                    #              '')
+                    for k, v in ptopts.items():
+                        # rst.addLines('  ' + f'* {k}: ``{v}``')
+                        pass
+
+                rst.addLines(f'      * - | ``{hpname}``',
+                             f'          | ``{":".join([hname, hpname])}``',
+                             f'        - :ref:`{hptlink}`',
+                             f'        - {doc}',
+                             f'        - words words words',
+                             )
 
         if formedges:
 
