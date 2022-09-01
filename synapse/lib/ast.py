@@ -1289,7 +1289,7 @@ class LiftByArray(LiftOper):
 
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
-        valu = await toprim(await self.kids[2].compute(runt, path))
+        valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
         async for node in runt.snap.nodesByPropArray(name, cmpr, valu):
             yield node
@@ -1305,7 +1305,7 @@ class LiftTagProp(LiftOper):
         if len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
-            valu = await toprim(await self.kids[2].compute(runt, path))
+            valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu):
                 yield node
@@ -1330,7 +1330,7 @@ class LiftFormTagProp(LiftOper):
         if len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
-            valu = await toprim(await self.kids[2].compute(runt, path))
+            valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu):
                 yield node
@@ -1487,7 +1487,7 @@ class LiftPropBy(LiftOper):
 
         valu = await valukid.compute(runt, path)
         if not isinstance(valu, s_node.Node):
-            valu = await s_stormtypes.toprim(valu, path)
+            valu = await s_stormtypes.tostor(valu)
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2597,7 +2597,7 @@ class RelPropCond(Cond):
 
             xval = await valukid.compute(runt, path)
             if not isinstance(xval, s_node.Node):
-                xval = await s_stormtypes.toprim(xval, path)
+                xval = await s_stormtypes.tostor(xval)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
@@ -3254,7 +3254,7 @@ class EditNodeAdd(Edit):
                     raise s_exc.NoSuchForm(name=formname)
 
                 valu = await self.kids[2].compute(runt, None)
-                valu = await s_stormtypes.toprim(valu)
+                valu = await s_stormtypes.tostor(valu)
 
                 try:
                     for valu in form.type.getTypeVals(valu):
@@ -3313,7 +3313,7 @@ class EditPropSet(Edit):
                 else:
                     valu = await rval.compute(runt, path)
 
-                valu = await s_stormtypes.toprim(valu)
+                valu = await s_stormtypes.tostor(valu)
 
                 if isadd or issub:
 
@@ -3703,7 +3703,7 @@ class EditTagPropSet(Edit):
             tag, prop = await self.kids[0].compute(runt, path)
 
             valu = await self.kids[2].compute(runt, path)
-            valu = await s_stormtypes.toprim(valu)
+            valu = await s_stormtypes.tostor(valu)
 
             normtupl = await runt.snap.getTagNorm(tag)
             if normtupl is None:

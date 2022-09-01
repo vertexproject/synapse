@@ -5260,10 +5260,16 @@ class StormTypesTest(s_test.SynTest):
         self.true(await s_stormtypes.tobool(s_stormtypes.Str('asdf')))
         self.false(await s_stormtypes.tobool(s_stormtypes.Str('')))
 
+        numb = s_stormtypes.Number('20.1')
+
         self.eq(20, await s_stormtypes.tonumber('20'))
         self.eq(20.1, await s_stormtypes.tonumber(20.1))
         self.eq(20.1, await s_stormtypes.tonumber('20.1'))
-        self.eq(20.1, await s_stormtypes.tonumber(s_stormtypes.Number('20.1')))
+        self.eq(20.1, await s_stormtypes.tonumber(numb))
+
+        self.eq('20.1', await s_stormtypes.tostor(numb))
+        self.eq(['20.1', '20.1'], await s_stormtypes.tostor([numb, numb]))
+        self.eq({'foo': '20.1'}, await s_stormtypes.tostor({'foo': numb}))
 
         self.eq(True, await s_stormtypes.tocmprvalu(boolprim))
         self.eq((1, s_exc.SynErr), await s_stormtypes.tocmprvalu([1, s_exc.SynErr]))
@@ -5868,3 +5874,40 @@ words\tword\twrd'''
             [ ps:contact=(test, $foo, $bar) ]
             '''
             self.len(2, await core.nodes(q))
+
+            valu = '1.000000000000000000001'
+
+            await core.addTagProp('huge', ('hugenum', {}), {})
+            await core.addFormProp('test:str', '_hugearray', ('array', {'type': 'hugenum'}), {})
+
+            nodes = await core.nodes(f'[econ:acct:balance=* :amount=({valu})]')
+            self.eq(nodes[0].props.get('amount'), valu)
+
+            nodes = await core.nodes(f'econ:acct:balance:amount=({valu})')
+            self.len(1, nodes)
+
+            nodes = await core.nodes(f'[test:hugenum=({valu})]')
+            self.eq(nodes[0].ndef[1], valu)
+
+            nodes = await core.nodes(f'test:hugenum=({valu})')
+            self.len(1, nodes)
+
+            nodes = await core.nodes(f'econ:acct:balance:amount +:amount=({valu})')
+            self.len(1, nodes)
+
+            nodes = await core.nodes(f'[test:str=foo +#foo:huge=({valu})]')
+            self.len(1, nodes)
+            self.eq(nodes[0].tagprops['foo']['huge'], valu)
+
+            nodes = await core.nodes(f'#foo:huge=({valu})')
+            self.len(1, nodes)
+
+            nodes = await core.nodes(f'test:str#foo:huge=({valu})')
+            self.len(1, nodes)
+
+            nodes = await core.nodes(f'[test:str=bar :_hugearray=(({valu}), ({valu}))]')
+            self.len(1, nodes)
+            self.eq(nodes[0].props.get('_hugearray'), [valu, valu])
+
+            nodes = await core.nodes(f'test:str:_hugearray*[=({valu})]')
+            self.len(1, nodes)
