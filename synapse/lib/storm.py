@@ -3635,9 +3635,9 @@ class MaxCmd(Cmd):
 
     Examples:
 
-        file:bytes +#foo.bar | max :size
+        file:bytes#foo.bar | max :size
 
-        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | max $tick
 
     '''
 
@@ -3646,7 +3646,7 @@ class MaxCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('valu')
+        pars.add_argument('valu', help='The property or variable to use for comparison.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -3680,20 +3680,21 @@ class MaxCmd(Cmd):
 
 class MinCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the lowest value for a property.
+    Consume nodes and yield only the one node with the lowest value for a property or variable.
 
     Examples:
 
-        file:bytes +#foo.bar | min :size
+        file:bytes#foo.bar | min :size
 
-        file:bytes +#foo.bar | min .seen
+        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+
     '''
     name = 'min'
     readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('valu')
+        pars.add_argument('valu', help='The property or variable to use for comparison.')
         return pars
 
     async def execStormCmd(self, runt, genr):
