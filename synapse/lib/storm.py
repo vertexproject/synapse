@@ -3633,13 +3633,18 @@ class UniqCmd(Cmd):
 
 class MaxCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the highest value for a property or variable.
+    Consume nodes and yield only the one node with the highest value for an expression.
 
     Examples:
 
-        file:bytes +#foo.bar | max :size
+        // Yield the file:bytes node with the highest :size property
+        file:bytes#foo.bar | max :size
 
-        file:bytes +#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+        // Yield the file:bytes node with the highest value for $tick
+        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | max $tick
+
+        // Yield the it:dev:str node with the longest length
+        it:dev:str | max $lib.len($node.value())
 
     '''
 
@@ -3648,7 +3653,7 @@ class MaxCmd(Cmd):
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('valu')
+        pars.add_argument('valu', help='The property or variable to use for comparison.')
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -3682,20 +3687,26 @@ class MaxCmd(Cmd):
 
 class MinCmd(Cmd):
     '''
-    Consume nodes and yield only the one node with the lowest value for a property.
+    Consume nodes and yield only the one node with the lowest value for an expression.
 
     Examples:
 
-        file:bytes +#foo.bar | min :size
+        // Yield the file:bytes node with the lowest :size property
+        file:bytes#foo.bar | min :size
 
-        file:bytes +#foo.bar | min .seen
+        // Yield the file:bytes node with the lowest value for $tick
+        file:bytes#foo.bar +.seen ($tick, $tock) = .seen | min $tick
+
+        // Yield the it:dev:str node with the shortest length
+        it:dev:str | min $lib.len($node.value())
+
     '''
     name = 'min'
     readonly = True
 
     def getArgParser(self):
         pars = Cmd.getArgParser(self)
-        pars.add_argument('valu')
+        pars.add_argument('valu', help='The property or variable to use for comparison.')
         return pars
 
     async def execStormCmd(self, runt, genr):
