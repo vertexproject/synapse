@@ -297,16 +297,16 @@ Command line options are available within the **Storm** command by accessing the
 ``storm/commands/acme.hello.omgopts.storm``::
 
     // An init {} block only runs once even if there are multiple nodes in the pipeline.
+
     init {
 
         // set global debug (once) if the user specified --debug
-        if $cmdopts.debug { $lib.debug = $lib.true } }
+        if $cmdopts.debug { $lib.debug = $lib.true }
 
         if ($cmdopts.hehe) { $lib.print("User Specified hehe: {hehe}", hehe=$cmdopts.hehe) }
 
         // Normalize the FQDN in case we want to send it to an external system
         ($ok, $fqdn) = $lib.trycast($cmdopts.fqdn, inet:fqdn)
-          
         if (not $ok) {
             $lib.exit("Invalid FQDN Specified: {fqdn}", ipv4=$cmdopts.fqdn)
         }
@@ -319,7 +319,9 @@ Command line options are available within the **Storm** command by accessing the
     // You may also act on nodes in the pipeline
     $lib.print("GOT NODE: {repr}", repr=$node.repr())
 
-    // Any nodes in the pipeline here are yielded to the caller
+    if $lib.debug { $lib.print("debug mode detected!") }
+
+    // Any nodes still in the pipeline are sent as output
 
 Command Option Conventions
 --------------------------

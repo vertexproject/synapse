@@ -21,4 +21,6 @@ init {
 // You may also act on nodes in the pipeline
 $lib.print("GOT NODE: {repr}", repr=$node.repr())
 
+if $lib.debug { $lib.print("debug mode detected!") }
+
 // Any nodes still in the pipeline are sent as output
