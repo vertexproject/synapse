@@ -192,6 +192,12 @@ def hugediv(x, y):
     '''
     return hugectx.divide(x, y)
 
+def hugepow(x, y):
+    '''
+    Return the first operand to the power of the second operand.
+    '''
+    return hugectx.power(x, y)
+
 def hugescaleb(x, y):
     '''
     Return the first operand with its exponent adjusted by the second operand.

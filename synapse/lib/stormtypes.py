@@ -4671,6 +4671,20 @@ class Number(Prim):
         othr = Number(othr)
         return othr.__truediv__(self)
 
+    def __pow__(self, othr):
+        if isinstance(othr, float):
+            othr = s_common.hugenum(othr)
+            return Number(s_common.hugepow(self.value(), othr))
+        elif isinstance(othr, (int, decimal.Decimal)):
+            return Number(s_common.hugepow(self.value(), othr))
+        elif isinstance(othr, Number):
+            return Number(s_common.hugepow(self.value(), othr.value()))
+
+        mesg = f"'**' not supported between instance of {self.__class__.__name__} and {othr.__class__.__name__}"
+        raise TypeError(mesg)
+
+    __rpow__ = __pow__
+
     async def stormrepr(self):
         return str(self.value())
 
