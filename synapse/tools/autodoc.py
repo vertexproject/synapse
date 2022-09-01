@@ -345,6 +345,12 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                 for k, v in ptopts.items():
                     rst.addLines('  ' + f'* {k}: ``{v}``')
 
+        props = [blob for blob in props if blob[0] not in univ_names]
+        if props:
+
+            for pname, (ptname, ptopts), popts in props:
+                pass
+
         if formedges:
 
             rst.addLines('',
