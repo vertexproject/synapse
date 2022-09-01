@@ -1,0 +1,7 @@
+function nodeGenrFunc(fqdn) {
+    // Fake a DNS lookup and make a few inet:dns:a records...
+    [ inet:dns:a=($fqdn, 1.2.3.4) ]
+    [ inet:dns:a=($fqdn, 123.123.123.123) ]
+}
+
+divert $cmdopts.yield $nodeGenrFunc($node)
