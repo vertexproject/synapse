@@ -17,6 +17,14 @@ perms:
     gate: cortex
     desc: Allows a user to call priviliedged APIs from Acme-Hello.
 
+docs:
+    - title: User Guide
+      path: docs/userguide.md
+    - title: Admin Guide
+      path: docs/adminguide.md
+    - title: Changelog
+      path: docs/changelog.md
+
 modules:
   - name: acme.hello
   - name: acme.hello.privsep
@@ -53,3 +61,16 @@ commands:
       - - fqdn
         - type: str
           help: A mandatory / positional command line argument.
+
+  - name: acme.hello.mayyield
+    descr: |
+         Take in an FQDN and make DNS A records to demo --yield
+
+         inet:fqdn=vertex.link | acme.hello.mayyield
+
+    cmdargs:
+
+      - - --yield
+        - default: false
+          action: store_true
+          help: Yield the newly created inet:dns:a records rather than the input inet:fqdn nodes.

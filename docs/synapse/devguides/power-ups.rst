@@ -3,9 +3,9 @@
 Rapid Power-Up Development
 ##########################
 
-Developing Rapid Power-Ups, also known as Storm Packages, allows Synapse power
-users to extend the capabilities of the Storm query language, provides ways to
-implement use-case specific commands, embed documentation, and even implement
+Developing Rapid Power-Ups allows Synapse power users to extend the
+capabilities of the Storm query language, provides ways to implement
+use-case specific commands, embed documentation, and even implement
 customized visual workflows in **Optic**, the commercial Synapse UI.
 
 A Rapid Power-Up consists of a **Storm Package** which is a JSON object which
@@ -15,6 +15,9 @@ documentation. **Storm Packages** can be loaded directly into your **Cortex**.
 In this guide we will discuss the basics of **Storm Package** development and
 discuss a few best practices you can use to ensure they are secure, powerful,
 and easy to use.
+
+The example ``acme-hello`` power-up discussed in this guide is included in the
+**Synapse** repository within the ``examples/power-ups/rapid/acme-hello`` folder.
 
 Anatomy of a Storm Package
 ==========================
@@ -46,6 +49,9 @@ that gets processed and loaded into your Cortex.
 
     modules:
       - name: acme.hello
+      - name: acme.hello.privsep
+        asroot:perms:
+            - [ acme, hello, user ]
 
     commands:
       - name: acme.hello.sayhi
@@ -69,6 +75,7 @@ the **Storm Package** YAML file to locate their contents::
 
         modules/
             acme.hello.storm
+            acme.privsep.storm
 
         commands/
             acme.hello.sayhi.storm
@@ -128,7 +135,7 @@ A **Storm** module is specified within the ``modules:`` section of the **Storm P
 ::
     modules:
 
-      - name: acme.hello.example00
+      - name: acme.hello
         modconf:
             varname: varvalu
             othervar: [1, 2, 3]
@@ -178,16 +185,23 @@ protect the API key from disclosure while also allowing users to use it. For exa
 
     function getFooByBar(bar) {
 
+        /* retrieve an API key from protected storage */
         $apikey = $lib.globals.get(acme:hello:apikey)
-        $headers = ({"apikey": $apikey})
+
+        $headers = ({
+            "apikey": $apikey
+        })
 
         $url = $lib.str.format("https://acme.newp/api/v1/foo/{bar}", bar=$bar)
 
+        /* use the API key on the callers behalf */
         $resp = $lib.inet.http.get($url, headers=$headers)
         if ($resp.code != 200) {
             $lib.warn("/api/v1/foo returned HTTP code: {code}", code=$resp.code)
+            return($lib.null)
         }
 
+        /* return the JSON response (but not the API key) */
         return($resp.json())
     }
 
@@ -349,40 +363,39 @@ Markdown documents may be specified for inclusion by adding a ``docs:`` section 
         - title: Changelog
           path: docs/changelog.md
 
-
 Testing Storm Packages
 ======================
 
 It is **highly** recommended that any production **Storm Packages** use development "best practices" including
-version control and unit testing. For this example, we have included a small unit test you can use as an example
-to expand upon
+version control and unit testing. For the ``acme-hello`` example, we have included a test that you can use as
+an example to expand on.
 
 ``test_acme_hello.py``::
 
-    import synapse.tests.util as s_test
-    import synapse.tools.genpkg as s_genpkg
+    import os
 
-    dirname = os.path.abspath(__module__.path)
-    pkgpath = os.path.join(dirname, 'acme-hello.yaml')
+    import synapse.tests.utils as s_test
 
-    class AcmeHelloTest(s_test.SynTest):
+    dirname = os.path.abspath(os.path.dirname(__file__))
+
+    class AcmeHelloTest(s_test.StormPkgTest):
+
+        assetdir = os.path.join(dirname, 'testassets')
+        pkgprotos = (os.path.join(dirname, 'acme-hello.yaml'),)
 
         async def test_acme_hello(self):
 
             async with self.getTestCore() as core:
 
-                await s_genpkg.main((pkgpath, '--push', core.getLocalUrl()))
-
                 msgs = await core.stormlist('acme.hello.sayhi')
                 self.stormIsInPrint('hello storm!', msgs)
+                self.stormHasNoWarnErr(msgs)
 
-                valu = await core.callStorm('return($lib.import(acme.hello.example00).foo())')
-                self.eq(10, valu)
 
 With the file ``test_acme_hello.py`` located in the same directory as ``acme-hello.yaml`` you can use the
 standard ``pytest`` invocation to run the test::
 
-    pytest -svx test_acme_hello.py
+    python -m pytest -svx test_acme_hello.py
 
 Advanced Features
 =================
@@ -391,27 +404,32 @@ Using ``divert`` to implement ``--yield``
 -----------------------------------------
 
 The ``--yield`` option is typically used to allow a **Storm** command which takes nodes as input to optionally
-output the new nodes it added rather than the nodes it received as input. To simplify implementing this convention
-the ``divert`` command was added to **Storm** to handle potentially 
+output the new nodes it added rather than the nodes it received as input. The ``divert`` command was added to
+**Storm** to simplify implementing this convention.
 
 To implement a command with a ``--yield`` option is typically accomplished via the following pattern::
 
   commands:
 
     - name: acme.hello.mayyield
+      descr: |
+           Take in an FQDN and make DNS A records to demo --yield
+
+           inet:fqdn=vertex.link | acme.hello.mayyield
+
       cmdargs:
 
         - - --yield
-          - type: bool
-            default: false
+          - default: false
             action: store_true
-            help: Yield newly constructed nodes from the command.
+            help: Yield the newly created inet:dns:a records rather than the input inet:fqdn nodes.
 
 Then within ``storm/commands/acme.hello.mayyield.storm``::
 
     function nodeGenrFunc(fqdn) {
-        // fake a DNS lookup and make an inet:dns:a
+        // fake a DNS lookup and make a few inet:dns:a records...
         [ inet:dns:a=($fqdn, 1.2.3.4) ]
+        [ inet:dns:a=($fqdn, 123.123.123.123) ]
     }
 
     divert --yield $cmdopts.yield $nodeGenrFunc($node)
@@ -426,8 +444,6 @@ Optic Actions
 If you have access to the **Synapse** commercial UI **Optic** you may find it helpful to embed **Optic** actions
 within your **Storm Package**. These actions will be presented to users in the context-menu when they right-click 
 on nodes within **Optic**.
-
-<img>
 
 To define **Optic** actions, you declare them in the **Storm Package** YAML file::
 
@@ -448,6 +464,6 @@ the specified as though it were run like this::
 
     inet:fqdn=vertex.link | acme.hello.omgopts --debug
 
-Any printed output, including warnings, will be displayed in the ``Console Tool``.
+Any printed output, including warnings, will be displayed in the **Optic** ``Console Tool``.
 
 _Optic: http://woot
