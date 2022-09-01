@@ -912,6 +912,7 @@ class StormTest(s_t_utils.SynTest):
 
                 # bad response should give no nodes
                 msgs = await subcore.stormlist(f'nodes.import --no-ssl-verify https://127.0.0.1:{port}/api/v1/lolnope/')
+                self.stormHasNoErr(msgs)
                 self.stormIsInWarn('nodes.import got HTTP error code', msgs)
                 nodes = [x for x in msgs if x[0] == 'node']
                 self.len(0, nodes)
@@ -1256,6 +1257,7 @@ class StormTest(s_t_utils.SynTest):
             nodeiden = nodes[0].iden()
 
             msgs = await core.stormlist('ou:org | movenodes', opts=view2)
+            self.stormHasNoWarnErr(msgs)
             self.stormIsInPrint(f'{layr2} add {nodeiden}', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:.created', msgs)
             self.stormIsInPrint(f'{layr2} set {nodeiden} ou:org:desc', msgs)
