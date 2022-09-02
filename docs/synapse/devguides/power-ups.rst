@@ -132,6 +132,7 @@ automation or **Storm Commands** to facilitate code re-use and enforce privilege
 A **Storm Module** is specified within the ``modules:`` section of the **Storm Package** YAML file.
 
 ::
+
     modules:
 
       - name: acme.hello
