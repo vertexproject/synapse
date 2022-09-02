@@ -25,7 +25,7 @@ Features and Enhancements
   (`#2829 <https://github.com/vertexproject/synapse/pull/2829>`_)
 
   ``geo:area``
-    Add a new type to record the the size of a geographic area.
+    Add a new type to record the size of a geographic area.
 
   ``geo:place:taxonomy``
     Add a form to record an analyst defined taxonomy of different places.
@@ -37,14 +37,14 @@ Features and Enhancements
     This form has been deprecated.
 
   ``inet:web:member``
-    Add a guid form that represents a web accounts membership in channel or group.
+    Add a guid form that represents a web account's membership in a channel or group.
 
   ``media:news:taxonomy``
     Add a form to record an analyst defined taxonomy of different types or sources of news.
 
   ``media:news``
     Add a ``type`` property to record the taxonomy of the news.
-    Add a ``ext:id`` property to record a external identifier provided by a publisher.
+    Add an ``ext:id`` property to record an external identifier provided by a publisher.
 
   ``pol:vitals``
     Add a guid form to record the vitals for a country.
@@ -55,7 +55,7 @@ Features and Enhancements
     Deprecate the ``pop`` secondary property.
 
   ``pol:candidate``
-    Add a ``incumbent`` property ot note if the candidate was a incumbent
+    Add an ``incumbent`` property to note if the candidate was an incumbent
     in a race.
 
   ``proj``
@@ -65,10 +65,10 @@ Features and Enhancements
     Add a form to record an analyst defined taxonomy of alert types.
 
   ``risk:alert``
-    The ``type`` property is changed from a ``str`` the
+    The ``type`` property is changed from a ``str`` to the
     ``risk:alert:taxonomy`` type.
 
-- Add ``**`` as a power operation for Storm expression syntax.
+- Add ``**`` as a power operator for Storm expression syntax.
   (`#2827 <https://github.com/vertexproject/synapse/pull/2827>`_)
 - Add a new test helper, ``synapse.test.utils.StormPkgTest`` to assist with
   testing Rapid Power-Ups.
