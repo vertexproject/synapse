@@ -4,6 +4,108 @@
 Synapse Changelog
 *****************
 
+v2.107.0 - 2022-09-01
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate the ``risk:alert:type`` property to a ``taxonomy`` type
+  and create new nodes as needed.
+  (`#2828 <https://github.com/vertexproject/synapse/pull/2828>`_)
+- Migrate the ``pol:country:name`` property to a ``geo:name`` type
+  and create new nodes as needed.
+  (`#2828 <https://github.com/vertexproject/synapse/pull/2828>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Updates to the ``geo``, ``inet``, ``media``, ``pol``, ``proj``, and
+  ``risk`` models.
+  (`#2828 <https://github.com/vertexproject/synapse/pull/2828>`_)
+  (`#2829 <https://github.com/vertexproject/synapse/pull/2829>`_)
+
+  ``geo:area``
+    Add a new type to record the size of a geographic area.
+
+  ``geo:place:taxonomy``
+    Add a form to record an analyst defined taxonomy of different places.
+
+  ``geo:place``
+    Add a ``type`` property to record the taxonomy of a place.
+
+  ``inet:web:memb``
+    This form has been deprecated.
+
+  ``inet:web:member``
+    Add a guid form that represents a web account's membership in a channel or group.
+
+  ``media:news:taxonomy``
+    Add a form to record an analyst defined taxonomy of different types or sources of news.
+
+  ``media:news``
+    Add a ``type`` property to record the taxonomy of the news.
+    Add an ``ext:id`` property to record an external identifier provided by a publisher.
+
+  ``pol:vitals``
+    Add a guid form to record the vitals for a country.
+
+  ``pol:country``
+    Add ``names``, ``place``, ``dissolved`` and ``vitals`` secondary properties.
+    The ``name`` is changed from a ``str`` to a ``geo:name`` type.
+    Deprecate the ``pop`` secondary property.
+
+  ``pol:candidate``
+    Add an ``incumbent`` property to note if the candidate was an incumbent
+    in a race.
+
+  ``proj``
+    Add missing docstrings to the ``proj`` model forms.
+
+  ``risk:alert:taxonomy``
+    Add a form to record an analyst defined taxonomy of alert types.
+
+  ``risk:alert``
+    The ``type`` property is changed from a ``str`` to the
+    ``risk:alert:taxonomy`` type.
+
+- Add ``**`` as a power operator for Storm expression syntax.
+  (`#2827 <https://github.com/vertexproject/synapse/pull/2827>`_)
+- Add a new test helper, ``synapse.test.utils.StormPkgTest`` to assist with
+  testing Rapid Power-Ups.
+  (`#2819 <https://github.com/vertexproject/synapse/pull/2819>`_)
+- Add ``$lib.axon.metrics()`` to get the metrics from the Axon that the
+  Cortex is connected to.
+  (`#2818 <https://github.com/vertexproject/synapse/pull/2818>`_)
+- Add ``pack()`` methods to the ``storm:auth:user`` and ``storm:auth:role``
+  objects. This API returns the definitions of the User and Role objects.
+  (`#2823 <https://github.com/vertexproject/synapse/pull/2823>`_)
+- Change the Storm Package ``require`` values to log debug messages instead
+  of raising exceptions if the requirements are not met. Add a
+  ``$lib.pkg.deps()`` API that allows inspecting if a package has its
+  dependencies met or has conflicts.
+  (`#2820 <https://github.com/vertexproject/synapse/pull/2820>`_)
+
+Bugfixes
+--------
+- Prevent ``None`` objects from being normalized as tag parts from variables
+  in Storm.
+  (`#2822 <https://github.com/vertexproject/synapse/pull/2822>`_)
+- Avoid intermediate conversion to floats during storage operations related to
+  Synapse Number objects in Storm.
+  (`#2825 <https://github.com/vertexproject/synapse/pull/2825>`_)
+
+Improved Documentation
+----------------------
+- Add Developer documentation for writing Rapid Power-Ups.
+  (`#2803 <https://github.com/vertexproject/synapse/pull/2803>`_)
+- Add the ``synapse.tests.utils`` package to the Synapse API autodocs.
+  (`#2819 <https://github.com/vertexproject/synapse/pull/2819>`_)
+- Update Devops documentation to note the storage requirements for taking
+  backups of Synapse services.
+  (`#2824 <https://github.com/vertexproject/synapse/pull/2824>`_)
+- Update the Storm ``min`` and ``max`` command help to clarify their usage.
+  (`#2826 <https://github.com/vertexproject/synapse/pull/2826>`_)
+
 v2.106.0 - 2022-08-23
 =====================
 
