@@ -100,7 +100,7 @@ To build and load **Storm Packages**, use the ``genpkg`` tool included within Sy
 this example, we will assume you have deployed your Synapse environment according to the
 `Deployment Guide`_::
 
-    python -m synapse.tools.genpkg acme-hello.yaml --load aha://cortex...
+    python -m synapse.tools.genpkg acme-hello.yaml --push aha://cortex...
 
 .. note::
 
