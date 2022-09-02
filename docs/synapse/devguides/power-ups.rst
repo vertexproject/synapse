@@ -18,6 +18,7 @@ and easy to use.
 
 The example ``acme-hello`` power-up discussed in this guide is included in the
 **Synapse** repository within the ``examples/power-ups/rapid/acme-hello`` folder.
+You can find that at `Acme-Hello Example`_.
 
 Anatomy of a Storm Package
 ==========================
@@ -131,6 +132,7 @@ automation or **Storm Commands** to facilitate code re-use and enforce privilege
 A **Storm Module** is specified within the ``modules:`` section of the **Storm Package** YAML file.
 
 ::
+
     modules:
 
       - name: acme.hello
@@ -162,7 +164,7 @@ these permissions within the **Storm** package using the ``perms:`` key before u
     perms:
       - perm: [ acme, hello, user ]
         gate: cortex
-        desc: Allows a user to call priviliedged APIs from Acme-Hello.
+        desc: Allows a user to call privileged APIs from Acme-Hello.
 
     modules:
 
@@ -350,7 +352,7 @@ Specifying Documentation
 
 Documentation may be specified in the **Storm Package** file that will embed ``markdown`` documentation into the
 package. While there are not currently any CLI tools to view/use this documentation, it is presented in the
-**Power-Ups** tab in the **Help Tool** within the commercial Synapse UI Optic_.
+**Power-Ups** tab in the **Help Tool** within the commercial :ref:`synapse-ui`.
 
 Markdown documents may be specified for inclusion by adding a ``docs:`` section to the **Storm Package** YAML file::
 
@@ -466,3 +468,4 @@ the specified query as though it were run like this::
 Any printed output, including warnings, will be displayed in the **Optic** ``Console Tool``.
 
 .. _Deployment Guide: https://synapse.docs.vertex.link/en/latest/synapse/deploymentguide.html
+.. _Acme-Hello Example: https://github.com/vertexproject/synapse/tree/master/examples/power-ups/rapid/acme-hello
