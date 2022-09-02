@@ -1444,5 +1444,5 @@ class TeleTest(s_t_utils.SynTest):
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
             sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
-            with self.raises(ConnectionRefusedError):
+            with self.raises(ConnectionResetError):
                 link = await s_link.connect(hostname, port=port, ssl=sslctx)
