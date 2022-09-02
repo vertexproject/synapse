@@ -79,9 +79,10 @@ Features and Enhancements
 - Add ``pack()`` methods to the ``storm:auth:user`` and ``storm:auth:role``
   objects. This API returns the definitions of the User and Role objects.
   (`#2823 <https://github.com/vertexproject/synapse/pull/2823>`_)
-- Change the Storm Package ``require`` and ``conflict`` values to log debug
-  messages instead of raising exceptions. Add a ``$lib.pkg.deps()`` API that
-  allows inspecting if a package has its dependencies met or has conflicts.
+- Change the Storm Package ``require`` values to log debug messages instead
+  of raising exceptions if the requirements are not met. Add a
+  ``$lib.pkg.deps()`` API that allows inspecting if a package has its
+  dependencies met or has conflicts.
   (`#2820 <https://github.com/vertexproject/synapse/pull/2820>`_)
 
 Bugfixes
