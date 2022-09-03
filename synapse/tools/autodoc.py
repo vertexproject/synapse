@@ -35,6 +35,8 @@ Edges = List[Edge]
 poptsToWords = {
     'ex': 'Example',
     'ro': 'Read Only',
+    'deprected': 'Deprecated',
+    'disp': 'Display',
 }
 
 info_ignores = (
@@ -301,57 +303,19 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                          ''
                          )
 
-        if props:
-            rst.addLines('Properties:',
-                         )
-        for pname, (ptname, ptopts), popts in props:
-
-            if pname in univ_names:
-                continue
-
-            hpname = pname
-            if ':' in pname:
-                hpname = pname.replace(':', raw_back_slash_colon)
-
-            _ = popts.pop('doc', None)
-            doc = dochelp.props.get((name, pname))
-            if not doc.endswith('.'):
-                logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
-                doc = doc + '.'
-
-            rst.addLines('',
-                         raw_back_slash_colon + hpname + ' / ' + f'{":".join([hname, hpname])}',
-                         '  ' + doc,
-                         )
-
-            if popts:
-
-                rst.addLines('  ' + 'It has the following property options set:',
-                             ''
-                             )
-                for k, v in popts.items():
-                    k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
-                    rst.addLines('  ' + f'* {k}: ``{v}``')
-
-            hptlink = f'dm-type-{ptname.replace(":", "-")}'
-            tdoc = f'The property type is :ref:`{hptlink}`.'
-
-            rst.addLines('',
-                         '  ' + tdoc,
-                         )
-            if ptopts:
-                rst.addLines('  ' + "Its type has the following options set:",
-                             '')
-                for k, v in ptopts.items():
-                    rst.addLines('  ' + f'* {k}: ``{v}``')
-
         props = [blob for blob in props if blob[0] not in univ_names]
         if props:
+
+            has_opts = any((popts for _, _, popts in props))
+
+            widths = '10 10 60 20'
+            if has_opts:
+                widths = '10 18 52 20'
 
             rst.addLines('', '', f'  Properties:', )
             rst.addLines('   .. list-table::',
                          '      :header-rows: 1',
-                         '      :widths: 10 10 10 70',
+                         f'      :widths: {widths}',
                          '      :class: tight-table',
                          '',
                          '      * - name',
@@ -362,40 +326,43 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
 
             for pname, (ptname, ptopts), popts in props:
 
-                hpname = pname
-                if ':' in pname:
-                    hpname = pname.replace(':', raw_back_slash_colon)
-
                 _ = popts.pop('doc', None)
                 doc = dochelp.props.get((name, pname))
                 if not doc.endswith('.'):
                     logger.warning(f'Docstring for prop ({name}, {pname}) does not end with a period.]')
                     doc = doc + '.'
 
-                if popts:
-
-                    # rst.addLines('  ' + 'It has the following property options set:',
-                    #              ''
-                    #              )
-                    for k, v in popts.items():
-                        k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
-                        # rst.addLines('  ' + f'* {k}: ``{v}``')
-
                 hptlink = f'dm-type-{ptname.replace(":", "-")}'
 
+                rst.addLines(f'      * - ``:{pname}``',)
                 if ptopts:
-                    # rst.addLines('  ' + "Its type has the following options set:",
-                    #              '')
-                    for k, v in ptopts.items():
-                        # rst.addLines('  ' + f'* {k}: ``{v}``')
-                        pass
+                    print(name, pname, ptopts)
 
-                rst.addLines(f'      * - | ``{hpname}``',
-                             f'          | ``{":".join([hname, hpname])}``',
-                             f'        - :ref:`{hptlink}`',
-                             f'        - {doc}',
-                             f'        - words words words',
-                             )
+                    rst.addLines(f'        - | :ref:`{hptlink}`', )
+                    for k, v in ptopts.items():
+                        rst.addLines(f'          | {k}: ``{v}``', )
+
+                else:
+                    rst.addLines(f'        - :ref:`{hptlink}`',)
+
+                rst.addLines(f'        - {doc}',)
+
+                if popts:
+                    if 'exchange' in name:
+                        print(popts)
+                    if len(popts) == 1:
+                        for k, v in popts.items():
+                            k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                            rst.addLines(f'        - {k}: ``{v}``')
+                    else:
+                        for i, (k, v) in enumerate(popts.items()):
+                            k = poptsToWords.get(k, k.replace(':', raw_back_slash_colon))
+                            if i == 0:
+                                rst.addLines(f'        - | {k}: ``{v}``')
+                            else:
+                                rst.addLines(f'          | {k}: ``{v}``')
+                else:
+                    rst.addLines(f'        - ')
 
         if formedges:
 
