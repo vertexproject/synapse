@@ -318,7 +318,7 @@ Example::
 node
 ----
 
-This represents a packed node (also called a `pode`).
+This represents a packed node (also called a ``pode``).
 
 Example:
 
@@ -337,11 +337,12 @@ This example is very simple - it does not include repr information, or things re
        'tags': {'aka': (None, None),
                 'aka.beep': (None, None),}}))
 
+For path and repr information, see the examples in the opts documentation :ref:`dev_storm_opts`.
 
 print
 -----
 
-The print event contains a message intended to be displayed to the query caller.
+The print event contains a message intended to be displayed to the caller.
 
 It includes the following keys:
 - mesg: The message to be displayed to the user.
@@ -349,6 +350,8 @@ It includes the following keys:
 Example::
 
     (print, {'mesg': 'I am a message!'})
+
+This can be produced by users with the ``$lib.print()`` Storm API.
 
 warn
 ----
@@ -366,29 +369,28 @@ Example::
      {'mesg': 'Unable to foo the bar.com domain',
       'domain': 'bar.com'})
 
+This can be produced by users with the ``$lib.warn()`` Storm API.
 
 err
 ---
 
 The err event is sent if there is a fatal error encountered when executing a
-storm query. There will be no further processing; only a `fini` message sent
+Storm query. There will be no further processing; only a ``fini`` message sent
 afterwards.
 
-The err event does contain a marshalled exception tufo in it. The tufo contains
-the consists of the exception type as the identifier; and several attributes
-from the exception.
+The err event does contain a marshalled exception in it. This contains the exception
+type as the identifier; and several attributes from the exception.
 
 The following keys are usually present in the marshalled tufo:
 - esrc: Source line that raised the exception.
 - efile: File that the exception was raised from.
 - eline: Line number from the raising file.
 - ename: Name of the function where the exception was from.
-- mesg: The `str()` result of the exception (or `mesg` argument to a SynErr exception, if present).
+- mesg: The ``str()`` result of the exception (or ``mesg`` argument to a SynErr exception, if present).
 
-If the Storm runtime is cancelled (for example, via the telepath or http kill methods), there
-will will be no `err` or `fini` messages sent. This is because the task cancellation may tear
-down the channel and we would have an async task blocking on attempting to send data to a closed
-channel.
+If the Storm runtime is cancelled for some reason, there will will be no ``err`` or ``fini`` messages sent.
+This is because the task cancellation may tear down the channel and we would have an async task blocking on
+attempting to send data to a closed channel.
 
 Additional keys may also be present.
 
@@ -407,12 +409,8 @@ Example::
 fini
 ----
 
-The last message sent by a storm query runtime. This can be used as a key to stop processing messages or finalize rollup data.
-
-If the Storm runtime is cancelled (for example, via the telepath or http kill methods), there
-will will be no `err` or `fini` messages sent. This is because the task cancellation may tear
-down the channel and we would have an async task blocking on attempting to send data to a closed
-channel.
+The last message sent by a Storm query runtime. This can be used as a key to stop processing messages or finalize
+any sort of rollup of messages.
 
 It includes the following keys:
 - tock: The epoch time the query execution finished (in milliseconds).
@@ -422,6 +420,13 @@ It includes the following keys:
 Example::
 
     ('fini', {'count': 1, 'tock': 1539221715240, 'took': 36381})
+
+.. note::
+
+    If the Storm runtime is cancelled (for example, via the telepath or http kill methods), there
+    will will be no `err` or `fini` messages sent. This is because the task cancellation may tear
+    down the channel and we would have an async task blocking on attempting to send data to a closed
+    channel.
 
 prov\:new
 ---------
@@ -436,6 +441,20 @@ node\:edits\:count
 
 storm\:fire
 -----------
+
+The ``storm:fire`` message is a arbitrary user created message produced by the ``$lib.fire()`` Storm API.
+It includes the following keys:
+
+- type: The type of the event.
+- data: User provided data.
+
+Example::
+
+    # The following query produces an event
+    $l = ((1), (2), (3)) $lib.fire('demo', key=valu, somelist=$l)
+
+    # The event produced.
+    ('storm:fire', {'data': {'key': 'valu', 'somelist': (1, 2, 3)}, 'type': 'demo'})
 
 csv\:row
 --------
