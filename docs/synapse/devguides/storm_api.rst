@@ -41,7 +41,8 @@ HTTP APIS go here.
 Message Types
 =============
 
-The following messages may be yielded from the Storm runtime to a remote caller.
+The Telepath ``storm()`` and HTTP ``api/v1/storm`` APIs yield messages from the Storm runtime to the caller.
+These are the messages that may be seen when consuming the message stream.
 
 init
 ----
@@ -197,20 +198,56 @@ Example::
     because the task cancellation may tear down the channel and we would have an async task blocking
     on attempting to send data to a closed channel.
 
-prov\:new
----------
-
-Provenance messages
 
 node\:edits
 -----------
 
-FIXME
+The ``node:edits`` message represents changes that are occurring to the underlying graph, as a result of running a
+Storm query.
+
+It includes the following key:
+
+edits
+    A list of changes made to a set of nodes.
+
+Example::
+
+    # Nodeedits produced by the following query: [(inet:ipv4=1.2.3.4 :asn=1)]
+
+    ('node:edits',
+     {'edits': (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                 'inet:ipv4',
+                 ((0, (16909060, 4), ()),
+                  (2, ('.created', 1662578208195, None, 21), ()),
+                  (2, ('type', 'unicast', None, 1), ()))),)})
+    ('node:edits',
+     {'edits': (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                 'inet:ipv4',
+                 ((2, ('asn', 1, None, 9), ()),)),
+                ('371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537',
+                 'inet:asn',
+                 ((0, (1, 9), ()),
+                  (2, ('.created', 1662578208196, None, 21), ()))))})
+
 
 node\:edits\:count
 ------------------
 
-FIXME
+The ``node:edits:count`` message represents a summary of changes that are occurring to the underlying graph, as a
+result of running a Storm query. These are produced when the query ``opts`` set ``editformat`` to ``count``.
+
+It includes the following key:
+
+count
+    The number of changes made to the graph as a result of a single ``node:edits`` event.
+
+Example::
+
+    # counts produced by the following query: [(inet:ipv4=1.2.3.4 :asn=1)]
+
+    ('node:edits:count', {'count': 3})
+    ('node:edits:count', {'count': 3})
+
 
 storm\:fire
 -----------
@@ -232,15 +269,91 @@ Example::
     # The event produced.
     ('storm:fire', {'data': {'key': 'valu', 'somelist': (1, 2, 3)}, 'type': 'demo'})
 
-csv\:row
---------
-
-FIXME
 
 look\:miss
 ----------
 
-FIXME
+The ``look:miss`` message is sent when the Storm runtime is set to ``lookup`` mode and the node that was identified
+by the scrape logic is not present in the current View.
+
+It includes the following key:
+
+ndef
+    A tuple of the form and normalizxed value.
+
+Example::
+
+    ('look:miss', {'ndef': ('inet:fqdn', 'hehe.com')})
+
+    # The ipv4 value is presented in system mode.
+    ('look:miss', {'ndef': ('inet:ipv4', 16909060)})
+
+csv\:row
+--------
+
+The ``csv:row`` message is sent by the Storm runtime by the ``$lib.csv.emit()`` Storm API.
+
+It includes the following keys:
+
+row
+    A list of elements that make up the row.
+
+table
+    A optional table name. This may be ``None``.
+
+Example::
+
+    # This query produces the following event: $lib.csv.emit(foo, bar, $lib.time.now())
+    ('csv:row', {'row': ('foo', 'bar', 1662578057658), 'table': None})
+
+    # This query produces the following event: $lib.csv.emit(foo, bar, $lib.time.now(), table=foo)
+    ('csv:row', {'row': ('foo', 'bar', 1662578059282), 'table': 'foo'})
+
+.. _dev_storm_call:
+
+Storm Call APIS
+===============
+
+The Telepath ``callStorm()`` and HTTPAPI ``storm/call`` interfaces are designed to return a single message to the
+caller, as opposed to a stream of messages. This is done using the Storm ``return( )`` syntax. Common uses for the call
+interfaces include getting and setting values where the full message stream would not be useful.
+
+Example:
+
+    The following example shows retrieving a user definition.
+
+    .. code:: python3
+
+        # Prox is assumed to be a Telepath proxy to a Cortex.
+        >>> text = '$user=$lib.auth.users.byname($name) return ( $user )'
+        >>> opts={'vars': {'name': 'root'}}
+        >>> ret = prox.callStorm(text, opts=opts)
+        >>> pprint(ret)
+        {'admin': True,
+         'archived': False,
+         'authgates': {'0b942d5f4309d70e5fa64423714e25aa': {'admin': True},
+                       'cdf6f1727da73dbac95e295e5d258847': {'admin': True}},
+         'email': None,
+         'iden': '933a320b7ce8134ba5abd93aa487e1b5',
+         'locked': False,
+         'name': 'root',
+         'roles': (),
+         'rules': (),
+         'type': 'user'}
+
+
+    The following show setting an API key for a Power-Up. There is no ``return`` statement, so the return value
+    defaults to None.
+
+    .. code:: python3
+
+        # Prox is assumed to be a Telepath proxy to a Cortex.
+        >>> text = 'foobar.setup.apikey $apikey'
+        >>> opts={'vars': {'apikey': 'secretKey'}}
+        >>> ret = prox.callStorm(text, opts=opts)
+        >>> print(ret)
+        None
+
 
 .. _dev_storm_opts:
 
