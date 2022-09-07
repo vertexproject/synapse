@@ -3,37 +3,40 @@
 Storm API Guide
 ###############
 
-This Dev Guide is written by and for Synapse developers.
-
 
 .. _dev_storm_apis:
 
 Storm APIs
 ==========
 
-Storm is available over Telepath and HTTP API interfaces.
+Storm is available over Telepath and HTTP API interfaces. Both interfaces require a Storm query string, and may take
+additional ``opts`` arguments.
 
 Telepath
 --------
 
+There are three Storm APIs exposed via Telepath.
 
 ``storm(text, opts=None)``
-    synapse/autodocs/synapse.html#synapse.cortex.CoreApi.storm
-
+    The Storm API returns a message stream. It can be found here storm_.
 
 ``callStorm(text, opts=None)``
-    synapse/autodocs/synapse.html#synapse.cortex.CoreApi.callStorm
-
+    The callStorm API returns a message given by the Storm ``return( )`` syntax. It can be found here callStorm_.
 
 ``count(text, opts=None)``
-    https://synapse.docs.vertex.link/en/latest/synapse/autodocs/synapse.html#synapse.cortex.Cortex.count
-
+    The count API returns a count of the number of nodes which would have been emitted by running a given query. It can
+    be found here :ref:`http-api-cortex`.
 
 HTTP API
 --------
 
-HTTP APIS go here.
+The HTTP API versions of the Storm APIs can be found here `Cortex HTTP API`_.
 
+``/v1/api/storm``
+    This API returns a message stream.
+
+``/v1/api/storm/call``
+    This API returns a a message given by the Storm ``return( )`` syntax.
 
 
 .. _dev_storm_message:
@@ -41,8 +44,12 @@ HTTP APIS go here.
 Message Types
 =============
 
-The Telepath ``storm()`` and HTTP ``api/v1/storm`` APIs yield messages from the Storm runtime to the caller.
-These are the messages that may be seen when consuming the message stream.
+The Telepath ``storm()`` and HTTP ``api/v1/storm`` APIs yield messages from the Storm runtime to the caller. These are
+the messages that may be seen when consuming the message stream.
+
+Each message has the following basic structure::
+
+    [ "type", { ..type specific info... } ]
 
 init
 ----
@@ -71,7 +78,24 @@ Example::
 node
 ----
 
-This represents a packed node (also called a ``pode``).
+This represents a packed node. Each serialized node will have the following structure::
+
+    [
+        [<form>, <valu>],       # The [ typename, typevalue ] definition of the node.
+        {
+            "iden": <hash>,     # A stable identifier for the node.
+            "tags": {},         # The tags on the node.
+            "props": {},        # The node's secondary properties.
+            "path": {},         # Path related information in the node.
+            "tagprops": {},     # The nodes tag properties.
+
+            # optional
+            "repr": ...         # Presentation values for the type value.
+            "reprs": {}         # Presentation values for props which need it.
+            "tagpropreprs": {}  # Presentation values for tagprops which need it.
+
+        }
+    ]
 
 Example:
 
@@ -97,8 +121,10 @@ print
 
 The print event contains a message intended to be displayed to the caller.
 
-It includes the following keys:
-- mesg: The message to be displayed to the user.
+It includes the following key:
+
+mesg
+    The message to be displayed to the user.
 
 Example::
 
@@ -194,9 +220,9 @@ Example::
 
 .. note::
 
-    If the Storm runtime is cancelled, there will will be no `err` or `fini` messages sent. This is
-    because the task cancellation may tear down the channel and we would have an async task blocking
-    on attempting to send data to a closed channel.
+    If the Storm runtime is cancelled for some reason, there will will be no ``err`` or ``fini`` messages
+    sent. This is because the task cancellation may tear down the channel and we would have an async task
+    blocking on attempting to send data to a closed channel.
 
 
 node\:edits
@@ -325,7 +351,7 @@ Example:
     .. code:: python3
 
         # Prox is assumed to be a Telepath proxy to a Cortex.
-        >>> text = '$user=$lib.auth.users.byname($name) return ( $user )'
+        >>> text = '$user = $lib.auth.users.byname($name) return ( $user )'
         >>> opts={'vars': {'name': 'root'}}
         >>> ret = prox.callStorm(text, opts=opts)
         >>> pprint(ret)
@@ -530,8 +556,9 @@ Example:
 scrub
 -----
 
-This is a set of rules that can be provided to the Storm runtime which dictate the tags that are included in the
-packed nodes.
+This is a set of rules that can be provided to the Storm runtime which dictate which data should be included or
+excluded from nodes that are returned in the message stream. Currently the only rule type supported is ``include`` for
+``tags``.
 
 Example:
 
@@ -609,4 +636,10 @@ Example:
         opts = {'view': 31ded629eea3c7221be0a61695862952}
 
 
+.. _storm: ../autodocs/synapse.html#synapse.cortex.CoreApi.storm
 
+.. _callStorm: ../autodocs/synapse.html#synapse.cortex.CoreApi.callStorm
+
+.. _count: ../autodocs/synapse.html#synapse.cortex.Cortex.count
+
+.. _Cortex HTTP API: ../httpapi.html#cortex

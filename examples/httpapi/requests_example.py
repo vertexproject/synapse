@@ -4,9 +4,8 @@ import pprint
 
 import requests
 
-# Examples for using the Synapse UI HTTP API to call Storm queries.
+# Examples for using the Cortex HTTP API to call Storm queries.
 # For more information about these APIs, refer to the following documentation.
-# https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/httpapi.html
 # https://synapse.docs.vertex.link/en/latest/synapse/httpapi.html#
 
 # Fill in your url, user, and password.
