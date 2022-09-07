@@ -36,8 +36,6 @@ HTTP APIS go here.
 
 
 
-.. _dev_storm_opts:
-
 .. _dev_storm_message:
 
 Message Types
@@ -243,6 +241,8 @@ look\:miss
 ----------
 
 FIXME
+
+.. _dev_storm_opts:
 
 Storm Opts
 ==========
