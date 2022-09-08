@@ -360,7 +360,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
             data = {'query': query, 'opts': {'repr': True}}
-            url = f'{base_url}/api/v1/storm'
+            url = 'https://localhost:4443/api/v1/storm'
 
             async with sess.get(url, json=data) as resp:
                 async for byts, x in resp.content.iter_chunks():
@@ -382,7 +382,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
             data = {'query': query, 'opts': {'repr': True}}
-            url = f'{base_url}/api/v1/storm'
+            url = 'https://localhost:4443/api/v1/storm'
 
             resp = sess.get(url, json=data, stream=True)
             for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
@@ -402,7 +402,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
             data = {'query': query, 'opts': {'repr': True}}
-            url = f'{base_url}/api/v1/storm'
+            url = 'https://localhost:4443/api/v1/storm'
 
             async with sess.get(url, json=data) as resp:
 
@@ -463,7 +463,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             query = '$foo = $lib.str.format("hello {valu}", valu="world") return ($foo)'
             data = {'query': query}
-            url = f'{base_url}/api/v1/storm/call'
+            url = 'https://localhost:4443/api/v1/storm/call'
 
             async with sess.get(url, json=data) as resp:
                 info = await resp.json()
@@ -479,7 +479,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             query = '$foo = $lib.str.format("hello {valu}", valu="world") return ($foo)'
             data = {'query': query}
-            url = f'{base_url}/api/v1/storm/call'
+            url = 'https://localhost:4443/api/v1/storm/call'
 
             resp = sess.get(url, json=data)
             info = resp.json()
