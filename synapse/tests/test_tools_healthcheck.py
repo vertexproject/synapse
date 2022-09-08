@@ -82,5 +82,5 @@ class HealthcheckTest(s_t_utils.SynTest):
             self.eq(retn, 1)
             resp = json.loads(str(outp))
             self.eq(resp.get('components')[0].get('name'), 'error')
-            m = 'Unable to connect to cell.'
-            self.eq(resp.get('components')[0].get('mesg'), m)
+            m = 'Unable to connect to cell'
+            self.isin(m, resp.get('components')[0].get('mesg'))
