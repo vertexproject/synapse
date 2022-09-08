@@ -114,12 +114,12 @@ spec:
           - containerPort: 27492
         imagePullPolicy: Always
         startupProbe:
-          failureThreshold: 6
+          failureThreshold: 2147483647
           timeoutSeconds: 20
           periodSeconds: 20
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
-        livenessProbe:
+        readinessProbe:
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -219,12 +219,12 @@ spec:
             subPath: axon
         imagePullPolicy: Always
         startupProbe:
-          failureThreshold: 6
+          failureThreshold: 2147483647
           timeoutSeconds: 20
           periodSeconds: 20
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
-        livenessProbe:
+        readinessProbe:
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -358,12 +358,12 @@ spec:
             subPath: aha
         imagePullPolicy: Always
         startupProbe:
-          failureThreshold: 6
+          failureThreshold: 2147483647
           timeoutSeconds: 20
           periodSeconds: 20
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
-        livenessProbe:
+        readinessProbe:
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -424,12 +424,12 @@ spec:
             subPath: maxmind
         imagePullPolicy: Always
         startupProbe:
-          failureThreshold: 6
+          failureThreshold: 2147483647
           timeoutSeconds: 20
           periodSeconds: 20
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
-        livenessProbe:
+        readinessProbe:
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -521,12 +521,12 @@ spec:
             subPath: optic
         imagePullPolicy: Always
         startupProbe:
-          failureThreshold: 6
+          failureThreshold: 2147483647
           timeoutSeconds: 20
           periodSeconds: 20
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
-        livenessProbe:
+        readinessProbe:
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
