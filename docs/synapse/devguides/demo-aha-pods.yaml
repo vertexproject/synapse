@@ -120,6 +120,7 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
         readinessProbe:
+          failureThreshold: 2
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -225,6 +226,7 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
         readinessProbe:
+          failureThreshold: 2
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -364,6 +366,7 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
         readinessProbe:
+          failureThreshold: 2
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -430,6 +433,7 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
         readinessProbe:
+          failureThreshold: 2
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20
@@ -527,6 +531,7 @@ spec:
           exec:
             command: ['python', '-m', 'synapse.tools.healthcheck', '-c', 'cell:///vertex/storage']
         readinessProbe:
+          failureThreshold: 2
           initialDelaySeconds: 20
           timeoutSeconds: 20
           periodSeconds: 20

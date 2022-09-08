@@ -895,20 +895,20 @@ underlying container killed.
 
 .. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
-    :lines: 37-147
+    :lines: 37-148
 
 The Axon is very similar to the Cortex.
 
 .. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
-    :lines: 155-253
+    :lines: 156-254
 
 The last set of components shown here is the most complex. It includes the Aha server, the Maxmind connector, and the
 Optic UI.
 
 .. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
-    :lines: 273-607
+    :lines: 275-613
 
 
 .. _autodoc-conf-aha:
