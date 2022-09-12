@@ -2834,6 +2834,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(0, pkgs)
             await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
 
+            # This segfaults in regex < 2022.9.11
+            query = '''test:str~="(?(?<=A)|(?(?![^B])C|D))"'''
+            msgs = await core.stormlist(query)
+
             # test reqValidStorm
             self.true(await proxy.reqValidStorm('test:str=test'))
             self.true(await proxy.reqValidStorm('1.2.3.4 | spin', {'mode': 'lookup'}))
