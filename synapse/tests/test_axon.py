@@ -1,6 +1,7 @@
 import io
 import os
 import csv
+import base64
 import shutil
 import asyncio
 import hashlib
@@ -30,12 +31,21 @@ pbuf = b'pennywise'
 rbuf = b'robert gray'
 bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'
 
+# sample of a real world csv with a extended ascii character encoding in
+# one row which causes decoding errors.
+csv_badenc_b64 = 'Zm9vLTAxNjIsMSwiVGhlICIiYmFyIiIga2V5d29yZCBkb2VzIGEgdGhpb' \
+                 'mcuIiwiIiwiIgpmb28tMDE2MywyLCJtYWlsIGdvZXMgYnJycnJycnIiLG' \
+                 'JlZXAsImJvb3AiLCJh/GIiCmZvby0wMTY0LDEsImJpZyB3b3JkcyBzbWF' \
+                 'sbCB3b3JkcyIsIiIsIiIK'
+csv_badenc_buf = base64.b64decode(csv_badenc_b64)
+
 bbufhash = hashlib.sha256(bbuf).digest()
 asdfhash = hashlib.sha256(abuf).digest()
 emptyhash = hashlib.sha256(b'').digest()
 pennhash = hashlib.sha256(pbuf).digest()
 rgryhash = hashlib.sha256(rbuf).digest()
 newphash = s_common.buid('newp')
+csv_badenc_hash = hashlib.sha256(csv_badenc_buf).digest()
 
 fields = [
     {'name': 'file', 'sha256': s_common.ehex(asdfhash), 'filename': 'file'},
@@ -377,6 +387,18 @@ bar baz",vv
         size, sha256 = await axon.put('"a'.encode())
         with self.raises(s_exc.BadDataValu) as cm:
             rows = [row async for row in axon.csvrows(sha256, strict=True)]
+
+        # A csvfile with an extended ascii character in it
+        size, sha256 = await axon.put(csv_badenc_buf)
+        self.eq(sha256, csv_badenc_hash)
+        rows = [item async for item in axon.csvrows(sha256)]
+        self.len(3, rows)
+
+        erows = (('foo-0162', '1', 'The "bar" keyword does a thing.', '', ''),
+                 ('foo-0163', '2', 'mail goes brrrrrrr', 'beep', 'boop', 'ab'),
+                 ('foo-0164', '1', 'big words small words', '', ''),
+                 )
+        self.eq(rows, erows)
 
         info = await axon.getCellInfo()
         if info.get('features', {}).get('byterange') and not isinstance(axon, (s_telepath.Proxy, s_telepath.Client)):

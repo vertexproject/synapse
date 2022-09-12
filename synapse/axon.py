@@ -1675,7 +1675,8 @@ def _spawn_readlines(sock): # pragma: no cover
 def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
     try:
 
-        with sock.makefile('r') as fd:
+        # Assume utf8 encoding and ignore errors.
+        with sock.makefile('r', errors='ignore') as fd:
 
             try:
 
