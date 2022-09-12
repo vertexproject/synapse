@@ -4,6 +4,48 @@
 Synapse Changelog
 *****************
 
+
+v2.108.0 - 2022-09-12
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the Telepath TLS connections to require a minimum TLS version of 1.2.
+  (`#2833 <https://github.com/vertexproject/synapse/pull/2833>`_)
+- Update the Axon implementation to use the ``initServiceStorage()`` and
+  ``initServiceRuntime()``, instead of overriding ``__anit__``.
+  (`#2837 <https://github.com/vertexproject/synapse/pull/2837>`_)
+- Update the minimum allowed versions of the ``aiosmtplib`` and ``regex``
+  libraries.
+  (`#2832 <https://github.com/vertexproject/synapse/pull/2832>`_)
+  (`#2841 <https://github.com/vertexproject/synapse/pull/2841>`_)
+
+Bugfixes
+--------
+- Catch ``LarkError`` exceptions in all Storm query parsing modes.
+  (`#2840 <https://github.com/vertexproject/synapse/pull/2840>`_)
+- Catch ``FileNotFound`` errors in ``synapse.tools.healtcheck``. This could
+  be caused by the tool running during container startup, and prior to a
+  service making its Unix listening socket available.
+  (`#2836 <https://github.com/vertexproject/synapse/pull/2836>`_)
+- Fix an issues in ``Axon.csvrows()`` where invalid data would cause
+  processing of a file to stop.
+  (`#2835 <https://github.com/vertexproject/synapse/pull/2835>`_)
+- Address a deprecation warning in the Synapse codebase.
+  (`#2842 <https://github.com/vertexproject/synapse/pull/2842>`_)
+- Correct the type of ``syn:splice:splice`` to be ``data``. Previously it
+  was ``str``.
+  (`#2839 <https://github.com/vertexproject/synapse/pull/2839>`_)
+
+Improved Documentation
+----------------------
+- Replace ``livenessProbe`` references with ``readinessProbe`` in the
+  Kubernetes documentation and examples. The ``startupProbe.failureThreshold``
+  value was increased to its maximum value.
+  (`#2838 <https://github.com/vertexproject/synapse/pull/2838>`_)
+- Fix a typo in the Rapid Power-Up documentation.
+  (`#2831 <https://github.com/vertexproject/synapse/pull/2831>`_)
+
 v2.107.0 - 2022-09-01
 =====================
 
