@@ -24,11 +24,11 @@ Bugfixes
 --------
 - Catch ``LarkError`` exceptions in all Storm query parsing modes.
   (`#2840 <https://github.com/vertexproject/synapse/pull/2840>`_)
-- Catch ``FileNotFound`` errors in ``synapse.tools.healtcheck``. This could
+- Catch ``FileNotFound`` errors in ``synapse.tools.healthcheck``. This could
   be caused by the tool running during container startup, and prior to a
   service making its Unix listening socket available.
   (`#2836 <https://github.com/vertexproject/synapse/pull/2836>`_)
-- Fix an issues in ``Axon.csvrows()`` where invalid data would cause
+- Fix an issue in ``Axon.csvrows()`` where invalid data would cause
   processing of a file to stop.
   (`#2835 <https://github.com/vertexproject/synapse/pull/2835>`_)
 - Address a deprecation warning in the Synapse codebase.
