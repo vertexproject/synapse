@@ -307,7 +307,7 @@ class SynModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time the splice occurred.', 'ro': True,
                     }),
-                    ('splice', ('str', {'strip': True}), {
+                    ('splice', ('data', {}), {
                         'doc': 'The splice.', 'ro': True
                     }),
                 )),
