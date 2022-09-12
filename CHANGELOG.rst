@@ -13,7 +13,7 @@ Features and Enhancements
 - Update the Telepath TLS connections to require a minimum TLS version of 1.2.
   (`#2833 <https://github.com/vertexproject/synapse/pull/2833>`_)
 - Update the Axon implementation to use the ``initServiceStorage()`` and
-  ``initServiceRuntime()``, instead of overriding ``__anit__``.
+  ``initServiceRuntime()`` methods, instead of overriding ``__anit__``.
   (`#2837 <https://github.com/vertexproject/synapse/pull/2837>`_)
 - Update the minimum allowed versions of the ``aiosmtplib`` and ``regex``
   libraries.
