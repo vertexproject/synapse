@@ -166,12 +166,7 @@ async def main(argv, outp=s_output.stdout):
             return -1
         stormopts['view'] = opts.view
 
-    async with contextlib.AsyncExitStack() as ctx:
-
-        path = s_common.getSynPath('telepath.yaml')
-        telefini = await s_telepath.loadTeleEnv(path)
-        if telefini is not None:
-            ctx.push_async_callback(telefini)
+    async with s_telepath.withTeleEnv():
 
         if opts.export:
             return await runCsvExport(opts, outp, text, stormopts)

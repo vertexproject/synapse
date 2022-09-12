@@ -25,6 +25,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
 
     async with s_telepath.withTeleEnv():
+
         async with await s_base.Base.anit() as base:
 
             srcaxon = await base.enter_context(await s_telepath.openurl(opts.src_axon))
