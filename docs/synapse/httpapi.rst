@@ -102,7 +102,7 @@ Both of the Python examples use session managers which manage the session cookie
 *Method*
     GET
 
-    This is a unauthenticated API that returns the leader status of Cell.
+    This is an unauthenticated API that returns the leader status of Cell.
 
     *Returns*
         A dictionary with the ``active`` key set to True or False.
@@ -141,7 +141,7 @@ Both of the Python examples use session managers which manage the session cookie
         Any additional "user dictionary" fields (other than "iden") may be specified.
 
     *Returns*
-        The newly created role dictionary.
+        The newly created user dictionary.
 
 /api/v1/auth/addrole
 ~~~~~~~~~~~~~~~~~~~~
@@ -205,7 +205,7 @@ Both of the Python examples use session managers which manage the session cookie
 *Method*
     POST
 
-    This API allows the caller to change a users password. The authenticated user must either be an admin or
+    This API allows the caller to change a user's password. The authenticated user must either be an admin or
     the user whose password is being changed.
 
     *Input*
@@ -232,10 +232,10 @@ Both of the Python examples use session managers which manage the session cookie
 *Method*
     GET
 
-    This API allows the caller to retrieve a user dictionary.
+    This API allows the caller to retrieve a role dictionary.
 
     *Returns*
-        A user dictionary.
+        A role dictionary.
 
 /api/v1/auth/grant
 ~~~~~~~~~~~~~~~~~~
@@ -426,7 +426,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 ~~~~~~~~~~~~~~~~~~
 
 The Storm Call API endpoint allows the caller to execute a Storm query on the Cortex and get a single return
-value back from the runtime. This is analagous to using the ``callStorm()`` Telepath API. This expects to return a
+value back from the runtime. This is analogous to using the ``callStorm()`` Telepath API. This expects to return a
 value from the Storm query using the Storm ``return( )`` syntax.
 For more information about Storm APIs, including opts behavior, see :ref:`dev_storm_api`.
 
@@ -538,6 +538,9 @@ in msgpack format such that they can be directly ingested with the ``syn.nodes``
         lift in order to limit exported edges.
 
         Each exported node will be in msgpack format.
+
+        There is no Content-Length header returned, since the API cannot predict the volume of data a given query
+        may produce.
 
 /api/v1/model
 ~~~~~~~~~~~~~
@@ -779,19 +782,23 @@ This API allows the caller to check if a file exists in the Axon as identified b
 /api/v1/axon/files/by/sha256/<SHA-256>
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This API allows the caller to retrieve or remove a file from the Axon as identified by the SHA-256.  If the file does not exist a 404 will be returned.
+This API allows the caller to retrieve or remove a file from the Axon as identified by the SHA-256.  If the file does
+not exist a 404 will be returned.
 
 *Method*
     GET
     
     *Returns*
-        If the file exists a stream of byte chunks will be returned to the caller. A ``Range`` header with a single ``bytes`` value can be provided to get a subset of a file.
+        If the file exists a stream of byte chunks will be returned to the caller. A ``Range`` header with a single
+        ``bytes`` value can be provided to get a subset of a file.
 
 *Method*
      HEAD
      
      *Returns*
-        If the file exists, the ``Content-Length`` header will be set for the size of the file. If a ``Range`` header with a single ``bytes`` value is provided, the ``Content-Length`` header will describe the size of hte range, and the ``Content-Range`` header will also be set to describe the range of the requested bytes.
+        If the file exists, the ``Content-Length`` header will be set for the size of the file. If a ``Range`` header
+        with a single ``bytes`` value is provided, the ``Content-Length`` header will describe the size of the range,
+        and the ``Content-Range`` header will also be set to describe the range of the requested bytes.
 
 *Method*
     DELETE

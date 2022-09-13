@@ -38,6 +38,8 @@ The HTTP API versions of the Storm APIs can be found here `Cortex HTTP API`_.
 ``/v1/api/storm/call``
     This API returns a message given by the Storm ``return( )`` syntax.
 
+``/v1/api/storm/export``
+    This API returns a stream of msgpack encoded data, which can be used as a `.nodes` file for later import.
 
 .. _dev_storm_message:
 
