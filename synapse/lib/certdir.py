@@ -9,7 +9,6 @@ from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-import synapse.lib.const as s_const
 
 defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
@@ -25,6 +24,19 @@ TEN_YEARS = 10 * 365 * 24 * 60 * 60
 
 logger = logging.getLogger(__name__)
 
+# Create a cipher string that supports TLS 1.2 and TLS 1.3 ciphers which do
+# not use RSA. This has the effect of modifying the cipher list for a SSL
+# context in Python 3.8 and below. Python 3.10+ has a default cipher list
+# which drops several additional ciphers which are removed below.
+_ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)  # type: ssl.SSLContext
+_ciphers = [c for c in _ctx.get_ciphers()
+            if c.get('protocol') in ('TLSv1.2', 'TLSv1.3')
+            and c.get('kea') != 'kx-rsa'
+            ]
+TLS_SERVER_CIPHERS = ':'.join([c.get('name') for c in _ciphers])
+del _ctx
+del _ciphers
+
 def getServerSSLContext() -> ssl.SSLContext:
     '''
     Get a server SSLContext object.
@@ -38,7 +50,7 @@ def getServerSSLContext() -> ssl.SSLContext:
     '''
     sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    sslctx.set_ciphers(s_const.tls_server_ciphers)
+    sslctx.set_ciphers(TLS_SERVER_CIPHERS)
     # Disable client renegotiation if available.
     sslctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
     return sslctx
