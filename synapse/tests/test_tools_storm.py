@@ -169,7 +169,3 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
-
-                await s_t_storm.main((lurl,), outp=outp)
-                text = str(outp)
-                self.isin('Welcome to the Storm interpreter!', text)
