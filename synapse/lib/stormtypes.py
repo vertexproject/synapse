@@ -3801,6 +3801,21 @@ class Str(Prim):
         {'name': 'size', 'desc': 'Return the length of the string.',
          'type': {'type': 'function', '_funcname': '_methStrSize',
                   'returns': {'type': 'int', 'desc': 'The size of the string.', }}},
+        {'name': 'format', 'desc': '''
+        Format a text string from an existing string..
+
+        Examples:
+            Format a string with a fixed argument and a variable::
+
+                $list=(1,2,3,4) $foo='Hello {name}, list is {list}!'.format(name='Reader', list=$list)
+
+                ''',
+         'type': {'type': 'function', '_funcname': '_methStrFormat',
+                  'args': (
+                      {'name': '**kwargs', 'type': 'any',
+                       'desc': 'Keyword values which are substituted into the string.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The new string.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -3828,6 +3843,7 @@ class Str(Prim):
             'upper': self._methStrUpper,
             'slice': self._methStrSlice,
             'reverse': self._methStrReverse,
+            'format': self._methStrFormat,
         }
 
     def __int__(self):
@@ -3854,6 +3870,10 @@ class Str(Prim):
         if retn == -1:
             retn = None
         return retn
+
+    async def _methStrFormat(self, **kwargs):
+        text = await kwarg_format(self.valu, **kwargs)
+        return text
 
     async def _methStrSize(self):
         return len(self.valu)
