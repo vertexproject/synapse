@@ -1,5 +1,5 @@
 import os
-import asyncio
+import subprocess
 import synapse.tests.utils as s_test
 
 import synapse.common as s_common
@@ -171,6 +171,10 @@ class StormCliTest(s_test.SynTest):
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
 
-                proc = await asyncio.create_subprocess_exec('python', '-m', 'synapse.tools.storm', lurl, stdout=asyncio.subprocess.PIPE)
-                stdout, _ = await proc.communicate()
-                self.isin('Welcome to the Storm interpreter!', stdout.decode())
+                proc = subprocess.Popen(['python', '-m', 'synapse.tools.storm', lurl], stdout=subprocess.PIPE, shell=True)
+                try:
+                    stdout, _ = proc.communicate(timeout=1)
+                except subprocess.TimeoutExpired:
+                    proc.terminate()
+                    stdout, _ = proc.communicate()
+                    self.isin('Welcome to the Storm interpreter!', stdout.decode())
