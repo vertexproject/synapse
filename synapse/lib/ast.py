@@ -999,8 +999,6 @@ class SetItemOper(Oper):
     '''
     async def run(self, runt, genr):
 
-        vkid = self.kids[1]
-
         count = 0
         async for node, path in genr:
 
@@ -3135,7 +3133,8 @@ class EditParens(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
@@ -3229,7 +3228,8 @@ class EditNodeAdd(Edit):
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         runtsafe = self.isRuntSafe(runt)
 
@@ -3291,7 +3291,8 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
@@ -3378,7 +3379,8 @@ class EditPropDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         async for node, path in genr:
             name = await self.kids[0].compute(runt, path)
@@ -3401,7 +3403,8 @@ class EditUnivDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         univprop = self.kids[0]
         assert isinstance(univprop, UnivProp)
@@ -3535,7 +3538,8 @@ class EditEdgeAdd(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         # SubQuery -> Query
         query = self.kids[1].kids[0]
@@ -3583,7 +3587,8 @@ class EditEdgeDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         query = self.kids[1].kids[0]
 
@@ -3619,7 +3624,8 @@ class EditTagAdd(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
             oper_offset = 1
@@ -3676,7 +3682,8 @@ class EditTagDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         async for node, path in genr:
 
@@ -3712,7 +3719,8 @@ class EditTagPropSet(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
@@ -3752,7 +3760,8 @@ class EditTagPropDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         async for node, path in genr:
 
