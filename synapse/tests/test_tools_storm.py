@@ -1,4 +1,5 @@
 import os
+import asyncio
 import synapse.tests.utils as s_test
 
 import synapse.common as s_common
@@ -169,3 +170,7 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
+
+                proc = await asyncio.create_subprocess_exec('python', '-m', 'synapse.tools.storm', lurl, stdout=asyncio.subprocess.PIPE)
+                stdout, _ = await proc.communicate()
+                self.isin('Welcome to the Storm interpreter!', stdout.decode())
