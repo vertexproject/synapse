@@ -25,6 +25,24 @@ TEN_YEARS = 10 * 365 * 24 * 60 * 60
 
 logger = logging.getLogger(__name__)
 
+def getServerSSLContext() -> ssl.SSLContext:
+    '''
+    Get a server SSLContext object.
+
+    This object has a minimum TLS version of 1.2, a subset of ciphers in use, and disabled client renegotiation.
+
+    This object has no certificates loaded in it.
+
+    Returns:
+        ssl.SSLContext: The context object.
+    '''
+    sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    sslctx.set_ciphers(s_const.tls_server_ciphers)
+    # Disable client renegotiation if available.
+    sslctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
+    return sslctx
+
 class CertDir:
     '''
     Certificate loading/generation/signing utilities.
@@ -953,9 +971,8 @@ class CertDir:
         return self._getServerSSLContext(hostname=hostname, caname=caname)
 
     def _getServerSSLContext(self, hostname=None, caname=None):
-        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        sslctx.set_ciphers(s_const.tls_server_ciphers)
+        sslctx = getServerSSLContext()
+
         if hostname is None:
             hostname = socket.gethostname()
 
