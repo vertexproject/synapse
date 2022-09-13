@@ -2173,6 +2173,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        sslctx.set_ciphers(s_const.tls_server_ciphers)
 
         if not os.path.isfile(keypath):
             raise s_exc.NoSuchFile(mesg=f'Missing TLS keypath {keypath}', path=keypath)

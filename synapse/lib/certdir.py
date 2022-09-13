@@ -9,6 +9,7 @@ from OpenSSL import crypto  # type: ignore
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.const as s_const
 
 defdir_default = '~/.syn/certs'
 defdir = os.getenv('SYN_CERT_DIR')
@@ -954,6 +955,7 @@ class CertDir:
     def _getServerSSLContext(self, hostname=None, caname=None):
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        sslctx.set_ciphers(s_const.tls_server_ciphers)
         if hostname is None:
             hostname = socket.gethostname()
 
