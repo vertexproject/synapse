@@ -36,7 +36,7 @@ The HTTP API versions of the Storm APIs can be found here `Cortex HTTP API`_.
     This API returns a message stream.
 
 ``/v1/api/storm/call``
-    This API returns a a message given by the Storm ``return( )`` syntax.
+    This API returns a message given by the Storm ``return( )`` syntax.
 
 
 .. _dev_storm_message:
@@ -54,7 +54,7 @@ Each message has the following basic structure::
 init
 ----
 
-First message sent by a storm query runtime.
+First message sent by a Storm query runtime.
 
 It includes the following keys:
 
@@ -65,7 +65,7 @@ tick
     The epoch time the query execution started (in milliseconds).
 
 text
-    The storm query text.
+    The Storm query text.
 
 Example::
 
@@ -87,7 +87,7 @@ This represents a packed node. Each serialized node will have the following stru
             "tags": {},         # The tags on the node.
             "props": {},        # The node's secondary properties.
             "path": {},         # Path related information in the node.
-            "tagprops": {},     # The nodes tag properties.
+            "tagprops": {},     # The node's tag properties.
 
             # optional
             "repr": ...         # Presentation values for the type value.
@@ -135,7 +135,7 @@ This can be produced by users with the ``$lib.print()`` Storm API.
 warn
 ----
 
-The warn event contains data about a non-fatal errors encountered when processing something.
+The warn event contains data about issues encountered when performing an action.
 
 It includes the following keys:
 
@@ -179,11 +179,7 @@ ename
 mesg
     The ``mesg`` argument to a SynErr exception, if present; or the ``str()`` exception.
 
-If the Storm runtime is cancelled for some reason, there will will be no ``err`` or ``fini`` messages sent.
-This is because the task cancellation may tear down the channel and we would have an async task blocking on
-attempting to send data to a closed channel.
-
-Additional keys may also be present.
+Additional keys may also be present, depending on the exception that was raised.
 
 Example::
 
@@ -220,7 +216,7 @@ Example::
 
 .. note::
 
-    If the Storm runtime is cancelled for some reason, there will will be no ``err`` or ``fini`` messages
+    If the Storm runtime is cancelled for some reason, there will be no ``err`` or ``fini`` messages
     sent. This is because the task cancellation may tear down the channel and we would have an async task
     blocking on attempting to send data to a closed channel.
 
@@ -305,7 +301,7 @@ by the scrape logic is not present in the current View.
 It includes the following key:
 
 ndef
-    A tuple of the form and normalizxed value.
+    A tuple of the form and normalized value.
 
 Example::
 
@@ -337,10 +333,10 @@ Example::
 
 .. _dev_storm_call:
 
-Storm Call APIS
+Storm Call APIs
 ===============
 
-The Telepath ``callStorm()`` and HTTPAPI ``storm/call`` interfaces are designed to return a single message to the
+The Telepath ``callStorm()`` and HTTP API ``storm/call`` interfaces are designed to return a single message to the
 caller, as opposed to a stream of messages. This is done using the Storm ``return( )`` syntax. Common uses for the call
 interfaces include getting and setting values where the full message stream would not be useful.
 
@@ -352,7 +348,7 @@ Example:
 
         # Prox is assumed to be a Telepath proxy to a Cortex.
         >>> text = '$user = $lib.auth.users.byname($name) return ( $user )'
-        >>> opts={'vars': {'name': 'root'}}
+        >>> opts = {'vars': {'name': 'root'}}
         >>> ret = prox.callStorm(text, opts=opts)
         >>> pprint(ret)
         {'admin': True,
@@ -368,14 +364,14 @@ Example:
          'type': 'user'}
 
 
-    The following show setting an API key for a Power-Up. There is no ``return`` statement, so the return value
+    The following shows setting an API key for a Power-Up. There is no ``return`` statement, so the return value
     defaults to None.
 
     .. code:: python3
 
         # Prox is assumed to be a Telepath proxy to a Cortex.
         >>> text = 'foobar.setup.apikey $apikey'
-        >>> opts={'vars': {'apikey': 'secretKey'}}
+        >>> opts = {'vars': {'apikey': 'secretKey'}}
         >>> ret = prox.callStorm(text, opts=opts)
         >>> print(ret)
         None
@@ -455,13 +451,13 @@ Example:
 
     .. code:: python3
 
-        # Using lookup mode, the query text, before switching command mode with a | character,
+        # Using lookup mode, the query text, before switching to command mode with a | character,
         # will have its text scrapped for simple values such as FQDNs, IP Addresses, and Hashes
         # and attempt to lift any matching nodes.
         opts = {'mode': 'lookup'}
 
         # Using autoadds mode, the query text is scrapped like in lookup mode; and for any
-        # values  which we try to lift that do not produce nodes, those nodes will be added
+        # values which we try to lift that do not produce nodes, those nodes will be added
         # in the current view.
         opts = {'mode': 'autoadd'}
 
@@ -605,7 +601,7 @@ vars
 ----
 
 A dictionary of key - value pairs that are mapped into the Storm runtime as variables. Some uses of this include
-providing data to the runtime that is used with a ingest script, or to provide secrets to the Storm runtime so
+providing data to the runtime that is used with an ingest script, or to provide secrets to the Storm runtime so
 that they will not be logged.
 
 Example:
@@ -627,7 +623,7 @@ Example:
 view
 ----
 
-The View iden in which to run the Storm query in. If not specified, the query will run in the users default view.
+The View iden in which to run the Storm query in. If not specified, the query will run in the user's default view.
 
 Example:
 
