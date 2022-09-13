@@ -585,6 +585,23 @@ Example:
         # Only include required messages.
         opts = {'show': []}
 
+task
+----
+
+A user provided guid that is used as the task identifier for the Storm runtime. This allows a user to have a
+predictable identifier that they can use for task cancellation.
+
+The Storm runtime will raise a ``BadArg`` value if the ``task`` iden is associated with a currently running task.
+
+Example:
+
+    .. code:: python3
+
+        # Generate a guid on the client side and provide it to the Cortex
+        import synapse.common as s_commmon
+        task_iden = s_common.guid()
+        opts = {'task': task_iden}
+
 user
 ----
 
