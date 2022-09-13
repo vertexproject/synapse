@@ -554,18 +554,22 @@ class Parser:
     def lookup(self):
         try:
             tree = LarkParser.parse(self.text, start='lookup')
+            newtree = AstConverter(self.text).transform(tree)
+
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
-        newtree = AstConverter(self.text).transform(tree)
+
         newtree.text = self.text
         return newtree
 
     def search(self):
         try:
             tree = LarkParser.parse(self.text, start='search')
+            newtree = AstConverter(self.text).transform(tree)
+
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
-        newtree = AstConverter(self.text).transform(tree)
+
         newtree.text = self.text
         return newtree
 
@@ -575,9 +579,9 @@ class Parser:
         '''
         try:
             tree = LarkParser.parse(self.text, start='cmdrargs')
+            return AstConverter(self.text).transform(tree)
         except lark.exceptions.LarkError as e:
             raise self._larkToSynExc(e) from None
-        return AstConverter(self.text).transform(tree)
 
 def parseQuery(text, mode='storm'):
     '''
