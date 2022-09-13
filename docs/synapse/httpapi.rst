@@ -41,7 +41,7 @@ Authentication
 While not in "insecure" mode, most Synapse HTTP APIs require an authenticated user.
 HTTP API endpoints requiring authentication may be accessed using either HTTP Basic
 authentication via the HTTP "Authorization" header or as part of an authenticated
-session.  For more information on configuring users/roles see TODO.
+session.
 
 To create and use an authenticated session, the HTTP client library must support
 cookies.
