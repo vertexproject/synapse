@@ -514,7 +514,7 @@ Features and Enhancements
 
   ``seenat``
     When used with a ``geo:telem`` target node, the edge indicates the source
-    node was seen a a given location.
+    node was seen a given location.
 
   ``uses``
     When used with a ``ou:org`` node, the edge indicates the target node
@@ -1318,7 +1318,7 @@ Features and Enhancements
     Change the type of the ``:name`` secondary property to ``geo:name``.
 
   ``inet:web:channel``
-    Add a a new form to denote a channel within a web service or instance.
+    Add a new form to denote a channel within a web service or instance.
 
   ``inet:web:instance``
     Add a new form to track an instance of a web service, such as a channel
@@ -5130,7 +5130,7 @@ Improved Documentation
   (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
 - Update to separate the devops guides into distinct sections.
   (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
-- Add documentation for how to do boot-time configuration for a a Synapse Cell.
+- Add documentation for how to do boot-time configuration for a Synapse Cell.
   (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
 - Remove duplicate information about backups.
   (`#1774 <https://github.com/vertexproject/synapse/pull/1774>`_)
