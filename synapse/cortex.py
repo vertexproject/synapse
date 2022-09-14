@@ -3,6 +3,7 @@ import copy
 import regex
 import asyncio
 import logging
+import functools
 import contextlib
 import collections
 
@@ -587,6 +588,14 @@ class CoreApi(s_cell.CellApi):
 
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
+
+    @s_cell.adminapi()
+    async def behold(self):
+        '''
+        Yield Cortex system messages
+        '''
+        async for mesg in self.cell.behold():
+            yield mesg
 
     @s_cell.adminapi()
     async def splices(self, offs=None, size=None, layriden=None):
@@ -2077,6 +2086,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
 
+        await self.feedBeholder('pkg:add', pkgdef)
+
     async def delStormPkg(self, name):
         pkgdef = self.pkghive.get(name, None)
         if pkgdef is None:
@@ -2095,6 +2106,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         await self._dropStormPkg(pkgdef)
+        await self.feedBeholder('pkg:del', {'name': name})
 
     async def getStormPkg(self, name):
         return self.stormpkgs.get(name)
@@ -2374,6 +2386,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ssvc = await self._setStormSvc(sdef)
         await self.svchive.set(iden, sdef)
 
+        await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
         return ssvc.sdef
 
     async def delStormSvc(self, iden):
@@ -2413,6 +2426,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         if ssvc is not None:
             self.svcsbysvcname.pop(ssvc.svcname, None)
             await ssvc.fini()
+
+        await self.feedBeholder('svc:del', {'iden': iden})
 
     async def _delStormSvcPkgs(self, iden):
         '''
@@ -2628,6 +2643,29 @@ class Cortex(s_cell.Cell):  # type: ignore
         ( see CoreApi.watch() docs for details )
         '''
         async with self.watcher(wdef) as wind:
+            async for mesg in wind:
+                yield mesg
+
+    async def feedBeholder(self, name, info):
+        kwargs = {
+            'event': name,
+            'offset': await self.nexsroot.index(),
+            'info': info,
+        }
+        await self.fire('core:beholder', **kwargs)
+
+    @contextlib.asynccontextmanager
+    async def beholder(self):
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+            async def onEvent(mesg):
+                await wind.put(mesg[1])
+
+            self.on('core:beholder', onEvent, base=self)
+
+            yield wind
+
+    async def behold(self):
+        async with self.beholder() as wind:
             async for mesg in wind:
                 yield mesg
 
@@ -3379,6 +3417,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
+        self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
@@ -3689,7 +3728,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         view.init2()
 
         self._calcViewsByLayer()
-        return await view.pack()
+        pack = await view.pack()
+        await self.feedBeholder('view:add', pack)
+        return pack
 
     async def delView(self, iden):
         view = self.views.get(iden)
@@ -3722,6 +3763,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self._calcViewsByLayer()
         await self.auth.delAuthGate(iden)
+        await self.feedBeholder('view:del', {'iden': iden})
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -3752,10 +3794,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.dynitems.pop(iden)
 
         await self.hive.pop(('cortex', 'layers', iden))
+        pack = await layr.pack()
 
         await layr.delete()
 
         layr.deloffs = nexsitem[0]
+
+        await self.feedBeholder('layer:del', {'iden': iden})
 
     async def setViewLayers(self, layers, iden=None):
         '''
@@ -3913,7 +3958,9 @@ class Cortex(s_cell.Cell):  # type: ignore
         else:
             await layr.initLayerPassive()
 
-        return await layr.pack()
+        pack = await layr.pack()
+        await self.feedBeholder('layer:add', pack)
+        return pack
 
     def _checkMaxNodes(self, delta=1):
 
@@ -5147,6 +5194,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(iden, 'cronjob')
         await user.setAdmin(True, gateiden=iden, logged=False)
 
+        await self.feedBeholder('cron:add', cdef)
         return cdef
 
     async def moveCronJob(self, useriden, croniden, viewiden):
@@ -5164,6 +5212,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('cron:move')
     async def _onMoveCronJob(self, croniden, viewiden):
         await self.agenda.move(croniden, viewiden)
+        await self.feedBeholder('cron:move', {'cron': croniden, 'view': viewiden})
         return croniden
 
     @s_nexus.Pusher.onPushAuto('cron:del')
@@ -5180,6 +5229,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         await self.auth.delAuthGate(iden)
+        await self.feedBeholder('cron:del', {'cron': iden})
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):
@@ -5190,6 +5240,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
+        await self.feedBeholder('cron:mod', {'cron': iden})
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
@@ -5200,6 +5251,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.enable(iden)
+        await self.feedBeholder('cron:enable', {'cron': iden})
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -5210,6 +5262,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
+        await self.feedBeholder('cron:disable', {'cron': iden})
 
     async def listCronJobs(self):
         '''
@@ -5239,11 +5292,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if name == 'name':
             await appt.setName(str(valu))
-            return appt.pack()
+            pack = appt.pack()
+            await self.feedBeholder('cron:edit', pack)
+            return pack
 
         if name == 'doc':
             await appt.setDoc(str(valu))
-            return appt.pack()
+            pack = appt.pack()
+            await self.feedBeholder('cron:edit', pack)
+            return pack
 
         mesg = f'editCronJob name {name} is not supported for editing.'
         raise s_exc.BadArg(mesg=mesg)

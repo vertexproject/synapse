@@ -4,6 +4,7 @@ import json
 import aiohttp
 import aiohttp.client_exceptions as a_exc
 
+import synapse.common as s_common
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
@@ -732,6 +733,112 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq('tag:add', mesg['type'])
                     self.eq('test.visi', mesg['data']['tag'])
+
+    async def test_http_beholder(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            await visi.setPasswd('secret')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+
+            async with self.getHttpSess() as sess:
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('AuthDeny', mesg['data']['code'])
+
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq('visi', retn['result']['name'])
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('AuthDeny', mesg['data']['code'])
+
+                await visi.setAdmin(True)
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'bleep blorp'})
+                    mesg = await sock.receive_json()
+                    self.eq('errx', mesg['type'])
+                    self.eq('BadMesgFormat', mesg['data']['code'])
+
+                ssvc = {'iden': s_common.guid(), 'name': 'dups', 'url': 'tcp://127.0.0.1:1/'}
+                spkg = {
+                    'name': 'testy',
+                    'version': (0, 0, 1),
+                    'synapse_minversion': (2, 50, 0),
+                    'modules': (
+                        {'name': 'testy.ingest', 'storm': 'function punch(x, y) { return (($x + $y)) }'},
+                    ),
+                    'commands': (
+                        {
+                            'name': 'testy.dostuff',
+                            'storm': '$ingest = $lib.import("test.ingest") $punch.punch(40, 20)'
+                        },
+                    )
+                }
+
+                async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    await sock.send_json({'type': 'call:init'})
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'init')
+                    view = await core.callStorm('return($lib.view.get().fork().iden)')
+                    cdef = await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+                    layr = await core.callStorm('return($lib.layer.add().iden)')
+
+                    opts = {'vars': {'view': view, 'cron': cdef['iden']}}
+                    await core.callStorm('cron.move $cron $view', opts=opts)
+                    await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
+                    await core.callStorm('cron.disable $cron', opts=opts)
+                    await core.callStorm('cron.enable $cron', opts=opts)
+                    await core.callStorm('cron.del $cron', opts=opts)
+
+                    await core.addStormPkg(spkg)
+                    await core.addStormSvc(ssvc)
+
+                    await core.delStormSvc(ssvc['iden'])
+                    await core.delStormPkg(spkg['name'])
+
+                    await core.callStorm('view.del $view', opts=opts)
+                    await core.callStorm('$lib.layer.del($layr)', opts={'vars': {'layr': layr}})
+
+                    base = 0
+                    mesgs = []
+                    events = [
+                        'layer:add',
+                        'view:add',
+                        'cron:add',
+                        'layer:add',
+                        'cron:move',
+                        'cron:mod',
+                        'cron:disable',
+                        'cron:enable',
+                        'cron:del',
+                        'pkg:add',
+                        'svc:add',
+                        'svc:del',
+                        'pkg:del',
+                        'view:del',
+                        'layer:del',
+                    ]
+                    for event in events:
+                        m = await sock.receive_json()
+                        self.eq(m['type'], 'iter')
+                        data = m.get('data')
+                        self.nn(data)
+                        self.nn(data['info'])
+                        self.eq(event, data['event'])
+
+                        self.gt(data['offset'], base)
+                        base = data['offset']
 
     async def test_http_storm(self):
 
