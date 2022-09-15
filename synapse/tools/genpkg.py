@@ -256,14 +256,10 @@ async def main(argv, outp=s_output.stdout):
 
     if opts.push:
 
-        path = s_common.genpath('~/.syn/telepath.yaml')
-        fini = await s_telepath.loadTeleEnv(path)
+        async with s_telepath.withTeleEnv():
 
-        async with await s_telepath.openurl(opts.push) as core:
-            await core.addStormPkg(pkgdef)
-
-        if fini is not None:  # pragma: no cover
-            await fini()
+            async with await s_telepath.openurl(opts.push) as core:
+                await core.addStormPkg(pkgdef)
 
     return 0
 
