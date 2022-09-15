@@ -5240,7 +5240,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
-        await self.feedBeholder('cron:mod', {'cron': iden})
+        await self.feedBeholder('cron:edit:query', {'cron': iden, 'query': query})
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
@@ -5292,15 +5292,15 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         if name == 'name':
             await appt.setName(str(valu))
-            pack = appt.pack()
-            await self.feedBeholder('cron:edit', pack)
-            return pack
+            pckd = appt.pack()
+            await self.feedBeholder('cron:edit:name', {'iden': iden, 'name': pckd.get('name')})
+            return pckd
 
         if name == 'doc':
             await appt.setDoc(str(valu))
-            pack = appt.pack()
-            await self.feedBeholder('cron:edit', pack)
-            return pack
+            pckd = appt.pack()
+            await self.feedBeholder('cron:edit:doc', {'iden': iden, 'doc': pckd.get('doc')})
+            return pckd
 
         mesg = f'editCronJob name {name} is not supported for editing.'
         raise s_exc.BadArg(mesg=mesg)

@@ -799,6 +799,8 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
                     await core.callStorm('cron.disable $cron', opts=opts)
                     await core.callStorm('cron.enable $cron', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("doc", "some docs")', opts=opts)
                     await core.callStorm('cron.del $cron', opts=opts)
 
                     await core.addStormPkg(spkg)
@@ -811,16 +813,17 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('$lib.layer.del($layr)', opts={'vars': {'layr': layr}})
 
                     base = 0
-                    mesgs = []
                     events = [
                         'layer:add',
                         'view:add',
                         'cron:add',
                         'layer:add',
                         'cron:move',
-                        'cron:mod',
+                        'cron:edit:query',
                         'cron:disable',
                         'cron:enable',
+                        'cron:edit:name',
+                        'cron:edit:doc',
                         'cron:del',
                         'pkg:add',
                         'svc:add',
