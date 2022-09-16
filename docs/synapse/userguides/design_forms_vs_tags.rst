@@ -19,11 +19,12 @@ We include some basic guidance below as background.
 Forms
 -----
 
-In the majority of cases, if there is something you want to represent in Synapse, it should be a form (especially given
-Synapse's hypergraph-based architecture!). Synapse's data model can represent everything from objects, to relationships,
-to events as forms. (See :ref:`data-model-object-categories` for a more detailed discussion.)
+In the majority of cases, if there is something you want to represent in Synapse, it should be a form. Synapse's data
+model can represent everything from objects, to relationships, to events as forms. (See :ref:`data-model-object-categories`
+for a more detailed discussion.)
 
-Forms are more "fixed" in the data model - more structured and less likely to change. They should be used to represent
+As part of Synapse's data mode, forms are more structured and less likely to change. This structure allows you to more
+easily identify relationships between objects in Synapse and to navigate the data. Forms should be used to represent
 things that are observable or verifiable at some level - this is true even for more abstract forms like "vulnerabilities"
 (``risk:vuln``) or "goals" (``ou:goal``). If something represents an assessment or conclusion, it is likely a better
 candidate for a tag.
@@ -41,15 +42,14 @@ it works in Argentina or Malaysia).
 Properties
 ----------
 
-Properties are those details that further define a form. They can be viewed as the form's characteristics - those things
-that further "define" a form. When creating a form, there are probably a number of "things you want to record" about the
-form that immediately come to mind. These are obvious candidates for properties.
+Properties are details that further define a form. When creating a form, there are probably a number of "things you want
+to record" about the form that immediately come to mind. These are obvious candidates for properties.
 
 A few considerations when designing properties:
 
 - Properties should be highly "intrinsic" to their forms. The more closely related something is to an object, the more
-  likely it should be a property. Things that are not highly intrinsic are better candidates for their own forms, for
-  "relationship" forms, or for tags.
+  likely it should be a property of that object. Things that are not highly intrinsic are better candidates for their own
+  forms, for "relationship" forms, or for tags.
 
 - Consider whether a property has enough "thinghood" to also be its own form (and possibly type).
 
@@ -57,7 +57,7 @@ A few considerations when designing properties:
   number of values (largely for performance and visualization purposes). In this situation, a "relationship" form
   might be preferable. Another option would be to "reverse" the property relationship.
   
-  For example, a compromise (``risk:compromise``) may consist of a number of different attacks (``risk:attack``)
+  For example, a compromise (``risk:compromise``) may consist of a number of different attacks (``risk:attack`` nodes)
   representing steps in the overall compromise. Instead of ``risk:compromise`` having an ``:attacks`` array with a
   large number of values, a ``risk:attack`` has a ``:compromise`` property so that multiple attacks can be linked
   back to a single compromise.
@@ -65,18 +65,25 @@ A few considerations when designing properties:
 Light Edges
 -----------
 
-Light edges can replace "relationship" forms in cases where:
+While it is preferable to represent most relationships as forms (which can record additional properties as well as
+tags), light edges can replace "relationship" forms in cases where additional properties or tags are unnecessary.
 
-- You do not need properties to further describe the relationship.
-- You do not need to apply tags to give context to the relationship.
-- The object on one or both sides of the relationship could be any object.
+A more important criteria is where the object on one or both sides of the relationship could be any object.
+
+A data source (``meta:source`` node) can observe or provide data on various objects (such as a hash or an FQDN).
+Creating a relationship form to represent each possible combination of ``meta:source`` node and object complicates
+the data model. This "one-to-many" relationship can be represented more efficiently with a ``seen`` light edge.
+
+Similarly, a variety of objects (articles / ``media:news`` nodes, presenatations / ``ou:presentation`` nodes, files /
+``file:bytes`` nodes, etc.) may contain references to a range of objects of interest, from indicators to people to
+events. This "many-to-many" relationsiph can be represented more efficiently with a ``refs`` (references) light edge.
 
 See :ref:`data-light-edge` for additional discussion.
 
 Tags
 ----
 
-Tags should be used in for:
+Tags should be used for:
 
 - Observations or assessments that may change. The flexibility to add, remove, and migrate or change tags makes
   them useful to represent information that may be re-evaluated over time.
@@ -88,14 +95,73 @@ Tags should be used in for:
     reports. Tags could be used to identify different types of ``media:news`` nodes to make certain nodes easier
     to select (lift).
     
-  - Things tracked using tags (such as threat clusters or threat groups) can easily grow to tens or hundreds of
-    thousands of nodes. A report on the threat group will not include every node. A tag can be used to indicate
-    the "key" nodes / data points / items of interest that form the basis of a report.
+  - Things tracked using tags (such as threat clusters or threat groups, with tags such as ``cno.threat.<threat>``)
+    can easily grow to tens or hundreds of thousands of nodes. A report on the threat group will not include every
+    node. A tag can be used to indicate the "key" nodes / data points / items of interest that form the basis of a
+    report. (The Vertex Project uses "story" tags and subtags to represent key elements of a "story" or report - for
+    example ``vtx.story.<storyname>``, ``vtx.story.<storyname>.core``, etc.)
 
-- Cases where having a tag on a node provides valuable context for an analyst looking at the node (i.e., knowing
+- Cases where having a tag **on a node** provides valuable context for an analyst looking at the node (i.e., knowing
   that an IP address is a TOR exit node).
+  
+Tags can also be used as an initial or interim means to track or record observations before transitioning to a more
+structured representation using the Synapse data model. For example, cyber threat intelligence often tracks targeted
+organizations based on the industry or industries they are a part of. This can be modeled in Synapse by linking an
+organization (``ou:org`` node) to a set of industries (``ou:industry``) that the organization belongs to. But it is up
+to Synapse users to decide on and create the set of named industries (``ou:industry`` nodes) that are most useful to
+their analysis.
+
+It may be easier to initially represent industries using tags placed on ``ou:org`` nodes (such as ``#ind.finance`` or
+``#ind.telecommunications``). This allows you to "try out" (and easily change) a set of industries before making a
+final decision. Later you can create the ``ou:industry`` nodes and convert the tags into model elements.
 
 Tags Associated with Forms
 --------------------------
+
+In some cases, it may be useful to leverage both tags **and** forms for your analysis. This is useful in cases where
+both of the following apply:
+
+- The tag is associated with an assertion about something "concrete" (such as an event or entity) where that object
+  should exist in its own right (i.e., as a node). This allows you to:
   
+  - record information about the object (properties or other tags).
+  - identify relationships (such as shared property values) with other objects.
+  - navigate to related objects within Synapse.
+  
+- The tag is still useful in order to provide valuable context to **other nodes**, where this context would not be
+  clear if a user had to identify it by navigating to other "nearby" data.
+  
+To address this need, forms in the Synapse data model can be directly linked to a tag (``syn:tag`` node) they are
+associated with via an explicit ``:tag`` property. This allows you to still apply the relevant tag to other nodes
+for context, but easily navigate from nodes that have the tag, to the associated ``syn:tag`` node, to the node
+associated with the tag (via the ``:tag`` property).
+
+An example from cyber threat intelligence is the idea of a threat group or threat cluster. A "threat group" is often
+a notional concept that represents an unknown organization or set of individuals responsible for a set of malicious
+activity. It is common to use tags (``#cno.threat.t42``) applied to nodes (such as FQDNs, files, hashes, and so on)
+to associate those indicators with a specific threat group. This is valuable context to immediately identify that an
+indicator is "bad" and assocaited with known activity.
+
+But threat groups - even notional ones - still ultimately represent something in the real world. It is useful to
+record additional information about the threat group, such as other names the group is known by, or a known or
+suspected country of origin. Representing this information as properties makes it easier to query and pivot across,
+and provides greater flexibility over trying to somehow record all of this information on the assocaited ``syn:tag``
+node.
+
+Since **both** approaches are useful, the threat group can be represented as a ``risk:threat`` node with associated
+properties, but **also** linked to its associated tag (``syn:tag = cno.threat.t42``) via the ``risk:threat:tag``
+property.
+
+.. TIP::
+  
+  Tracking threat activity is a good example of how initially using tags can evolve into more concrete and
+  structured representation in the Synapse data model. When researchers identify activity that cannot be associated
+  with a known threat, they commonly create a new threat cluster to track the new incident and associated data.
+  Because little is known about the activity (and associated threat), it's easiest to simply create a tag to represent
+  this. As additional related activity is identified, this new threat may be linked to (and merged with) an existing
+  group (``risk:threat`` node). Or, the new threat cluster may grow on its own to the point where researchers believe
+  it is its own entity - at which point a new ``risk:threat`` node can be created. If, over time, the threat can be
+  tied to a real world entity or organization, the ``risk:threat`` can be linked to an associated organization (``ou:org``)
+  via the ``risk:threat:org`` property.
+
     

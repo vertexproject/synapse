@@ -6,9 +6,8 @@ Design Concepts - Analytical Model
 ==================================
 
 The tag hierarchies (tag trees) that you use to annotate data reprsent your **analytical model**. Your ability to
-conduct effective and meaningful analysis depends in part on ensuring that your particular analytical model is
-well-designed to meet your needs. The tags and tag trees that work best for you may be different from those that
-work well for another organization.
+conduct meaningful analysis depends in part on whether your analytical model is well-designed to meet your needs.
+The tags and tag trees that work best for you may be different from those that work well for another organization.
 
 A full discussion of tag tree design is beyond the scope of this document. However, the following points should be taken into consideration in designing your tags and associated analytical model:
 
@@ -61,8 +60,8 @@ nodes). You want to use tags to annotate the subject matter of the articles. Two
 
 Using Synapse's Storm (:ref:`storm-ref-intro`) query language, it is easy to ask about nodes that have a specific tag
 (``#my.tag``). With Storm you can also ask about tag nodes (``syn:tag = my.tag``) in various ways based on their properties,
-and then pivot from the ``syn:tag`` nodes to nodes that have those tags applied. These latter queries are certainly
-feasible and not difficult, but they are less intuitive in practice.
+and then pivot from the ``syn:tag`` nodes to nodes that have those tags applied. These latter queries are not difficult but
+may be less intuitive in practice.
 
 The example questions below illustrate how your choice of tag structure makes it easier (or harder) to ask certain questions.
 
@@ -137,15 +136,16 @@ Tag (``syn:tag``) nodes allow you to store both short-form and long-form definit
 ``:title`` and ``:doc`` properties, respectively). We recommend that you consistently use these properties to clearly
 define the meaning of the tags you create within Synapse.
 
-Synapse's forms (the data model) and your set of tags (analytical model) should be able to convey key relationships and
-assessments in a concise way. You ability to view nodes and tags and understand their meaning should be simpler (and
-faster) than reading a report about why an analyst interprets X to mean Y.
+Synapse's forms (the data model) and your set of tags (analytical model) should convey key relationships and assessments
+in a concise way. Your ability to view nodes and tags and understand their meaning should be simpler (and faster) than
+reading a report about why an analyst interprets X to mean Y.
 
-That said, tags are a "shorthand" used to represent specific observations and annotations. The meaning of a tag such as ``cno.infra.anon.tor`` may not be readily apparent. There is a risk that different analysts may interpret and use the
+That said, tags are a "shorthand" used to represent specific observations and annotations. The meaning of a tag such as
+``cno.infra.anon.tor`` may not be readily apparent. There is a risk that different analysts may interpret and use the
 same tag in different ways. This risk increases as both the number of tags and the number of different analysts increases.
 
-Storing a tag’s definition directly within Synapse on the associated ``syn:tag`` node makes Synapse "self-documenting": an
-analyst can view the tag’s definition at any time directly within Synapse. You do not need to refer to an external
+Storing a tag’s definition directly within Synapse on the associated ``syn:tag`` node makes Synapse "self-documenting":
+an analyst can view the tag’s definition at any time directly within Synapse. You do not need to refer to an external
 application or dictionary to look up a tag’s precise meaning and appropriate use.
 
 Tag Management
@@ -176,10 +176,10 @@ observations.
 While more detail is sometimes helpful, tag trees should reflect the level of detail that is relevant for **your** analysis,
 and no more. That is, **the analysis being performed should drive the set of tags being used.**
 
-Contrast this with taking an arbitrary model or taxonomy and uses it to create associated tags without considering whether
-that taxonomy is relevant or applicable to the analysis you need to perform. In the best case, using a set of tags that is
-not well-suited can simply be unnecessary - it may provide more detail than you really need. In the worst case, it can
-actually create **more** work for analysts and be detrimental to the analysis process.
+Contrast this with taking an arbitrary model or taxonomy and using it to create associated tags without considering whether
+that taxonomy is relevant or applicable to your analysis. In the best case, using a set of tags that is not well-suited is
+simply be unnecessary - it may provide more detail than you really need. In the worst case, it can actually create **more**
+work for analysts and be detrimental to the analysis process.
 
 Tags often represent an analytical assertion - this generally means that **a human analyst** needs to evaluate the data, 
 make an assessment, and decide what tag (or tags) to apply to the data. If you use too many tags, or overly detailed (deep)
@@ -193,23 +193,24 @@ of meaning that are irrelevant, analysts may get bogged down in "analysis paraly
 tag B is correct when that distinction doesn’t matter to the analysis at hand.
 
 In that situation, the (inappropriate or overly detailed) tags are driving the analysis instead of the analysis driving
-the tags needed to support that analysis. When tags drive the analysis, the act of annotating the data - figuring out
+the tags needed to support the analytical work. When tags drive the analysis, the act of annotating the data - figuring out
 which tags to apply - takes over from performing real analysis.
 
 .. TIP::
   
   When designing a tag tree, we recommend that tags have no more than five elements. For example:
   
-  - ``syn:tag = foo.bar.baz.faz.fuzz``
+  ``syn:tag = foo.bar.baz.faz.fuzz``
   
   As always, your specific use case may vary but this works well as general guidance.
 
 Flexibility
 -----------
 
-Just as a good data model evolves to meet changing needs, your analytical model (tag trees) will do the same. No matter
-carefully you plan your tag structure, you will identify exceptions, edge cases, and new observations that you want to
-capture. As far as possible, your tag structure should be flexible enough to account for future changes.
+Just as a good data model evolves to meet changing needs, your analytical model (tag trees) will expand and change
+over time. No matter how carefully you plan your tag structure, you will identify exceptions, edge cases, and new
+observations that you want to capture. As far as possible, your tag structure should be flexible enough to account for
+future changes.
 
 Within Synapse, it is relatively easy to "migrate" tags (i.e., to decide that a tag should have a different name or reside
 in a different part of the tag tree, and to re-tag existing nodes with the new tag) **as long as the change is one-to-one.**
@@ -270,9 +271,9 @@ can lead to the inability to draw meaningful conclusions; at worst, to faulty an
 
 This inconsistency often occurs as both the number of analysts and the number of tags increase. The larger the team of
 analysts, the more difficult it is for that team to work closely and consistently together. Similarly, the more tags
-available to represent different assessments, the fewer tags an analyst can work with and apply within a given time frame.
-In both cases, analysts may tend to drift towards analytical tasks that are most immediately relevant to their work or most
-interesting to them – thus losing sight of the collective analytical goals of the entire team.
+available to represent different assessments, the fewer tags an analyst can reasonably work with. In both cases, analysts
+may tend to drift towards analytical tasks that are most immediately relevant to their work or most interesting to them –
+thus losing sight of the collective analytical goals of the entire team.
 
 Consider an example of tracking Internet domains that masquerade as legitimate companies for malicious purposes. If some
 analysts are annotating this data but others are not, your ability to answer questions about this data is skewed. Let’s say
@@ -285,8 +286,14 @@ incompletely annotated data. There are gaps in your analysis because the informa
 partially recorded.
 
 As the scope of analysis within Synapse increases, it is essential to recognize these gaps as a potential shortcoming that
-may need to be addressed. Options include establishing policy around which assessments and observations (and associated tags)
-are essential or even required, and which are secondary ("as time allows"). Another approach is to designate individual
-analysts or teams to be responsible for particular tasks and associated tags - often matching their expertise, such as
-"malware analysis". Where automation can be leveraged, Synapse’s tools such as triggers, cron jobs, or macros may also help
-to ensure consistency. (See :ref:`storm-ref-automation` for a more detailed discussion of Synapse's automation tools.)
+may need to be addressed. Options include:
+
+- Establish policy around which assessments and observations (and associated tags) are essential or "required", and
+  which are secondary ("as time allows").
+
+- Designate individual analysts or teams to be responsible for particular tasks and associated tags - often matching
+  their expertise, such as "malware analysis".
+
+- Leverage Synapse’s tools such as triggers, cron jobs, or macros to apply tags in cases where this can be automated.
+  Automation also helps to ensure tags are applied consistently. (See :ref:`storm-ref-automation` for a more detailed
+  discussion of Synapse's automation tools.)

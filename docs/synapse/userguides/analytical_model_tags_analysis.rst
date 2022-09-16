@@ -27,6 +27,7 @@ This analytical model:
   to track financial fraud.
 - **Is tightly coupled with the specific questions you want to answer.** The tags you create and apply should be driven
   by your particular analysis goals.
+  
   - The tags should annotate assessments and conclusions that are **important to your analysis.**
   - The tags should allow you to ask **meaningful questions** of your data.
 
@@ -76,7 +77,7 @@ tags.
 
 .. TIP::
   
-  The specific tags referenced below are based on The Vertex Project's tag trees and are based on our conventions.
+  The specific tags referenced below are based on The Vertex Project's tag trees and are use our conventions.
   Use what works for you!
 
 
@@ -110,7 +111,8 @@ used to obfuscate a piece of malware. When a node represents an instance of the 
 tag the node with the TTP in question.
 
 For example, you have an email message (RFC822 file) that you assess is a phishing attack. You can tag the relevant
-node or nodes (such as ``file:bytes`` and / or ``inet:email:message``) with that TTP:
+node or nodes (such as the ``file:bytes`` of the message and / or the ``inet:email:message`` node reprsenting the
+message metadta) with that TTP:
 
 ``cno.ttp.phish.message``
 
@@ -229,7 +231,7 @@ A number of possibilities (hypotheses) exist, such as:
 
 - Hypothesis 1: The domain is NOT malicious.
 - Hypothesis 2: The domain IS malicious, but is not meant to imitate anything.
-- Hypothesis 3: The domain IS malicious, and is meant to imitate a legitimate resources.
+- Hypothesis 3: The domain IS malicious, and is meant to imitate a legitimate resource.
 
 The tag (or tags) the analyst decides to apply depend on which hypotheses they can prove or disprove (assert are
 true, or not).
@@ -251,7 +253,7 @@ our top-level tag, ``ttp`` for our TTP sub-tree, ``se`` for social engineering T
 Individual Hypotheses to Broader Reasoning
 ++++++++++++++++++++++++++++++++++++++++++
 
-You may not annotate complex hypotheses explicitly within Synapse (that is, as tags applied to individual nodes).
+You may not annotate **complex** hypotheses explicitly within Synapse (that is, as tags applied to individual nodes).
 But these larger hypotheses may be supported (or refuted) by individual tags or combinations of tags (the results
 of smaller, more focused hypotheses) on nodes.
 
@@ -270,7 +272,7 @@ associated with the file is ``cno.threat.t12`` or some other cluster.
 You are able to take tags associated with simple assessments ("this file exploits CVE-2021-9999" or "this file is
 associated with Threat Cluster 12") and combine nodes (files / ``file:bytes``), properties (``:mime:pe:compiled``),
 and tags to answer a more complex question. That's the power of Synapse (and of a good analytical model / set of
-tags!).
+tags)!
 
 .. NOTE::
   
@@ -279,10 +281,10 @@ tags!).
   that are not yet associated with a Threat Cluster, etc.)
   
   Assuming you have completed your research and the data is in Synapse and tagged appropriately, you can easily
-  answer the above question using the Storm query language:
+  answer the above question using the Storm query language using a query such as the following:
   
   ::
     
-    file:bytes#rep.vt.cve_2021_9999 +#cno.threat | max :mime:pe:compiled | -> # +yn:tag#cno.threat
+    file:bytes#rep.vt.cve_2021_9999 +#cno.threat | min :mime:pe:compiled | -> # +syn:tag^=cno.threat
   
 
