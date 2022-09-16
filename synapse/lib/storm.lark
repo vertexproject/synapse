@@ -296,11 +296,6 @@ _callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | 
 _LPARNOSPACE.2: /(?<!\s)\(/
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
-    | _FILTMUST _condexpr ")" -> filtopermust
-    | _FILTNOT _condexpr ")" -> filtopernot
-
-_FILTMUST: "+("
-_FILTNOT: "-("
 
 // Condition used for filters
 // TODO:  unify cond and dollarexpr

@@ -84,8 +84,6 @@ TerminalPygMap = {
     '_ELSE': p_t.Keyword,
     '_EMBEDQUERYSTART': p_t.Punctuation,
     '_EMIT': p_t.Keyword,
-    '_FILTMUST': p_t.Punctuation,
-    '_FILTNOT': p_t.Punctuation,
     '_FINI': p_t.Keyword,
     '_HASH': p_t.Punctuation,
     '_HASHSPACE': p_t.Punctuation,
