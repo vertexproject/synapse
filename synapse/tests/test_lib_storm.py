@@ -3997,3 +3997,8 @@ class StormTest(s_t_utils.SynTest):
             q = 'media:news:org#test.*.bar:score'
             msgs = await core.stormlist(q)
             self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
+
+            self.eq(3, await core.callStorm('$foo=(2) return(($foo+(1)))'))
+            self.eq(1, await core.callStorm('$foo=(2) return(($foo-(1)))'))
+            self.eq(3, await core.callStorm('return(((2)+(1)))'))
+            self.eq(1, await core.callStorm('return(((2)-(1)))'))
