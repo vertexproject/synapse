@@ -39,8 +39,10 @@ async def main(argv, outp=s_output.stdout):
     sanitized_url = s_urlhelp.sanitizeUrl(url)
 
     try:
-        prox = await asyncio.wait_for(s_telepath.openurl(url),
-                                      timeout=opts.timeout)
+        async with s_telepath.withTeleEnv():
+
+            prox = await asyncio.wait_for(s_telepath.openurl(url),
+                                          timeout=opts.timeout)
     except (FileNotFoundError, ConnectionError, socket.gaierror) as e:
         mesg = f'Unable to connect to cell @ {sanitized_url}.'
         ret = {'status': 'failed',
