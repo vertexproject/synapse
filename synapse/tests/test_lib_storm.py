@@ -3998,7 +3998,12 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
 
+            await core.nodes('inet:ipv4=45.79.131.138 -> inet:flow -(:dst:port=444 or :dst:port=80)')
+            await core.nodes('media:news=0c7f7267d3b62432cb0d7d0e9d3108a4 -(refs)> inet:ipv4 <(refs)- file:bytes')
+
             self.eq(3, await core.callStorm('$foo=(2) return(($foo+(1)))'))
             self.eq(1, await core.callStorm('$foo=(2) return(($foo-(1)))'))
             self.eq(3, await core.callStorm('return(((2)+(1)))'))
             self.eq(1, await core.callStorm('return(((2)-(1)))'))
+            self.eq(True, await core.callStorm('$foo=(2) return(($foo<(3)))'))
+            self.eq(True, await core.callStorm('return(((2)<(3)))'))

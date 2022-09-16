@@ -1,3 +1,6 @@
+from abc import ABC, abstractmethod
+from lark.lark import PostLex
+
 import ast
 
 import lark  # type: ignore
@@ -9,6 +12,46 @@ import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.datfile as s_datfile
+
+class StormContext(PostLex, ABC):
+
+    def _process(self, stream):
+        stack = []
+        for token in stream:
+            if token.type == 'LSQB':
+                stack.append('[')
+            elif token.type == 'LPAR':
+                stack.append('(')
+            elif stack:
+                if token.type == 'RSQB' and stack[-1] == '[':
+                    stack.pop()
+                elif token.type in 'RPAR' and stack[-1] == '(':
+                    stack.pop()
+
+            if token == '<(':
+                if len(stack) >= 1 and stack[-1] == '(' and not (len(stack) >=2 and stack[-2] == '['):
+                    yield lark.lexer.Token.new_borrow_pos('CMPR', '<', token)
+                    yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
+                    continue
+
+            elif token == '+(':
+                if len(stack) >= 1 and (stack[-1] == '[' or (len(stack) >=2 and stack[-1] == '(' and stack[-2] == '[')):
+                    yield token
+                else:
+                    yield lark.lexer.Token.new_borrow_pos('EXPRPLUS', '+', token)
+                    yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
+                continue
+
+            elif token == '-(':
+                if len(stack) >= 1 and stack[-1] == '(' and not (len(stack) >=2 and stack[-2] == '['):
+                    yield lark.lexer.Token.new_borrow_pos('EXPRMINUS', '-', token)
+                    yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
+                    continue
+
+            yield token
+
+    def process(self, stream):
+        return self._process(stream)
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
@@ -93,6 +136,8 @@ terminalEnglishMap = {
     '_ARRAYCONDSTART': '*[',
     '_COLONDOLLAR': ':$',
     '_DEREF': '*',
+    '_EDGEADDN1INIT': '+(',
+    '_EDGEN1INIT': '-(',
     '_EDGEADDN2FINI': ')+',
     '_EDGEN1FINI': ')>',
     '_EDGEN2INIT': '<(',
@@ -469,7 +514,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
-                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr', postlex=StormContext())
 
 class Parser:
     '''
@@ -665,6 +710,8 @@ ruleClassMap = {
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
+    'filtopermust': lambda kids: s_ast.FiltOper([s_ast.Const('+')] + kids),
+    'filtopernot': lambda kids: s_ast.FiltOper([s_ast.Const('-')] + kids),
     'forloop': s_ast.ForLoop,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
