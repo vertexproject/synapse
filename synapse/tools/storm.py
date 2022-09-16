@@ -396,26 +396,22 @@ async def main(argv, outp=s_output.stdout):
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
-    path = s_common.getSynPath('telepath.yaml')
-    telefini = await s_telepath.loadTeleEnv(path)
+    async with s_telepath.withTeleEnv():
 
-    async with await s_telepath.openurl(opts.cortex) as proxy:
+        async with await s_telepath.openurl(opts.cortex) as proxy:
 
-        if telefini is not None:
-            proxy.onfini(telefini)
+            async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
 
-        async with await StormCli.anit(proxy, outp=outp, opts=opts) as cli:
+                if opts.onecmd:
+                    await cli.runCmdLine(opts.onecmd)
+                    return
 
-            if opts.onecmd:
-                await cli.runCmdLine(opts.onecmd)
-                return
+                # pragma: no cover
+                cli.colorsenabled = True
+                cli.printf(welcome)
 
-            # pragma: no cover
-            cli.colorsenabled = True
-            cli.printf(welcome)
-
-            await cli.addSignalHandlers()
-            await cli.runCmdLoop()
+                await cli.addSignalHandlers()
+                await cli.runCmdLoop()
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))

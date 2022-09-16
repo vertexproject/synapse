@@ -1,6 +1,7 @@
 import sys
 import json
 import pprint
+import asyncio
 import argparse
 import logging
 
@@ -11,7 +12,7 @@ import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
-def main(argv, outp=s_output.stdout):
+async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='cryo.cat', description='display data items from a cryo cell')
     pars.add_argument('cryotank', help='The telepath URL for the remote cryotank.')
@@ -38,31 +39,33 @@ def main(argv, outp=s_output.stdout):
 
     logger.info(f'connecting to: {opts.cryotank}')
 
-    with s_telepath.openurl(opts.cryotank) as tank:
+    async with s_telepath.withTeleEnv():
 
-        if opts.ingest:
+        async with await s_telepath.openurl(opts.cryotank) as tank:
 
-            if opts.msgpack:
-                items = list(s_msgpack.iterfd(sys.stdin.buffer))
-                tank.puts(items)
+            if opts.ingest:
+
+                if opts.msgpack:
+                    items = list(s_msgpack.iterfd(sys.stdin.buffer))
+                    await tank.puts(items)
+                    return 0
+
+                items = [json.loads(line) for line in sys.stdin]
+                await tank.puts(items)
                 return 0
 
-            items = [json.loads(line) for line in sys.stdin]
-            tank.puts(items)
-            return 0
+            async for item in tank.slice(opts.offset, opts.size):
 
-        for item in tank.slice(opts.offset, opts.size):
+                if opts.jsonl:
+                    outp.printf(json.dumps(item[1], sort_keys=True))
 
-            if opts.jsonl:
-                outp.printf(json.dumps(item[1], sort_keys=True))
+                elif opts.msgpack:
+                    sys.stdout.buffer.write(s_msgpack.en(item[1]))
 
-            elif opts.msgpack:
-                sys.stdout.buffer.write(s_msgpack.en(item[1]))
-
-            else:
-                outp.printf(pprint.pformat(item))
+                else:
+                    outp.printf(pprint.pformat(item))
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
     logging.basicConfig()
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(asyncio.run(main(sys.argv[1:])))
