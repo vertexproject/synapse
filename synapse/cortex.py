@@ -3,7 +3,6 @@ import copy
 import regex
 import asyncio
 import logging
-import functools
 import contextlib
 import collections
 
