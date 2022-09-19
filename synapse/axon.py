@@ -750,13 +750,7 @@ class Axon(s_cell.Cell):
         },
     }
 
-    async def __anit__(self, dirn, conf=None):  # type: ignore
-
-        await s_cell.Cell.__anit__(self, dirn, conf=conf)
-
-        # share ourself via the cell dmon as "axon"
-        # for potential default remote use
-        self.dmon.share('axon', self)
+    async def initServiceStorage(self):  # type: ignore
 
         path = s_common.gendir(self.dirn, 'axon.lmdb')
         self.axonslab = await s_lmdbslab.Slab.anit(path)
@@ -776,12 +770,17 @@ class Axon(s_cell.Cell):
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
 
-        self.addHealthFunc(self._axonHealth)
-
         # modularize blob storage
         await self._initBlobStor()
 
+    async def initServiceRuntime(self):
+
+        # share ourself via the cell dmon as "axon"
+        # for potential default remote use
+        self.dmon.share('axon', self)
+
         self._initAxonHttpApi()
+        self.addHealthFunc(self._axonHealth)
 
     async def getCellInfo(self):
         info = await s_cell.Cell.getCellInfo(self)
@@ -1676,7 +1675,8 @@ def _spawn_readlines(sock): # pragma: no cover
 def _spawn_readrows(sock, dialect, fmtparams): # pragma: no cover
     try:
 
-        with sock.makefile('r') as fd:
+        # Assume utf8 encoding and ignore errors.
+        with sock.makefile('r', errors='ignore') as fd:
 
             try:
 

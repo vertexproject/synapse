@@ -194,18 +194,31 @@ class TestUtils(s_t_utils.SynTest):
 
         await self.asyncraises(ZeroDivisionError, araiser())
 
-    async def test_storm_mesgs(self):
+    async def test_storm_msgs(self):
 
         async with self.getTestCore() as core:
 
-            mesgs = await core.stormlist('[test:str=1234] | count')
-            self.stormIsInPrint('Counted 1 nodes.', mesgs)
+            msgs = await core.stormlist('[test:str=1234] | count')
+            self.stormIsInPrint('Counted 1 nodes.', msgs)
 
-            mesgs = await core.stormlist('iden newp')
-            self.stormIsInWarn('Failed to decode iden', mesgs)
+            msgs = await core.stormlist('iden newp')
+            self.stormIsInWarn('Failed to decode iden', msgs)
 
-            mesgs = await core.stormlist('[test:str=')
-            self.stormIsInErr("Unexpected token 'end of input'", mesgs)
+            msgs = await core.stormlist('[test:str=')
+            self.stormIsInErr("Unexpected token 'end of input'", msgs)
+
+            with self.raises(AssertionError):
+                self.stormHasNoErr(msgs)
+
+            with self.raises(AssertionError):
+                self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('test:str')
+            self.stormHasNoErr(msgs)
+
+            msgs = await core.stormlist('test:str $lib.warn("oh hi")')
+            with self.raises(AssertionError):
+                self.stormHasNoWarnErr(msgs)
 
     async def test_stable_uids(self):
         with self.withStableUids():

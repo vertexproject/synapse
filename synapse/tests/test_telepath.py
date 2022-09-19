@@ -18,6 +18,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.link as s_link
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -1405,3 +1406,43 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl(furl) as proxy:
                 self.isin('synapse.tests.test_telepath.Foo', proxy._getClasses())
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
+
+    async def test_tls_ciphers(self):
+
+        self.thisHostMustNot(platform='darwin')
+
+        foo = Foo()
+
+        async with self.getTestDmon() as dmon:
+            # As a workaround to a Python bug (https://bugs.python.org/issue30945) that prevents localhost:0 from
+            # being connected via TLS, make a certificate for whatever my hostname is and sign it with the test CA
+            # key.
+            hostname = socket.gethostname()
+
+            dmon.certdir.genHostCert(hostname, signas='ca')
+
+            _, port = await dmon.listen(f'ssl://{hostname}:0')
+
+            dmon.share('foo', foo)
+
+            # Ensure tls listener is working before trying downgraded versions
+            async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port) as prox:
+                self.eq(30, await prox.bar(10, 20))
+
+            sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
+            with self.raises(ssl.SSLError):
+                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+
+            sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_1)
+            with self.raises(ssl.SSLError):
+                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+
+            sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+            sslctx.set_ciphers('ADH-AES256-SHA')
+            with self.raises(ssl.SSLError):
+                link = await s_link.connect(hostname, port=port, ssl=sslctx)
+
+            sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+            sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
+            with self.raises(ConnectionResetError):
+                link = await s_link.connect(hostname, port=port, ssl=sslctx)

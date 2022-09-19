@@ -488,6 +488,7 @@ Queries = [
     '$x = $(1 -3.2 / -3.2)',
     '$x = $(1 + 3 / 2    )',
     '$x = $((1 + 3)/ 2)',
+    '$x = (2 ** 4)',
     '$foo=42 $foo2=43 $x = $($foo * $foo2)',
     '$yep=$(42 < 43)',
     '$yep=$(42 > 43)',
@@ -1033,6 +1034,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: -, ExprNode: [Const: 3.2, Const: /, Const: -3.2]]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 1, Const: +, ExprNode: [Const: 3, Const: /, Const: 2]]]]]',
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [DollarExpr: [ExprNode: [Const: 1, Const: +, Const: 3]], Const: /, Const: 2]]]]',
+    'Query: [SetVarOper: [Const: x, DollarExpr: [ExprNode: [Const: 2, Const: **, Const: 4]]]]',
     'Query: [SetVarOper: [Const: foo, Const: 42], SetVarOper: [Const: foo2, Const: 43], SetVarOper: [Const: x, DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: *, VarValue: [Const: foo2]]]]]',
     'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: <, Const: 43]]]]',
     'Query: [SetVarOper: [Const: yep, DollarExpr: [ExprNode: [Const: 42, Const: >, Const: 43]]]]',
@@ -1160,6 +1162,11 @@ class GrammarTest(s_t_utils.SynTest):
         args = parser.cmdrargs()
         self.eq(args, ['add', '--filter={inet:fqdn | limit 1}'])
 
+        query = 'add {uniq +#*}'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.cmdrargs()
+
     def test_mode_lookup(self):
         q = '1.2.3.4 vertex.link | spin'
         parser = s_parser.Parser(q)
@@ -1167,10 +1174,20 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(str(tree), 'Lookup: [LookList: [Const: 1.2.3.4, Const: vertex.link], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
 
+        query = '1.2.3.4 | uniq +#*'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.lookup()
+
     def test_mode_search(self):
         tree = s_parser.parseQuery('foo bar | spin', mode='search')
         self.eq(str(tree), 'Search: [LookList: [Const: foo, Const: bar], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
+
+        query = '1.2.3.4 | uniq +#*'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.search()
 
     def test_mode_storm(self):
         # added for coverage of the top level function...

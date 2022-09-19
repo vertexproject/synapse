@@ -367,6 +367,7 @@ EXPRPLUS.2: "+"
 EXPRMINUS.2: "-"
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
+EXPRPOW.2: "**"
 NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![^\s)*\/+\-=><!~]|(?>(\(((?>[^()"']+|(?3)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)])*,)/
 HEXNUMBER.1: /-?0x[0-9a-fA-F]+(?![^\s)*\/+\-=><!~]|(?>(\(((?>[^()"']+|(?1)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)])*,)/
 BOOL.2: /true|false/
@@ -380,5 +381,6 @@ AND.2: "and"
 ?exprnot: exprcmp | NOT exprcmp
 ?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
-?exprproduct: _expratom | exprproduct (EXPRTIMES | EXPRDIVIDE) _expratom
+?exprproduct: exprpow | exprproduct (EXPRTIMES | EXPRDIVIDE) exprpow
+?exprpow: _expratom | exprpow EXPRPOW _expratom
 _expratom: _exprvalu

@@ -49,7 +49,7 @@ def initloop():
         try:
             _glob_loop = asyncio.get_running_loop()
             # if we get here, it's us!
-            _glob_thrd = threading.currentThread()
+            _glob_thrd = threading.current_thread()
             # Enable debug and greedy coro collection
             setGreedCoro(_glob_loop)
 

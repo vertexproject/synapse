@@ -999,8 +999,6 @@ class SetItemOper(Oper):
     '''
     async def run(self, runt, genr):
 
-        vkid = self.kids[1]
-
         count = 0
         async for node, path in genr:
 
@@ -1289,7 +1287,7 @@ class LiftByArray(LiftOper):
 
         name = await self.kids[0].compute(runt, path)
         cmpr = await self.kids[1].compute(runt, path)
-        valu = await toprim(await self.kids[2].compute(runt, path))
+        valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
         async for node in runt.snap.nodesByPropArray(name, cmpr, valu):
             yield node
@@ -1305,7 +1303,7 @@ class LiftTagProp(LiftOper):
         if len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
-            valu = await toprim(await self.kids[2].compute(runt, path))
+            valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             async for node in runt.snap.nodesByTagPropValu(None, tag, prop, cmpr, valu):
                 yield node
@@ -1330,7 +1328,7 @@ class LiftFormTagProp(LiftOper):
         if len(self.kids) == 3:
 
             cmpr = await self.kids[1].compute(runt, path)
-            valu = await toprim(await self.kids[2].compute(runt, path))
+            valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
             async for node in runt.snap.nodesByTagPropValu(form, tag, prop, cmpr, valu):
                 yield node
@@ -1487,7 +1485,7 @@ class LiftPropBy(LiftOper):
 
         valu = await valukid.compute(runt, path)
         if not isinstance(valu, s_node.Node):
-            valu = await s_stormtypes.toprim(valu, path)
+            valu = await s_stormtypes.tostor(valu)
 
         async for node in runt.snap.nodesByPropValu(name, cmpr, valu):
             yield node
@@ -2139,12 +2137,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return size == valu
 
         return cond
@@ -2153,11 +2155,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2166,11 +2172,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2179,11 +2189,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size >= valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return False
 
         return cond
@@ -2192,11 +2206,15 @@ class SubqCond(Cond):
 
         async def cond(node, path):
 
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return False
 
+            if item:
+                path.vars.update(item[1].vars)
             return True
 
         return cond
@@ -2206,12 +2224,16 @@ class SubqCond(Cond):
         async def cond(node, path):
 
             size = 0
+            item = None
             valu = s_stormtypes.intify(await self.kids[2].compute(runt, path))
 
             async for size, item in self._runSubQuery(runt, node, path):
                 if size > valu:
+                    path.vars.update(item[1].vars)
                     return True
 
+            if item:
+                path.vars.update(item[1].vars)
             return size != valu
 
         return cond
@@ -2230,7 +2252,8 @@ class SubqCond(Cond):
 
         async def cond(node, path):
             genr = s_common.agen((node, path))
-            async for _ in subq.run(runt, genr):
+            async for _, subp in subq.run(runt, genr):
+                path.vars.update(subp.vars)
                 return True
             return False
 
@@ -2572,7 +2595,7 @@ class RelPropCond(Cond):
 
             xval = await valukid.compute(runt, path)
             if not isinstance(xval, s_node.Node):
-                xval = await s_stormtypes.toprim(xval, path)
+                xval = await s_stormtypes.tostor(xval)
 
             ctor = prop.type.getCmprCtor(cmpr)
             if ctor is None:
@@ -2863,6 +2886,9 @@ async def expr_div(x, y):
         return x // y
     return x / y
 
+async def expr_pow(x, y):
+    return await tonumber(x) ** await tonumber(y)
+
 async def expr_eq(x, y):
     return await tocmprvalu(x) == await tocmprvalu(y)
 async def expr_ne(x, y):
@@ -2888,6 +2914,7 @@ _ExprFuncMap = {
     '-': expr_sub,
     '*': expr_mul,
     '/': expr_div,
+    '**': expr_pow,
     '=': expr_eq,
     '!=': expr_ne,
     '~=': expr_re,
@@ -2963,7 +2990,14 @@ class TagName(Value):
         if self.isconst:
             return self.constval
 
-        vals = [await tostr(await k.compute(runt, path)) for k in self.kids]
+        vals = []
+        for kid in self.kids:
+            part = await kid.compute(runt, path)
+            if part is None:
+                mesg = f'Null value from var ${kid.name} is not allowed in tag names.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+            vals.append(await tostr(part))
+
         return '.'.join(vals)
 
 class TagMatch(TagName):
@@ -3099,7 +3133,8 @@ class EditParens(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
@@ -3193,7 +3228,8 @@ class EditNodeAdd(Edit):
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         runtsafe = self.isRuntSafe(runt)
 
@@ -3229,7 +3265,7 @@ class EditNodeAdd(Edit):
                     raise s_exc.NoSuchForm(name=formname)
 
                 valu = await self.kids[2].compute(runt, None)
-                valu = await s_stormtypes.toprim(valu)
+                valu = await s_stormtypes.tostor(valu)
 
                 try:
                     for valu in form.type.getTypeVals(valu):
@@ -3255,7 +3291,8 @@ class EditPropSet(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
@@ -3288,7 +3325,7 @@ class EditPropSet(Edit):
                 else:
                     valu = await rval.compute(runt, path)
 
-                valu = await s_stormtypes.toprim(valu)
+                valu = await s_stormtypes.tostor(valu)
 
                 if isadd or issub:
 
@@ -3342,7 +3379,8 @@ class EditPropDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         async for node, path in genr:
             name = await self.kids[0].compute(runt, path)
@@ -3365,7 +3403,8 @@ class EditUnivDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         univprop = self.kids[0]
         assert isinstance(univprop, UnivProp)
@@ -3499,7 +3538,8 @@ class EditEdgeAdd(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         # SubQuery -> Query
         query = self.kids[1].kids[0]
@@ -3547,7 +3587,8 @@ class EditEdgeDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         query = self.kids[1].kids[0]
 
@@ -3583,7 +3624,8 @@ class EditTagAdd(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
             oper_offset = 1
@@ -3598,8 +3640,13 @@ class EditTagAdd(Edit):
 
         async for node, path in genr:
 
-            names = await self.kids[oper_offset].compute(runt, path)
-            names = await s_stormtypes.toprim(names)
+            try:
+                names = await self.kids[oper_offset].compute(runt, path)
+                names = await s_stormtypes.toprim(names)
+            except excignore:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
 
             if not isinstance(names, tuple):
                 names = (names,)
@@ -3607,6 +3654,9 @@ class EditTagAdd(Edit):
             for name in names:
 
                 try:
+                    if name is None:
+                        raise s_exc.BadTypeValu(mesg='Null tag names are not allowed.')
+
                     normtupl = await runt.snap.getTagNorm(name)
                     if normtupl is None:
                         continue
@@ -3632,7 +3682,8 @@ class EditTagDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         async for node, path in genr:
 
@@ -3668,7 +3719,8 @@ class EditTagPropSet(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
@@ -3678,7 +3730,7 @@ class EditTagPropSet(Edit):
             tag, prop = await self.kids[0].compute(runt, path)
 
             valu = await self.kids[2].compute(runt, path)
-            valu = await s_stormtypes.toprim(valu)
+            valu = await s_stormtypes.tostor(valu)
 
             normtupl = await runt.snap.getTagNorm(tag)
             if normtupl is None:
@@ -3708,7 +3760,8 @@ class EditTagPropDel(Edit):
     async def run(self, runt, genr):
 
         if runt.readonly:
-            raise s_exc.IsReadOnly()
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise s_exc.IsReadOnly(mesg=mesg)
 
         async for node, path in genr:
 

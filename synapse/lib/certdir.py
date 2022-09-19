@@ -887,8 +887,11 @@ class CertDir:
         Args:
             certname:   If specified, use the user certificate with the matching
                         name to authenticate to the remote service.
+        Returns:
+            ssl.SSLContext: A SSLContext object.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
         self._loadCasIntoSSLContext(sslctx)
 
         if certname is not None:
@@ -922,12 +925,14 @@ class CertDir:
 
         Args:
 
-            hostname:  if None, the value from socket.gethostname is used to find the key in the servers directory.
+            hostname:  If None, the value from socket.gethostname is used to find the key in the servers directory.
                        This name should match the not-suffixed part of two files ending in .key and .crt in the hosts
-                       subdirectory
+                       subdirectory.
 
             caname: If not None, the given name is used to locate a CA certificate used to validate client SSL certs.
 
+        Returns:
+            ssl.SSLContext: A SSLContext object.
         '''
         if hostname is not None and hostname.find(',') != -1:
             # multi-hostname SNI routing has been requested
@@ -948,6 +953,7 @@ class CertDir:
 
     def _getServerSSLContext(self, hostname=None, caname=None):
         sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
         if hostname is None:
             hostname = socket.gethostname()
 

@@ -305,3 +305,10 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(('cool guy', 'vice president'), [n.ndef[1] for n in nodes])
 
             self.len(1, await core.nodes('ou:jobtitle="vice president" -> ps:contact'))
+
+    async def test_modelrev_0_2_12(self):
+        async with self.getRegrCore('model-0.2.12') as core:
+            self.len(1, await core.nodes('geo:name=woot'))
+            self.len(1, await core.nodes('pol:country -> geo:name'))
+            self.len(1, await core.nodes('risk:alert:taxonomy=hehe'))
+            self.len(1, await core.nodes('risk:alert -> risk:alert:taxonomy'))

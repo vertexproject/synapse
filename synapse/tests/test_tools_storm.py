@@ -1,4 +1,5 @@
 import os
+import subprocess
 import synapse.tests.utils as s_test
 
 import synapse.common as s_common
@@ -169,3 +170,11 @@ class StormCliTest(s_test.SynTest):
                 await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 text = str(outp)
                 self.isin('No property named test:newp.', text)
+
+                proc = subprocess.Popen(['python', '-m', 'synapse.tools.storm', lurl], stdout=subprocess.PIPE, shell=True)
+                try:
+                    stdout, _ = proc.communicate(timeout=1)
+                except subprocess.TimeoutExpired:
+                    proc.terminate()
+                    stdout, _ = proc.communicate()
+                    self.isin('Welcome to the Storm interpreter!', stdout.decode())
