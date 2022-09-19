@@ -16,20 +16,20 @@ class StormContext(PostLex):
 
     def __init__(self):
         self.postlexMap = {
-            'LSQB': self.pushCtx,
-            'LPAR': self.pushCtx,
-            '_LPARNOSPACE': self.pushCtx,
             'LBRACE': self.pushCtx,
             '_ARRAYCONDSTART': self.pushCtx,
+            'LPAR': self.pushCtx,
+            '_LPARNOSPACE': self.pushCtx,
+            'LSQB': self.pushCtx,
 
+            'RBRACE': self.popCtx,
+            'RPAR': self.popCtx,
             'RSQB': self.popCtx,
             'RSQBNOSPACE': self.popCtx,
-            'RPAR': self.popCtx,
-            'RBRACE': self.popCtx,
 
+            '_EDGEADDN1INIT': self.edgeAddN1Init,
             '_EDGEN1INIT': self.edgeN1Init,
             '_EDGEN2INIT': self.edgeN2Init,
-            '_EDGEADDN1INIT': self.edgeAddN1Init,
         }
 
     def pushCtx(self, token, ctxs):
@@ -41,6 +41,13 @@ class StormContext(PostLex):
             ctxs.pop()
         yield token
 
+    def edgeAddN1Init(self, token, ctxs):
+        if not (ctxs and ctxs[-1] == '[' or (len(ctxs) >= 2 and ctxs[-1] == '(' and ctxs[-2] == '[')):
+            yield lark.lexer.Token.new_borrow_pos('EXPRPLUS', '+', token)
+            yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
+        else:
+            yield token
+
     def edgeN1Init(self, token, ctxs):
         if ctxs and ctxs[-1] == '(' and not (len(ctxs) >= 2 and ctxs[-2] == '['):
             yield lark.lexer.Token.new_borrow_pos('EXPRMINUS', '-', token)
@@ -51,13 +58,6 @@ class StormContext(PostLex):
     def edgeN2Init(self, token, ctxs):
         if ctxs and ctxs[-1] == '(' and not (len(ctxs) >= 2 and ctxs[-2] == '['):
             yield lark.lexer.Token.new_borrow_pos('CMPR', '<', token)
-            yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
-        else:
-            yield token
-
-    def edgeAddN1Init(self, token, ctxs):
-        if not (ctxs and ctxs[-1] == '[' or (len(ctxs) >= 2 and ctxs[-1] == '(' and ctxs[-2] == '[')):
-            yield lark.lexer.Token.new_borrow_pos('EXPRPLUS', '+', token)
             yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
         else:
             yield token
