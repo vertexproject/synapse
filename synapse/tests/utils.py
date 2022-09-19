@@ -1261,6 +1261,82 @@ class SynTest(unittest.TestCase):
                 async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
                     yield aha
 
+    @contextlib.asynccontextmanager
+    async def getTestAhaProv(self, conf=None, dirn=None):
+        '''
+        Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
+
+        Args:
+            conf: Optional configuraiton information for the Aha cell.
+            dirn: Optional path to create the Aha cell in.
+
+        Returns:
+            s_aha.AhaCell: The provisioned Aha cell.
+        '''
+        bconf = {
+            'aha:name': 'aha',
+            'aha:network': 'loop.vertex.link',
+            'provision:listen': 'ssl://aha.loop.vertex.link:0'
+        }
+
+        if conf is None:
+            conf = bconf
+        else:
+            for k, v in bconf.items():
+                conf.setdefault(k, v)
+
+        name = conf.get('aha:name')
+        netw = conf.get('aha:network')
+        dnsname = f'{name}.{netw}'
+
+        async with self.getTestAha(conf=conf, dirn=dirn) as aha:
+            addr, port = aha.provdmon.addr
+            # update the config to reflect the dynamically bound port
+            aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+            # do this config ex-post-facto due to port binding...
+            host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+            aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+
+            yield aha
+
+    @contextlib.asynccontextmanager
+    async def addSvcToAha(self, aha, svcname, ctor,
+                          conf=None, dirn=None, provinfo=None):
+        '''
+        Creates as service and provision it in a Aha network via the provisioning API.
+
+        This assumes the Aha cell has a provision:listen and aha:urls set.
+
+        Args:
+            aha (s_aha.AhaCell): Aha cell.
+            svcname (str): Service name.
+            ctor: Service class to add.
+            conf (dict): Optional service conf.
+            dirn (str): Optional directory.
+        '''
+        onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
+
+        if conf is None:
+            conf = {}
+
+        conf['aha:provision'] = onetime
+
+        waiter = aha.waiter(1, 'aha:svcadd')
+
+        if dirn:
+
+            s_common.yamlsave(conf, dirn, 'cell.yaml')
+            async with await ctor.anit(dirn, conf=conf) as svc:
+                self.len(1, await waiter.wait(timeout=12))
+                yield svc
+        else:
+            with self.getTestDir() as dirn:
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+                async with await ctor.anit(dirn, conf=conf) as svc:
+                    self.len(1, await waiter.wait(timeout=12))
+                    yield svc
+
     async def addSvcToCore(self, svc, core, svcname='svc'):
         '''
         Add a service to a Cortex using telepath over tcp.
