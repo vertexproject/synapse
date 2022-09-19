@@ -2086,7 +2086,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.loadStormPkg(pkgdef)
         await self.pkghive.set(name, pkgdef)
 
-        await self.feedBeholder('pkg:add', pkgdef)
+        gates = []
+        perms = []
+        pkgperms = pkgdef.get('perms')
+        if pkgperms:
+            gates = [p['gate'] for p in pkgperms if p.get('gate') is not None]
+            perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
+        await self.feedBeholder('pkg:add', pkgdef, gates=gates, perms=perms)
 
     async def delStormPkg(self, name):
         pkgdef = self.pkghive.get(name, None)
@@ -2106,7 +2112,14 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         await self._dropStormPkg(pkgdef)
-        await self.feedBeholder('pkg:del', {'name': name})
+
+        gates = []
+        perms = []
+        pkgperms = pkgdef.get('perms')
+        if pkgperms:
+            gates = [p['gate'] for p in pkgperms if p.get('gate') is not None]
+            perms = [p['perm'] for p in pkgperms if p.get('perm') is not None]
+        await self.feedBeholder('pkg:del', {'name': name}, gates=gates, perms=perms)
 
     async def getStormPkg(self, name):
         return self.stormpkgs.get(name)
@@ -2646,12 +2659,25 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
-    async def feedBeholder(self, name, info):
+    async def feedBeholder(self, name, info, gates=None, perms=None):
         kwargs = {
             'event': name,
             'offset': await self.nexsroot.index(),
             'info': info,
         }
+
+        if gates:
+            g = []
+            for gate in gates:
+                g.append(await self.getAuthGate(gate))
+            kwargs['authgates'] = g
+
+        if perms:
+            p = []
+            for perm in perms:
+                p.append(await self.getPermDef(perm))
+            kwargs['auth:perms'] = p
+
         await self.fire('core:beholder', **kwargs)
 
     @contextlib.asynccontextmanager
@@ -3729,7 +3755,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self._calcViewsByLayer()
         pack = await view.pack()
-        await self.feedBeholder('view:add', pack)
+        await self.feedBeholder('view:add', pack, gates=[iden])
         return pack
 
     async def delView(self, iden):
@@ -3763,7 +3789,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         self._calcViewsByLayer()
         await self.auth.delAuthGate(iden)
-        await self.feedBeholder('view:del', {'iden': iden})
+        await self.feedBeholder('view:del', {'iden': iden}, gates=[iden])
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -3800,7 +3826,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
         layr.deloffs = nexsitem[0]
 
-        await self.feedBeholder('layer:del', {'iden': iden})
+        await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
 
     async def setViewLayers(self, layers, iden=None):
         '''
@@ -3959,7 +3985,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             await layr.initLayerPassive()
 
         pack = await layr.pack()
-        await self.feedBeholder('layer:add', pack)
+        await self.feedBeholder('layer:add', pack, gates=[iden])
         return pack
 
     def _checkMaxNodes(self, delta=1):
@@ -5194,7 +5220,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         await self.auth.addAuthGate(iden, 'cronjob')
         await user.setAdmin(True, gateiden=iden, logged=False)
 
-        await self.feedBeholder('cron:add', cdef)
+        await self.feedBeholder('cron:add', cdef, gates=[iden])
         return cdef
 
     async def moveCronJob(self, useriden, croniden, viewiden):
@@ -5212,7 +5238,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('cron:move')
     async def _onMoveCronJob(self, croniden, viewiden):
         await self.agenda.move(croniden, viewiden)
-        await self.feedBeholder('cron:move', {'cron': croniden, 'view': viewiden})
+        await self.feedBeholder('cron:move', {'cron': croniden, 'view': viewiden}, gates=[croniden])
         return croniden
 
     @s_nexus.Pusher.onPushAuto('cron:del')
@@ -5229,7 +5255,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         await self.auth.delAuthGate(iden)
-        await self.feedBeholder('cron:del', {'cron': iden})
+        await self.feedBeholder('cron:del', {'cron': iden}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):
@@ -5240,7 +5266,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
-        await self.feedBeholder('cron:edit:query', {'cron': iden, 'query': query})
+        await self.feedBeholder('cron:edit:query', {'cron': iden, 'query': query}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
@@ -5251,7 +5277,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.enable(iden)
-        await self.feedBeholder('cron:enable', {'cron': iden})
+        await self.feedBeholder('cron:enable', {'cron': iden}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -5262,7 +5288,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
-        await self.feedBeholder('cron:disable', {'cron': iden})
+        await self.feedBeholder('cron:disable', {'cron': iden}, gates=[iden])
 
     async def listCronJobs(self):
         '''
@@ -5293,13 +5319,13 @@ class Cortex(s_cell.Cell):  # type: ignore
         if name == 'name':
             await appt.setName(str(valu))
             pckd = appt.pack()
-            await self.feedBeholder('cron:edit:name', {'iden': iden, 'name': pckd.get('name')})
+            await self.feedBeholder('cron:edit:name', {'iden': iden, 'name': pckd.get('name')}, gates=[iden])
             return pckd
 
         if name == 'doc':
             await appt.setDoc(str(valu))
             pckd = appt.pack()
-            await self.feedBeholder('cron:edit:doc', {'iden': iden, 'doc': pckd.get('doc')})
+            await self.feedBeholder('cron:edit:doc', {'iden': iden, 'doc': pckd.get('doc')}, gates=[iden])
             return pckd
 
         mesg = f'editCronJob name {name} is not supported for editing.'

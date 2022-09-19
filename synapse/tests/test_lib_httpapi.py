@@ -783,7 +783,14 @@ class HttpApiTest(s_tests.SynTest):
                             'name': 'testy.dostuff',
                             'storm': '$ingest = $lib.import("test.ingest") $punch.punch(40, 20)'
                         },
-                    )
+                    ),
+                    'perms': (
+                        {
+                            'perm': ('test', 'testy', 'permission'),
+                            'gate': 'cortex',
+                            'desc': 'a test gate',
+                        },
+                    ),
                 }
 
                 async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
@@ -794,7 +801,9 @@ class HttpApiTest(s_tests.SynTest):
                     cdef = await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
                     layr = await core.callStorm('return($lib.layer.add().iden)')
 
-                    opts = {'vars': {'view': view, 'cron': cdef['iden']}}
+                    opts = {'vars': {'view': view, 'cron': cdef['iden'], 'layr': layr}}
+                    await core.callStorm('$lib.view.get($view).set(name, "a really okay view")', opts=opts)
+                    await core.callStorm('$lib.layer.get($layr).set(name, "some kinda layer")', opts=opts)
                     await core.callStorm('cron.move $cron $view', opts=opts)
                     await core.callStorm('cron.mod $cron {[test:guid=*]}', opts=opts)
                     await core.callStorm('cron.disable $cron', opts=opts)
@@ -818,6 +827,8 @@ class HttpApiTest(s_tests.SynTest):
                         'view:add',
                         'cron:add',
                         'layer:add',
+                        'view:set',
+                        'layer:set',
                         'cron:move',
                         'cron:edit:query',
                         'cron:disable',
@@ -838,8 +849,17 @@ class HttpApiTest(s_tests.SynTest):
                         data = m.get('data')
                         self.nn(data)
                         self.nn(data['info'])
+                        self.ge(len(data['info']), 1)
                         self.eq(event, data['event'])
 
+                        if not event.startswith('svc'):
+                            self.nn(data['authgates'])
+                            self.ge(len(data['authgates']), 1)
+                        else:
+                            breakpoint()
+                            print(event)
+
+                        # offset always goes up
                         self.gt(data['offset'], base)
                         base = data['offset']
 

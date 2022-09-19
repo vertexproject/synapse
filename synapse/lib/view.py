@@ -609,6 +609,7 @@ class View(s_nexus.Pusher):  # type: ignore
         else:
             await self.info.set(name, valu)
 
+        await self.core.feedBeholder('view:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden, self.layers[0].iden])
         return valu
 
     async def addLayer(self, layriden, indx=None):
@@ -640,6 +641,7 @@ class View(s_nexus.Pusher):  # type: ignore
             self.layers.insert(indx, layr)
 
         await self.info.set('layers', [lyr.iden for lyr in self.layers])
+        await self.core.feedBeholder('view:addlayer', {'iden': self.iden, 'layer': layriden, 'indx': indx}, gates=[self.iden, layriden])
 
     @s_nexus.Pusher.onPushAuto('view:setlayers')
     async def setLayers(self, layers):
@@ -669,6 +671,7 @@ class View(s_nexus.Pusher):  # type: ignore
         self.layers = layrs
 
         await self.info.set('layers', layers)
+        await self.core.feedBeholder('view:setlayers', {'iden': self.iden, 'layers': layers}, gates=[self.iden, layers[0]])
 
     async def fork(self, ldef=None, vdef=None):
         '''
