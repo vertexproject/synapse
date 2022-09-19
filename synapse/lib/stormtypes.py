@@ -3802,7 +3802,7 @@ class Str(Prim):
          'type': {'type': 'function', '_funcname': '_methStrSize',
                   'returns': {'type': 'int', 'desc': 'The size of the string.', }}},
         {'name': 'format', 'desc': '''
-        Format a text string from an existing string..
+        Format a text string from an existing string.
 
         Examples:
             Format a string with a fixed argument and a variable::
