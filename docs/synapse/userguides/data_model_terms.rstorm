@@ -65,7 +65,7 @@ may be defined by a **constructor** (``ctor``) that specifies how a property of 
 For the most part, users do not interact with types directly. Types are primarily used "behind the scenes" to define
 and support the Synapse data model. From a user perspective:
 
-- **Strong typing** means every element in Synapse has a type. **Forms** to define the objects that can be represented
+- **Strong typing** means every element in Synapse has a type. **Forms** define the objects that can be represented
   in Synapse. Forms have **properties** (primary and secondary) and every property is defined as a particular type.
 
 - **Type enforcement** helps prevent "bad data" from getting into Synapse. Synapse has "rules" for how properties

@@ -50,15 +50,11 @@ questions efficiently).
 
 See :ref:`design-analytical-model` for considerations in designing tags and tag trees.
 
-* * *
-
-See :ref:`design-forms-vs-tags` for considerations on whether to model something as a form, a property, a tag, or a
+See :ref:`design-general` for considerations on whether to model something as a form, a property, a tag, or a
 tag associated with a node.
 
-See :ref:`<reference_goes_here>` for Synapse's ability to link tags to nodes to more easily cross-reference tags
+See :ref:`design-tags-and-forms` for Synapse's ability to link tags to nodes to more easily cross-reference tags
 with data model elements that those tags represent.
-
-* * *
 
 Domain-Specific Assessments
 +++++++++++++++++++++++++++
@@ -257,34 +253,38 @@ You may not annotate **complex** hypotheses explicitly within Synapse (that is, 
 But these larger hypotheses may be supported (or refuted) by individual tags or combinations of tags (the results
 of smaller, more focused hypotheses) on nodes.
 
-You are tracking Threat Cluster 12 and believe that this group was the first to use a particular zero-day exploit,
-which targets a vulnerability represented by CVE-2021-9999 (a nubmer we made up). The exploit is delivered via a
-malicious XLSX file. To prove (or disprove) your hypothesis that "Threat Group 12 was the first to use the
-zero day associated with CVE-2021-9999", you could query Synapse for all files (``file:bytes`` nodes) that:
+A newly identified zero-day exploit has been circulating in the wild and is in use by multiple threat groups. The
+associated vulnerability has been assigned CVE-2021-9999 (a number we made up). The exploit is delivered via a
+malicious XLSX file sent as an email (phishing) attachment.
+
+You believe that "Threat Group 12 was the first group to use the zero day associated with CVE-2021-9999". To prove
+or disprove this hypothesis, you could query Synapse for all files (``file:bytes`` nodes) that:
 
 - are known to exploit CVE-2021-9999 (e.g., have a tag such as ``rep.vt.cve_2021_9999``)
 - are associated with a known threat cluster or threat group (e.g., are tagged ``cno.threat.<cluster>``)
 
-You can then identify the file (``file:bytes``) with the earliest compile time (``:mime:pe:compiled`` property),
-verify that the compile time was **before** the vulnerability was patched, and see if the threat cluster tag
-associated with the file is ``cno.threat.t12`` or some other cluster.
+If you have data for any associated phishing messages, you can pivot from the malicious XLSX files to their
+associated emails (``inet:email:message:attachment -> inet:email:message``) and look for the phishing message
+with the oldest date in order to identify the threat group associated with that earliest known email - and whether
+that group was Threat Group 12 or some other group.
 
 You are able to take tags associated with simple assessments ("this file exploits CVE-2021-9999" or "this file is
-associated with Threat Cluster 12") and combine nodes (files / ``file:bytes``), properties (``:mime:pe:compiled``),
+associated with Threat Cluster 12") and combine nodes (files / ``file:bytes``), properties (``inet:email:message:date``),
 and tags to answer a more complex question. That's the power of Synapse (and of a good analytical model / set of
 tags)!
 
 .. NOTE::
   
   This example is simplified; you would of course perform additional research besides what is described above
-  (such as searching for additional malware samples that exploit the vulnerability, checking for earlier samples
-  that are not yet associated with a Threat Cluster, etc.)
+  (such as searching for additional samples that exploit the vulnerability and any associated phishing
+  attempts, attributing identified samples that are not yet associated with a Threat Cluster, etc.)
   
   Assuming you have completed your research and the data is in Synapse and tagged appropriately, you can easily
   answer the above question using the Storm query language using a query such as the following:
   
   ::
     
-    file:bytes#rep.vt.cve_2021_9999 +#cno.threat | min :mime:pe:compiled | -> # +syn:tag^=cno.threat
+    file:bytes#rep.vt.cve_2021_9999 +#cno.threat -> inet:email:message:attachment 
+      -> inet:email:message | min :date | -> # +syn:tag^=cno.threat
   
 

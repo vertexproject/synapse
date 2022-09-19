@@ -16,6 +16,8 @@ In designing both data and analytical models, one of the first choices that must
 Every modeling decision is unique, and a full discussion of the modeling process is beyond the scope of these documents.
 We include some basic guidance below as background.
 
+.. _design-forms:
+
 Forms
 -----
 
@@ -23,7 +25,7 @@ In the majority of cases, if there is something you want to represent in Synapse
 model can represent everything from objects, to relationships, to events as forms. (See :ref:`data-model-object-categories`
 for a more detailed discussion.)
 
-As part of Synapse's data mode, forms are more structured and less likely to change. This structure allows you to more
+As part of Synapse's data model, forms are more structured and less likely to change. This structure allows you to more
 easily identify relationships between objects in Synapse and to navigate the data. Forms should be used to represent
 things that are observable or verifiable at some level - this is true even for more abstract forms like "vulnerabilities"
 (``risk:vuln``) or "goals" (``ou:goal``). If something represents an assessment or conclusion, it is likely a better
@@ -38,6 +40,8 @@ when used as an email sender, the email address will be present in the ``:from``
 We also recommend desiging forms broadly - this may require some out-of-the-box thinking to consider how the form may
 apply to other fields, disciplines, or even locales ("how something works" in the United States may be different from how
 it works in Argentina or Malaysia).
+
+.. _design-props:
 
 Properties
 ----------
@@ -61,7 +65,9 @@ A few considerations when designing properties:
   representing steps in the overall compromise. Instead of ``risk:compromise`` having an ``:attacks`` array with a
   large number of values, a ``risk:attack`` has a ``:compromise`` property so that multiple attacks can be linked
   back to a single compromise.
- 
+
+.. _design-edges:
+
 Light Edges
 -----------
 
@@ -70,15 +76,18 @@ tags), light edges can replace "relationship" forms in cases where additional pr
 
 A more important criteria is where the object on one or both sides of the relationship could be any object.
 
-A data source (``meta:source`` node) can observe or provide data on various objects (such as a hash or an FQDN).
-Creating a relationship form to represent each possible combination of ``meta:source`` node and object complicates
-the data model. This "one-to-many" relationship can be represented more efficiently with a ``seen`` light edge.
+- A data source (``meta:source`` node) can observe or provide data on various objects (such as a hash or an FQDN).
+  Creating a relationship form to represent each possible combination of ``meta:source`` node and object complicates
+  the data model. This "one-to-many" relationship can be represented more efficiently with a ``seen`` light edge.
 
-Similarly, a variety of objects (articles / ``media:news`` nodes, presenatations / ``ou:presentation`` nodes, files /
-``file:bytes`` nodes, etc.) may contain references to a range of objects of interest, from indicators to people to
-events. This "many-to-many" relationsiph can be represented more efficiently with a ``refs`` (references) light edge.
+- Similarly, a variety of objects (articles / ``media:news`` nodes, presenatations / ``ou:presentation`` nodes,
+  files / ``file:bytes`` nodes, etc.) may contain references to a range of objects of interest, from indicators to
+  people to events. This "many-to-many" relationship can be represented more efficiently with a ``refs`` (references)
+  light edge.
 
 See :ref:`data-light-edge` for additional discussion.
+
+.. _design-tags:
 
 Tags
 ----
@@ -95,14 +104,16 @@ Tags should be used for:
     reports. Tags could be used to identify different types of ``media:news`` nodes to make certain nodes easier
     to select (lift).
     
-  - Things tracked using tags (such as threat clusters or threat groups, with tags such as ``cno.threat.<threat>``)
-    can easily grow to tens or hundreds of thousands of nodes. A report on the threat group will not include every
-    node. A tag can be used to indicate the "key" nodes / data points / items of interest that form the basis of a
-    report. (The Vertex Project uses "story" tags and subtags to represent key elements of a "story" or report - for
-    example ``vtx.story.<storyname>``, ``vtx.story.<storyname>.core``, etc.)
+  - Data tracked using tags (such as indicators or other objects associated with threat clusters - i.e.,
+    ``#cno.threat.<threat>``) can easily grow to tens or hundreds of thousands of nodes. A report on the threat
+    group will not include every tagged node. A tag can be used to indicate the "key" nodes / data points / items
+    of interest that form the basis of a report. (The Vertex Project uses "story" tags and subtags to represent key
+    elements of a report / "story" - for example ``vtx.story.<storyname>``, ``vtx.story.<storyname>.core``, etc.)
 
 - Cases where having a tag **on a node** provides valuable context for an analyst looking at the node (i.e., knowing
-  that an IP address is a TOR exit node).
+  that an IP address is a TOR exit node). While this same context may be available by examining nearby connections in
+  the data model (e.g., an IP address may be linked to a server with an open port running the TOR service), having
+  the context on the node itself is particularly useful.
   
 Tags can also be used as an initial or interim means to track or record observations before transitioning to a more
 structured representation using the Synapse data model. For example, cyber threat intelligence often tracks targeted
@@ -112,8 +123,10 @@ to Synapse users to decide on and create the set of named industries (``ou:indus
 their analysis.
 
 It may be easier to initially represent industries using tags placed on ``ou:org`` nodes (such as ``#ind.finance`` or
-``#ind.telecommunications``). This allows you to "try out" (and easily change) a set of industries before making a
-final decision. Later you can create the ``ou:industry`` nodes and convert the tags into model elements.
+``#ind.telecommunications``). This allows you to "try out" (and easily change) a set of industries / industry names
+before making a final decision. Later you can create the ``ou:industry`` nodes and convert the tags into model elements.
+
+.. _design-tags-and-forms:
 
 Tags Associated with Forms
 --------------------------
@@ -145,8 +158,8 @@ indicator is "bad" and assocaited with known activity.
 But threat groups - even notional ones - still ultimately represent something in the real world. It is useful to
 record additional information about the threat group, such as other names the group is known by, or a known or
 suspected country of origin. Representing this information as properties makes it easier to query and pivot across,
-and provides greater flexibility over trying to somehow record all of this information on the assocaited ``syn:tag``
-node.
+and provides greater flexibility over trying to somehow record all of this information on the node
+``syn:tag=cno.threat.t42``.
 
 Since **both** approaches are useful, the threat group can be represented as a ``risk:threat`` node with associated
 properties, but **also** linked to its associated tag (``syn:tag = cno.threat.t42``) via the ``risk:threat:tag``
@@ -161,7 +174,7 @@ property.
   this. As additional related activity is identified, this new threat may be linked to (and merged with) an existing
   group (``risk:threat`` node). Or, the new threat cluster may grow on its own to the point where researchers believe
   it is its own entity - at which point a new ``risk:threat`` node can be created. If, over time, the threat can be
-  tied to a real world entity or organization, the ``risk:threat`` can be linked to an associated organization (``ou:org``)
-  via the ``risk:threat:org`` property.
+  tied to a real world entity or organization, the ``risk:threat`` can be linked to an organization (``ou:org``) via
+  the ``risk:threat:org`` property.
 
     
