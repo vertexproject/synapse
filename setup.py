@@ -88,7 +88,7 @@ setup(
         'PyYAML>=5.4,<6.1.0',
         'aiohttp>=3.8.1,<4.0',
         'aiohttp-socks>=0.6.1,<0.7.0',
-        'aioimaplib>=0.9.0,<0.10.0',
+        'aioimaplib>=1.0.1,<1.1.0',
         'aiosmtplib>=1.1.7,<2.0',
         'prompt-toolkit>=3.0.4,<3.1.0',
         'lark==1.1.2',
