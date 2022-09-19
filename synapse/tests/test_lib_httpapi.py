@@ -794,10 +794,48 @@ class HttpApiTest(s_tests.SynTest):
                 }
 
                 async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
+                    root = await core.auth.getUserByName('root')
                     await sock.send_json({'type': 'call:init'})
                     mesg = await sock.receive_json()
                     self.eq(mesg['type'], 'init')
-                    view = await core.callStorm('return($lib.view.get().fork().iden)')
+
+                    base = 0
+                    layr, view = await core.callStorm('''
+                        $view = $lib.view.get().fork()
+                        return(($view.layers.0.iden, $view.iden))
+                    ''')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.len(1, data['gates'])
+                    self.eq(data['event'], 'layer:add')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    info = data['info']
+                    self.eq(info['creator'], root.iden)
+                    self.eq(info['iden'], layr)
+
+                    gate = data['gates'][0]
+                    self.eq(gate['iden'], layr)
+                    self.eq(gate['type'], 'layer')
+                    self.len(1, gate['users'])
+
+                    user = gate['users'][0]
+                    self.eq(user['iden'], root.iden)
+                    self.true(user['admin'])
+
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    info = data['info']
+                    self.eq(data['event'], 'view:add')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    self.eq(info['creator'], root.iden)
+                    self.eq(info['iden'], view)
+
                     cdef = await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
                     layr = await core.callStorm('return($lib.layer.add().iden)')
 
@@ -819,12 +857,10 @@ class HttpApiTest(s_tests.SynTest):
                     await core.delStormPkg(spkg['name'])
 
                     await core.callStorm('view.del $view', opts=opts)
-                    await core.callStorm('$lib.layer.del($layr)', opts={'vars': {'layr': layr}})
+                    await core.callStorm('$lib.layer.del($layr)', opts=opts)
 
                     base = 0
                     events = [
-                        'layer:add',
-                        'view:add',
                         'cron:add',
                         'layer:add',
                         'view:set',
@@ -843,6 +879,8 @@ class HttpApiTest(s_tests.SynTest):
                         'view:del',
                         'layer:del',
                     ]
+
+                    mesgs = []
                     for event in events:
                         m = await sock.receive_json()
                         self.eq(m['type'], 'iter')
@@ -853,15 +891,16 @@ class HttpApiTest(s_tests.SynTest):
                         self.eq(event, data['event'])
 
                         if not event.startswith('svc'):
-                            self.nn(data['authgates'])
-                            self.ge(len(data['authgates']), 1)
-                        else:
-                            breakpoint()
-                            print(event)
+                            self.nn(data['gates'])
+                            self.ge(len(data['gates']), 1)
+
+                        if event.startswith('pkg'):
+                            self.len(1, data['perms'])
 
                         # offset always goes up
                         self.gt(data['offset'], base)
                         base = data['offset']
+                        mesgs.append(data)
 
     async def test_http_storm(self):
 

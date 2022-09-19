@@ -2669,14 +2669,18 @@ class Cortex(s_cell.Cell):  # type: ignore
         if gates:
             g = []
             for gate in gates:
-                g.append(await self.getAuthGate(gate))
-            kwargs['authgates'] = g
+                authgate = await self.getAuthGate(gate)
+                if gate:
+                    g.append(authgate)
+            kwargs['gates'] = g
 
         if perms:
             p = []
             for perm in perms:
-                p.append(await self.getPermDef(perm))
-            kwargs['auth:perms'] = p
+                permdef = await self.getPermDef(perm)
+                if permdef:
+                    p.append(permdef)
+            kwargs['perms'] = p
 
         await self.fire('core:beholder', **kwargs)
 
@@ -5238,7 +5242,7 @@ class Cortex(s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('cron:move')
     async def _onMoveCronJob(self, croniden, viewiden):
         await self.agenda.move(croniden, viewiden)
-        await self.feedBeholder('cron:move', {'cron': croniden, 'view': viewiden}, gates=[croniden])
+        await self.feedBeholder('cron:move', {'iden': croniden, 'view': viewiden}, gates=[croniden])
         return croniden
 
     @s_nexus.Pusher.onPushAuto('cron:del')
@@ -5255,7 +5259,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             return
 
         await self.auth.delAuthGate(iden)
-        await self.feedBeholder('cron:del', {'cron': iden}, gates=[iden])
+        await self.feedBeholder('cron:del', {'iden': iden}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):
@@ -5266,7 +5270,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.mod(iden, query)
-        await self.feedBeholder('cron:edit:query', {'cron': iden, 'query': query}, gates=[iden])
+        await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:enable')
     async def enableCronJob(self, iden):
@@ -5277,7 +5281,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.enable(iden)
-        await self.feedBeholder('cron:enable', {'cron': iden}, gates=[iden])
+        await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -5288,7 +5292,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             iden (bytes):  The iden of the cron job to be changed
         '''
         await self.agenda.disable(iden)
-        await self.feedBeholder('cron:disable', {'cron': iden}, gates=[iden])
+        await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
 
     async def listCronJobs(self):
         '''
