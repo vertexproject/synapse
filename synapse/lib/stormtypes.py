@@ -3807,7 +3807,7 @@ class Str(Prim):
         Examples:
             Format a string with a fixed argument and a variable::
 
-                $list=(1,2,3,4) $foo='Hello {name}, list is {list}!'.format(name='Reader', list=$list)
+                $template='Hello {name}, list is {list}!' $list=(1,2,3,4) $new=$template.format(name='Reader', list=$list)
 
                 ''',
          'type': {'type': 'function', '_funcname': '_methStrFormat',
