@@ -12,7 +12,7 @@ Assuming data is collected and modeled accurately within Synapse, the data itsel
 flexible and readily modified if needed.
 
 Every knowledge domain has its own focus and set of analytical questions it attempts to answer. The "answers" to some
-of these questions can be recorded in Synapase as tags applied to relevant nodes. These tags provide **context** to
+of these questions can be recorded in Synapse as tags applied to relevant nodes. These tags provide **context** to
 the data in Synapse.
 
 The Synapse **data model** for tags is simple - it consists of the single ``syn:tag`` form. The appropriate **use** of
@@ -21,7 +21,7 @@ tags to annotate data is more nuanced. You can think of tags - their structure a
 
 This analytical model:
 
-- **Is largely independently from the data model.** You do not need to write code to implement new tags or design
+- **Is largely independent from the data model.** You do not need to write code to implement new tags or design
   a tag structure; you simply need to create the appropriate ``syn:tag`` nodes.
 - **Is specific to an analytical discipline.** Tags used for cyber threat analysis will be very different from tags used
   to track financial fraud.
@@ -73,8 +73,8 @@ tags.
 
 .. TIP::
   
-  The specific tags referenced below are based on The Vertex Project's tag trees and are use our conventions.
-  Use what works for you!
+  The specific tags referenced below are based on The Vertex Project's tag trees and use our conventions. Use
+  what works for you!
 
 
 Threat Clusters
@@ -107,13 +107,13 @@ used to obfuscate a piece of malware. When a node represents an instance of the 
 tag the node with the TTP in question.
 
 For example, you have an email message (RFC822 file) that you assess is a phishing attack. You can tag the relevant
-node or nodes (such as the ``file:bytes`` of the message and / or the ``inet:email:message`` node reprsenting the
-message metadta) with that TTP:
+node or nodes (such as the ``file:bytes`` of the message and / or the ``inet:email:message`` node representing the
+message metadata) with that TTP:
 
 ``cno.ttp.phish.message``
 
 Where ``cno`` is our top-level tag, ``ttp`` represents the TTP sub-tree, ``phish`` represents assessments related to
-phishing, and ``message`` indicates the node(s) represesnt the phishing email (e.g., as opposed to an attachment or
+phishing, and ``message`` indicates the node(s) represent the phishing email (e.g., as opposed to an attachment or
 URL representing the phishing ``payload``, or the sending email address or IP representing the ``source``).
 
 Third-Party Assertions
@@ -131,7 +131,7 @@ But the report may make it clear that the reporter associates the IOCs with part
 or threat groups.
 
 Shodan's label indicating that an IPv4 address hosted a VPN and ESET's reporting that a SHA1 hash is associated with
-the X-Agent malware family are both assertions. These assertions are valuable data and can be a useful to your analysis.
+the X-Agent malware family are both assertions. These assertions are valuable data and can be useful to your analysis.
 
 That said, you may not have the means to **verify** these assertions yourself. To accept the assertion at face value
 means you need to trust the third-party in question. "Trust" may include things like understanding the source of the
@@ -238,7 +238,7 @@ DNS infrastructure, or seeing if the FQDN shows up in public reporting of malici
 If Hypothesis 1 is true, we would not tag the FQDN. If Hypothesis 2 is true, we can simply assert that the FQDN is
 malicious (with a tag such as ``cno.mal``).
 
-If Hypotheis 2 is true, deciding on Hypothesis 3 may be trickier. Does the FQDN "look like" anything
+If Hypothesis 2 is true, deciding on Hypothesis 3 may be trickier. Does the FQDN "look like" anything
 familiar? It may "look like" Akamai CDN (content delivery network) but that's a bit of a stretch...maybe it is just
 a coincidence? Do we have any context around **how** the FQDN was used maliciously that might indicate that the
 threat actors wanted to mislead victims into thinking the FQDN was associated with Akamai?

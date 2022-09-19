@@ -5,7 +5,7 @@
 Design Concepts - Analytical Model
 ==================================
 
-The tag hierarchies (tag trees) that you use to annotate data reprsent your **analytical model**. Your ability to
+The tag hierarchies (tag trees) that you use to annotate data represent your **analytical model**. Your ability to
 conduct meaningful analysis depends in part on whether your analytical model is well-designed to meet your needs.
 The tags and tag trees that work best for you may be different from those that work well for another organization.
 
@@ -228,7 +228,7 @@ it later" frees up analysts or developers to experiment.
 
 It is harder to modify tags by "splitting" them. For example, if you create the tag ``foo.bar`` and later decide that you
 really want to track two variations of ``bar`` (such as ``foo.bar.um`` and ``foo.bar.wut``), it can be painstaking to review
-your existing ``foo.bar`` nodes to separate them into the appropraite categories.
+your existing ``foo.bar`` nodes to separate them into the appropriate categories.
 
 Precision
 ---------
@@ -242,7 +242,7 @@ associated with. It might be tempting to create a tag such as:
 
 - ``syn:tag = cno.viciouswombat.redtree``
 
-...to show that an indicator with that tag (such as an FQDN) is associated with both the Vicous Wombat threat group and
+...to show that an indicator with that tag (such as an FQDN) is associated with both the Vicious Wombat threat group and
 the Redtree malware family.
 
 That's all well and good, until:

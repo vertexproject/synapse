@@ -36,7 +36,7 @@ This example shows the **node** for the tag ``syn:tag = rep.feye.apt1``:
 
 The ``syn:tag`` node has the following properties:
 
-- ``.created``, which is a universal property showing when the node was added to Synapse.
+- ``.created``, which is a universal property showing when the node was added to a Cortex.
 - ``:title`` and ``:doc``, which store concise and more detailed definitions for the tag. Having definitions on tag nodes
   helps ensure tags are applied (and interpreted) correctly by Synapse analysts and other users.
 

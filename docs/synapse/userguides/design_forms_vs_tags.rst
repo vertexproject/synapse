@@ -37,7 +37,7 @@ used to register a domain. Creating two separate objects for ``email:sender`` an
 **object** (an email address) with **how the object is used**. The "how" is apparent in other parts of the data model (e.g.,
 when used as an email sender, the email address will be present in the ``:from`` property of an ``inet:email:message``).
 
-We also recommend desiging forms broadly - this may require some out-of-the-box thinking to consider how the form may
+We also recommend designing forms broadly - this may require some out-of-the-box thinking to consider how the form may
 apply to other fields, disciplines, or even locales ("how something works" in the United States may be different from how
 it works in Argentina or Malaysia).
 
@@ -71,21 +71,41 @@ A few considerations when designing properties:
 Light Edges
 -----------
 
-While it is preferable to represent most relationships as forms (which can record additional properties as well as
-tags), light edges can replace "relationship" forms in cases where additional properties or tags are unnecessary.
+In Synapse, it is preferable to represent most relationships as forms in the data model, as forms support the use of
+additional descriptive properties as well as tags for context. However, light edges can replace "relationship" forms
+where:
 
-A more important criteria is where the object on one or both sides of the relationship could be any object.
+- **Additional properties or tags are unnecessary.** That is, the only thing you need to record is that the
+  relationship exists. In this case, a light edge can provide some performance gains over a relationship form.
 
-- A data source (``meta:source`` node) can observe or provide data on various objects (such as a hash or an FQDN).
+- **The relationship you are representing could exist between a broad range of objects** (vs. two specific kinds
+  of objects). This is best illustrated with some examples.
+  
+  A DNS A record represents a specific relationship between an FQDN (``inet:fqdn``) and the IP address (``inet:ipv4``)
+  that the A record points to. This specific relationship will never exist between any other objects - an FQDN's A
+  record will never point to a MAC address, and a file will never resolve to an IP. A form (``inet:dns:a``) is
+  appropriate here because the objects in the relationship are consistent - there is a one-to-one "A record"
+  relationship between FQDNs and IPv4 addresses.
+  
+  Other relationships may be "one-to-many" or "many-to-many" in that the object on one or both sides of the
+  relationship may vary.
+
+  A data source (``meta:source`` node) can observe or provide data on various objects (such as a hash or an FQDN).
   Creating a relationship form to represent each possible combination of ``meta:source`` node and object complicates
   the data model. This "one-to-many" relationship can be represented more efficiently with a ``seen`` light edge.
 
-- Similarly, a variety of objects (articles / ``media:news`` nodes, presenatations / ``ou:presentation`` nodes,
-  files / ``file:bytes`` nodes, etc.) may contain references to a range of objects of interest, from indicators to
-  people to events. This "many-to-many" relationship can be represented more efficiently with a ``refs`` (references)
+  Similarly, a variety of objects such as articles (``media:news``), presentations (``ou:presentation``), or 
+  files (``file:bytes``) may contain references to a range of objects of interest, from indicators to people to
+  events. This "many-to-many" relationship can be represented more efficiently with a ``refs`` (references)
   light edge.
 
 See :ref:`data-light-edge` for additional discussion.
+
+.. NOTE::
+  
+  Digraph nodes (also known as 'edge nodes') were previously used to account for these types of arbitrary
+  (one-to-many or many-to-many) relationships but the use of light edges is now preferred. See :ref:`form-edge`
+  for additional discussion.
 
 .. _design-tags:
 
@@ -153,7 +173,7 @@ An example from cyber threat intelligence is the idea of a threat group or threa
 a notional concept that represents an unknown organization or set of individuals responsible for a set of malicious
 activity. It is common to use tags (``#cno.threat.t42``) applied to nodes (such as FQDNs, files, hashes, and so on)
 to associate those indicators with a specific threat group. This is valuable context to immediately identify that an
-indicator is "bad" and assocaited with known activity.
+indicator is "bad" and associated with known activity.
 
 But threat groups - even notional ones - still ultimately represent something in the real world. It is useful to
 record additional information about the threat group, such as other names the group is known by, or a known or

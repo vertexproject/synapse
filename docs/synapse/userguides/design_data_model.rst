@@ -10,9 +10,9 @@ properties, and types used in Synapse are the result of our direct experience us
 (along with lively and occasionally heated internal discussion and design sessions with our developers and analysts!).
 
 A full discussion of the considerations (and complexities) of a well-designed data model are beyond the scope of this
-documentation. However, there are several principles that we rely on that help shed light on our apprroach:
+documentation. However, there are several principles that we rely on that help shed light on our approach:
 
-- **The model is an abstraction.** A data model (and associated tags / analytical model) provide **structure** for data
+- **The model is an abstraction.** A data model (and associated tags / analytical model) provides **structure** for data
   and assertions that allow us to quickly view data, relationships, and context, and to ask questions of the data in
   powerful ways. That said, analysis often involves subtle distinctions and qualifications - which is why analysis is
   often provided in long-form reports where natural language can convey uncertainties or caveats related to conclusions.
@@ -47,18 +47,18 @@ documentation. However, there are several principles that we rely on that help s
   have significant input into the type of data modeled, what analysis needs to be performed on the data, and how the
   data should be represented.
   
-  The best models evolve in a cycle of forethought combined with real-world stress-testing. Creating a model with little
-  or no forethought can lead to a narrowly-focused and fragmented data model – in the face of some immediate need,
-  analysts or developers may focus on the trees while missing the big picture of the forest. That said, even the best
-  model planned in advance will fall short when faced with the inconsistencies real-world data. Experience has shown us
-  that there are always edge cases that cannot be anticipated. The most effective models are typically planned up front,
-  then tested against real-world data and refined before being placed fully into production.
+  The best models evolve in a cycle of forethought combined with real-world stress-testing. Creating a model with
+  little or no forethought can lead to a narrowly-focused and fragmented data model – in the face of some immediate
+  need, analysts or developers may focus on the trees while missing the big picture of the forest. That said, even
+  the best model planned in advance will fall short when faced with the inconsistencies of real-world data. Experience
+  has shown us that there are always edge cases that cannot be anticipated. The most effective models are typically
+  planned up front, then tested against real-world data and refined before being placed fully into production.
 
 - **Test the basics and build from there.** No data model is set in stone – in fact, a good model will expand and evolve
   with analytical need. That said, changes to the model may require revising or updating existing model elements and 
   associated analysis, and some changes are easier to make than others. When introducing a new element to the model,
-  consider carefully what the "essence" of that element is - what makes it unqiue and therefore how it should "look"
+  consider carefully what the "essence" of that element is - what makes it unique and therefore how it should "look"
   within the model - and design a form to capture that. It is perfectly fine (and even preferable!) to start with a limited
-  or "stub" form while you test it against real data. It is relatitvely easy to make **additive** changes to the data model
+  or "stub" form while you test it against real data. It is relatively easy to make **additive** changes to the data model
   (introduce new forms or new secondary properties). It is more challenging to **modify** the model once you have encoded
   data into nodes, because those modifications may require migrating existing data to account for your changes. 
