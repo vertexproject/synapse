@@ -354,7 +354,7 @@ as an admin user to the Cortex by running the following command from **within th
     python -m synapse.tools.moduser --add --admin visi
 
 If the deployment is using AHA and TLS client certificates and the user will be connecting via the Telepath API using the
-:ref:`syn-tools-storm` CLI tool, will will also need to provision a user TLS certificate for them. This can be done using
+:ref:`syn-tools-storm` CLI tool, will also need to provision a user TLS certificate for them. This can be done using
 the ``synapse.tools.aha.provision.user`` command from **within the AHA container**::
 
     python -m synapse.tools.aha.provision.user visi
