@@ -24,6 +24,26 @@ async def mockaddsvc(self, name, info, network=None):
         raise s_exc.SynErr(mesg='newp')
     return await realaddsvc(self, name, info, network=network)
 
+import contextlib
+
+import synapse.cortex as s_cortex
+import synapse.lib.jsonstor as s_jsonstor
+import synapse.lib.cell as s_cell
+
+class SvcConnectorApi(s_cell.CellApi):
+    async def tstGetSvcInfo(self, url):
+        return await self.cell.tstGetSvcInfo(url)
+
+class SvcConnector(s_cell.Cell):
+    cellapi = SvcConnectorApi
+
+    async def tstGetSvcInfo(self, url):
+
+        async with await s_telepath.openurl(url) as prox:
+
+            return await prox.getSystemInfo()
+            # return await prox.getCellInfo()
+
 class AhaTest(s_test.SynTest):
     aha_ctor = s_aha.AhaCell.anit
 
@@ -756,3 +776,122 @@ class AhaTest(s_test.SynTest):
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
                         self.eq(info.get('code'), 'AuthDeny')
+
+    @contextlib.asynccontextmanager
+    async def getTestAhaProv(self, conf=None
+                                ):
+
+        bconf = {
+            'aha:name': 'aha',
+            'aha:network': 'loop.vertex.link',
+            'provision:listen': 'ssl://aha.loop.vertex.link:0'
+        }
+
+        if conf is None:
+            conf = bconf
+        else:
+            for k, v in bconf.items():
+                conf.setdefault(k, v)
+
+        name = conf.get('aha:name')
+        netw = conf.get('aha:network')
+        dnsname = f'{name}.{netw}'
+
+        with self.getTestDir() as dirn:
+
+            ahapath = s_common.gendir(dirn, 'aha')
+
+            async with self.getTestAha(conf=conf, dirn=ahapath) as aha:
+
+                addr, port = aha.provdmon.addr
+                # update the config to reflect the dynamically bound port
+                aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+
+                # do this config ex-post-facto due to port binding...
+                host, ahaport = await aha.dmon.listen(
+                    f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
+                aha.conf['aha:urls'] = f'ssl://{dnsname}:{ahaport}'
+
+                yield aha
+
+    @contextlib.asynccontextmanager
+    async def addSvcToAha(self, aha, svcname, ctor, conf=None, dirn=None):
+        '''
+        Add a service to an Aha network via the provisioning API.
+
+        This assumes the Aha cell has a provision:listen and aha:urls set.
+
+        Args:
+            aha:
+            svcname:
+            ctor:
+            conf:
+            dirn:
+
+        Returns:
+
+        '''
+        onetime = await aha.addAhaSvcProv(svcname)
+
+        if conf is None:
+            conf = {}
+
+        conf['aha:provision'] = onetime
+
+        if dirn:
+
+            s_common.yamlsave(conf, dirn, 'cell.yaml')
+            async with await ctor.anit(dirn, conf=conf) as svc:
+                yield svc
+        else:
+            with self.getTestDir() as dirn:
+                s_common.yamlsave(conf, dirn, 'cell.yaml')
+                async with await ctor.anit(dirn, conf=conf) as svc:
+                    yield svc
+
+    async def test_aha_auto_prov(self):
+
+        import asyncio
+
+        async with self.getTestAhaProv() as aha:  # type: s_aha.AhaCell
+            async with self.addSvcToAha(aha, '00.axon', s_axon.Axon) as axon:
+                async with self.addSvcToAha(aha, '00.jsonstor', s_jsonstor.JsonStorCell) as jsonstor:
+                    conf = {
+                        'axon': 'aha://axon...',
+                        'jsonstor': 'aha://jsonstor...',
+                    }
+                    async with self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex, conf=conf) as core:
+
+                        async with self.addSvcToAha(aha, 'connector', SvcConnector) as conn:
+                            await asyncio.sleep(0.5)
+                            from pprint import pprint
+                            async for svc in aha.getAhaSvcs():
+                                pprint(svc)
+
+                            ahaurl = aha.conf.get('aha:urls')  # Assumes aha:urls is a single item.
+                            # opts = {'vars': {'ahaurl': ahaurl}}
+                            # q = '''
+                            # $lib.print($ahaurl)
+                            # $lahaurl=ssl://root@aha.loop.vertex.link:45967
+                            # $prox=$lib.telepath.open($ahaurl)
+                            # $info=$prox.getCellInfo()
+                            # $lib.print($info)
+                            # '''
+                            #
+                            # msgs = await core.stormlist(q, opts=opts)
+                            # for m in msgs:
+                            #     print(m)
+                            #
+
+                            ahaurl = aha.conf.get('aha:urls')  # Assumes aha:urls is a single item.
+                            ahaurl = s_telepath.modurl(ahaurl, user='root')
+                            print(ahaurl)
+
+                            r = await conn.tstGetSvcInfo(ahaurl)
+                            pprint(r)
+
+                        await asyncio.sleep(1)
+                    await asyncio.sleep(1)
+                await asyncio.sleep(1)
+            await asyncio.sleep(1)
+        await asyncio.sleep(1)

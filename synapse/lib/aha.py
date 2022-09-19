@@ -414,6 +414,17 @@ class AhaCell(s_cell.Cell):
                     if self.certdir.getUserCertPath(user) is None:
                         await self._genUserCert(user, signas=netw)
 
+                # defprovuser = f'root@{netw}'
+                # user = await self.auth.getUserByName(defprovuser)
+                # if user is None:
+                #     await self._addAdminUser(defprovuser)
+                # else:
+                #     if not user.isAdmin():
+                #         await user.setAdmin(True, logged=False)
+                #
+                #     if user.isLocked():
+                #         await user.setLocked(False, logged=False)
+
     async def initServiceNetwork(self):
 
         await s_cell.Cell.initServiceNetwork(self)
