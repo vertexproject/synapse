@@ -29,16 +29,18 @@ async def main(argv, outp=s_output.stdout):
     if opts.path is not None:
         path = opts.path.split('/')
 
-    async with await s_telepath.openurl(opts.hiveurl) as hive:
-        try:
-            s_version.reqVersion(hive._getSynVers(), reqver)
-        except s_exc.BadVersion as e:
-            valu = s_version.fmtVersion(*e.get('valu'))
-            outp.printf(f'Hive version {valu} is outside of the hive.save supported range ({reqver}).')
-            outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
-            return 1
+    async with s_telepath.withTeleEnv():
 
-        tree = await hive.saveHiveTree(path=path)
+        async with await s_telepath.openurl(opts.hiveurl) as hive:
+            try:
+                s_version.reqVersion(hive._getSynVers(), reqver)
+            except s_exc.BadVersion as e:
+                valu = s_version.fmtVersion(*e.get('valu'))
+                outp.printf(f'Hive version {valu} is outside of the hive.save supported range ({reqver}).')
+                outp.printf(f'Please use a version of Synapse which supports {valu}; current version is {s_version.verstring}.')
+                return 1
+
+            tree = await hive.saveHiveTree(path=path)
 
     if opts.yaml:
         s_common.yamlsave(tree, opts.filepath)

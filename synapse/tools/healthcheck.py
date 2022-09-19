@@ -9,6 +9,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cmd as s_cmd
 import synapse.lib.output as s_output
 import synapse.lib.health as s_health
+import synapse.lib.urlhelp as s_urlhelp
 
 def serialize(ret):
     s = json.dumps(ret, separators=(',', ':'))
@@ -34,11 +35,16 @@ async def main(argv, outp=s_output.stdout):
     except s_exc.ParserExit as e:  # pragma: no cover
         return e.get('status')
 
+    url = opts.cell
+    sanitized_url = s_urlhelp.sanitizeUrl(url)
+
     try:
-        prox = await asyncio.wait_for(s_telepath.openurl(opts.cell),
-                                      timeout=opts.timeout)
-    except (ConnectionError, socket.gaierror) as e:
-        mesg = 'Unable to connect to cell.'
+        async with s_telepath.withTeleEnv():
+
+            prox = await asyncio.wait_for(s_telepath.openurl(url),
+                                          timeout=opts.timeout)
+    except (FileNotFoundError, ConnectionError, socket.gaierror) as e:
+        mesg = f'Unable to connect to cell @ {sanitized_url}.'
         ret = {'status': 'failed',
                'iden': opts.cell,
                'components': [format_component(e, mesg)],

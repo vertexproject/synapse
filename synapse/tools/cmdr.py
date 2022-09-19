@@ -49,13 +49,7 @@ async def main(argv):  # pragma: no cover
 
     s_common.setlogging(logger, 'WARNING')
 
-    path = s_common.getSynPath('telepath.yaml')
-    async with contextlib.AsyncExitStack() as ctx:
-
-        telefini = await s_telepath.loadTeleEnv(path)
-        if telefini is not None:
-            ctx.push_async_callback(telefini)
-
+    async with s_telepath.withTeleEnv():
         await _main(argv)
 
     return 0

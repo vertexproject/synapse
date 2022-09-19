@@ -354,7 +354,7 @@ as an admin user to the Cortex by running the following command from **within th
     python -m synapse.tools.moduser --add --admin visi
 
 If the deployment is using AHA and TLS client certificates and the user will be connecting via the Telepath API using the
-:ref:`syn-tools-storm` CLI tool, will will also need to provision a user TLS certificate for them. This can be done using
+:ref:`syn-tools-storm` CLI tool, will also need to provision a user TLS certificate for them. This can be done using
 the ``synapse.tools.aha.provision.user`` command from **within the AHA container**::
 
     python -m synapse.tools.aha.provision.user visi
@@ -879,25 +879,36 @@ First, the shared Secret.
 
 The Cortex is straightforward. It uses a PVC, it is configured via environment variables, and has its Telepath
 port exposed as a service that other Pods can connect to. This example also adds a ``startupProbe`` and
-``livenessProbe`` added to check the Cortex (and other services). This allows us to know when the service is available;
-since the Cortex may take some time to load all of the memory maps associated with layer data.
+``readinessProbe`` added to check the Cortex (and other services). This allows us to know when the services are
+available.
+
+The use of the ``readinessProbe`` is preferred over ``livenessProbe``, since that can make a pod unavailable for
+the purposes of routing traffic to it. This allows operations teams to investigate service outages without having the
+underlying container killed.
+
+.. warning::
+
+    We recommend the use of large values for the ``startupProbe.failureThreshold`` value. In our examples, we use the
+    maximum supported value of ``2147483647``.  In the event that a Synapse service needs to perform a data migration
+    or perform a backup of a service in order to deploy a mirror, this allows that to complete without the container
+    being terminated.
 
 .. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
-    :lines: 37-147
+    :lines: 37-148
 
 The Axon is very similar to the Cortex.
 
 .. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
-    :lines: 155-253
+    :lines: 156-254
 
 The last set of components shown here is the most complex. It includes the Aha server, the Maxmind connector, and the
 Optic UI.
 
 .. literalinclude:: devguides/demo-aha-pods.yaml
     :language: yaml
-    :lines: 273-607
+    :lines: 275-613
 
 
 .. _autodoc-conf-aha:

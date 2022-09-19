@@ -1162,6 +1162,11 @@ class GrammarTest(s_t_utils.SynTest):
         args = parser.cmdrargs()
         self.eq(args, ['add', '--filter={inet:fqdn | limit 1}'])
 
+        query = 'add {uniq +#*}'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.cmdrargs()
+
     def test_mode_lookup(self):
         q = '1.2.3.4 vertex.link | spin'
         parser = s_parser.Parser(q)
@@ -1169,10 +1174,20 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq(str(tree), 'Lookup: [LookList: [Const: 1.2.3.4, Const: vertex.link], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
 
+        query = '1.2.3.4 | uniq +#*'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.lookup()
+
     def test_mode_search(self):
         tree = s_parser.parseQuery('foo bar | spin', mode='search')
         self.eq(str(tree), 'Search: [LookList: [Const: foo, Const: bar], '
                            'Query: [CmdOper: [Const: spin, Const: ()]]]')
+
+        query = '1.2.3.4 | uniq +#*'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            parser.search()
 
     def test_mode_storm(self):
         # added for coverage of the top level function...

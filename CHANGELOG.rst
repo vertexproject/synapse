@@ -4,6 +4,48 @@
 Synapse Changelog
 *****************
 
+
+v2.108.0 - 2022-09-12
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the Telepath TLS connections to require a minimum TLS version of 1.2.
+  (`#2833 <https://github.com/vertexproject/synapse/pull/2833>`_)
+- Update the Axon implementation to use the ``initServiceStorage()`` and
+  ``initServiceRuntime()`` methods, instead of overriding ``__anit__``.
+  (`#2837 <https://github.com/vertexproject/synapse/pull/2837>`_)
+- Update the minimum allowed versions of the ``aiosmtplib`` and ``regex``
+  libraries.
+  (`#2832 <https://github.com/vertexproject/synapse/pull/2832>`_)
+  (`#2841 <https://github.com/vertexproject/synapse/pull/2841>`_)
+
+Bugfixes
+--------
+- Catch ``LarkError`` exceptions in all Storm query parsing modes.
+  (`#2840 <https://github.com/vertexproject/synapse/pull/2840>`_)
+- Catch ``FileNotFound`` errors in ``synapse.tools.healthcheck``. This could
+  be caused by the tool running during container startup, and prior to a
+  service making its Unix listening socket available.
+  (`#2836 <https://github.com/vertexproject/synapse/pull/2836>`_)
+- Fix an issue in ``Axon.csvrows()`` where invalid data would cause
+  processing of a file to stop.
+  (`#2835 <https://github.com/vertexproject/synapse/pull/2835>`_)
+- Address a deprecation warning in the Synapse codebase.
+  (`#2842 <https://github.com/vertexproject/synapse/pull/2842>`_)
+- Correct the type of ``syn:splice:splice`` to be ``data``. Previously it
+  was ``str``.
+  (`#2839 <https://github.com/vertexproject/synapse/pull/2839>`_)
+
+Improved Documentation
+----------------------
+- Replace ``livenessProbe`` references with ``readinessProbe`` in the
+  Kubernetes documentation and examples. The ``startupProbe.failureThreshold``
+  value was increased to its maximum value.
+  (`#2838 <https://github.com/vertexproject/synapse/pull/2838>`_)
+- Fix a typo in the Rapid Power-Up documentation.
+  (`#2831 <https://github.com/vertexproject/synapse/pull/2831>`_)
+
 v2.107.0 - 2022-09-01
 =====================
 
@@ -472,7 +514,7 @@ Features and Enhancements
 
   ``seenat``
     When used with a ``geo:telem`` target node, the edge indicates the source
-    node was seen a a given location.
+    node was seen a given location.
 
   ``uses``
     When used with a ``ou:org`` node, the edge indicates the target node
@@ -1276,7 +1318,7 @@ Features and Enhancements
     Change the type of the ``:name`` secondary property to ``geo:name``.
 
   ``inet:web:channel``
-    Add a a new form to denote a channel within a web service or instance.
+    Add a new form to denote a channel within a web service or instance.
 
   ``inet:web:instance``
     Add a new form to track an instance of a web service, such as a channel
@@ -5088,7 +5130,7 @@ Improved Documentation
   (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
 - Update to separate the devops guides into distinct sections.
   (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
-- Add documentation for how to do boot-time configuration for a a Synapse Cell.
+- Add documentation for how to do boot-time configuration for a Synapse Cell.
   (`#1772 <https://github.com/vertexproject/synapse/pull/1772>`_)
 - Remove duplicate information about backups.
   (`#1774 <https://github.com/vertexproject/synapse/pull/1774>`_)

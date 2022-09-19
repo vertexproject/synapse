@@ -1155,6 +1155,9 @@ class StormTypesTest(s_test.SynTest):
             q = '$foo="foobar" return ( $foo.reverse() )'
             self.eq('raboof', await core.callStorm(q))
 
+            q = '$foo="hehe {haha} {newp}" return ( $foo.format(haha=yup, baz=faz) )'
+            self.eq('hehe yup {newp}', await core.callStorm(q))
+
             # tuck the regx tests in with str
             self.true(await core.callStorm(r'''return($lib.regex.matches('^foo', foobar))'''))
             self.true(await core.callStorm(r'''return($lib.regex.matches('foo', FOOBAR, $lib.regex.flags.i))'''))
