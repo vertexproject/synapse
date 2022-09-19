@@ -959,7 +959,7 @@ class CertDir:
 
         certfile = self.getHostCertPath(hostname)
         if certfile is None:
-            mesg = f'Missing TLS certificate file for host: {hostname} {self.certdirs} {self.pathrefs}'
+            mesg = f'Missing TLS certificate file for host: {hostname}'
             raise s_exc.NoCertKey(mesg=mesg)
 
         keyfile = self.getHostKeyPath(hostname)
