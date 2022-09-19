@@ -859,7 +859,6 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('view.del $view', opts=opts)
                     await core.callStorm('$lib.layer.del($layr)', opts=opts)
 
-                    base = 0
                     events = [
                         'cron:add',
                         'layer:add',
