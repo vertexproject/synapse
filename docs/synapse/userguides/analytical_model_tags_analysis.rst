@@ -23,7 +23,7 @@ This analytical model:
 
 - **Is largely independent from the data model.** You do not need to write code to implement new tags or design
   a tag structure; you simply need to create the appropriate ``syn:tag`` nodes.
-- **Is specific to an analytical discipline.** Tags used for cyber threat analysis will be very different from tags used
+- **Is specific to an analytical discipline.** Tags used for cyber threat analysis may be very different from tags used
   to track financial fraud.
 - **Is tightly coupled with the specific questions you want to answer.** The tags you create and apply should be driven
   by your particular analysis goals.
@@ -249,9 +249,10 @@ our top-level tag, ``ttp`` for our TTP sub-tree, ``se`` for social engineering T
 Individual Hypotheses to Broader Reasoning
 ++++++++++++++++++++++++++++++++++++++++++
 
-You may not annotate **complex** hypotheses explicitly within Synapse (that is, as tags applied to individual nodes).
-But these larger hypotheses may be supported (or refuted) by individual tags or combinations of tags (the results
-of smaller, more focused hypotheses) on nodes.
+The hypotheses represented by the tags in the examples above are fairly narrow in scope - an indicator is
+associated with a threat cluster (``cno.threat.t42``), a domain was designed to mislead users by imitating a
+legitimate web site or service (``cno.ttp.se.masq``). With Synapse, you can leverage these more focused
+hypotheses to answer broader, more complex questions.
 
 A newly identified zero-day exploit has been circulating in the wild and is in use by multiple threat groups. The
 associated vulnerability has been assigned CVE-2021-9999 (a number we made up). The exploit is delivered via a
@@ -260,18 +261,17 @@ malicious XLSX file sent as an email (phishing) attachment.
 You believe that "Threat Group 12 was the first group to use the zero day associated with CVE-2021-9999". To prove
 or disprove this hypothesis, you could query Synapse for all files (``file:bytes`` nodes) that:
 
-- are known to exploit CVE-2021-9999 (e.g., have a tag such as ``rep.vt.cve_2021_9999``)
-- are associated with a known threat cluster or threat group (e.g., are tagged ``cno.threat.<cluster>``)
+- exploit CVE-2021-9999 (i.e., have a tag such as ``rep.vt.cve_2021_9999``), and
+- are associated with a known threat cluster or threat group (i.e., are tagged ``cno.threat.<cluster>``)
 
 If you have data for any associated phishing messages, you can pivot from the malicious XLSX files to their
 associated emails (``inet:email:message:attachment -> inet:email:message``) and look for the phishing message
-with the oldest date in order to identify the threat group associated with that earliest known email - and whether
-that group was Threat Group 12 or some other group.
+with the oldest date. By identifying the threat group associated with the earliest known email, you can determine
+whether the zero-day was first used by Threat Group 12 or some other group.
 
 You are able to take tags associated with simple assessments ("this file exploits CVE-2021-9999" or "this file is
 associated with Threat Cluster 12") and combine nodes (files / ``file:bytes``), properties (``inet:email:message:date``),
-and tags to answer a more complex question. That's the power of Synapse (and of a good analytical model / set of
-tags)!
+and tags to answer a more complex question. That's the power of Synapse!
 
 .. NOTE::
   
