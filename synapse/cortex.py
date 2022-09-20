@@ -2650,31 +2650,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             async for mesg in wind:
                 yield mesg
 
-    async def feedBeholder(self, name, info, gates=None, perms=None):
-        kwargs = {
-            'event': name,
-            'offset': await self.nexsroot.index(),
-            'info': info,
-        }
-
-        if gates:
-            g = []
-            for gate in gates:
-                authgate = await self.getAuthGate(gate)
-                if gate:
-                    g.append(authgate)
-            kwargs['gates'] = g
-
-        if perms:
-            p = []
-            for perm in perms:
-                permdef = await self.getPermDef(perm)
-                if permdef:
-                    p.append(permdef)
-            kwargs['perms'] = p
-
-        await self.fire('core:beholder', **kwargs)
-
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...
         if not name.startswith('_'):
@@ -3423,7 +3398,6 @@ class Cortex(s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/watch', s_httpapi.WatchSockV1, {'cell': self})
-        self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})

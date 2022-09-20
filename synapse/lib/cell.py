@@ -2104,6 +2104,31 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
+    async def feedBeholder(self, name, info, gates=None, perms=None):
+        kwargs = {
+            'event': name,
+            'offset': await self.nexsroot.index(),
+            'info': info,
+        }
+
+        if gates:
+            g = []
+            for gate in gates:
+                authgate = await self.getAuthGate(gate)
+                if gate:
+                    g.append(authgate)
+            kwargs['gates'] = g
+
+        if perms:
+            p = []
+            for perm in perms:
+                permdef = await self.getPermDef(perm)
+                if permdef:
+                    p.append(permdef)
+            kwargs['perms'] = p
+
+        await self.fire('core:beholder', **kwargs)
+
     @contextlib.asynccontextmanager
     async def beholder(self):
         async with await s_queue.Window.anit(maxsize=10000) as wind:
@@ -2255,6 +2280,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/grant', s_httpapi.AuthGrantV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
+
+        self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
 
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
