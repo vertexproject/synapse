@@ -772,15 +772,13 @@ class AhaTest(s_test.SynTest):
                         self.eq(info.get('status'), 'err')
                         self.eq(info.get('code'), 'AuthDeny')
 
-    async def test_aha_root_acct(self):
+    async def test_aha_connect_back(self):
         async with self.getTestAhaProv() as aha:  # type: s_aha.AhaCell
-            user = await aha.auth.getUserByName(f'root@{aha.conf.get("aha:network")}')
-            self.true(user.isAdmin())
 
             async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller) as conn:
 
                 ahaurl = aha.conf.get('aha:urls')[0]
                 ahaurl = s_telepath.modurl(ahaurl, user='root')
 
-                # This fails if root@loop.vertex.link is not an admin
+                # This adminapi fails if root@loop.vertex.link is not an admin
                 await conn.exectelecall(ahaurl, 'getNexsIndx')

@@ -1314,6 +1314,7 @@ class SynTest(unittest.TestCase):
             ctor: Service class to add.
             conf (dict): Optional service conf.
             dirn (str): Optional directory.
+            provinfo (dict)): Optional provisioning info.
         '''
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
@@ -1322,19 +1323,26 @@ class SynTest(unittest.TestCase):
 
         conf['aha:provision'] = onetime
 
-        waiter = aha.waiter(1, 'aha:svcadd')
+        logger.info(f'Adding {svcname}')
+
+        n = 1  # a simple svcname like "foo"
+        if len(svcname.split('.')) > 1:
+            n = 2  # A replica name like 00.foo
+        if provinfo and 'mirror' in provinfo:
+            n = 1  # A mirror like 01.foo with mirror: foo
+
+        waiter = aha.waiter(n, 'aha:svcadd')
 
         if dirn:
-
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn, conf=conf) as svc:
-                self.len(1, await waiter.wait(timeout=12))
+                self.len(n, await waiter.wait(timeout=12))
                 yield svc
         else:
             with self.getTestDir() as dirn:
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
                 async with await ctor.anit(dirn, conf=conf) as svc:
-                    self.len(1, await waiter.wait(timeout=12))
+                    self.len(n, await waiter.wait(timeout=12))
                     yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):

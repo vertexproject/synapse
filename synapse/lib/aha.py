@@ -388,21 +388,6 @@ class AhaCell(s_cell.Cell):
         self.slab.initdb('aha:provs')
         self.slab.initdb('aha:enrolls')
 
-        netw = self.conf.get('aha:network')
-        if netw is not None:
-            # Create the root@network as an admin if it does not exist.
-            # If it does exist, ensure that user has admin permissions.
-            defprovuser = f'root@{netw}'
-            user = await self.auth.getUserByName(defprovuser)
-            if user is None:
-                await self._addAdminUser(defprovuser)
-            else:
-                if not user.isAdmin():
-                    await user.setAdmin(True, logged=False)
-
-                if user.isLocked():
-                    await user.setLocked(False, logged=False)
-
     def _initCellHttpApis(self):
         s_cell.Cell._initCellHttpApis(self)
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
@@ -816,15 +801,27 @@ class AhaCell(s_cell.Cell):
         if mirname is not None:
             conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
 
-        username = f'{ahauser}@{netw}'
+        # If the provisioned aha network is our network, we can assume
+        # non-namespaced usernames.
+        if netw == mynetw:
+            username = ahauser
+        else:
+            username = f'{ahauser}@{netw}'
+
         user = await self.auth.getUserByName(username)
         if user is None:
             user = await self.auth.addUser(username)
 
-        await user.allow(('aha', 'service', 'get', netw))
-        await user.allow(('aha', 'service', 'add', netw, name))
+        perms = [
+            ('aha', 'service', 'get', netw),
+            ('aha', 'service', 'add', netw, name),
+        ]
         if peer:
-            await user.allow(('aha', 'service', 'add', netw, leader))
+            perms.append(('aha', 'service', 'add', netw, leader))
+        for perm in perms:
+            if user.allowed(perm):
+                continue
+            await user.allow(perm)
 
         iden = await self._push('aha:svc:prov:add', provinfo)
 
