@@ -29,6 +29,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
@@ -358,6 +359,15 @@ class CellApi(s_base.Base):
 
     async def kill(self, iden):
         return await self.cell.kill(self.user, iden)
+
+    @adminapi(log=True)
+    async def behold(self):
+        '''
+        Yield Cell system messages
+        '''
+        print('admin behold')
+        async for mesg in self.cell.behold():
+            yield mesg
 
     @adminapi(log=True)
     async def addUser(self, name, passwd=None, email=None, iden=None):
@@ -2093,6 +2103,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+    @contextlib.asynccontextmanager
+    async def beholder(self):
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+            async def onEvent(mesg):
+                await wind.put(mesg[1])
+
+            self.on('core:beholder', onEvent, base=self)
+
+            yield wind
+
+    async def behold(self):
+        async with self.beholder() as wind:
+            async for mesg in wind:
+                yield mesg
 
     async def dyniter(self, iden, todo, gatekeys=()):
 

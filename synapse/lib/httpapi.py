@@ -533,6 +533,7 @@ class WatchSockV1(WebSocket):
             await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
 
     async def on_message(self, byts):
+        s_common.deprecated('WatchSockV1')
         self.cell.schedCoro(self.onWatchMesg(byts))
 
 class BeholdSockV1(WebSocket):

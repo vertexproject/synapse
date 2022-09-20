@@ -589,14 +589,6 @@ class CoreApi(s_cell.CellApi):
             yield item
 
     @s_cell.adminapi()
-    async def behold(self):
-        '''
-        Yield Cortex system messages
-        '''
-        async for mesg in self.cell.behold():
-            yield mesg
-
-    @s_cell.adminapi()
     async def splices(self, offs=None, size=None, layriden=None):
         '''
         Return the list of splices at the given offset.
@@ -2682,21 +2674,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             kwargs['perms'] = p
 
         await self.fire('core:beholder', **kwargs)
-
-    @contextlib.asynccontextmanager
-    async def beholder(self):
-        async with await s_queue.Window.anit(maxsize=10000) as wind:
-            async def onEvent(mesg):
-                await wind.put(mesg[1])
-
-            self.on('core:beholder', onEvent, base=self)
-
-            yield wind
-
-    async def behold(self):
-        async with self.beholder() as wind:
-            async for mesg in wind:
-                yield mesg
 
     async def addUnivProp(self, name, tdef, info):
         # the loading function does the actual validation...
