@@ -735,8 +735,9 @@ async def main(argv, outp=None):
     if opts.doc_model:
 
         if opts.cortex:
-            async with await s_telepath.openurl(opts.cortex) as core:
-                rsttypes, rstforms = await docModel(outp, core)
+            async with s_telepath.withTeleEnv():
+                async with await s_telepath.openurl(opts.cortex) as core:
+                    rsttypes, rstforms = await docModel(outp, core)
 
         else:
             async with s_cortex.getTempCortex() as core:

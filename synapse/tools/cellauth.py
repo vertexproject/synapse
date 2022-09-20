@@ -274,12 +274,7 @@ async def main(argv, outprint=None):
     global outp
     outp = outprint
 
-    async with contextlib.AsyncExitStack() as cm:
-
-        teleyaml = s_common.getSynPath('telepath.yaml')
-        if os.path.isfile(teleyaml):
-            fini = await s_telepath.loadTeleEnv(teleyaml)
-            cm.push_async_callback(fini)
+    async with s_telepath.withTeleEnv():
 
         pars = makeargparser()
         try:

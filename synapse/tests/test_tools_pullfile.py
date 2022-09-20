@@ -2,10 +2,15 @@ import os
 import hashlib
 import pathlib
 
+from unittest import mock
+
 import synapse.tests.utils as s_t_utils
 import synapse.tools.pullfile as s_pullfile
 
 class TestPullFile(s_t_utils.SynTest):
+
+    def _getFail(self, sha256):
+        raise
 
     async def test_pullfile(self):
 
@@ -45,3 +50,8 @@ class TestPullFile(s_t_utils.SynTest):
                 self.true(outp.expect(f'{nonehash} not in axon store'))
                 self.true(outp.expect(f'Fetching {testhash} to file'))
                 self.true(outp.expect(f'Fetching {visihash} to file'))
+
+                with mock.patch('synapse.axon.Axon.get', self._getFail):
+                    self.eq(0, await s_pullfile.main(['-a', axonurl,
+                                                '-l', visihash], outp))
+                    self.isin('Error: Hit Exception', str(outp))
