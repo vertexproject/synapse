@@ -780,5 +780,6 @@ class AhaTest(s_test.SynTest):
                 ahaurl = aha.conf.get('aha:urls')[0]
                 ahaurl = s_telepath.modurl(ahaurl, user='root')
 
-                # This adminapi fails if root@loop.vertex.link is not an admin
+                # This adminapi fails if the ssl://root@aha.loop.vertex.link
+                # session is not an admin user.
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
