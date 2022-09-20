@@ -365,7 +365,6 @@ class CellApi(s_base.Base):
         '''
         Yield Cell system messages
         '''
-        print('admin behold')
         async for mesg in self.cell.behold():
             yield mesg
 
