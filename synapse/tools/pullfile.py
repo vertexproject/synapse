@@ -14,9 +14,6 @@ async def main(argv, outp=None):
     pars = setup()
     opts = pars.parse_args(argv)
 
-    path = s_common.getSynPath('telepath.yaml')
-    telefini = await s_telepath.loadTeleEnv(path)
-
     if outp is None:  # pragma: no cover
         outp = s_output.OutPut()
 
@@ -27,33 +24,32 @@ async def main(argv, outp=None):
 
     s_common.gendir(opts.output)
 
-    async with await s_telepath.openurl(opts.axon) as axon:
+    async with s_telepath.withTeleEnv():
 
-        # reminder: these are the hashes *not* available
+        async with await s_telepath.openurl(opts.axon) as axon:
 
-        awants = await axon.wants([s_common.uhex(h) for h in opts.hashes])
-        for a in awants:
-            outp.printf(f'{s_common.ehex(a)} not in axon store')
+            # reminder: these are the hashes *not* available
 
-        exists = [h for h in opts.hashes if s_common.uhex(h) not in awants]
+            awants = await axon.wants([s_common.uhex(h) for h in opts.hashes])
+            for a in awants:
+                outp.printf(f'{s_common.ehex(a)} not in axon store')
 
-        for h in exists:
+            exists = [h for h in opts.hashes if s_common.uhex(h) not in awants]
 
-            try:
-                outp.printf(f'Fetching {h} to file')
+            for h in exists:
 
-                with open(outdir.joinpath(h), 'wb') as fd:
-                    async for b in axon.get(s_common.uhex(h)):
-                        fd.write(b)
+                try:
+                    outp.printf(f'Fetching {h} to file')
 
-                outp.printf(f'Fetched {h} to file')
+                    with open(outdir.joinpath(h), 'wb') as fd:
+                        async for b in axon.get(s_common.uhex(h)):
+                            fd.write(b)
 
-            except Exception as e:
-                outp.printf('Error: Hit Exception: %s' % (str(e),))
-                continue
+                    outp.printf(f'Fetched {h} to file')
 
-    if telefini:  # pragma: no cover
-        await telefini()
+                except Exception as e:
+                    outp.printf('Error: Hit Exception: %s' % (str(e),))
+                    continue
 
     return 0
 
