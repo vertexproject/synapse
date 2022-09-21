@@ -14,7 +14,7 @@ Use a one-time use key to initialize your AHA user enrivonment.
 
 Examples:
 
-    python -m synapse.tools.aha.register tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
+    python -m synapse.tools.aha.enroll tcp://aha.loop.vertex.link:27272/b751e6c3e6fc2dad7a28d67e315e1874
 
 '''
 
