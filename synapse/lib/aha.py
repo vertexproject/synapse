@@ -401,17 +401,20 @@ class AhaCell(s_cell.Cell):
             if netw is not None:
 
                 if self.certdir.getCaCertPath(netw) is None:
+                    logger.info(f'Adding CA certificate for {netw}')
                     await self.genCaCert(netw)
 
                 name = self.conf.get('aha:name')
 
                 host = f'{name}.{netw}'
                 if self.certdir.getHostCertPath(host) is None:
+                    logger.info(f'Adding server certificate for {host}')
                     await self._genHostCert(host, signas=netw)
 
                 user = self._getAhaAdmin()
                 if user is not None:
                     if self.certdir.getUserCertPath(user) is None:
+                        logger.info(f'Adding user certificate for {user}@{netw}')
                         await self._genUserCert(user, signas=netw)
 
     async def initServiceNetwork(self):
