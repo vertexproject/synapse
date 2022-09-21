@@ -2126,7 +2126,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     p.append(permdef)
             kwargs['perms'] = p
 
-        await self.fire('core:beholder', **kwargs)
+        await self.fire('cell:beholder', **kwargs)
 
     @contextlib.asynccontextmanager
     async def beholder(self):
@@ -2134,7 +2134,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async def onEvent(mesg):
                 await wind.put(mesg[1])
 
-            self.on('core:beholder', onEvent, base=self)
+            self.on('cell:beholder', onEvent, base=wind)
 
             yield wind
 
