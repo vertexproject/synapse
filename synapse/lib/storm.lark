@@ -155,7 +155,7 @@ WILDCARD: "*"
 // A wild card, full prop, list, or $varvalu
 _wildprops: WILDCARD | PROPS | valulist | _varvalu
 
-n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1FINI _wildprops [ _cmpr _valu ]
+n1walk: "-" "(" (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1FINI _wildprops [ _cmpr _valu ]
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
@@ -167,16 +167,13 @@ _WALKNPIVON2.4: "<--"
 n1walknpivo: _WALKNPIVON1 "*"
 n2walknpivo: _WALKNPIVON2 "*"
 
-_EDGEN1INIT.4: "-("
-_EDGEADDN1INIT.4: "+("
 _EDGEN1FINI: ")>"
-
-_EDGEN2INIT.4: "<("
+_EDGEN2INIT: /\<\((?=(?>(\(((?>[^()"']+|(?2)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)])*\)[\-\+])/
 _EDGEADDN2FINI: ")+"
 _EDGEN2FINI: ")-"
 
-edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI baresubquery
-edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
+edgeaddn1: "+" "(" _valu _EDGEN1FINI baresubquery
+edgedeln1: "-" "(" _valu _EDGEN1FINI baresubquery
 edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
 edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
 
@@ -298,8 +295,6 @@ _callargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | 
 _LPARNOSPACE.2: /(?<!\s)\(/
 
 filtoper: (EXPRPLUS | EXPRMINUS) _cond
-    | _EDGEADDN1INIT _condexpr ")" -> filtopermust
-    | _EDGEN1INIT _condexpr ")" -> filtopernot
 
 // Condition used for filters
 // TODO:  unify cond and dollarexpr

@@ -26,9 +26,8 @@ class StormContext(PostLex):
             'RPAR': self.popCtx,
             'RSQB': self.popCtx,
             'RSQBNOSPACE': self.popCtx,
+            '_EDGEN1FINI': self.popCtx,
 
-            '_EDGEADDN1INIT': self.edgeAddN1Init,
-            '_EDGEN1INIT': self.edgeN1Init,
             '_EDGEN2INIT': self.edgeN2Init,
         }
 
@@ -40,20 +39,6 @@ class StormContext(PostLex):
         if ctxs:
             ctxs.pop()
         yield token
-
-    def edgeAddN1Init(self, token, ctxs):
-        if not (ctxs and ctxs[-1] == '[' or (len(ctxs) >= 2 and ctxs[-1] == '(' and ctxs[-2] == '[')):
-            yield lark.lexer.Token.new_borrow_pos('EXPRPLUS', '+', token)
-            yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
-        else:
-            yield token
-
-    def edgeN1Init(self, token, ctxs):
-        if ctxs and ctxs[-1] == '(' and not (len(ctxs) >= 2 and ctxs[-2] == '['):
-            yield lark.lexer.Token.new_borrow_pos('EXPRMINUS', '-', token)
-            yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
-        else:
-            yield token
 
     def edgeN2Init(self, token, ctxs):
         if ctxs and ctxs[-1] == '(' and not (len(ctxs) >= 2 and ctxs[-2] == '['):
@@ -157,8 +142,6 @@ terminalEnglishMap = {
     '_ARRAYCONDSTART': '*[',
     '_COLONDOLLAR': ':$',
     '_DEREF': '*',
-    '_EDGEADDN1INIT': '+(',
-    '_EDGEN1INIT': '-(',
     '_EDGEADDN2FINI': ')+',
     '_EDGEN1FINI': ')>',
     '_EDGEN2INIT': '<(',
@@ -731,8 +714,6 @@ ruleClassMap = {
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
-    'filtopermust': lambda kids: s_ast.FiltOper([s_ast.Const('+')] + kids),
-    'filtopernot': lambda kids: s_ast.FiltOper([s_ast.Const('-')] + kids),
     'forloop': s_ast.ForLoop,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),

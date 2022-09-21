@@ -4007,3 +4007,8 @@ class StormTest(s_t_utils.SynTest):
             self.eq(1, await core.callStorm('return(((2)-(1)))'))
             self.eq(True, await core.callStorm('$foo=(2) return(($foo<(3)))'))
             self.eq(True, await core.callStorm('return(((2)<(3)))'))
+            self.eq(True, await core.callStorm('return(((1)<(3)-(1)))'))
+
+            await core.nodes('[inet:fqdn=foo +(asn)> {[inet:asn=1 inet:asn=2]}]')
+
+            self.len(1, await core.nodes('inet:fqdn -(asn)> inet:asn <(2)'))
