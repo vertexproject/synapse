@@ -25,9 +25,7 @@ def iterFqdnUp(fqdn):
     for i in range(len(levs)):
         yield '.'.join(levs[i:])
 
-TLS_SERVER_CIPHERS = ''
-
-def initTLSServerCiphers():
+def _initTLSServerCiphers():
     '''
     Create a cipher string that supports TLS 1.2 and TLS 1.3 ciphers which do not use RSA.
 
@@ -41,30 +39,23 @@ def initTLSServerCiphers():
     Returns:
         str: A OpenSSL Cipher string.
     '''
-
-    global TLS_SERVER_CIPHERS
-
-    if TLS_SERVER_CIPHERS:
-        return TLS_SERVER_CIPHERS
-
     ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)  # type: ssl.SSLContext
     _ciphers = []
-    for cipher in ctx.get_ciphers():
+    for cipher in ctx.get_ciphers():  # pragma: no cover
         if cipher.get('protocol') not in ('TLSv1.2', 'TLSv1.3'):
             continue
-        if cipher.get('kea') == 'kx-rsa':
+        if cipher.get('kea') == 'kx-rsa':   # pragma: no cover
             continue
         _ciphers.append(cipher)
 
     if len(_ciphers) == 0:  # pragma: no cover
         raise s_exc.SynErr(mesg='No valid TLS ciphers are available for this Python installation.')
 
-    TLS_SERVER_CIPHERS = ':'.join([c.get('name') for c in _ciphers])
+    ciphers = ':'.join([c.get('name') for c in _ciphers])
 
-    return TLS_SERVER_CIPHERS
+    return ciphers
 
-# Initialize our cipher list.
-initTLSServerCiphers()
+TLS_SERVER_CIPHERS = _initTLSServerCiphers()
 
 def getServerSSLContext() -> ssl.SSLContext:
     '''
