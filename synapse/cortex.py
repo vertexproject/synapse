@@ -2431,7 +2431,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             self.svcsbysvcname.pop(ssvc.svcname, None)
             await ssvc.fini()
 
-        await self.feedBeholder('svc:del', {'iden': iden})
+        await self.feedBeholder('svc:del', {'iden': iden, 'name': name})
 
     async def _delStormSvcPkgs(self, iden):
         '''
