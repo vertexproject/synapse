@@ -1565,3 +1565,34 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_cell.Cell.anit(conf=conf01, dirn=path01) as cell01:
                         await stream.wait(timeout=2)
                         self.true(await cell01.waitfini(6))
+
+    async def test_backup_restore(self):
+
+        async with self.getTestAxon(conf={'auth:passwd': 'root'}) as axon:
+            addr, port = await axon.addHttpsPort(0)
+            url = f'https://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+
+            async with self.getTestCore() as core:
+                self.len(1, await core.nodes('[inet:ipv4=1.2.3.4]'))
+
+                # Punch in a value to the cell.yaml to ensure it persists
+                core.conf['storm:log'] = True
+                core.conf.reqConfValid()
+                s_common.yamlmod({'storm:log': True}, core.dirn, 'cell.yaml')
+
+                async with await axon.upload() as upfd:
+
+                    async with core.getLocalProxy() as prox:
+
+                        async for chunk in prox.iterNewBackupArchive():
+                            await upfd.write(chunk)
+
+                        size, sha256 = await upfd.save()
+                        await asyncio.sleep(0)
+
+            furl = f'{url}{s_common.ehex(sha256)}'
+
+            # Happy test for URL based restore.
+            with self.setTstEnvars(SYN_CORTEX_RESTORE_URL=furl):
+                async with self.getTestCore() as core:
+                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))

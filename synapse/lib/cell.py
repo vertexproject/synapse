@@ -14,6 +14,7 @@ import functools
 import contextlib
 import multiprocessing
 
+import aiohttp
 import tornado.web as t_web
 
 import synapse.exc as s_exc
@@ -2580,6 +2581,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellBoot(self):
 
+        await self._bootCellRestore()
+
         provconf = await self._bootCellProv()
 
         # check this before we setup loadTeleCell()
@@ -2588,6 +2591,90 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(provconf)
+
+    async def _bootCellRestore(self):
+        env = ''
+        rurl = None
+
+        for prefix in self.getEnvPrefix():
+            env = f'{prefix}_RESTORE_URL'
+            rurl = os.getenv(env, None)
+            if rurl:
+                logger.info(f'Found restore URL from {env}')
+                break
+
+        if rurl is None:
+            return
+
+        doneiden = None
+
+        donepath = s_common.genpath(self.dirn, 'restore.done')
+        if os.path.isfile(donepath):
+            with s_common.genfile(donepath) as fd:
+                doneiden = fd.read().decode().strip()
+
+        rurliden = s_common.guid(rurl)
+
+        if doneiden == rurliden:
+            return
+
+        rnfo = s_urlhelp.chopurl(rurl)
+
+        logger.warning(rnfo)
+
+        scheme = rnfo.get('scheme')
+
+        if scheme == 'file':
+            raise s_exc.NoSuchImpl(megs=f'file:// not supported for restore from {rurl}')
+
+        if scheme == 'https':
+            logger.info('Restoring from URL given by SYN_RESTORE_URL')
+
+            tarpath = s_common.genpath(self.dirn, 'tmp', 'restore.tgz')
+
+            try:
+
+                with s_common.genfile(tarpath) as fd:
+                    # TODO How to handle ssl=false here?
+                    # ssl= rnfo.get('query').get('ssl_verify', True)  # ?
+                    async with aiohttp.client.ClientSession() as sess:
+                        async with sess.get(rurl, ssl=False) as resp:
+                            resp.raise_for_status()
+                            csize = s_const.megabyte * 8  # arbitrary magic number
+                            async for chunk in resp.content.iter_chunked(csize):
+                                fd.write(chunk)
+
+                # DRY
+                with tarfile.open(tarpath) as tgz:
+                    for memb in tgz.getmembers():
+                        if memb.name.find('/') == -1:
+                            continue
+                        memb.name = memb.name.split('/', 1)[1]
+                        tgz.extract(memb, self.dirn)
+
+            except asyncio.CancelledError:
+                raise
+
+            except Exception:
+                logger.exception('Failed to restore cell from URL.')
+                raise
+
+            else:
+                # Reset the config (since we have a new cell.yaml)
+                await self._bootProvConf({})
+                logger.info('Restored cell from URL')
+                return
+
+            finally:
+                if os.path.isfile(tarpath):
+                    os.unlink(tarpath)
+
+        if scheme in ('aha', 'cell', 'ssl', 'tcp', ):
+
+            # Assume the URL is a telepath URL.
+            raise s_exc.NoSuchImpl(mesg=f'Telepath url not supported for restore from {rurl}')
+
+        raise s_exc.NoSuchImpl(mesg=f'Unknown scheme: {scheme}')
 
     async def _bootCellProv(self):
 
