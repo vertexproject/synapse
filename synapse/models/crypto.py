@@ -400,7 +400,7 @@ class CryptoModule(s_module.CoreModule):
                     ('inetaddr', ('inet:client', {}), {
                         'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
                     ('coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address observed in use the the Internet client.', 'ro': True, }),
+                        'doc': 'The crypto currency address observed in use in the Internet client.', 'ro': True, }),
                 )),
 
                 ('hash:md5', {}, ()),
@@ -504,7 +504,7 @@ class CryptoModule(s_module.CoreModule):
                     }),
 
                     ('ext:sans', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The Subject Alternate Names (SANs) listed in the certficate.',
+                        'doc': 'The Subject Alternate Names (SANs) listed in the certificate.',
                     }),
 
                     ('ext:crls', ('array', {'type': 'crypto:x509:san', 'uniq': True, 'sorted': True}), {

@@ -513,7 +513,7 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The lat/long position for the place.'}),
 
                         ('bbox', ('geo:bbox', {}), {
-                            'doc': 'A bounding box which encompases the place.'}),
+                            'doc': 'A bounding box which encompasses the place.'}),
 
                         ('radius', ('geo:dist', {}), {
                             'doc': 'An approximate radius to use for bounding box calculation.'}),
