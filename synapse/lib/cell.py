@@ -2107,7 +2107,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         kwargs = {
             'event': name,
             'offset': await self.nexsroot.index(),
-            'info': info,
+            'info': dict(info),
         }
 
         if gates:

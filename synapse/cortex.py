@@ -2390,7 +2390,7 @@ class Cortex(s_cell.Cell):  # type: ignore
         ssvc = await self._setStormSvc(sdef)
         await self.svchive.set(iden, sdef)
 
-        await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden})
+        await self.feedBeholder('svc:add', {'name': sdef.get('name'), 'iden': iden, 'svcname': ssvc.svcname})
         return ssvc.sdef
 
     async def delStormSvc(self, iden):
