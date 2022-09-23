@@ -1,5 +1,6 @@
 import os
 import ssl
+import copy
 import time
 import fcntl
 import shutil
@@ -2104,10 +2105,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
+        '''
+        Feed a named event onto the beholder message bus that will sent to any listeners.
+
+        Args:
+            info (dict): An information dictionary to be sent to any consumers.
+            gates (list): List of gate idens, whose details will be added to the outbound message(s).
+            perms (list): List of permission names, whose details will be added to the outbound message(s).
+
+        Returns:
+            None
+        '''
         kwargs = {
             'event': name,
             'offset': await self.nexsroot.index(),
-            'info': dict(info),
+            'info': copy.deepcopy(info),
         }
 
         if gates:
