@@ -35,7 +35,7 @@ Bugfixes
 Improved Documentation
 ----------------------
 - Update Storm and Storm HTTP API documentation to show the set of ``opts``
-  and different types of message that be be streamed by from Storm APIs.
+  and different types of message that may be streamed by from Storm APIs.
   Add example HTTP API client code to the Synapse repository.
   (`#2834 <https://github.com/vertexproject/synapse/pull/2834>`_)
 - Update the Data Model and Analytical model background documentation.
