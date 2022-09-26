@@ -400,7 +400,7 @@ class CryptoModule(s_module.CoreModule):
                     ('inetaddr', ('inet:client', {}), {
                         'doc': 'The Internet client address observed using the crypto currency address.', 'ro': True, }),
                     ('coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address observed in use in the Internet client.', 'ro': True, }),
+                        'doc': 'The crypto currency address observed in use by the Internet client.', 'ro': True, }),
                 )),
 
                 ('hash:md5', {}, ()),
