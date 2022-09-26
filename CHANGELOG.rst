@@ -4,6 +4,45 @@
 Synapse Changelog
 *****************
 
+v2.109.0 - 2022-09-26
+=====================
+
+Features and Enhancements
+-------------------------
+- Add a ``format()`` API to ``str`` variables in Storm.
+  (`#2849 <https://github.com/vertexproject/synapse/pull/2849>`_)
+- Update the Telepath user resolution for TLS links to prefer resolving users
+  by the Cell ``aha:network`` over the certificate common name.
+  (`#2850 <https://github.com/vertexproject/synapse/pull/2850>`_)
+- Update all Synapse tools which make telepath connections to use the
+  ``withTeleEnv()`` helper.
+  (`#2844 <https://github.com/vertexproject/synapse/pull/2844>`_)
+- Update the Telepath and HTTPs TLS listeners to drop RSA based key exchanges
+  and disable client initiated renegotiation.
+  (`#2845 <https://github.com/vertexproject/synapse/pull/2845>`_)
+- Update the minimum allowed versions of the ``aioimaplib`` and ``oauthlib``
+  libraries.
+  (`#2847 <https://github.com/vertexproject/synapse/pull/2847>`_)
+  (`#2854 <https://github.com/vertexproject/synapse/pull/2854>`_)
+
+Bugfixes
+--------
+- Correct default Telepath ``cell://`` paths in Synapse tools.
+  (`#2853 <https://github.com/vertexproject/synapse/pull/2853>`_)
+- Fix typos in the inline documentation for several model elements.
+  (`#2852 <https://github.com/vertexproject/synapse/pull/2852>`_)
+
+Improved Documentation
+----------------------
+- Update Storm and Storm HTTP API documentation to show the set of ``opts``
+  and different types of message that be be streamed by from Storm APIs.
+  Add example HTTP API client code to the Synapse repository.
+  (`#2834 <https://github.com/vertexproject/synapse/pull/2834>`_)
+- Update the Data Model and Analytical model background documentation.
+  Expand on the discussion of light edges use. Expand discussion of tags
+  versus forms, linking the two via ``:tag`` props.
+  (`#2848 <https://github.com/vertexproject/synapse/pull/2848>`_)
+
 
 v2.108.0 - 2022-09-12
 =====================
