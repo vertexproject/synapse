@@ -2593,19 +2593,25 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self._bootCellMirror(provconf)
 
     async def _bootCellRestore(self):
-        env = ''
+
+        if self.cellparent is not None:
+            return
+
         rurl = None
 
+        # TODO - Discuss a percell namespace or global namespace?
+        # Global namespaces require thinking about improperly nested cells.
         for prefix in self.getEnvPrefix():
             env = f'{prefix}_RESTORE_URL'
             rurl = os.getenv(env, None)
             if rurl:
-                logger.info(f'Found restore URL from {env}')
                 break
 
         if rurl is None:
             return
 
+        # restore.done - Allow an existing URL to be left in the configuration
+        # for a service without issues.
         doneiden = None
 
         donepath = s_common.genpath(self.dirn, 'restore.done')
@@ -2618,9 +2624,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if doneiden == rurliden:
             return
 
+        # We need some level of checking to see if we're restoring into a existing directory.
+        # slabs directory being present is a marker of restoring into a directory
+        # which has previously been used to boot up a cell.
+        dnames = ('slabs',)
+        for name in dnames:
+            path = s_common.genpath(self.dirn, name)
+            if os.path.isdir(path):
+                mesg = f'Directory {path} found, restore much be run into an empty directory.'
+                raise s_exc.BadConfValu(mesg=mesg, name=env, value=rurl)
+
         rnfo = s_urlhelp.chopurl(rurl)
 
-        logger.warning(rnfo)
+        logger.info(f'Restoring from url {s_urlhelp.sanitizeUrl(rurl)} given by {env}')
 
         scheme = rnfo.get('scheme')
 
@@ -2628,7 +2644,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NoSuchImpl(megs=f'file:// not supported for restore from {rurl}')
 
         if scheme == 'https':
-            logger.info('Restoring from URL given by SYN_RESTORE_URL')
 
             tarpath = s_common.genpath(self.dirn, 'tmp', 'restore.tgz')
 
@@ -2636,7 +2651,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 with s_common.genfile(tarpath) as fd:
                     # TODO How to handle ssl=false here?
-                    # ssl= rnfo.get('query').get('ssl_verify', True)  # ?
+                    # ssl= rnfo.get('query').pop('syn_ssl_verify', True)  # ?
+                    # Should we pop that out of the query string entirely?
                     async with aiohttp.client.ClientSession() as sess:
                         async with sess.get(rurl, ssl=False) as resp:
                             resp.raise_for_status()
@@ -2651,6 +2667,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             continue
                         memb.name = memb.name.split('/', 1)[1]
                         tgz.extract(memb, self.dirn)
+
+                # and record the rurliden
+                with s_common.genfile(donepath) as fd:
+                    fd.truncate(0)
+                    fd.seek(0)
+                    fd.write(rurliden.encode())
 
             except asyncio.CancelledError:
                 raise

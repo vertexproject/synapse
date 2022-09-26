@@ -1594,5 +1594,57 @@ class CellTest(s_t_utils.SynTest):
 
             # Happy test for URL based restore.
             with self.setTstEnvars(SYN_CORTEX_RESTORE_URL=furl):
-                async with self.getTestCore() as core:
-                    self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                with self.getTestDir() as cdir:
+                    # Restore works
+                    with self.getAsyncLoggerStream('synapse.lib.cell',
+                                                   'Restoring from url') as stream:
+                        async with self.getTestCore(dirn=cdir) as core:
+                            self.true(await stream.wait(6))
+                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                    # Turning the service back on with the restore URL is fine too.
+                    with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
+                        async with self.getTestCore(dirn=cdir) as core:
+                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+
+                            # Take a backup of the cell with the restore.done file in place
+                            async with await axon.upload() as upfd:
+                                async with core.getLocalProxy() as prox:
+                                    async for chunk in prox.iterNewBackupArchive():
+                                        await upfd.write(chunk)
+
+                                    size, sha256r = await upfd.save()
+                                    await asyncio.sleep(0)
+
+                        stream.seek(0)
+                        logs = stream.read()
+                        self.notin('Restoring from url', logs)
+
+                    # grab the restore iden for later use
+                    rpath = s_common.genpath(cdir, 'restore.done')
+                    with s_common.genfile(rpath) as fd:
+                        doneiden = fd.read().decode().strip()
+                    self.true(s_common.isguid(doneiden))
+
+                    # Restoring into a directory that has been used to boot a cell not okay.
+                    # Remove the restore.done file forces the restore from happening again.
+                    os.unlink(rpath)
+                    with self.raises(s_exc.BadConfValu) as cm:
+                        async with self.getTestCore(dirn=cdir) as core:
+                            pass
+
+            # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
+            furl2 = f'{url}{s_common.ehex(sha256r)}'
+            with self.setTstEnvars(SYN_CORTEX_RESTORE_URL=furl2):
+                with self.getTestDir() as cdir:
+                    # Restore works
+                    with self.getAsyncLoggerStream('synapse.lib.cell',
+                                                   'Restoring from url') as stream:
+                        async with self.getTestCore(dirn=cdir) as core:
+                            self.true(await stream.wait(6))
+                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+
+                    rpath = s_common.genpath(cdir, 'restore.done')
+                    with s_common.genfile(rpath) as fd:
+                        second_doneiden = fd.read().decode().strip()
+                        self.true(s_common.isguid(second_doneiden))
+                    self.ne(doneiden, second_doneiden)
