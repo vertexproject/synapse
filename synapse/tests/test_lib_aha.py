@@ -648,6 +648,110 @@ class AhaTest(s_test.SynTest):
                     https_port = conf.get('https:port')
                     self.eq(https_port, 443)
 
+    async def test_aha_provmirror(self):
+
+        with self.getTestDir() as dirn:
+
+            dirn_aha00 = s_common.gendir(dirn, 'aha00')
+            dirn_aha01 = s_common.gendir(dirn, 'aha01')
+            dirn_certs = s_common.gendir(dirn, 'certdir')
+
+            with self.getTestCertDir(dirn_certs) as certdir:
+
+                conf_aha00 = {
+                    'aha:name': '00.aha', # prep for mirrors
+                    'aha:admin': 'root@loop.vertex.link',  # add this so we get user certs
+                    'aha:network': 'loop.vertex.link',
+                    'provision:listen': 'ssl://00.aha.loop.vertex.link:0'
+                }
+                async with self.getTestAha(conf=conf_aha00, dirn=dirn_aha00) as aha00:
+
+                    addr, port = aha00.provdmon.addr
+                    # update the config to reflect the dynamically bound port
+                    aha00.conf['provision:listen'] = f'ssl://00.aha.loop.vertex.link:{port}'
+
+                    # do this config ex-post-facto due to port binding...
+                    ahalisten = 'ssl://0.0.0.0:0?hostname=00.aha.loop.vertex.link&ca=loop.vertex.link'
+                    host, ahaport = await aha00.dmon.listen(ahalisten)
+                    ahaurl = f'ssl://root@00.aha.loop.vertex.link:{ahaport}'
+                    aha00.conf['aha:urls'] = [
+                        f'ssl://00.aha.loop.vertex.link:{ahaport}',
+                    ]  # may want to test/update _getAhaUrls() enumerating themselves
+
+                    # self-provision aha00 -> needs to be part of startup
+                    await s_telepath.addAhaUrl([ahaurl])
+                    urlinfo = s_telepath.chopurl(ahalisten)
+                    urlinfo.pop('host', None)
+                    urlinfo['port'] = ahaport
+                    ahainfo = {
+                        'run': await aha00.getCellRunId(),
+                        'iden': aha00.getCellIden(),
+                        'leader': 'aha',  # would be set in conf
+                        'urlinfo': urlinfo,
+                        'ready': aha00.isactive,
+                    }
+                    async with await s_telepath.openurl(f'ssl://root@00.aha.loop.vertex.link:{ahaport}') as prox:
+                        # stay within this context so svc is not set as down; adjust online tracking for self-reference
+
+                        await prox.addAhaSvc('00.aha', ahainfo, network='loop.vertex.link') # show up as ssl://None:33009???
+                        await prox.addAhaSvc('aha', ahainfo, network='loop.vertex.link')
+                        infos00 = [info async for info in aha00.getAhaSvcs()]
+                        self.len(2, infos00)
+
+                        async with await s_telepath.openurl('aha://root@00.aha.loop.vertex.link') as proxy:
+                            self.nn(await proxy.getCellIden())
+                        async with await s_telepath.openurl('aha://root@aha.loop.vertex.link') as proxy:
+                            self.nn(await proxy.getCellIden())
+
+                        # provision the aha mirror
+                        provinfo = {'mirror': 'aha'}
+                        provurl = await aha00.addAhaSvcProv('01.aha', provinfo=provinfo)
+                        conf_aha01 = {'aha:provision': provurl}
+                        wait00 = aha00.waiter(1, 'aha:svcadd')
+                        async with self.getTestAha(conf=conf_aha01, dirn=dirn_aha01) as aha01:
+                            self.len(1, await wait00.wait(timeout=6))
+                            infos01 = [info async for info in aha00.getAhaSvcs()]
+                            self.len(3, infos01)
+                            await aha01.sync()
+
+                            # artifact of setting dynamic port on leader
+                            ahaport = [info['svcinfo']['urlinfo']['port'] for info in infos01 if info['svcname'] == '01.aha'][0]
+                            aha01.conf['aha:urls'] = [
+                                f'ssl://01.aha.loop.vertex.link:{ahaport}',
+                            ]
+
+                            # bootstrap the provision:listen url for mirror?
+                            provlisten = f'ssl://01.aha.loop.vertex.link:0'
+                            aha01.provdmon = await s_aha.ProvDmon.anit(aha01)
+                            aha01.onfini(aha01.provdmon)
+                            await aha01.provdmon.listen(provlisten)
+                            addr, port = aha01.provdmon.addr
+                            aha01.conf['provision:listen'] = f'ssl://01.aha.loop.vertex.link:{port}'
+
+                            # provision from the leader
+                            provurl = await aha00.addAhaSvcProv('00.acore')
+                            coreconf = {'aha:provision': provurl}
+                            wait00 = aha00.waiter(1, 'aha:svcadd')
+                            async with self.getTestCore(conf=coreconf) as core00:
+                                self.len(1, await wait00.wait(timeout=2))
+                                self.len(1, core00.conf['aha:registry'])  # should be two
+                                await core00.nodes('[inet:ipv4=0]')
+                                await aha01.sync()
+                                self.nn(await aha01.getAhaSvc('00.acore...'))
+                                self.nn(await aha01.getAhaSvc('acore...'))
+
+                            # provision from the follower
+                            provurl = await aha01.addAhaSvcProv('00.bcore')
+                            coreconf = {'aha:provision': provurl}
+                            wait00 = aha01.waiter(1, 'aha:svcadd')
+                            async with self.getTestCore(conf=coreconf) as core01:
+                                self.len(1, await wait00.wait(timeout=2))
+                                self.len(1, core01.conf['aha:registry'])  # should be two
+                                await core01.nodes('[inet:ipv4=1]')
+                                await aha01.sync()
+                                self.nn(await aha00.getAhaSvc('00.bcore...'))
+                                self.nn(await aha00.getAhaSvc('bcore...'))
+
     async def test_aha_httpapi(self):
         with self.getTestDir() as dirn:
 
