@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.aha as s_aha
+import synapse.lib.cell as s_cell
 import synapse.lib.output as s_output
 
 import synapse.tools.backup as s_tools_backup
@@ -23,6 +24,20 @@ async def mockaddsvc(self, name, info, network=None):
     if getattr(self, 'testerr', False):
         raise s_exc.SynErr(mesg='newp')
     return await realaddsvc(self, name, info, network=network)
+
+class ExecTeleCallerApi(s_cell.CellApi):
+    async def exectelecall(self, url, meth, *args, **kwargs):
+        return await self.cell.exectelecall(url, meth, *args, **kwargs)
+
+class ExecTeleCaller(s_cell.Cell):
+    cellapi = ExecTeleCallerApi
+
+    async def exectelecall(self, url, meth, *args, **kwargs):
+
+        async with await s_telepath.openurl(url) as prox:
+            meth = getattr(prox, meth)
+            resp = await meth(*args, **kwargs)
+            return resp
 
 class AhaTest(s_test.SynTest):
     aha_ctor = s_aha.AhaCell.anit
@@ -648,6 +663,16 @@ class AhaTest(s_test.SynTest):
                     https_port = conf.get('https:port')
                     self.eq(https_port, 443)
 
+                # provisioning against a network that differs from the aha network fails.
+                bad_netw = 'stuff.goes.beep'
+                provinfo = {'conf': {'aha:network': bad_netw}}
+                with self.raises(s_exc.BadConfValu) as cm:
+                    async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller,
+                                                provinfo=provinfo) as conn:
+                        pass
+                self.isin('Provisioning aha:network must be equal to the Aha servers network',
+                          cm.exception.get('mesg'))
+
     async def test_aha_httpapi(self):
         with self.getTestDir() as dirn:
 
@@ -756,3 +781,36 @@ class AhaTest(s_test.SynTest):
                         info = await resp.json()
                         self.eq(info.get('status'), 'err')
                         self.eq(info.get('code'), 'AuthDeny')
+
+    async def test_aha_connect_back(self):
+        async with self.getTestAhaProv() as aha:  # type: s_aha.AhaCell
+
+            async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller) as conn:
+
+                ahaurl = aha.conf.get('aha:urls')[0]
+                ahaurl = s_telepath.modurl(ahaurl, user='root')
+
+                # This adminapi fails if the ssl://root@aha.loop.vertex.link
+                # session is not an admin user.
+                await conn.exectelecall(ahaurl, 'getNexsIndx')
+
+    async def test_aha_util_helpers(self):
+
+        # Mainly for test helper coverage.
+
+        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
+            root = await aha.auth.getUserByName('root')
+            self.true(root.tryPasswd('secret'))
+
+            import synapse.cortex as s_cortex
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'core00')
+                cdr1 = s_common.genpath(dirn, 'core01')
+
+                async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
+                    async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
+                                                provinfo={'mirror': 'core'}) as core01:
+                        self.len(1, await core00.nodes('[inet:asn=0]'))
+                        await core01.sync()
+                        self.len(1, await core01.nodes('inet:asn=0'))
