@@ -1,5 +1,4 @@
 import os
-import ssl
 import time
 import fcntl
 import shutil
@@ -2171,8 +2170,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def initSslCtx(self, certpath, keypath):
 
-        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        sslctx = s_certdir.getServerSSLContext()
 
         if not os.path.isfile(keypath):
             raise s_exc.NoSuchFile(mesg=f'Missing TLS keypath {keypath}', path=keypath)

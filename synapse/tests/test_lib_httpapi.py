@@ -953,6 +953,11 @@ class HttpApiTest(s_tests.SynTest):
 
             with self.raises(ssl.SSLError):
                 sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
+                sslctx.set_ciphers('AES256-GCM-SHA384')
+                link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
+
+            with self.raises(ssl.SSLError):
+                sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1_2)
                 sslctx.set_ciphers('DHE-RSA-AES256-SHA256')
                 link = await s_link.connect('127.0.0.1', port=port, ssl=sslctx)
 
