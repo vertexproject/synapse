@@ -261,7 +261,7 @@ _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | expr
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
     | SINGLEQUOTEDSTRING | innerdollarexpr
 
-// Expr versions of rules to avoid invalid state combinations
+// Expr versions of rules to avoid invalid state merges
 innerdollarexpr: "$"? "(" expror ")" -> dollarexpr
 
 exprrelpropvalu: EXPRRELNAME -> relpropvalu
