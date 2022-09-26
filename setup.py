@@ -104,7 +104,7 @@ setup(
         'scalecodec>=1.0.2,<1.0.38',  # synapse.vendor.substrateinterface req
         'cbor2>=5.4.1,<5.4.3',
         'bech32==1.2.0',
-        'oauthlib>=3.1.1,<4.0.0',
+        'oauthlib>=3.2.1,<4.0.0',
         'idna==3.3',
         'python-dateutil>=2.8,<3.0',
         'pytz>=2021.3,<2022.2',
