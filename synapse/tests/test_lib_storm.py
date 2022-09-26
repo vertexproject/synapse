@@ -3999,7 +3999,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInErr('Invalid wildcard usage in tag test.*.bar', msgs)
 
             await core.nodes('inet:ipv4=45.79.131.138 -> inet:flow -(:dst:port=444 or :dst:port=80)')
-            await core.nodes('media:news=0c7f7267d3b62432cb0d7d0e9d3108a4 -(refs)> inet:ipv4 <(refs)- file:bytes')
+            await core.nodes('media:news=0c7f7267d3b62432cb0d7d0e9d3108a4 -(refs)> inet:ipv4')
 
             self.eq(3, await core.callStorm('$foo=(2) return(($foo+(1)))'))
             self.eq(1, await core.callStorm('$foo=(2) return(($foo-(1)))'))
@@ -4008,6 +4008,18 @@ class StormTest(s_t_utils.SynTest):
             self.eq(True, await core.callStorm('$foo=(2) return(($foo<(3)))'))
             self.eq(True, await core.callStorm('return(((2)<(3)))'))
             self.eq(True, await core.callStorm('return(((1)<(3)-(1)))'))
+            self.eq(True, await core.callStorm('return(((1)<(3)-(1)))'))
+            self.eq(True, await core.callStorm('$foo=(2) return(($foo<(4)-(1)))'))
+            self.eq(True, await core.callStorm('[inet:ipv4=1.2.3.4 :asn=1] return((:asn<(4)-(1)))'))
+            self.eq(True, await core.callStorm('$p=asn inet:ipv4=1.2.3.4 return((:$p<(4)-(1)))'))
+            self.eq(True, await core.callStorm('[inet:ipv4=1.2.3.4 .test:univ=0] return((.test:univ<(4)-(1)))'))
+            self.eq(True, await core.callStorm('[inet:ipv4=1.2.3.4 +#foo:score=1] return((#foo:score<(4)-(1)))'))
+
+            with self.raises(s_exc.BadCast):
+                self.eq(True, await core.callStorm('[inet:ipv4=1.2.3.4 +#foo=(0)] return((#foo<(4)-(1)))'))
+
+            with self.raises(s_exc.BadCast):
+                self.eq(True, await core.callStorm('$p=bar [inet:ipv4=1.2.3.4 +#foo.bar=(0)] return((#foo.$p<(4)-(1)))'))
 
             await core.nodes('[inet:fqdn=foo +(asn)> {[inet:asn=1 inet:asn=2]}]')
 

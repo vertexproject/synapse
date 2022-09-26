@@ -1,5 +1,3 @@
-from lark.lark import PostLex
-
 import ast
 
 import lark  # type: ignore
@@ -11,53 +9,6 @@ import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.datfile as s_datfile
-
-class StormContext(PostLex):
-
-    def __init__(self):
-        self.postlexMap = {
-            'LBRACE': self.pushCtx,
-            '_ARRAYCONDSTART': self.pushCtx,
-            'LPAR': self.pushCtx,
-            '_LPARNOSPACE': self.pushCtx,
-            'LSQB': self.pushCtx,
-
-            'RBRACE': self.popCtx,
-            'RPAR': self.popCtx,
-            'RSQB': self.popCtx,
-            'RSQBNOSPACE': self.popCtx,
-            '_EDGEN1FINI': self.popCtx,
-
-            '_EDGEN2INIT': self.edgeN2Init,
-        }
-
-    def pushCtx(self, token, ctxs):
-        ctxs.append(token)
-        yield token
-
-    def popCtx(self, token, ctxs):
-        if ctxs:
-            ctxs.pop()
-        yield token
-
-    def edgeN2Init(self, token, ctxs):
-        if ctxs and ctxs[-1] == '(' and not (len(ctxs) >= 2 and ctxs[-2] == '['):
-            yield lark.lexer.Token.new_borrow_pos('CMPR', '<', token)
-            yield lark.lexer.Token.new_borrow_pos('LPAR', '(', token)
-        else:
-            yield token
-
-    def _process(self, stream):
-        ctxs = []
-        for token in stream:
-            if (postlex := self.postlexMap.get(token.type)) is not None:
-                for ptok in postlex(token, ctxs):
-                    yield ptok
-            else:
-                yield token
-
-    def process(self, stream):
-        return self._process(stream)
 
 # TL;DR:  *rules* are the internal nodes of an abstract syntax tree (AST), *terminals* are the leaves
 
@@ -120,6 +71,7 @@ terminalEnglishMap = {
     'PROPS': 'absolute property name',
     'RBRACE': '}',
     'RELNAME': 'relative property name',
+    'EXPRRELNAME': 'relative property name',
     'RPAR': ')',
     'RSQB': ']',
     'RSQBNOSPACE': ']',
@@ -133,7 +85,9 @@ terminalEnglishMap = {
     'TRYSETPLUS': '?+=',
     'TRYSETMINUS': '?-=',
     'UNIVNAME': 'universal property',
+    'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
+    'EXPRVARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
@@ -142,8 +96,10 @@ terminalEnglishMap = {
     '_ARRAYCONDSTART': '*[',
     '_COLONDOLLAR': ':$',
     '_DEREF': '*',
+    '_EDGEADDN1INIT': '+(',
     '_EDGEADDN2FINI': ')+',
     '_EDGEN1FINI': ')>',
+    '_EDGEN1INIT': '-(',
     '_EDGEN2INIT': '<(',
     '_EDGEN2FINI': ')-',
     '_ELSE': 'else',
@@ -151,7 +107,9 @@ terminalEnglishMap = {
     '_EMIT': 'emit',
     '_FINI': 'fini',
     '_HASH': '#',
+    '_EXPRHASH': '#',
     '_HASHSPACE': '#',
+    '_EXPRHASHSPACE': '#',
     '_INIT': 'init',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -518,7 +476,7 @@ with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
 
 LarkParser = lark.Lark(_grammar, regex=True, start=['query', 'lookup', 'cmdrargs', 'evalvalu', 'search'],
-                       maybe_placeholders=False, propagate_positions=True, parser='lalr', postlex=StormContext())
+                       maybe_placeholders=False, propagate_positions=True, parser='lalr')
 
 class Parser:
     '''
@@ -652,6 +610,7 @@ def parseEval(text):
     return Parser(text).eval()
 
 async def _forkedParseQuery(args):
+    return parseQuery(args[0], mode=args[1])
     return await s_coro.forked(parseQuery, args[0], mode=args[1])
 
 async def _forkedParseEval(text):
@@ -679,6 +638,7 @@ terminalClassMap = {
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
+    'EXPRVARTOKN': massage_vartokn,
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
@@ -714,6 +674,8 @@ ruleClassMap = {
     'exprproduct': s_ast.ExprNode,
     'exprsum': s_ast.ExprNode,
     'filtoper': s_ast.FiltOper,
+    'filtopermust': lambda kids: s_ast.FiltOper([s_ast.Const('+')] + kids),
+    'filtopernot': lambda kids: s_ast.FiltOper([s_ast.Const('-')] + kids),
     'forloop': s_ast.ForLoop,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
