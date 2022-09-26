@@ -612,7 +612,7 @@ class FileModule(s_module.CoreModule):
                     ('sha256', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the bytes of the segment.'}),
                     ('offset', ('int', {}), {
-                        'doc': 'The file offset to the begining of the segment.'}),
+                        'doc': 'The file offset to the beginning of the segment.'}),
                 )),
                 ('file:mime:macho:section', {}, (
                     ('segment', ('file:mime:macho:segment', {}), {
@@ -626,7 +626,7 @@ class FileModule(s_module.CoreModule):
                     ('sha256', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
                     ('offset', ('int', {}), {
-                        'doc': 'The file offset to the begining of the section'}),
+                        'doc': 'The file offset to the beginning of the section'}),
                 )),
 
             ),
