@@ -14,7 +14,7 @@ Add or modify a user of a Synapse service.
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='moduser', description=descr)
-    pars.add_argument('--svcurl', default='cell://vertex/storage', help='The telepath URL of the Synapse service.')
+    pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the user if they do not already exist.')
     pars.add_argument('--admin', choices=('true', 'false'), default=None, help='Set the user admin status.')
     pars.add_argument('--passwd', action='store', type=str, help='A password to set for the user.')
