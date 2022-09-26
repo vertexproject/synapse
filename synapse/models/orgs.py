@@ -138,7 +138,7 @@ class OuModule(s_module.CoreModule):
                     'interfaces': ('taxonomy',),
                 }),
                 ('ou:campaign', ('guid', {}), {
-                    'doc': 'Represents an orgs activity in pursuit of a goal.',
+                    'doc': "Represents an org's activity in pursuit of a goal.",
                 }),
                 ('ou:conflict', ('guid', {}), {
                     'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
@@ -509,6 +509,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'doc': 'A description of the org.',
+                        'disp': {'hint': 'text'}
                     }),
                     ('logo', ('file:bytes', {}), {
                         'doc': 'An image file representing the logo for the organization.',

@@ -255,7 +255,7 @@ class ItModule(s_module.CoreModule):
             await node.snap.addNode('it:dev:str', prop)
 
     async def _onPropSoftverVers(self, node, oldv):
-        # Set vers:norm and make it's normed valu
+        # Set vers:norm and make its normed valu
         prop = node.get('vers')
         if not prop:
             return
@@ -736,7 +736,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:logon', {}, (
                     ('time', ('time', {}), {
-                        'doc': 'The time the logon occured.',
+                        'doc': 'The time the logon occurred.',
                     }),
                     ('success', ('bool', {}), {
                         'doc': 'Set to false to indicate an unsuccessful logon attempt.',
@@ -1036,7 +1036,7 @@ class ItModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'The hardware specification of this component.'}),
                     ('serial', ('str', {}), {
-                        'doc': 'The serial number of this componenent.'}),
+                        'doc': 'The serial number of this component.'}),
                     ('host', ('it:host', {}), {
                         'doc': 'The it:host which has this component installed.'}),
                 )),
@@ -1070,7 +1070,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('author:email', ('inet:email', {}), {
                         'deprecated': True,
-                        'doc': 'Email address of the sofware author.',
+                        'doc': 'Email address of the software author.',
                     }),
 
                     ('author:person', ('ps:person', {}), {

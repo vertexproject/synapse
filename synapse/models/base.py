@@ -211,7 +211,7 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A human readable name for this record.'}),
 
                     ('data', ('data', {}), {
-                        'doc': 'Aribtrary non-indexed msgpack data attached to the node.'}),
+                        'doc': 'Arbitrary non-indexed msgpack data attached to the node.'}),
 
                 )),
 
@@ -242,7 +242,7 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A name for the event.'}),
 
                     ('data', ('data', {}), {
-                        'doc': 'Aribtrary non-indexed msgpack data attached to the event.'}),
+                        'doc': 'Arbitrary non-indexed msgpack data attached to the event.'}),
 
                 )),
 
