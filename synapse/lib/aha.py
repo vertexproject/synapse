@@ -773,6 +773,10 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server has no configured aha:network.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if netw != mynetw:
+            mesg = f'Provisioning aha:network must be equal to the Aha servers network. Expected {mynetw}, got {netw}'
+            raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
+
         hostname = f'{name}.{netw}'
 
         conf.setdefault('aha:name', name)
@@ -804,16 +808,9 @@ class AhaCell(s_cell.Cell):
         if mirname is not None:
             conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
 
-        # If the provisioned aha network is our network, we can assume
-        # non-namespaced usernames.
-        if netw == mynetw:
-            username = ahauser
-        else:
-            username = f'{ahauser}@{netw}'
-
-        user = await self.auth.getUserByName(username)
+        user = await self.auth.getUserByName(ahauser)
         if user is None:
-            user = await self.auth.addUser(username)
+            user = await self.auth.addUser(ahauser)
 
         perms = [
             ('aha', 'service', 'get', netw),
