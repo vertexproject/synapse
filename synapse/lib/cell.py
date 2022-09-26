@@ -2858,9 +2858,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # check for a TLS client cert
         username = link.getTlsPeerCn()
         if username is not None:
-            user = await self.auth.getUserByName(username)
-            if user is not None:
-                return user
 
             if username.find('@') != -1:
                 userpart, hostpart = username.split('@', 1)
@@ -2868,6 +2865,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
                         return user
+
+            user = await self.auth.getUserByName(username)
+            if user is not None:
+                return user
 
             raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
 
