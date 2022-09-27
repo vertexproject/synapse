@@ -4021,6 +4021,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadCast):
                 self.eq(True, await core.callStorm('$p=bar [inet:ipv4=1.2.3.4 +#foo.bar=(0)] return((#foo.$p<(4)-(1)))'))
 
-            await core.nodes('[inet:fqdn=foo +(asn)> {[inet:asn=1 inet:asn=2]}]')
+            await core.nodes('[inet:asn=1 inet:asn=2 <("foo)")+ { inet:ipv4=1.2.3.4 }]')
 
-            self.len(1, await core.nodes('inet:fqdn -(asn)> inet:asn <(2)'))
+            self.len(1, await core.nodes('inet:asn <(2)'))
+            self.len(2, await core.nodes('inet:asn <("foo)")- *'))
+            self.len(2, await core.nodes('inet:asn <(("foo)", \'bar()\'))- *'))

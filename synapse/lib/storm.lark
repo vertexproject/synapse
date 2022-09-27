@@ -170,9 +170,12 @@ n2walknpivo: _WALKNPIVON2 "*"
 _EDGEADDN1INIT.2: "+("
 _EDGEN1INIT.2: "-("
 _EDGEN1FINI: ")>"
-_EDGEN2INIT: /\<\((?=(?>(\(((?>[^()"']+|(?2)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)[\-\+])/
 _EDGEADDN2FINI: ")+"
 _EDGEN2FINI: ")-"
+
+// Regex to check for a matching ')-' or ')+' so we can avoid incorrectly matching
+// comparisons to an expression like '<(2)'
+_EDGEN2INIT: /\<\((?=(?>(\(((?>[^()"']+|(?2)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)[\-\+])/
 
 edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI baresubquery
 edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
