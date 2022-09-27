@@ -858,7 +858,6 @@ class HttpApiTest(s_tests.SynTest):
                     await core.delStormSvc(ssvc['iden'])
                     await core.delStormPkg(spkg['name'])
 
-
                     events = [
                         'cron:add',
                         'layer:add',
