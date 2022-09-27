@@ -789,56 +789,51 @@ class AhaTest(s_test.SynTest):
                         # at this point aha00 is still active and aha01 is not active
 
                         # semi-graceful promotion
-                        # - set leader inactive
-                        # - hold nexus lock and wait for follower to catch up -> can't write anything now!
-                        # - mod cell conf on the follower so its not mirroring
-                        # - do follower nexus promote flow but tell *self* that we're ready
-                        # - set follower as active
-                        # - make leader the follower and release lock
-                        # ...other option is to re-provision leader??
-                        # await aha00.setCellActive(False)
-                        # # set aha00 down here?
-                        # infos = [x async for x in aha00.getAhaSvcs()]
-                        # async with aha00.nexsroot.applylock:
-                        #     indx = await aha00.getNexsIndx()
-                        #     self.true(await aha01.waitNexsOffs(indx - 1, timeout=2))
-                        #     aha01.modCellConf({'mirror': None})
-                        #     nexs01 = aha01.nexsroot
-                        #     await nexs01.client.fini()
-                        #     nexs01._mirready.clear()
-                        #     nexs01.client = None
-                        #     nexs01.ready.set()
-                        #     await nexs01.cell.modAhaSvcInfo(nexs01.cell.ahasvcname, {'ready': True})
-                        #     nexs01.started = True
-                        #     print('aha01 setCellActive')
-                        #     # await aha01.setCellActive(True)  # this might fail b/c it will call aha00?
-                        #
-                        #     aha01.isactive = True
-                        #     aha01._fireActiveCoros()
-                        #     await aha01.initServiceActive()
-                        #
-                        # async with await s_telepath.openurl(ahaurl01) as prox01:
-                        #     # stay within this context so svc is not set as down; need to adjust online tracking for self-reference
-                        #     await prox01.addAhaSvc(aha01.conf['aha:leader'], aha01.ahainfo, network=aha01.conf['aha:network'])
-                        #
-                        #     aha00.modCellConf({'mirror': 'aha://root@aha.loop.vertex.link'})
-                        #     # this is trying to tellAhaReady to aha00...
-                        #     # can't fini the client b/c its shared with aha01...
-                        #     await aha00.ahaclient.fini()
-                        #     aha00.conf['aha:registry'] = [ahaurl01]
-                        #     await aha00._initAhaRegistry()
-                        #     await aha00.nexsroot.startup()
-                        #     await asyncio.sleep(3)
-                        #     infos00 = [x async for x in aha00.getAhaSvcs()]
-                        #     infos01 = [x async for x in aha01.getAhaSvcs()]
-                        #     print('foo')
-                        #     # aha.ahaclient should always be self...?
+                        # the main change is for the leader to go inactive before applying the lock
+                        await aha00.setCellActive(False)
+                        async with aha00.nexsroot.applylock:
+                            indx = await aha00.getNexsIndx()
+                            self.true(await aha01.waitNexsOffs(indx - 1, timeout=2))
+
+                            aha01.modCellConf({'mirror': None})
+                            aha00.modCellConf({'mirror': 'aha://root@aha.loop.vertex.link'})
+
+                            # the new leader should be able to itself
+                            # that its active and ready
+                            await aha01.nexsroot.promote()
+                            await aha01.setCellActive(True)
+
+                            # at this point the new leader should be ready
+                            # it will fail to connect to self, but can connect to the new leader
+                            # since it has both urls in its registry
+                            await asyncio.sleep(2)  # replace w/waiter
+                            await aha00.nexsroot.startup()
+
+                        await asyncio.sleep(2)  # replace w/waiter
+
+                        info = await aha01.getAhaSvc('aha...')
+                        self.eq('01.aha.loop.vertex.link', info['svcinfo']['urlinfo']['hostname'])
+                        self.nn(info['svcinfo']['online'])
+
+                        info00 = await aha01.getAhaSvc('00.aha...')
+                        self.nn(info00['svcinfo']['online'])
+
+                        info01 = await aha01.getAhaSvc('01.aha...')
+                        self.nn(info01['svcinfo']['online'])
+
+                        await aha00.sync()
+
+                        # tl;dr on possible changes
+                        # - if configured, the aha leader needs to bootstrap itself as an aha svc post-startup
+                        # - provision:listen and aha:urls needs to get passed to a provisioned aha mirror
+                        # - graceful promotion needs special handling to go inactive before actual handoff/promotion
 
                         # notes on deployment guide (assuming changes noted above)
-                        # - define how many aha's you want, and fix the urls for aha:urls/aha:registry
+                        # - define how many aha's you want, and set the urls for aha:urls/aha:registry
+                        #       - could automagically set aha:registry if aha:urls provided
                         # - all *.aha fqdns need to be resolvable so provision urls work
                         # - aha mirrors don't have to be setup before everything else, but probably makes sense to do so
-                        # - promotion tbd...
+                        # - doc promotion caveats
                         # - even without being mirrored probably makes sense to move guide to use 00.aha for future self
 
     async def test_aha_httpapi(self):
