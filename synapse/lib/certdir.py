@@ -15,14 +15,65 @@ defdir = os.getenv('SYN_CERT_DIR')
 if defdir is None:
     defdir = defdir_default
 
+logger = logging.getLogger(__name__)
+
+TEN_YEARS = 10 * 365 * 24 * 60 * 60
+
+
 def iterFqdnUp(fqdn):
     levs = fqdn.split('.')
     for i in range(len(levs)):
         yield '.'.join(levs[i:])
 
-TEN_YEARS = 10 * 365 * 24 * 60 * 60
+def _initTLSServerCiphers():
+    '''
+    Create a cipher string that supports TLS 1.2 and TLS 1.3 ciphers which do not use RSA.
 
-logger = logging.getLogger(__name__)
+    Note:
+        The results of this may be dynamic depending on the interpreter version and OpenSSL library in use.
+        For Python 3.8 and below, the cipher list is a subset of the normal default ciphers which commonly available.
+        For Python 3.10+, the changes should be negligible.
+
+        The resulting string is cached in the module global TLS_SERVER_CIPHERS and called at import time.
+
+    Returns:
+        str: A OpenSSL Cipher string.
+    '''
+    ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)  # type: ssl.SSLContext
+    _ciphers = []
+    for cipher in ctx.get_ciphers():  # pragma: no cover
+        if cipher.get('protocol') not in ('TLSv1.2', 'TLSv1.3'):
+            continue
+        if cipher.get('kea') == 'kx-rsa':   # pragma: no cover
+            continue
+        _ciphers.append(cipher)
+
+    if len(_ciphers) == 0:  # pragma: no cover
+        raise s_exc.SynErr(mesg='No valid TLS ciphers are available for this Python installation.')
+
+    ciphers = ':'.join([c.get('name') for c in _ciphers])
+
+    return ciphers
+
+TLS_SERVER_CIPHERS = _initTLSServerCiphers()
+
+def getServerSSLContext() -> ssl.SSLContext:
+    '''
+    Get a server SSLContext object.
+
+    This object has a minimum TLS version of 1.2, a subset of ciphers in use, and disabled client renegotiation.
+
+    This object has no certificates loaded in it.
+
+    Returns:
+        ssl.SSLContext: The context object.
+    '''
+    sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    sslctx.set_ciphers(TLS_SERVER_CIPHERS)
+    # Disable client renegotiation if available.
+    sslctx.options |= getattr(ssl, "OP_NO_RENEGOTIATION", 0)
+    return sslctx
 
 class CertDir:
     '''
@@ -952,8 +1003,8 @@ class CertDir:
         return self._getServerSSLContext(hostname=hostname, caname=caname)
 
     def _getServerSSLContext(self, hostname=None, caname=None):
-        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        sslctx = getServerSSLContext()
+
         if hostname is None:
             hostname = socket.gethostname()
 

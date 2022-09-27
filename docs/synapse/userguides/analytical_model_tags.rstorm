@@ -90,9 +90,7 @@ For the tag ``foo.bar.baz``:
 
 When you apply a tag to a node, all of the tags **above** that tag in the tag tree are automatically applied as well
 (and the appropriate ``syn:tag`` nodes are created if they do not exist). That is, when you apply the tag ``foo.bar.baz``
-to a node, Synapse automatically applies the tags ``foo.bar`` and ``foo`` as well. Because tags are meant to be
-hierarchical, if the assessment ``foo.bar.baz`` is applicable to a node and ``foo.bar.baz`` is a subset of ``foo``, 
-it follows that the broader assessment ``foo.bar`` is applicable as well.
+to a node, Synapse automatically applies the tags ``foo.bar`` and ``foo`` as well.
 
 When you delete (remove) a tag from a node, the tag and all tags **below** it in the tag tree are deleted. If you delete
 the tag ``foo.bar.baz`` from a node, the tags ``foo.bar`` and ``foo`` will remain. However, if you delete the tag ``foo``
