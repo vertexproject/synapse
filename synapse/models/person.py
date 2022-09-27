@@ -367,6 +367,7 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('address', ('geo:address', {}), {
                         'doc': 'The street address listed for the contact.',
+                        'disp': {'hint': 'text'}
                     }),
                     ('place', ('geo:place', {}), {
                         'doc': 'The place associated with this contact.',

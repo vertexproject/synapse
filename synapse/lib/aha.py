@@ -401,17 +401,20 @@ class AhaCell(s_cell.Cell):
             if netw is not None:
 
                 if self.certdir.getCaCertPath(netw) is None:
+                    logger.info(f'Adding CA certificate for {netw}')
                     await self.genCaCert(netw)
 
                 name = self.conf.get('aha:name')
 
                 host = f'{name}.{netw}'
                 if self.certdir.getHostCertPath(host) is None:
+                    logger.info(f'Adding server certificate for {host}')
                     await self._genHostCert(host, signas=netw)
 
                 user = self._getAhaAdmin()
                 if user is not None:
                     if self.certdir.getUserCertPath(user) is None:
+                        logger.info(f'Adding user certificate for {user}@{netw}')
                         await self._genUserCert(user, signas=netw)
 
     async def initServiceNetwork(self):
@@ -770,6 +773,10 @@ class AhaCell(s_cell.Cell):
             mesg = 'AHA server has no configured aha:network.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
+        if netw != mynetw:
+            mesg = f'Provisioning aha:network must be equal to the Aha servers network. Expected {mynetw}, got {netw}'
+            raise s_exc.BadConfValu(mesg=mesg, name='aha:network', expected=mynetw, got=netw)
+
         hostname = f'{name}.{netw}'
 
         conf.setdefault('aha:name', name)
@@ -801,15 +808,20 @@ class AhaCell(s_cell.Cell):
         if mirname is not None:
             conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
 
-        username = f'{ahauser}@{netw}'
-        user = await self.auth.getUserByName(username)
+        user = await self.auth.getUserByName(ahauser)
         if user is None:
-            user = await self.auth.addUser(username)
+            user = await self.auth.addUser(ahauser)
 
-        await user.allow(('aha', 'service', 'get', netw))
-        await user.allow(('aha', 'service', 'add', netw, name))
+        perms = [
+            ('aha', 'service', 'get', netw),
+            ('aha', 'service', 'add', netw, name),
+        ]
         if peer:
-            await user.allow(('aha', 'service', 'add', netw, leader))
+            perms.append(('aha', 'service', 'add', netw, leader))
+        for perm in perms:
+            if user.allowed(perm):
+                continue
+            await user.allow(perm)
 
         iden = await self._push('aha:svc:prov:add', provinfo)
 

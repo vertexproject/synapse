@@ -13,7 +13,7 @@ Add or modify a role in a Synapse service.
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='modrole', description=descr)
-    pars.add_argument('--svcurl', default='cell://vertex/storage', help='The telepath URL of the Synapse service.')
+    pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
     pars.add_argument('--add', default=False, action='store_true', help='Add the role if they do not already exist.')
     pars.add_argument('--allow', default=[], action='append', help='A permission string to allow for the role.')
     pars.add_argument('--deny', default=[], action='append', help='A permission string to deny for the role.')

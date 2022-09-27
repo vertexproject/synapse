@@ -132,7 +132,7 @@ class PolModule(s_module.CoreModule):
                         ('winner', ('bool', {}), {
                             'doc': 'Records the outcome of the race.'}),
                         ('party', ('ou:org', {}), {
-                            'doc': 'The declated political party of the candidate.'}),
+                            'doc': 'The declared political party of the candidate.'}),
                         ('incumbent', ('bool', {}), {
                             'doc': 'Set to true if the candidate is an incumbent in this race.'}),
                     )),
