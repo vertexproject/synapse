@@ -1150,8 +1150,6 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: x, DollarExpr: [ExprDict: [Const: foo, Const: bar, Const: baz, Const: 10]]]]',
     'Query: [CmdOper: [Const: iden, List: [Const: ssl://svcrs:27492?certname=root=bar]]]',
     'Query: [SetVarOper: [Const: x, List: [Const: foo bar baz, Const: two]]]',
-
-
 ]
 
 class GrammarTest(s_t_utils.SynTest):
