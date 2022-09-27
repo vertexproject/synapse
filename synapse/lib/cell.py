@@ -2368,6 +2368,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.cellparent is None:
             auth.link(self.dist)
 
+            def finilink():
+                auth.unlink(self.dist)
+            self.onfini(finilink)
+
         self.onfini(auth.fini)
         return auth
 
