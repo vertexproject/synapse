@@ -401,18 +401,15 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def delAuthUser(self, name):
         await self.cell.auth.delUser(name)
-        await self.cell.fire('user:mod', act='deluser', name=name)
 
     @adminapi(log=True)
     async def addAuthRole(self, name):
         role = await self.cell.auth.addRole(name)
-        await self.cell.fire('user:mod', act='addrole', name=name)
         return role.pack()
 
     @adminapi(log=True)
     async def delAuthRole(self, name):
         await self.cell.auth.delRole(name)
-        await self.cell.fire('user:mod', act='delrole', name=name)
 
     @adminapi()
     async def getAuthUsers(self, archived=False):
@@ -2008,27 +2005,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
         await user.grant(roleiden)
-        await self.fire('user:mod', act='grant', user=useriden, role=roleiden)
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
-        await self.fire('user:mod', act='setroles', user=useriden, roles=roleidens)
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
         await user.revoke(roleiden)
 
-        await self.fire('user:mod', act='revoke', user=useriden, role=roleiden)
-
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
-        await self.fire('user:mod', act='adduser', name=name)
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
         await self.auth.delUser(iden)
-        await self.fire('user:mod', act='deluser', user=iden)
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
@@ -2047,17 +2038,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
-        await self.fire('user:mod', act='setpasswd', user=iden)
 
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
-        await self.fire('user:mod', act='locked', user=iden, locked=locked)
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
-        await self.fire('user:mod', act='archived', user=iden, archived=archived)
 
     async def getUserDef(self, iden):
         user = self.auth.user(iden)
@@ -2126,7 +2114,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             g = []
             for gate in gates:
                 authgate = await self.getAuthGate(gate)
-                if gate:
+                if authgate is not None:
                     g.append(authgate)
             kwargs['gates'] = g
 
@@ -2134,7 +2122,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             p = []
             for perm in perms:
                 permdef = await self.getPermDef(perm)
-                if permdef:
+                if permdef is not None:
                     p.append(permdef)
             kwargs['perms'] = p
 
@@ -2376,6 +2364,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         node = await self.hive.open(('auth',))
         auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
+
+        if self.cellparent is None:
+            auth.link(self.dist)
 
         self.onfini(auth.fini)
         return auth

@@ -763,6 +763,8 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('AuthDeny', mesg['data']['code'])
 
                 await visi.setAdmin(True)
+                userrole = await core.auth.addRole('fancy.role')
+                await core.addUserRole(visi.iden, userrole.iden)
 
                 async with sess.ws_connect(f'wss://localhost:{port}/api/v1/behold') as sock:
                     await sock.send_json({'type': 'bleep blorp'})
@@ -856,8 +858,6 @@ class HttpApiTest(s_tests.SynTest):
                     await core.delStormSvc(ssvc['iden'])
                     await core.delStormPkg(spkg['name'])
 
-                    await core.callStorm('view.del $view', opts=opts)
-                    await core.callStorm('$lib.layer.del($layr)', opts=opts)
 
                     events = [
                         'cron:add',
@@ -875,8 +875,6 @@ class HttpApiTest(s_tests.SynTest):
                         'svc:add',
                         'svc:del',
                         'pkg:del',
-                        'view:del',
-                        'layer:del',
                     ]
 
                     mesgs = []
@@ -890,8 +888,11 @@ class HttpApiTest(s_tests.SynTest):
                         self.eq(event, data['event'])
 
                         if not event.startswith('svc'):
-                            self.nn(data['gates'])
-                            self.ge(len(data['gates']), 1)
+                            if event == 'cron:del':
+                                self.len(0, data['gates'])
+                            else:
+                                self.nn(data['gates'])
+                                self.ge(len(data['gates']), 1)
 
                         if event.startswith('pkg'):
                             self.len(1, data['perms'])
@@ -900,6 +901,200 @@ class HttpApiTest(s_tests.SynTest):
                         self.gt(data['offset'], base)
                         base = data['offset']
                         mesgs.append(data)
+
+                    role = await core.callStorm('return($lib.auth.roles.add("beholder.role").iden)')
+                    await core.callStorm('$lib.auth.users.byname("visi").grant($role)', opts={'vars': {'role': role}})
+                    # role add
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:add')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    self.eq(data['info']['iden'], role)
+                    self.eq(data['info']['name'], 'beholder.role')
+                    self.eq(data['info']['rules'], [])
+                    self.eq(data['info']['authgates'], {})
+
+                    # role grant
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'roles')
+                    self.isin(role, data['info']['valu'])
+
+                    # give a user view read perms
+                    gate = await core.callStorm('''
+                        $usr = $lib.auth.users.byname("visi")
+                        $rule = $lib.auth.ruleFromText(view.read)
+                        $usr.addRule($rule, $view)
+                        return($lib.auth.gates.get($view))
+                    ''', opts={'vars': {'view': view}})
+                    mesg = await sock.receive_json()
+                    self.eq(m['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'rules')
+                    self.eq(data['info']['valu'], [[True, ['view', 'read']]])
+
+                    # delete view
+                    await core.callStorm('view.del $view', opts=opts)
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'view:del')
+                    self.gt(data['offset'], base)
+                    self.len(0, data['gates'])
+                    self.eq(data['info']['iden'], view)
+                    base = data['offset']
+
+                    # delete layer
+                    await core.callStorm('$lib.layer.del($layr)', opts=opts)
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'layer:del')
+                    self.gt(data['offset'], base)
+                    self.len(0, data['gates'])
+                    self.eq(data['info']['iden'], layr)
+
+                    # set admin
+                    await visi.setAdmin(False)
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'admin')
+                    self.eq(data['info']['valu'], False)
+
+                    # lock a user
+                    await core.callStorm('$lib.auth.users.byname("visi").setLocked($lib.true)')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'locked')
+                    self.eq(data['info']['valu'], True)
+
+                    # role grant
+                    await core.callStorm('auth.role.addrule all power-ups.foo.bar')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:info')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    rall = await core.auth.getRoleByName('all')
+                    self.eq(data['info']['iden'], rall.iden)
+                    self.eq(data['info']['name'], 'rules')
+                    self.eq(data['info']['valu'], [[True, ['power-ups', 'foo', 'bar']]])
+
+                    # user add. couple of messages fall out from it
+                    await core.callStorm('auth.user.add beep --email beep@vertex.link')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:add')
+                    self.eq(data['info']['name'], 'beep')
+                    self.eq(data['info']['email'], None)
+                    self.eq(data['info']['type'], 'user')
+                    self.gt(data['offset'], base)
+                    beepiden = data['info']['iden']
+                    base = data['offset']
+
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'email')
+                    self.eq(data['info']['valu'], 'beep@vertex.link')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'roles')
+                    self.isin(rall.iden, data['info']['valu'])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # set password
+                    await core.callStorm('$lib.auth.users.byname("beep").setPasswd("plzdontdothis")')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], beepiden)
+                    self.gt(data['offset'], base)
+                    self.notin('valu', data)
+                    self.notin('valu', data['info'])
+
+                    # role del
+                    await core.delRole(role)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:del')
+                    self.eq(data['info']['iden'], role)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # revoke
+                    allroles = [x.iden for x in visi.getRoles()]
+                    self.len(2, allroles)
+                    await visi.revoke(userrole.iden)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'roles')
+                    self.len(1, data['info']['valu'])
+                    self.isin(data['info']['valu'][0], allroles)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # archive
+                    await visi.setArchived(True)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'archived')
+                    self.eq(data['info']['valu'], True)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # archive also sets locked
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'locked')
+                    self.eq(data['info']['valu'], True)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # user del
+                    await core.delUser(beepiden)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:del')
+                    self.eq(data['info']['iden'], beepiden)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
 
     async def test_http_storm(self):
 

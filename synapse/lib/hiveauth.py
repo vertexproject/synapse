@@ -242,6 +242,12 @@ class Auth(s_nexus.Pusher):
         user.name = name
         await user.node.set(name)
 
+        beheld = {
+            'iden': iden,
+            'name': name,
+        }
+        await self.feedBeholder('user:name', beheld)
+
     @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
         if not isinstance(name, str):
@@ -265,8 +271,29 @@ class Auth(s_nexus.Pusher):
         role.name = name
         await role.node.set(name)
 
+        beheld = {
+            'iden': iden,
+            'name': name,
+        }
+        await self.feedBeholder('role:name', beheld)
+
+    async def feedBeholder(self, evnt, info, gateiden=None, logged=True):
+        if self.nexsroot and self.nexsroot.started and logged:
+            behold = {
+                'event': evnt,
+                'offset': await self.nexsroot.index(),
+                'info': info
+            }
+
+            if gateiden:
+                gate = self.getAuthGate(gateiden)
+                if gate:
+                    behold['gates'] = [gate.pack()]
+
+            await self.fire('cell:beholder', **behold)
+
     @s_nexus.Pusher.onPushAuto('user:info')
-    async def setUserInfo(self, iden, name, valu, gateiden=None):
+    async def setUserInfo(self, iden, name, valu, gateiden=None, logged=True):
 
         user = await self.reqUser(iden)
 
@@ -276,11 +303,20 @@ class Auth(s_nexus.Pusher):
 
         await info.set(name, valu)
 
+        beheld = {
+            'iden': iden,
+            'name': name,
+        }
+        if name != 'passwd':
+            beheld['valu'] = valu
+
+        await self.feedBeholder('user:info', beheld, gateiden=gateiden, logged=logged)
+
         # since any user info *may* effect auth
         user.clearAuthCache()
 
     @s_nexus.Pusher.onPushAuto('role:info')
-    async def setRoleInfo(self, iden, name, valu, gateiden=None):
+    async def setRoleInfo(self, iden, name, valu, gateiden=None, logged=True):
         role = await self.reqRole(iden)
 
         info = role.info
@@ -288,6 +324,14 @@ class Auth(s_nexus.Pusher):
             info = await role.genGateInfo(gateiden)
 
         await info.set(name, valu)
+
+        beheld = {
+            'iden': iden,
+            'name': name,
+            'valu': valu,
+        }
+        await self.feedBeholder('role:info', beheld, gateiden=gateiden, logged=logged)
+
         role.clearAuthCache()
 
     async def _addRoleNode(self, node):
@@ -409,6 +453,9 @@ class Auth(s_nexus.Pusher):
 
         await self._addUserNode(node)
 
+        user = self.usersbyname.get(name)
+        await self.feedBeholder('user:add', user.pack())
+
     async def addRole(self, name, iden=None):
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
@@ -431,6 +478,9 @@ class Auth(s_nexus.Pusher):
         await node.set(name)
 
         await self._addRoleNode(node)
+
+        role = self.rolesbyname.get(name)
+        await self.feedBeholder('role:add', role.pack())
 
     async def delUser(self, iden):
 
@@ -458,6 +508,7 @@ class Auth(s_nexus.Pusher):
 
         await user.fini()
         await self.node.hive.pop(path)
+        await self.feedBeholder('user:del', {'iden': iden})
 
     def _getUsersInRole(self, role):
         for user in self.users():
@@ -493,6 +544,7 @@ class Auth(s_nexus.Pusher):
         # directly set the node's value and let events prop
         path = self.node.full + ('roles', role.iden)
         await self.node.hive.pop(path)
+        await self.feedBeholder('role:del', {'iden': iden})
 
 class AuthGate(s_base.Base):
     '''
@@ -689,7 +741,7 @@ class HiveRole(HiveRuler):
         if nexs:
             return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
         else:
-            return await self.auth._hndlsetRoleInfo(self.iden, name, valu, gateiden=gateiden)
+            return await self.auth._hndlsetRoleInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs)
 
     async def setName(self, name):
         return await self.auth.setRoleName(self.iden, name)
@@ -772,7 +824,7 @@ class HiveUser(HiveRuler):
         if nexs:
             return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden)
         else:
-            return await self.auth._hndlsetUserInfo(self.iden, name, valu, gateiden=gateiden)
+            return await self.auth._hndlsetUserInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs)
 
     async def setName(self, name):
         return await self.auth.setUserName(self.iden, name)
@@ -931,7 +983,7 @@ class HiveUser(HiveRuler):
         if nexs:
             await self.auth.setUserInfo(self.iden, 'roles', roles)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'roles', roles)
+            await self.auth._hndlsetUserInfo(self.iden, 'roles', roles, logged=nexs)
 
     def isLocked(self):
         return self.info.get('locked')
@@ -955,7 +1007,7 @@ class HiveUser(HiveRuler):
         if logged:
             await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
+            await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden, logged=logged)
 
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
@@ -963,7 +1015,7 @@ class HiveUser(HiveRuler):
         if logged:
             await self.auth.setUserInfo(self.iden, 'locked', locked)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'locked', locked)
+            await self.auth._hndlsetUserInfo(self.iden, 'locked', locked, logged=logged)
 
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
@@ -1013,4 +1065,4 @@ class HiveUser(HiveRuler):
         if nexs:
             await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'passwd', shadow)
+            await self.auth._hndlsetUserInfo(self.iden, 'passwd', shadow, logged=nexs)
