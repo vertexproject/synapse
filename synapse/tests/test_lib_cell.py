@@ -10,6 +10,7 @@ from unittest import mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
@@ -1572,6 +1573,7 @@ class CellTest(s_t_utils.SynTest):
             addr, port = await axon.addHttpsPort(0)
             url = f'https://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
 
+            # Make our first backup
             async with self.getTestCore() as core:
                 self.len(1, await core.nodes('[inet:ipv4=1.2.3.4]'))
 
@@ -1590,7 +1592,7 @@ class CellTest(s_t_utils.SynTest):
                         size, sha256 = await upfd.save()
                         await asyncio.sleep(0)
 
-            furl = f'{url}{s_common.ehex(sha256)}'
+            furl = f'{url}{s_common.ehex(sha256)}?syn_ssl_verify=false'
 
             # Happy test for URL based restore.
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl):
@@ -1598,12 +1600,14 @@ class CellTest(s_t_utils.SynTest):
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
-                        async with self.getTestCore(dirn=cdir) as core:
+                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.true(core.conf.get('storm:log'))
+
                     # Turning the service back on with the restore URL is fine too.
                     with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
-                        async with self.getTestCore(dirn=cdir) as core:
+                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
                             # Take a backup of the cell with the restore.done file in place
@@ -1615,9 +1619,9 @@ class CellTest(s_t_utils.SynTest):
                                     size, sha256r = await upfd.save()
                                     await asyncio.sleep(0)
 
-                        stream.seek(0)
-                        logs = stream.read()
-                        self.notin('Restoring from url', logs)
+                    stream.seek(0)
+                    logs = stream.read()
+                    self.notin('Restoring from url', logs)
 
                     # grab the restore iden for later use
                     rpath = s_common.genpath(cdir, 'restore.done')
@@ -1625,21 +1629,24 @@ class CellTest(s_t_utils.SynTest):
                         doneiden = fd.read().decode().strip()
                     self.true(s_common.isguid(doneiden))
 
-                    # Restoring into a directory that has been used to boot a cell not okay.
-                    # Remove the restore.done file forces the restore from happening again.
-                    os.unlink(rpath)
-                    with self.raises(s_exc.BadConfValu) as cm:
-                        async with self.getTestCore(dirn=cdir) as core:
-                            pass
+                    # FIXME - DISCUSS THIS. I REMOVED THE SAFETIES THAT WERE HERE, BUT THEY
+                    # WERE PRETTY FRAGILE. SHOULD BE ALL OR NOTHING.
+                    #
+                    # # Restoring into a directory that has been used to boot a cell not okay.
+                    # # Remove the restore.done file forces the restore from happening again.
+                    # os.unlink(rpath)
+                    # with self.raises(s_exc.BadConfValu) as cm:
+                    #     async with self.getTestCore(dirn=cdir) as core:
+                    #         pass
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
-            furl2 = f'{url}{s_common.ehex(sha256r)}'
+            furl2 = f'{url}{s_common.ehex(sha256r)}?syn_ssl_verify=false'
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl2):
                 with self.getTestDir() as cdir:
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
-                        async with self.getTestCore(dirn=cdir) as core:
+                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 

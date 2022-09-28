@@ -944,8 +944,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
 
-        await self._initBootRestore()
-
         self.conf = self._initCellConf(conf)
 
         await self._initCellBoot()
@@ -2585,10 +2583,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(provconf)
 
-    async def _initBootRestore(self):
+    @classmethod
+    async def _initBootRestore(cls, dirn):
 
-        if self.cellparent is not None:
-            return
+        dirn = s_common.gendir(dirn)
 
         env = 'SYN_RESTORE_HTTPS_URL'
         rurl = os.getenv(env, None)
@@ -2600,7 +2598,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # for a service without issues.
         doneiden = None
 
-        donepath = s_common.genpath(self.dirn, 'restore.done')
+        donepath = s_common.genpath(dirn, 'restore.done')
         if os.path.isfile(donepath):
             with s_common.genfile(donepath) as fd:
                 doneiden = fd.read().decode().strip()
@@ -2610,23 +2608,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if doneiden == rurliden:
             return
 
-        # We need some level of checking to see if we're restoring into a existing directory.
-        # slabs directory being present is a marker of restoring into a directory
-        # which has previously been used to boot up a cell.
-        dnames = ('slabs',)
-        for name in dnames:
-            path = s_common.genpath(self.dirn, name)
-            if os.path.isdir(path):
-                mesg = f'Directory {path} found, restore much be run into an empty directory.'
-                raise s_exc.BadConfValu(mesg=mesg, name=env, value=rurl)
+        # If there is a mismatch vs restore.done, we hulk smash in the restored contents.
+        # There are no seatbelts here to check for existing files / etc.
 
         rnfo = s_urlhelp.chopurl(rurl)
-        rnfo_query = rnfo.pop('query', {})
+
         clean_url = s_urlhelp.sanitizeUrl(s_urlhelp.zipurl(rnfo))
+        logger.info(f'Restoring {cls.getCellType()} from {env}={clean_url}')
 
-        logger.info(f'Restoring {self.getCellType()} from {env}={clean_url}')
+        # Setup get args
+        rnfo_query = rnfo.pop('query', {})
+        syn_ssl_verify = rnfo_query.get('syn_ssl_verify')
+        kwargs = {}
+        if str(syn_ssl_verify).lower() in ('0', 'false'):
+            kwargs['ssl'] = False
 
-        tarpath = s_common.genpath(self.dirn, 'tmp', 'restore.tgz')
+        tmppath = s_common.gendir(dirn, 'tmp')
+        tarpath = s_common.genpath(tmppath, f'restore_{rurliden}.tgz')
 
         try:
 
@@ -2635,7 +2633,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 # ssl= rnfo.get('query').pop('syn_ssl_verify', True)  # ?
                 # Should we pop that out of the query string entirely?
                 async with aiohttp.client.ClientSession() as sess:
-                    async with sess.get(rurl, ssl=False) as resp:
+                    async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
                         csize = s_const.megabyte * 8  # arbitrary magic number
                         async for chunk in resp.content.iter_chunked(csize):
@@ -2646,7 +2644,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if memb.name.find('/') == -1:
                         continue
                     memb.name = memb.name.split('/', 1)[1]
-                    tgz.extract(memb, self.dirn)
+                    tgz.extract(memb, dirn)
 
             # and record the rurliden
             with s_common.genfile(donepath) as fd:
@@ -2862,6 +2860,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
+
+        await cls._initBootRestore(opts.dirn)
+
         try:
             conf.setdefault('_log_conf', logconf)
             conf.setConfFromOpts(opts)
