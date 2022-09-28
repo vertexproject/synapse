@@ -944,6 +944,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
 
+        await self._initBootRestore()
+
         self.conf = self._initCellConf(conf)
 
         await self._initCellBoot()
@@ -2574,8 +2576,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellBoot(self):
 
-        await self._bootCellRestore()
-
         provconf = await self._bootCellProv()
 
         # check this before we setup loadTeleCell()
@@ -2585,20 +2585,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(provconf)
 
-    async def _bootCellRestore(self):
+    async def _initBootRestore(self):
 
         if self.cellparent is not None:
             return
 
-        rurl = None
-
-        # TODO - Discuss a percell namespace or global namespace?
-        # Global namespaces require thinking about improperly nested cells.
-        for prefix in self.getEnvPrefix():
-            env = f'{prefix}_RESTORE_URL'
-            rurl = os.getenv(env, None)
-            if rurl:
-                break
+        env = 'SYN_RESTORE_HTTPS_URL'
+        rurl = os.getenv(env, None)
 
         if rurl is None:
             return
@@ -2628,68 +2621,53 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 raise s_exc.BadConfValu(mesg=mesg, name=env, value=rurl)
 
         rnfo = s_urlhelp.chopurl(rurl)
+        rnfo_query = rnfo.pop('query', {})
+        clean_url = s_urlhelp.sanitizeUrl(s_urlhelp.zipurl(rnfo))
 
-        logger.info(f'Restoring from url {s_urlhelp.sanitizeUrl(rurl)} given by {env}')
+        logger.info(f'Restoring {self.getCellType()} from {env}={clean_url}')
 
-        scheme = rnfo.get('scheme')
+        tarpath = s_common.genpath(self.dirn, 'tmp', 'restore.tgz')
 
-        if scheme == 'file':
-            raise s_exc.NoSuchImpl(megs=f'file:// not supported for restore from {rurl}')
+        try:
 
-        if scheme == 'https':
+            with s_common.genfile(tarpath) as fd:
+                # TODO How to handle ssl=false here?
+                # ssl= rnfo.get('query').pop('syn_ssl_verify', True)  # ?
+                # Should we pop that out of the query string entirely?
+                async with aiohttp.client.ClientSession() as sess:
+                    async with sess.get(rurl, ssl=False) as resp:
+                        resp.raise_for_status()
+                        csize = s_const.megabyte * 8  # arbitrary magic number
+                        async for chunk in resp.content.iter_chunked(csize):
+                            fd.write(chunk)
 
-            tarpath = s_common.genpath(self.dirn, 'tmp', 'restore.tgz')
+            with tarfile.open(tarpath) as tgz:
+                for memb in tgz.getmembers():
+                    if memb.name.find('/') == -1:
+                        continue
+                    memb.name = memb.name.split('/', 1)[1]
+                    tgz.extract(memb, self.dirn)
 
-            try:
+            # and record the rurliden
+            with s_common.genfile(donepath) as fd:
+                fd.truncate(0)
+                fd.seek(0)
+                fd.write(rurliden.encode())
 
-                with s_common.genfile(tarpath) as fd:
-                    # TODO How to handle ssl=false here?
-                    # ssl= rnfo.get('query').pop('syn_ssl_verify', True)  # ?
-                    # Should we pop that out of the query string entirely?
-                    async with aiohttp.client.ClientSession() as sess:
-                        async with sess.get(rurl, ssl=False) as resp:
-                            resp.raise_for_status()
-                            csize = s_const.megabyte * 8  # arbitrary magic number
-                            async for chunk in resp.content.iter_chunked(csize):
-                                fd.write(chunk)
+        except asyncio.CancelledError:
+            raise
 
-                # DRY
-                with tarfile.open(tarpath) as tgz:
-                    for memb in tgz.getmembers():
-                        if memb.name.find('/') == -1:
-                            continue
-                        memb.name = memb.name.split('/', 1)[1]
-                        tgz.extract(memb, self.dirn)
+        except Exception:
+            logger.exception('Failed to restore cell from URL.')
+            raise
 
-                # and record the rurliden
-                with s_common.genfile(donepath) as fd:
-                    fd.truncate(0)
-                    fd.seek(0)
-                    fd.write(rurliden.encode())
+        else:
+            logger.info('Restored cell from URL')
+            return
 
-            except asyncio.CancelledError:
-                raise
-
-            except Exception:
-                logger.exception('Failed to restore cell from URL.')
-                raise
-
-            else:
-                # Reset the config (since we have a new cell.yaml)
-                await self._bootProvConf({})
-                logger.info('Restored cell from URL')
-                return
-
-            finally:
-                if os.path.isfile(tarpath):
-                    os.unlink(tarpath)
-
-        if scheme in ('aha', 'cell', 'ssl', 'tcp', ):
-
-            # Assume the URL is a telepath URL.
-            raise s_exc.NoSuchImpl(mesg=f'Telepath url not supported for restore from {rurl}')
-
-        raise s_exc.NoSuchImpl(mesg=f'Unknown scheme: {scheme}')
+        finally:
+            if os.path.isfile(tarpath):
+                os.unlink(tarpath)
 
     async def _bootCellProv(self):
 

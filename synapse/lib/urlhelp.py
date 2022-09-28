@@ -69,6 +69,48 @@ def chopurl(url):
     ret['path'] = pathrem
     return ret
 
+def zipurl(info):
+    '''
+    Reconstruct a URL string from a choped url info dict.
+
+    Args:
+        info (dict): Info dict from chop_url.
+
+    Returns:
+        str: The reconstructed string.
+    '''
+    host = info.get('host')
+    path = info.get('path')
+    port = info.get('port')
+    user = info.get('user')
+    query = info.get('query')
+    passwd = info.get('passwd')
+    scheme = info.get('scheme')
+
+    url = f'{scheme}://'
+    if user:
+        url += user
+        if passwd:
+            url += f':{passwd}'
+        url += '@'
+
+    if host:
+        if host.find(':') != -1 and port is not None:
+            # Assume an ipv6 host which needs brackets
+            host = f'[{host}]'
+        url += host
+        if port is not None:
+            url += f':{port}'
+
+    if path:
+        url += f'{path}'
+
+    if query:
+        params = '&'.join([f'{k}={v}' for (k, v) in query.items()])
+        url += f'?{params}'
+
+    return url
+
 _url_re = regex.compile(r'^(?P<front>.+?://.+?:)[^/]+?(?=@)')
 
 def sanitizeUrl(url):

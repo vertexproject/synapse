@@ -1593,7 +1593,7 @@ class CellTest(s_t_utils.SynTest):
             furl = f'{url}{s_common.ehex(sha256)}'
 
             # Happy test for URL based restore.
-            with self.setTstEnvars(SYN_CORTEX_RESTORE_URL=furl):
+            with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl):
                 with self.getTestDir() as cdir:
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
@@ -1634,7 +1634,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
             furl2 = f'{url}{s_common.ehex(sha256r)}'
-            with self.setTstEnvars(SYN_CORTEX_RESTORE_URL=furl2):
+            with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl2):
                 with self.getTestDir() as cdir:
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
