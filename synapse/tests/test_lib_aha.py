@@ -7,6 +7,8 @@ import synapse.axon as s_axon
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.cortex as s_cortex
+
 import synapse.lib.aha as s_aha
 import synapse.lib.cell as s_cell
 import synapse.lib.output as s_output
@@ -800,9 +802,7 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
             root = await aha.auth.getUserByName('root')
-            self.true(root.tryPasswd('secret'))
-
-            import synapse.cortex as s_cortex
+            self.true(await root.tryPasswd('secret'))
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
