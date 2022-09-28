@@ -550,7 +550,8 @@ class Base:
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
 
-        NOTE: This API may only be used when the ioloop is *also* the main thread.
+        Note:
+            This API may only be used when the ioloop is *also* the main thread.
         '''
         await self.addSignalHandlers()
         return await self.waitfini()
@@ -565,7 +566,7 @@ class Base:
 
             waiter = base.waiter(10,'foo:bar')
 
-            # .. fire thread that will cause foo:bar events
+            # .. fire task that will cause foo:bar events
 
             events = await waiter.wait(timeout=3)
 
@@ -575,11 +576,12 @@ class Base:
             for event in events:
                 # parse the events if you need...
 
-        NOTE: use with caution... it's easy to accidentally construct
-              race conditions with this mechanism ;)
+        Note:
+            Use this with caution. It's easy to accidentally construct
+            race conditions with this mechanism ;)
 
         '''
-        return Waiter(self, count, self.loop, *names)
+        return Waiter(self, count, *names)
 
 class Waiter:
     '''

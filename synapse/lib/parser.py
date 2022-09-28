@@ -51,6 +51,7 @@ terminalEnglishMap = {
     'EXPRDIVIDE': '/',
     'EXPRMINUS': '-',
     'EXPRPLUS': '+',
+    'EXPRPOW': '**',
     'EXPRTIMES': '*',
     'FOR': 'for',
     'FUNCTION': 'function',
@@ -70,6 +71,7 @@ terminalEnglishMap = {
     'PROPS': 'absolute property name',
     'RBRACE': '}',
     'RELNAME': 'relative property name',
+    'EXPRRELNAME': 'relative property name',
     'RPAR': ')',
     'RSQB': ']',
     'RSQBNOSPACE': ']',
@@ -83,7 +85,9 @@ terminalEnglishMap = {
     'TRYSETPLUS': '?+=',
     'TRYSETMINUS': '?-=',
     'UNIVNAME': 'universal property',
+    'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
+    'EXPRVARTOKN': 'variable',
     'VBAR': '|',
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
@@ -103,7 +107,9 @@ terminalEnglishMap = {
     '_EMIT': 'emit',
     '_FINI': 'fini',
     '_HASH': '#',
+    '_EXPRHASH': '#',
     '_HASHSPACE': '#',
+    '_EXPRHASHSPACE': '#',
     '_INIT': 'init',
     '_LEFTJOIN': '<+-',
     '_LEFTPIVOT': '<-',
@@ -631,6 +637,7 @@ terminalClassMap = {
     'TAGMATCH': lambda x: s_ast.TagMatch(kids=AstConverter._tagsplit(x)),
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
+    'EXPRVARTOKN': massage_vartokn,
 }
 
 # For AstConverter, one-to-one replacements from lark to synapse AST
