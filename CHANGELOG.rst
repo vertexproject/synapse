@@ -4,7 +4,7 @@
 Synapse Changelog
 *****************
 
-v2.109.0 - 2022-09-26
+v2.109.0 - 2022-09-27
 =====================
 
 Features and Enhancements
@@ -31,6 +31,9 @@ Bugfixes
   (`#2853 <https://github.com/vertexproject/synapse/pull/2853>`_)
 - Fix typos in the inline documentation for several model elements.
   (`#2852 <https://github.com/vertexproject/synapse/pull/2852>`_)
+- Adjust expression syntax rules in Storm grammar to remove incorrect
+  whitespace sensitivity in certain expression operators.
+  (`#2846 <https://github.com/vertexproject/synapse/pull/2846>`_)
 
 Improved Documentation
 ----------------------
