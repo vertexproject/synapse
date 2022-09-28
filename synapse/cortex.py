@@ -3260,7 +3260,7 @@ class Cortex(s_cell.Cell):  # type: ignore
             if proxyurl is not None:
                 conf['http:proxy'] = proxyurl
 
-            self.axon = await s_axon.Axon.anit(path, conf=conf)
+            self.axon = await s_axon.Axon.anit(path, conf=conf, parent=self)
             self.axoninfo = await self.axon.getCellInfo()
             self.axon.onfini(self.axready.clear)
             self.dynitems['axon'] = self.axon
