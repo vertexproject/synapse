@@ -1597,7 +1597,7 @@ class CellTest(s_t_utils.SynTest):
                 with self.getTestDir() as cdir:
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                   'Restoring from url') as stream:
+                                                   'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
                         async with self.getTestCore(dirn=cdir) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
@@ -1638,7 +1638,7 @@ class CellTest(s_t_utils.SynTest):
                 with self.getTestDir() as cdir:
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
-                                                   'Restoring from url') as stream:
+                                                   'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
                         async with self.getTestCore(dirn=cdir) as core:
                             self.true(await stream.wait(6))
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
