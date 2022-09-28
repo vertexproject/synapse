@@ -1253,6 +1253,10 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestAha(self, conf=None, dirn=None):
+
+        if isinstance(conf, dict):
+            conf.setdefault('nexslog:en', True)
+
         if dirn:
             async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
                 yield aha

@@ -431,6 +431,7 @@ class NexsRoot(s_base.Base):
             raise s_exc.BadConfValu(mesg=mesg)
 
         await self.startup()
+        print(f'PROMOTED {self.cell.dirn} {self.client}')
 
     async def _onTeleLink(self, proxy):
         self.client.schedCoro(self.runMirrorLoop(proxy))

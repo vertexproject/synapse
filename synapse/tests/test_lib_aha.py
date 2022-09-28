@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from unittest import mock
 
@@ -814,3 +815,108 @@ class AhaTest(s_test.SynTest):
                         self.len(1, await core00.nodes('[inet:asn=0]'))
                         await core01.sync()
                         self.len(1, await core01.nodes('inet:asn=0'))
+
+    async def test_aha_mirrors_prov(self):
+        with self.getTestDir() as dirn:
+            dir0 = s_common.gendir(dirn, 'aha0')
+            dir1 = s_common.gendir(dirn, 'aha1')
+            cdr0 = s_common.genpath(dirn, 'core00')
+            cdr1 = s_common.genpath(dirn, 'core01')
+
+            s_common.yamlsave({'nexslog:en': True}, dir0, 'cell.yaml')
+
+            # Bootstrap the leader
+            async with self.getTestAhaProv(dirn=dir0) as aha00:
+                user = await aha00.auth.addUser('reguser', passwd='secret')
+                await user.setAdmin(True)
+
+            s_tools_backup.backup(dir0, dir1)
+
+            async with self.getTestAhaProv(dirn=dir0) as aha00:  # type: s_aha.AhaCell
+                upstream_url = aha00.getLocalUrl()
+
+                mirrorconf = {
+                    'mirror': upstream_url,
+                }
+                async with self.getTestAhaProv(conf=mirrorconf, dirn=dir1) as aha01:  # type: s_aha.AhaCell
+
+                    # This aha cell is a mirror of another aha cell. join the aha:urls together.
+                    aha01.conf['aha:urls'] = aha01.conf['aha:urls'] + aha00.conf['aha:urls']
+                    aha00.conf['aha:urls'] = aha01.conf['aha:urls']
+
+                    print(f'{aha00.isactive=} {aha01.isactive=}')
+
+                    # Provision a cortex and its mirror from the aha mirror...
+
+                    async with self.addSvcToAha(aha01, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
+
+                        regurls = core00.conf.get('aha:registry')
+                        self.len(2, set(regurls))
+
+                        async with self.addSvcToAha(aha01, '01.core', s_cortex.Cortex, dirn=cdr1,
+                                                    provinfo={'mirror': 'core'}) as core01:
+
+                            svc00aha00 = await aha00.getAhaSvc('00.core.loop.vertex.link')
+                            svc00aha01 = await aha01.getAhaSvc('00.core.loop.vertex.link')
+
+                            self.eq(svc00aha00, svc00aha01)
+
+                            self.len(1, await core00.nodes('[inet:asn=0]'))
+                            await core01.sync()
+                            self.len(1, await core01.nodes('inet:asn=0'))
+
+                    # Start the cortexes back up
+                    async with self.getTestCore(dirn=cdr0) as core00:
+                        async with self.getTestCore(dirn=cdr1) as core01:
+
+                            self.true(core00.isactive)
+                            self.false(core01.isactive)
+
+                            # SPLIT HERE FOR DR STUFF
+
+                            # We lose aha00 and core00
+                            print('TEARING DOWN STUFF')
+                            await aha00.fini()
+                            await core00.fini()
+
+                            await asyncio.sleep(1)
+
+                            print('-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!-')
+                            print(' DR MODE ACTIVATED ')
+
+                            # Aha01 must be promoted to being a leader first
+
+                            await aha01.promote(graceful=False)
+                            self.true(aha01.isactive)
+
+                            await asyncio.sleep(0.4)
+
+                            await core01.promote(graceful=False)
+                            self.true(core01.isactive)
+
+                            await asyncio.sleep(1)
+
+                            svcaha01 = await aha01.getAhaSvc('core.loop.vertex.link')
+                            svc00aha01 = await aha01.getAhaSvc('00.core.loop.vertex.link')
+                            svc01aha01 = await aha01.getAhaSvc('01.core.loop.vertex.link')
+
+                            from pprint import pprint
+
+                            pprint(svcaha01)
+                            pprint(svc00aha01)
+                            pprint(svc01aha01)
+
+                            async with self.addSvcToAha(aha01, '00.exec', ExecTeleCaller) as conn:
+
+                                nexsindx = await conn.exectelecall('aha://core...', 'getNexsIndx')
+                                print(f'{nexsindx=}')
+
+                                self.len(1, await core01.nodes('[inet:asn=1]'))
+
+                                nexsindx2 = await conn.exectelecall('aha://core...', 'getNexsIndx')
+                                print(f'{nexsindx2=}')
+
+                                self.ne(nexsindx, nexsindx2)
+
+                                with self.raises(ConnectionRefusedError):
+                                    await conn.exectelecall('aha://00.core...', 'getNexsIndx')

@@ -161,6 +161,10 @@ class AhaApi(s_cell.CellApi):
 
     async def modAhaSvcInfo(self, name, svcinfo):
 
+        iden = s_common.guid()
+
+        logger.info(f'modAhaSvcInfo {self.cell.dirn} {iden=} {name=} {svcinfo=}')
+
         for key in svcinfo.keys():
             if key not in ('ready',):
                 mesg = f'Editing AHA service info property ({key}) is not supported!'
@@ -168,6 +172,7 @@ class AhaApi(s_cell.CellApi):
 
         svcentry = await self.cell.getAhaSvc(name)
         if svcentry is None:
+            logger.info(f'modAhaSvcInfo {self.cell.dirn} {iden=} FAIL FAST AHAAPI')
             return False
 
         svcnetw = svcentry.get('svcnetw')
@@ -175,7 +180,11 @@ class AhaApi(s_cell.CellApi):
 
         await self._reqUserAllowed(('aha', 'service', 'add', svcnetw, svcname))
 
-        return await self.cell.modAhaSvcInfo(name, svcinfo)
+        try:
+            return await self.cell.modAhaSvcInfo(name, svcinfo)
+        except:
+            logger.exception(f'modAhaSvcInfo {self.cell.dirn} {iden=} {name=} {svcinfo=}')
+            raise
 
     async def getAhaSvcMirrors(self, name):
         '''
@@ -475,6 +484,7 @@ class AhaCell(s_cell.Cell):
 
         svcentry = await self.getAhaSvc(name)
         if svcentry is None:
+            logger.info(f'modAhaSvcInfo {self.cell.dirn} FAIL FAST AHACELL')
             return False
 
         svcnetw = svcentry.get('svcnetw')
