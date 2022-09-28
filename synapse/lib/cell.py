@@ -2621,7 +2621,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning(f'Disabling SSL verification for restore request.')
             kwargs['ssl'] = False
             rurl = 'https://' + rurl[len(insecure_marker):]
-        logger.info(f'{rurl=}')
+
         tmppath = s_common.gendir(dirn, 'tmp')
         tarpath = s_common.genpath(tmppath, f'restore_{rurliden}.tgz')
 
