@@ -1571,7 +1571,7 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestAxon(conf={'auth:passwd': 'root'}) as axon:
             addr, port = await axon.addHttpsPort(0)
-            url = f'https://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+            url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
 
             # Make our first backup
             async with self.getTestCore() as core:
@@ -1592,7 +1592,7 @@ class CellTest(s_t_utils.SynTest):
                         size, sha256 = await upfd.save()
                         await asyncio.sleep(0)
 
-            furl = f'{url}{s_common.ehex(sha256)}?syn_ssl_verify=false'
+            furl = f'{url}{s_common.ehex(sha256)}'
 
             # Happy test for URL based restore.
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl):
@@ -1640,7 +1640,7 @@ class CellTest(s_t_utils.SynTest):
                     #         pass
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
-            furl2 = f'{url}{s_common.ehex(sha256r)}?syn_ssl_verify=false'
+            furl2 = f'{url}{s_common.ehex(sha256r)}'
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl2):
                 with self.getTestDir() as cdir:
                     # Restore works

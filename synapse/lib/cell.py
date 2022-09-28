@@ -2611,19 +2611,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # If there is a mismatch vs restore.done, we hulk smash in the restored contents.
         # There are no seatbelts here to check for existing files / etc.
 
-        rnfo = s_urlhelp.chopurl(rurl)
-
-        clean_url = s_urlhelp.sanitizeUrl(s_urlhelp.zipurl(rnfo))
-        logger.info(f'Restoring {cls.getCellType()} from {env}={clean_url}')
+        clean_url = s_urlhelp.sanitizeUrl(rurl).rsplit('?', 1)[0]
+        logger.warning(f'Restoring {cls.getCellType()} from {env}={clean_url}')
 
         # Setup get args
-        rnfo_query = rnfo.pop('query', {})
-        # DISCUSS - SHOULD WE POP THIS OUT OF THE URL ENTIRELY IF PRESENT?
-        syn_ssl_verify = rnfo_query.get('syn_ssl_verify')
+        insecure_marker = 'https+insecure://'
         kwargs = {}
-        if str(syn_ssl_verify).lower() in ('0', 'false'):
+        if rurl.startswith(insecure_marker):
+            logger.warning(f'Disabling SSL verification for restore request.')
             kwargs['ssl'] = False
-
+            rurl = 'https://' + rurl[len(insecure_marker):]
+        logger.info(f'{rurl=}')
         tmppath = s_common.gendir(dirn, 'tmp')
         tarpath = s_common.genpath(tmppath, f'restore_{rurliden}.tgz')
 
@@ -2642,7 +2640,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         async for chunk in resp.content.iter_chunked(csize):
                             fd.write(chunk)
 
-            logger.info(f'Extracting {tarpath} to {dirn}')
+            logger.warning(f'Extracting {tarpath} to {dirn}')
 
             with tarfile.open(tarpath) as tgz:
                 for memb in tgz.getmembers():
@@ -2665,7 +2663,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
 
         else:
-            logger.info('Restored cell from URL')
+            logger.warning('Restored service from URL')
             return
 
         finally:
