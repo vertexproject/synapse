@@ -1123,7 +1123,7 @@ stormcmds = (
         'descr': "Move a cron job from one view to another",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-            ('view', {'help': 'New storm query for the cron job.'}),
+            ('view', {'help': 'View to move the cron job to.'}),
         ),
         'storm': '''
             $iden = $lib.cron.move($cmdopts.iden, $cmdopts.view)
