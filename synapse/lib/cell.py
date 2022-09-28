@@ -2618,6 +2618,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # Setup get args
         rnfo_query = rnfo.pop('query', {})
+        # DISCUSS - SHOULD WE POP THIS OUT OF THE URL ENTIRELY IF PRESENT?
         syn_ssl_verify = rnfo_query.get('syn_ssl_verify')
         kwargs = {}
         if str(syn_ssl_verify).lower() in ('0', 'false'):
@@ -2629,9 +2630,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
 
             with s_common.genfile(tarpath) as fd:
-                # TODO How to handle ssl=false here?
-                # ssl= rnfo.get('query').pop('syn_ssl_verify', True)  # ?
-                # Should we pop that out of the query string entirely?
                 async with aiohttp.client.ClientSession() as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
