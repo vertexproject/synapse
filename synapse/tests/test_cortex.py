@@ -5836,6 +5836,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             size, sha2 = await core.axon.put(b'asdfasdf')
             self.eq(size, 8)
             self.eq(s_common.ehex(sha2), '2413fb3709b05939f04cf2e92f7d0897fc2596f9ad0b8a9ea855c7bfebaae892')
+            self.true(core.nexsroot is core.axon.nexsroot)
         self.true(core.axon.isfini)
         self.false(core.axready.is_set())
 
