@@ -3742,8 +3742,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         await view.delete()
 
         self._calcViewsByLayer()
-        await self.auth.delAuthGate(iden)
         await self.feedBeholder('view:del', {'iden': iden}, gates=[iden])
+        await self.auth.delAuthGate(iden)
 
     async def delLayer(self, iden):
         layr = self.layers.get(iden, None)
@@ -3770,17 +3770,15 @@ class Cortex(s_cell.Cell):  # type: ignore
         for pdef in layr.layrinfo.get('pulls', {}).values():
             await self.delActiveCoro(pdef.get('iden'))
 
+        await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
         await self.hive.pop(('cortex', 'layers', iden))
-        pack = await layr.pack()
 
         await layr.delete()
 
         layr.deloffs = nexsitem[0]
-
-        await self.feedBeholder('layer:del', {'iden': iden}, gates=[iden])
 
     async def setViewLayers(self, layers, iden=None):
         '''
@@ -5208,8 +5206,8 @@ class Cortex(s_cell.Cell):  # type: ignore
         except s_exc.NoSuchIden:
             return
 
-        await self.auth.delAuthGate(iden)
         await self.feedBeholder('cron:del', {'iden': iden}, gates=[iden])
+        await self.auth.delAuthGate(iden)
 
     @s_nexus.Pusher.onPushAuto('cron:mod')
     async def updateCronJob(self, iden, query):

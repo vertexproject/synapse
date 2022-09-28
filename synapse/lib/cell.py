@@ -2363,12 +2363,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         node = await self.hive.open(('auth',))
         auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
 
-        if self.cellparent is None:
-            auth.link(self.dist)
+        auth.link(self.dist)
 
-            def finilink():
-                auth.unlink(self.dist)
-            self.onfini(finilink)
+        def finilink():
+            auth.unlink(self.dist)
+
+        self.onfini(finilink)
 
         self.onfini(auth.fini)
         return auth

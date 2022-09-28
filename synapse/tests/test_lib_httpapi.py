@@ -858,6 +858,16 @@ class HttpApiTest(s_tests.SynTest):
                     await core.delStormSvc(ssvc['iden'])
                     await core.delStormPkg(spkg['name'])
 
+                    newlayr = await core.callStorm('return($lib.layer.add().iden)')
+                    topts = {'vars': {'layr': newlayr}}
+                    newview = await core.callStorm('return($lib.view.add(($layr,)).iden)', opts=topts)
+                    topts['vars']['view'] = newview
+                    await core.callStorm('$lib.view.get($view).set(layers, ($layr,))', opts=topts)
+
+                    tview = core.getView(newview)
+                    await tview.addLayer(layr)
+                    await core.delView(tview.iden)
+
                     events = [
                         'cron:add',
                         'layer:add',
@@ -874,6 +884,11 @@ class HttpApiTest(s_tests.SynTest):
                         'svc:add',
                         'svc:del',
                         'pkg:del',
+                        'layer:add',
+                        'view:add',
+                        'view:setlayers',
+                        'view:addlayer',
+                        'view:del'
                     ]
 
                     mesgs = []
@@ -887,11 +902,8 @@ class HttpApiTest(s_tests.SynTest):
                         self.eq(event, data['event'])
 
                         if not event.startswith('svc'):
-                            if event == 'cron:del':
-                                self.len(0, data['gates'])
-                            else:
-                                self.nn(data['gates'])
-                                self.ge(len(data['gates']), 1)
+                            self.nn(data['gates'])
+                            self.ge(len(data['gates']), 1)
 
                         if event.startswith('pkg'):
                             self.len(1, data['perms'])
@@ -924,9 +936,9 @@ class HttpApiTest(s_tests.SynTest):
                     self.gt(data['offset'], base)
                     base = data['offset']
 
+                    self.eq(data['info']['name'], 'role:grant')
                     self.eq(data['info']['iden'], visi.iden)
-                    self.eq(data['info']['name'], 'roles')
-                    self.isin(role, data['info']['valu'])
+                    self.eq(data['info']['role'], role)
 
                     # give a user view read perms
                     gate = await core.callStorm('''
@@ -942,8 +954,8 @@ class HttpApiTest(s_tests.SynTest):
                     self.gt(data['offset'], base)
                     base = data['offset']
                     self.eq(data['info']['iden'], visi.iden)
-                    self.eq(data['info']['name'], 'rules')
-                    self.eq(data['info']['valu'], [[True, ['view', 'read']]])
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [True, ['view', 'read']])
 
                     # delete view
                     await core.callStorm('view.del $view', opts=opts)
@@ -952,7 +964,7 @@ class HttpApiTest(s_tests.SynTest):
                     data = mesg['data']
                     self.eq(data['event'], 'view:del')
                     self.gt(data['offset'], base)
-                    self.len(0, data['gates'])
+                    self.len(1, data['gates'])
                     self.eq(data['info']['iden'], view)
                     base = data['offset']
 
@@ -963,7 +975,7 @@ class HttpApiTest(s_tests.SynTest):
                     data = mesg['data']
                     self.eq(data['event'], 'layer:del')
                     self.gt(data['offset'], base)
-                    self.len(0, data['gates'])
+                    self.len(1, data['gates'])
                     self.eq(data['info']['iden'], layr)
 
                     # set admin
@@ -990,7 +1002,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['info']['name'], 'locked')
                     self.eq(data['info']['valu'], True)
 
-                    # role grant
+                    # rule grant to a role
                     await core.callStorm('auth.role.addrule all power-ups.foo.bar')
                     mesg = await sock.receive_json()
                     self.eq(mesg['type'], 'iter')
@@ -1001,8 +1013,59 @@ class HttpApiTest(s_tests.SynTest):
 
                     rall = await core.auth.getRoleByName('all')
                     self.eq(data['info']['iden'], rall.iden)
-                    self.eq(data['info']['name'], 'rules')
-                    self.eq(data['info']['valu'], [[True, ['power-ups', 'foo', 'bar']]])
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [True, ['power-ups', 'foo', 'bar']])
+
+                    # rule deny to a role
+                    await core.callStorm('auth.role.addrule all "!power-ups.foo.bar"')
+                    mesg = await sock.receive_json()
+                    self.eq(mesg['type'], 'iter')
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:info')
+                    self.eq(data['info']['iden'], rall.iden)
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # rule del from a role
+                    await core.callStorm('''
+                        $rule = $lib.auth.ruleFromText("power-ups.foo.bar")
+                        $lib.auth.roles.byname(all).delRule($rule)
+                    ''')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:info')
+                    self.eq(data['info']['iden'], rall.iden)
+                    self.eq(data['info']['name'], 'rule:del')
+                    self.eq(data['info']['valu'], [True, ['power-ups', 'foo', 'bar']])
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # rule add to a user
+                    await core.callStorm('auth.user.addrule visi "!power-ups.foo.bar" --gate cortex')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'rule:add')
+                    self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
+                    self.len(1, data['gates'])
+                    self.eq(data['gates'][0]['iden'], 'cortex')
+
+                    # rule del from a user
+                    mesgs = await core.callStorm('''
+                        $rule = $lib.auth.ruleFromText("!power-ups.foo.bar")
+                        $lib.auth.users.byname(visi).delRule($rule, gateiden=cortex)
+                    ''')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['name'], 'rule:del')
+                    self.eq(data['info']['valu'], [False, ['power-ups', 'foo', 'bar']])
+                    self.len(1, data['gates'])
+                    self.eq(data['gates'][0]['iden'], 'cortex')
 
                     # user add. couple of messages fall out from it
                     await core.callStorm('auth.user.add beep --email beep@vertex.link')
@@ -1027,8 +1090,9 @@ class HttpApiTest(s_tests.SynTest):
                     mesg = await sock.receive_json()
                     data = mesg['data']
                     self.eq(data['event'], 'user:info')
-                    self.eq(data['info']['name'], 'roles')
-                    self.isin(rall.iden, data['info']['valu'])
+                    self.eq(data['info']['name'], 'role:grant')
+                    self.eq(data['info']['iden'], beepiden)
+                    self.eq(data['info']['role'], rall.iden)
                     self.gt(data['offset'], base)
                     base = data['offset']
 
@@ -1039,8 +1103,30 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['event'], 'user:info')
                     self.eq(data['info']['iden'], beepiden)
                     self.gt(data['offset'], base)
+                    base = data['offset']
                     self.notin('valu', data)
                     self.notin('valu', data['info'])
+
+                    # set user name
+                    await visi.setName('invisig0th')
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:name')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.eq(data['info']['valu'], 'invisig0th')
+                    self.gt(data['offset'], base)
+                    base = data['offset']
+
+                    # set role name
+                    rolename = 'some fancy new role name'
+                    await userrole.setName(rolename)
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'role:name')
+                    self.eq(data['info']['iden'], userrole.iden)
+                    self.eq(data['info']['valu'], rolename)
+                    self.gt(data['offset'], base)
+                    base = data['offset']
 
                     # role del
                     await core.delRole(role)
@@ -1058,12 +1144,21 @@ class HttpApiTest(s_tests.SynTest):
                     mesg = await sock.receive_json()
                     data = mesg['data']
                     self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'role:revoke')
                     self.eq(data['info']['iden'], visi.iden)
-                    self.eq(data['info']['name'], 'roles')
-                    self.len(1, data['info']['valu'])
-                    self.isin(data['info']['valu'][0], allroles)
+                    self.eq(data['info']['role'], userrole.iden)
                     self.gt(data['offset'], base)
                     base = data['offset']
+
+                    # set roles
+                    await visi.setRoles([rall.iden, userrole.iden])
+                    mesg = await sock.receive_json()
+                    data = mesg['data']
+                    self.eq(data['event'], 'user:info')
+                    self.eq(data['info']['name'], 'role:set')
+                    self.eq(data['info']['iden'], visi.iden)
+                    self.isin(rall.iden, data['info']['valu'])
+                    self.isin(userrole.iden, data['info']['valu'])
 
                     # archive
                     await visi.setArchived(True)
