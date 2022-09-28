@@ -1648,11 +1648,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         running = int(time.monotonic() - self.backmonostart * 1000) if self.backmonostart else None
 
-        def epochmillis(dtornone):
-            if dtornone is None:
-                return None
-            return int(dtornone.timestamp() * 1000)
-
         retn = {
             'currduration': running,
             'laststart': int(self.backstartdt.timestamp() * 1000) if self.backstartdt else None,
