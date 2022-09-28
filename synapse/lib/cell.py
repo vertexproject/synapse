@@ -2629,6 +2629,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
+            # DISCUSS
+            #
+            # THIS OPERATION CAN BE ALOT OF DEAD TIME FOR A LARGE BACKUP.
+            # WE COULD print EVERY 1% DOWNLOADED PER CHUNK IF WE HAVE
+            # A content-length RESPONSE HEADER?
             with s_common.genfile(tarpath) as fd:
                 async with aiohttp.client.ClientSession() as sess:
                     async with sess.get(rurl, **kwargs) as resp:
@@ -2636,6 +2641,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         csize = s_const.megabyte * 8  # arbitrary magic number
                         async for chunk in resp.content.iter_chunked(csize):
                             fd.write(chunk)
+
+            logger.info(f'Extracting {tarpath} to {dirn}')
 
             with tarfile.open(tarpath) as tgz:
                 for memb in tgz.getmembers():
