@@ -2586,13 +2586,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @classmethod
     async def _initBootRestore(cls, dirn):
 
-        dirn = s_common.gendir(dirn)
-
         env = 'SYN_RESTORE_HTTPS_URL'
         rurl = os.getenv(env, None)
 
         if rurl is None:
             return
+
+        dirn = s_common.gendir(dirn)
 
         # restore.done - Allow an existing URL to be left in the configuration
         # for a service without issues.
