@@ -15,7 +15,6 @@ class UrlTest(s_t_utils.SynTest):
                  },
                 info
                 )
-        self.eq(url, s_urlhelp.zipurl(info))
 
         url = 'tcp://pennywise:candy@vertex.link/'
         info = s_urlhelp.chopurl(url)
@@ -27,7 +26,6 @@ class UrlTest(s_t_utils.SynTest):
                  },
                 info
                 )
-        self.eq(url, s_urlhelp.zipurl(info))
 
         url = 'tcp://pennywise@vertex.link'
         info = s_urlhelp.chopurl(url)
@@ -38,7 +36,6 @@ class UrlTest(s_t_utils.SynTest):
                  },
                 info
                 )
-        self.eq(url, s_urlhelp.zipurl(info))
 
         url = 'tcp://1.2.3.4:8080/api/v1/wow?key=valu&foo=bar'
         info = s_urlhelp.chopurl(url)
@@ -52,7 +49,6 @@ class UrlTest(s_t_utils.SynTest):
                  },
                 info
                 )
-        self.eq(url, s_urlhelp.zipurl(info))
 
         url = 'http://[1fff:0:a88:85a3::ac1f]:8001/index.html'
         info = s_urlhelp.chopurl(url)
@@ -63,7 +59,6 @@ class UrlTest(s_t_utils.SynTest):
                  },
                 info
                 )
-        self.eq(url, s_urlhelp.zipurl(info))
 
         url = 'http://::1/index.html'
         info = s_urlhelp.chopurl(url)
@@ -73,7 +68,6 @@ class UrlTest(s_t_utils.SynTest):
                  },
                 info
                 )
-        self.eq(url, s_urlhelp.zipurl(info))
 
         self.raises(s_exc.BadUrl, s_urlhelp.chopurl,
                     'www.vertex.link')
