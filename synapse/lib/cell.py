@@ -2636,6 +2636,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         content_length = int(resp.headers.get('content-length', 0))
                         logger.info(f'{content_length=}')
                         if content_length > 100:
+                            logger.warning(f'Downloading {content_length/s_const.megabyte:.3f} MB of data.')
                             pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
                         else:  # pragma: no cover
                             pvals = []
