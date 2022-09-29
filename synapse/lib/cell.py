@@ -2649,7 +2649,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             tsize = tsize + len(chunk)
                             if pvals and tsize > pvals[0]:
                                 pvals.pop(0)
-                                percentage = tsize / content_length
+                                percentage = (tsize / content_length) * 100
                                 logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
             logger.warning(f'Extracting {tarpath} to {dirn}')
