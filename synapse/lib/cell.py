@@ -2659,6 +2659,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     if memb.name.find('/') == -1:
                         continue
                     memb.name = memb.name.split('/', 1)[1]
+                    logger.warning(f'Extracting {memb.name}')
                     tgz.extract(memb, dirn)
 
             # and record the rurliden
