@@ -2627,18 +2627,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            # DISCUSS
-            #
-            # THIS OPERATION CAN BE ALOT OF DEAD TIME FOR A LARGE BACKUP.
-            # WE COULD print EVERY 1% DOWNLOADED PER CHUNK IF WE HAVE
-            # A content-length RESPONSE HEADER?
             with s_common.genfile(tarpath) as fd:
                 async with aiohttp.client.ClientSession() as sess:
                     async with sess.get(rurl, **kwargs) as resp:
                         resp.raise_for_status()
-                        csize = s_const.megabyte * 8  # arbitrary magic number
+
+                        logger.info(f'{resp.headers}')
+                        content_length = int(resp.headers.get('content-length', 0))
+                        logger.info(f'{content_length=}')
+                        if content_length > 100:
+                            pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
+                        else:  # pragma: no cover
+                            pvals = []
+
+                        csize = s_const.kibibyte * 64  # default read chunksize for ClientSession
+                        tsize = 0
+
                         async for chunk in resp.content.iter_chunked(csize):
                             fd.write(chunk)
+
+                            tsize = tsize + len(chunk)
+                            if pvals and tsize > pvals[0]:
+                                pvals.pop(0)
+                                percentage = tsize / content_length
+                                logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
             logger.warning(f'Extracting {tarpath} to {dirn}')
 
