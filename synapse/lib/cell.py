@@ -1141,7 +1141,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaurl = self.conf.get('aha:registry')
         if ahaurl is not None:
 
-            info = await s_telepath.addAhaUrl(ahaurl)
+            info = await s_telepath.addAhaUrl(ahaurl, seed=self.dirn)
             self.ahaclient = info.get('client')
             if self.ahaclient is None:
                 self.ahaclient = await s_telepath.Client.anit(info.get('url'))
@@ -1149,7 +1149,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 info['client'] = self.ahaclient
 
             async def finiaha():
-                await s_telepath.delAhaUrl(ahaurl)
+                await s_telepath.delAhaUrl(ahaurl, seed=self.dirn)
 
             self.onfini(finiaha)
 
@@ -1260,12 +1260,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         async def onlink(proxy):
             while not proxy.isfini:
-
+                logger.info(f'{self.dirn} connected to aha and telling them i am present with {ahaname} {ahalead} {self.isactive=}.')
                 try:
                     await proxy.addAhaSvc(ahaname, self.ahainfo, network=ahanetw)
                     if self.isactive and ahalead is not None:
                         await proxy.addAhaSvc(ahalead, self.ahainfo, network=ahanetw)
-
+                    logger.info(f'{self.dirn} done telling them i am present.')
                     return
 
                 except asyncio.CancelledError:  # pragma: no cover
@@ -2584,7 +2584,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not self._mustBootMirror():
             return
 
-        async with s_telepath.loadTeleCell(self.dirn):
+        async with s_telepath.loadTeleCell(self.dirn, seed=self.dirn):
             await self._bootCellMirror(provconf)
 
     async def _bootCellProv(self):

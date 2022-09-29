@@ -30,15 +30,18 @@ logger = logging.getLogger(__name__)
 
 televers = (3, 0)
 
+# global state
 aha_clients = {}
 
-async def addAhaUrl(url):
+async def addAhaUrl(url, seed=None):
     '''
     Add (incref) an aha registry URL.
 
     NOTE: You may also add a list of redundant URLs.
     '''
-    hkey = s_hashitem.normitem(url)
+    hkey = s_hashitem.normitem((url, seed))
+    # hkey = s_hashitem.normitem((url, '1234'))
+    # hkey = s_hashitem.normitem(url)
 
     info = aha_clients.get(hkey)
     if info is None:
@@ -47,13 +50,15 @@ async def addAhaUrl(url):
     info['refs'] += 1
     return info
 
-async def delAhaUrl(url):
+async def delAhaUrl(url, seed=None):
     '''
     Remove (decref) an aha registry URL.
 
     NOTE: You may also remove a list of redundant URLs.
     '''
-    hkey = s_hashitem.normitem(url)
+    hkey = s_hashitem.normitem((url, seed))
+    # hkey = s_hashitem.normitem((url, '1234'))
+    # hkey = s_hashitem.normitem(url)
 
     info = aha_clients.get(hkey)
     if info is None:
@@ -66,6 +71,7 @@ async def delAhaUrl(url):
     if refs == 0:
         client = info.get('client')
         if client is not None:
+            logger.info(f'calling fini on {aha_clients=} {seed=}')
             await client.fini()
 
         aha_clients.pop(hkey, None)
@@ -150,7 +156,8 @@ async def getAhaProxy(urlinfo):
         raise s_exc.NotReady(mesg=mesg)
 
     laste = None
-    for ahaurl, cnfo in list(aha_clients.items()):
+    for (ahaurl, seed), cnfo in list(aha_clients.items()):
+        logger.info(f'Trying {ahaurl=} {seed} {cnfo}')
         client = cnfo.get('client')
         if client is None:
             client = await Client.anit(cnfo.get('url'))
@@ -175,6 +182,7 @@ async def getAhaProxy(urlinfo):
 
             svcinfo = ahasvc.get('svcinfo', {})
             if not svcinfo.get('online'):
+                logger.info(f'{urlinfo} not online')
                 continue
 
             info = mergeAhaInfo(urlinfo, svcinfo.get('urlinfo', {}))
@@ -253,7 +261,7 @@ async def loadTeleEnv(path):
     return fini
 
 @contextlib.asynccontextmanager
-async def loadTeleCell(dirn):
+async def loadTeleCell(dirn, seed=None):
 
     certpath = s_common.genpath(dirn, 'certs')
     confpath = s_common.genpath(dirn, 'cell.yaml')
@@ -269,7 +277,7 @@ async def loadTeleCell(dirn):
         s_certdir.addCertPath(certpath)
 
     if ahaurl:
-        await addAhaUrl(ahaurl)
+        await addAhaUrl(ahaurl, seed=seed)
 
     try:
 
@@ -281,7 +289,7 @@ async def loadTeleCell(dirn):
             s_certdir.delCertPath(certpath)
 
         if ahaurl:
-            await delAhaUrl(ahaurl)
+            await delAhaUrl(ahaurl, seed=seed)
 
 class Aware:
     '''

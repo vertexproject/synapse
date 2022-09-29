@@ -508,21 +508,32 @@ class NexsRoot(s_base.Base):
 
     async def _tellAhaReady(self, status):
 
+        logger.warning(f'{self.cell.dirn} telling aha he is good')
+
         if self.cell.ahaclient is None:
+            logger.error('tellahaready fail fast')
             return
 
         try:
             await self.cell.ahaclient.waitready(timeout=5)
             ahainfo = await self.cell.ahaclient.getCellInfo()
             ahavers = ahainfo['synapse']['version']
+
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
+                logger.warning(f'{self.cell.dirn} {self.cell.ahasvcname} tell ready')
                 await self.cell.ahaclient.modAhaSvcInfo(self.cell.ahasvcname, {'ready': True})
+                ahalead = self.cell.conf.get('aha:lead')
+                if self.cell.isactive and ahalead is not None:
+                    logger.warning(f'{self.cell.dirn} {ahalead} tell ready')
+                    await self.cell.ahaclient.modAhaSvcInfo(ahalead, {'ready': True})
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')
+
+        logger.info(f'{self.cell.dirn} told aha he is good')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''

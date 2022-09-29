@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 
 from unittest import mock
 
@@ -21,6 +22,8 @@ import synapse.tools.aha.provision.user as s_tools_provision_user
 import synapse.tools.aha.provision.service as s_tools_provision_service
 
 import synapse.tests.utils as s_test
+
+logger = logging.getLogger(__name__)
 
 realaddsvc = s_aha.AhaCell.addAhaSvc
 async def mockaddsvc(self, name, info, network=None):
@@ -841,8 +844,10 @@ class AhaTest(s_test.SynTest):
                 async with self.getTestAhaProv(conf=mirrorconf, dirn=dir1) as aha01:  # type: s_aha.AhaCell
 
                     # This aha cell is a mirror of another aha cell. join the aha:urls together.
-                    aha01.conf['aha:urls'] = aha01.conf['aha:urls'] + aha00.conf['aha:urls']
-                    aha00.conf['aha:urls'] = aha01.conf['aha:urls']
+                    # aha01.conf['aha:urls'] = aha01.conf['aha:urls'] + aha00.conf['aha:urls']
+                    # aha00.conf['aha:urls'] = aha01.conf['aha:urls']
+                    aha00.conf['aha:urls'] = aha00.conf['aha:urls'] + aha01.conf['aha:urls']
+                    aha01.conf['aha:urls'] = aha00.conf['aha:urls']
 
                     print(f'{aha00.isactive=} {aha01.isactive=}')
 
@@ -881,8 +886,8 @@ class AhaTest(s_test.SynTest):
 
                             await asyncio.sleep(1)
 
-                            print('-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!-')
-                            print(' DR MODE ACTIVATED ')
+                            logger.info('-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!-')
+                            logger.info(' DR MODE ACTIVATED ')
 
                             # Aha01 must be promoted to being a leader first
 
@@ -891,10 +896,16 @@ class AhaTest(s_test.SynTest):
 
                             await asyncio.sleep(0.4)
 
+                            logger.info('Promoting core01')
+
                             await core01.promote(graceful=False)
                             self.true(core01.isactive)
 
+                            logger.info('Promoted core01')
+
                             await asyncio.sleep(1)
+
+                            logger.info('Checking things')
 
                             svcaha01 = await aha01.getAhaSvc('core.loop.vertex.link')
                             svc00aha01 = await aha01.getAhaSvc('00.core.loop.vertex.link')
@@ -906,7 +917,7 @@ class AhaTest(s_test.SynTest):
                             pprint(svc00aha01)
                             pprint(svc01aha01)
 
-                            async with self.addSvcToAha(aha01, '00.exec', ExecTeleCaller) as conn:
+                            async with self.addSvcToAha(aha01, 'exec', ExecTeleCaller) as conn:
 
                                 nexsindx = await conn.exectelecall('aha://core...', 'getNexsIndx')
                                 print(f'{nexsindx=}')
@@ -918,5 +929,11 @@ class AhaTest(s_test.SynTest):
 
                                 self.ne(nexsindx, nexsindx2)
 
-                                with self.raises(ConnectionRefusedError):
+                                logger.info('SERVICE ENUMERATION')
+                                async for svc in aha01.getAhaSvcs():
+                                    pprint(svc)
+                                logger.info('DONE ENUMERATION')
+
+                                with self.raises(s_exc.NoSuchName) as cm:
                                     await conn.exectelecall('aha://00.core...', 'getNexsIndx')
+                                logger.exception('umm', exc_info=cm.exception)

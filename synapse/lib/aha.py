@@ -172,7 +172,7 @@ class AhaApi(s_cell.CellApi):
 
         svcentry = await self.cell.getAhaSvc(name)
         if svcentry is None:
-            logger.info(f'modAhaSvcInfo {self.cell.dirn} {iden=} FAIL FAST AHAAPI')
+            logger.warning(f'modAhaSvcInfo {self.cell.dirn} {iden=} FAIL FAST AHAAPI')
             return False
 
         svcnetw = svcentry.get('svcnetw')
@@ -439,8 +439,9 @@ class AhaCell(s_cell.Cell):
             await self.provdmon.listen(provurl)
 
     async def _clearInactiveSessions(self):
-
+        logger.warning(f'{self.dirn} Running activeCoro to clear sessions!')
         async for svc in self.getAhaSvcs():
+            logger.info(f'Checking {svc}')
             if svc.get('svcinfo', {}).get('online') is None:
                 continue
             current_sessions = {s_common.guid(iden) for iden in self.dmon.sessions.keys()}
@@ -448,12 +449,17 @@ class AhaCell(s_cell.Cell):
             network = svc.get('svcnetw')
             linkiden = svc.get('svcinfo').get('online')
             if linkiden not in current_sessions:
-                logger.debug(f'AhaCell activecoro tearing down [{svcname}.{network}]',
+                logger.debug(f'{self.dirn} AhaCell activecoro tearing down [{svcname}.{network}]',
                              extra=await self.getLogExtra(name=svcname, netw=network))
                 await self.setAhaSvcDown(svcname, linkiden, network=network)
 
         # Wait until we are cancelled or the cell is fini.
-        await self.waitfini()
+        try:
+            await self.waitfini()
+        except asyncio.CancelledError:
+            logger.exception(f'{self.dirn} cancelled active coro!')
+            raise
+        logger.warning(f'{self.dirn} active coro going away!')
 
     async def getAhaSvcs(self, network=None):
         path = ('aha', 'services')
