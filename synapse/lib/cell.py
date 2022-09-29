@@ -1,5 +1,4 @@
 import os
-import ssl
 import time
 import fcntl
 import shutil
@@ -2171,8 +2170,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     def initSslCtx(self, certpath, keypath):
 
-        sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        sslctx = s_certdir.getServerSSLContext()
 
         if not os.path.isfile(keypath):
             raise s_exc.NoSuchFile(mesg=f'Missing TLS keypath {keypath}', path=keypath)
@@ -2860,9 +2858,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # check for a TLS client cert
         username = link.getTlsPeerCn()
         if username is not None:
-            user = await self.auth.getUserByName(username)
-            if user is not None:
-                return user
 
             if username.find('@') != -1:
                 userpart, hostpart = username.split('@', 1)
@@ -2870,6 +2865,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     user = await self.auth.getUserByName(userpart)
                     if user is not None:
                         return user
+
+            user = await self.auth.getUserByName(username)
+            if user is not None:
+                return user
 
             raise s_exc.NoSuchUser(mesg=f'TLS client cert User not found: {username}', user=username)
 
