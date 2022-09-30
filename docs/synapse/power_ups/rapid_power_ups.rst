@@ -39,6 +39,7 @@ The following Rapid Power-Ups are available:
 - `Synapse-PassiveTotal <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-passivetotal/index.html>`_
 - `Synapse-PolySwarm <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-polyswarm/index.html>`_
 - `Synapse-ReversingLabs <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-reversinglabs/index.html>`_
+- `Synapse-RSS <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-rss/index.html>`_
 - `Synapse-Shodan <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-shodan/index.html>`_
 - `Synapse-Spur <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spur/index.html>`_
 - `Synapse-SpyCloud <https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-spycloud/index.html>`_
