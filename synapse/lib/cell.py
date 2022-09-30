@@ -2093,7 +2093,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
-        Feed a named event onto the beholder message bus that will sent to any listeners.
+        Feed a named event onto the ``cell:beholder`` message bus that will sent to any listeners.
 
         Args:
             info (dict): An information dictionary to be sent to any consumers.
@@ -2133,9 +2133,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             async def onEvent(mesg):
                 await wind.put(mesg[1])
 
-            self.on('cell:beholder', onEvent, base=wind)
-
-            yield wind
+            with self.onWith('cell:beholder', onEvent):
+                yield wind
 
     async def behold(self):
         async with self.beholder() as wind:
