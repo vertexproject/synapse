@@ -489,6 +489,10 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 /api/v1/storm/nodes
 ~~~~~~~~~~~~~~~~~~~
 
+.. warning::
+
+    This API is deprecated in Synapse ``v2.110.0`` and will be removed in a future version.
+
 The Storm nodes API endpoint allows the caller to execute a Storm query on the Cortex and stream
 back the resulting nodes.  This streaming API has back-pressure, and will handle streaming millions
 of results as the reader consumes them.

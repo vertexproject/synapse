@@ -357,6 +357,8 @@ class StormNodesV1(StormHandler):
         if body is s_common.novalu:
             return
 
+        s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
+
         # dont allow a user to be specified
         opts = body.get('opts')
         query = body.get('query')
