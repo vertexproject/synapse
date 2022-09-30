@@ -3,5 +3,4 @@ version: [0, 0, 1]
 
 commands:
     - name: invalidCMD
-      descr: |
-        testpkgcmd does some stuff.
+      descr: No capital letters in command names!
