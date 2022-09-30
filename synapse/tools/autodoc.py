@@ -672,7 +672,7 @@ async def docStormpkg(pkgpath):
     rst.addHead(f'Storm Package\\: {hname}')
     lines = ['The following Commands are available from this package.',
              f'This documentation is generated for version '
-             f'{s_version.fmtVersion(*pkgdef.get("version"))} of the package.',
+             f'{s_version.fmtVersion(pkgdef.get("version"))} of the package.',
              ]
     rst.addLines(*lines)
 

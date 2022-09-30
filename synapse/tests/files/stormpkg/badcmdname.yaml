@@ -1,0 +1,7 @@
+name: badcmdname
+version: 0.0.1
+
+commands:
+    - name: invalidCMD
+      descr: |
+        testpkgcmd does some stuff.
