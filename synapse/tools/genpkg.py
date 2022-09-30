@@ -19,9 +19,6 @@ logger = logging.getLogger(__name__)
 
 wflownamere = regex.compile(r'^([\w-]+)\.yaml$')
 
-def chopSemVer(vers):
-    return tuple([int(x) for x in vers.split('.')])
-
 def getStormStr(fn):
     if not os.path.isfile(fn):
         raise s_exc.NoSuchFile(mesg='Storm file {} not found'.format(fn), path=fn)
