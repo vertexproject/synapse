@@ -1341,7 +1341,26 @@ class CellTest(s_t_utils.SynTest):
                     await asyncio.wait_for(task, 5)
 
             with tarfile.open(bkuppath, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner) 
+                    
+                
+                safe_extract(tar, path=dirn)
 
             bkupdirn = os.path.join(dirn, 'bkup')
             async with self.getTestCore(dirn=bkupdirn) as core:
@@ -1352,7 +1371,26 @@ class CellTest(s_t_utils.SynTest):
                 self.len(0, nodes)
 
             with tarfile.open(bkuppath2, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner) 
+                    
+                
+                safe_extract(tar, path=dirn)
 
             bkupdirn2 = os.path.join(dirn, 'bkup2')
             async with self.getTestCore(dirn=bkupdirn2) as core:
@@ -1360,7 +1398,26 @@ class CellTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
             with tarfile.open(bkuppath3, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner) 
+                    
+                
+                safe_extract(tar, path=dirn)
 
             bkupdirn3 = os.path.join(dirn, 'bkup3')
             async with self.getTestCore(dirn=bkupdirn3) as core:
@@ -1369,7 +1426,26 @@ class CellTest(s_t_utils.SynTest):
 
             with tarfile.open(bkuppath4, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner) 
+                    
+                
+                safe_extract(tar, path=dirn)
 
             bkupdirn4 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn4) as core:
@@ -1392,7 +1468,26 @@ class CellTest(s_t_utils.SynTest):
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn)
+                def is_within_directory(directory, target):
+                    
+                    abs_directory = os.path.abspath(directory)
+                    abs_target = os.path.abspath(target)
+                
+                    prefix = os.path.commonprefix([abs_directory, abs_target])
+                    
+                    return prefix == abs_directory
+                
+                def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+                
+                    for member in tar.getmembers():
+                        member_path = os.path.join(path, member.name)
+                        if not is_within_directory(path, member_path):
+                            raise Exception("Attempted Path Traversal in Tar File")
+                
+                    tar.extractall(path, members, numeric_owner) 
+                    
+                
+                safe_extract(tar, path=dirn)
 
             bkupdirn5 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn5) as core:
