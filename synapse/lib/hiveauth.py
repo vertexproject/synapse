@@ -948,7 +948,7 @@ class HiveUser(HiveRuler):
         else:
             roles.insert(indx, role.iden)
 
-        mesg = {'name': 'role:grant', 'iden': self.iden, 'role': role.iden}
+        mesg = {'name': 'role:grant', 'iden': self.iden, 'role': role.pack()}
         await self.auth.setUserInfo(self.iden, 'roles', roles, mesg=mesg)
 
     async def setRoles(self, roleidens):
@@ -976,10 +976,12 @@ class HiveUser(HiveRuler):
             mesg = 'Role "all" must be in the list of roles set.'
             raise s_exc.BadArg(mesg=mesg)
 
+        roles = []
         for iden in roleidens:
-            await self.auth.reqRole(iden)
+            r = await self.auth.reqRole(iden)
+            roles.append(r.pack())
 
-        mesg = {'name': 'role:set', 'iden': self.iden, 'valu': roleidens}
+        mesg = {'name': 'role:set', 'iden': self.iden, 'roles': roles}
         await self.auth.setUserInfo(self.iden, 'roles', roleidens, mesg=mesg)
 
     async def revoke(self, iden, nexs=True):
@@ -995,7 +997,7 @@ class HiveUser(HiveRuler):
             return
 
         roles.remove(role.iden)
-        mesg = {'name': 'role:revoke', 'iden': self.iden, 'role': role.iden}
+        mesg = {'name': 'role:revoke', 'iden': self.iden, 'role': role.pack()}
         if nexs:
             await self.auth.setUserInfo(self.iden, 'roles', roles, mesg=mesg)
         else:

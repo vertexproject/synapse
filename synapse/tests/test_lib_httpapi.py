@@ -938,7 +938,11 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq(data['info']['name'], 'role:grant')
                     self.eq(data['info']['iden'], visi.iden)
-                    self.eq(data['info']['role'], role)
+                    self.eq(data['info']['role']['iden'], role)
+                    self.eq(data['info']['role']['type'], 'role')
+                    self.eq(data['info']['role']['name'], 'beholder.role')
+                    self.eq(data['info']['role']['rules'], [])
+                    self.eq(data['info']['role']['authgates'], {})
 
                     # give a user view read perms
                     gate = await core.callStorm('''
@@ -1089,10 +1093,19 @@ class HttpApiTest(s_tests.SynTest):
 
                     mesg = await sock.receive_json()
                     data = mesg['data']
+                    deflayr, defview = await core.callStorm('''
+                        $view = $lib.view.get()
+                        return(($view.layers.0.iden, $view.iden))
+                    ''')
                     self.eq(data['event'], 'user:info')
                     self.eq(data['info']['name'], 'role:grant')
                     self.eq(data['info']['iden'], beepiden)
-                    self.eq(data['info']['role'], rall.iden)
+                    self.eq(data['info']['role']['iden'], rall.iden)
+                    self.eq(data['info']['role']['name'], 'all')
+                    self.eq(data['info']['role']['type'], 'role')
+                    self.eq(data['info']['role']['authgates'][deflayr], {'rules': [[True, ['layer', 'read']]]})
+                    self.eq(data['info']['role']['authgates'][defview], {'rules': [[True, ['view', 'read']]]})
+                    self.eq(data['info']['role']['rules'], [[False, ['power-ups', 'foo', 'bar']]])
                     self.gt(data['offset'], base)
                     base = data['offset']
 
@@ -1146,7 +1159,8 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['event'], 'user:info')
                     self.eq(data['info']['name'], 'role:revoke')
                     self.eq(data['info']['iden'], visi.iden)
-                    self.eq(data['info']['role'], userrole.iden)
+                    self.eq(data['info']['role']['iden'], userrole.iden)
+                    self.eq(data['info']['role']['name'], 'some fancy new role name')
                     self.gt(data['offset'], base)
                     base = data['offset']
 
@@ -1157,8 +1171,9 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(data['event'], 'user:info')
                     self.eq(data['info']['name'], 'role:set')
                     self.eq(data['info']['iden'], visi.iden)
-                    self.isin(rall.iden, data['info']['valu'])
-                    self.isin(userrole.iden, data['info']['valu'])
+                    roles = [x['iden'] for x in data['info']['roles']]
+                    self.isin(rall.iden, roles)
+                    self.isin(userrole.iden, roles)
 
                     # archive
                     await visi.setArchived(True)
