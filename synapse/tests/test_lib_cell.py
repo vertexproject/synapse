@@ -1629,15 +1629,15 @@ class CellTest(s_t_utils.SynTest):
                         doneiden = fd.read().decode().strip()
                     self.true(s_common.isguid(doneiden))
 
-                    # FIXME - DISCUSS THIS. I REMOVED THE SAFETIES THAT WERE HERE, BUT THEY
-                    # WERE PRETTY FRAGILE. SHOULD BE ALL OR NOTHING.
-                    #
-                    # # Restoring into a directory that has been used to boot a cell not okay.
-                    # # Remove the restore.done file forces the restore from happening again.
-                    # os.unlink(rpath)
-                    # with self.raises(s_exc.BadConfValu) as cm:
-                    #     async with self.getTestCore(dirn=cdir) as core:
-                    #         pass
+                    # Restoring into a directory that has been used previously should wipe out
+                    # all of the existing content of that directory. Remove the restore.done file
+                    # to force the restore from happening again.
+                    os.unlink(rpath)
+                    with self.getAsyncLoggerStream('synapse.lib.cell',
+                                                   'Removing existing') as stream:
+                        async with await s_cortex.Cortex.initFromArgv([cdir]) as core:
+                            self.true(await stream.wait(6))
+                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
             furl2 = f'{url}{s_common.ehex(sha256r)}'

@@ -2606,13 +2606,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         rurliden = s_common.guid(rurl)
 
         if doneiden == rurliden:
+            logger.warning(f'restore.done matched value from {env}. It is recommended to remove the {env} value.')
             return
-
-        # If there is a mismatch vs restore.done, we hulk smash in the restored contents.
-        # There are no seatbelts here to check for existing files / etc.
 
         clean_url = s_urlhelp.sanitizeUrl(rurl).rsplit('?', 1)[0]
         logger.warning(f'Restoring {cls.getCellType()} from {env}={clean_url}')
+
+        # First we clear any files out of the directory though. This avoids the possibility
+        # of a restore that is potentially mixed.
+        efiles = os.listdir(dirn)
+        for fn in efiles:
+            fp = os.path.join(dirn, fn)
+
+            if os.path.isfile(fp):
+                logger.warning(f'Removing existing file: {fp}')
+                os.unlink(fp)
+                continue
+
+            if os.path.isdir(fp):
+                logger.warning(f'Removing existing directory: {fp}')
+                shutil.rmtree(fp)
+                continue
+
+            logger.warning(f'Unhandled existing file: {fp}')  # pragma: no cover
 
         # Setup get args
         insecure_marker = 'https+insecure://'
@@ -2668,10 +2684,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 fd.seek(0)
                 fd.write(rurliden.encode())
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # pragma: no cover
             raise
 
-        except Exception:
+        except Exception:  # pragma: no cover
             logger.exception('Failed to restore cell from URL.')
             raise
 
