@@ -2938,6 +2938,18 @@ class CortexBasicTest(s_t_utils.SynTest):
             # Package with no synapse_minversion shouldn't raise
             await core.addStormPkg(noverpkg)
 
+            badcmdpkg = {
+                'name': 'badcmd',
+                'version': (0, 0, 1),
+                'commands': ({
+                    'name': 'invalidCMD',
+                    'descr': 'test command',
+                    'storm': '',
+                },)
+            }
+
+            await self.asyncraises(s_exc.SchemaViolation, core.addStormPkg(badcmdpkg))
+
     async def test_onsetdel(self):
 
         args_hit = None

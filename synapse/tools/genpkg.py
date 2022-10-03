@@ -11,15 +11,13 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 
 logger = logging.getLogger(__name__)
 
 wflownamere = regex.compile(r'^([\w-]+)\.yaml$')
-
-def chopSemVer(vers):
-    return tuple([int(x) for x in vers.split('.')])
 
 def getStormStr(fn):
     if not os.path.isfile(fn):
@@ -109,8 +107,9 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     full = s_common.genpath(path)
     pkgdef = s_common.yamlload(full)
 
-    if isinstance(pkgdef['version'], str):
-        pkgdef['version'] = chopSemVer(pkgdef['version'])
+    version = pkgdef.get('version')
+    if isinstance(version, (tuple, list)):
+        pkgdef['version'] = '%d.%d.%d' % tuple(version)
 
     protodir = os.path.dirname(full)
     pkgname = pkgdef.get('name')
@@ -212,6 +211,8 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         pkgdef.setdefault('optic', {})
         pkgdef['optic'].setdefault('files', {})
         loadOpticFiles(pkgdef, opticdir)
+
+    s_storm.reqValidPkgdef(pkgdef)
 
     # Tuplify the package.
     pkgdef = s_common.tuplify(pkgdef)
