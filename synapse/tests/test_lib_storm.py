@@ -2667,6 +2667,9 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await alist(asvisi.eval("splice.list"))
                 self.len(11, nodes)
 
+            msgs = await core.stormlist('splice.undo')
+            self.stormIsInWarn('deprecated', msgs)
+
     async def test_storm_spliceundo(self):
 
         self.skip('order is different and this is deprecated')

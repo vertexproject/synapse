@@ -4644,7 +4644,7 @@ class ScrapeCmd(Cmd):
 
 class SpliceListCmd(Cmd):
     '''
-    Retrieve a list of splices backwards from the end of the splicelog.
+    Deprecated command to retrieve a list of splices backwards from the end of the splicelog.
 
     Examples:
 
@@ -4682,7 +4682,11 @@ class SpliceListCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprecated('splices.list')
+        s_common.deprecated('splice.list')
+
+        mesg = 'splice.list is deprecated and will be removed!'
+        await runt.snap.warn(mesg)
+
         maxtime = None
         if self.opts.maxtimestamp:
             maxtime = self.opts.maxtimestamp
@@ -4768,7 +4772,7 @@ class SpliceListCmd(Cmd):
 
 class SpliceUndoCmd(Cmd):
     '''
-    Reverse the actions of syn:splice runt nodes.
+    Deprecated command to reverse the actions of syn:splice runt nodes.
 
     Examples:
 
@@ -4915,7 +4919,11 @@ class SpliceUndoCmd(Cmd):
 
     async def execStormCmd(self, runt, genr):
 
-        s_common.deprecated('splices.undo')
+        s_common.deprecated('splice.undo')
+
+        mesg = 'splice.undo is deprecated and will be removed!'
+        await runt.snap.warn(mesg)
+
         if self.opts.force:
             if not runt.user.isAdmin():
                 mesg = '--force requires admin privs.'
