@@ -57,6 +57,10 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'nocontent.yaml')
             await s_genpkg.main((ymlpath,))
 
+        with self.raises(s_exc.SchemaViolation):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badcmdname.yaml')
+            await s_genpkg.main((ymlpath,))
+
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
         async with self.getTestCore() as core:
 
@@ -78,7 +82,7 @@ class GenPkgTest(s_test.SynTest):
             s_common.yamlsave(pdef, yamlpath)
 
             self.eq(pdef['name'], 'testpkg')
-            self.eq(pdef['version'], (0, 0, 1))
+            self.eq(pdef['version'], '0.0.1')
             self.eq(pdef['modules'][0]['name'], 'testmod')
             self.eq(pdef['modules'][0]['storm'], 'inet:ipv4\n')
             self.eq(pdef['modules'][1]['name'], 'testpkg.testext')
