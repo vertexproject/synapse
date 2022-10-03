@@ -24,6 +24,18 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the industry.'},
                   ),
                   'returns': {'type': 'storm:node', 'desc': 'An ou:industry node with the given name.'}}},
+        {'name': 'newsByUrl', 'desc': 'Returns a media:news node by URL, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'url', 'type': 'inet:url', 'desc': 'The URL where the news is published.'},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'A media:news node with the given URL.'}}},
+        {'name': 'softByName', 'desc': 'Returns it:prod:soft node by name, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the software.'},
+                  ),
+                  'returns': {'type': 'storm:node', 'desc': 'An it:prod:soft node with the given name.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -46,6 +58,19 @@ class LibGen(s_stormtypes.Lib):
             ou:industryname=$name -> ou:industry
             return($node)
             [ ou:industry=* :name=$name ]
+            return($node)
+        }
+        function newsByUrl(url) {
+            media:news:url=$url
+            return($node)
+            [ media:news=* :url=$url ]
+            return($node)
+        }
+        function softByName(name) {
+            it:prod:softname=$name
+            -> it:prod:soft
+            return($node)
+            [ it:prod:soft=* :name=$name ]
             return($node)
         }
     '''
