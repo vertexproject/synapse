@@ -1042,7 +1042,6 @@ class HiveUser(HiveRuler):
             return False
 
         if isinstance(shadow, bytes):
-            # Bcrypt shadowing
             ret = await s_coro.executor(bcrypt.checkpw, password=passEnc(passwd), hashed_password=shadow)
             if ret:
                 return True
