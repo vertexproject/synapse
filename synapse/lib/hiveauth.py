@@ -1,8 +1,7 @@
-import base64
+import os
+import hmac
 import hashlib
 import logging
-
-import bcrypt
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -12,6 +11,8 @@ import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
+
+from typing import AnyStr, ByteString, Dict, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -34,37 +35,32 @@ def getShadow(passwd):
     hashed = s_common.guid((salt, passwd))
     return (salt, hashed)
 
-def passEnc(passwd) -> bytes:
-    '''
-    Encode a password for input to bcrypt using SHA256.
-    '''
-    buf = base64.b64encode(hashlib.sha256(passwd.encode()).digest())
-    return buf
+def _getScrypt(passwd: AnyStr,
+               n: int =2**14,
+               r: int =8,
+               p: int =1) -> Tuple[Dict, ByteString]:
+    salt = os.urandom(16)
+    params = {
+        'n': n,
+        'p': p,
+        'r': r,
+        'salt': salt,
+    }
 
-def _getBcrypt(passwd, rounds=12, prefix=b'2b'):
-    '''
-    Bcrypt based shadow generation.
+    hashed = hashlib.scrypt(passwd.encode(), **params)
+    params['type'] = 'scrypt'
+    return params, hashed
 
-    These parameters may take approximately 0.2 seconds to execute.
-    This should be called in a executor threat to avoid locking the ioloop.
-    The bcrypt functions do release the GIL.
-    '''
-    # hash and encode password
-    salt = bcrypt.gensalt(rounds=rounds, prefix=prefix)
-    hashed = bcrypt.hashpw(password=passEnc(passwd), salt=salt)
-    return hashed
+async def getScrypt(passwd: AnyStr) -> Tuple[Dict, ByteString]:
+    return await s_coro.executor(_getScrypt, passwd=passwd)
 
-async def getBcrypt(passwd: str) -> str:
-    '''
-    Get the bcrypt hash for a given password.
+def _verifyScrypt(passwd: AnyStr, hashed: ByteString, **params: Dict) -> bool:
+    params.pop('type', None)
+    check = hashlib.scrypt(passwd.encode(), **params)
+    return hmac.compare_digest(hashed, check)
 
-    Args:
-        passwd (str): The password.
-
-    Returns:
-        bytes: The bcrypt hash.
-    '''
-    return await s_coro.executor(_getBcrypt, passwd=passwd)
+async def verifyScrypt(passwd: AnyStr, hashed: ByteString, **params: Dict) -> bool:
+    return await s_coro.executor(_verifyScrypt, passwd=passwd, hashed=hashed, **params)
 
 class Auth(s_nexus.Pusher):
     '''
@@ -901,7 +897,7 @@ class HiveUser(HiveRuler):
         for iden in self.info.get('roles', ()):
             role = self.auth.role(iden)
             if role is None:
-                logger.warn('user {self.iden} has non-existent role: {iden}')
+                logger.warning('user {self.iden} has non-existent role: {iden}')
                 continue
             yield role
 
@@ -1021,17 +1017,15 @@ class HiveUser(HiveRuler):
 
         onepass = self.info.get('onepass')
         if onepass is not None:
-            expires = onepass[0]
+            expires, params, hashed = onepass
             if expires >= s_common.now():
-                if len(onepass) == 3:
+                if isinstance(params, str):
                     # Backwards compatible password handling
-                    _, salt, hashed = onepass
-                    if s_common.guid((salt, passwd)) == hashed:
+                    if s_common.guid((params, passwd)) == hashed:
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
                         return True
                 else:
-                    _, hashed = onepass
-                    if await s_coro.executor(bcrypt.checkpw, password=passEnc(passwd), hashed_password=hashed):
+                    if await verifyScrypt(passwd=passwd, hashed=hashed, **params):
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
                         return True
             else:
@@ -1041,18 +1035,15 @@ class HiveUser(HiveRuler):
         if shadow is None:
             return False
 
-        if isinstance(shadow, bytes):
-            ret = await s_coro.executor(bcrypt.checkpw, password=passEnc(passwd), hashed_password=shadow)
-            if ret:
+        params, hashed = shadow
+        if isinstance(params, dict):
+            if await verifyScrypt(passwd, hashed=hashed, **params):
                 return True
 
             return False
 
         # Backwards compatible password handling
-
-        salt, hashed = shadow
-
-        if s_common.guid((salt, passwd)) == hashed:
+        if s_common.guid((params, passwd)) == hashed:
             return True
 
         return False
@@ -1062,7 +1053,7 @@ class HiveUser(HiveRuler):
         if passwd is None:
             shadow = None
         elif passwd and isinstance(passwd, str):
-            shadow = await getBcrypt(passwd=passwd)
+            shadow = await getScrypt(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
         if nexs:

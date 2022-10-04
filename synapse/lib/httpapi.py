@@ -994,8 +994,8 @@ class OnePassIssueV1(Handler):
             return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
 
         passwd = s_common.guid()
-        shadow = await s_hiveauth.getBcrypt(passwd=passwd)
-        onepass = (s_common.now() + duration, shadow)
+        params, shadow = await s_hiveauth.getScrypt(passwd=passwd)
+        onepass = (s_common.now() + duration, params, shadow)
 
         await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
 
