@@ -1024,7 +1024,7 @@ class HiveUser(HiveRuler):
             expires = onepass[0]
             if expires >= s_common.now():
                 if len(onepass) == 3:
-                    # Backwards compatible hashing.
+                    # Backwards compatible password handling
                     _, salt, hashed = onepass
                     if s_common.guid((salt, passwd)) == hashed:
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
