@@ -1,9 +1,14 @@
+import base64
+import hashlib
 import logging
+
+import bcrypt
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
@@ -24,9 +29,42 @@ reqValidRules = s_config.getJsValidator({
 })
 
 def getShadow(passwd):
+    s_common.deprecated('hiveauth.getShadow()', curv='2.110.0')
     salt = s_common.guid()
     hashed = s_common.guid((salt, passwd))
     return (salt, hashed)
+
+def passEnc(passwd) -> bytes:
+    '''
+    Encode a password for input to bcrypt using SHA256.
+    '''
+    buf = base64.b64encode(hashlib.sha256(passwd.encode()).digest())
+    return buf
+
+def _getBcrypt(passwd, rounds=12, prefix=b'2b'):
+    '''
+    Bcrypt based shadow generation.
+
+    These parameters may take approximately 0.2 seconds to execute.
+    This should be called in a executor threat to avoid locking the ioloop.
+    The bcrypt functions do release the GIL.
+    '''
+    # hash and encode password
+    salt = bcrypt.gensalt(rounds=rounds, prefix=prefix)
+    hashed = bcrypt.hashpw(password=passEnc(passwd), salt=salt)
+    return hashed
+
+async def getBcrypt(passwd: str) -> str:
+    '''
+    Get the bcrypt hash for a given password.
+
+    Args:
+        passwd (str): The password.
+
+    Returns:
+        bytes: The bcrypt hash.
+    '''
+    return await s_coro.executor(_getBcrypt, passwd=passwd)
 
 class Auth(s_nexus.Pusher):
     '''
@@ -983,17 +1021,35 @@ class HiveUser(HiveRuler):
 
         onepass = self.info.get('onepass')
         if onepass is not None:
-            expires, salt, hashed = onepass
+            expires = onepass[0]
             if expires >= s_common.now():
-                if s_common.guid((salt, passwd)) == hashed:
-                    await self.auth.setUserInfo(self.iden, 'onepass', None)
-                    return True
+                if len(onepass) == 3:
+                    # Backwards compatible hashing.
+                    _, salt, hashed = onepass
+                    if s_common.guid((salt, passwd)) == hashed:
+                        await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        return True
+                else:
+                    _, hashed = onepass
+                    if await s_coro.executor(bcrypt.checkpw, password=passEnc(passwd), hashed_password=hashed):
+                        await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        return True
             else:
                 await self.auth.setUserInfo(self.iden, 'onepass', None)
 
         shadow = self.info.get('passwd')
         if shadow is None:
             return False
+
+        if isinstance(shadow, bytes):
+            # Bcrypt shadowing
+            ret = await s_coro.executor(bcrypt.checkpw, password=passEnc(passwd), hashed_password=shadow)
+            if ret:
+                return True
+
+            return False
+
+        # Backwards compatible password handling
 
         salt, hashed = shadow
 
@@ -1007,7 +1063,7 @@ class HiveUser(HiveRuler):
         if passwd is None:
             shadow = None
         elif passwd and isinstance(passwd, str):
-            shadow = getShadow(passwd)
+            shadow = await getBcrypt(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
         if nexs:

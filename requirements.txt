@@ -32,3 +32,4 @@ beautifulsoup4[html5lib]>=4.11.1,<5.0.0
 # They have a 3 major version's policy for deprecations, so we should be safe
 # that far out.
 cryptography>=36.0.0,<39.0.0
+bcrypt>=4.0.0,<4.1.0
