@@ -1565,3 +1565,26 @@ class CellTest(s_t_utils.SynTest):
                     async with await s_cell.Cell.anit(conf=conf01, dirn=path01) as cell01:
                         await stream.wait(timeout=2)
                         self.true(await cell01.waitfini(6))
+
+    async def test_passwd_regression(self):
+        # Backwards compatibility test.
+        # Cell was created prior to the bcrypt password change.
+        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
+            async with await s_cell.Cell.anit(dirn=dirn) as cell:  # type: s_cell.Cell
+                root = await cell.auth.getUserByName('root')
+                self.true(await root.tryPasswd('root'))
+
+                user = await cell.auth.getUserByName('user')
+
+                # User can login with their regular password.
+                self.true(await user.tryPasswd('secret1234'))
+
+                # User has a 10 year duration onepass value available.
+                onepass = '0f327906fe0221a7f582744ad280e1ca'
+                self.true(await user.tryPasswd(onepass))
+                self.false(await user.tryPasswd(onepass))
+
+                # Passwords can be changed as well.
+                await user.setPasswd('hehe')
+                self.true(await user.tryPasswd('hehe'))
+                self.false(await user.tryPasswd('secret1234'))
