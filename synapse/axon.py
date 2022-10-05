@@ -17,6 +17,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
+import synapse.lib.nexus as s_nexus
 import synapse.lib.share as s_share
 import synapse.lib.config as s_config
 import synapse.lib.hashset as s_hashset
@@ -1155,14 +1156,24 @@ class Axon(s_cell.Cell):
             if genr is not None:
                 size = await self._saveFileGenr(sha256, genr)
 
-            self._addSyncItem((sha256, size))
-
-            await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
-            await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
-
-            self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+            await self._axonFileAdd(sha256, size, {})
 
             return size
+
+    @s_nexus.Pusher.onPushAuto('axon:file:add')
+    async def _axonFileAdd(self, sha256, size, info):
+
+        byts = self.axonslab.get(sha256, db=self.sizes)
+        if byts is not None:
+            return False
+
+        self._addSyncItem((sha256, size))
+
+        await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
+        await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
+
+        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        return True
 
     async def _saveFileGenr(self, sha256, genr):
 
@@ -1171,16 +1182,20 @@ class Axon(s_cell.Cell):
         for i, byts in enumerate(genr):
 
             size += len(byts)
-
-            ikey = i.to_bytes(8, 'big')
-            okey = size.to_bytes(8, 'big')
-
-            self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
-            self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+            await self._axonBytsSave(sha256, i, size, byts)
 
             await asyncio.sleep(0)
 
         return size
+
+    # a nexusified way to save local bytes
+    @s_nexus.Pusher.onPushAuto('axon:bytes:add')
+    async def _axonBytsSave(self, sha256, indx, offs, byts):
+        ikey = indx.to_bytes(8, 'big')
+        okey = offs.to_bytes(8, 'big')
+
+        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
 
     def _offsToIndx(self, sha256, offs):
         lkey = sha256 + offs.to_bytes(8, 'big')
@@ -1239,6 +1254,7 @@ class Axon(s_cell.Cell):
         '''
         return [await self.del_(s) for s in sha256s]
 
+    @s_nexus.Pusher.onPushAuto('axon:file:del')
     async def del_(self, sha256):
         '''
         Remove the given bytes from the Axon by sha256.
