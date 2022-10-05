@@ -498,7 +498,9 @@ class ReqValidStormV1(StormHandler):
 
 class WatchSockV1(WebSocket):
     '''
-    A web-socket based API endpoint for distributing cortex events.
+    A web-socket based API endpoint for distributing cortex tag events.
+
+    Deprecated.
     '''
     async def onWatchMesg(self, byts):
 
@@ -533,7 +535,53 @@ class WatchSockV1(WebSocket):
             await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
 
     async def on_message(self, byts):
+        s_common.deprecated('WatchSockV1')
         self.cell.schedCoro(self.onWatchMesg(byts))
+
+class BeholdSockV1(WebSocket):
+
+    async def isUserAdmin(self):
+        user = await self.user()
+        if user is None:
+            return False
+
+        if not user.isAdmin():
+            return False
+
+        return True
+
+    async def onInitMessage(self, byts):
+        try:
+            mesg = json.loads(byts)
+            if mesg.get('type') != 'call:init':
+                raise s_exc.BadMesgFormat('Invalid initial message')
+
+            admin = await self.isUserAdmin()
+            if not admin:
+                await self.xmit('errx', code='AuthDeny', mesg='Beholder API requires admin privs')
+                return
+
+            async with self.cell.beholder() as beholder:
+
+                await self.xmit('init')
+
+                async for mesg in beholder:
+                    await self.xmit('iter', **mesg)
+
+                await self.xmit('fini')
+
+        except s_exc.SynErr as e:
+            text = e.get('mesg', str(e))
+            await self.xmit('errx', code=e.__class__.__name__, mesg=text)
+
+        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            raise
+
+        except Exception as e:
+            await self.xmit('errx', code=e.__class__.__name__, mesg=str(e))
+
+    async def on_message(self, byts):
+        self.cell.schedCoro(self.onInitMessage(byts))
 
 class LoginV1(Handler):
 
