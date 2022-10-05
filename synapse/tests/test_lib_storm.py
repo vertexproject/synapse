@@ -108,18 +108,22 @@ class StormTest(s_t_utils.SynTest):
     async def test_lib_storm_formatstring(self):
         async with self.getTestCore() as core:
 
-            retn = await core.callStorm('''
-                [inet:ipv4=0.0.0.0 :asn=5 .seen=((0), (1)) +#foo]
-                return(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)
+            msgs = await core.stormlist('''
+                [(inet:ipv4=0.0.0.0 :asn=5 .seen=((0), (1)) +#foo)
+                 (inet:ipv4=1.1.1.1 :asn=6 .seen=((1), (2)) +#foo=((3),(4)))]
+
+                $lib.print(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)
             ''')
-            self.eq('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) True', retn)
+            self.stormIsInPrint('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) True', msgs)
+            self.stormIsInPrint('ip=1.1.1.1 asn=6 .seen=(1, 2) foo=(3, 4) False', msgs)
 
             retn = await core.callStorm('''
                 $foo = mystr
                 return(`format string \\`foo=\\{$foo}\\` returns foo={$foo}`)
             ''')
-
             self.eq('format string `foo={$foo}` returns foo=mystr', retn)
+
+            self.eq('', await core.callStorm('return(``)'))
 
             retn = await core.callStorm('''
                 $foo=(2)
