@@ -976,7 +976,16 @@ class HiveUser(HiveRuler):
         if archived:
             await self.setLocked(True)
 
-    async def tryPasswd(self, passwd):
+    async def tryPasswd(self, passwd, nexs=True):
+        '''
+
+        Args:
+            passwd:
+            nexs:
+
+        Returns:
+
+        '''
 
         if self.info.get('locked', False):
             return False
@@ -1012,6 +1021,11 @@ class HiveUser(HiveRuler):
         # Backwards compatible password handling
         salt, hashed = shadow
         if s_common.guid((salt, passwd)) == hashed:
+            logger.debug(f'Migrating password to shadowv2 format for user {self.name}',
+                         extra={'synapse': {'user': self.iden, 'username': self.name}})
+            # Update user to new password hashing scheme.
+            await self.setPasswd(passwd=passwd, nexs=nexs)
+
             return True
 
         return False

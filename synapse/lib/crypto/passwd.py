@@ -6,12 +6,10 @@ import logging
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
-import synapse.lib.const as s_const
 
-from typing import AnyStr, ByteString, Dict, Tuple
+from typing import AnyStr, Dict
 
 logger = logging.getLogger(__name__)
-
 
 PBKDF2 = 'pbkdf2'
 DEFAULT_PTYP = PBKDF2
