@@ -6073,6 +6073,42 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(data[3][0], 'tag:del')
                 self.eq(data[3][1]['tag'], 'baz.faz')
 
+    async def test_cortex_behold(self):
+        async with self.getTestCore() as core:
+            async with core.getLocalProxy() as prox:
+                async def action():
+                    await asyncio.sleep(0.1)
+                    await core.callStorm('return($lib.view.get().fork())')
+                    await core.callStorm('return($lib.cron.add(query="{graph:node=*}", hourly=30).pack())')
+
+                task = core.schedCoro(action())
+
+                data = []
+                async for mesg in prox.behold():
+                    data.append(mesg)
+                    if len(data) == 3:
+                        break
+
+                await asyncio.wait_for(task, timeout=1)
+                self.eq(data[0]['event'], 'layer:add')
+                self.gt(data[0]['offset'], 0)
+                self.len(1, data[0]['gates'])
+                self.true(type(data[0]['info']) is dict)
+                self.true(type(data[0]['gates']) is tuple)
+                self.len(1, data[0]['gates'])
+
+                self.eq(data[1]['event'], 'view:add')
+                self.gt(data[1]['offset'], data[0]['offset'])
+                self.true(type(data[1]['info']) is dict)
+                self.true(type(data[1]['gates']) is tuple)
+                self.len(1, data[1]['gates'])
+
+                self.eq(data[2]['event'], 'cron:add')
+                self.gt(data[2]['offset'], data[1]['offset'])
+                self.true(type(data[2]['info']) is dict)
+                self.true(type(data[2]['gates']) is tuple)
+                self.len(1, data[2]['gates'])
+
     async def test_stormpkg_sad(self):
         base_pkg = {
             'name': 'boom',

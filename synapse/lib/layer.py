@@ -2460,6 +2460,7 @@ class Layer(s_nexus.Pusher):
         # TODO when we can set more props, we may need to parse values.
         await self.layrinfo.set(name, valu)
 
+        await self.core.feedBeholder('layer:set', {'iden': self.iden, 'name': name, 'valu': valu}, gates=[self.iden])
         return valu
 
     async def stat(self):
