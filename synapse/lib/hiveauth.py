@@ -996,7 +996,6 @@ class HiveUser(HiveRuler):
         onepass = self.info.get('onepass')
         if onepass is not None:
             if isinstance(onepass, dict):
-                logger.info(onepass)
                 params = onepass.get('shadow')
                 expires = onepass.get('expires')
                 if expires >= s_common.now():
