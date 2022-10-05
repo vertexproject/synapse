@@ -977,15 +977,6 @@ class HiveUser(HiveRuler):
             await self.setLocked(True)
 
     async def tryPasswd(self, passwd, nexs=True):
-        '''
-
-        Args:
-            passwd:
-            nexs:
-
-        Returns:
-
-        '''
 
         if self.info.get('locked', False):
             return False
