@@ -11,6 +11,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 Queries = [
+    '$lib.print(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)',
     'inet:ipv4=45.79.131.138 -> inet:flow -(:dst:port=444 or :dst:port=80)',
     'media:news=0c7f7267d3b62432cb0d7d0e9d3108a4 -(refs)> inet:ipv4',
     '$foo=(2) return(($foo+(1)))',
@@ -624,6 +625,7 @@ Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [FormatString: [Const: ip=, FuncCall: [VarDeref: [VarValue: [Const: node], Const: repr], CallArgs: [], CallKwargs: []], Const:  asn=, RelPropValue: [Const: asn], Const:  .seen=, UnivPropValue: [Const: .seen], Const:  foo=, TagValue: [TagName: [Const: foo]], Const:  , ExprNode: [RelPropValue: [Const: asn], Const: =, Const: 5]]], CallKwargs: []]]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 45.79.131.138], FormPivot: [AbsProp: inet:flow], isjoin=False, FiltOper: [Const: -, OrCond: [RelPropCond: [RelPropValue: [RelProp: [Const: dst:port]], Const: =, Const: 444], RelPropCond: [RelPropValue: [RelProp: [Const: dst:port]], Const: =, Const: 80]]]]',
     'Query: [LiftPropBy: [Const: media:news, Const: =, Const: 0c7f7267d3b62432cb0d7d0e9d3108a4], N1Walk: [Const: refs, Const: inet:ipv4]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [Const: 2]], Return: [DollarExpr: [ExprNode: [VarValue: [Const: foo], Const: +, DollarExpr: [Const: 1]]]]]',
