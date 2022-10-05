@@ -562,8 +562,7 @@ class GuidStor:
         for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
             await asyncio.sleep(0)
             name = lkey[len(bidn):].decode()
-            valu = s_msgpack.un(lval)
-            retn[name] = valu
+            retn[name] = s_msgpack.un(lval)
         return retn
 
 def _florpo2(i):
