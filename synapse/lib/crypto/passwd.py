@@ -12,16 +12,18 @@ from typing import AnyStr, Dict
 logger = logging.getLogger(__name__)
 
 PBKDF2 = 'pbkdf2'
+PBKDF2_HASH = 'sha256'
+PBKDF2_ITERATIONS = 310_000  # OWASP recommended value 20221004
+
 DEFAULT_PTYP = PBKDF2
 
 def _getPbkdf2(passwd):
     salt = os.urandom(32)
-    hash_name = 'sha256'
     params = {'salt': salt,
-              'iterations': 310_000  # OWASP recommended value 20221004
+              'iterations': PBKDF2_ITERATIONS,
+              'hash_name': PBKDF2_HASH,
               }
-    hashed = hashlib.pbkdf2_hmac(hash_name=hash_name, password=passwd.encode(), **params)
-    params['hash_name'] = hash_name
+    hashed = hashlib.pbkdf2_hmac(password=passwd.encode(), **params)
     params['type'] = PBKDF2
     params['hashed'] = hashed
     return params

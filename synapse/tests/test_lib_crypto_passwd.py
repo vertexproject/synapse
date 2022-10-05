@@ -10,8 +10,12 @@ class PasswdTest(s_t_utils.SynTest):
     async def test_shadow_passwords(self):
         passwd = 'the quick brown fox jumps over the lazy dog.'
         info = await s_passwd.getShadowV2(passwd)
+        # PBKDF2 defaults
         self.eq(info.get('type'), 'pbkdf2')
         self.eq(info.get('hash_name'), 'sha256')
+        self.len(32, info.get('salt'))
+        self.len(32, info.get('hashed'))
+        self.eq(310_000, info.get('iterations'))
 
         self.true(await s_passwd.checkShadowV2(passwd=passwd, params=info))
         self.false(await s_passwd.checkShadowV2(passwd='newp', params=info))
