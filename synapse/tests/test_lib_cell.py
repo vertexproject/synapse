@@ -35,20 +35,20 @@ def _exiterProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
     pipe.send('captured')
     sys.exit(1)
 
-def _backupSleep(path, linkinfo):
+def _backupSleep(path, linkinfo, meta):
     time.sleep(3.0)
 
 async def _doEOFBackup(path):
     return
 
-async def _iterBackupEOF(path, linkinfo):
+async def _iterBackupEOF(path, linkinfo, meta):
     link = await s_link.fromspawn(linkinfo)
     await s_daemon.t2call(link, _doEOFBackup, (path,), {})
     link.writer.write_eof()
     await link.fini()
 
-def _backupEOF(path, linkinfo):
-    asyncio.run(_iterBackupEOF(path, linkinfo))
+def _backupEOF(path, linkinfo, meta):
+    asyncio.run(_iterBackupEOF(path, linkinfo, meta))
 
 def lock_target(dirn, evt1):  # pragma: no cover
     '''
@@ -1369,7 +1369,9 @@ class CellTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
             with tarfile.open(bkuppath4, 'r:gz') as tar:
-                bkupname = os.path.commonprefix(tar.getnames())
+                names = tar.getnames()
+                names.remove('manifest.yaml')
+                bkupname = os.path.commonprefix(names)
                 tar.extractall(path=dirn)
 
             bkupdirn4 = os.path.join(dirn, bkupname)
@@ -1392,7 +1394,9 @@ class CellTest(s_t_utils.SynTest):
                         await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
-                bkupname = os.path.commonprefix(tar.getnames())
+                names = tar.getnames()
+                names.remove('manifest.yaml')
+                bkupname = os.path.commonprefix(names)
                 tar.extractall(path=dirn)
 
             bkupdirn5 = os.path.join(dirn, bkupname)
