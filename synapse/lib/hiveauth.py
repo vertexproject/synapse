@@ -1016,12 +1016,12 @@ class HiveUser(HiveRuler):
 
         return False
 
-    async def setPasswd(self, passwd, nexs=True, ptyp=s_passwd.DEFAULT_PTYP):
+    async def setPasswd(self, passwd, nexs=True):
         # Prevent empty string or non-string values
         if passwd is None:
             shadow = None
         elif passwd and isinstance(passwd, str):
-            shadow = await s_passwd.getShadowV2(passwd=passwd, ptyp=ptyp)
+            shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
         if nexs:

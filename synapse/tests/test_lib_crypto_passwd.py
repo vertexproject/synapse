@@ -1,3 +1,5 @@
+import unittest.mock as mock
+
 import synapse.exc as s_exc
 
 import synapse.tests.utils as s_t_utils
@@ -16,19 +18,12 @@ class PasswdTest(s_t_utils.SynTest):
         info['hash_name'] = 'sha1'
         self.false(await s_passwd.checkShadowV2(passwd=passwd, params=info))
 
-        # Scrypt supported on the backend as well.
-        info = await s_passwd.getShadowV2(passwd, ptyp='scrypt')
-        self.eq(info.get('type'), 'scrypt')
-        self.true(await s_passwd.checkShadowV2(passwd=passwd, params=info))
-        self.false(await s_passwd.checkShadowV2(passwd='newp', params=info))
-        info['n'] = 2 ** 15
-        self.false(await s_passwd.checkShadowV2(passwd=passwd, params=info))
-
         # Bad inputs
-        with self.raises(s_exc.BadArg):
-            await s_passwd.getShadowV2('newp', ptyp='newp')
+        with mock.patch('synapse.lib.crypto.passwd.DEFAULT_PTYP', 'newp'):
+            with self.raises(s_exc.CryptoErr):
+                await s_passwd.getShadowV2('newp')
 
-        with self.raises(s_exc.BadArg):
+        with self.raises(s_exc.CryptoErr):
             await s_passwd.checkShadowV2('newp', {'type': 'newp'})
 
         tvs = (None,

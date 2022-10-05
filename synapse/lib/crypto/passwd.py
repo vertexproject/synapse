@@ -14,41 +14,9 @@ logger = logging.getLogger(__name__)
 
 
 PBKDF2 = 'pbkdf2'
-SCRYPT = 'scrypt'
 DEFAULT_PTYP = PBKDF2
 
-
-def _getScrypt(passwd: AnyStr,
-               n: int =2**16,
-               r: int =8,
-               p: int =1,
-               maxmem: int = s_const.megabyte * 128) -> Dict:
-    salt = os.urandom(16)
-    params = {
-        'n': n,
-        'p': p,
-        'r': r,
-        'salt': salt,
-        'maxmem': maxmem,
-    }
-
-    hashed = hashlib.scrypt(passwd.encode(), **params)
-    params['type'] = SCRYPT
-    params['hashed'] = hashed
-    return params
-
-def _verifyScrypt(passwd: AnyStr, params: Dict) -> bool:
-    hashed = params.pop('hashed')
-    check = hashlib.scrypt(passwd.encode(), **params)
-    return hmac.compare_digest(hashed, check)
-
-async def getScrypt(passwd: AnyStr) -> Dict:
-    return await s_coro.executor(_getScrypt, passwd=passwd)
-
-async def verifyScrypt(passwd: AnyStr, params: Dict) -> bool:
-    return await s_coro.executor(_verifyScrypt, passwd=passwd, params=params)
-
-def _getPcrypt(passwd):
+def _getPbkdf2(passwd):
     salt = os.urandom(32)
     hash_name = 'sha256'
     params = {'salt': salt,
@@ -67,24 +35,22 @@ def _verifyPbkdf2(passwd: AnyStr, params: Dict) -> bool:
     return hmac.compare_digest(hashed, check)
 
 async def getPbkdf2(passwd: AnyStr) -> Dict:
-    return await s_coro.executor(_getPcrypt, passwd=passwd)
+    return await s_coro.executor(_getPbkdf2, passwd=passwd)
 
 async def verifyPbkdf2(passwd: AnyStr, params: Dict) -> bool:
     return await s_coro.executor(_verifyPbkdf2, passwd=passwd, params=params)
 
-efuncs = {
+_efuncs = {
     PBKDF2: getPbkdf2,
-    SCRYPT: getScrypt,
 }
 
-vfuncs = {
+_vfuncs = {
     PBKDF2: verifyPbkdf2,
-    SCRYPT: verifyScrypt,
 }
 
-assert set(efuncs.keys()) == set(vfuncs.keys())
+assert set(_efuncs.keys()) == set(_vfuncs.keys())
 
-async def getShadowV2(passwd: AnyStr, ptyp: AnyStr =DEFAULT_PTYP) -> Dict:
+async def getShadowV2(passwd: AnyStr) -> Dict:
     '''
     Get the shadow dictionary for a given password.
 
@@ -95,9 +61,9 @@ async def getShadowV2(passwd: AnyStr, ptyp: AnyStr =DEFAULT_PTYP) -> Dict:
     Returns:
         dict: A dictionary containing shadowed password information.
     '''
-    func = efuncs.get(ptyp)
+    func = _efuncs.get(DEFAULT_PTYP)
     if func is None:
-        raise s_exc.BadArg(mesg='ptyp does not map to a known function', valu=ptyp)
+        raise s_exc.CryptoErr(mesg='ptyp does not map to a known function', valu=DEFAULT_PTYP)
     return await func(passwd)
 
 async def checkShadowV2(passwd: AnyStr, params: Dict) -> bool:
@@ -113,7 +79,7 @@ async def checkShadowV2(passwd: AnyStr, params: Dict) -> bool:
     '''
     params = dict(params)  # Shallow copy so we can pop values out of it
     ptyp = params.pop('type')
-    func = vfuncs.get(ptyp)
+    func = _vfuncs.get(ptyp)
     if func is None:
-        raise s_exc.BadArg(mesg='ptyp does not map to a known function', valu=ptyp)
+        raise s_exc.CryptoErr(mesg='ptyp does not map to a known function', valu=ptyp)
     return await func(passwd=passwd, params=params)
