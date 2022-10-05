@@ -987,10 +987,10 @@ class HiveUser(HiveRuler):
         onepass = self.info.get('onepass')
         if onepass is not None:
             if isinstance(onepass, dict):
-                params = onepass.get('shadow')
+                shadow = onepass.get('shadow')
                 expires = onepass.get('expires')
                 if expires >= s_common.now():
-                    if await s_passwd.checkShadowV2(passwd=passwd, params=params):
+                    if await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow):
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
                         return True
             else:
@@ -1006,7 +1006,7 @@ class HiveUser(HiveRuler):
             return False
 
         if isinstance(shadow, dict):
-            return await s_passwd.checkShadowV2(passwd=passwd, params=shadow)
+            return await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
 
         # Backwards compatible password handling
         salt, hashed = shadow

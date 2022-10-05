@@ -19,26 +19,28 @@ DEFAULT_PTYP = PBKDF2
 
 def _getPbkdf2(passwd):
     salt = os.urandom(32)
-    params = {'salt': salt,
-              'iterations': PBKDF2_ITERATIONS,
-              'hash_name': PBKDF2_HASH,
+    func_params = {'salt': salt,
+                   'iterations': PBKDF2_ITERATIONS,
+                   'hash_name': PBKDF2_HASH,
+                   }
+    hashed = hashlib.pbkdf2_hmac(password=passwd.encode(), **func_params)
+    shadow = {'type': PBKDF2,
+              'hashed': hashed,
+              'func_params': func_params
               }
-    hashed = hashlib.pbkdf2_hmac(password=passwd.encode(), **params)
-    params['type'] = PBKDF2
-    params['hashed'] = hashed
-    return params
+    return shadow
 
-def _verifyPbkdf2(passwd: AnyStr, params: Dict) -> bool:
-    hashed = params.pop('hashed')
-    hash_name = params.pop('hash_name', None)
-    check = hashlib.pbkdf2_hmac(hash_name=hash_name, password=passwd.encode(), **params)
+def _verifyPbkdf2(passwd: AnyStr, shadow: Dict) -> bool:
+    hashed = shadow.get('hashed')
+    func_params = shadow.get('func_params', None)
+    check = hashlib.pbkdf2_hmac(password=passwd.encode(), **func_params)
     return hmac.compare_digest(hashed, check)
 
 async def getPbkdf2(passwd: AnyStr) -> Dict:
     return await s_coro.executor(_getPbkdf2, passwd=passwd)
 
-async def verifyPbkdf2(passwd: AnyStr, params: Dict) -> bool:
-    return await s_coro.executor(_verifyPbkdf2, passwd=passwd, params=params)
+async def verifyPbkdf2(passwd: AnyStr, shadow: Dict) -> bool:
+    return await s_coro.executor(_verifyPbkdf2, passwd=passwd, shadow=shadow)
 
 _efuncs = {
     PBKDF2: getPbkdf2,
@@ -63,23 +65,22 @@ async def getShadowV2(passwd: AnyStr) -> Dict:
     '''
     func = _efuncs.get(DEFAULT_PTYP)
     if func is None:
-        raise s_exc.CryptoErr(mesg='ptyp does not map to a known function', valu=DEFAULT_PTYP)
+        raise s_exc.CryptoErr(mesg='type does not map to a known function', valu=DEFAULT_PTYP)
     return await func(passwd)
 
-async def checkShadowV2(passwd: AnyStr, params: Dict) -> bool:
+async def checkShadowV2(passwd: AnyStr, shadow: Dict) -> bool:
     '''
     Check a password against a shadow dictionary.
 
     Args:
         passwd (str): Password to check.
-        params (dict): Data to check the password against.
+        shadow (dict): Data to check the password against.
 
     Returns:
         bool: True if the password is valid, false otherwise.
     '''
-    params = dict(params)  # Shallow copy so we can pop values out of it
-    ptyp = params.pop('type')
+    ptyp = shadow.get('type')
     func = _vfuncs.get(ptyp)
     if func is None:
-        raise s_exc.CryptoErr(mesg='ptyp does not map to a known function', valu=ptyp)
-    return await func(passwd=passwd, params=params)
+        raise s_exc.CryptoErr(mesg='type does not map to a known function', valu=ptyp)
+    return await func(passwd=passwd, shadow=shadow)

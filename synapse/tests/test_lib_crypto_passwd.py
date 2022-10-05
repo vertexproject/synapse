@@ -9,18 +9,19 @@ import synapse.lib.crypto.passwd as s_passwd
 class PasswdTest(s_t_utils.SynTest):
     async def test_shadow_passwords(self):
         passwd = 'the quick brown fox jumps over the lazy dog.'
-        info = await s_passwd.getShadowV2(passwd)
+        shadow = await s_passwd.getShadowV2(passwd)
+        self.eq(shadow.get('type'), 'pbkdf2')
+        self.len(32, shadow.get('hashed'))
         # PBKDF2 defaults
-        self.eq(info.get('type'), 'pbkdf2')
-        self.eq(info.get('hash_name'), 'sha256')
-        self.len(32, info.get('salt'))
-        self.len(32, info.get('hashed'))
-        self.eq(310_000, info.get('iterations'))
+        func_params = shadow.get('func_params')
+        self.eq(func_params.get('hash_name'), 'sha256')
+        self.len(32, func_params.get('salt'))
+        self.eq(310_000, func_params.get('iterations'))
 
-        self.true(await s_passwd.checkShadowV2(passwd=passwd, params=info))
-        self.false(await s_passwd.checkShadowV2(passwd='newp', params=info))
-        info['hash_name'] = 'sha1'
-        self.false(await s_passwd.checkShadowV2(passwd=passwd, params=info))
+        self.true(await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow))
+        self.false(await s_passwd.checkShadowV2(passwd='newp', shadow=shadow))
+        shadow['func_params']['hash_name'] = 'sha1'
+        self.false(await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow))
 
         # Bad inputs
         with mock.patch('synapse.lib.crypto.passwd.DEFAULT_PTYP', 'newp'):
