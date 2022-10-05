@@ -1,18 +1,14 @@
-import os
-import hmac
-import hashlib
 import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 
-from typing import AnyStr, ByteString, Dict, Tuple
+import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
 
@@ -34,33 +30,6 @@ def getShadow(passwd):
     salt = s_common.guid()
     hashed = s_common.guid((salt, passwd))
     return (salt, hashed)
-
-def _getScrypt(passwd: AnyStr,
-               n: int =2**14,
-               r: int =8,
-               p: int =1) -> Tuple[Dict, ByteString]:
-    salt = os.urandom(16)
-    params = {
-        'n': n,
-        'p': p,
-        'r': r,
-        'salt': salt,
-    }
-
-    hashed = hashlib.scrypt(passwd.encode(), **params)
-    params['type'] = 'scrypt'
-    return params, hashed
-
-async def getScrypt(passwd: AnyStr) -> Tuple[Dict, ByteString]:
-    return await s_coro.executor(_getScrypt, passwd=passwd)
-
-def _verifyScrypt(passwd: AnyStr, hashed: ByteString, **params: Dict) -> bool:
-    params.pop('type', None)
-    check = hashlib.scrypt(passwd.encode(), **params)
-    return hmac.compare_digest(hashed, check)
-
-async def verifyScrypt(passwd: AnyStr, hashed: ByteString, **params: Dict) -> bool:
-    return await s_coro.executor(_verifyScrypt, passwd=passwd, hashed=hashed, **params)
 
 class Auth(s_nexus.Pusher):
     '''
@@ -1017,43 +986,42 @@ class HiveUser(HiveRuler):
 
         onepass = self.info.get('onepass')
         if onepass is not None:
-            expires, params, hashed = onepass
-            if expires >= s_common.now():
-                if isinstance(params, str):
-                    # Backwards compatible password handling
-                    if s_common.guid((params, passwd)) == hashed:
-                        await self.auth.setUserInfo(self.iden, 'onepass', None)
-                        return True
-                else:
-                    if await verifyScrypt(passwd=passwd, hashed=hashed, **params):
+            if isinstance(onepass, dict):
+                logger.info(onepass)
+                params = onepass.get('shadow')
+                expires = onepass.get('expires')
+                if expires >= s_common.now():
+                    if await s_passwd.checkShadowV2(passwd=passwd, params=params):
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
                         return True
             else:
-                await self.auth.setUserInfo(self.iden, 'onepass', None)
+                # Backwards compatible password handling
+                expires, params, hashed = onepass
+                if expires >= s_common.now():
+                    if s_common.guid((params, passwd)) == hashed:
+                        await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        return True
 
         shadow = self.info.get('passwd')
         if shadow is None:
             return False
 
-        params, hashed = shadow
-        if isinstance(params, dict):
-            if await verifyScrypt(passwd, hashed=hashed, **params):
-                return True
-
-            return False
+        if isinstance(shadow, dict):
+            return await s_passwd.checkShadowV2(passwd=passwd, params=shadow)
 
         # Backwards compatible password handling
-        if s_common.guid((params, passwd)) == hashed:
+        salt, hashed = shadow
+        if s_common.guid((salt, passwd)) == hashed:
             return True
 
         return False
 
-    async def setPasswd(self, passwd, nexs=True):
+    async def setPasswd(self, passwd, nexs=True, ptyp=s_passwd.DEFAULT_PTYP):
         # Prevent empty string or non-string values
         if passwd is None:
             shadow = None
         elif passwd and isinstance(passwd, str):
-            shadow = await getScrypt(passwd=passwd)
+            shadow = await s_passwd.getShadowV2(passwd=passwd, ptyp=ptyp)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
         if nexs:

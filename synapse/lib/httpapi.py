@@ -12,9 +12,10 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.hiveauth as s_hiveauth
+
+import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
 
@@ -994,8 +995,9 @@ class OnePassIssueV1(Handler):
             return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
 
         passwd = s_common.guid()
-        params, shadow = await s_hiveauth.getScrypt(passwd=passwd)
-        onepass = (s_common.now() + duration, params, shadow)
+        shadow = await s_passwd.getShadowV2(passwd=passwd)
+        onepass = {'expires': s_common.now() + duration,
+                   'shadow': shadow}
 
         await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
 
