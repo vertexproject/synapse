@@ -40,7 +40,6 @@ def _getScrypt(passwd: AnyStr,
 def _verifyScrypt(passwd: AnyStr, params: Dict) -> bool:
     hashed = params.pop('hashed')
     check = hashlib.scrypt(passwd.encode(), **params)
-    # Constant time comparison
     return hmac.compare_digest(hashed, check)
 
 async def getScrypt(passwd: AnyStr) -> Dict:
