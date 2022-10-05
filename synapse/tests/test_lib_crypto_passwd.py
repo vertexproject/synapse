@@ -1,3 +1,4 @@
+import copy
 import unittest.mock as mock
 
 import synapse.exc as s_exc
@@ -31,6 +32,32 @@ class PasswdTest(s_t_utils.SynTest):
             with mock.patch('synapse.lib.crypto.passwd.PBKDF2_ITERATIONS', 100_000):
                 mock_shadow = await s_passwd.getShadowV2('manual')
         self.true(await s_passwd.checkShadowV2('manual', mock_shadow))
+
+        # Ensure we have all our expected parameters when validating the shadow
+        bad_shadow = copy.deepcopy(mock_shadow)
+        bad_shadow['func_params'].pop('salt')
+        with self.raises(s_exc.CryptoErr):
+            await s_passwd.checkShadowV2('manual', bad_shadow)
+
+        bad_shadow = copy.deepcopy(mock_shadow)
+        bad_shadow['func_params'].pop('iterations')
+        with self.raises(s_exc.CryptoErr):
+            await s_passwd.checkShadowV2('manual', bad_shadow)
+
+        bad_shadow = copy.deepcopy(mock_shadow)
+        bad_shadow['func_params'].pop('hash_name')
+        with self.raises(s_exc.CryptoErr):
+            await s_passwd.checkShadowV2('manual', bad_shadow)
+
+        bad_shadow = copy.deepcopy(mock_shadow)
+        bad_shadow.pop('func_params')
+        with self.raises(s_exc.CryptoErr):
+            await s_passwd.checkShadowV2('manual', bad_shadow)
+
+        bad_shadow = copy.deepcopy(mock_shadow)
+        bad_shadow.pop('hashed')
+        with self.raises(s_exc.CryptoErr):
+            await s_passwd.checkShadowV2('manual', bad_shadow)
 
         # Bad inputs
         with mock.patch('synapse.lib.crypto.passwd.DEFAULT_PTYP', 'newp'):
