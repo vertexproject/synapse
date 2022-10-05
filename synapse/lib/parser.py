@@ -22,6 +22,7 @@ terminalEnglishMap = {
     'ABSPROPNOUNIV': 'absolute property',
     'ALLTAGS': '#',
     'AND': 'and',
+    'BACKQUOTE': '`',
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
@@ -54,6 +55,8 @@ terminalEnglishMap = {
     'EXPRPOW': '**',
     'EXPRTIMES': '*',
     'FOR': 'for',
+    'FORMATSTRING': 'backtick-quoted format string',
+    'FORMATTEXT': 'text within a format string',
     'FUNCTION': 'function',
     'HASH': '#',
     'HEXNUMBER': 'number',
@@ -629,6 +632,7 @@ terminalClassMap = {
     'BREAK': lambda _: s_ast.BreakOper(),
     'CONTINUE': lambda _: s_ast.ContinueOper(),
     'DOUBLEQUOTEDSTRING': lambda x: s_ast.Const(unescape(x)),  # drop quotes and handle escape characters
+    'FORMATTEXT': lambda x: s_ast.Const(format_unescape(x)),  # handle escape characters
     'TRIPLEQUOTEDSTRING': lambda x: s_ast.Const(x[3:-3]), # drop the triple 's
     'NUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
     'HEXNUMBER': lambda x: s_ast.Const(s_ast.parseNumber(x)),
@@ -676,6 +680,7 @@ ruleClassMap = {
     'filtopermust': lambda kids: s_ast.FiltOper([s_ast.Const('+')] + kids),
     'filtopernot': lambda kids: s_ast.FiltOper([s_ast.Const('-')] + kids),
     'forloop': s_ast.ForLoop,
+    'formatstring': s_ast.FormatString,
     'whileloop': s_ast.WhileLoop,
     'formjoin_formpivot': lambda kids: s_ast.FormPivot(kids, isjoin=True),
     'formjoin_pivotout': lambda _: s_ast.PivotOut(isjoin=True),
@@ -733,6 +738,10 @@ ruleClassMap = {
     'univpropvalu': s_ast.UnivPropValue,
     'wordtokn': lambda kids: s_ast.Const(''.join([str(k.valu) for k in kids]))
 }
+
+def format_unescape(valu):
+    repl = valu.replace('\\`', '`').replace('\\{', '{')
+    return unescape(f'"{repl}"')
 
 def unescape(valu):
     '''
