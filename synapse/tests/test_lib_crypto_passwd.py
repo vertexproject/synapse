@@ -23,6 +23,15 @@ class PasswdTest(s_t_utils.SynTest):
         shadow['func_params']['hash_name'] = 'sha1'
         self.false(await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow))
 
+        # Blobs constructed with valid parameters can be validated.
+        # This is to future proof that in the event of modifying parameters,
+        # stored values which have values which differ from our defaults will
+        # still be able to be verified.
+        with mock.patch('synapse.lib.crypto.passwd.PBKDF2_HASH', 'sha512'):
+            with mock.patch('synapse.lib.crypto.passwd.PBKDF2_ITERATIONS', 100_000):
+                mock_shadow = await s_passwd.getShadowV2('manual')
+        self.true(await s_passwd.checkShadowV2('manual', mock_shadow))
+
         # Bad inputs
         with mock.patch('synapse.lib.crypto.passwd.DEFAULT_PTYP', 'newp'):
             with self.raises(s_exc.CryptoErr):
