@@ -12,6 +12,7 @@ class PasswdTest(s_t_utils.SynTest):
         passwd = 'the quick brown fox jumps over the lazy dog.'
         shadow = await s_passwd.getShadowV2(passwd)
         self.eq(shadow.get('type'), 'pbkdf2')
+        self.gt(shadow.get('created'), 0)
         self.len(32, shadow.get('hashed'))
         # PBKDF2 defaults
         func_params = shadow.get('func_params')

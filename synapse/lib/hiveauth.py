@@ -1062,6 +1062,8 @@ class HiveUser(HiveRuler):
                 if expires >= s_common.now():
                     if await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow):
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        logger.debug(f'Used one time password for {self.name}',
+                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
                         return True
             else:
                 # Backwards compatible password handling
@@ -1069,6 +1071,8 @@ class HiveUser(HiveRuler):
                 if expires >= s_common.now():
                     if s_common.guid((params, passwd)) == hashed:
                         await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        logger.debug(f'Used one time password for {self.name}',
+                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
                         return True
 
         shadow = self.info.get('passwd')

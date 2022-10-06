@@ -4,6 +4,7 @@ import hashlib
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 
@@ -26,6 +27,7 @@ def _getPbkdf2(passwd):
     hashed = hashlib.pbkdf2_hmac(password=passwd.encode(), **func_params)
     shadow = {'type': PBKDF2,
               'hashed': hashed,
+              'created': s_common.now(),
               'func_params': func_params
               }
     return shadow
