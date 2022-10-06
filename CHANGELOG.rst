@@ -4,6 +4,77 @@
 Synapse Changelog
 *****************
 
+v2.110.0 - TBD
+==============
+
+Features and Enhancements
+-------------------------
+- Updates to the ``geo`` model.
+  (`#2872 <https://github.com/vertexproject/synapse/pull/2872>`_)
+
+  ``geo:telem``
+    Add a ``accuracy`` property to record the accuracy of the telemetry reading.
+
+- Add Nexus support to the Axon, to enable mirrored Axon deployments.
+  (`#2871 <https://github.com/vertexproject/synapse/pull/2871>`_)
+- Add support for runtime string formatting in Storm. This is done with
+  backtick ( `````) encapsulated strings.
+  A example of this is ``$world='world' $lib.print(`hello {$world}`)``
+  (`#2870 <https://github.com/vertexproject/synapse/pull/2870>`_)
+- Storm package command names are now validated against the same regex used
+  by the grammar. The ``synapse.tools.genpkg`` tool now validates the compiled
+  package against the same schema used by the Cortex.
+  (`#2864 <https://github.com/vertexproject/synapse/pull/2864>`_)
+- Add ``$lib.gen.newsByUrl()`` and ``$lib.gen.softByName()`` to help generate
+  ``media:news`` and ``it:prod:soft`` nodes, respectively.
+  (`#2866 <https://github.com/vertexproject/synapse/pull/2866>`_)
+- Add a new realtime event stream system to the Cell, accessible remotely via
+  ``CellApi.behold()`` and a websocket endpoint, ``/api/v1/behold``. This can
+  be used to get realtime changes about services, such as user creation or
+  modification events; or layer and view change events in the Cortex.
+  (`#2851 <https://github.com/vertexproject/synapse/pull/2851>`_)
+- Update stored user password hashing to use PBKDF2. Passwords are migrated
+  to this format as successful user logins are performed.
+  (`#2868 <https://github.com/vertexproject/synapse/pull/2868>`_)
+- Add the ability to restore a backup tarball from a URL to the Cell startup
+  process. When a Cell starts via ``initFromArgv()``, if the envirnoment
+  variable ``SYN_RESTORE_HTTPS_URL`` is present, that value will be used to
+  retrieve a tarball via HTTPS and extract it to the service local storage,
+  removing any existing data in the directory. This is done prior to any
+  Aha based provisioning.
+  (`#2859 <https://github.com/vertexproject/synapse/pull/2859>`_)
+
+Bugfixes
+--------
+- The embedded Axon inside of a Cortex (used when the ``axon`` config option
+  is not set) did not properly have its cell parent set to the Cortex. This
+  has been corrected.
+  (`#2857 <https://github.com/vertexproject/synapse/pull/2857>`_)
+- Fix a typo in the ``cron.move`` help.
+  (`#2858 <https://github.com/vertexproject/synapse/pull/2858>`_)
+
+Improved Documentation
+----------------------
+- Update Storm and Storm HTTP API documentation to show the set of ``opts``
+  and different types of message that may be streamed by from Storm APIs.
+  Add example HTTP API client code to the Synapse repository.
+  (`#2834 <https://github.com/vertexproject/synapse/pull/2834>`_)
+- Update the Data Model and Analytical model background documentation.
+  Expand on the discussion of light edges use. Expand discussion of tags
+  versus forms, linking the two via ``:tag`` props.
+  (`#2848 <https://github.com/vertexproject/synapse/pull/2848>`_)
+
+Deprecations
+------------
+- The Cortex HTTPAPI endpoint ``/api/v1/storm/nodes`` has been marked as
+  deprecated.
+  (`#2682 <https://github.com/vertexproject/synapse/pull/2682>`_)
+- Add deprecation notes to the help for the Storm ``splice.undo`` and
+  ``splice.list`` commands.
+  (`#2861 <https://github.com/vertexproject/synapse/pull/2861>`_)
+- Provisional Telepath support for Consul based lookups was removed.
+  (`#2873 <https://github.com/vertexproject/synapse/pull/2873>`_)
+
 v2.109.0 - 2022-09-27
 =====================
 
