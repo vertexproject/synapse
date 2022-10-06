@@ -3060,6 +3060,17 @@ class ExprList(Value):
             return s_stormtypes.List(list(s_msgpack.un(self.const)))
         return s_stormtypes.List([await v.compute(runt, path) for v in self.kids])
 
+class FormatString(Value):
+
+    def prepare(self):
+        self.isconst = not self.kids or (len(self.kids) == 1 and isinstance(self.kids[0], Const))
+        self.constval = self.kids[0].value() if self.isconst and self.kids else ''
+
+    async def compute(self, runt, path):
+        if self.isconst:
+            return self.constval
+        return ''.join([str(await k.compute(runt, path)) for k in self.kids])
+
 class VarList(Const):
     pass
 

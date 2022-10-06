@@ -94,7 +94,7 @@ subquery: [YIELD] baresubquery
 argvquery: "{" query "}"
 baresubquery: "{" query "}"
 YIELD.1: /yield(?=[\s\{])/
-switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE) ":" baresubquery)* "}"
+switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" baresubquery)* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
 
@@ -155,11 +155,11 @@ WILDCARD: "*"
 // A wild card, full prop, list, or $varvalu
 _wildprops: WILDCARD | PROPS | valulist | _varvalu
 
-n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1FINI _wildprops [ _cmpr _valu ]
+n1walk: _EDGEN1INIT (walklist | varlist | _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | embedquery | baresubquery | NONQUOTEWORD | ABSPROPNOUNIV) _EDGEN1FINI _wildprops [ _cmpr _valu ]
 
 n2walk: _EDGEN2INIT _valu _EDGEN2FINI _wildprops [ _cmpr _valu ]
 
-walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | ABSPROP) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
+walklist: ("(" (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP) ((",")|("," (_varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING | formatstring | VARTOKN | NONQUOTEWORD | ABSPROP))+ ","?) ")") -> valulist
 
 _WALKNPIVON1.4: "-->"
 _WALKNPIVON2.4: "<--"
@@ -175,7 +175,7 @@ _EDGEN2FINI: ")-"
 
 // Regex to check for a matching ')-' or ')+' so we can avoid incorrectly matching
 // comparisons to an expression like '<(2)'
-_EDGEN2INIT: /\<\((?=(?>(\(((?>[^()"']+|(?2)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)[\-\+])/
+_EDGEN2INIT: /\<\((?=(?>(?<EDGEN2INITRECUR>\(((?>[^()"'`]+|(?&EDGEN2INITRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)[\-\+])/
 
 edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI baresubquery
 edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
@@ -245,7 +245,7 @@ CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
 
 _rootvalu: _varvalu | relpropvalu | univpropvalu | tagvalu | tagpropvalu | TRIPLEQUOTEDSTRING
-    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | dollarexpr
+    | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | dollarexpr
 
 // Common subset + stuff allowable in command arguments
 _argvalu: _rootvalu | valulist | embedquery
@@ -262,7 +262,7 @@ exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | BOOL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | innerdollarexpr
+    | SINGLEQUOTEDSTRING | formatstring | innerdollarexpr
 
 // Expr versions of rules to avoid invalid state merges
 innerdollarexpr: "$"? "(" expror ")" -> dollarexpr
@@ -380,6 +380,10 @@ TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
+FORMATTEXT: /[^`{].*?(?<!\\)(\\\\)*?(?=[`{])/
+_formatexpr: "{" expror "}"
+formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
+
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
 PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
@@ -408,8 +412,8 @@ EXPRMINUS.2: "-"
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
 EXPRPOW.2: "**"
-NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![^\s)*\/+\-=><!~]|(?>(\(((?>[^()"']+|(?3)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)])*,)/
-HEXNUMBER.1: /-?0x[0-9a-fA-F]+(?![^\s)*\/+\-=><!~]|(?>(\(((?>[^()"']+|(?1)|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)])*,)/
+NUMBER.1: /-?(0+\d*(?=\.)|(?<!\d)[1-9]\d*|0+(?![1-9\.]))(\.\d*)?(?![^\s})*\/+\-=><!~]|(?>(?<NUMBERRECUR>\(((?>[^()"'`]+|(?&NUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
+HEXNUMBER.1: /-?0x[0-9a-fA-F]+(?![^\s})*\/+\-=><!~]|(?>(?<HEXNUMBERRECUR>\(((?>[^()"'`]+|(?&HEXNUMBERRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
 BOOL.2: /true|false/
 NOT.2: "not"
 OR.2: "or"

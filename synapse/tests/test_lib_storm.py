@@ -105,6 +105,42 @@ class StormTest(s_t_utils.SynTest):
             self.eq(retn, ('foo bar', 'baz faz'))
             self.eq("'''", await core.callStorm("""return("'''")"""))
 
+    async def test_lib_storm_formatstring(self):
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('''
+                [(inet:ipv4=0.0.0.0 :asn=5 .seen=((0), (1)) +#foo)
+                 (inet:ipv4=1.1.1.1 :asn=6 .seen=((1), (2)) +#foo=((3),(4)))]
+
+                $lib.print(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)
+            ''')
+            self.stormIsInPrint('ip=0.0.0.0 asn=5 .seen=(0, 1) foo=(None, None) True', msgs)
+            self.stormIsInPrint('ip=1.1.1.1 asn=6 .seen=(1, 2) foo=(3, 4) False', msgs)
+
+            retn = await core.callStorm('''
+                $foo = mystr
+                return(`format string \\`foo=\\{$foo}\\` returns foo={$foo}`)
+            ''')
+            self.eq('format string `foo={$foo}` returns foo=mystr', retn)
+
+            self.eq('', await core.callStorm('return(``)'))
+
+            retn = await core.callStorm('''
+                $foo=(2)
+                function test(x, y) { return(($x+$y)) }
+
+                return(`valu={(1)+$foo+$test(3,(4+$foo))}`)
+            ''')
+            self.eq('valu=12', retn)
+
+            retn = await core.callStorm('''
+                $foo=(2)
+                function test(x, y) { return(($x+$y)) }
+
+                return(`valu={(1)+$foo+$test(0x03,(4+$foo))}`)
+            ''')
+            self.eq('valu=12', retn)
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''
