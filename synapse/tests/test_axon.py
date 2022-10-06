@@ -1037,6 +1037,7 @@ bar baz",vv
 
             axon00 = await aha.enter_context(await s_axon.Axon.anit(axon00dirn, conf={'aha:provision': axon00url}))
             (size, sha256) = await axon00.put(b'visi')
+            self.false(await axon00._axonFileAdd(sha256, size, {}))
 
             self.len(2, await waiter.wait(timeout=6))
 
