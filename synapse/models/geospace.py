@@ -476,6 +476,8 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'A description of the telemetry sample.'}),
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The latitude/longitude reading at the time.'}),
+                        ('accuracy', ('geo:dist', {}), {
+                            'doc': 'The reported accuracy of the latlong telemetry reading.'}),
                         ('place', ('geo:place', {}), {
                             'doc': 'The place which includes the latlong value.'}),
                         ('place:name', ('geo:name', {}), {
