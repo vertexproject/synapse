@@ -1,4 +1,5 @@
 import os
+import copy
 import time
 import fcntl
 import shutil
@@ -29,6 +30,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
+import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.config as s_config
 import synapse.lib.health as s_health
@@ -360,6 +362,14 @@ class CellApi(s_base.Base):
         return await self.cell.kill(self.user, iden)
 
     @adminapi(log=True)
+    async def behold(self):
+        '''
+        Yield Cell system messages
+        '''
+        async for mesg in self.cell.behold():
+            yield mesg
+
+    @adminapi(log=True)
     async def addUser(self, name, passwd=None, email=None, iden=None):
         return await self.cell.addUser(name, passwd=passwd, email=email, iden=iden)
 
@@ -391,18 +401,15 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def delAuthUser(self, name):
         await self.cell.auth.delUser(name)
-        await self.cell.fire('user:mod', act='deluser', name=name)
 
     @adminapi(log=True)
     async def addAuthRole(self, name):
         role = await self.cell.auth.addRole(name)
-        await self.cell.fire('user:mod', act='addrole', name=name)
         return role.pack()
 
     @adminapi(log=True)
     async def delAuthRole(self, name):
         await self.cell.auth.delRole(name)
-        await self.cell.fire('user:mod', act='delrole', name=name)
 
     @adminapi()
     async def getAuthUsers(self, archived=False):
@@ -1993,27 +2000,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
         await user.grant(roleiden)
-        await self.fire('user:mod', act='grant', user=useriden, role=roleiden)
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
-        await self.fire('user:mod', act='setroles', user=useriden, roles=roleidens)
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
         await user.revoke(roleiden)
 
-        await self.fire('user:mod', act='revoke', user=useriden, role=roleiden)
-
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
-        await self.fire('user:mod', act='adduser', name=name)
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
         await self.auth.delUser(iden)
-        await self.fire('user:mod', act='deluser', user=iden)
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
@@ -2032,17 +2033,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
-        await self.fire('user:mod', act='setpasswd', user=iden)
 
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
-        await self.fire('user:mod', act='locked', user=iden, locked=locked)
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
-        await self.fire('user:mod', act='archived', user=iden, archived=archived)
 
     async def getUserDef(self, iden):
         user = self.auth.user(iden)
@@ -2088,6 +2086,56 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+    async def feedBeholder(self, name, info, gates=None, perms=None):
+        '''
+        Feed a named event onto the ``cell:beholder`` message bus that will sent to any listeners.
+
+        Args:
+            info (dict): An information dictionary to be sent to any consumers.
+            gates (list): List of gate idens, whose details will be added to the outbound message(s).
+            perms (list): List of permission names, whose details will be added to the outbound message(s).
+
+        Returns:
+            None
+        '''
+        kwargs = {
+            'event': name,
+            'offset': await self.nexsroot.index(),
+            'info': copy.deepcopy(info),
+        }
+
+        if gates:
+            g = []
+            for gate in gates:
+                authgate = await self.getAuthGate(gate)
+                if authgate is not None:
+                    g.append(authgate)
+            kwargs['gates'] = g
+
+        if perms:
+            p = []
+            for perm in perms:
+                permdef = await self.getPermDef(perm)
+                if permdef is not None:
+                    p.append(permdef)
+            kwargs['perms'] = p
+
+        await self.fire('cell:beholder', **kwargs)
+
+    @contextlib.asynccontextmanager
+    async def beholder(self):
+        async with await s_queue.Window.anit(maxsize=10000) as wind:
+            async def onEvent(mesg):
+                await wind.put(mesg[1])
+
+            with self.onWith('cell:beholder', onEvent):
+                yield wind
+
+    async def behold(self):
+        async with self.beholder() as wind:
+            async for mesg in wind:
+                yield mesg
 
     async def dyniter(self, iden, todo, gatekeys=()):
 
@@ -2225,6 +2273,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHttpApi('/api/v1/auth/revoke', s_httpapi.AuthRevokeV1, {'cell': self})
         self.addHttpApi('/api/v1/auth/onepass/issue', s_httpapi.OnePassIssueV1, {'cell': self})
 
+        self.addHttpApi('/api/v1/behold', s_httpapi.BeholdSockV1, {'cell': self})
+
     def addHttpApi(self, path, ctor, info):
         self.wapp.add_handlers('.*', (
             (path, ctor, info),
@@ -2307,6 +2357,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         node = await self.hive.open(('auth',))
         auth = await s_hiveauth.Auth.anit(node, seed=seed, nexsroot=self.getCellNexsRoot())
+
+        auth.link(self.dist)
+
+        def finilink():
+            auth.unlink(self.dist)
+
+        self.onfini(finilink)
 
         self.onfini(auth.fini)
         return auth

@@ -479,12 +479,14 @@ class GeoTest(s_t_utils.SynTest):
                     :desc=foobar
                     :place:name=woot
                     :place={[geo:place=* :name=woot]}
+                    :accuracy=10m
                 ]
             ''')
             self.eq(1655510400000, nodes[0].get('time'))
             self.eq((10.1, 3.0), nodes[0].get('latlong'))
             self.eq('foobar', nodes[0].get('desc'))
             self.eq('woot', nodes[0].get('place:name'))
+            self.eq(10000, nodes[0].get('accuracy'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
 
     async def test_model_geospace_area(self):
