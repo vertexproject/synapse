@@ -1,4 +1,3 @@
-import io
 import os
 import time
 import fcntl
@@ -14,7 +13,6 @@ import functools
 import contextlib
 import multiprocessing
 
-import yaml
 import aiohttp
 import tornado.web as t_web
 
@@ -82,7 +80,7 @@ def adminapi(log=False):
 
     return decrfunc
 
-async def _doIterBackup(path, meta, chunksize=1024):
+async def _doIterBackup(path, chunksize=1024):
     '''
     Create tarball and stream bytes.
 
@@ -97,17 +95,7 @@ async def _doIterBackup(path, meta, chunksize=1024):
 
     def dowrite(fd):
         with tarfile.open(output_filename, 'w|gz', fileobj=fd) as tar:
-            arcname = os.path.basename(path)
-            meta['backup:arcname'] = arcname + '/'
-            buf = yaml.safe_dump(meta, default_flow_style=False, default_style='',
-                                 explicit_start=True, explicit_end=True, sort_keys=True).encode()
-            tarinfo = tarfile.TarInfo(name='manifest.yaml')
-            tarinfo.size = len(buf)
-            bffd = io.BytesIO(buf)
-            tar.addfile(tarinfo, fileobj=bffd)
-            # Add the actual backup data
-            tar.add(path, arcname=arcname)
-
+            tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
     coro = s_coro.executor(dowrite, file1)
@@ -121,7 +109,7 @@ async def _doIterBackup(path, meta, chunksize=1024):
     await coro
     await link0.fini()
 
-async def _iterBackupWork(path, linkinfo, meta):
+async def _iterBackupWork(path, linkinfo):
     '''
     Inner setup for backup streaming.
 
@@ -135,12 +123,12 @@ async def _iterBackupWork(path, linkinfo, meta):
     logger.info(f'Getting backup streaming link for [{path}].')
     link = await s_link.fromspawn(linkinfo)
 
-    await s_daemon.t2call(link, _doIterBackup, (path, meta), {})
+    await s_daemon.t2call(link, _doIterBackup, (path,), {})
     await link.fini()
 
     logger.info(f'Backup streaming for [{path}] completed.')
 
-def _iterBackupProc(path, linkinfo, meta):
+def _iterBackupProc(path, linkinfo):
     '''
     Multiprocessing target for streaming a backup.
     '''
@@ -149,7 +137,7 @@ def _iterBackupProc(path, linkinfo, meta):
     s_common.setlogging(logger, **linkinfo.get('logconf'))
 
     logger.info(f'Backup streaming process for [{path}] starting.')
-    asyncio.run(_iterBackupWork(path, linkinfo, meta))
+    asyncio.run(_iterBackupWork(path, linkinfo))
 
 class CellApi(s_base.Base):
 
@@ -1808,13 +1796,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         linkinfo = await link.getSpawnInfo()
         linkinfo['logconf'] = await self._getSpawnLogConf()
 
-        cellinfo = await self.getCellInfo()
-        meta = {
-            'cell:info': cellinfo,
-            'backup:date': s_common.now(),
-            'backup:version': (0, 1, 0),
-        }
-
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
@@ -1823,7 +1804,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         mesg = 'Streaming complete'
 
         def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, meta))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
             proc.start()
             return proc
 
@@ -1889,13 +1870,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.debug(f'Removed {path}')
                 raise
 
-            cellinfo = await self.getCellInfo()
-            meta = {
-                'cell:info': cellinfo,
-                'backup:date': s_common.now(),
-                'backup:version': (0, 1, 0),
-            }
-
             await self.boss.promote('backup:stream', user=user, info={'name': name})
 
             ctx = multiprocessing.get_context('spawn')
@@ -1904,7 +1878,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Streaming complete'
 
             def getproc():
-                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, meta))
+                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
                 proc.start()
                 return proc
 
@@ -2697,41 +2671,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning(f'Extracting {tarpath} to {dirn}')
 
             with tarfile.open(tarpath) as tgz:
-
-                # Check for manifest.yaml
-                mnfo = {}
-                try:
-                    mbfd = tgz.extractfile('manifest.yaml')
-                except KeyError:
-                    logger.warning('No manifest.yaml data found in the backup. Will be unable to confirm information about the backup.')
-                else:
-                    logger.warning('Extracting manifest.yaml file from backup.')
-                    mnfo = yaml.safe_load(mbfd.read().decode())
-
-                arcname = None
-
-                if mnfo:
-                    cnfo = mnfo.get('cell:info')
-                    btyp = cnfo.get('cell', {}).get('type')
-                    etyp = cls.getCellType()
-                    if btyp != etyp:
-                        logger.warning(f'Backup type mismatch: Backup was made for {btyp}, current cell is {etyp}')
-                    arcname = mnfo.get('backup:arcname')  # type: str
-
                 for memb in tgz.getmembers():
-                    if arcname:
-                        if memb.name.startswith(arcname):
-                            memb.name = memb.name.split(arcname, 1)[1]
-                        else:
-                            logger.warning(f'Skipping file {memb.name}')
-                            continue
-                    else:
-                        # Old convention, retained for backwards compatible restores.
-                        if memb.name.find('/') == -1:
-                            logger.warning(f'Skipping file {memb.name}')
-                            continue
-                        memb.name = memb.name.split('/', 1)[1]
-
+                    if memb.name.find('/') == -1:
+                        continue
+                    memb.name = memb.name.split('/', 1)[1]
                     logger.warning(f'Extracting {memb.name}')
                     tgz.extract(memb, dirn)
 
