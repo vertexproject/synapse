@@ -1597,9 +1597,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Happy test for URL based restore.
             with self.setTstEnvars(SYN_RESTORE_HTTPS_URL=furl):
-                with self.getTestDir() as cd>>>>>>> master
-1660
-ir:
+                with self.getTestDir() as cdir:
                     # Restore works
                     with self.getAsyncLoggerStream('synapse.lib.cell',
                                                    'Restoring cortex from SYN_RESTORE_HTTPS_URL') as stream:
