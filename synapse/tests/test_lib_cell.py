@@ -20,6 +20,7 @@ import synapse.lib.link as s_link
 import synapse.lib.version as s_version
 import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.crypto.passwd as s_passwd
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -1655,3 +1656,53 @@ class CellTest(s_t_utils.SynTest):
                         second_doneiden = fd.read().decode().strip()
                         self.true(s_common.isguid(second_doneiden))
                     self.ne(doneiden, second_doneiden)
+
+    async def test_passwd_regression(self):
+        # Backwards compatibility test for shadowv2
+        # Cell was created prior to the shadowv2 password change.
+        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
+            async with await s_cell.Cell.anit(dirn=dirn) as cell:  # type: s_cell.Cell
+                root = await cell.auth.getUserByName('root')
+                shadow = root.info.get('passwd')
+                self.isinstance(shadow, tuple)
+                self.len(2, shadow)
+
+                # Old password works and is migrated to the new password scheme
+                self.false(await root.tryPasswd('newp'))
+                self.true(await root.tryPasswd('root'))
+                shadow = root.info.get('passwd')
+                self.isinstance(shadow, dict)
+                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
+
+                # Logging back in works
+                self.true(await root.tryPasswd('root'))
+
+                user = await cell.auth.getUserByName('user')
+
+                # User can login with their regular password.
+                shadow = user.info.get('passwd')
+                self.isinstance(shadow, tuple)
+                self.true(await user.tryPasswd('secret1234'))
+                shadow = user.info.get('passwd')
+                self.isinstance(shadow, dict)
+
+                # User has a 10 year duration onepass value available.
+                onepass = '0f327906fe0221a7f582744ad280e1ca'
+                self.true(await user.tryPasswd(onepass))
+                self.false(await user.tryPasswd(onepass))
+
+                # Passwords can be changed as well.
+                await user.setPasswd('hehe')
+                self.true(await user.tryPasswd('hehe'))
+                self.false(await user.tryPasswd('secret1234'))
+
+        # Pre-nexus changes of root via auth:passwd work too.
+        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
+            conf = {'auth:passwd': 'supersecretpassword'}
+            async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
+                root = await cell.auth.getUserByName('root')
+                shadow = root.info.get('passwd')
+                self.isinstance(shadow, dict)
+                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
+                self.false(await root.tryPasswd('root'))
+                self.true(await root.tryPasswd('supersecretpassword'))
