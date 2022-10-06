@@ -1636,8 +1636,13 @@ class HttpApiTest(s_tests.SynTest):
 
                     await core01.sync()
 
-                    self.false(await core00.getHttpSessDict(iden))
-                    self.false(await core01.getHttpSessDict(iden))
+                    self.none(await core00.getHttpSessDict(iden))
+                    self.none(await core01.getHttpSessDict(iden))
 
                     self.none(core00.sessions.get(iden))
                     self.none(core01.sessions.get(iden))
+
+                    self.eq(sess00.info, {})
+                    self.eq(sess01.info, {})
+                    self.true(sess00.isfini)
+                    self.true(sess01.isfini)

@@ -2204,7 +2204,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('http:sess:del')
     async def delHttpSess(self, iden):
         await self.sessstor.del_(iden)
-        self.sessions.pop(iden, None)
+        sess = self.sessions.pop(iden, None)
+        if sess:
+            sess.info.clear()
+            self.schedCoro(sess.fini())
 
     @s_nexus.Pusher.onPushAuto('http:sess:set')
     async def setHttpSessInfo(self, iden, name, valu):
