@@ -168,7 +168,7 @@ class HandlerBase:
 
         if self._web_sess is None:
 
-            iden = self.get_secure_cookie('sess')
+            iden = self.get_secure_cookie('sess', max_age_days=14)
 
             if iden is None and not gen:
                 return None

@@ -2195,7 +2195,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return sess
 
     async def getHttpSessDict(self, iden):
-        return await self.sessstor.dict(iden)
+        info = await self.sessstor.dict(iden)
+        if info:
+            return info
 
     @s_nexus.Pusher.onPushAuto('http:sess:add')
     async def addHttpSess(self, iden, info):
