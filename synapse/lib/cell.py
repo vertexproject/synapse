@@ -14,6 +14,7 @@ import functools
 import contextlib
 import multiprocessing
 
+import aiohttp
 import tornado.web as t_web
 
 import synapse.exc as s_exc
@@ -1654,11 +1655,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         running = int(time.monotonic() - self.backmonostart * 1000) if self.backmonostart else None
 
-        def epochmillis(dtornone):
-            if dtornone is None:
-                return None
-            return int(dtornone.timestamp() * 1000)
-
         retn = {
             'currduration': running,
             'laststart': int(self.backstartdt.timestamp() * 1000) if self.backstartdt else None,
@@ -2668,6 +2664,122 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(provconf)
 
+    @classmethod
+    async def _initBootRestore(cls, dirn):
+
+        env = 'SYN_RESTORE_HTTPS_URL'
+        rurl = os.getenv(env, None)
+
+        if rurl is None:
+            return
+
+        dirn = s_common.gendir(dirn)
+
+        # restore.done - Allow an existing URL to be left in the configuration
+        # for a service without issues.
+        doneiden = None
+
+        donepath = s_common.genpath(dirn, 'restore.done')
+        if os.path.isfile(donepath):
+            with s_common.genfile(donepath) as fd:
+                doneiden = fd.read().decode().strip()
+
+        rurliden = s_common.guid(rurl)
+
+        if doneiden == rurliden:
+            logger.warning(f'restore.done matched value from {env}. It is recommended to remove the {env} value.')
+            return
+
+        clean_url = s_urlhelp.sanitizeUrl(rurl).rsplit('?', 1)[0]
+        logger.warning(f'Restoring {cls.getCellType()} from {env}={clean_url}')
+
+        # First we clear any files out of the directory though. This avoids the possibility
+        # of a restore that is potentially mixed.
+        efiles = os.listdir(dirn)
+        for fn in efiles:
+            fp = os.path.join(dirn, fn)
+
+            if os.path.isfile(fp):
+                logger.warning(f'Removing existing file: {fp}')
+                os.unlink(fp)
+                continue
+
+            if os.path.isdir(fp):
+                logger.warning(f'Removing existing directory: {fp}')
+                shutil.rmtree(fp)
+                continue
+
+            logger.warning(f'Unhandled existing file: {fp}')  # pragma: no cover
+
+        # Setup get args
+        insecure_marker = 'https+insecure://'
+        kwargs = {}
+        if rurl.startswith(insecure_marker):
+            logger.warning(f'Disabling SSL verification for restore request.')
+            kwargs['ssl'] = False
+            rurl = 'https://' + rurl[len(insecure_marker):]
+
+        tmppath = s_common.gendir(dirn, 'tmp')
+        tarpath = s_common.genpath(tmppath, f'restore_{rurliden}.tgz')
+
+        try:
+
+            with s_common.genfile(tarpath) as fd:
+                async with aiohttp.client.ClientSession() as sess:
+                    async with sess.get(rurl, **kwargs) as resp:
+                        resp.raise_for_status()
+
+                        content_length = int(resp.headers.get('content-length', 0))
+                        if content_length > 100:
+                            logger.warning(f'Downloading {content_length/s_const.megabyte:.3f} MB of data.')
+                            pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
+                        else:  # pragma: no cover
+                            logger.warning(f'Odd content-length encountered: {content_length}')
+                            pvals = []
+
+                        csize = s_const.kibibyte * 64  # default read chunksize for ClientSession
+                        tsize = 0
+
+                        async for chunk in resp.content.iter_chunked(csize):
+                            fd.write(chunk)
+
+                            tsize = tsize + len(chunk)
+                            if pvals and tsize > pvals[0]:
+                                pvals.pop(0)
+                                percentage = (tsize / content_length) * 100
+                                logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
+
+            logger.warning(f'Extracting {tarpath} to {dirn}')
+
+            with tarfile.open(tarpath) as tgz:
+                for memb in tgz.getmembers():
+                    if memb.name.find('/') == -1:
+                        continue
+                    memb.name = memb.name.split('/', 1)[1]
+                    logger.warning(f'Extracting {memb.name}')
+                    tgz.extract(memb, dirn)
+
+            # and record the rurliden
+            with s_common.genfile(donepath) as fd:
+                fd.truncate(0)
+                fd.seek(0)
+                fd.write(rurliden.encode())
+
+        except asyncio.CancelledError:  # pragma: no cover
+            raise
+
+        except Exception:  # pragma: no cover
+            logger.exception('Failed to restore cell from URL.')
+            raise
+
+        else:
+            logger.warning('Restored service from URL')
+            return
+
+        finally:
+            if os.path.isfile(tarpath):
+                os.unlink(tarpath)
+
     async def _bootCellProv(self):
 
         provurl = self.conf.get('aha:provision')
@@ -2861,6 +2973,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logconf = s_common.setlogging(logger, defval=opts.log_level,
                                       structlog=opts.structured_logging)
+
+        await cls._initBootRestore(opts.dirn)
+
         try:
             conf.setdefault('_log_conf', logconf)
             conf.setConfFromOpts(opts)
