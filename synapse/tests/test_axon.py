@@ -1022,3 +1022,27 @@ bar baz",vv
 
             bytslist = [b async for b in axon.get(sha256, 2, size=6)]
             self.eq(b'dfqwer', b''.join(bytslist))
+
+    async def test_axon_mirror(self):
+
+        async with self.getTestAhaProv() as aha:
+
+            axon00dirn = s_common.gendir(aha.dirn, 'tmp', 'axon00')
+            axon01dirn = s_common.gendir(aha.dirn, 'tmp', 'axon01')
+
+            waiter = aha.waiter(2, 'aha:svcadd')
+
+            axon00url = await aha.addAhaSvcProv('00.axon', {'https:port': None})
+            axon01url = await aha.addAhaSvcProv('01.axon', {'https:port': None, 'mirror': '00.axon'})
+
+            axon00 = await aha.enter_context(await s_axon.Axon.anit(axon00dirn, conf={'aha:provision': axon00url}))
+            (size, sha256) = await axon00.put(b'visi')
+            self.false(await axon00._axonFileAdd(sha256, size, {}))
+
+            self.len(2, await waiter.wait(timeout=6))
+
+            axon01 = await aha.enter_context(await s_axon.Axon.anit(axon01dirn, conf={'aha:provision': axon01url}))
+            self.eq(4, await axon01.size(sha256))
+
+            (size, sha256) = await axon01.put(b'vertex')
+            self.eq(await axon00.size(sha256), await axon01.size(sha256))
