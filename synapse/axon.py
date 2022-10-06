@@ -1156,7 +1156,7 @@ class Axon(s_cell.Cell):
             if genr is not None:
                 size = await self._saveFileGenr(sha256, genr)
 
-            await self._axonFileAdd(sha256, size, {})
+            await self._axonFileAdd(sha256, size, {'tick': s_common.now()})
 
             return size
 
@@ -1167,7 +1167,8 @@ class Axon(s_cell.Cell):
         if byts is not None:
             return False
 
-        self._addSyncItem((sha256, size))
+        tick = info.get('tick')
+        self._addSyncItem((sha256, size), tick=tick)
 
         await self.axonmetrics.set('file:count', self.axonmetrics.get('file:count') + 1)
         await self.axonmetrics.set('size:bytes', self.axonmetrics.get('size:bytes') + size)
@@ -1254,7 +1255,6 @@ class Axon(s_cell.Cell):
         '''
         return [await self.del_(s) for s in sha256s]
 
-    @s_nexus.Pusher.onPushAuto('axon:file:del')
     async def del_(self, sha256):
         '''
         Remove the given bytes from the Axon by sha256.
@@ -1265,6 +1265,13 @@ class Axon(s_cell.Cell):
         Returns:
             boolean: True if the file is removed; false if the file is not present.
         '''
+        if not await self.has(sha256):
+            return False
+
+        return await self._axonFileDel(sha256)
+
+    @s_nexus.Pusher.onPushAuto('axon:file:del')
+    async def _axonFileDel(self, sha256):
         async with self.holdHashLock(sha256):
 
             byts = self.axonslab.pop(sha256, db=self.sizes)
