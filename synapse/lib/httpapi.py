@@ -1044,7 +1044,8 @@ class OnePassIssueV1(Handler):
 
         passwd = s_common.guid()
         shadow = await s_passwd.getShadowV2(passwd=passwd)
-        onepass = {'expires': s_common.now() + duration,
+        now = s_common.now()
+        onepass = {'create': now, 'expires': s_common.now() + duration,
                    'shadow': shadow}
 
         await self.cell.auth.setUserInfo(useriden, 'onepass', onepass)
