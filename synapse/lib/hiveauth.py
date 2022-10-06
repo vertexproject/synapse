@@ -25,7 +25,7 @@ reqValidRules = s_config.getJsValidator({
     }
 })
 
-def getShadow(passwd):
+def getShadow(passwd):  # pragma: no cover
     s_common.deprecated('hiveauth.getShadow()', curv='2.110.0')
     salt = s_common.guid()
     hashed = s_common.guid((salt, passwd))
