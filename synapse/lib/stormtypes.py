@@ -7893,6 +7893,20 @@ class User(Prim):
         ''',
          'type': {'type': ['stor'], '_storfunc': '_methUserSetEmail',
                   'returns': {'type': ['str', 'null'], }}},
+        {'name': 'profile', 'desc': '''
+        A user profile dictionary. This can be used as an application level key-value store.
+
+        Example:
+            Set a value::
+
+                $user=$lib.auth.users.byname(bob) $user.profile.somekey="somevalue"
+
+            Get a value::
+
+                $user=$lib.auth.users.byname(bob) $value = $user.profile.somekey
+        ''',
+        'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
+                  'returns': {'type': 'storm:auth:user:profile', }}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
