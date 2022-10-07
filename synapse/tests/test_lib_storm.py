@@ -141,6 +141,11 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq('valu=12', retn)
 
+            q = "$hehe=({'k': 'v'}) $fs=$lib.str.format('{v}56', v=$hehe) return((`{$hehe}56`, $fs))"
+            retn = await core.callStorm(q)
+            self.eq("{'k': 'v'}56", retn[0])
+            self.eq(retn[0], retn[1])
+
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
             self.eq(('foo', 'bar'), await core.callStorm('''
