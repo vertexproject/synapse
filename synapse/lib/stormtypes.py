@@ -7590,6 +7590,43 @@ class LibJsonStor(Lib):
         }
 
 @registry.registerType
+class UserProfile(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of User profile information.
+    '''
+    _storm_typename = 'storm:auth:user:profile'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    async def deref(self, name):
+        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+        return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
+
+    async def setitem(self, name, valu):
+        logger.info(f'{name=} {valu=}')
+        if valu is undef:
+            self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
+            await self.runt.snap.core.popUserProfInfo(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+        await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
+
+    async def iter(self):
+        profile = await self.value()
+        for item in list(profile.items()):
+            yield item
+
+    def value(self):
+        self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        # Direct object access
+        return copy.deepcopy(self.runt.snap.core.auth.user(self.valu).profile.pack())
+
+@registry.registerType
 class UserJson(Prim):
     '''
     Implements per-user JSON storage.
@@ -7899,6 +7936,7 @@ class User(Prim):
         })
         self.ctors.update({
             'json': self._ctorUserJson,
+            'profile': self._ctorUserProfile,
         })
 
     def __hash__(self):
@@ -7906,6 +7944,10 @@ class User(Prim):
 
     def _ctorUserJson(self, path=None):
         return UserJson(self.runt, self.valu)
+
+    def _ctorUserProfile(self, path=None):
+        self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        return UserProfile(self.runt, self.valu)
 
     def getObjLocals(self):
         return {
@@ -7925,10 +7967,6 @@ class User(Prim):
             'setEmail': self._methUserSetEmail,
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
-            'getProfile': self._methUserGetProfile,
-            'getProfInfo': self._methUserGetProfInfo,
-            'popProfInfo': self._methUserPopProfInfo,
-            'setProfInfo': self._methUserSetProfInfo,
         }
 
     async def _methUserPack(self):
@@ -8036,26 +8074,6 @@ class User(Prim):
     async def _methUserSetLocked(self, locked):
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
-
-    async def _methUserGetProfile(self):
-        self.runt.confirm(('auth', 'user', 'get', 'profile'))
-        return await self.runt.snap.core.getUserProfile(self.valu)
-
-    async def _methUserGetProfInfo(self, name):
-        name = await tostr(name)
-        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
-        return await self.runt.snap.core.getUserProfInfo(self.valu, name)
-
-    async def _methUserSetProfInfo(self, name, valu):
-        name = await tostr(name)
-        valu = await toprim(valu)
-        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
-        return await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
-
-    async def _methUserPopProfInfo(self, name, default=None):
-        name = await tostr(name)
-        self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
-        return await self.runt.snap.core.popUserProfInfo(self.valu, name, default=default)
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)

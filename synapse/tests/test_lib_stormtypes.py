@@ -5000,14 +5000,28 @@ class StormTypesTest(s_test.SynTest):
 
             # User profile data is exposed
             await core.callStorm('$lib.auth.users.add(puser)')
-            q = '$u=$lib.auth.users.byname(puser) $u.setProfInfo(hehe, haha) return ($u.getProfile())'
+            q = '$u=$lib.auth.users.byname(puser) $u.profile.hehe=haha return ($u.profile)'
             self.eq({'hehe': 'haha'}, await core.callStorm(q))
-            q = '$u=$lib.auth.users.byname(puser) $r = $u.getProfInfo(hehe) return ($r)'
+            q = '$u=$lib.auth.users.byname(puser) $r=$u.profile.hehe return ($r)'
             self.eq('haha', await core.callStorm(q))
-            q = '$u=$lib.auth.users.byname(puser) $r = $u.getProfInfo(newp) return ($r)'
+            q = '$u=$lib.auth.users.byname(puser) $r=$u.profile.newp return ($r)'
             self.none(await core.callStorm(q))
-            q = '$u=$lib.auth.users.byname(puser) $r=$u.popProfInfo(hehe, haha) return (($r, $u.getProfile()))'
-            self.eq(('haha', {}), await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $u.profile.hehe=$lib.undef return ($u.profile)'
+            self.eq({}, await core.callStorm(q))
+
+            # Mutability of the values we deref doesn't affect future derefs.
+            q = '''$u=$lib.auth.users.byname(puser) $profile=$u.profile
+            $d=({'foo': 'bar'})
+            $profile.hehe=haha $profile.d=$d
+            $p1 = $lib.json.save($profile)
+            // Retrieve the dictionary, modify it, and then serialize it again.
+            $d2=$profile.d $d2.wow=giggle
+            $p2 = $lib.json.save($profile)
+            return ( ($p1, $p2) )
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn[0], retn[1])
+            self.eq(json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
 
     async def test_stormtypes_auth_gateadmin(self):
 
