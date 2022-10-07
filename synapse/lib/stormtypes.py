@@ -7894,30 +7894,6 @@ class User(Prim):
         ''',
          'type': {'type': ['stor'], '_storfunc': '_methUserSetEmail',
                   'returns': {'type': ['str', 'null'], }}},
-        {'name': 'getProfile', 'desc': 'Get user profile info dictionary.',
-         'type': {'type': 'function', '_funcname': '_methUserGetProfile',
-                  'returns': {'type': 'dict', }}},
-        {'name': 'getProfInfo', 'desc': 'Get a specific key in the user profile dictionary.',
-         'type': {'type': 'function', '_funcname': '_methUserGetProfInfo',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to get.', },
-                  ),
-                  'returns': {'type': 'prim', }}},
-        {'name': 'popProfInfo', 'desc': 'Remove a key from the user profile dictionary.',
-         'type': {'type': 'function', '_funcname': '_methUserPopProfInfo',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to remove.', },
-                      {'name': 'default', 'type': 'prim', 'desc': 'Default value to return if the key is not set.',
-                       'default': None},
-                  ),
-                  'returns': {'type': 'prim', }}},
-        {'name': 'setProfInfo', 'desc': 'Set a specific key in the user profile dictionary.',
-         'type': {'type': 'function', '_funcname': '_methUserSetProfInfo',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to remove.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'Value to set.', },
-                  ),
-                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
