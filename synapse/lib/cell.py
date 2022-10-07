@@ -2172,9 +2172,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getConfOpt(self, name):
         return self.conf.get(name)
 
-    def _getSessInfo(self, iden):
-        return self.sessstor.gen(iden)
-
     def getUserName(self, iden, defv='<unknown>'):
         '''
         Translate the user iden to a user name.
@@ -2192,10 +2189,40 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if sess is not None:
             return sess
 
-        sess = await s_httpapi.Sess.anit(self, iden)
-        self.sessions[iden] = sess
+        info = await self.getHttpSessDict(iden)
+        if info is None:
+            info = await self.addHttpSess(iden, {'created': s_common.now()})
 
+        sess = await s_httpapi.Sess.anit(self, iden, info)
+
+        self.sessions[iden] = sess
         return sess
+
+    async def getHttpSessDict(self, iden):
+        info = await self.sessstor.dict(iden)
+        if info:
+            return info
+
+    @s_nexus.Pusher.onPushAuto('http:sess:add')
+    async def addHttpSess(self, iden, info):
+        for name, valu in info.items():
+            self.sessstor.set(iden, name, valu)
+        return info
+
+    @s_nexus.Pusher.onPushAuto('http:sess:del')
+    async def delHttpSess(self, iden):
+        await self.sessstor.del_(iden)
+        sess = self.sessions.pop(iden, None)
+        if sess:
+            sess.info.clear()
+            self.schedCoro(sess.fini())
+
+    @s_nexus.Pusher.onPushAuto('http:sess:set')
+    async def setHttpSessInfo(self, iden, name, valu):
+        self.sessstor.set(iden, name, valu)
+        sess = self.sessions.get(iden)
+        if sess is not None:
+            sess.info[name] = valu
 
     async def addHttpsPort(self, port, host='0.0.0.0', sslctx=None):
 
