@@ -3603,7 +3603,7 @@ class Prim(StormType):
         return bool(await s_coro.ornot(self.value))
 
     async def stormrepr(self):  # pragma: no cover
-        return f'{self._storm_typename}: {self.value()}'
+        return f'{self._storm_typename}: {await s_coro.ornot(self.value)}'
 
 @registry.registerType
 class Str(Prim):
@@ -7620,10 +7620,9 @@ class UserProfile(Prim):
         for item in list(profile.items()):
             yield item
 
-    def value(self):
+    async def value(self):
         self.runt.confirm(('auth', 'user', 'get', 'profile'))
-        # Direct object access
-        return copy.deepcopy(self.runt.snap.core.auth.user(self.valu).profile.pack())
+        return copy.deepcopy(await self.runt.snap.core.getUserProfile(self.valu))
 
 @registry.registerType
 class UserJson(Prim):
@@ -7921,7 +7920,6 @@ class User(Prim):
         return UserJson(self.runt, self.valu)
 
     def _ctorUserProfile(self, path=None):
-        self.runt.confirm(('auth', 'user', 'get', 'profile'))
         return UserProfile(self.runt, self.valu)
 
     def getObjLocals(self):
