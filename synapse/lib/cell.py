@@ -1991,15 +1991,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
+        oname = role.name
         await role.setName(name)
+        logger.info(f'Set name={name} from {oname} on role iden={role.iden}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
+        logger.info(f'Set admin={admin} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
+        role = await self.auth.reqRole(roleiden)
         await user.grant(roleiden)
+        logger.info(f'Granted role {role.name} to user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 target_role=role.iden, target_rolename=role.name))
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
@@ -2007,40 +2016,68 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
+        role = await self.auth.reqRole(roleiden)
         await user.revoke(roleiden)
+        logger.info(f'Revoked role {role.name} from user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 target_role=role.iden, target_rolename=role.name))
 
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
+        logger.info(f'Added user={name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
+        user = await self.auth.reqUser(iden)
+        name = user.name
         await self.auth.delUser(iden)
+        logger.info(f'Deleted user={user.name}',
+                   extra=await self.getLogExtra(target_user=iden, target_username=name))
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
+        logger.info(f'Added role={name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
         return role.pack()
 
     async def delRole(self, iden):
+        role = await self.auth.reqRole(iden)
+        name = role.name
         await self.auth.delRole(iden)
+        logger.info(f'Deleted role={name}',
+                     extra=await self.getLogExtra(target_role=iden, target_rolename=name))
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
+        user = await self.auth.reqUser(useriden)
+        logger.info(f'Set email={email} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserName(self, useriden, name):
         user = await self.auth.reqUser(useriden)
+        oname = user.name
         await user.setName(name)
+        logger.info(f'Set name={name} from {oname} on user iden={user.iden}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
+        logger.info(f'Set password for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
+        logger.info(f'Set lock={locked} for  user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
+        logger.info(f'Set archive={archived} for  user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def getUserDef(self, iden):
         user = self.auth.user(iden)
