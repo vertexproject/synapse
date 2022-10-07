@@ -1,4 +1,3 @@
-import copy
 import asyncio
 import logging
 import collections
