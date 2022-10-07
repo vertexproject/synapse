@@ -4998,6 +4998,17 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('old name=bar', msgs)
             self.stormIsInPrint('new name=sally', msgs)
 
+            # User profile data is exposed
+            await core.callStorm('$lib.auth.users.add(puser)')
+            q = '$u=$lib.auth.users.byname(puser) $u.setProfInfo(hehe, haha) return ($u.getProfile())'
+            self.eq({'hehe': 'haha'}, await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $r = $u.getProfInfo(hehe) return ($r)'
+            self.eq('haha', await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $r = $u.getProfInfo(newp) return ($r)'
+            self.none(await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $r=$u.popProfInfo(hehe, haha) return (($r, $u.getProfile()))'
+            self.eq(('haha', {}), await core.callStorm(q))
+
     async def test_stormtypes_auth_gateadmin(self):
 
         async with self.getTestCore() as core:

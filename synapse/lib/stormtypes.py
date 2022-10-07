@@ -7858,6 +7858,30 @@ class User(Prim):
         ''',
          'type': {'type': ['stor'], '_storfunc': '_methUserSetEmail',
                   'returns': {'type': ['str', 'null'], }}},
+        {'name': 'getProfile', 'desc': 'Get user profile info dictionary.',
+         'type': {'type': 'function', '_funcname': '_methUserGetProfile',
+                  'returns': {'type': 'dict', }}},
+        {'name': 'getProfInfo', 'desc': 'Get a specific key in the user profile dictionary.',
+         'type': {'type': 'function', '_funcname': '_methUserGetProfInfo',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to get.', },
+                  ),
+                  'returns': {'type': 'prim', }}},
+        {'name': 'popProfInfo', 'desc': 'Remove a key from the user profile dictionary.',
+         'type': {'type': 'function', '_funcname': '_methUserPopProfInfo',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to remove.', },
+                      {'name': 'default', 'type': 'prim', 'desc': 'Default value to return if the key is not set.',
+                       'default': None},
+                  ),
+                  'returns': {'type': 'prim', }}},
+        {'name': 'setProfInfo', 'desc': 'Set a specific key in the user profile dictionary.',
+         'type': {'type': 'function', '_funcname': '_methUserSetProfInfo',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to remove.', },
+                      {'name': 'valu', 'type': 'prim', 'desc': 'Value to set.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -7901,6 +7925,10 @@ class User(Prim):
             'setEmail': self._methUserSetEmail,
             'setLocked': self._methUserSetLocked,
             'setPasswd': self._methUserSetPasswd,
+            'getProfile': self._methUserGetProfile,
+            'getProfInfo': self._methUserGetProfInfo,
+            'popProfInfo': self._methUserPopProfInfo,
+            'setProfInfo': self._methUserSetProfInfo,
         }
 
     async def _methUserPack(self):
@@ -8008,6 +8036,26 @@ class User(Prim):
     async def _methUserSetLocked(self, locked):
         self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
+
+    async def _methUserGetProfile(self):
+        self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        return await self.runt.snap.core.getUserProfile(self.valu)
+
+    async def _methUserGetProfInfo(self, name):
+        name = await tostr(name)
+        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+        return await self.runt.snap.core.getUserProfInfo(self.valu, name)
+
+    async def _methUserSetProfInfo(self, name, valu):
+        name = await tostr(name)
+        valu = await toprim(valu)
+        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+        return await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
+
+    async def _methUserPopProfInfo(self, name, default=None):
+        name = await tostr(name)
+        self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
+        return await self.runt.snap.core.popUserProfInfo(self.valu, name, default=default)
 
     async def value(self):
         return await self.runt.snap.core.getUserDef(self.valu)

@@ -599,6 +599,10 @@ class CellApi(s_base.Base):
     async def setUserProfInfo(self, iden, name, valu):
         return await self.cell.setUserProfInfo(iden, name, valu)
 
+    @adminapi()
+    async def popUserProfInfo(self, iden, name, default=None):
+        return await self.cell.popUserProfInfo(iden, name, default=default)
+
     async def getHealthCheck(self):
         await self._reqUserAllowed(('health',))
         return await self.cell.getHealthCheck()
@@ -1962,6 +1966,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserProfInfo(self, iden, name, valu):
         user = await self.auth.reqUser(iden)
         return await user.profile.set(name, valu)
+
+    async def popUserProfInfo(self, iden, name, default=None):
+        user = await self.auth.reqUser(iden)
+        return await user.profile.pop(name, default=default)
 
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
