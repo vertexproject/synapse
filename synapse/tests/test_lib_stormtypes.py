@@ -5023,6 +5023,15 @@ class StormTypesTest(s_test.SynTest):
             self.eq(retn[0], retn[1])
             self.eq(json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
 
+            q = '''$u=$lib.auth.users.byname(puser) $profile=$u.profile
+            for $valu in $profile {
+                $lib.print($valu)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("('hehe', 'haha')", msgs)
+            self.stormIsInPrint("('d', {'foo': 'bar'})", msgs)
+
     async def test_stormtypes_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
