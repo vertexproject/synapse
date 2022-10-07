@@ -17,6 +17,8 @@ Features and Enhancements
 
 - Add Nexus support to the Axon, to enable mirrored Axon deployments.
   (`#2871 <https://github.com/vertexproject/synapse/pull/2871>`_)
+- Add Nexus support for HTTP API sessions.
+  (`#2869 <https://github.com/vertexproject/synapse/pull/2869>`_)
 - Add support for runtime string formatting in Storm. This is done with
   backtick ( `````) encapsulated strings.
   An example of this is ``$world='world' $lib.print(`hello {$world}`)``
