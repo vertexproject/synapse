@@ -13,13 +13,13 @@ Features and Enhancements
   (`#2872 <https://github.com/vertexproject/synapse/pull/2872>`_)
 
   ``geo:telem``
-    Add a ``accuracy`` property to record the accuracy of the telemetry reading.
+    Add an ``accuracy`` property to record the accuracy of the telemetry reading.
 
 - Add Nexus support to the Axon, to enable mirrored Axon deployments.
   (`#2871 <https://github.com/vertexproject/synapse/pull/2871>`_)
 - Add support for runtime string formatting in Storm. This is done with
   backtick ( `````) encapsulated strings.
-  A example of this is ``$world='world' $lib.print(`hello {$world}`)``
+  An example of this is ``$world='world' $lib.print(`hello {$world}`)``
   (`#2870 <https://github.com/vertexproject/synapse/pull/2870>`_)
 - Storm package command names are now validated against the same regex used
   by the grammar. The ``synapse.tools.genpkg`` tool now validates the compiled
@@ -37,7 +37,7 @@ Features and Enhancements
   to this format as successful user logins are performed.
   (`#2868 <https://github.com/vertexproject/synapse/pull/2868>`_)
 - Add the ability to restore a backup tarball from a URL to the Cell startup
-  process. When a Cell starts via ``initFromArgv()``, if the envirnoment
+  process. When a Cell starts via ``initFromArgv()``, if the environment
   variable ``SYN_RESTORE_HTTPS_URL`` is present, that value will be used to
   retrieve a tarball via HTTPS and extract it to the service local storage,
   removing any existing data in the directory. This is done prior to any
