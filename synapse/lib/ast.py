@@ -3069,7 +3069,8 @@ class FormatString(Value):
     async def compute(self, runt, path):
         if self.isconst:
             return self.constval
-        return ''.join([str(await k.compute(runt, path)) for k in self.kids])
+        reprs = [await s_stormtypes.torepr(await k.compute(runt, path), usestr=True) for k in self.kids]
+        return ''.join(reprs)
 
 class VarList(Const):
     pass

@@ -544,6 +544,27 @@ class GuidStor:
         bidn = s_common.uhex(iden)
         return SlabDict(self.slab, db=self.db, pref=bidn)
 
+    async def del_(self, iden):
+        bidn = s_common.uhex(iden)
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            self.slab.pop(lkey, db=self.db)
+            await asyncio.sleep(0)
+
+    def set(self, iden, name, valu):
+        bidn = s_common.uhex(iden)
+        byts = s_msgpack.en(valu)
+        self.slab.put(bidn + name.encode(), byts, db=self.db)
+
+    async def dict(self, iden):
+        bidn = s_common.uhex(iden)
+
+        retn = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            await asyncio.sleep(0)
+            name = lkey[len(bidn):].decode()
+            retn[name] = s_msgpack.un(lval)
+        return retn
+
 def _florpo2(i):
     '''
     Return largest power of 2 equal to or less than i
