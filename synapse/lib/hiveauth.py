@@ -8,6 +8,8 @@ import synapse.lib.cache as s_cache
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 
+import synapse.lib.crypto.passwd as s_passwd
+
 logger = logging.getLogger(__name__)
 
 reqValidRules = s_config.getJsValidator({
@@ -23,7 +25,8 @@ reqValidRules = s_config.getJsValidator({
     }
 })
 
-def getShadow(passwd):
+def getShadow(passwd):  # pragma: no cover
+    s_common.deprecated('hiveauth.getShadow()', curv='2.110.0')
     salt = s_common.guid()
     hashed = s_common.guid((salt, passwd))
     return (salt, hashed)
@@ -928,7 +931,7 @@ class HiveUser(HiveRuler):
         for iden in self.info.get('roles', ()):
             role = self.auth.role(iden)
             if role is None:
-                logger.warn('user {self.iden} has non-existent role: {iden}')
+                logger.warning('user {self.iden} has non-existent role: {iden}')
                 continue
             yield role
 
@@ -1043,7 +1046,7 @@ class HiveUser(HiveRuler):
         if archived:
             await self.setLocked(True)
 
-    async def tryPasswd(self, passwd):
+    async def tryPasswd(self, passwd, nexs=True):
 
         if self.info.get('locked', False):
             return False
@@ -1053,21 +1056,40 @@ class HiveUser(HiveRuler):
 
         onepass = self.info.get('onepass')
         if onepass is not None:
-            expires, salt, hashed = onepass
-            if expires >= s_common.now():
-                if s_common.guid((salt, passwd)) == hashed:
-                    await self.auth.setUserInfo(self.iden, 'onepass', None)
-                    return True
+            if isinstance(onepass, dict):
+                shadow = onepass.get('shadow')
+                expires = onepass.get('expires')
+                if expires >= s_common.now():
+                    if await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow):
+                        await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        logger.debug(f'Used one time password for {self.name}',
+                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
+                        return True
             else:
-                await self.auth.setUserInfo(self.iden, 'onepass', None)
+                # Backwards compatible password handling
+                expires, params, hashed = onepass
+                if expires >= s_common.now():
+                    if s_common.guid((params, passwd)) == hashed:
+                        await self.auth.setUserInfo(self.iden, 'onepass', None)
+                        logger.debug(f'Used one time password for {self.name}',
+                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
+                        return True
 
         shadow = self.info.get('passwd')
         if shadow is None:
             return False
 
-        salt, hashed = shadow
+        if isinstance(shadow, dict):
+            return await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
 
+        # Backwards compatible password handling
+        salt, hashed = shadow
         if s_common.guid((salt, passwd)) == hashed:
+            logger.debug(f'Migrating password to shadowv2 format for user {self.name}',
+                         extra={'synapse': {'user': self.iden, 'username': self.name}})
+            # Update user to new password hashing scheme.
+            await self.setPasswd(passwd=passwd, nexs=nexs)
+
             return True
 
         return False
@@ -1077,7 +1099,7 @@ class HiveUser(HiveRuler):
         if passwd is None:
             shadow = None
         elif passwd and isinstance(passwd, str):
-            shadow = getShadow(passwd)
+            shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
         if nexs:

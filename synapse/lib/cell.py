@@ -1048,7 +1048,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not await user.tryPasswd(auth_passwd):
+            if not await user.tryPasswd(auth_passwd, nexs=False):
                 await user.setPasswd(auth_passwd, nexs=False)
 
         self.boss = await s_boss.Boss.anit()
