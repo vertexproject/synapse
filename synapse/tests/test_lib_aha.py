@@ -800,7 +800,7 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
             root = await aha.auth.getUserByName('root')
-            self.true(root.tryPasswd('secret'))
+            self.true(await root.tryPasswd('secret'))
 
             import synapse.cortex as s_cortex
 
