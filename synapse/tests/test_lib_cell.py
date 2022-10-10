@@ -516,6 +516,13 @@ class CellTest(s_t_utils.SynTest):
                     items.append(item)
                 self.eq(items, [1, 2])
 
+                # Sad path
+                with self.raises(s_exc.NoSuchIden):
+                    await cell.dyncall('newp', s_common.todo('getCellInfo'))
+                with self.raises(s_exc.NoSuchIden):
+                    async for _ in cell.dyniter('newp', s_common.todo('getCellInfo')):
+                        pass
+
     async def test_cell_promote(self):
 
         with self.getTestDir() as dirn:
