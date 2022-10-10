@@ -3603,7 +3603,7 @@ class Prim(StormType):
         return bool(await s_coro.ornot(self.value))
 
     async def stormrepr(self):  # pragma: no cover
-        return f'{self._storm_typename}: {self.value()}'
+        return f'{self._storm_typename}: {await s_coro.ornot(self.value)}'
 
 @registry.registerType
 class Str(Prim):
@@ -7590,6 +7590,41 @@ class LibJsonStor(Lib):
         }
 
 @registry.registerType
+class UserProfile(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of User profile information.
+    '''
+    _storm_typename = 'storm:auth:user:profile'
+    _ismutable = True
+
+    def __init__(self, runt, valu, path=None):
+        Prim.__init__(self, valu, path=path)
+        self.runt = runt
+
+    async def deref(self, name):
+        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+        return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
+
+    async def setitem(self, name, valu):
+        if valu is undef:
+            self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
+            await self.runt.snap.core.popUserProfInfo(self.valu, name)
+            return
+
+        valu = await toprim(valu)
+        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+        await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
+
+    async def iter(self):
+        profile = await self.value()
+        for item in list(profile.items()):
+            yield item
+
+    async def value(self):
+        self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        return copy.deepcopy(await self.runt.snap.core.getUserProfile(self.valu))
+
+@registry.registerType
 class UserJson(Prim):
     '''
     Implements per-user JSON storage.
@@ -7858,6 +7893,20 @@ class User(Prim):
         ''',
          'type': {'type': ['stor'], '_storfunc': '_methUserSetEmail',
                   'returns': {'type': ['str', 'null'], }}},
+        {'name': 'profile', 'desc': '''
+        A user profile dictionary. This can be used as an application level key-value store.
+
+        Example:
+            Set a value::
+
+                $user=$lib.auth.users.byname(bob) $user.profile.somekey="somevalue"
+
+            Get a value::
+
+                $user=$lib.auth.users.byname(bob) $value = $user.profile.somekey
+        ''',
+        'type': {'type': ['ctor'], '_ctorfunc': '_ctorUserProfile',
+                  'returns': {'type': 'storm:auth:user:profile', }}},
     )
     _storm_typename = 'storm:auth:user'
     _ismutable = False
@@ -7875,6 +7924,7 @@ class User(Prim):
         })
         self.ctors.update({
             'json': self._ctorUserJson,
+            'profile': self._ctorUserProfile,
         })
 
     def __hash__(self):
@@ -7882,6 +7932,9 @@ class User(Prim):
 
     def _ctorUserJson(self, path=None):
         return UserJson(self.runt, self.valu)
+
+    def _ctorUserProfile(self, path=None):
+        return UserProfile(self.runt, self.valu)
 
     def getObjLocals(self):
         return {

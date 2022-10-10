@@ -4998,6 +4998,40 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('old name=bar', msgs)
             self.stormIsInPrint('new name=sally', msgs)
 
+            # User profile data is exposed
+            await core.callStorm('$lib.auth.users.add(puser)')
+            q = '$u=$lib.auth.users.byname(puser) $u.profile.hehe=haha return ($u.profile)'
+            self.eq({'hehe': 'haha'}, await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $r=$u.profile.hehe return ($r)'
+            self.eq('haha', await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $r=$u.profile.newp return ($r)'
+            self.none(await core.callStorm(q))
+            q = '$u=$lib.auth.users.byname(puser) $u.profile.hehe=$lib.undef return ($u.profile)'
+            self.eq({}, await core.callStorm(q))
+
+            # Mutability of the values we deref doesn't affect future derefs.
+            q = '''$u=$lib.auth.users.byname(puser) $profile=$u.profile
+            $d=({'foo': 'bar'})
+            $profile.hehe=haha $profile.d=$d
+            $p1 = $lib.json.save($profile)
+            // Retrieve the dictionary, modify it, and then serialize it again.
+            $d2=$profile.d $d2.wow=giggle
+            $p2 = $lib.json.save($profile)
+            return ( ($p1, $p2) )
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn[0], retn[1])
+            self.eq(json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
+
+            q = '''$u=$lib.auth.users.byname(puser) $profile=$u.profile
+            for $valu in $profile {
+                $lib.print($valu)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint("('hehe', 'haha')", msgs)
+            self.stormIsInPrint("('d', {'foo': 'bar'})", msgs)
+
     async def test_stormtypes_auth_gateadmin(self):
 
         async with self.getTestCore() as core:

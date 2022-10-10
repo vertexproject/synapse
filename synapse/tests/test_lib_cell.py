@@ -379,7 +379,11 @@ class CellTest(s_t_utils.SynTest):
 
                 await proxy.setUserProfInfo(visi.iden, 'hehe', 'haha')
                 self.eq('haha', await proxy.getUserProfInfo(visi.iden, 'hehe'))
+                await proxy.setUserProfInfo(visi.iden, 'woah', 'dude')
                 self.eq('haha', (await proxy.getUserProfile(visi.iden))['hehe'])
+                self.eq('haha', await proxy.popUserProfInfo(visi.iden, 'hehe'))
+                self.eq('newp', await proxy.popUserProfInfo(visi.iden, 'hehe', default='newp'))
+                self.eq({'woah': 'dude'}, await proxy.getUserProfile(visi.iden))
 
                 iden = s_common.guid(('foo', 101))
                 udef = await proxy.addUser('foo', iden=iden)

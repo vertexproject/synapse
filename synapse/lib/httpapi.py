@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class Sess(s_base.Base):
 
-    async def __anit__(self, cell, iden):
+    async def __anit__(self, cell, iden, info):
 
         await s_base.Base.__anit__(self)
 
@@ -34,20 +34,25 @@ class Sess(s_base.Base):
         self.locl = {}
 
         # for persistent session info
-        self.info = cell._getSessInfo(iden)
+        self.iden = iden
+        self.info = info
 
         user = self.info.get('user')
         if user is not None:
             self.user = self.cell.auth.user(user)
 
+    async def set(self, name, valu):
+        await self.cell.setHttpSessInfo(self.iden, name, valu)
+        self.info[name] = valu
+
     async def login(self, user):
         self.user = user
-        self.info.set('user', user.iden)
+        await self.set('user', user.iden)
         await self.fire('sess:login')
 
     async def logout(self):
         self.user = None
-        self.info.set('user', None)
+        await self.set('user', None)
         await self.fire('sess:logout')
 
     def addWebSock(self, sock):
@@ -165,7 +170,7 @@ class HandlerBase:
 
         if self._web_sess is None:
 
-            iden = self.get_secure_cookie('sess')
+            iden = self.get_secure_cookie('sess', max_age_days=14)
 
             if iden is None and not gen:
                 return None
@@ -589,8 +594,6 @@ class LoginV1(Handler):
 
     async def post(self):
 
-        sess = await self.sess()
-
         body = self.getJsonBody()
         if body is None:
             return
@@ -604,6 +607,8 @@ class LoginV1(Handler):
 
         if not await user.tryPasswd(passwd):
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
+
+        sess = await self.sess()
 
         await sess.login(user)
 

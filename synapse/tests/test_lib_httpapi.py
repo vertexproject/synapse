@@ -5,6 +5,8 @@ import aiohttp
 import aiohttp.client_exceptions as a_exc
 
 import synapse.common as s_common
+import synapse.tools.backup as s_backup
+
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
@@ -1599,3 +1601,48 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('AuthDeny', (await resp.json())['code'])
                 self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+
+    async def test_http_sess_mirror(self):
+
+        with self.getTestDir() as dirn:
+
+            core00dirn = s_common.gendir(dirn, 'core00')
+            core01dirn = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
+                pass
+
+            s_backup.backup(core00dirn, core01dirn)
+
+            async with self.getTestCore(dirn=core00dirn, conf={'nexslog:en': True}) as core00:
+
+                conf = {'mirror': core00.getLocalUrl()}
+                async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
+
+                    iden = s_common.guid()
+                    sess00 = await core00.genHttpSess(iden)
+                    await sess00.set('foo', 'bar')
+                    self.eq('bar', sess00.info.get('foo'))
+
+                    await core01.sync()
+
+                    sess01 = await core01.genHttpSess(iden)
+                    self.eq('bar', sess01.info.get('foo'))
+
+                    self.nn(core00.sessions.get(iden))
+                    self.nn(core01.sessions.get(iden))
+
+                    await core00.delHttpSess(iden)
+
+                    await core01.sync()
+
+                    self.none(await core00.getHttpSessDict(iden))
+                    self.none(await core01.getHttpSessDict(iden))
+
+                    self.none(core00.sessions.get(iden))
+                    self.none(core01.sessions.get(iden))
+
+                    self.eq(sess00.info, {})
+                    self.eq(sess01.info, {})
+                    self.true(sess00.isfini)
+                    self.true(sess01.isfini)
