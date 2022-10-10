@@ -814,3 +814,10 @@ class AhaTest(s_test.SynTest):
                         self.len(1, await core00.nodes('[inet:asn=0]'))
                         await core01.sync()
                         self.len(1, await core01.nodes('inet:asn=0'))
+
+        # Simple test setups should work without issue
+        async with self.getTestAhaProv() as aha:
+            async with self.addSvcToAha(aha, '00.cell', s_cell.Cell) as cell00:  # type: s_cell.Cell
+                async with self.addSvcToAha(aha, '01.cell', s_cell.Cell,
+                                            provinfo={'mirror': 'cell'}) as cell01:  # type: s_cell.Cell
+                    await cell01.sync()
