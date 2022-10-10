@@ -300,7 +300,7 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.waitNexsOffs(offs, timeout=timeout)
 
-    @adminapi()
+    @adminapi(log=True)
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
 
@@ -611,15 +611,15 @@ class CellApi(s_base.Base):
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
 
-    @adminapi()
+    @adminapi(log=True)
     async def listHiveKey(self, path=None):
         return await self.cell.listHiveKey(path=path)
 
-    @adminapi()
+    @adminapi(log=True)
     async def getHiveKeys(self, path):
         return await self.cell.getHiveKeys(path)
 
-    @adminapi()
+    @adminapi(log=True)
     async def getHiveKey(self, path):
         return await self.cell.getHiveKey(path)
 
@@ -1974,28 +1974,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
+        logger.info(f'Added rule={rule} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 rule=rule))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
         role = await self.auth.reqRole(iden)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
+        logger.info(f'Added rule={rule} on role {role.name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 rule=rule))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
+        logger.info(f'Removing rule={rule} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 rule=rule))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
+        logger.info(f'Removing rule={rule} on role {role.name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 rule=rule))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setRules(rules, gateiden=gateiden)
+        logger.info(f'Set user rules = {rules} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 rules=rules))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
+        logger.info(f'Set role rules = {rules} on role {role.name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 rules=rules))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
@@ -2021,6 +2039,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
+        logger.info(f'Set rolesidens={roleidens} to user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 roleidens=roleidens))
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
@@ -2187,6 +2208,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.reqGateKeys(gatekeys)
 
         item = self.dynitems.get(iden)
+        if item is None:
+            raise s_exc.NoSuchIden(mesg=f'No dynitem for iden={iden}', iden=iden)
+
         name, args, kwargs = todo
 
         meth = getattr(item, name)
@@ -2199,7 +2223,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         item = self.dynitems.get(iden)
         if item is None:
-            raise s_exc.NoSuchIden(mesg=iden)
+            raise s_exc.NoSuchIden(mesg=f'No dynitem for iden={iden}', iden=iden)
 
         name, args, kwargs = todo
         meth = getattr(item, name)
