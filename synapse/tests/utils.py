@@ -1334,13 +1334,11 @@ class SynTest(unittest.TestCase):
         waiter = aha.waiter(n, 'aha:svcadd')
 
         if dirn:
-            s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn, conf=conf) as svc:
                 self.len(n, await waiter.wait(timeout=12))
                 yield svc
         else:
             with self.getTestDir() as dirn:
-                s_common.yamlsave(conf, dirn, 'cell.yaml')
                 async with await ctor.anit(dirn, conf=conf) as svc:
                     self.len(n, await waiter.wait(timeout=12))
                     yield svc

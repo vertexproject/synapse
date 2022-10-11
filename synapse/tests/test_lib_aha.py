@@ -641,6 +641,38 @@ class AhaTest(s_test.SynTest):
                     # testing second run...
                     pass
 
+                # With one axon up, we can provision a mirror of him.
+                axn2path = s_common.genpath(dirn, 'axon2')
+
+                argv = ['--url', aha.getLocalUrl(), '01.axon', '--mirror', 'axon']
+                outp = s_output.OutPutStr()
+                await s_tools_provision_service.main(argv, outp=outp)
+                self.isin('one-time use URL: ', str(outp))
+                provurl = str(outp).split(':', 1)[1].strip()
+                urlinfo = s_telepath.chopurl(provurl)
+                providen = urlinfo.get('path').strip('/')
+
+                async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
+                    with s_common.genfile(axonpath, 'prov.done') as fd:
+                        axonproviden = fd.read().decode().strip()
+                    self.ne(axonproviden, providen)
+
+                    conf = {'aha:provision': provurl}
+                    async with self.getTestAxon(dirn=axn2path, conf=conf) as axon2:
+                        self.true(axon.isactive)
+                        self.false(axon2.isactive)
+                        self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+
+                        with s_common.genfile(axn2path, 'prov.done') as fd:
+                            axon2providen = fd.read().decode().strip()
+                        self.eq(providen, axon2providen)
+
+                    # Turn the mirror back on with the provisioning url in the config
+                    async with self.getTestAxon(dirn=axn2path, conf=conf) as axon2:
+                        self.true(axon.isactive)
+                        self.false(axon2.isactive)
+                        self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+
                 # Ensure we can provision a service on a given listening ports
                 with self.raises(AssertionError):
                     await s_tools_provision_service.main(('--url', aha.getLocalUrl(), 'bazfaz', '--dmon-port', '123456'),
