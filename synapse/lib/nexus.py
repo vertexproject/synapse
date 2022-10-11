@@ -433,7 +433,7 @@ class NexsRoot(s_base.Base):
         await self.startup()
 
     async def _onTeleLink(self, proxy):
-        self.client.schedCoro(self.runMirrorLoop(proxy))
+        proxy.schedCoro(self.runMirrorLoop(proxy))
 
     async def runMirrorLoop(self, proxy):
 
