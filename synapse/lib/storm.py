@@ -246,7 +246,7 @@ reqValidPkgdef = s_config.getJsValidator({
                     'default': {'type': 'string'},
                     'workflowconfig': {'type': 'boolean'},
                 },
-                'required': ['name', 'desc'],
+                'required': ['name', 'varname', 'desc'],
             },
         },
     },
