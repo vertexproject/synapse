@@ -230,8 +230,23 @@ reqValidPkgdef = s_config.getJsValidator({
                     'perm': {'type': 'array', 'items': {'type': 'string'}},
                     'desc': {'type': 'string'},
                     'gate': {'type': 'string'},
+                    'workflowconfig': {'type': 'boolean'},
                 },
                 'required': ['perm', 'desc', 'gate'],
+            },
+        },
+        'configvars': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                    'varname': {'type': 'string'},
+                    'desc': {'type': 'string'},
+                    'default': {'type': 'string'},
+                    'workflowconfig': {'type': 'boolean'},
+                },
+                'required': ['name', 'desc'],
             },
         },
     },

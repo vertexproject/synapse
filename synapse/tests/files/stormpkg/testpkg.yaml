@@ -22,6 +22,24 @@ docs:
     - title: Foo Bar
       path: docs/foobar.md
 
+perms:
+    - perm: [ power-ups, testpkg, user ]
+      gate: cortex
+      desc: Controls user access to testpkg.
+      workflowconfig: true
+
+configvars:
+    - name: API key
+      varname: testpkg:apikey
+      desc: API key to use for querying the testpkg API.
+      workflowconfig: true
+
+    - name: Tag Prefix
+      varname: testpkg:tag:prefix
+      desc: Tag prefix to use when recording tags.
+      default: rep.testpkg
+      workflowconfig: true
+
 commands:
     - name: testpkgcmd
       descr: |
