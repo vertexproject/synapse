@@ -81,6 +81,7 @@ TerminalPygMap = {
     'WILDCARD': p_t.Name,
     'YIELD': p_t.Keyword,
     '_ARRAYCONDSTART': p_t.Punctuation,
+    '_TAGPROPVAR': p_t.Punctuation,
     '_COLONDOLLAR': p_t.Punctuation,
     '_DEREF': p_t.Punctuation,
     '_EDGEADDN1FINI': p_t.Punctuation,
