@@ -520,7 +520,7 @@ class Parser:
             return s_exc.BadSyntax(**origexc.errinfo)
 
         elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
-            expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
+            expected = sorted(set(terminalEnglishMap[t] for t in e.allowed))
             mesg += f'.  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
             line = e.line
