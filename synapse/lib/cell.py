@@ -2672,8 +2672,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not self._mustBootMirror():
             return
 
-        # Unpack the pnfo tuple
-
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(pnfo)
 
@@ -2944,6 +2942,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # Overwrite the prov.done file that may have come from
         # the upstream backup.
         with s_common.genfile(self.dirn, 'prov.done') as fd:
+            fd.truncate(0)
             fd.write(providen.encode())
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
