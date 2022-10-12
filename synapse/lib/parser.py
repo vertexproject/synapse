@@ -503,7 +503,7 @@ class Parser:
         column = None
         token = None
         if isinstance(e, lark.exceptions.UnexpectedToken):
-            expected = sorted(terminalEnglishMap[t] for t in e.expected)
+            expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
             at = e.pos_in_stream
             line = e.line
             column = e.column
@@ -521,13 +521,13 @@ class Parser:
             return s_exc.BadSyntax(**origexc.errinfo)
 
         elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
-            expected = sorted(terminalEnglishMap[t] for t in e.allowed)
+            expected = sorted(set(terminalEnglishMap[t] for t in e.allowed))
             mesg += f'.  Expecting one of: {", ".join(expected)}'
             at = e.pos_in_stream
             line = e.line
             column = e.column
         elif isinstance(e, lark.exceptions.UnexpectedEOF):  # pragma: no cover
-            expected = sorted(terminalEnglishMap[t] for t in set(e.expected))
+            expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
             mesg += ' ' + ', '.join(expected)
             line = e.line
             column = e.column
