@@ -1315,6 +1315,10 @@ class SynTest(unittest.TestCase):
             conf (dict): Optional service conf.
             dirn (str): Optional directory.
             provinfo (dict)): Optional provisioning info.
+
+        Notes:
+            The config data for the cell is pushed into dirn/cell.yaml.
+            The cells are created with the ``ctor.anit()`` function.
         '''
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
@@ -1335,13 +1339,13 @@ class SynTest(unittest.TestCase):
 
         if dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
-            async with await ctor.anit(dirn, conf=conf) as svc:
+            async with await ctor.anit(dirn) as svc:
                 self.len(n, await waiter.wait(timeout=12))
                 yield svc
         else:
             with self.getTestDir() as dirn:
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
-                async with await ctor.anit(dirn, conf=conf) as svc:
+                async with await ctor.anit(dirn) as svc:
                     self.len(n, await waiter.wait(timeout=12))
                     yield svc
 

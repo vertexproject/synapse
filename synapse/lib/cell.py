@@ -2727,14 +2727,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellBoot(self):
 
-        provconf = await self._bootCellProv()
+        pnfo = await self._bootCellProv()
 
         # check this before we setup loadTeleCell()
         if not self._mustBootMirror():
             return
 
         async with s_telepath.loadTeleCell(self.dirn):
-            await self._bootCellMirror(provconf)
+            await self._bootCellMirror(pnfo)
 
     @classmethod
     async def _initBootRestore(cls, dirn):
@@ -2871,7 +2871,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if doneiden == providen:
             return
 
-        logger.debug(f'Provisioning {self.getCellType()} from AHA service.')
+        logger.info(f'Provisioning {self.getCellType()} from AHA service.')
 
         certdir = s_certdir.CertDir(path=(s_common.gendir(self.dirn, 'certs'),))
 
@@ -2902,9 +2902,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
 
-        logger.debug(f'Done provisioning {self.getCellType()} AHA service.')
+        logger.info(f'Done provisioning {self.getCellType()} AHA service.')
 
-        return provconf
+        return provconf, providen
 
     async def _bootProvConf(self, provconf):
         '''
@@ -2967,10 +2967,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.enNexsLog()
             await self.sync()
 
-    async def _bootCellMirror(self, provconf):
+    async def _bootCellMirror(self, pnfo):
         # this function must assume almost nothing is initialized
-        # but that's ok since it will only run rarely...
-        murl = self.conf.get('mirror')
+        # but that's ok since it will only run rarely.
+        # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
+        murl = self.conf.reqConfValu('mirror')
+        provconf, providen = pnfo
+
         logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
 
         tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
@@ -2996,6 +2999,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(tarpath)
 
         await self._bootProvConf(provconf)
+
+        # Overwrite the prov.done file that may have come from
+        # the upstream backup.
+        with s_common.genfile(self.dirn, 'prov.done') as fd:
+            fd.truncate(0)
+            fd.write(providen.encode())
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
