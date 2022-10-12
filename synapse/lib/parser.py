@@ -97,7 +97,6 @@ terminalEnglishMap = {
     'WILDCARD': '*',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
-    '_TAGPROPVAR': ':$',
     '_COLONDOLLAR': ':$',
     '_DEREF': '*',
     '_EDGEADDN1INIT': '+(',
