@@ -2039,7 +2039,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
-        logger.info(f'Set rolesidens={roleidens} to user {user.name}',
+        logger.info(f'Set roleidens={roleidens} on user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  roleidens=roleidens))
 
@@ -2061,7 +2061,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         name = user.name
         await self.auth.delUser(iden)
-        logger.info(f'Deleted user={user.name}',
+        logger.info(f'Deleted user={name}',
                    extra=await self.getLogExtra(target_user=iden, target_username=name))
 
     async def addRole(self, name):
@@ -2099,13 +2099,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
-        logger.info(f'Set lock={locked} for  user {user.name}',
+        logger.info(f'Set lock={locked} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
-        logger.info(f'Set archive={archived} for  user {user.name}',
+        logger.info(f'Set archive={archived} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def getUserDef(self, iden):
