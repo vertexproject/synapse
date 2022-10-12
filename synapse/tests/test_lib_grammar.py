@@ -11,6 +11,10 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 Queries = [
+    '$foo=(#$tag:$tagprop)',
+    '#$tag:$tagprop',
+    '#$tag:$tagprop=$valu',
+    '[+#$tag:$tagprop=$valu]',
     '$lib.print(`ip={$node.repr()} asn={:asn} .seen={.seen} foo={#foo} {:asn=5}`)',
     'inet:ipv4=45.79.131.138 -> inet:flow -(:dst:port=444 or :dst:port=80)',
     'media:news=0c7f7267d3b62432cb0d7d0e9d3108a4 -(refs)> inet:ipv4',
@@ -625,6 +629,10 @@ Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [TagPropValue: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]]]]]]',
+    'Query: [LiftTagProp: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]]]]',
+    'Query: [LiftTagProp: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]], Const: =, VarValue: [Const: valu]]]',
+    'Query: [EditTagPropSet: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]], Const: =, VarValue: [Const: valu]]]',
     'Query: [VarEvalOper: [FuncCall: [VarDeref: [VarValue: [Const: lib], Const: print], CallArgs: [FormatString: [Const: ip=, FuncCall: [VarDeref: [VarValue: [Const: node], Const: repr], CallArgs: [], CallKwargs: []], Const:  asn=, RelPropValue: [Const: asn], Const:  .seen=, UnivPropValue: [Const: .seen], Const:  foo=, TagValue: [TagName: [Const: foo]], Const:  , ExprNode: [RelPropValue: [Const: asn], Const: =, Const: 5]]], CallKwargs: []]]]',
     'Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: 45.79.131.138], FormPivot: [AbsProp: inet:flow], isjoin=False, FiltOper: [Const: -, OrCond: [RelPropCond: [RelPropValue: [RelProp: [Const: dst:port]], Const: =, Const: 444], RelPropCond: [RelPropValue: [RelProp: [Const: dst:port]], Const: =, Const: 80]]]]',
     'Query: [LiftPropBy: [Const: media:news, Const: =, Const: 0c7f7267d3b62432cb0d7d0e9d3108a4], N1Walk: [Const: refs, Const: inet:ipv4]]',
@@ -1435,6 +1443,13 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.eq(errinfo.get('tag'), 'test.*.bar')
         self.true(errinfo.get('mesg').startswith('Invalid wildcard usage in tag test.*.bar'))
+
+        query = '''$foo=(3+foo)'''
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.eq(1, errinfo.get('mesg').count('#'))
 
     async def test_quotes(self):
 
