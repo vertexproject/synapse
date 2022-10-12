@@ -2908,8 +2908,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _bootCellMirror(self, provconf):
         # this function must assume almost nothing is initialized
-        # but that's ok since it will only run rarely...
-        murl = self.conf.get('mirror')
+        # but that's ok since it will only run rarely.
+        # This does assume it was executed as a result of booting off
+        # of an aha:provision URL.
+        murl = self.conf.reqConfValu('mirror')
+        purl = self.conf.reqConfValu('aha:provision')
+        providen = s_telepath.chopurl(purl).get('path').strip('/')
         logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
 
         tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
@@ -2935,6 +2939,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(tarpath)
 
         await self._bootProvConf(provconf)
+
+        # Overwrite the prov.done file that may have come from
+        # the upstream backup.
+        with s_common.genfile(self.dirn, 'prov.done') as fd:
+            fd.write(providen.encode())
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 

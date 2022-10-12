@@ -657,21 +657,27 @@ class AhaTest(s_test.SynTest):
                         axonproviden = fd.read().decode().strip()
                     self.ne(axonproviden, providen)
 
-                    conf = {'aha:provision': provurl}
-                    async with self.getTestAxon(dirn=axn2path, conf=conf) as axon2:
-                        self.true(axon.isactive)
-                        self.false(axon2.isactive)
-                        self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+                    # Punch the provisioning URL in like a environment variable
+                    with self.setTstEnvars(SYN_AXON_AHA_PROVISION=provurl,
+                                           SYN_AXON_HTTPS_PORT='null',
+                                           ):
 
-                        with s_common.genfile(axn2path, 'prov.done') as fd:
-                            axon2providen = fd.read().decode().strip()
-                        self.eq(providen, axon2providen)
+                        async with await s_axon.Axon.initFromArgv((axn2path,)) as axon2:
+                            await axon2.sync()
+                            self.true(axon.isactive)
+                            self.false(axon2.isactive)
+                            self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
 
-                    # Turn the mirror back on with the provisioning url in the config
-                    async with self.getTestAxon(dirn=axn2path, conf=conf) as axon2:
-                        self.true(axon.isactive)
-                        self.false(axon2.isactive)
-                        self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+                            with s_common.genfile(axn2path, 'prov.done') as fd:
+                                axon2providen = fd.read().decode().strip()
+                            self.eq(providen, axon2providen)
+
+                        # Turn the mirror back on with the provisioning url in the config
+                        async with await s_axon.Axon.initFromArgv((axn2path,)) as axon2:
+                            await axon2.sync()
+                            self.true(axon.isactive)
+                            self.false(axon2.isactive)
+                            self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
 
                 # Ensure we can provision a service on a given listening ports
                 with self.raises(AssertionError):
