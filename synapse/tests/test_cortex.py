@@ -1158,6 +1158,8 @@ class CortexTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('#foo.bar:score<=30'))
                 self.len(1, await core.nodes('#foo.bar:score>=10'))
                 self.len(1, await core.nodes('#foo.bar:score*range=(10, 30)'))
+                self.len(1, await core.nodes('$tag=foo.bar $prop=score #$tag:$prop'))
+                self.len(1, await core.nodes('$tag=foo.bar $prop=score #$tag:$prop=20'))
 
                 self.len(1, await core.nodes('#blah:user^=vi'))
                 self.len(1, await core.nodes('#blah:user~=si'))
@@ -1243,6 +1245,12 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(30, nodes[0].getTagProp('bar', 'score'))
 
                 await core.nodes('test:int=10 [ -#foo -#bar ]')
+
+                nodes = await core.nodes('$tag=foo $prop=score $valu=5 test:int=10 [ +#$tag:$prop=$valu ]')
+                self.eq(5, nodes[0].getTagProp('foo', 'score'))
+
+                nodes = await core.nodes('$tag=foo $prop=score test:int=10 [ -#$tag:$prop ]')
+                self.false(nodes[0].hasTagProp('foo', 'score'))
 
                 with self.raises(s_exc.NoSuchCmpr):
                     await core.nodes('test:int=10 +#foo.bar:score*newp=66')
