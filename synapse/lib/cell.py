@@ -2666,14 +2666,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellBoot(self):
 
-        provconf = await self._bootCellProv()
+        pnfo = await self._bootCellProv()
 
         # check this before we setup loadTeleCell()
         if not self._mustBootMirror():
             return
 
+        # Unpack the pnfo tuple
+
         async with s_telepath.loadTeleCell(self.dirn):
-            await self._bootCellMirror(provconf)
+            await self._bootCellMirror(pnfo)
 
     @classmethod
     async def _initBootRestore(cls, dirn):
@@ -2843,7 +2845,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.debug(f'Done provisioning {self.getCellType()} AHA service.')
 
-        return provconf
+        return provconf, providen
 
     async def _bootProvConf(self, provconf):
         '''
@@ -2906,14 +2908,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.enNexsLog()
             await self.sync()
 
-    async def _bootCellMirror(self, provconf):
+    async def _bootCellMirror(self, pnfo):
         # this function must assume almost nothing is initialized
         # but that's ok since it will only run rarely.
-        # This does assume it was executed as a result of booting off
-        # of an aha:provision URL.
+        # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
         murl = self.conf.reqConfValu('mirror')
-        purl = self.conf.reqConfValu('aha:provision')
-        providen = s_telepath.chopurl(purl).get('path').strip('/')
+        provconf, providen = pnfo
+
         logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
 
         tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
