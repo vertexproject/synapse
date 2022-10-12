@@ -611,7 +611,7 @@ class CellApi(s_base.Base):
     async def getDmonSessions(self):
         return await self.cell.getDmonSessions()
 
-    @adminapi(log=True)
+    @adminapi()
     async def listHiveKey(self, path=None):
         return await self.cell.listHiveKey(path=path)
 
