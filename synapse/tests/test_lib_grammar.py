@@ -11,6 +11,7 @@ import synapse.tests.utils as s_t_utils
 # flake8: noqa: E501
 
 Queries = [
+    '$foo=(#$tag:$tagprop)',
     '#$tag:$tagprop',
     '#$tag:$tagprop=$valu',
     '[+#$tag:$tagprop=$valu]',
@@ -628,6 +629,7 @@ Queries = [
 
 # Generated with print_parse_list below
 _ParseResults = [
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [TagPropValue: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]]]]]]',
     'Query: [LiftTagProp: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]]]]',
     'Query: [LiftTagProp: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]], Const: =, VarValue: [Const: valu]]]',
     'Query: [EditTagPropSet: [TagProp: [VarValue: [Const: tag], VarValue: [Const: tagprop]], Const: =, VarValue: [Const: valu]]]',

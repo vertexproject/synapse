@@ -287,8 +287,8 @@ _EXPRHASHSPACE.2: /(?<=\s)#/
 
 exprtagpropvalu: exprtagprop -> tagpropvalu
     | exprtagpropwithspace -> tagpropvalu
-exprtagprop: exprtagname ":" (BASEPROP | _varvalu) -> tagprop
-exprtagpropwithspace: exprtagnamewithspace ":" (BASEPROP | _varvalu) -> tagprop
+exprtagprop: exprtagname ":" (BASEPROP | _exprvarvalu) -> tagprop
+exprtagpropwithspace: exprtagnamewithspace ":" (BASEPROP | _exprvarvalu) -> tagprop
 
 _exprvarvalu: "$" _exprvarvaluatom
 _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
