@@ -193,9 +193,9 @@ liftbytagprop: (tagprop | tagpropwithspace) [_cmpr _valu]
 liftbyformtagprop: formtagprop [_cmpr _valu]
 tagname: _tagmatch
 tagnamewithspace: _tagmatchwithspace -> tagname
-tagprop: tagname ":" BASEPROP
-tagpropwithspace: tagnamewithspace ":" BASEPROP -> tagprop
-formtagprop: (PROPS | UNIVNAME) tagname ":" BASEPROP
+tagprop: tagname ":" (BASEPROP | _varvalu)
+tagpropwithspace: tagnamewithspace ":" (BASEPROP | _varvalu) -> tagprop
+formtagprop: (PROPS | UNIVNAME) tagname ":" (BASEPROP | _varvalu)
 
 _funcarg: (VARTOKN [EQNOSPACE _valu])
 funcargs: "(" (_funcarg ("," _funcarg)* )? ")"
@@ -287,8 +287,8 @@ _EXPRHASHSPACE.2: /(?<=\s)#/
 
 exprtagpropvalu: exprtagprop -> tagpropvalu
     | exprtagpropwithspace -> tagpropvalu
-exprtagprop: exprtagname ":" BASEPROP -> tagprop
-exprtagpropwithspace: exprtagnamewithspace ":" BASEPROP -> tagprop
+exprtagprop: exprtagname ":" (BASEPROP | _exprvarvalu) -> tagprop
+exprtagpropwithspace: exprtagnamewithspace ":" (BASEPROP | _exprvarvalu) -> tagprop
 
 _exprvarvalu: "$" _exprvarvaluatom
 _exprvarvaluatom: exprvarvalue | exprvarderef | exprfunccall
