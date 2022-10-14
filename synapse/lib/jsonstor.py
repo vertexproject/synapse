@@ -415,6 +415,35 @@ class JsonStorApi(s_cell.CellApi):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
+    @s_cell.adminapi()
+    async def addRowsMeta(self, iden, info):
+        return self.cell.addRowsMeta(iden, info)
+
+    @s_cell.adminapi()
+    async def getRowsMeta(self, iden)
+        return self.cell.getRowsMeta(iden)
+
+    @s_cell.adminapi()
+    async def setRowMeta(self, iden, info):
+        return self.cell.setRowsMeta(iden, info)
+
+    @s_cell.adminapi()
+    async def popRowMeta(self, iden, name):
+        return self.cell.popRowsMeta(iden, name)
+
+    @s_cell.adminapi()
+    async def delRowMeta(self, iden):
+        return self.cell.delRowsMeta(iden)
+
+    @s_cell.adminapi()
+    async def setRowsData(self, iden, offs, rows):
+        return self.cell.setRowsData(iden, offs, rows)
+
+    @s_cell.adminapi()
+    async def iterRowsData(self, iden, offs):
+        async for item in self.cell.iterRowsData(iden, offs):
+            yield item
+
 class JsonStorCell(s_cell.Cell):
 
     cellapi = JsonStorApi
@@ -422,6 +451,11 @@ class JsonStorCell(s_cell.Cell):
     async def initServiceStorage(self):
         self.jsonstor = await JsonStor.anit(self.slab, 'jsonstor')
         self.multique = await s_lmdbslab.MultiQueue.anit(self.slab, 'multique')
+
+        path = s_common.genpath(self.dirn, 'slabs', 'rowsdata.lmdb')
+        self.rowsslab = await s_lmdbslab.Slab.anit(path)
+        self.rowsmeta = await self.rowsslab.initdb('rows:meta')
+        self.rowsdata = await self.rowsslab.initdb('rows:data')
 
         self.onfini(self.jsonstor.fini)
         self.onfini(self.multique.fini)
@@ -432,6 +466,103 @@ class JsonStorCell(s_cell.Cell):
         self.notifseqn = self.slab.getSeqn('notifs')
         self.notif_indx_usertime = self.slab.initdb('indx:user:time', dupsort=True)
         self.notif_indx_usertype = self.slab.initdb('indx:user:type', dupsort=True)
+
+    @s_nexus.Pusher.onPushAuto('rows:meta:add')
+    async def addRowsMeta(self, iden, info):
+
+        if not s_common.isguid(iden):
+            mesg = 'addRowsMeta() iden must be a valid guid!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.rowsslab.put(s_common.uhex(iden), s_msgpack.en(info), db=self.rowsmeta)
+
+    async def getRowsMeta(self, iden)
+
+        if not s_common.isguid(iden):
+            mesg = 'getRowsMeta() iden must be a valid guid!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        byts = self.rowsslab.get(s_common.uhex(iden), db=self.rowsmeta)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    @s_nexus.Pusher.onPushAuto('rows:meta:set')
+    async def setRowMeta(self, iden, info):
+
+        if not s_common.isguid(iden):
+            mesg = 'setRowsMeta() iden must be a valid guid!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        self.rowsslab.put(s_common.uhex(iden), s_msgpack.en(info), db=self.rowsmeta)
+
+    @s_nexus.Pusher.onPushAuto('rows:meta:pop')
+    async def popRowMeta(self, iden, name):
+
+        if not s_common.isguid(iden):
+            mesg = 'popRowsMeta() iden must be a valid guid!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        lkey = s_common.ehex(iden)
+
+        byts = self.rowsslab.get(lkey, db=self.rowsmeta)
+        if byts is None:
+            mesg = f'No such rows iden: {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        info = s_msgpack.un(byts)
+        retn = info.pop(name)
+
+        self.rowsslab.put(lkey, s_msgpack.en(info), db=self.rowsmeta)
+        return retn
+
+    @s_nexus.Pusher.onPushAuto('rows:meta:del')
+    async def delRowMeta(self, iden):
+
+        if not s_common.isguid(iden):
+            mesg = 'setRowsMeta() iden must be a valid guid!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pref = s_common.uhex(iden)
+
+        for lkey in self.rowsslab.scanKeysByPref(pref, db=self.rowsdata):
+            self.rowsslab.pop(lkey, db=self.rowsdata)
+            await asyncio.sleep(0)
+
+        byts = self.rowsslab.get(pref, db=self.rowsmeta)
+        return byts is not None
+
+    @s_nexus.Pusher.onPushAuto('rows:data:set')
+    async def setRowsData(self, iden, offs, rows):
+
+        if not s_common.isguid(iden):
+            mesg = 'setRowsData() iden must be a valid guid!'
+            raise s_exc.BadArg(mesg=mesg)
+
+        pref = s_common.uhex(iden)
+
+        if not self.rowsslab.has(pref, db=self.rowsmeta):
+            mesg = f'No such rows iden: {iden}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        for item in rows:
+            byts = s_msgpack.en(item)
+            lkey = pref + s_common.int64en(offs)
+            self.rowsslab.put(lkey, byts, db=self.rowsdata)
+            offs += 1
+            await asyncio.sleep(0)
+
+    async def iterRowsData(self, iden, offs):
+
+        pref = s_common.uhex(iden)
+        if not self.rowsslab.has(pref, db=self.rowsmeta):
+            mesg = f'No such rows iden: {iden}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        minkey = pref + s_common.int64en(offs)
+        maxkey = pref + s_common.int64en(0xffffffffffffffff)
+
+        for lkey, lval in self.rowsslab.scanByRange(minkey, maxkey, db=self.rowsdata):
+            yield s_msgpack.un(lval)
 
     @classmethod
     def getEnvPrefix(cls):

@@ -3154,11 +3154,14 @@ class Cortex(s_cell.Cell):  # type: ignore
 
     async def _initJsonStor(self):
 
+        self.jsonstor_info = None
+
         self.jsonurl = self.conf.get('jsonstor')
         if self.jsonurl is not None:
 
             async def onlink(proxy: s_telepath.Proxy):
                 logger.debug(f'Connected to remote jsonstor {s_urlhelp.sanitizeUrl(self.jsonurl)}')
+                self.jsonstor_info = await proxy.getCellInfo()
 
             self.jsonstor = await s_telepath.Client.anit(self.jsonurl, onlink=onlink)
         else:
@@ -3179,6 +3182,7 @@ class Cortex(s_cell.Cell):  # type: ignore
 
             conf = {'cell:guid': jsoniden}
             self.jsonstor = await s_jsonstor.JsonStorCell.anit(path, conf=conf, parent=self)
+            self.jsonstor_info = await self.jsonstor.getCellInfo()
 
         self.onfini(self.jsonstor)
 
@@ -3251,6 +3255,8 @@ class Cortex(s_cell.Cell):  # type: ignore
             yield item
 
     async def _initCoreAxon(self):
+        self.axoninfo = None
+
         turl = self.conf.get('axon')
         if turl is None:
             path = os.path.join(self.dirn, 'axon')
@@ -3449,6 +3455,12 @@ class Cortex(s_cell.Cell):  # type: ignore
                 return await self.viewapi.anit(self, link, user, view)
 
         raise s_exc.NoSuchPath(mesg=f'Invalid telepath path={path}', path=path)
+
+    async def getCellInfo(self):
+        info = await Cell.getCellInfo(self)
+        info['cells']['axon'] = self.axoninfo
+        info['cells']['jsonstor'] = self.jsonstor_info
+        return info
 
     async def getModelDict(self):
         return self.model.getModelDict()

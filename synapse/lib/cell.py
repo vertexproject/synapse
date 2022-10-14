@@ -3321,6 +3321,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'verstring': self.VERSTRING,
                 'cellvers': dict(self.cellvers.items()),
             },
+            'cells': {
+            },
             'features': {
                 'tellready': True,
                 'dynmirror': True,
