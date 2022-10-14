@@ -26,6 +26,7 @@ perms:
     - perm: [ power-ups, testpkg, user ]
       gate: cortex
       desc: Controls user access to testpkg.
+      scopes: [ global, self ]
       workflowconfig: true
 
 configvars:
