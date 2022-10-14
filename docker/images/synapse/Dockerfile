@@ -6,7 +6,7 @@
 
 FROM vertexproject/vtx-base-image:py38
 
-ENV SYN_LOG_LEVEL="WARNING"
+ENV SYN_LOG_LEVEL="INFO"
 
 COPY synapse /build/synapse/synapse
 COPY setup.py /build/synapse/setup.py

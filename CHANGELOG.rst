@@ -4,6 +4,39 @@
 Synapse Changelog
 *****************
 
+v2.111.0 - 2022-10-12
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the Storm grammar to allow specifying a tag property with a variable.
+  (`#2881 <https://github.com/vertexproject/synapse/pull/2881>`_)
+ - Add log messages for user and role management activities in the Cell.
+  (`#2877 <https://github.com/vertexproject/synapse/pull/2877>`_)
+- The logging of service provisioning steps on Aha and when services were
+  starting up was previously done at the ``DEBUG`` level. These are now done
+  at the ``INFO`` level.
+  (`#2883 <https://github.com/vertexproject/synapse/pull/2883>`_)
+- The ``vertexproject/synapse:`` docker images now have the environment
+  variable ``SYN_LOG_LEVEL`` set to ``INFO``. Previously this was ``WARNING``.
+  (`#2883 <https://github.com/vertexproject/synapse/pull/2883>`_)
+
+Bugfixes
+--------
+- Move the Nexus ``runMirrorLoop`` task to hang off of the Telepath Proxy
+  and not the Telepath client. This results in a faster teardown of the
+  ``runMirrorLoop`` task during Nexus shutdown.
+  (`#2878 <https://github.com/vertexproject/synapse/pull/2878>`_)
+- Remove duplicate tokens presented to users in Storm syntax errors.
+  (`#2879 <https://github.com/vertexproject/synapse/pull/2879>`_)
+- When bootstrapping a service mirror with Aha provisioning, the ``prov.done``
+  file that was left in the service storage directory was the value from the
+  upstream service, and not the service that has been provisioned. This
+  resulted in ``NoSuchName`` exceptions when restarting mirrors.
+  The bootstrapping process now records the correct value in the ``prov.done``
+  file.
+  (`#2882 <https://github.com/vertexproject/synapse/pull/2882>`_)
+
 v2.110.0 - 2022-10-07
 =====================
 
