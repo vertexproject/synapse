@@ -262,14 +262,14 @@ class ProvDmon(s_daemon.Daemon):
             anam = conf.get('aha:name')
             anet = conf.get('aha:network')
             mesg = f'Retrieved service provisioning info for {anam}.{anet} iden {name}'
-            logger.debug(mesg, extra=await self.aha.getLogExtra(iden=name, name=anam, netw=anet))
+            logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, name=anam, netw=anet))
             return ProvApi(self.aha, provinfo)
 
         userinfo = await self.aha.getAhaUserEnroll(name)
         if userinfo is not None:
             unam = userinfo.get('name')
             mesg = f'Retrieved user provisioning info for {unam} iden {name}'
-            logger.debug(mesg, extra=await self.aha.getLogExtra(iden=name, name=unam))
+            logger.info(mesg, extra=await self.aha.getLogExtra(iden=name, name=unam))
             await self.aha.delAhaUserEnroll(name)
             return EnrollApi(self.aha, userinfo)
 
@@ -825,7 +825,7 @@ class AhaCell(s_cell.Cell):
 
         iden = await self._push('aha:svc:prov:add', provinfo)
 
-        logger.debug(f'Created service provisioning for {name}.{netw} with iden {iden}',
+        logger.info(f'Created service provisioning for {name}.{netw} with iden {iden}',
                      extra=await self.getLogExtra(iden=iden, name=name, netw=netw))
 
         return self._getProvClientUrl(iden)
@@ -904,7 +904,7 @@ class AhaCell(s_cell.Cell):
 
         iden = await self._push('aha:enroll:add', userinfo)
 
-        logger.debug(f'Created user provisioning for {name} with iden {iden}',
+        logger.info(f'Created user provisioning for {name} with iden {iden}',
                      extra=await self.getLogExtra(iden=iden, name=name))
 
         return self._getProvClientUrl(iden)

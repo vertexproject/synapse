@@ -300,7 +300,7 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.waitNexsOffs(offs, timeout=timeout)
 
-    @adminapi()
+    @adminapi(log=True)
     async def promote(self, graceful=False):
         return await self.cell.promote(graceful=graceful)
 
@@ -615,11 +615,11 @@ class CellApi(s_base.Base):
     async def listHiveKey(self, path=None):
         return await self.cell.listHiveKey(path=path)
 
-    @adminapi()
+    @adminapi(log=True)
     async def getHiveKeys(self, path):
         return await self.cell.getHiveKeys(path)
 
-    @adminapi()
+    @adminapi(log=True)
     async def getHiveKey(self, path):
         return await self.cell.getHiveKey(path)
 
@@ -1974,81 +1974,139 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
+        logger.info(f'Added rule={rule} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 rule=rule))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
         role = await self.auth.reqRole(iden)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
+        logger.info(f'Added rule={rule} on role {role.name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 rule=rule))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
+        logger.info(f'Removing rule={rule} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 rule=rule))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
+        logger.info(f'Removing rule={rule} on role {role.name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 rule=rule))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setRules(rules, gateiden=gateiden)
+        logger.info(f'Set user rules = {rules} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 rules=rules))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
+        logger.info(f'Set role rules = {rules} on role {role.name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                                                 rules=rules))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
+        oname = role.name
         await role.setName(name)
+        logger.info(f'Set name={name} from {oname} on role iden={role.iden}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
+        logger.info(f'Set admin={admin} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
+        role = await self.auth.reqRole(roleiden)
         await user.grant(roleiden)
+        logger.info(f'Granted role {role.name} to user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 target_role=role.iden, target_rolename=role.name))
 
     async def setUserRoles(self, useriden, roleidens):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
+        logger.info(f'Set roleidens={roleidens} on user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 roleidens=roleidens))
 
     async def delUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
+        role = await self.auth.reqRole(roleiden)
         await user.revoke(roleiden)
+        logger.info(f'Revoked role {role.name} from user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 target_role=role.iden, target_rolename=role.name))
 
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
+        logger.info(f'Added user={name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
         return user.pack(packroles=True)
 
     async def delUser(self, iden):
+        user = await self.auth.reqUser(iden)
+        name = user.name
         await self.auth.delUser(iden)
+        logger.info(f'Deleted user={name}',
+                   extra=await self.getLogExtra(target_user=iden, target_username=name))
 
     async def addRole(self, name):
         role = await self.auth.addRole(name)
+        logger.info(f'Added role={name}',
+                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name))
         return role.pack()
 
     async def delRole(self, iden):
+        role = await self.auth.reqRole(iden)
+        name = role.name
         await self.auth.delRole(iden)
+        logger.info(f'Deleted role={name}',
+                     extra=await self.getLogExtra(target_role=iden, target_rolename=name))
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
+        user = await self.auth.reqUser(useriden)
+        logger.info(f'Set email={email} for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserName(self, useriden, name):
         user = await self.auth.reqUser(useriden)
+        oname = user.name
         await user.setName(name)
+        logger.info(f'Set name={name} from {oname} on user iden={user.iden}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
+        logger.info(f'Set password for {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserLocked(self, iden, locked):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
+        logger.info(f'Set lock={locked} for user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
+        logger.info(f'Set archive={archived} for user {user.name}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
 
     async def getUserDef(self, iden):
         user = self.auth.user(iden)
@@ -2150,6 +2208,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.reqGateKeys(gatekeys)
 
         item = self.dynitems.get(iden)
+        if item is None:
+            raise s_exc.NoSuchIden(mesg=f'No dynitem for iden={iden}', iden=iden)
+
         name, args, kwargs = todo
 
         meth = getattr(item, name)
@@ -2162,7 +2223,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         item = self.dynitems.get(iden)
         if item is None:
-            raise s_exc.NoSuchIden(mesg=iden)
+            raise s_exc.NoSuchIden(mesg=f'No dynitem for iden={iden}', iden=iden)
 
         name, args, kwargs = todo
         meth = getattr(item, name)
@@ -2666,14 +2727,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellBoot(self):
 
-        provconf = await self._bootCellProv()
+        pnfo = await self._bootCellProv()
 
         # check this before we setup loadTeleCell()
         if not self._mustBootMirror():
             return
 
         async with s_telepath.loadTeleCell(self.dirn):
-            await self._bootCellMirror(provconf)
+            await self._bootCellMirror(pnfo)
 
     @classmethod
     async def _initBootRestore(cls, dirn):
@@ -2810,7 +2871,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if doneiden == providen:
             return
 
-        logger.debug(f'Provisioning {self.getCellType()} from AHA service.')
+        logger.info(f'Provisioning {self.getCellType()} from AHA service.')
 
         certdir = s_certdir.CertDir(path=(s_common.gendir(self.dirn, 'certs'),))
 
@@ -2841,9 +2902,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         with s_common.genfile(self.dirn, 'prov.done') as fd:
             fd.write(providen.encode())
 
-        logger.debug(f'Done provisioning {self.getCellType()} AHA service.')
+        logger.info(f'Done provisioning {self.getCellType()} AHA service.')
 
-        return provconf
+        return provconf, providen
 
     async def _bootProvConf(self, provconf):
         '''
@@ -2906,10 +2967,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.nexsroot.enNexsLog()
             await self.sync()
 
-    async def _bootCellMirror(self, provconf):
+    async def _bootCellMirror(self, pnfo):
         # this function must assume almost nothing is initialized
-        # but that's ok since it will only run rarely...
-        murl = self.conf.get('mirror')
+        # but that's ok since it will only run rarely.
+        # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
+        murl = self.conf.reqConfValu('mirror')
+        provconf, providen = pnfo
+
         logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
 
         tarpath = s_common.genpath(self.dirn, 'tmp', 'bootstrap.tgz')
@@ -2935,6 +2999,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 os.unlink(tarpath)
 
         await self._bootProvConf(provconf)
+
+        # Overwrite the prov.done file that may have come from
+        # the upstream backup.
+        with s_common.genfile(self.dirn, 'prov.done') as fd:
+            fd.truncate(0)
+            fd.write(providen.encode())
 
         logger.warning(f'Bootstrap mirror from: {murl} DONE!')
 
