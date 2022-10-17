@@ -236,7 +236,6 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.getPermDefs()
 
-
     @adminapi()
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
