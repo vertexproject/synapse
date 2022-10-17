@@ -946,15 +946,21 @@ class SynTest(unittest.TestCase):
         Returns:
             s_axon.Axon: A Axon object.
         '''
-        if dirn is not None:
-            async with await s_axon.Axon.anit(dirn, conf) as axon:
-                yield axon
 
-            return
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
 
-        with self.getTestDir() as dirn:
-            async with await s_axon.Axon.anit(dirn, conf) as axon:
-                yield axon
+        with self.withNexusReplay():
+            if dirn is not None:
+                async with await s_axon.Axon.anit(dirn, conf) as axon:
+                    yield axon
+
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_axon.Axon.anit(dirn, conf) as axon:
+                    yield axon
 
     @contextlib.contextmanager
     def withTestCmdr(self, cmdg):
@@ -1165,10 +1171,22 @@ class SynTest(unittest.TestCase):
                 yield core, prox
 
     @contextlib.asynccontextmanager
-    async def getTestJsonStor(self):
-        with self.getTestDir() as dirn:
-            async with await s_jsonstor.JsonStorCell.anit(dirn) as jsonstor:
-                yield jsonstor
+    async def getTestJsonStor(self, dirn=None, conf=None):
+
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
+
+        with self.withNexusReplay():
+            if dirn is not None:
+                async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
+                    yield jsonstor
+
+                return
+
+            with self.getTestDir() as dirn:
+                async with await s_jsonstor.JsonStorCell.anit(dirn, conf) as jsonstor:
+                    yield jsonstor
 
     @contextlib.asynccontextmanager
     async def getTestCryo(self, dirn=None, conf=None):
@@ -1221,16 +1239,17 @@ class SynTest(unittest.TestCase):
 
         conf = copy.deepcopy(conf)
 
-        if dirn is not None:
+        with self.withNexusReplay():
+            if dirn is not None:
 
-            async with await ctor.anit(dirn, conf=conf) as cell:
-                yield cell
+                async with await ctor.anit(dirn, conf=conf) as cell:
+                    yield cell
 
-            return
+                return
 
-        with self.getTestDir() as dirn:
-            async with await ctor.anit(dirn, conf=conf) as cell:
-                yield cell
+            with self.getTestDir() as dirn:
+                async with await ctor.anit(dirn, conf=conf) as cell:
+                    yield cell
 
     @contextlib.asynccontextmanager
     async def getTestCoreProxSvc(self, ssvc, ssvc_conf=None, core_conf=None):
@@ -1253,13 +1272,19 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getTestAha(self, conf=None, dirn=None):
-        if dirn:
-            async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                yield aha
-        else:
-            with self.getTestDir() as dirn:
+
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
+
+        with self.withNexusReplay():
+            if dirn:
                 async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
                     yield aha
+            else:
+                with self.getTestDir() as dirn:
+                    async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                        yield aha
 
     @contextlib.asynccontextmanager
     async def getTestAhaProv(self, conf=None, dirn=None):
@@ -1340,13 +1365,13 @@ class SynTest(unittest.TestCase):
         if dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:
-                self.len(n, await waiter.wait(timeout=12))
+                self.ge(len(await waiter.wait(timeout=12)), n)
                 yield svc
         else:
             with self.getTestDir() as dirn:
                 s_common.yamlsave(conf, dirn, 'cell.yaml')
                 async with await ctor.anit(dirn) as svc:
-                    self.len(n, await waiter.wait(timeout=12))
+                    self.ge(len(await waiter.wait(timeout=12)), n)
                     yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
