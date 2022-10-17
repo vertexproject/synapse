@@ -12,6 +12,7 @@ Documentation for specific Advanced Power-Ups can be found here:
 - `Synapse Backup <https://synapse.docs.vertex.link/projects/backup/en/latest/>`_
 - `Synapse Fileparser <https://synapse.docs.vertex.link/projects/fileparser/en/latest/>`_
 - `Synapse Maxmind <https://synapse.docs.vertex.link/projects/maxmind/en/latest/>`_
+- `Synapse GCS <https://synapse.docs.vertex.link/projects/gcs/en/latest/>`_
 - `Synapse Metrics <https://synapse.docs.vertex.link/projects/metrics/en/latest/>`_
 - `Synapse Nettools <https://synapse.docs.vertex.link/projects/nettools/en/latest/>`_
 - `Synapse Nominatim <https://synapse.docs.vertex.link/projects/nominatim/en/latest/>`_
