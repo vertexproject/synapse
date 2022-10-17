@@ -110,6 +110,8 @@ eip-55 address test vectors
 0x52908400098527886E0F7030069857D2E4169EE7
 0x8617E340B3D01FA5F11F306F4090FD50E238070D
 
+# schema defanged and modified with host defanged as well
+hxxp[s]://legitcorp[.]com/blah/giggle.html
 '''
 
 btc_addresses = '''
@@ -618,11 +620,19 @@ class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape_context(self):
         results = list(s_scrape.contextScrape(data3))
+        from pprint import pprint
         r = [r for r in results if r.get('valu') == 'https://www.foobar.com/things.html'][0]
         self.eq(r, {'form': 'inet:url',
                     'match': 'https://www.foobar.com/things.html',
                     'offset': 2,
                     'valu': 'https://www.foobar.com/things.html'})
+
+        r = [r for r in results if r.get('valu') == 'https://legitcorp.com/blah/giggle.html'][0]
+        pprint(r)
+        self.eq(r, {'form': 'inet:url',
+  'match': 'hxxp[s]://legitcorp[.]com/blah/giggle.html',
+  'offset': 61,
+  'valu': 'https://legitcorp.com/blah/giggle.html'})
 
         r = [r for r in results if r.get('valu') == 'www.thingspace.com'][0]
         self.eq(r, {'form': 'inet:fqdn',
