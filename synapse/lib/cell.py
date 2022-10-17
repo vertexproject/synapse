@@ -954,6 +954,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.inaugural = False
         self.activecoros = {}
+        self.permdefs = {}
 
         self.conf = self._initCellConf(conf)
 
@@ -1093,6 +1094,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceRuntime()
         # phase 5 - service networking
         await self.initServiceNetwork()
+
+    async def addPermDef(self, perm, info):
+        self.permdefs[perm] = info
+
+    async def getPermDefs(self):
+        return self.permdefs.copy()
 
     async def fini(self):
         '''Fini override that ensures locking teardown order.'''

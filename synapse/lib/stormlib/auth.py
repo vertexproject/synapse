@@ -94,6 +94,133 @@ stormcmds = (
             }
         ''',
     },
-    # TODO auth.user/set.set
-    # TODO auth.user.grant/revoke
+    {
+        'name': 'auth.user.grant',
+        'descr': '''
+            Grant a role to a user.
+
+            Examples:
+                // Grant the role "ninjas" to the user "visi"
+                auth.user.grant visi ninjas
+
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+            ('rolename', {'type': 'str', 'help': 'The name of the role.'}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
+
+            $role = $lib.auth.roles.byname($cmdopts.rolename)
+            if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
+
+            $lib.print(`Granting role {$role.name} to user {$user.name}.`)
+            $user.grant($role.iden)
+        ''',
+    },
+    {
+        'name': 'auth.user.revoke',
+        'descr': '''
+            Revoke a role from a user.
+
+            Examples:
+                // Revoke the role "ninjas" from the user "visi"
+                auth.user.grant visi ninjas
+
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+            ('rolename', {'type': 'str', 'help': 'The name of the role.'}),
+        ),
+        'storm': '''
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
+
+            $role = $lib.auth.roles.byname($cmdopts.rolename)
+            if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
+
+            $lib.print(`Revoking role {$role.name} from user {$user.name}.`)
+            $user.revoke($role.iden)
+        ''',
+    },
+    {
+        'name': 'auth.user.show',
+        'descr': '''
+            Display details for a given user.
+
+            Examples:
+                // Display details about the user "visi"
+                auth.user.show visi
+        ''',
+        'cmdargs': (
+            ('username', {'type': 'str', 'help': 'The name of the user.'}),
+        ),
+        'storm': '''
+
+            $user = $lib.auth.users.byname($cmdopts.username)
+            if (not $user) { $lib.exit(`No user named: {$cmdopts.username}`) }
+
+        ''',
+    },
+    {
+        'name': 'auth.role.show',
+        'descr': '''
+
+            Display details for a given role.
+
+            Examples:
+                // Display details about the role "ninjas"
+                auth.role.show ninjas
+        ''',
+        'cmdargs': (
+            ('rolename', {'type': 'str', 'help': 'The name of the role.'}),
+        ),
+        'storm': '''
+
+            $role = $lib.auth.roles.byname($cmdopts.rolename)
+            if (not $role) { $lib.exit(`No role named: {$cmdopts.rolename}`) }
+
+        '''
+    },
+    {
+        'name': 'auth.gate.show',
+        'descr': '''
+
+            Display users, roles, and permissions for an auth gate.
+
+            Examples:
+                // Display the users and roles with permissions to the top layer of the current view.
+                auth.gate.show $lib.layer.get().iden
+
+                // Display the users and roles with permissions to the current view.
+                auth.gate.show $lib.view.get().iden
+        ''',
+        'cmdargs': (
+            ('gateiden', {'type': 'str', 'help': 'The GUID of the auth gate.'}),
+        ),
+        'storm': '''
+
+            $gate = $lib.auth.gates.get($cmdopts.gateiden)
+            if (not $gate) { $lib.exit(`No auth gate found for iden: {$cmdopts.iden}.`) }
+
+            $lib.print('  Auth Gate Users:')
+            for $gateuser in $gate.users {
+                $user = $lib.auth.users.get($gateuser.iden)
+                $lib.print(`    {$user.iden} - {$user.name}`)
+                $lib.print(`        admin: {$gateuser.admin}`)
+                $lib.print(`        rules:`)
+                for $rule in $gateuser.rules {
+                    $allow = "deny "
+                    if $rule.0 { $status = allow }
+                    $lib.print(`        rules:`)
+                }
+            }
+
+            for $gaterole in $gate.roles {
+            }
+
+        '''
+    }
+    # TODO auth.user/role.set
 )

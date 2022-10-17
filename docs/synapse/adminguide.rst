@@ -8,6 +8,74 @@ This guide is designed for use by Synapse "global admins" who are typically powe
 the Cortex and are responsible for non-devops configuration and management of a Synapse deployment. This guide focuses on
 using Storm to accomplish administration tasks and discusses conventions and permissions details for the Cortex.
 
+Cortex Permissions
+==================
+
+The **Cortex** supports a highly granular permission system which can be used to control users ability to interact with
+data and components within the system. Permissions are denied by default, but a small number of permissions are granted
+to users by default:
+
+* view.read is allowed by default on any view created with ``worldreadable=True`` such as the default view.
+
+Glossary:
+
+    * Auth Gate
+        A scope where permissions are checked. Auth gates may
+
+    * Permission
+        A permission string which is used to control access. Permission strings are matched hierarchically, meaning that a
+        check for the permission ``foo.bar.baz`` will match on ``foo.bar`` which allows permissions to be granted or revoked
+        to whole areas of functionality at a time.
+
+    * Rule
+        A rule consists of an allow/deny specification and a **Permission** string. Rules assigned to users and roles within
+        the scope of an **Auth Gate**. Rules are checked for a specific user before being checked for roles and are applied on
+        a first-match basis. This allows a more specific deny rule to be applied before a less specific allow rule to create
+        "allow everything except" cases.
+
+    * Admin
+        Admin status allows the user to bypass all permission checks. Admin status may be applied to individual **Auth Gates**
+        or may apply globally to all permission checks within the Cortex. Having admin access to an **Auth Gate** also allows
+        the user/role to add rules to the 
+
+Permission checks are implemented with 
+
+In any instance where a user encounters a permission error, an **AuthDeny** exception will be raised which includes the permission
+string being checked.
+
+AuthGates and Permissions
+-------------------------
+
+Cortex
+~~~~~~
+
+Preceidence: Cortex
+
+    * power-ups.<name>.<various> Ex: ``power-up.shodan.user``
+
+View
+~~~~
+
+Preceidence: View -> Cortex
+
+Layer
+~~~~~
+
+Preceidence: Layer -> Cortex
+
+    * node - Controlls access to all node edits within the layer.
+    * node.add - Controlls 
+    * node.add.<form> - Controlls access to a user/role's ability to add the given form to the layer. Ex: ``node.add.ou:org``
+    * node.del - Controlls 
+    * node.del.<form> - Controlls access to a user/role's ability to remove nodes of the given form from the layer. Ex: ``node.add.ou:org``
+
+    * node.tag.add.<tag>
+    * node.tag.del.<tag>
+    * node.data.set.<name>
+    * node.data.del.<name>
+
+Examples
+
 Common Admin Tasks
 ==================
 
