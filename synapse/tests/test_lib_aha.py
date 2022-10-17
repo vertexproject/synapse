@@ -346,8 +346,7 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_finid_cell(self):
 
-        with self.getTestDir() as dirn:
-            async with await self.aha_ctor(dirn) as aha:
+        async with self.getTestAha() as aha:
 
                 cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
 
@@ -384,11 +383,9 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_onlink_fail(self):
 
-        with self.getTestDir() as dirn:
+        with mock.patch('synapse.lib.aha.AhaCell.addAhaSvc', mockaddsvc):
 
-            with mock.patch('synapse.lib.aha.AhaCell.addAhaSvc', mockaddsvc):
-
-                async with await self.aha_ctor(dirn) as aha:
+            async with self.getTestAha() as aha:
 
                     cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
 
@@ -437,7 +434,7 @@ class AhaTest(s_test.SynTest):
                     'aha:network': 'do.vertex.link',
                 }
 
-                async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
+                async with self.getTestAha(dirn=dirn, conf=conf) as aha:
                     self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.crt')))
                     self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.key')))
                     self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
@@ -452,9 +449,7 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_noconf(self):
 
-        with self.getTestDir() as dirn:
-
-            async with await self.aha_ctor(dirn) as aha:
+        async with self.getTestAha() as aha:
 
                 with self.raises(s_exc.NeedConfValu):
                     await aha.addAhaSvcProv('hehe')
@@ -487,7 +482,7 @@ class AhaTest(s_test.SynTest):
                 'aha:network': 'loop.vertex.link',
                 'provision:listen': 'ssl://aha.loop.vertex.link:0'
             }
-            async with await self.aha_ctor(dirn, conf=conf) as aha:
+            async with self.getTestAha(dirn=dirn, conf=conf) as aha:
 
                 addr, port = aha.provdmon.addr
                 # update the config to reflect the dynamically bound port
@@ -712,14 +707,13 @@ class AhaTest(s_test.SynTest):
                           cm.exception.get('mesg'))
 
     async def test_aha_httpapi(self):
-        with self.getTestDir() as dirn:
 
-            conf = {
-                'aha:name': 'aha',
-                'aha:network': 'loop.vertex.link',
-                'provision:listen': 'ssl://aha.loop.vertex.link:0'
-            }
-            async with await self.aha_ctor(dirn, conf=conf) as aha:
+        conf = {
+            'aha:name': 'aha',
+            'aha:network': 'loop.vertex.link',
+            'provision:listen': 'ssl://aha.loop.vertex.link:0'
+        }
+        async with self.getTestAha(conf=conf) as aha:
 
                 await aha.auth.rootuser.setPasswd('secret')
 
