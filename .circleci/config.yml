@@ -769,6 +769,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_test_utils_replay
 
       - python310_replay:
           filters:
@@ -777,6 +778,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_test_utils_replay
 
       - python_package_smoketest:
           filters:
