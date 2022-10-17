@@ -224,6 +224,19 @@ class CellApi(s_base.Base):
         '''
         return await self.cell.isCellActive()
 
+    async def getPermDef(self, perm):
+        '''
+        Return a perm definition if it is present in getPermDefs() output.
+        '''
+        return await self.cell.getPermDef(perm)
+
+    async def getPermDefs(self):
+        '''
+        Return a non-comprehensive list of perm definitions.
+        '''
+        return await self.cell.getPermDefs()
+
+
     @adminapi()
     def getNexsIndx(self):
         return self.cell.getNexsIndx()
@@ -2152,6 +2165,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def reqGateKeys(self, gatekeys):
         for useriden, perm, gateiden in gatekeys:
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
+
+    async def getPermDef(self, perm): # pragma: no cover
+        pass
+
+    async def getPermDefs(self): # pragma: no cover
+        pass
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
