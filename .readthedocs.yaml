@@ -8,6 +8,9 @@ build:
 sphinx:
   configuration: docs/conf.py
 
+formats:
+  - pdf
+
 python:
   install:
     - requirements: requirements_doc.txt
