@@ -82,7 +82,8 @@ class AhaTest(s_test.SynTest):
 
                     wait00 = aha0.waiter(1, 'aha:svcdown')
                     await aha0.setAhaSvcDown('test', iden, network='example.net')
-                    self.len(1, await wait00.wait(timeout=6))
+                    self.isin(len(await wait00.wait(timeout=6)), (1, 2))
+
                     await aha1.sync()
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.notin('online', mnfo)
@@ -106,8 +107,8 @@ class AhaTest(s_test.SynTest):
                     'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
                     'dmon:listen': 'tcp://0.0.0.0:0/',
                 }
-                async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf.copy()) as cryo:
-                    self.len(1, await wait00.wait(timeout=6))
+                async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf) as cryo:
+                    self.isin(len(await wait00.wait(timeout=6)), (1, 2))
 
                     svc = await aha.getAhaSvc('0.cryo.mynet')
                     linkiden = svc.get('svcinfo', {}).get('online')

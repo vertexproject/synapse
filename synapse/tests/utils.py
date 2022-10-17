@@ -1196,6 +1196,10 @@ class SynTest(unittest.TestCase):
         Returns:
             s_cryotank.CryoCell: Test cryocell.
         '''
+        if conf is None:
+            conf = {}
+        conf = copy.deepcopy(conf)
+
         if dirn is not None:
             async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                 yield cryo
