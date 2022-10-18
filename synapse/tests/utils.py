@@ -900,6 +900,16 @@ class SynTest(unittest.TestCase):
         if bool(int(os.getenv('SYN_TEST_SKIP_LONG', 0))):
             raise unittest.SkipTest('SYN_TEST_SKIP_LONG envar set')
 
+    def skipIfNexusReplay(self):
+        '''
+        Allow skipping a test if SYNDEV_NEXUS_REPLAY envar is set.
+
+        Raises:
+            unittest.SkipTest if SYNDEV_NEXUS_REPLAY envar is set to a integer greater than 1.
+        '''
+        if bool(int(os.getenv('SYNDEV_NEXUS_REPLAY', 0))):
+            raise unittest.SkipTest('SYNDEV_NEXUS_REPLAY envar set')
+
     def getTestOutp(self):
         '''
         Get a Output instance with a expects() function.
