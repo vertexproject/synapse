@@ -3144,29 +3144,41 @@ class Edit(Oper):
                 async with runt.snap.getNodeEditor(node) as editor:
                     path.node = editor
                     for gopr in gops:
-                        await gopr.initialize(runt)
                         node, path = await gopr.runEdit(runt, node, path, editor=editor)
-
+                        await asyncio.sleep(0)
+                print('EDITED', node)
                 path.node = node
 
                 yield node, path
+                await asyncio.sleep(0)
                 
         return editgenr()
 
-    async def initialize(self, runt):
+    def optimize(self):
+        if isinstance(self, (EditNodeAdd, EditParens)):
+            return
+
+        self.gops = [self]
+        offs = self.pindex + 1
+        while offs < len(self.parent.kids) and isinstance(kid := self.parent.kids[offs], Edit):
+            if isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)):
+                break
+            self.gops.append(self.parent.kids.pop(offs))
+
+    async def run(self, runt, genr):
 
         if runt.readonly:
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-    async def run(self, runt, genr):
+        if not isinstance(self, (EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel)):
+            async for item in self.bulkgenr(self.gops, runt, genr):
+                yield item
+        else:
+            async for (node, path) in genr:
+                yield await self.runEdit(runt, node, path)
 
-        await self.initialize(runt)
-
-        async for node, path in genr:
-            yield await self.runEdit(runt, node, path)
-
-            await asyncio.sleep(0)
+                await asyncio.sleep(0)
 
 class EditParens(Edit):
 
@@ -3350,13 +3362,9 @@ class EditNodeAdd(Edit):
 
 class EditPropSet(Edit):
 
-    async def initialize(self, runt):
+    def prepare(self):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
-
-        self.oper = await self.kids[1].compute(runt, None)
+        self.oper = self.kids[1].value()
         self.excignore = (s_exc.BadTypeValu,) if self.oper in ('?=', '?+=', '?-=') else ()
 
         self.isadd = self.oper in ('+=', '?+=')
@@ -3452,36 +3460,34 @@ class EditPropDel(Edit):
 
 class EditUnivDel(Edit):
 
-    async def initialize(self, runt):
-
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+    def prepare(self):
 
         self.univprop = self.kids[0]
         assert isinstance(self.univprop, UnivProp)
 
         if self.univprop.isconst:
-            self.name = await self.univprop.compute(None, None)
-
-            univ = runt.model.props.get(self.name)
-            if univ is None:
-                mesg = f'No property named {self.name}.'
-                raise s_exc.NoSuchProp(mesg=mesg, name=self.name)
+            self.validname = None
 
     async def runEdit(self, runt, node, path, editor=None):
 
-        if not self.univprop.isconst:
-            name = await self.univprop.compute(runt, path)
+        name = await self.univprop.compute(runt, path)
 
+        if not self.univprop.isconst:
             univ = runt.model.props.get(name)
             if univ is None:
                 mesg = f'No property named {name}.'
                 raise s_exc.NoSuchProp(mesg=mesg, name=name)
-        else:
-            name = self.name
 
-        runt.layerConfirm(('node', 'prop', 'del', name))
+            runt.layerConfirm(('node', 'prop', 'del', name))
+        else:
+            if self.validname is None:
+                univ = runt.model.props.get(name)
+                if univ is None:
+                    mesg = f'No property named {name}.'
+                    raise s_exc.NoSuchProp(mesg=mesg, name=name)
+
+                runt.layerConfirm(('node', 'prop', 'del', name))
+                self.validname = True
 
         await node.pop(name)
 
@@ -3590,18 +3596,14 @@ class EditEdgeAdd(Edit):
         Edit.__init__(self, kids=kids)
         self.n2 = n2
 
-    async def initialize(self, runt):
-
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+    def prepare(self):
 
         # SubQuery -> Query
         self.query = self.kids[1].kids[0]
 
         hits = set()
 
-        def allowed(x):
+        def allowed(runt, x):
             if x in hits:
                 return
 
@@ -3619,7 +3621,7 @@ class EditEdgeAdd(Edit):
         iden = node.iden()
         verb = await tostr(await self.kids[0].compute(runt, path))
 
-        self.allowed(verb)
+        self.allowed(runt, verb)
 
         opts = {'vars': path.vars.copy()}
         async with runt.getSubRuntime(self.query, opts=opts) as subr:
@@ -3641,18 +3643,14 @@ class EditEdgeDel(Edit):
         Edit.__init__(self, kids=kids)
         self.n2 = n2
 
-    async def initialize(self, runt):
-
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
+    def prepare(self):
 
         # SubQuery -> Query
         self.query = self.kids[1].kids[0]
 
         hits = set()
 
-        def allowed(x):
+        def allowed(runt, x):
             if x in hits:
                 return
 
@@ -3667,7 +3665,7 @@ class EditEdgeDel(Edit):
         verb = await self.kids[0].compute(runt, path)
         # TODO this will need a toprim once Str is in play
 
-        self.allowed(verb)
+        self.allowed(runt, verb)
 
         opts = {'vars': path.vars.copy()}
         async with runt.getSubRuntime(self.query, opts=opts) as subr:
@@ -3681,13 +3679,9 @@ class EditEdgeDel(Edit):
 
 class EditTagAdd(Edit):
 
-    async def initialize(self, runt):
+    def prepare(self):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
-
-        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
+        if len(self.kids) > 1 and isinstance(self.kids[0], Const) and self.kids[0].value() == '?':
             self.oper_offset = 1
         else:
             self.oper_offset = 0
@@ -3764,13 +3758,9 @@ class EditTagPropSet(Edit):
     '''
     [ #foo.bar:baz=10 ]
     '''
-    async def initialize(self, runt):
+    def prepare(self):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise s_exc.IsReadOnly(mesg=mesg)
-
-        oper = await self.kids[1].compute(runt, None)
+        oper = self.kids[1].value()
         self.excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
     async def runEdit(self, runt, node, path, editor=None):
