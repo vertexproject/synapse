@@ -226,7 +226,7 @@ class CellApi(s_base.Base):
 
     async def getPermDef(self, perm):
         '''
-        Return a perm definition if it is present in getPermDefs() output.
+        Return a perm definition if it is present in getPermDefs() output, otherwise None.
         '''
         return await self.cell.getPermDef(perm)
 
@@ -2166,10 +2166,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (await self.auth.reqUser(useriden)).confirm(perm, gateiden=gateiden)
 
     async def getPermDef(self, perm): # pragma: no cover
-        pass
+        return
 
     async def getPermDefs(self): # pragma: no cover
-        pass
+        return []
 
     async def feedBeholder(self, name, info, gates=None, perms=None):
         '''
