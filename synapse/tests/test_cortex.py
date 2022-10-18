@@ -5340,7 +5340,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     url2 = core01.getLocalUrl()
 
                     core02conf = {'mirror': url2}
-                    async with self.getTestCore(dirn=path01, conf=core02conf) as core02:
+                    async with self.getTestCore(dirn=path02, conf=core02conf) as core02:
 
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
                         await core00.nodes('queue.add visi')
