@@ -3143,30 +3143,11 @@ class AbsProp(Const):
 
 class Edit(Oper):
 
-    def bulkgenr(self, gops, runt, genr):
-        async def editgenr():
-            async for (node, path) in genr:
-                if not node.form.isrunt:
-                    async with runt.snap.getNodeEditor(node) as pnode:
-                        path.node = pnode
-                        for gopr in gops:
-                            pnode, path = await gopr.runEdit(runt, pnode, path)
-                            await asyncio.sleep(0)
-
-                    path.node = node
-
-                    yield node, path
-                    await asyncio.sleep(0)
-                else:
-                    for gopr in gops:
-                        node, path = await gopr.runEdit(runt, node, path)
-                        await asyncio.sleep(0)
-                    yield node, path
-                    await asyncio.sleep(0)
-
-        return editgenr()
-
     def optimize(self):
+        if not self.optimized:
+            self.optimized = True
+            [k.optimize() for k in self.kids]
+
         if isinstance(self, (EditNodeAdd, EditParens)):
             return
 
@@ -3189,12 +3170,29 @@ class Edit(Oper):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         if not isinstance(self, (EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel)):
-            async for item in self.bulkgenr(self.gops, runt, genr):
-                yield item
-        else:
-            async for (node, path) in genr:
-                yield await self.runEdit(runt, node, path)
+            async for node, path in genr:
+                if not node.form.isrunt:
+                    async with runt.snap.getNodeEditor(node) as pnode:
+                        path.node = pnode
+                        for gopr in self.gops:
+                            pnode, path = await gopr.runEdit(runt, pnode, path)
+                            await asyncio.sleep(0)
 
+                    path.node = node
+
+                    yield node, path
+                    await asyncio.sleep(0)
+                else:
+                    for gopr in self.gops:
+                        node, path = await gopr.runEdit(runt, node, path)
+                        await asyncio.sleep(0)
+
+                    yield node, path
+                    await asyncio.sleep(0)
+
+        else:
+            async for node, path in genr:
+                yield await self.runEdit(runt, node, path)
                 await asyncio.sleep(0)
 
 class EditParens(Edit):
@@ -3221,19 +3219,8 @@ class EditParens(Edit):
 
             # isolated runtime stack...
             genr = s_common.agen()
-            gops = []
             for oper in self.kids:
-                if isinstance(oper, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)):
-                    if gops:
-                        genr = self.bulkgenr(gops, runt, genr)
-                        gops = []
-
-                    genr = oper.run(runt, genr)
-                else:
-                    gops.append(oper)
-
-            if gops:
-                genr = self.bulkgenr(gops, runt, genr)
+                genr = oper.run(runt, genr)
 
             async for item in genr:
                 yield item
@@ -3253,19 +3240,8 @@ class EditParens(Edit):
                         yield item
 
                 fullgenr = editgenr()
-                gops = []
                 for oper in self.kids[1:]:
-                    if isinstance(oper, EditNodeAdd):
-                        if gops:
-                            fullgenr = self.bulkgenr(gops, runt, fullgenr)
-                            gops = []
-
-                        fullgenr = oper.run(runt, fullgenr)
-                    else:
-                        gops.append(oper)
-
-                if gops:
-                    fullgenr = self.bulkgenr(gops, runt, fullgenr)
+                    fullgenr = oper.run(runt, fullgenr)
 
                 async for item in fullgenr:
                     yield item
