@@ -56,7 +56,7 @@ class CortexTest(s_t_utils.SynTest):
                 'aha:network': 'newp',
                 'provision:listen': 'tcp://127.0.0.1:0',
             }
-            async with await s_aha.AhaCell.anit(ahadir, conf=conf) as aha:
+            async with self.getTestAha(dirn=ahadir, conf=conf) as aha:
 
                 provaddr, provport = aha.provdmon.addr
                 aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
