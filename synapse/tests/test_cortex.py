@@ -56,7 +56,7 @@ class CortexTest(s_t_utils.SynTest):
                 'aha:network': 'newp',
                 'provision:listen': 'tcp://127.0.0.1:0',
             }
-            async with await s_aha.AhaCell.anit(ahadir, conf=conf) as aha:
+            async with self.getTestAha(dirn=ahadir, conf=conf) as aha:
 
                 provaddr, provport = aha.provdmon.addr
                 aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
@@ -219,13 +219,13 @@ class CortexTest(s_t_utils.SynTest):
             path00 = os.path.join(dirn, 'core00')
             path01 = os.path.join(dirn, 'core01')
             conf00 = {'nexslog:en': True}
-            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
-                pass
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                self.true(core00.isactive)
 
             s_tools_backup.backup(path00, path01)
-            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
                 conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
-                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                     await testCoreJson(core01)
                     self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
                     self.eq(await core01.getJsonObj('foo/bar'), 'zoinks')
@@ -235,13 +235,13 @@ class CortexTest(s_t_utils.SynTest):
             path00 = os.path.join(dirn, 'core00')
             path01 = os.path.join(dirn, 'core01')
             conf00 = {'nexslog:en': True}
-            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
-                pass
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
+                self.true(core00.isactive)
 
             s_tools_backup.backup(path00, path01)
-            async with await s_cortex.Cortex.anit(path00, conf=conf00) as core00:
+            async with self.getTestCore(dirn=path00, conf=conf00) as core00:
                 conf01 = {'nexslog:en': True, 'mirror': core00.getLocalUrl()}
-                async with await s_cortex.Cortex.anit(path01, conf=conf01) as core01:
+                async with self.getTestCore(dirn=path01, conf=conf01) as core01:
                     await testCoreJson(core00)
                     await core01.sync()
                     self.eq(await core00.getJsonObj('foo/bar'), 'zoinks')
@@ -358,11 +358,11 @@ class CortexTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 self.nn(await core.cellinfo.pop('cortex:version'))
 
             with self.raises(s_exc.BadStorageVersion):
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
                     pass
 
     async def test_cortex_stormiface(self):
@@ -1525,7 +1525,7 @@ class CortexTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 async with core.getLocalProxy() as prox:
 
@@ -1553,7 +1553,7 @@ class CortexTest(s_t_utils.SynTest):
                         nodes = await core.nodes(q)
 
             # make sure it's still loaded...
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 async with core.getLocalProxy() as prox:
 
@@ -5079,12 +5079,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 core01conf = {'nexslog:en': False, 'mirror': url}
                 with self.raises(s_exc.BadConfValu):
-                    async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                         self.fail('Should never get here.')
 
                 core01conf = {'mirror': url}
 
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
                     await core00.nodes('[ inet:fqdn=vertex.link ]')
                     await core00.nodes('queue.add visi')
@@ -5122,7 +5122,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core00.nodes('[ inet:ipv4=5.5.5.5 ]')
 
                 # test what happens when we go down and come up again...
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
                     # check that startup does not create any events
                     self.eq(nexusind, core01.nexsroot.nexslog.index())
@@ -5139,9 +5139,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.none(ddef)
 
             # now lets start up in the opposite order...
-            async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+            async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
 
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                async with self.getTestCore(dirn=path00) as core00:
 
                     self.len(1, await core00.nodes('[ inet:ipv4=6.6.6.6 ]'))
 
@@ -5150,7 +5150,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
 
                 # what happens if *he* goes down and comes back up again?
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                async with self.getTestCore(dirn=path00) as core00:
 
                     await core00.nodes('[ inet:ipv4=7.7.7.7 ]')
 
@@ -5163,7 +5163,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.LinkErr, core01.nodes('[inet:ipv4=7.7.7.8]'))
 
                 # Bring the leader back up and try again
-                async with await s_cortex.Cortex.anit(dirn=path00) as core00:
+                async with self.getTestCore(dirn=path00) as core00:
                     self.len(1, await core01.nodes('[ inet:ipv4=7.7.7.8 ]'))
 
                 # remove the mirrorness from the Cortex and ensure that we can
@@ -5175,7 +5175,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core01.nodes('[inet:ipv4=9.9.9.8]'))
                 new_url = core01.getLocalUrl()
                 new_conf = {'mirror': new_url}
-                async with await s_cortex.Cortex.anit(dirn=path00, conf=new_conf) as core00:
+                async with self.getTestCore(dirn=path00, conf=new_conf) as core00:
                     await core00.sync()
                     self.len(1, await core00.nodes('inet:ipv4=9.9.9.8'))
 
@@ -5336,11 +5336,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 url = core00.getLocalUrl()
 
                 core01conf = {'mirror': url}
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                     url2 = core01.getLocalUrl()
 
                     core02conf = {'mirror': url2}
-                    async with await s_cortex.Cortex.anit(dirn=path02, conf=core02conf) as core02:
+                    async with self.getTestCore(dirn=path02, conf=core02conf) as core02:
 
                         await core00.nodes('[ inet:fqdn=vertex.link ]')
                         await core00.nodes('queue.add visi')
@@ -5364,7 +5364,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         self.len(1, await core02.nodes('inet:fqdn=test2.vertex.link'))
 
                         # Bring up a sibling mirror to the bottom
-                        async with await s_cortex.Cortex.anit(dirn=path02a, conf=core02conf) as core02a:
+                        async with self.getTestCore(dirn=path02a, conf=core02conf) as core02a:
                             self.len(1, await core02a.nodes('[ inet:fqdn=test3.vertex.link ]'))
                             self.len(1, await core02a.nodes('inet:fqdn=test2.vertex.link'))
 
@@ -5667,7 +5667,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 with self.raises(s_exc.BadFormDef):
                     await core.addForm('inet:ipv4', 'int', {}, {})
@@ -5712,7 +5712,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # manually edit in a borked form entry
                 await core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 self.none(core.model.form('_hehe:bork'))
 

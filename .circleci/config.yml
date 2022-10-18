@@ -61,16 +61,6 @@ commands:
             mkdir test-reports
             circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
 
-  do_replay_test_execution:
-    description: "Execute unit tests via pytest"
-    steps:
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            mkdir test-reports
-            circleci tests glob synapse/tests/test_cortex.py synapse/tests/test_lib_aha.py synapse/tests/test_lib_storm.py synapse/tests/test_lib_stormtypes.py synapse/tests/test_lib_stormlib*.py synapse/tests/test_lib_view.py synapse/tests/test_lib_hiveauth.py synapse/tests/test_lib_cell.py synapse/tests/test_lib_layer.py | circleci tests split --split-by=timings | xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
-
   test_steps_doc:
     description: "Documentation test steps"
     steps:
@@ -142,43 +132,6 @@ commands:
 
 
       - do_test_execution
-      - do_report_coverage
-
-      - store_test_results:
-          path: test-reports
-
-      - store_artifacts:
-          path: test-reports
-
-  test_steps_python_replay:
-    description: "Python test steps"
-    steps:
-      - checkout
-
-      - run:
-          name: checkout regression repo
-          command: |
-            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
-
-      - restore_cache:
-          keys:
-            - v3-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-      - do_venv_setup
-
-      - save_cache:
-          paths:
-            - ./venv
-          key: v2-venv-{{ .Environment.CIRCLE_STAGE }}-{{ .Branch }}-{{ checksum "setup.py" }}
-
-      - run:
-          name: syntax
-          command: |
-            . venv/bin/activate
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
-
-      - do_replay_test_execution
       - do_report_coverage
 
       - store_test_results:
@@ -543,7 +496,7 @@ jobs:
     working_directory: ~/repo
 
     steps:
-      - test_steps_python_replay
+      - test_steps_python
 
   python38_replay:
     parallelism: 6
@@ -560,7 +513,7 @@ jobs:
     working_directory: ~/repo
 
     steps:
-      - test_steps_python_replay
+      - test_steps_python
 
   python310_replay:
     parallelism: 6
@@ -577,7 +530,7 @@ jobs:
     working_directory: ~/repo
 
     steps:
-      - test_steps_python_replay
+      - test_steps_python
 
   doctests:
     parallelism: 1
@@ -769,6 +722,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_test_utils_replay
 
       - python310_replay:
           filters:
@@ -777,6 +731,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_test_utils_replay
 
       - python_package_smoketest:
           filters:
@@ -915,9 +870,7 @@ workflows:
     jobs:
       - doctests
       - python38
-      - python38_replay
       - python310
-      - python310_replay
 
   weekly:
     triggers:
@@ -931,3 +884,5 @@ workflows:
       - osx38
       - python37
       - python37_replay
+      - python38_replay
+      - python310_replay

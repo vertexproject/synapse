@@ -403,33 +403,31 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_setuser(self):
 
-        with self.getTestDir() as dirn:
+        async with self.getTestCell(s_cell.Cell) as cell:
 
-            async with await s_cell.Cell.anit(dirn) as cell:
+            async with cell.getLocalProxy() as prox:
 
-                async with cell.getLocalProxy() as prox:
+                self.eq('root', (await prox.getCellUser())['name'])
+                snfo = await prox.getDmonSessions()
+                self.len(1, snfo)
+                self.eq(snfo[0].get('user').get('name'), 'root')
 
-                    self.eq('root', (await prox.getCellUser())['name'])
-                    snfo = await prox.getDmonSessions()
-                    self.len(1, snfo)
-                    self.eq(snfo[0].get('user').get('name'), 'root')
+                with self.raises(s_exc.NoSuchUser):
+                    await prox.setCellUser(s_common.guid())
 
-                    with self.raises(s_exc.NoSuchUser):
-                        await prox.setCellUser(s_common.guid())
+                visi = await prox.addUser('visi')
 
-                    visi = await prox.addUser('visi')
+                self.true(await prox.setCellUser(visi['iden']))
+                self.eq('visi', (await prox.getCellUser())['name'])
 
-                    self.true(await prox.setCellUser(visi['iden']))
-                    self.eq('visi', (await prox.getCellUser())['name'])
+                # setCellUser propagates his change to the Daemon Sess object.
+                # But we have to use the daemon directly to get that info
+                snfo = await cell.dmon.getSessInfo()
+                self.len(1, snfo)
+                self.eq(snfo[0].get('user').get('name'), 'visi')
 
-                    # setCellUser propagates his change to the Daemon Sess object.
-                    # But we have to use the daemon directly to get that info
-                    snfo = await cell.dmon.getSessInfo()
-                    self.len(1, snfo)
-                    self.eq(snfo[0].get('user').get('name'), 'visi')
-
-                    with self.raises(s_exc.AuthDeny):
-                        await prox.setCellUser(s_common.guid())
+                with self.raises(s_exc.AuthDeny):
+                    await prox.setCellUser(s_common.guid())
 
     async def test_cell_hiveboot(self):
 
@@ -445,21 +443,21 @@ class CellTest(s_t_utils.SynTest):
 
             s_common.yamlsave(tree, bootpath)
 
-            async with await s_cell.Cell.anit(dirn) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
                 self.eq('haha', await cell.hive.get(('hehe',)))
 
             # test that the file does not load again
-            tree['kids']['redbaloons'] = {'value': 99}
+            tree['kids']['redballoons'] = {'value': 99}
             s_common.yamlsave(tree, bootpath)
 
-            async with await s_cell.Cell.anit(dirn) as cell:
-                self.none(await cell.hive.get(('redbaloons',)))
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:
+                self.none(await cell.hive.get(('redballoons',)))
 
         # Do a full hive dump/load
         with self.getTestDir() as dirn:
             dir0 = s_common.genpath(dirn, 'cell00')
             dir1 = s_common.genpath(dirn, 'cell01')
-            async with await s_cell.Cell.anit(dir0, {'auth:passwd': 'root'}) as cell00:
+            async with self.getTestCell(s_cell.Cell, dirn=dir0, conf={'auth:passwd': 'root'}) as cell00:
                 await cell00.hive.set(('beeps',), [1, 2, 'three'])
 
                 tree = await cell00.saveHiveTree()
@@ -467,7 +465,7 @@ class CellTest(s_t_utils.SynTest):
                 with s_common.genfile(dir1, 'cell.guid') as fd:
                     _ = fd.write(cell00.iden.encode())
 
-            async with await s_cell.Cell.anit(dir1) as cell01:
+            async with self.getTestCell(s_cell.Cell, dirn=dir1) as cell01:
                 resp = await cell01.hive.get(('beeps',))
                 self.isinstance(resp, tuple)
                 self.eq(resp, (1, 2, 'three'))
@@ -525,31 +523,29 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_promote(self):
 
-        with self.getTestDir() as dirn:
-            async with await s_cell.Cell.anit(dirn) as cell:
-                async with cell.getLocalProxy() as proxy:
-                    with self.raises(s_exc.BadConfValu):
-                        await proxy.promote()
+        async with self.getTestCell(s_cell.Cell) as cell:
+            async with cell.getLocalProxy() as proxy:
+                with self.raises(s_exc.BadConfValu):
+                    await proxy.promote()
 
     async def test_cell_anon(self):
 
-        with self.getTestDir() as dirn:
-            conf = {'auth:anon': 'anon'}
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
-                anon = await cell.auth.addUser('anon')
-                await cell.auth.rootuser.setPasswd('secret')
-                host, port = await cell.dmon.listen('tcp://127.0.0.1:0')
-                async with await s_telepath.openurl('tcp://127.0.0.1/', port=port) as prox:
-                    info = await prox.getCellUser()
-                    self.eq(anon.iden, info.get('iden'))
+        conf = {'auth:anon': 'anon'}
+        async with self.getTestCell(s_cell.Cell, conf=conf) as cell:
+            anon = await cell.auth.addUser('anon')
+            await cell.auth.rootuser.setPasswd('secret')
+            host, port = await cell.dmon.listen('tcp://127.0.0.1:0')
+            async with await s_telepath.openurl('tcp://127.0.0.1/', port=port) as prox:
+                info = await prox.getCellUser()
+                self.eq(anon.iden, info.get('iden'))
 
-                await anon.setLocked(True)
-                with self.raises(s_exc.AuthDeny):
-                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+            await anon.setLocked(True)
+            with self.raises(s_exc.AuthDeny):
+                await s_telepath.openurl('tcp://127.0.0.1/', port=port)
 
-                await cell.auth.delUser(anon.iden)
-                with self.raises(s_exc.AuthDeny):
-                    await s_telepath.openurl('tcp://127.0.0.1/', port=port)
+            await cell.auth.delUser(anon.iden)
+            with self.raises(s_exc.AuthDeny):
+                await s_telepath.openurl('tcp://127.0.0.1/', port=port)
 
     async def test_cell_nexuschanges(self):
 
@@ -575,8 +571,8 @@ class CellTest(s_t_utils.SynTest):
                 'dmon:listen': 'tcp://127.0.0.1:0/',
                 'https:port': 0,
             }
-            async with await s_cell.Cell.anit(dir0, conf=conf) as cell00, \
-                    cell00.getLocalProxy() as prox00:
+            async with self.getTestCell(s_cell.Cell, dirn=dir0, conf=conf) as cell00, \
+                cell00.getLocalProxy() as prox00:
 
                 self.true(cell00.nexsroot.map_async)
                 self.true(cell00.nexsroot.donexslog)
@@ -593,7 +589,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Disable change logging for this cell.
             conf = {'nexslog:en': False}
-            async with await s_cell.Cell.anit(dir1, conf=conf) as cell01, \
+            async with self.getTestCell(s_cell.Cell, dirn=dir1, conf=conf) as cell01, \
                     cell01.getLocalProxy() as prox01:
                 self.false(cell01.nexsroot.donexslog)
 
@@ -609,21 +605,21 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             conf = {'nexslog:en': False}
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:
                 self.eq(0, await cell.getNexsIndx())
                 await cell.addUser('test00')
                 self.eq(2, await cell.getNexsIndx())
 
             # create a first entry that will be greater than the slab starting index
             conf = {'nexslog:en': True}
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:
                 self.eq(2, await cell.getNexsIndx())
                 await cell.addUser('test01')
                 self.eq(4, await cell.getNexsIndx())
 
             # restart checks seqn consistency
             conf = {'nexslog:en': True}
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:
                 self.eq(4, await cell.getNexsIndx())
                 await cell.addUser('test02')
                 self.eq(6, await cell.getNexsIndx())
@@ -638,7 +634,7 @@ class CellTest(s_t_utils.SynTest):
             conf = {
                 'nexslog:en': True,
             }
-            async with await s_cell.Cell.anit(dirn00, conf=conf) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn00, conf=conf) as cell:
 
                 async with cell.getLocalProxy() as prox:
 
@@ -701,7 +697,7 @@ class CellTest(s_t_utils.SynTest):
 
             # nexus log exists but logging is disabled
             conf['nexslog:en'] = False
-            async with await s_cell.Cell.anit(dirn00, conf=conf) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn00, conf=conf) as cell:
 
                 async with cell.getLocalProxy() as prox:
 
@@ -718,7 +714,7 @@ class CellTest(s_t_utils.SynTest):
                     self.nn(await cell.nexsroot.nexslog.get(rngs[-1] - 1))
 
             # nexus fully disabled
-            async with await s_cell.Cell.anit(dirn01, conf=conf) as cell:
+            async with self.getTestCell(s_cell.Cell, dirn=dirn01) as cell:
 
                 async with cell.getLocalProxy() as prox:
 
@@ -1099,57 +1095,55 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_onepass(self):
 
-        with self.getTestDir() as dirn:
+        async with self.getTestCell(s_cell.Cell) as cell:
 
-            async with await s_cell.Cell.anit(dirn) as cell:
+            await cell.auth.rootuser.setPasswd('root')
 
-                await cell.auth.rootuser.setPasswd('root')
+            visi = await cell.auth.addUser('visi')
 
-                visi = await cell.auth.addUser('visi')
+            thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
+            hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
 
-                thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
-                hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
+            async with self.getHttpSess(port=hport) as sess:
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+                self.eq('NotAuthenticated', answ['code'])
 
-                async with self.getHttpSess(port=hport) as sess:
-                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
-                    answ = await resp.json()
-                    self.eq('err', answ['status'])
-                    self.eq('NotAuthenticated', answ['code'])
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
 
-                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
+                answ = await resp.json()
+                self.eq('err', answ['status'])
+                self.eq('SchemaViolation', answ['code'])
 
-                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue')
-                    answ = await resp.json()
-                    self.eq('err', answ['status'])
-                    self.eq('SchemaViolation', answ['code'])
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': 'newp'})
+                answ = await resp.json()
+                self.eq('err', answ['status'])
 
-                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': 'newp'})
-                    answ = await resp.json()
-                    self.eq('err', answ['status'])
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
 
-                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden})
-                    answ = await resp.json()
-                    self.eq('ok', answ['status'])
+                onepass = answ['result']
 
-                    onepass = answ['result']
+            async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                await proxy.getCellIden()
 
+            with self.raises(s_exc.AuthDeny):
                 async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
-                    await proxy.getCellIden()
+                    pass
 
-                with self.raises(s_exc.AuthDeny):
-                    async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
-                        pass
+            # purposely give a negative expire for test...
+            async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
+                resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden, 'duration': -1000})
+                answ = await resp.json()
+                self.eq('ok', answ['status'])
+                onepass = answ['result']
 
-                # purposely give a negative expire for test...
-                async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
-                    resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', json={'user': visi.iden, 'duration': -1000})
-                    answ = await resp.json()
-                    self.eq('ok', answ['status'])
-                    onepass = answ['result']
-
-                with self.raises(s_exc.AuthDeny):
-                    async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
-                        pass
+            with self.raises(s_exc.AuthDeny):
+                async with await s_telepath.openurl(f'tcp://visi:{onepass}@127.0.0.1:{tport}') as proxy:
+                    pass
 
     async def test_cell_activecoro(self):
 
@@ -1170,54 +1164,52 @@ class CellTest(s_t_utils.SynTest):
                 evt4.set()
                 raise
 
-        with self.getTestDir() as dirn:
+        async with self.getTestCell(s_cell.Cell) as cell:
 
-            async with await s_cell.Cell.anit(dirn) as cell:
+            # Note: cell starts active, so coro should immediate run
+            cell.addActiveCoro(coro)
 
-                # Note: cell starts active, so coro should immediate run
-                cell.addActiveCoro(coro)
+            async def step():
+                await asyncio.wait_for(evt0.wait(), timeout=2)
 
-                async def step():
-                    await asyncio.wait_for(evt0.wait(), timeout=2)
-
-                    # step him through...
-                    evt1.set()
-                    await asyncio.wait_for(evt2.wait(), timeout=2)
-
-                    evt0.clear()
-                    evt1.clear()
-                    evt3.set()
-
-                    await asyncio.wait_for(evt0.wait(), timeout=2)
-
-                await step()
-
-                self.none(await cell.delActiveCoro('notacoro'))
-
-                # Make sure a fini'd base takes its activecoros with it
-                async with await s_base.Base.anit() as base:
-                    cell.addActiveCoro(coro, base=base)
-                    self.len(2, cell.activecoros)
-
-                self.len(1, cell.activecoros)
-
-                self.raises(s_exc.IsFini, cell.addActiveCoro, coro, base=base)
-
-                # now deactivate and it gets cancelled
-                await cell.setCellActive(False)
-                await asyncio.wait_for(evt4.wait(), timeout=2)
+                # step him through...
+                evt1.set()
+                await asyncio.wait_for(evt2.wait(), timeout=2)
 
                 evt0.clear()
                 evt1.clear()
-                evt2.clear()
-                evt3.clear()
-                evt4.clear()
+                evt3.set()
 
-                # make him active post-init and confirm
-                await cell.setCellActive(True)
-                await step()
+                await asyncio.wait_for(evt0.wait(), timeout=2)
 
-                self.none(await cell.delActiveCoro(s_common.guid()))
+            await step()
+
+            self.none(await cell.delActiveCoro('notacoro'))
+
+            # Make sure a fini'd base takes its activecoros with it
+            async with await s_base.Base.anit() as base:
+                cell.addActiveCoro(coro, base=base)
+                self.len(2, cell.activecoros)
+
+            self.len(1, cell.activecoros)
+
+            self.raises(s_exc.IsFini, cell.addActiveCoro, coro, base=base)
+
+            # now deactivate and it gets cancelled
+            await cell.setCellActive(False)
+            await asyncio.wait_for(evt4.wait(), timeout=2)
+
+            evt0.clear()
+            evt1.clear()
+            evt2.clear()
+            evt3.clear()
+            evt4.clear()
+
+            # make him active post-init and confirm
+            await cell.setCellActive(True)
+            await step()
+
+            self.none(await cell.delActiveCoro(s_common.guid()))
 
     async def test_cell_stream_backup(self):
 
@@ -1446,67 +1438,63 @@ class CellTest(s_t_utils.SynTest):
             }
         }
 
-        with self.getTestDir() as dirn:
-            async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
-                iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
-                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
-                self.eq(user.name, 'foo@bar.mynet.com')
-                self.eq(user.pack().get('email'), 'foo@barcorp.com')
-                self.false(user.isAdmin())
-                self.true(user.allowed(('thing', 'cool')))
-                self.false(user.allowed(('thing', 'del')))
-                self.true(user.allowed(('thing', 'duck', 'stuff')))
-                self.false(user.allowed(('newp', 'secret')))
+        async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
+            iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
+            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            self.eq(user.name, 'foo@bar.mynet.com')
+            self.eq(user.pack().get('email'), 'foo@barcorp.com')
+            self.false(user.isAdmin())
+            self.true(user.allowed(('thing', 'cool')))
+            self.false(user.allowed(('thing', 'del')))
+            self.true(user.allowed(('thing', 'duck', 'stuff')))
+            self.false(user.allowed(('newp', 'secret')))
 
-                iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
-                user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
-                self.eq(user.name, 'sally@bar.mynet.com')
-                self.true(user.isAdmin())
+            iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
+            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            self.eq(user.name, 'sally@bar.mynet.com')
+            self.true(user.isAdmin())
 
         # Cannot use root
-        with self.getTestDir() as dirn:
-            conf = {
-                'inaugural': {
-                    'users': [
-                        {'name': 'root',
-                         'admin': False,
-                         }
-                    ]
-                }
+        conf = {
+            'inaugural': {
+                'users': [
+                    {'name': 'root',
+                     'admin': False,
+                     }
+                ]
             }
-            with self.raises(s_exc.BadConfValu):
-                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
-                    pass
+        }
+        with self.raises(s_exc.BadConfValu):
+            async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
+                pass
 
         # Cannot use all
-        with self.getTestDir() as dirn:
-            conf = {
-                'inaugural': {
-                    'roles': [
-                        {'name': 'all',
-                         'rules': [
-                             [True, ['floop', 'bloop']],
-                         ]}
-                    ]
-                }
+        conf = {
+            'inaugural': {
+                'roles': [
+                    {'name': 'all',
+                     'rules': [
+                         [True, ['floop', 'bloop']],
+                     ]}
+                ]
             }
-            with self.raises(s_exc.BadConfValu):
-                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
-                    pass
+        }
+        with self.raises(s_exc.BadConfValu):
+            async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
+                pass
 
         # Colliding with aha:admin will fail
-        with self.getTestDir() as dirn:
-            conf = {
-                'inaugural': {
-                    'users': [
-                        {'name': 'bob@foo.bar.com'}
-                    ]
-                },
-                'aha:admin': 'bob@foo.bar.com',
-            }
-            with self.raises(s_exc.DupUserName):
-                async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:
-                    pass
+        conf = {
+            'inaugural': {
+                'users': [
+                    {'name': 'bob@foo.bar.com'}
+                ]
+            },
+            'aha:admin': 'bob@foo.bar.com',
+        }
+        with self.raises(s_exc.DupUserName):
+            async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
+                pass
 
     async def test_advisory_locking(self):
         # fcntl not supported on windows
@@ -1560,7 +1548,7 @@ class CellTest(s_t_utils.SynTest):
                       'https:port': 0,
                       'nexslog:en': True,
                       }
-            async with await s_cell.Cell.anit(conf=conf00, dirn=path00) as cell00:
+            async with self.getTestCell(s_cell.Cell, dirn=path00, conf=conf00) as cell00:
 
                 conf01 = {'dmon:listen': 'tcp://127.0.0.1:0/',
                           'https:port': 0,
@@ -1569,13 +1557,12 @@ class CellTest(s_t_utils.SynTest):
                           }
 
                 # Create the bad cell with its own guid
-                async with await s_cell.Cell.anit(dirn=path01, conf={'nexslog:en': True,
-                                                               }) as cell01:
+                async with self.getTestCell(s_cell.Cell, dirn=path01, conf={'nexslog:en': True}) as cell01:
                     pass
 
                 with self.getAsyncLoggerStream('synapse.lib.nexus',
                                                'has different iden') as stream:
-                    async with await s_cell.Cell.anit(conf=conf01, dirn=path01) as cell01:
+                    async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
                         await stream.wait(timeout=2)
                         self.true(await cell01.waitfini(6))
 
@@ -1672,7 +1659,7 @@ class CellTest(s_t_utils.SynTest):
         # Backwards compatibility test for shadowv2
         # Cell was created prior to the shadowv2 password change.
         with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
-            async with await s_cell.Cell.anit(dirn=dirn) as cell:  # type: s_cell.Cell
+            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:  # type: s_cell.Cell
                 root = await cell.auth.getUserByName('root')
                 shadow = root.info.get('passwd')
                 self.isinstance(shadow, tuple)
@@ -1710,7 +1697,7 @@ class CellTest(s_t_utils.SynTest):
         # Pre-nexus changes of root via auth:passwd work too.
         with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
             conf = {'auth:passwd': 'supersecretpassword'}
-            async with await s_cell.Cell.anit(dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
+            async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
                 root = await cell.auth.getUserByName('root')
                 shadow = root.info.get('passwd')
                 self.isinstance(shadow, dict)

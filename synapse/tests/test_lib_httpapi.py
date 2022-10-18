@@ -738,7 +738,6 @@ class HttpApiTest(s_tests.SynTest):
 
     async def test_http_beholder(self):
         self.skipIfNexusReplay()
-
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
