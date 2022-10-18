@@ -2348,3 +2348,26 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVar) as err:
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
+
+    async def test_ast_oversize_query(self):
+
+        async with self.getTestCore() as core:
+
+            q = '[( inet:ipv4=1.2.3.4 '
+
+            for x in range(963):
+                q += f'+#tag{x} '
+            q+= 'inet:ipv4=2.3.4.5 '
+            for x in range(1000):
+                q += f'+#tag{963+x} '
+            q += ')]'
+
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                if m[0] in ['print', 'err', 'warn']:
+                    print(m)
+
+            nodes = await core.nodes('inet:ipv4')
+            print(len(nodes[0].tags))
+            print(len(nodes[1].tags))
+            print(await core.getNexsIndx())

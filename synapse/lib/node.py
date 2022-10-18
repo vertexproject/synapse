@@ -66,12 +66,15 @@ class Node:
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def addEdge(self, verb, n2iden):
+    async def addEdge(self, verb, n2iden, editor=None):
         if self.form.isrunt:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
             raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
 
-        async with self.snap.getNodeEditor(self) as editor:
+        if editor is None:
+            async with self.snap.getNodeEditor(self) as editor:
+                return await editor.addEdge(verb, n2iden)
+        else:
             return await editor.addEdge(verb, n2iden)
 
     async def delEdge(self, verb, n2iden):
@@ -253,7 +256,7 @@ class Node:
 
         return retn
 
-    async def set(self, name, valu, init=False):
+    async def set(self, name, valu, init=False, editor=None):
         '''
         Set a property on the node.
 
@@ -283,7 +286,10 @@ class Node:
             await self.snap.core.runRuntPropSet(self, prop, valu)
             return True
 
-        async with self.snap.getNodeEditor(self) as editor:
+        if editor is None:
+            async with self.snap.getNodeEditor(self) as editor:
+                return await editor.set(name, valu)
+        else:
             return await editor.set(name, valu)
 
     def has(self, name):
@@ -434,7 +440,7 @@ class Node:
 
         return retn
 
-    async def addTag(self, tag, valu=(None, None)):
+    async def addTag(self, tag, valu=(None, None), editor=None):
         '''
         Add a tag to a node.
 
@@ -450,8 +456,11 @@ class Node:
             raise s_exc.IsRuntForm(mesg='Cannot add tags to runt nodes.',
                                    form=self.form.full, tag=tag)
 
-        async with self.snap.getNodeEditor(self) as protonode:
-            await protonode.addTag(tag, valu=valu)
+        if editor is None:
+            async with self.snap.getNodeEditor(self) as protonode:
+                await protonode.addTag(tag, valu=valu)
+        else:
+            await editor.addTag(tag, valu=valu)
 
     def _getTagTree(self):
 
@@ -578,11 +587,14 @@ class Node:
             return propdict.get(prop, defval)
         return defval
 
-    async def setTagProp(self, tag, name, valu):
+    async def setTagProp(self, tag, name, valu, editor=None):
         '''
         Set the value of the given tag property.
         '''
-        async with self.snap.getNodeEditor(self) as editor:
+        if editor is None:
+            async with self.snap.getNodeEditor(self) as editor:
+                await editor.setTagProp(tag, name, valu)
+        else:
             await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
@@ -684,9 +696,12 @@ class Node:
             return valu
         return await self.snap.getNodeData(self.buid, name, defv=defv)
 
-    async def setData(self, name, valu):
-        async with self.snap.getNodeEditor(self) as protonode:
-            await protonode.setData(name, valu)
+    async def setData(self, name, valu, editor=None):
+        if editor is None:
+            async with self.snap.getNodeEditor(self) as protonode:
+                await protonode.setData(name, valu)
+        else:
+            await editor.setData(name, valu)
 
     async def popData(self, name):
         retn = await self.snap.getNodeData(self.buid, name)

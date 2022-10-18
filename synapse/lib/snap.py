@@ -73,6 +73,12 @@ class ProtoNode:
         self.tagprops = {}
         self.nodedata = {}
 
+        self.tagdels = set()
+        self.propdels = set()
+        self.edgedels = set()
+        self.tagpropdels = set()
+        self.nodedatadels = set()
+
     def iden(self):
         return s_common.ehex(self.buid)
 
@@ -902,31 +908,43 @@ class Snap(s_base.Base):
                 yield node
 
     @contextlib.asynccontextmanager
-    async def getNodeEditor(self, node):
+    async def getNodeEditor(self, node, transaction=False):
 
         if node.form.isrunt:
             mesg = f'Cannot edit runt nodes: {node.form.name}.'
             raise s_exc.IsRuntForm(mesg=mesg)
 
+        errs = False
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        yield protonode
-
-        nodeedits = editor.getNodeEdits()
-        if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+        try:
+            yield protonode
+        except Exception:
+            errs = True
+            raise
+        finally:
+            if not (errs and transaction):
+                nodeedits = editor.getNodeEdits()
+                if nodeedits:
+                    await self.applyNodeEdits(nodeedits)
 
     @contextlib.asynccontextmanager
-    async def getEditor(self):
+    async def getEditor(self, transaction=False):
 
+        errs = False
         editor = SnapEditor(self)
 
-        yield editor
-
-        nodeedits = editor.getNodeEdits()
-        if nodeedits:
-            await self.applyNodeEdits(nodeedits)
+        try:
+            yield editor
+        except Exception:
+            errs = True    
+            raise
+        finally:
+            if not (errs and transaction):
+                nodeedits = editor.getNodeEdits()
+                if nodeedits:
+                    await self.applyNodeEdits(nodeedits)
 
     async def applyNodeEdit(self, edit):
         nodes = await self.applyNodeEdits((edit,))
@@ -1111,7 +1129,7 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        async with self.getEditor() as editor:
+        async with self.getEditor(transaction=True) as editor:
             protonode = await editor.addNode(name, valu, props=props, norminfo=norminfo)
             if protonode is None:
                 return None
