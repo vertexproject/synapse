@@ -3760,15 +3760,6 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:fqdn=foo.com ]')
             self.len(1, nodes)
 
-            q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
-#            await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
-
-            await visi.addRule((True, ('node', 'tag', 'add')))
-
-            nodes = await core.nodes(q)
-            for node in nodes:
-                self.nn(node.tags.get('atag'))
-            self.eq(1,2)
             q = 'runas visi { [ inet:fqdn=bar.com ] }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
 

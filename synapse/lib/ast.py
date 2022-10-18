@@ -39,6 +39,7 @@ class AstNode:
     def __init__(self, kids=()):
         self.kids = []
         self.hasast = {}
+        self.optimized = False
         [self.addKid(k) for k in kids]
 
     def repr(self):
@@ -125,7 +126,9 @@ class AstNode:
         return retn
 
     def optimize(self):
-        [k.optimize() for k in self.kids]
+        if not self.optimized:
+            self.optimized = True
+            [k.optimize() for k in self.kids]
 
     def __iter__(self):
         for kid in self.kids:
@@ -177,7 +180,8 @@ class Query(AstNode):
 
             subgraph = SubGraph(rules)
 
-        self.optimize()
+        if not self.optimized:
+            self.optimize()
         self.validate(runt)
 
         # turtles all the way down...
@@ -2711,6 +2715,7 @@ class PropValue(Value):
 
         ispiv = name.find('::') != -1
         if not ispiv:
+
             prop = path.node.form.props.get(name)
             if prop is None:
                 mesg = f'No property named {name}.'
@@ -3141,17 +3146,24 @@ class Edit(Oper):
     def bulkgenr(self, gops, runt, genr):
         async def editgenr():
             async for (node, path) in genr:
-                async with runt.snap.getNodeEditor(node) as editor:
-                    path.node = editor
-                    for gopr in gops:
-                        node, path = await gopr.runEdit(runt, node, path, editor=editor)
-                        await asyncio.sleep(0)
-                print('EDITED', node)
-                path.node = node
+                if not node.form.isrunt:
+                    async with runt.snap.getNodeEditor(node) as pnode:
+                        path.node = pnode
+                        for gopr in gops:
+                            pnode, path = await gopr.runEdit(runt, pnode, path)
+                            await asyncio.sleep(0)
 
-                yield node, path
-                await asyncio.sleep(0)
-                
+                    path.node = node
+
+                    yield node, path
+                    await asyncio.sleep(0)
+                else:
+                    for gopr in gops:
+                        node, path = await gopr.runEdit(runt, node, path)
+                        await asyncio.sleep(0)
+                    yield node, path
+                    await asyncio.sleep(0)
+
         return editgenr()
 
     def optimize(self):
@@ -3164,6 +3176,11 @@ class Edit(Oper):
             if isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)):
                 break
             self.gops.append(self.parent.kids.pop(offs))
+
+        if len(self.gops) > 1:
+            for oper in self.iterright():
+                oper.pindex = offs
+                offs += 1
 
     async def run(self, runt, genr):
 
@@ -3370,7 +3387,7 @@ class EditPropSet(Edit):
         self.isadd = self.oper in ('+=', '?+=')
         self.issub = self.oper in ('-=', '?-=')
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         expand = True
         name = await self.kids[0].compute(runt, path)
@@ -3434,7 +3451,7 @@ class EditPropSet(Edit):
                     valu, _ = prop.type.norm(valu)
                     valu = prop.type.merge(oldv, valu)
 
-            await node.set(name, valu, editor=editor)
+            await node.set(name, valu)
 
         except self.excignore:
             pass
@@ -3443,7 +3460,7 @@ class EditPropSet(Edit):
 
 class EditPropDel(Edit):
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         name = await self.kids[0].compute(runt, path)
 
@@ -3468,7 +3485,7 @@ class EditUnivDel(Edit):
         if self.univprop.isconst:
             self.validname = None
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         name = await self.univprop.compute(runt, path)
 
@@ -3612,7 +3629,7 @@ class EditEdgeAdd(Edit):
 
         self.allowed = allowed
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         if node.form.isrunt:
             mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
@@ -3633,7 +3650,7 @@ class EditEdgeAdd(Edit):
                 if self.n2:
                     await subn.addEdge(verb, iden)
                 else:
-                    await node.addEdge(verb, subn.iden(), editor=editor)
+                    await node.addEdge(verb, subn.iden())
 
         return node, path
 
@@ -3659,7 +3676,7 @@ class EditEdgeDel(Edit):
 
         self.allowed = allowed
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         iden = node.iden()
         verb = await self.kids[0].compute(runt, path)
@@ -3690,7 +3707,7 @@ class EditTagAdd(Edit):
 
         self.hasval = len(self.kids) > 2 + self.oper_offset
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         valu = (None, None)
 
@@ -3721,7 +3738,7 @@ class EditTagAdd(Edit):
                 if self.hasval:
                     valu = await self.kids[2 + self.oper_offset].compute(runt, path)
                     valu = await s_stormtypes.toprim(valu)
-                await node.addTag(name, valu=valu, editor=editor)
+                await node.addTag(name, valu=valu)
             except self.excignore:
                 pass
 
@@ -3729,7 +3746,7 @@ class EditTagAdd(Edit):
 
 class EditTagDel(Edit):
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         names = await self.kids[0].compute(runt, path)
         names = await s_stormtypes.toprim(names)
@@ -3763,7 +3780,7 @@ class EditTagPropSet(Edit):
         oper = self.kids[1].value()
         self.excignore = s_exc.BadTypeValu if oper == '?=' else ()
 
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         tag, prop = await self.kids[0].compute(runt, path)
 
@@ -3781,7 +3798,7 @@ class EditTagPropSet(Edit):
         runt.layerConfirm(('node', 'tag', 'add', *tagparts))
 
         try:
-            await node.setTagProp(tag, prop, valu, editor=editor)
+            await node.setTagProp(tag, prop, valu)
         except asyncio.CancelledError:  # pragma: no cover
             raise
         except self.excignore:
@@ -3793,7 +3810,7 @@ class EditTagPropDel(Edit):
     '''
     [ -#foo.bar:baz ]
     '''
-    async def runEdit(self, runt, node, path, editor=None):
+    async def runEdit(self, runt, node, path):
 
         tag, prop = await self.kids[0].compute(runt, path)
 

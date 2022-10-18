@@ -2353,21 +2353,22 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            q = '[( inet:ipv4=1.2.3.4 '
+            q = '[ inet:ipv4=1.2.3.4 '
 
-            for x in range(963):
+            for x in range(10):
                 q += f'+#tag{x} '
-            q+= 'inet:ipv4=2.3.4.5 '
-            for x in range(1000):
-                q += f'+#tag{963+x} '
-            q += ')]'
+
+            q += 'inet:ipv4=2.3.4.5 '
+
+            for x in range(10):
+                q += f'+#tag{10+x} '
+
+            q += ']'
 
             msgs = await core.stormlist(q)
-            for m in msgs:
-                if m[0] in ['print', 'err', 'warn']:
-                    print(m)
+            self.stormHasNoErr(msgs)
 
             nodes = await core.nodes('inet:ipv4')
-            print(len(nodes[0].tags))
-            print(len(nodes[1].tags))
-            print(await core.getNexsIndx())
+            self.len(20, nodes[0].tags)
+            self.len(10, nodes[1].tags)
+            self.eq(8, await core.getNexsIndx())

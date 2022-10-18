@@ -675,7 +675,6 @@ class Snap(s_base.Base):
 
         node = self.livenodes.get(buid)
         if node is not None:
-            print('GOT LIVENODE', node)
             await asyncio.sleep(0)
             return node
 
@@ -915,6 +914,10 @@ class Snap(s_base.Base):
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
+        if node.buid not in self.livenodes:
+            self.livenodes[node.buid] = node
+            self.buidcache.append(node)
+
         try:
             yield protonode
         except Exception:
@@ -925,7 +928,6 @@ class Snap(s_base.Base):
                 nodeedits = editor.getNodeEdits()
                 if nodeedits:
                     await self.applyNodeEdits(nodeedits)
-            print('APPLIED', node)
 
     @contextlib.asynccontextmanager
     async def getEditor(self, transaction=False):
@@ -936,7 +938,7 @@ class Snap(s_base.Base):
         try:
             yield editor
         except Exception:
-            errs = True    
+            errs = True
             raise
         finally:
             if not (errs and transaction):
@@ -1050,8 +1052,9 @@ class Snap(s_base.Base):
                     continue
 
                 if etyp == s_layer.EDIT_TAG_SET:
+
                     (tag, valu, oldv) = parms
-                    print('SETTAG')
+
                     node.tags[tag] = valu
                     node.bylayer['tags'][tag] = wlyr.iden
 
@@ -1104,7 +1107,7 @@ class Snap(s_base.Base):
             if providen is not None:
                 await self.fire('prov:new', time=meta['time'], user=meta['user'], prov=providen, provstack=provstack)
             await self.fire('node:edits', edits=actualedits)
-        print('COMPLETE', nodes)
+
         return saveoff, changes, nodes
 
     async def addNode(self, name, valu, props=None, norminfo=None):
