@@ -870,15 +870,17 @@ class SynTest(unittest.TestCase):
 
     @contextlib.asynccontextmanager
     async def getRegrCore(self, vers, conf=None):
-        with self.getRegrDir('cortexes', vers) as dirn:
-            async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                yield core
+        with self.withNexusReplay():
+            with self.getRegrDir('cortexes', vers) as dirn:
+                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    yield core
 
     @contextlib.asynccontextmanager
     async def getRegrAxon(self, vers, conf=None):
-        with self.getRegrDir('axons', vers) as dirn:
-            async with await s_axon.Axon.anit(dirn, conf=conf) as axon:
-                yield axon
+        with self.withNexusReplay():
+            with self.getRegrDir('axons', vers) as dirn:
+                async with await s_axon.Axon.anit(dirn, conf=conf) as axon:
+                    yield axon
 
     def skipIfNoInternet(self):  # pragma: no cover
         '''
@@ -1200,15 +1202,16 @@ class SynTest(unittest.TestCase):
             conf = {}
         conf = copy.deepcopy(conf)
 
-        if dirn is not None:
-            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                yield cryo
+        with self.withNexusReplay():
+            if dirn is not None:
+                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
+                    yield cryo
 
-            return
+                return
 
-        with self.getTestDir() as dirn:
-            async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                yield cryo
+            with self.getTestDir() as dirn:
+                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
+                    yield cryo
 
     @contextlib.asynccontextmanager
     async def getTestCryoAndProxy(self, dirn=None):
