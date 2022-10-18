@@ -905,9 +905,9 @@ class SynTest(unittest.TestCase):
         Allow skipping a test if SYNDEV_NEXUS_REPLAY envar is set.
 
         Raises:
-            unittest.SkipTest if SYNDEV_NEXUS_REPLAY envar is set to a integer greater than 1.
+            unittest.SkipTest if SYNDEV_NEXUS_REPLAY envar is set to true value.
         '''
-        if bool(int(os.getenv('SYNDEV_NEXUS_REPLAY', 0))):
+        if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
             raise unittest.SkipTest('SYNDEV_NEXUS_REPLAY envar set')
 
     def getTestOutp(self):
