@@ -299,7 +299,7 @@ class SynModelTest(s_t_utils.SynTest):
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
 
                 # Lift nodes
                 nodes = await core.nodes('syn:form=syn:tag')

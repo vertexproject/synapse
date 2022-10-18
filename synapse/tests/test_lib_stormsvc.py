@@ -481,10 +481,10 @@ class StormSvcTest(s_test.SynTest):
         }
         with self.getTestDir() as dirn:
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 await core.addStormPkg(pkg)
 
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 nodes = await core.nodes('foobar')
                 self.eq(nodes[0].ndef, ('inet:asn', 30))
 
@@ -504,7 +504,7 @@ class StormSvcTest(s_test.SynTest):
                 lurl = f'tcp://127.0.0.1:{port}/real'
                 murl = f'tcp://127.0.0.1:{port}/ncreate'
 
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
 
                     await core.nodes(f'service.add real {lurl}')
                     await core.nodes(f'service.add ncreate {murl}')
@@ -772,7 +772,7 @@ class StormSvcTest(s_test.SynTest):
     async def test_storm_svc_restarts(self):
 
         with self.getTestDir() as dirn:
-            async with await s_cortex.Cortex.anit(dirn) as core:
+            async with self.getTestCore(dirn=dirn) as core:
                 with self.getTestDir() as svcd:
                     async with await ChangingService.anit(svcd) as chng:
                         chng.dmon.share('chng', chng)
@@ -827,7 +827,7 @@ class StormSvcTest(s_test.SynTest):
             # This test verifies that storm commands loaded from a previously connected service are still available,
             # even if the service is not available now
             with self.getLoggerStream('synapse.lib.nexus') as stream:
-                async with await s_cortex.Cortex.anit(dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
                     self.nn(core.getStormCmd('newcmd'))
                     self.nn(core.getStormCmd('new.baz'))
                     self.nn(core.getStormCmd('old.bar'))
@@ -904,7 +904,7 @@ class StormSvcTest(s_test.SynTest):
                     url = core00.getLocalUrl()
 
                     conf = {'mirror': url}
-                    async with await s_cortex.Cortex.anit(dirn=path01, conf=conf) as core01:
+                    async with self.getTestCore(dirn=path01, conf=conf) as core01:
 
                         await core01.sync()
 
