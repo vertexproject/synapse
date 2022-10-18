@@ -737,7 +737,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('test.visi', mesg['data']['tag'])
 
     async def test_http_beholder(self):
-        self.skip('Temporary skip')
+        self.skipIfNexusReplay()
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
