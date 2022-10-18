@@ -1108,14 +1108,18 @@ class SynTest(unittest.TestCase):
         '''
         Patch so that the Nexus apply log is applied twice. Useful to verify idempotency.
 
+        Args:
+            replay (bool): Set the default value of resolving the existence of SYNDEV_NEXUS_REPLAY variable.
+                           This can be used to force the apply patch without using the environment variable.
+
         Notes:
             This is applied if the environment variable SYNDEV_NEXUS_REPLAY is set
-            or the replay argument is set to True.
+            to a non zero value or the replay argument is set to True.
 
         Returns:
             contextlib.ExitStack: An exitstack object.
         '''
-        replay = os.environ.get('SYNDEV_NEXUS_REPLAY', default=replay)
+        replay = s_common.envbool('SYNDEV_NEXUS_REPLAY', defval=str(replay))
 
         with contextlib.ExitStack() as stack:
             if replay:
