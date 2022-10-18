@@ -4,6 +4,36 @@
 Synapse Changelog
 *****************
 
+v2.112.0 - 2022-10-18
+=====================
+
+Features and Enhancements
+-------------------------
+- Add ``--email`` as an argument to ``synapse.tools.moduser`` to allow setting
+  a users email address.
+  (`#2891 <https://github.com/vertexproject/synapse/pull/2891>`_)
+- Add support for ``hxxp[s]:`` prefixes in scrape functions.
+  (`#2887 <https://github.com/vertexproject/synapse/pull/2887>`_)
+- Make the SYNDEV_NEXUS_REPLAY resolution use ``s_common.envbool()`` in the
+  ``SynTest.withNexusReplay()`` helper. Add ``withNexusReplay()`` calls to
+  all test helpers which make Cells which previously did not have it
+  available.
+  (`#2889 <https://github.com/vertexproject/synapse/pull/2889>`_)
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+- Add implementations of ``getPermDef()`` and ``getPermDefs()`` to the base
+  Cell class.
+  (`#2888 <https://github.com/vertexproject/synapse/pull/2888>`_)
+
+Bugfixes
+--------
+- Fix an idempotency issue in the JsonStor multiqueue implementation.
+  (`#2890 <https://github.com/vertexproject/synapse/pull/2890>`_)
+
+Improved Documentation
+----------------------
+- Add Synapse-GCS (Google Cloud Storage) Advanced Power-Up to the Power-Ups
+  list.
+
 v2.111.0 - 2022-10-12
 =====================
 
