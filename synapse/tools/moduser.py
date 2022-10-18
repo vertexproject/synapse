@@ -18,6 +18,7 @@ async def main(argv, outp=s_output.stdout):
     pars.add_argument('--add', default=False, action='store_true', help='Add the user if they do not already exist.')
     pars.add_argument('--admin', choices=('true', 'false'), default=None, help='Set the user admin status.')
     pars.add_argument('--passwd', action='store', type=str, help='A password to set for the user.')
+    pars.add_argument('--email', action='store', type=str, help='An email to set for the user.')
     pars.add_argument('--locked', choices=('true', 'false'), default=None, help='Set the user locked status.')
     pars.add_argument('--grant', default=[], action='append', help='A role to grant to the user.')
     pars.add_argument('--revoke', default=[], action='append', help='A role to revoke from the user.')
@@ -75,6 +76,10 @@ async def main(argv, outp=s_output.stdout):
             if opts.passwd is not None:
                 outp.printf(f'...setting passwd: {opts.passwd}')
                 await cell.setUserPasswd(useriden, opts.passwd)
+
+            if opts.email is not None:
+                outp.printf(f'...setting email: {opts.email}')
+                await cell.setUserEmail(useriden, opts.email)
 
             for role in grants:
                 rolename = role.get('name')

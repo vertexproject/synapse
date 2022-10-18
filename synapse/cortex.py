@@ -936,18 +936,6 @@ class CoreApi(s_cell.CellApi):
                                                     startvalu=startvalu):
             yield item
 
-    async def getPermDef(self, perm):
-        '''
-        Return a perm definition if it is present in getPermDefs() output.
-        '''
-        return await self.cell.getPermDef(perm)
-
-    async def getPermDefs(self):
-        '''
-        Return a non-comprehensive list of perm definitions.
-        '''
-        return await self.cell.getPermDefs()
-
     async def getAxonUpload(self):
         self.user.confirm(('axon', 'upload'))
         await self.cell.axready.wait()
