@@ -3148,7 +3148,7 @@ class Edit(Oper):
             self.optimized = True
             [k.optimize() for k in self.kids]
 
-        if isinstance(self, (EditNodeAdd, EditParens)):
+        if isinstance(self, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)):
             return
 
         self.gops = [self]
@@ -3169,7 +3169,7 @@ class Edit(Oper):
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        if not isinstance(self, (EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel)):
+        if not isinstance(self, (EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel)) and len(self.gops) > 1:
             async for node, path in genr:
                 if not node.form.isrunt:
                     async with runt.snap.getNodeEditor(node) as pnode:
