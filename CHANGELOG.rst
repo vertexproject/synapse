@@ -10,7 +10,7 @@ v2.112.0 - 2022-10-18
 Features and Enhancements
 -------------------------
 - Add ``--email`` as an argument to ``synapse.tools.moduser`` to allow setting
-  a users email address.
+  a user's email address.
   (`#2891 <https://github.com/vertexproject/synapse/pull/2891>`_)
 - Add support for ``hxxp[s]:`` prefixes in scrape functions.
   (`#2887 <https://github.com/vertexproject/synapse/pull/2887>`_)
