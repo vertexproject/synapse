@@ -3172,8 +3172,9 @@ class Edit(Oper):
             return
 
         offs = self.pindex + 1
-        while offs < len(self.parent.kids) and isinstance(kid := self.parent.kids[offs], Edit):
-            if isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not kid.isSafeEdit():
+        while offs < len(self.parent.kids):
+            kid = self.parent.kids[offs]
+            if not isinstance(kid, Edit) or isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not kid.isSafeEdit():
                 break
             self.gops.append(self.parent.kids.pop(offs))
 
