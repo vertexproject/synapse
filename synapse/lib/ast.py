@@ -3157,10 +3157,12 @@ class Edit(Oper):
 
     def optimize(self):
 
-        if not self.optimized:
-            self.gops = [self]
-            self.optimized = True
-            [k.optimize() for k in self.kids]
+        if self.optimized:
+            return
+
+        self.gops = [self]
+        self.optimized = True
+        [k.optimize() for k in self.kids]
 
         # TODO: add deletes to protonode so we can eat those too
         if isinstance(self, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not self.isSafeEdit():
