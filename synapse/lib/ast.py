@@ -141,6 +141,9 @@ class AstNode:
     def isRuntSafe(self, runt):
         return all(k.isRuntSafe(runt) for k in self.kids)
 
+    def isSafeEdit(self):
+        return all(k.isSafeEdit() for k in self.kids)
+
     def hasVarName(self, name):
         return any(k.hasVarName(name) for k in self.kids)
 
@@ -500,6 +503,9 @@ class SubQuery(Oper):
         Oper.__init__(self, kids)
         self.hasyield = False
         self.hasretn = self.hasAstClass(Return)
+
+    def isSafeEdit(self):
+        return False
 
     async def run(self, runt, genr):
 
@@ -2853,6 +2859,9 @@ class VarDeref(Value):
 
 class FuncCall(Value):
 
+    def isSafeEdit(self):
+        return False
+
     async def compute(self, runt, path):
 
         func = await self.kids[0].compute(runt, path)
@@ -3087,6 +3096,9 @@ class Bool(Const):
 
 class EmbedQuery(Const):
 
+    def isSafeEdit(self):
+        return False
+
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
         pass
@@ -3144,17 +3156,19 @@ class AbsProp(Const):
 class Edit(Oper):
 
     def optimize(self):
+
+        self.gops = [self]
+
         if not self.optimized:
             self.optimized = True
             [k.optimize() for k in self.kids]
 
-        if isinstance(self, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)):
+        if isinstance(self, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not self.isSafeEdit():
             return
 
-        self.gops = [self]
         offs = self.pindex + 1
         while offs < len(self.parent.kids) and isinstance(kid := self.parent.kids[offs], Edit):
-            if isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)):
+            if isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not kid.isSafeEdit():
                 break
             self.gops.append(self.parent.kids.pop(offs))
 
@@ -3169,7 +3183,7 @@ class Edit(Oper):
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        if not isinstance(self, (EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel)) and len(self.gops) > 1:
+        if len(self.gops) > 1:
             async for node, path in genr:
                 if not node.form.isrunt:
                     async with runt.snap.getNodeEditor(node) as pnode:
