@@ -3099,9 +3099,6 @@ class Bool(Const):
 
 class EmbedQuery(Const):
 
-    def isSafeEdit(self):
-        return False
-
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
         pass
