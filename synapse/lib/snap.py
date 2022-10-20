@@ -910,6 +910,10 @@ class Snap(s_base.Base):
     @contextlib.asynccontextmanager
     async def getNodeEditor(self, node, transaction=False):
 
+        if node.form.isrunt:
+            mesg = f'Cannot edit runt nodes: {node.form.name}.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+
         errs = False
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
