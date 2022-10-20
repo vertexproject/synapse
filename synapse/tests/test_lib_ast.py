@@ -2372,3 +2372,6 @@ class AstTest(s_test.SynTest):
             self.len(20, nodes[0].tags)
             self.len(10, nodes[1].tags)
             self.eq(8, await core.getNexsIndx())
+
+            nodes = await core.nodes('[ou:org=(testorg,) :desc=test :subs={ou:org:desc=test}]')
+            self.eq(nodes[0].props.get('subs'), [nodes[0].ndef[1]])
