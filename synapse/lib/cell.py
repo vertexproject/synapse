@@ -1986,46 +1986,46 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
-        logger.info(f'Added rule={rule} on user {user.name}',
+        logger.info(f'Added rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return retn
 
     async def addRoleRule(self, iden, rule, indx=None, gateiden=None):
         role = await self.auth.reqRole(iden)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
-        logger.info(f'Added rule={rule} on role {role.name}',
+        logger.info(f'Added rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
-        logger.info(f'Removing rule={rule} on user {user.name}',
+        logger.info(f'Removing rule={rule} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
-        logger.info(f'Removing rule={rule} on role {role.name}',
+        logger.info(f'Removing rule={rule} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rule=rule))
+                                                 rule=rule, gateiden=gateiden))
         return await role.delRule(rule, gateiden=gateiden)
 
     async def setUserRules(self, iden, rules, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setRules(rules, gateiden=gateiden)
-        logger.info(f'Set user rules = {rules} on user {user.name}',
+        logger.info(f'Set user rules = {rules} on user {user.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
-                                                 rules=rules))
+                                                 rules=rules, gateiden=gateiden))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
-        logger.info(f'Set role rules = {rules} on role {role.name}',
+        logger.info(f'Set role rules = {rules} on role {role.name} for gateiden={gateiden}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
-                                                 rules=rules))
+                                                 rules=rules, gateiden=gateiden))
 
     async def setRoleName(self, iden, name):
         role = await self.auth.reqRole(iden)
@@ -2037,8 +2037,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
-        logger.info(f'Set admin={admin} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name))
+        logger.info(f'Set admin={admin} for {user.name} for gateiden={gateiden}',
+                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                                                 gateiden=gateiden))
 
     async def addUserRole(self, useriden, roleiden):
         user = await self.auth.reqUser(useriden)
