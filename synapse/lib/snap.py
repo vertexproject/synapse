@@ -918,9 +918,7 @@ class Snap(s_base.Base):
         editor = SnapEditor(self)
         protonode = editor.loadNode(node)
 
-        if node.buid not in self.livenodes:
-            self.livenodes[node.buid] = node
-            self.buidcache.append(node)
+        self.livenodes[node.buid] = protonode
 
         try:
             yield protonode
@@ -928,6 +926,7 @@ class Snap(s_base.Base):
             errs = True
             raise
         finally:
+            self.livenodes[node.buid] = node
             if not (errs and transaction):
                 nodeedits = editor.getNodeEdits()
                 if nodeedits:

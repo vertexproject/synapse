@@ -504,6 +504,9 @@ class SubQuery(Oper):
         self.hasyield = False
         self.hasretn = self.hasAstClass(Return)
 
+    def isSafeEdit(self):
+        return False
+
     async def run(self, runt, genr):
 
         subq = self.kids[0]
@@ -912,9 +915,6 @@ async def pullone(genr):
 
 class CmdOper(Oper):
 
-    def isSafeEdit(self):
-        return False
-
     async def run(self, runt, genr):
 
         name = await self.kids[0].compute(runt, None)
@@ -1153,9 +1153,6 @@ class CaseEntry(AstNode):
     pass
 
 class LiftOper(Oper):
-
-    def isSafeEdit(self):
-        return False
 
     async def run(self, runt, genr):
 
@@ -3098,6 +3095,9 @@ class Bool(Const):
     pass
 
 class EmbedQuery(Const):
+
+    def isSafeEdit(self):
+        return False
 
     def validate(self, runt):
         # var scope validation occurs in the sub-runtime
