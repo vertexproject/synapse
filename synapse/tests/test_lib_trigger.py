@@ -97,8 +97,7 @@ class TrigTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
                 core01conf = {'mirror': url}
-
-                async with await s_cortex.Cortex.anit(dirn=path01, conf=core01conf) as core01:
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
                     # ensure sync by forcing node construction
                     await core01.nodes('[ou:org=*]')
                     self.nn(await core00.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))

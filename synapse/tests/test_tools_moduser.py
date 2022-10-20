@@ -61,6 +61,18 @@ class ModUserTest(s_test.SynTest):
             argv = (
                 '--svcurl', svcurl,
                 'visi',
+                '--email', 'visi@test.com',
+            )
+            outp = s_output.OutPutStr()
+            visi = await core.auth.getUserByName('visi')
+            self.none(visi.info.get('email'))
+            self.eq(0, await s_t_moduser.main(argv, outp=outp))
+            self.isin('...setting email: visi@test.com', str(outp))
+            self.eq('visi@test.com', visi.info.get('email'))
+
+            argv = (
+                '--svcurl', svcurl,
+                'visi',
                 '--admin', 'true',
                 '--locked', 'true',
             )
