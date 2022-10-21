@@ -341,13 +341,8 @@ class Node:
                                        form=self.form.full, prop=name)
             return await self.snap.core.runRuntPropDel(self, prop)
 
-        edits = await self._getPropDelEdits(name, init=init)
-        if not edits:
-            return False
-
-        await self.snap.applyNodeEdit((self.buid, self.form.name, edits))
-        self.props.pop(name, None)
-        return True
+        async with self.snap.getNodeEditor(self) as editor:
+            return await editor.pop(name)
 
     def repr(self, name=None, defv=None):
 
@@ -538,10 +533,12 @@ class Node:
         '''
         Delete a tag from the node.
         '''
-        edits = await self._getTagDelEdits(tag, init=init)
-        if edits:
-            nodeedit = (self.buid, self.form.name, edits)
-            await self.snap.applyNodeEdit(nodeedit)
+        if self.form.isrunt:
+            raise s_exc.IsRuntForm(mesg='Cannot delete tags from runt nodes.',
+                                   form=self.form.full, tag=tag)
+
+        async with self.snap.getNodeEditor(self) as editor:
+            await editor.delTag(tag)
 
     def _getTagPropDel(self, tag):
 
@@ -586,6 +583,9 @@ class Node:
             await editor.setTagProp(tag, name, valu)
 
     async def delTagProp(self, tag, name):
+        async with self.snap.getNodeEditor(self) as editor:
+            await editor.delTagProp(tag, name)
+
         prop = self.snap.core.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(name=name)

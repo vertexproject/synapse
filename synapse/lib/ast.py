@@ -3165,13 +3165,13 @@ class Edit(Oper):
         [k.optimize() for k in self.kids]
 
         # TODO: add deletes to protonode so we can eat those too
-        if isinstance(self, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not self.isSafeEdit():
+        if isinstance(self, (EditNodeAdd, EditParens)) or not self.isSafeEdit():
             return
 
         offs = self.pindex + 1
         while offs < len(self.parent.kids):
             kid = self.parent.kids[offs]
-            if not isinstance(kid, Edit) or isinstance(kid, (EditNodeAdd, EditPropDel, EditTagDel, EditTagPropDel, EditEdgeDel, EditUnivDel, EditParens)) or not kid.isSafeEdit():
+            if not isinstance(kid, Edit) or isinstance(kid, (EditNodeAdd, EditParens)) or not kid.isSafeEdit():
                 break
             self.gops.append(self.parent.kids.pop(offs))
 

@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
@@ -75,9 +76,7 @@ class ProtoNode:
 
         self.tagdels = set()
         self.propdels = set()
-        self.edgedels = set()
         self.tagpropdels = set()
-        self.nodedatadels = set()
 
     def iden(self):
         return s_common.ehex(self.buid)
@@ -93,8 +92,15 @@ class ProtoNode:
             prop = self.form.props.get(name)
             edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype), ()))
 
+        for name in self.propdels:
+            prop = self.form.props.get(name)
+            edits.append((s_layer.EDIT_PROP_DEL, (name, None, prop.type.stortype), ()))
+
         for name, valu in self.tags.items():
             edits.append((s_layer.EDIT_TAG_SET, (name, valu, None), ()))
+
+        for name in sorted(self.tagdels, key=lambda t: len(t), reverse=True):
+            edits.append((s_layer.EDIT_TAG_DEL, (name, None), ()))
 
         for verb, n2iden in self.edges:
             edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2iden), ()))
@@ -102,6 +108,9 @@ class ProtoNode:
         for (tag, name), valu in self.tagprops.items():
             prop = self.ctx.snap.core.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype), ()))
+        for (tag, name) in self.tagpropdels:
+            prop = self.ctx.snap.core.model.getTagProp(name)
+            edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype), ()))
 
         for name, valu in self.nodedata.items():
             edits.append((s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()))
@@ -175,6 +184,9 @@ class ProtoNode:
 
     def getTag(self, tag):
 
+        if tag in self.tagdels:
+            return None
+
         curv = self.tags.get(tag)
         if curv is not None:
             return curv
@@ -216,10 +228,107 @@ class ProtoNode:
 
         valu = s_time.ival(*valu, *curv)
         self.tags[tagnode.valu] = valu
+        self.tagdels.discard(tagnode.valu)
 
         return tagnode
 
+    def getTagNames(self):
+        alltags = set(self.tags.keys())
+        alltags.update(set(self.node.tags.keys()))
+        return alltags - self.tagdels
+
+    def _getTagTree(self):
+
+        root = (None, {})
+        for tag in self.getTagNames():
+
+            node = root
+
+            for part in tag.split('.'):
+
+                kidn = node[1].get(part)
+
+                if kidn is None:
+
+                    full = part
+                    if node[0] is not None:
+                        full = f'{node[0]}.{full}'
+
+                    kidn = node[1][part] = (full, {})
+
+                node = kidn
+
+        return root
+
+    def _delTag(self, name):
+        self.tagdels.add(name)
+        self.tags.pop(name, None)
+
+        for prop in self.getTagProps(name):
+            self.tagpropdels.add((name, prop))
+            self.tagprops.pop((name, prop), None)
+
+    async def delTag(self, tag):
+
+        path = s_chop.tagpath(tag)
+
+        name = '.'.join(path)
+
+        if self.getTag(name) is None:
+            return False
+
+        if len(path) > 1:
+
+            parent = '.'.join(path[:-1])
+
+            # retrieve a list of prunable tags
+            prune = await self.ctx.snap.core.getTagPrune(parent)
+            if prune:
+
+                tree = self._getTagTree()
+
+                for prunetag in reversed(prune):
+
+                    node = tree
+                    for step in prunetag.split('.'):
+
+                        node = node[1].get(step)
+                        if node is None:
+                            break
+
+                    if node is not None and len(node[1]) == 1:
+                        self._delTag(node[0])
+                        continue
+
+                    break
+
+        pref = name + '.'
+
+        for tname in self.getTagNames():
+            if tname.startswith(pref):
+                self._delTag(tname)
+
+        self._delTag(name)
+
+        return True
+
+    def getTagProps(self, tag):
+        props = set()
+        for (tagn, prop) in self.tagprops:
+            if tagn == tag:
+                props.add(tagn)
+
+        if self.node is not None:
+            for prop in self.node.getTagProps(tag):
+                if (tag, prop) not in self.tagpropdels:
+                    props.add(prop)
+
+        return(props)
+
     def getTagProp(self, tag, name):
+
+        if (tag, name) in self.tagpropdels:
+            return None
 
         curv = self.tagprops.get((tag, name))
         if curv is not None:
@@ -251,11 +360,31 @@ class ProtoNode:
         if curv == norm:
             return
 
+        self.tagpropdels.discard((tagnode.valu, name))
         self.tagprops[(tagnode.valu, name)] = norm
+
+    async def delTagProp(self, tag, name):
+
+        prop = self.ctx.snap.core.model.getTagProp(name)
+        if prop is None:
+            mesg = f'Tagprop {name} does not exist in this Cortex.'
+            return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg, name=name)
+
+        curv = self.getTagProp(tag, name)
+        if curv is None:
+            return False
+
+        self.tagpropdels.add((tag, name))
+        self.tagprops.pop((tag, name), None)
+
+        return True
 
     def get(self, name):
 
         # get the current value including the pending prop sets
+        if name in self.propdels:
+            return None
+
         curv = self.props.get(name)
         if curv is not None:
             return curv
@@ -314,6 +443,7 @@ class ProtoNode:
             await self.ctx.snap.core._callPropSetHook(self.node, prop, valu)
 
         self.props[name] = valu
+        self.propdels.discard(name)
 
         propform = self.ctx.snap.core.model.form(prop.type.name)
         if propform is not None:
@@ -331,6 +461,27 @@ class ProtoNode:
         if propadds is not None:
             for addname, addvalu, addinfo in propadds:
                 await self.ctx.addNode(addname, addvalu, norminfo=addinfo)
+
+        return True
+
+    async def pop(self, name):
+
+        prop = self.form.prop(name)
+        if prop is None:
+            mesg = f'No property named {name}.'
+            await self.ctx.snap._raiseOnStrict(s_exc.NoSuchProp, mesg, name=name, form=self.form.name)
+            return False
+
+        if self.get(name) is None:
+            return False
+
+        if prop.info.get('ro'):
+            mesg = f'Property is read only: {prop.full}.'
+            await self.ctx.snap._raiseOnStrict(s_exc.ReadOnlyProp, mesg, name=prop.full)
+            return False
+
+        self.propdels.add(name)
+        self.props.pop(name, None)
 
         return True
 
