@@ -2091,6 +2091,9 @@ class InetModule(s_module.CoreModule):
                         ('avatar', ('file:bytes', {}), {
                             'doc': 'The file representing the avatar (e.g., profile picture) for the account.'
                         }),
+                        ('banner', ('file:bytes', {}), {
+                            'doc': 'The file representing the banner for the account.'
+                        }),
                         ('dob', ('time', {}), {
                             'doc': 'A self-declared date of birth for the account (if the account belongs to a person).'
                         }),
@@ -2441,6 +2444,9 @@ class InetModule(s_module.CoreModule):
                         ('text', ('str', {}), {
                             'doc': 'The text of the message.',
                             'disp': {'hint': 'text'},
+                        }),
+                        ('deleted', ('bool', {}), {
+                            'doc': 'The message was deleted.',
                         }),
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file attached to or sent with the message.'
