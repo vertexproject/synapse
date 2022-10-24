@@ -161,7 +161,7 @@ class StormHttpTest(s_test.SynTest):
 
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json(errors=ignore) )
+            return ( $resp.json(encoding=utf8, errors=ignore) )
             '''
             self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
 
