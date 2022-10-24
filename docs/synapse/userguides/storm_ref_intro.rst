@@ -24,6 +24,9 @@ This section covers several important high-level Storm concepts:
   - `Lift, Filter, and Pivot Criteria`_
 
 - `Whitespace and Literals in Storm`_
+
+  - `Backtick Format Strings`_
+
 - `Storm Operating Concepts`_
 
   - `Working Set`_
@@ -201,6 +204,25 @@ The commands below demonstrate assignment and comparison operations that **requi
 - Lift the file name ``windows,update.exe`` which contains the comma special character:
   
   ``storm> file:base = "windows,update.exe"``
+
+.. _storm-backtick-format-strings:
+
+Backtick Format Strings
++++++++++++++++++++++++
+
+Backticks ( ``` ``` ) can be used to specify be used to specify a format string in Storm, with curly braces used to specify expressions which will be substituted into the string at runtime. Any valid Storm expression may be used in a format string, such as variables, node properties, tags, or function calls.
+
+- Use a variable in a string:
+
+  ``storm> $ip = "1.2.3.4" $str = `The IP is {$ip}```
+
+- Use node properties in a string:
+
+  ``storm> inet:ipv4=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} .seen={.seen} foo={#foo}`)``
+
+- Lift a node using a format string:
+
+  ``storm> $ip=1.2.3.4 $port=22 inet:client=`{$ip}:{$port}```
 
 .. _storm-op-concepts:
 
