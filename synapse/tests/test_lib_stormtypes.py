@@ -2855,6 +2855,11 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, errs)
             self.eq(errs[0][1][0], 'StormRuntimeError')
 
+            q = '$lib.print($byts.decode(errors=ignore))'
+            msgs = await core.stormlist(q, opts={'vars': {'byts': b'foo\x80'}})
+            self.stormHasNoErr(msgs)
+            self.stormIsInPrint('foo', msgs)
+
             q = '$valu="str.ॐ.valu" $buf=$valu.encode(ascii)'
             msgs = await core.stormlist(q)
             errs = [m for m in msgs if m[0] == 'err']
