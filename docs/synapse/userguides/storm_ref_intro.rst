@@ -210,7 +210,7 @@ The commands below demonstrate assignment and comparison operations that **requi
 Backtick Format Strings
 +++++++++++++++++++++++
 
-Backticks ( ``` ``` ) can be used to specify be used to specify a format string in Storm, with curly braces used to specify expressions which will be substituted into the string at runtime. Any valid Storm expression may be used in a format string, such as variables, node properties, tags, or function calls.
+Backticks ( ``` ``` ) can be used to specify a format string in Storm, with curly braces used to specify expressions which will be substituted into the string at runtime. Any valid Storm expression may be used in a format string, such as variables, node properties, tags, or function calls.
 
 - Use a variable in a string:
 
