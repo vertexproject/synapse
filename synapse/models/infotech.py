@@ -869,6 +869,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A description of the ATT&CK group.',
                         'disp': {'hint': 'text'},
                     }),
+                    ('isnow', ('it:mitre:attack:group', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the group.',
+                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK group.',
                     }),
@@ -952,6 +955,9 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
+                    }),
+                    ('isnow', ('it:mitre:attack:software', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the software.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK software.',
