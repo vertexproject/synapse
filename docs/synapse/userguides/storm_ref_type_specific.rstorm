@@ -364,10 +364,10 @@ a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
 - The length of the value that is "sufficiently unique" to select a single ``file:bytes`` will vary depending
   on the data in your instance of Synapse. If your selection criteria matches more than one ``file:bytes`` node,
   Synapse will return all matches.
-
 - Alternatively, the regular expression operator ( ``~=`` ) may be used to specify a partial string match anywhere
   in the ``file:bytes`` node's primary property value (though this is an inefficient way to specify a ``file:bytes``
   node).
+
 
 .. _type-guid:
 
