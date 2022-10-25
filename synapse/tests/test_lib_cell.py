@@ -108,7 +108,7 @@ class CellTest(s_t_utils.SynTest):
             async with await EchoAuth.anit(dirn) as echo:
 
                 echo.dmon.share('echo00', echo)
-                root = await echo.auth.getUserByName('root')
+                root = echo.getUserByName('root')
                 await root.setPasswd('secretsauce')
 
                 self.eq('root', echo.getUserName(root.iden))
@@ -141,11 +141,11 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(info.get('user').get('name'), 'root')
                     self.eq(info.get('user').get('iden'), root.iden)
 
-                visi = await echo.auth.addUser('visi')
+                visi = await echo.addUser('visi')
                 await visi.setPasswd('foo')
                 await visi.addRule((True, ('foo', 'bar')))
-                testrole = await echo.auth.addRole('testrole')
-                await echo.auth.addRole('privrole')
+                testrole = await echo.addRole('testrole')
+                await echo.addRole('privrole')
                 await visi.grant(testrole.iden)
 
                 visi_url = f'tcp://visi:foo@127.0.0.1:{port}/echo00'
@@ -201,26 +201,26 @@ class CellTest(s_t_utils.SynTest):
                     await proxy.setUserPasswd(visi.iden, 'foobar')
                     # non admin visi user cannot change root user pass
                     with self.raises(s_exc.AuthDeny):
-                        await proxy.setUserPasswd(echo.auth.rootuser.iden, 'coolstorybro')
+                        await proxy.setUserPasswd(echo.rootuser.iden, 'coolstorybro')
                     # cannot change a password for a non existent user
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.setUserPasswd('newp', 'new[')
 
                 # setRoles() allows arbitrary role ordering
-                extra_role = await echo.auth.addRole('extrarole')
-                await visi.setRoles((extra_role.iden, testrole.iden, echo.auth.allrole.iden))
+                extra_role = await echo.addRole('extrarole')
+                await visi.setRoles((extra_role.iden, testrole.iden, echo.allrole.iden))
                 visi_url = f'tcp://visi:foobar@127.0.0.1:{port}/echo00'
                 async with await s_telepath.openurl(visi_url) as proxy:  # type: EchoAuthApi
                     uatm = await proxy.getUserInfo('visi')
                     self.eq(uatm.get('roles'), ('extrarole', 'testrole', 'all',))
 
                     # setRoles are wholesale replacements
-                    await visi.setRoles((echo.auth.allrole.iden, testrole.iden))
+                    await visi.setRoles((echo.allrole.iden, testrole.iden))
                     uatm = await proxy.getUserInfo('visi')
                     self.eq(uatm.get('roles'), ('all', 'testrole'))
 
                 # coverage test - nops short circuit
-                await visi.setRoles((echo.auth.allrole.iden, testrole.iden))
+                await visi.setRoles((echo.allrole.iden, testrole.iden))
 
                 # grants must have the allrole in place
                 with self.raises(s_exc.BadArg):
@@ -354,14 +354,13 @@ class CellTest(s_t_utils.SynTest):
 
         # Ensure the cell and its auth have been fini'd
         self.true(echo.isfini)
-        self.true(echo.auth.isfini)
-        root = await echo.auth.getUserByName('root')
+        root = await echo.getUserByName('root')
         self.true(root.isfini)
 
     async def test_cell_userapi(self):
 
         async with self.getTestCore() as core:
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
             await visi.setPasswd('secret')
             await visi.addRule((True, ('foo', 'bar')))
 
@@ -532,8 +531,8 @@ class CellTest(s_t_utils.SynTest):
 
         conf = {'auth:anon': 'anon'}
         async with self.getTestCell(s_cell.Cell, conf=conf) as cell:
-            anon = await cell.auth.addUser('anon')
-            await cell.auth.rootuser.setPasswd('secret')
+            anon = await cell.addUser('anon')
+            await cell.rootuser.setPasswd('secret')
             host, port = await cell.dmon.listen('tcp://127.0.0.1:0')
             async with await s_telepath.openurl('tcp://127.0.0.1/', port=port) as prox:
                 info = await prox.getCellUser()
@@ -543,7 +542,7 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await s_telepath.openurl('tcp://127.0.0.1/', port=port)
 
-            await cell.auth.delUser(anon.iden)
+            await cell.delUser(anon.iden)
             with self.raises(s_exc.AuthDeny):
                 await s_telepath.openurl('tcp://127.0.0.1/', port=port)
 
@@ -780,13 +779,13 @@ class CellTest(s_t_utils.SynTest):
                 self.true(await proxy.isUserAllowed(visi['iden'], ('hehe', 'haha')))
 
                 with self.raises(s_exc.BadArg):
-                    await proxy.delUserRole(visi['iden'], core.auth.allrole.iden)
+                    await proxy.delUserRole(visi['iden'], core.allrole.iden)
 
                 with self.raises(s_exc.BadArg):
-                    await proxy.delRole(core.auth.allrole.iden)
+                    await proxy.delRole(core.allrole.iden)
 
                 with self.raises(s_exc.BadArg):
-                    await proxy.delUser(core.auth.rootuser.iden)
+                    await proxy.delUser(core.rootuser.iden)
 
                 await proxy.delUser(visi['iden'])
                 await proxy.delRole(ninjas['iden'])
@@ -898,7 +897,7 @@ class CellTest(s_t_utils.SynTest):
                         self.none(cell.conf.reqConfValu('dmon:listen'))
                         self.none(cell.conf.reqConfValu('https:port'))
                         self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
-                        root = cell.auth.rootuser
+                        root = cell.rootuser
                         self.true(await root.tryPasswd('secret'))
 
                 # Overrides file wins out over everything else in conflicts
@@ -1060,7 +1059,7 @@ class CellTest(s_t_utils.SynTest):
                 cryo.certdir.genUserCert('root@localhost', signas='localca')
                 cryo.certdir.genUserCert('newp@localhost', signas='localca')
 
-                root = await cryo.auth.addUser('root@localhost')
+                root = await cryo.addUser('root@localhost')
                 await root.setAdmin(True)
 
             async with self.getTestCryo(dirn=dirn) as cryo:
@@ -1091,15 +1090,15 @@ class CellTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
                 self.eq('faz', cell.conf.get('auth:conf')['baz'])
-                await cell.auth.addUser('visi')
+                await cell.addUser('visi')
 
     async def test_cell_onepass(self):
 
         async with self.getTestCell(s_cell.Cell) as cell:
 
-            await cell.auth.rootuser.setPasswd('root')
+            await cell.rootuser.setPasswd('root')
 
-            visi = await cell.auth.addUser('visi')
+            visi = await cell.addUser('visi')
 
             thost, tport = await cell.dmon.listen('tcp://127.0.0.1:0')
             hhost, hport = await cell.addHttpsPort(0, host='127.0.0.1')
@@ -1232,7 +1231,7 @@ class CellTest(s_t_utils.SynTest):
                 core.certdir.genHostCert('localhost', signas='localca')
                 core.certdir.genUserCert('root@localhost', signas='localca')
 
-                root = await core.auth.addUser('root@localhost')
+                root = await core.addUser('root@localhost')
                 await root.setAdmin(True)
 
                 nodes = await core.nodes('[test:str=streamed]')
@@ -1440,9 +1439,9 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCell(s_cell.Cell, conf=conf) as cell:  # type: s_cell.Cell
             iden = s_common.guid((cell.iden, 'auth', 'user', 'foo@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            user = cell.getUser(iden)
             self.eq(user.name, 'foo@bar.mynet.com')
-            self.eq(user.pack().get('email'), 'foo@barcorp.com')
+            self.eq(await user.pack().get('email'), 'foo@barcorp.com')
             self.false(user.isAdmin())
             self.true(user.allowed(('thing', 'cool')))
             self.false(user.allowed(('thing', 'del')))
@@ -1450,7 +1449,7 @@ class CellTest(s_t_utils.SynTest):
             self.false(user.allowed(('newp', 'secret')))
 
             iden = s_common.guid((cell.iden, 'auth', 'user', 'sally@bar.mynet.com'))
-            user = cell.auth.user(iden)  # type: s_hiveauth.HiveUser
+            user = cell.getUser(iden)
             self.eq(user.name, 'sally@bar.mynet.com')
             self.true(user.isAdmin())
 
@@ -1660,7 +1659,7 @@ class CellTest(s_t_utils.SynTest):
         # Cell was created prior to the shadowv2 password change.
         with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
             async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
+                root = cell.getUserByName('root')
                 shadow = root.info.get('passwd')
                 self.isinstance(shadow, tuple)
                 self.len(2, shadow)
@@ -1675,7 +1674,7 @@ class CellTest(s_t_utils.SynTest):
                 # Logging back in works
                 self.true(await root.tryPasswd('root'))
 
-                user = await cell.auth.getUserByName('user')
+                user = cell.getUserByName('user')
 
                 # User can login with their regular password.
                 shadow = user.info.get('passwd')
@@ -1698,7 +1697,7 @@ class CellTest(s_t_utils.SynTest):
         with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
             conf = {'auth:passwd': 'supersecretpassword'}
             async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
+                root = cell.getUserByName('root')
                 shadow = root.info.get('passwd')
                 self.isinstance(shadow, dict)
                 self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)

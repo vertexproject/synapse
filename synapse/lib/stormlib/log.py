@@ -137,7 +137,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logDebug(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'debug'))
+        await self.runt.confirm(('storm', 'lib', 'log', 'debug'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.debug(mesg, extra=extra)
@@ -145,7 +145,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logInfo(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'info'))
+        await self.runt.confirm(('storm', 'lib', 'log', 'info'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.info(mesg, extra=extra)
@@ -153,7 +153,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logWarning(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'warning'))
+        await self.runt.confirm(('storm', 'lib', 'log', 'warning'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.warning(mesg, extra=extra)
@@ -161,7 +161,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logError(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'error'))
+        await self.runt.confirm(('storm', 'lib', 'log', 'error'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.error(mesg, extra=extra)

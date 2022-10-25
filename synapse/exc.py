@@ -164,16 +164,27 @@ class DataAlreadyExists(SynErr):
     pass
 
 class DbOutOfSpace(SynErr): pass
+class DupValu(SynErr): pass
 class DupName(SynErr): pass
 class DupIden(SynErr): pass
 class DupIndx(SynErr): pass
 class DupFileName(SynErr): pass
 class DupFormName(SynErr): pass
 class DupPropName(SynErr): pass
-class DupRoleName(SynErr): pass
 class DupTagPropName(SynErr): pass
-class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
+
+class DupUserName(SynErr):
+
+    def __init__(self, name):
+        mesg = f'A user named {name} already exists!'
+        SynErr.__init__(self, mesg=mesg, name=name)
+
+class DupRoleName(SynErr):
+
+    def __init__(self, name):
+        mesg = f'A role named {name} already exists!'
+        SynErr.__init__(self, mesg=mesg, name=name)
 
 class FileExists(SynErr): pass
 

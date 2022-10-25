@@ -1527,7 +1527,7 @@ class StormDmon(s_base.Base):
 
         self.task = None
         self.enabled = ddef.get('enabled')
-        self.user = core.auth.user(ddef.get('user'))
+        self.user = core.getUser(ddef.get('user'))
 
         self.count = 0
         self.status = 'initialized'
@@ -1599,7 +1599,7 @@ class StormDmon(s_base.Base):
             vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
 
             viewiden = opts.get('view')
-            view = self.core.getView(viewiden)
+            view = await self.core.getView(viewiden)
             if view is None:
                 self.status = 'fatal error: invalid view'
                 logger.warning(f'Dmon View is invalid. Stopping Dmon {self.iden}.',
@@ -1767,11 +1767,11 @@ class Runtime(s_base.Base):
             return
 
         for view in self.snap.core.viewsbylayer.get(layriden, ()):
-            if self.user.allowed(('view', 'read'), gateiden=view.iden):
+            if await self.user.allowed(('view', 'read'), gateiden=view.iden):
                 return
 
         # check the old way too...
-        if self.user.allowed(('layer', 'read'), gateiden=layriden):
+        if await self.user.allowed(('layer', 'read'), gateiden=layriden):
             return
 
         mesg = 'User can not read layer.'
@@ -1935,29 +1935,29 @@ class Runtime(s_base.Base):
             if node is not None:
                 yield node, self.initPath(node)
 
-    def layerConfirm(self, perms):
+    async def layerConfirm(self, perms):
         if self.asroot:
             return
         iden = self.snap.wlyr.iden
-        return self.user.confirm(perms, gateiden=iden)
+        return await self.user.confirm(perms, gateiden=iden)
 
     def isAdmin(self, gateiden=None):
         if self.asroot:
             return True
         return self.user.isAdmin(gateiden=gateiden)
 
-    def confirm(self, perms, gateiden=None, default=False):
+    async def confirm(self, perms, gateiden=None, default=False):
         '''
         Raise AuthDeny if user doesn't have global permissions and write layer permissions
         '''
         if self.asroot:
             return
-        return self.user.confirm(perms, gateiden=gateiden, default=default)
+        return await self.user.confirm(perms, gateiden=gateiden, default=default)
 
-    def allowed(self, perms, gateiden=None, default=False):
+    async def allowed(self, perms, gateiden=None, default=False):
         if self.asroot:
             return True
-        return self.user.allowed(perms, gateiden=gateiden, default=default)
+        return await self.user.allowed(perms, gateiden=gateiden, default=default)
 
     def _loadRuntVars(self, query):
         # do a quick pass to determine which vars are per-node.
@@ -1987,7 +1987,7 @@ class Runtime(s_base.Base):
                 if view is None:
                     raise s_exc.NoSuchView(iden=viewiden)
 
-                self.user.confirm(('view', 'read'), gateiden=viewiden)
+                await self.user.confirm(('view', 'read'), gateiden=viewiden)
                 snap = await view.snap(self.user)
 
         return snap
@@ -2577,7 +2577,7 @@ class PureCmd(Cmd):
         name = self.getName()
         perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
 
-        asroot = runt.allowed(perm)
+        asroot = await runt.allowed(perm)
         if self.asroot and not asroot:
             mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg)
@@ -2588,7 +2588,7 @@ class PureCmd(Cmd):
         if perms is not None:
             allowed = False
             for perm in perms:
-                if runt.allowed(perm):
+                if await runt.allowed(perm):
                     allowed = True
                     break
 
@@ -2995,33 +2995,33 @@ class MergeCmd(Cmd):
         layr0 = runt.snap.view.layers[0].iden
         layr1 = runt.snap.view.layers[1].iden
 
-        runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
-        runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
+        await runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+        await runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         for name, (valu, stortype) in sode.get('props', {}).items():
             full = node.form.prop(name).full
-            runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
-            runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
+            await runt.confirm(('node', 'prop', 'del', full), gateiden=layr0)
+            await runt.confirm(('node', 'prop', 'set', full), gateiden=layr1)
 
         for tag, valu in sode.get('tags', {}).items():
             tagperm = tuple(tag.split('.'))
-            runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-            runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+            await runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+            await runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         for tag, tagdict in sode.get('tagprops', {}).items():
             for prop, (valu, stortype) in tagdict.items():
                 tagperm = tuple(tag.split('.'))
-                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
-                runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
+                await runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                await runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         async for name in runt.snap.view.layers[0].iterNodeDataKeys(node.buid):
-            runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
-            runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
+            await runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+            await runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
         async for edge in runt.snap.view.layers[0].iterNodeEdgesN1(node.buid):
             verb = edge[0]
-            runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
-            runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
+            await runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+            await runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3258,33 +3258,33 @@ class MoveNodesCmd(Cmd):
             if layr == self.destlayr:
                 continue
 
-            self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
-            self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
+            await self.runt.confirm(('node', 'del', node.form.name), gateiden=layr)
+            await self.runt.confirm(('node', 'add', node.form.name), gateiden=self.destlayr)
 
             for name, (valu, stortype) in sode.get('props', {}).items():
                 full = node.form.prop(name).full
-                self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
-                self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'prop', 'del', full), gateiden=layr)
+                await self.runt.confirm(('node', 'prop', 'set', full), gateiden=self.destlayr)
 
             for tag, valu in sode.get('tags', {}).items():
                 tagperm = tuple(tag.split('.'))
-                self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                await self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
             for tag, tagdict in sode.get('tagprops', {}).items():
                 for prop, (valu, stortype) in tagdict.items():
                     tagperm = tuple(tag.split('.'))
-                    self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
-                    self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
+                    await self.runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr)
+                    await self.runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=self.destlayr)
 
             for name in layrdata[layr]:
-                self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
-                self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
+                await self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
             async for edge in self.lyrs[layr].iterNodeEdgesN1(node.buid):
                 verb = edge[0]
-                self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
-                self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
+                await self.runt.confirm(('node', 'edge', 'del', verb), gateiden=layr)
+                await self.runt.confirm(('node', 'edge', 'add', verb), gateiden=self.destlayr)
 
     async def execStormCmd(self, runt, genr):
 
@@ -3767,9 +3767,9 @@ class DelNodeCmd(Cmd):
 
             # make sure we can delete the tags...
             for tag in node.tags.keys():
-                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
+                await runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.layerConfirm(('node', 'del', node.form.name))
+            await runt.layerConfirm(('node', 'del', node.form.name))
 
             await node.delete(force=self.opts.force)
 
@@ -3856,8 +3856,8 @@ class MoveTagCmd(Cmd):
         newname, newinfo = await snap.getTagNorm(await s_stormtypes.tostr(self.opts.newtag))
         newparts = newname.split('.')
 
-        runt.layerConfirm(('node', 'tag', 'del', *oldparts))
-        runt.layerConfirm(('node', 'tag', 'add', *newparts))
+        await runt.layerConfirm(('node', 'tag', 'del', *oldparts))
+        await runt.layerConfirm(('node', 'tag', 'add', *newparts))
 
         newt = await snap.addNode('syn:tag', newname, norminfo=newinfo)
         newstr = newt.ndef[1]
@@ -4821,10 +4821,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('node', 'prop', 'set', prop.full))
+                await runt.layerConfirm(('node', 'prop', 'set', prop.full))
                 await node.set(name, oldv)
             else:
-                runt.layerConfirm(('node', 'prop', 'del', prop.full))
+                await runt.layerConfirm(('node', 'prop', 'del', prop.full))
                 await node.pop(name)
 
     async def undoPropDel(self, runt, splice, node):
@@ -4841,16 +4841,16 @@ class SpliceUndoCmd(Cmd):
 
             valu = splice.props.get('valu')
 
-            runt.layerConfirm(('node', 'prop', 'set', prop.full))
+            await runt.layerConfirm(('node', 'prop', 'set', prop.full))
             await node.set(name, valu)
 
     async def undoNodeAdd(self, runt, splice, node):
 
         if node:
             for tag in node.tags.keys():
-                runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
+                await runt.layerConfirm(('node', 'tag', 'del', *tag.split('.')))
 
-            runt.layerConfirm(('node', 'del', node.form.name))
+            await runt.layerConfirm(('node', 'del', node.form.name))
             await node.delete(force=self.opts.force)
 
     async def undoNodeDel(self, runt, splice, node):
@@ -4860,7 +4860,7 @@ class SpliceUndoCmd(Cmd):
             valu = splice.props.get('valu')
 
             if form and (valu is not None):
-                runt.layerConfirm(('node', 'add', form))
+                await runt.layerConfirm(('node', 'add', form))
                 await runt.snap.addNode(form, valu)
 
     async def undoTagAdd(self, runt, splice, node):
@@ -4868,13 +4868,13 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'del', *parts))
+            await runt.layerConfirm(('node', 'tag', 'del', *parts))
 
             await node.delTag(tag)
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                await runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.addTag(tag, valu=oldv)
 
     async def undoTagDel(self, runt, splice, node):
@@ -4882,7 +4882,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
+            await runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             valu = splice.props.get('valu')
             if valu is not None:
@@ -4898,10 +4898,10 @@ class SpliceUndoCmd(Cmd):
 
             oldv = splice.props.get('oldv')
             if oldv is not None:
-                runt.layerConfirm(('node', 'tag', 'add', *parts))
+                await runt.layerConfirm(('node', 'tag', 'add', *parts))
                 await node.setTagProp(tag, prop, oldv)
             else:
-                runt.layerConfirm(('node', 'tag', 'del', *parts))
+                await runt.layerConfirm(('node', 'tag', 'del', *parts))
                 await node.delTagProp(tag, prop)
 
     async def undoTagPropDel(self, runt, splice, node):
@@ -4909,7 +4909,7 @@ class SpliceUndoCmd(Cmd):
         if node:
             tag = splice.props.get('tag')
             parts = tag.split('.')
-            runt.layerConfirm(('node', 'tag', 'add', *parts))
+            await runt.layerConfirm(('node', 'tag', 'add', *parts))
 
             prop = splice.props.get('prop')
 
@@ -5074,10 +5074,10 @@ class EdgesDelCmd(Cmd):
             verb = await s_stormtypes.tostr(self.opts.verb)
 
             if verb == '*':
-                runt.layerConfirm(('node', 'edge', 'del'))
+                await runt.layerConfirm(('node', 'edge', 'del'))
                 verb = None
             else:
-                runt.layerConfirm(('node', 'edge', 'del', verb))
+                await runt.layerConfirm(('node', 'edge', 'del', verb))
 
             async for node, path in genr:
                 await self.delEdges(node, verb, n2)
@@ -5089,10 +5089,10 @@ class EdgesDelCmd(Cmd):
                 verb = await s_stormtypes.tostr(self.opts.verb)
 
                 if verb == '*':
-                    runt.layerConfirm(('node', 'edge', 'del'))
+                    await runt.layerConfirm(('node', 'edge', 'del'))
                     verb = None
                 else:
-                    runt.layerConfirm(('node', 'edge', 'del', verb))
+                    await runt.layerConfirm(('node', 'edge', 'del', verb))
 
                 await self.delEdges(node, verb, n2)
                 yield node, path
@@ -5236,7 +5236,7 @@ class TagPruneCmd(Cmd):
             tags = {}
             for tag in tagargs:
                 root = tag.split('.')[0]
-                runt.layerConfirm(('node', 'tag', 'del', root))
+                await runt.layerConfirm(('node', 'tag', 'del', root))
                 tags[tag] = s_chop.tags(tag)[-2::-1]
 
             async for node, path in genr:
@@ -5261,7 +5261,7 @@ class TagPruneCmd(Cmd):
                 for tag in tagargs:
                     root = tag.split('.')[0]
                     if root not in permcache:
-                        runt.layerConfirm(('node', 'tag', 'del', root))
+                        await runt.layerConfirm(('node', 'tag', 'del', root))
                         permcache.add(root)
 
                     tags[tag] = s_chop.tags(tag)[-2::-1]
@@ -5312,7 +5312,7 @@ class RunAsCmd(Cmd):
             user = await s_stormtypes.tostr(self.opts.user)
             text = await s_stormtypes.tostr(self.opts.storm)
 
-            user = await core.auth.reqUserByNameOrIden(user)
+            user = await core.reqUserByNameOrIden(user)
             query = await runt.getStormQuery(text)
 
             opts = {'vars': path.vars}
@@ -5335,7 +5335,7 @@ class RunAsCmd(Cmd):
             text = await s_stormtypes.tostr(self.opts.storm)
 
             query = await runt.getStormQuery(text)
-            user = await core.auth.reqUserByNameOrIden(user)
+            user = await core.reqUserByNameOrIden(user)
 
             opts = {'user': user}
 

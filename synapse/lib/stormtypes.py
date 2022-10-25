@@ -41,11 +41,13 @@ class Undef:
 
 undef = Undef()
 
-def confirm(perm, gateiden=None):
-    s_scope.get('runt').confirm(perm, gateiden=gateiden)
+async def confirm(perm, gateiden=None):
+    runt = s_scope.get('runt')
+    return await runt.confirm(perm, gateiden=gateiden)
 
-def allowed(perm, gateiden=None):
-    return s_scope.get('runt').allowed(perm, gateiden=gateiden)
+async def allowed(perm, gateiden=None):
+    runt = s_scope.get('runt')
+    return await runt.allowed(perm, gateiden=gateiden)
 
 class StormTypesRegistry:
     # The following types are currently undefined.
@@ -483,7 +485,6 @@ class Lib(StormType):
         StormType.__init__(self)
         self.runt = runt
         self.name = name
-        self.auth = runt.snap.core.auth
         self.addLibFuncs()
 
     def addLibFuncs(self):
@@ -589,7 +590,7 @@ class LibPkg(Lib):
         }
 
     async def _libPkgAdd(self, pkgdef):
-        self.runt.confirm(('pkg', 'add'), None)
+        await self.runt.confirm(('pkg', 'add'), None)
         pkgdef = await toprim(pkgdef)
         await self.runt.snap.core.addStormPkg(pkgdef)
 
@@ -609,7 +610,7 @@ class LibPkg(Lib):
         return True
 
     async def _libPkgDel(self, name):
-        self.runt.confirm(('pkg', 'del'), None)
+        await self.runt.confirm(('pkg', 'del'), None)
         await self.runt.snap.core.delStormPkg(name)
 
     async def _libPkgList(self):
@@ -706,7 +707,7 @@ class LibDmon(Lib):
             raise s_exc.NoSuchIden(mesg=mesg)
 
         if dmon.get('user') != self.runt.user.iden:
-            self.runt.confirm(('dmon', 'del', iden))
+            await self.runt.confirm(('dmon', 'del', iden))
 
         await self.runt.snap.core.delStormDmon(iden)
 
@@ -717,7 +718,7 @@ class LibDmon(Lib):
         return await self.runt.snap.core.getStormDmons()
 
     async def _libDmonLog(self, iden):
-        self.runt.confirm(('dmon', 'log'))
+        await self.runt.confirm(('dmon', 'log'))
         return await self.runt.snap.core.getStormDmonLog(iden)
 
     async def _libDmonAdd(self, text, name='noname'):
@@ -725,7 +726,7 @@ class LibDmon(Lib):
         varz = await toprim(self.runt.vars)
 
         viewiden = self.runt.snap.view.iden
-        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+        await self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         # closure style capture of runtime
         varz = {k: v for (k, v) in varz.items() if s_msgpack.isok(v)}
@@ -750,7 +751,7 @@ class LibDmon(Lib):
             return False
 
         viewiden = ddef['stormopts']['view']
-        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+        await self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         await self.runt.snap.core.bumpStormDmon(iden)
         return True
@@ -763,7 +764,7 @@ class LibDmon(Lib):
             return False
 
         viewiden = ddef['stormopts']['view']
-        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+        await self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         return await self.runt.snap.core.disableStormDmon(iden)
 
@@ -775,7 +776,7 @@ class LibDmon(Lib):
             return False
 
         viewiden = ddef['stormopts']['view']
-        self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
+        await self.runt.confirm(('dmon', 'add'), gateiden=viewiden)
 
         return await self.runt.snap.core.enableStormDmon(iden)
 
@@ -857,10 +858,10 @@ class LibService(Lib):
         Helper to handle service.get.* permissions
         '''
         try:
-            self.runt.confirm(('service', 'get', ssvc.iden))
+            await self.runt.confirm(('service', 'get', ssvc.iden))
         except s_exc.AuthDeny as e:
             try:
-                self.runt.confirm(('service', 'get', ssvc.name))
+                await self.runt.confirm(('service', 'get', ssvc.name))
             except s_exc.AuthDeny:
                 raise e from None
             else:
@@ -868,7 +869,7 @@ class LibService(Lib):
                 await self.runt.warnonce(mesg, svcname=ssvc.name, svciden=ssvc.iden)
 
     async def _libSvcAdd(self, name, url):
-        self.runt.confirm(('service', 'add'))
+        await self.runt.confirm(('service', 'add'))
         sdef = {
             'name': name,
             'url': url,
@@ -876,7 +877,7 @@ class LibService(Lib):
         return await self.runt.snap.core.addStormSvc(sdef)
 
     async def _libSvcDel(self, iden):
-        self.runt.confirm(('service', 'del'))
+        await self.runt.confirm(('service', 'del'))
         return await self.runt.snap.core.delStormSvc(iden)
 
     async def _libSvcGet(self, name):
@@ -894,7 +895,7 @@ class LibService(Lib):
         return True
 
     async def _libSvcList(self):
-        self.runt.confirm(('service', 'list'))
+        await self.runt.confirm(('service', 'list'))
         retn = []
 
         for ssvc in self.runt.snap.core.getStormSvcs():
@@ -1939,7 +1940,7 @@ class LibAxon(Lib):
         return item
 
     async def readlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -1947,7 +1948,7 @@ class LibAxon(Lib):
             yield line
 
     async def jsonlines(self, sha256):
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -1956,7 +1957,7 @@ class LibAxon(Lib):
 
     async def dels(self, sha256s):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'del'))
 
         sha256s = await toprim(sha256s)
 
@@ -1972,7 +1973,7 @@ class LibAxon(Lib):
 
     async def del_(self, sha256):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'del'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'del'))
         sha256 = await tostr(sha256)
 
         sha256b = s_common.uhex(sha256)
@@ -1983,7 +1984,7 @@ class LibAxon(Lib):
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None, ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
@@ -2015,7 +2016,7 @@ class LibAxon(Lib):
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT', ssl=True, timeout=None, proxy=None):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
 
         if proxy is not None and not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg=s_exc.proxy_admin_mesg)
@@ -2085,7 +2086,7 @@ class LibAxon(Lib):
         wait = await tobool(wait)
         timeout = await toint(timeout, noneok=True)
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'has'))
 
         await self.runt.snap.core.getAxon()
         axon = self.runt.snap.core.axon
@@ -2095,7 +2096,7 @@ class LibAxon(Lib):
 
     async def csvrows(self, sha256, dialect='excel', **fmtparams):
 
-        self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'get'))
         await self.runt.snap.core.getAxon()
 
         sha256 = await tostr(sha256)
@@ -2106,7 +2107,7 @@ class LibAxon(Lib):
             await asyncio.sleep(0)
 
     async def metrics(self):
-        self.runt.confirm(('storm', 'lib', 'axon', 'has'))
+        await self.runt.confirm(('storm', 'lib', 'axon', 'has'))
         return await self.runt.snap.core.axon.metrics()
 
 @registry.registerLib
@@ -3168,23 +3169,21 @@ class LibQueue(Lib):
 
     async def _methQueueAdd(self, name):
 
+        name = await tostr(name)
         info = {
             'time': s_common.now(),
             'creator': self.runt.snap.user.iden,
         }
 
-        todo = s_common.todo('addCoreQueue', name, info)
-        gatekeys = ((self.runt.user.iden, ('queue', 'add'), None),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        await self.runt.confirm(('queue', 'add'))
 
+        info = await self.runt.snap.core.addCoreQueue(name, info)
         return Queue(self.runt, name, info)
 
     async def _methQueueGet(self, name):
-        todo = s_common.todo('getCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'get'), f'queue:{name}'),)
-        info = await self.dyncall('cortex', todo, gatekeys=gatekeys)
-
-        return Queue(self.runt, name, info)
+        info = await self.runt.snap.core.getCoreQueue(name)
+        await self.runt.confirm(('queue', 'get'), gateiden=info.get('iden'))
+        return Queue(self.runt, name, await self.runt.snap.core.getCoreQueue(name))
 
     async def _methQueueGen(self, name):
         try:
@@ -3193,21 +3192,22 @@ class LibQueue(Lib):
             return await self._methQueueAdd(name)
 
     async def _methQueueDel(self, name):
-        todo = s_common.todo('delCoreQueue', name)
-        gatekeys = ((self.runt.user.iden, ('queue', 'del',), f'queue:{name}'), )
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
+
+        info = await self.runt.snap.core.getCoreQueue(name)
+        await self.runt.confirm(('queue', 'del'), gateiden=info.get('iden'))
+        await self.runt.snap.core.delCoreQueue(name)
 
     async def _methQueueList(self):
+
         retn = []
 
-        todo = s_common.todo('listCoreQueues')
-        qlist = await self.dyncall('cortex', todo)
+        for item in self.runt.snap.core.listCoreQueues():
 
-        for queue in qlist:
-            if not allowed(('queue', 'get'), f"queue:{queue['name']}"):
+            gateiden = item.get('iden')
+            if not self.runt.allowed(('queue', 'get'), gateiden=gateiden):
                 continue
 
-            retn.append(queue)
+            retn.append(item)
 
         return retn
 
@@ -3285,8 +3285,7 @@ class Queue(StormType):
         self.runt = runt
         self.name = name
         self.info = info
-
-        self.gateiden = f'queue:{name}'
+        self.iden = info.get('iden')
 
         self.locls.update(self.getObjLocals())
         self.locls['name'] = self.name
@@ -3312,13 +3311,11 @@ class Queue(StormType):
 
     async def _methQueueCull(self, offs):
         offs = await toint(offs)
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        self.confirm('get')
         await self.runt.snap.core.coreQueueCull(self.name, offs)
 
     async def _methQueueSize(self):
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        await self.confirm('get')
         return await self.runt.snap.core.coreQueueSize(self.name)
 
     async def _methQueueGets(self, offs=0, wait=True, cull=False, size=None):
@@ -3326,33 +3323,28 @@ class Queue(StormType):
         offs = await toint(offs)
         size = await toint(size, noneok=True)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        await self.confirm('get')
 
         async for item in self.runt.snap.core.coreQueueGets(self.name, offs, cull=cull, wait=wait, size=size):
             yield item
 
     async def _methQueuePuts(self, items):
         items = await toprim(items)
-        gatekeys = self._getGateKeys('put')
-        await self.runt.reqGateKeys(gatekeys)
+        await self.confirm('put')
         return await self.runt.snap.core.coreQueuePuts(self.name, items)
 
     async def _methQueueGet(self, offs=0, cull=True, wait=True):
         offs = await toint(offs)
         wait = await toint(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
-
+        await self.confirm('get')
         return await self.runt.snap.core.coreQueueGet(self.name, offs, cull=cull, wait=wait)
 
     async def _methQueuePop(self, offs=None, wait=False):
         offs = await toint(offs, noneok=True)
         wait = await tobool(wait)
 
-        gatekeys = self._getGateKeys('get')
-        await self.runt.reqGateKeys(gatekeys)
+        await self.confirm('get')
 
         # emulate the old behavior on no argument
         core = self.runt.snap.core
@@ -3366,8 +3358,8 @@ class Queue(StormType):
     async def _methQueuePut(self, item):
         return await self._methQueuePuts((item,))
 
-    def _getGateKeys(self, perm):
-        return ((self.runt.user.iden, ('queue', perm), self.gateiden),)
+    async def confirm(self, perm):
+        return await self.runt.confirm(('queue', perm), gateiden=self.iden)
 
     async def stormrepr(self):
         return f'{self._storm_typename}: {self.name}'
@@ -3395,7 +3387,7 @@ class LibTelepath(Lib):
     async def _methTeleOpen(self, url):
         url = await tostr(url)
         scheme = url.split('://')[0]
-        self.runt.confirm(('lib', 'telepath', 'open', scheme))
+        await self.runt.confirm(('lib', 'telepath', 'open', scheme))
         return Proxy(self.runt, await self.runt.getTeleProxy(url))
 
 @registry.registerType
@@ -4841,7 +4833,7 @@ class LibGlobals(Lib):
         todo = ('itemsStormVar', (), {})
 
         async for key, valu in self.runt.dyniter('cortex', todo):
-            if allowed(('globals', 'get', key)):
+            if await allowed(('globals', 'get', key)):
                 ret.append((key, valu))
         return ret
 
@@ -5140,7 +5132,7 @@ class NodeProps(Prim):
             mesg = f'No prop {self.valu.form.name}:{prop}'
             raise s_exc.NoSuchProp(mesg=mesg, name=prop, form=self.valu.form.name)
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
+        await confirm(('node', 'prop', 'set', formprop.full), gateiden=gateiden)
         return await self.valu.set(prop, valu)
 
     @stormfunc(readonly=True)
@@ -5264,7 +5256,7 @@ class NodeData(Prim):
     async def _setNodeData(self, name, valu):
         name = await tostr(name)
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'data', 'set', name), gateiden=gateiden)
+        await confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
         s_common.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
@@ -5272,7 +5264,7 @@ class NodeData(Prim):
     async def _popNodeData(self, name):
         name = await tostr(name)
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
+        await confirm(('node', 'data', 'pop', name), gateiden=gateiden)
         return await self.valu.popData(name)
 
     @stormfunc(readonly=True)
@@ -5463,7 +5455,7 @@ class Node(Prim):
         iden = await tobuidhex(iden)
 
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
+        await confirm(('node', 'edge', 'add', verb), gateiden=gateiden)
 
         await self.valu.addEdge(verb, iden)
 
@@ -5472,7 +5464,7 @@ class Node(Prim):
         iden = await tobuidhex(iden)
 
         gateiden = self.valu.snap.wlyr.iden
-        confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
+        await confirm(('node', 'edge', 'del', verb), gateiden=gateiden)
 
         await self.valu.delEdge(verb, iden)
 
@@ -6900,7 +6892,7 @@ class LibTrigger(Lib):
                     mesg = 'Provided iden matches more than one trigger.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)
 
-                if not allowed(('trigger', 'get'), gateiden=iden):
+                if not await allowed(('trigger', 'get'), gateiden=iden):
                     continue
 
                 match = trig
@@ -6981,7 +6973,7 @@ class LibTrigger(Lib):
         triggers = []
 
         for iden, trig in await view.listTriggers():
-            if not allowed(('trigger', 'get'), gateiden=iden):
+            if not await allowed(('trigger', 'get'), gateiden=iden):
                 continue
             triggers.append(Trigger(self.runt, trig.pack()))
 
@@ -7330,14 +7322,12 @@ class LibGates(Lib):
         }
 
     async def _methGatesList(self):
-        todo = s_common.todo('getAuthGates')
-        gates = await self.runt.coreDynCall(todo)
+        gates = await self.runt.snap.core.getAuthGates()
         return [Gate(self.runt, g) for g in gates]
 
     async def _methGatesGet(self, iden):
         iden = await toprim(iden)
-        todo = s_common.todo('getAuthGate', iden)
-        gate = await self.runt.coreDynCall(todo)
+        gate = await self.runt.snap.core.getAuthGate(iden)
         if gate:
             return Gate(self.runt, gate)
 
@@ -8004,7 +7994,7 @@ class User(Prim):
         default = await tobool(default)
 
         perm = tuple(permname.split('.'))
-        user = await self.runt.snap.core.auth.reqUser(self.valu)
+        user = await self.runt.snap.core.reqUser(self.valu)
         return user.allowed(perm, gateiden=gateiden, default=default)
 
     async def _methUserGrant(self, iden):
@@ -8281,7 +8271,7 @@ class LibCron(Lib):
         for cron in crons:
             iden = cron.get('iden')
 
-            if iden.startswith(prefix) and allowed(perm, gateiden=iden):
+            if iden.startswith(prefix) and await allowed(perm, gateiden=iden):
                 if matchcron is not None:
                     mesg = 'Provided iden matches more than one cron job.'
                     raise s_exc.StormRuntimeError(mesg=mesg, iden=prefix)

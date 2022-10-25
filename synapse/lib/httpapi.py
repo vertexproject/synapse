@@ -39,7 +39,7 @@ class Sess(s_base.Base):
 
         user = self.info.get('user')
         if user is not None:
-            self.user = self.cell.auth.user(user)
+            self.user = self.cell.getUser(user)
 
     async def set(self, name, valu):
         await self.cell.setHttpSessInfo(self.iden, name, valu)
@@ -209,7 +209,7 @@ class HandlerBase:
             logger.exception('invalid basic auth header')
             return None
 
-        user = await self.cell.auth.getUserByName(name)
+        user = self.cell.getUserByName(name)
         if user is None:
             return None
 
@@ -296,7 +296,7 @@ class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
             mesg = 'Session is not authenticated.'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
 
-        if not user.allowed(perm):
+        if not await user.allowed(perm):
             ptxt = '.'.join(perm)
             mesg = f'Permission denied: {ptxt}.'
             raise s_exc.AuthDeny(mesg=mesg, perm=perm)
@@ -601,7 +601,7 @@ class LoginV1(Handler):
         name = body.get('user')
         passwd = body.get('passwd')
 
-        user = await self.cell.auth.getUserByName(name)
+        user = self.cell.getUserByName(name)
         if user is None:
             return self.sendRestErr('AuthDeny', 'No such user.')
 
@@ -612,7 +612,7 @@ class LoginV1(Handler):
 
         await sess.login(user)
 
-        return self.sendRestRetn(user.pack())
+        return self.sendRestRetn(await user.pack())
 
 class AuthUsersV1(Handler):
 
@@ -631,7 +631,8 @@ class AuthUsersV1(Handler):
             return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
 
         if archived:
-            self.sendRestRetn([u.pack() for u in self.cell.auth.users()])
+            # TODO async!
+            self.sendRestRetn([u.pack() for u in self.cell.getUsers()()])
             return
 
         self.sendRestRetn([u.pack() for u in self.cell.auth.users() if not u.info.get('archived')])
@@ -658,7 +659,7 @@ class AuthUserV1(Handler):
             self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
             return
 
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await user.pack())
 
     async def post(self, iden):
 
@@ -699,7 +700,7 @@ class AuthUserV1(Handler):
         if archived is not None:
             await user.setArchived(bool(archived))
 
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await user.pack())
 
 class AuthUserPasswdV1(Handler):
 
@@ -722,7 +723,7 @@ class AuthUserPasswdV1(Handler):
             except s_exc.BadArg as e:
                 self.sendRestErr('BadArg', e.get('mesg'))
                 return
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await user.pack())
 
 class AuthRoleV1(Handler):
 
@@ -788,7 +789,7 @@ class AuthGrantV1(Handler):
 
         await user.grant(role.iden)
 
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await user.pack())
 
         return
 
@@ -821,7 +822,7 @@ class AuthRevokeV1(Handler):
             return
 
         await user.revoke(role.iden)
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await user.pack())
 
         return
 
@@ -841,7 +842,7 @@ class AuthAddUserV1(Handler):
             self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
             return
 
-        if await self.cell.auth.getUserByName(name) is not None:
+        if self.cell.getUserByName(name) is not None:
             self.sendRestErr('DupUser', f'A user named {name} already exists.')
             return
 
@@ -863,7 +864,7 @@ class AuthAddUserV1(Handler):
         if rules is not None:
             await user.setRules(rules)
 
-        self.sendRestRetn(user.pack())
+        self.sendRestRetn(await user.pack())
         return
 
 class AuthAddRoleV1(Handler):
@@ -1099,7 +1100,7 @@ class FeedV1(Handler):
         wlyr = view.layers[0]
         perm = ('feed:data', *name.split('.'))
 
-        if not user.allowed(perm, gateiden=wlyr.iden):
+        if not await user.allowed(perm, gateiden=wlyr.iden):
             permtext = '.'.join(perm)
             mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
             return self.sendRestErr('AuthDeny', mesg)

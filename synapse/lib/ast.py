@@ -220,7 +220,7 @@ class Lookup(Query):
         async def getnode(form, valu):
             try:
                 if self.autoadd:
-                    runt.layerConfirm(('node', 'add', form))
+                    await runt.layerConfirm(('node', 'add', form))
                     return await runt.snap.addNode(form, valu)
                 else:
                     norm, info = runt.model.form(form).type.norm(valu)
@@ -3153,7 +3153,7 @@ class EditParens(Edit):
 
         formname = await nodeadd.kids[0].compute(runt, None)
 
-        runt.layerConfirm(('node', 'add', formname))
+        await runt.layerConfirm(('node', 'add', formname))
 
         # create an isolated generator for the add vs edit
         if nodeadd.isRuntSafe(runt):
@@ -3254,7 +3254,7 @@ class EditNodeAdd(Edit):
 
                     # must reach back first to trigger sudo / etc
                     formname = await self.kids[0].compute(runt, path)
-                    runt.layerConfirm(('node', 'add', formname))
+                    await runt.layerConfirm(('node', 'add', formname))
 
                     form = runt.model.form(formname)
                     if form is None:
@@ -3270,7 +3270,7 @@ class EditNodeAdd(Edit):
             else:
 
                 formname = await self.kids[0].compute(runt, None)
-                runt.layerConfirm(('node', 'add', formname))
+                await runt.layerConfirm(('node', 'add', formname))
 
                 form = runt.model.form(formname)
                 if form is None:
@@ -3325,7 +3325,7 @@ class EditPropSet(Edit):
 
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
-                runt.layerConfirm(('node', 'prop', 'set', prop.full))
+                await runt.layerConfirm(('node', 'prop', 'set', prop.full))
 
             isarray = isinstance(prop.type, s_types.Array)
 
@@ -3402,7 +3402,7 @@ class EditPropDel(Edit):
                 mesg = f'No property named {name}.'
                 raise s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
 
-            runt.layerConfirm(('node', 'prop', 'del', prop.full))
+            await runt.layerConfirm(('node', 'prop', 'del', prop.full))
 
             await node.pop(name)
 
@@ -3437,7 +3437,7 @@ class EditUnivDel(Edit):
                     mesg = f'No property named {name}.'
                     raise s_exc.NoSuchProp(mesg=mesg, name=name)
 
-            runt.layerConfirm(('node', 'prop', 'del', name))
+            await runt.layerConfirm(('node', 'prop', 'del', name))
 
             await node.pop(name)
             yield node, path
@@ -3556,15 +3556,6 @@ class EditEdgeAdd(Edit):
         # SubQuery -> Query
         query = self.kids[1].kids[0]
 
-        hits = set()
-
-        def allowed(x):
-            if x in hits:
-                return
-
-            runt.layerConfirm(('node', 'edge', 'add', x))
-            hits.add(x)
-
         async for node, path in genr:
 
             if node.form.isrunt:
@@ -3574,7 +3565,7 @@ class EditEdgeAdd(Edit):
             iden = node.iden()
             verb = await tostr(await self.kids[0].compute(runt, path))
 
-            allowed(verb)
+            await runt.layerConfirm(('node', 'edge', 'add', verb))
 
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
@@ -3604,22 +3595,12 @@ class EditEdgeDel(Edit):
 
         query = self.kids[1].kids[0]
 
-        hits = set()
-
-        def allowed(x):
-            if x in hits:
-                return
-
-            runt.layerConfirm(('node', 'edge', 'del', x))
-            hits.add(x)
-
         async for node, path in genr:
 
             iden = node.iden()
-            verb = await self.kids[0].compute(runt, path)
-            # TODO this will need a toprim once Str is in play
+            verb = await tostr(await self.kids[0].compute(runt, path))
 
-            allowed(verb)
+            await runt.layerConfirm(('node', 'edge', 'del', verb))
 
             opts = {'vars': path.vars.copy()}
             async with runt.getSubRuntime(query, opts=opts) as subr:
@@ -3676,7 +3657,7 @@ class EditTagAdd(Edit):
                     name, info = normtupl
                     parts = name.split('.')
 
-                    runt.layerConfirm(('node', 'tag', 'add', *parts))
+                    await runt.layerConfirm(('node', 'tag', 'add', *parts))
 
                     if hasval:
                         valu = await self.kids[2 + oper_offset].compute(runt, path)
@@ -3716,7 +3697,7 @@ class EditTagDel(Edit):
                     name, info = normtupl
                     parts = name.split('.')
 
-                    runt.layerConfirm(('node', 'tag', 'del', *parts))
+                    await runt.layerConfirm(('node', 'tag', 'del', *parts))
 
                     await node.delTag(name)
 
@@ -3752,7 +3733,7 @@ class EditTagPropSet(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.layerConfirm(('node', 'tag', 'add', *tagparts))
+            await runt.layerConfirm(('node', 'tag', 'add', *tagparts))
 
             try:
                 await node.setTagProp(tag, prop, valu)
@@ -3788,7 +3769,7 @@ class EditTagPropDel(Edit):
             tagparts = tag.split('.')
 
             # for now, use the tag add perms
-            runt.layerConfirm(('node', 'tag', 'del', *tagparts))
+            await runt.layerConfirm(('node', 'tag', 'del', *tagparts))
 
             await node.delTagProp(tag, prop)
 

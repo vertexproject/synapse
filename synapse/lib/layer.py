@@ -81,6 +81,7 @@ import synapse.lib.queue as s_queue
 import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.lib.config as s_config
+import synapse.lib.cellauth as s_cellauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
@@ -1145,7 +1146,7 @@ class StorTypeLatLon(StorType):
         lat = (int.from_bytes(bytz[5:], 'big') - self.latspace) / self.scale
         return (lat, lon)
 
-class Layer(s_nexus.Pusher):
+class Layer(s_nexus.Pusher, s_cellauth.CellGate):
     '''
     The base class for a cortex layer.
     '''
@@ -1165,6 +1166,8 @@ class Layer(s_nexus.Pusher):
 
         self.iden = layrinfo.get('iden')
         await s_nexus.Pusher.__anit__(self, self.iden, nexsroot=core.nexsroot)
+
+        s_cellauth.CellGate.__init__(self, core, self.iden)
 
         self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = layrinfo.get('readonly')
@@ -4133,6 +4136,7 @@ class Layer(s_nexus.Pusher):
         '''
         self.isdeleted = True
         await self.fini()
+        await s_cell.CellGate.delete(self)
         shutil.rmtree(self.dirn, ignore_errors=True)
 
 def getFlatEdits(nodeedits):

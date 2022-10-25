@@ -309,7 +309,7 @@ class Trigger:
         self.lasterrs = collections.deque((), maxlen=5)
 
         useriden = self.tdef.get('user')
-        self.user = self.view.core.auth.user(useriden)
+        self.user = self.view.core.getUser(useriden)
 
     async def set(self, name, valu):
         '''
@@ -401,7 +401,7 @@ class Trigger:
         tdef = self.tdef.copy()
 
         useriden = tdef['user']
-        triguser = self.view.core.auth.user(useriden)
+        triguser = self.view.core.getUser(useriden)
         tdef['startcount'] = self.startcount
         tdef['errcount'] = self.errcount
         tdef['lasterrs'] = list(self.lasterrs)

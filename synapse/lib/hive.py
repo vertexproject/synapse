@@ -160,24 +160,6 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
             for cullname in culls:
                 await node.pop((cullname,))
 
-    async def getHiveAuth(self):
-        '''
-        Retrieve a HiveAuth for hive standalone or non-cell uses.
-
-        Note:
-            This is for the hive's own auth, or for non-cell auth.  It isn't the same auth as for a cell
-        '''
-        import synapse.lib.hiveauth as s_hiveauth
-        if self.auth is None:
-
-            path = tuple(self.conf.get('auth:path').split('/'))
-
-            node = await self.open(path)
-            self.auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
-            self.onfini(self.auth.fini)
-
-        return self.auth
-
     async def _onHiveFini(self):
         await self.root.fini()
 

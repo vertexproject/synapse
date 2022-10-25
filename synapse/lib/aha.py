@@ -808,9 +808,9 @@ class AhaCell(s_cell.Cell):
         if mirname is not None:
             conf['mirror'] = f'aha://{ahauser}@{mirname}.{netw}'
 
-        user = await self.auth.getUserByName(ahauser)
+        user = self.getUserByName(ahauser)
         if user is None:
-            user = await self.auth.addUser(ahauser)
+            user = await self.addUser(ahauser)
 
         perms = [
             ('aha', 'service', 'get', netw),
@@ -819,7 +819,7 @@ class AhaCell(s_cell.Cell):
         if peer:
             perms.append(('aha', 'service', 'add', netw, leader))
         for perm in perms:
-            if user.allowed(perm):
+            if await user.allowed(perm):
                 continue
             await user.allow(perm)
 
@@ -885,7 +885,7 @@ class AhaCell(s_cell.Cell):
 
         username = f'{name}@{ahanetw}'
 
-        user = await self.auth.getUserByName(username)
+        user = self.getUserByName(username)
 
         if user is not None:
             if not again:
@@ -893,7 +893,7 @@ class AhaCell(s_cell.Cell):
                 raise s_exc.DupUserName(mesg=mesg)
 
         if user is None:
-            user = await self.auth.addUser(username)
+            user = await self.addUser(username)
 
         await user.allow(('aha', 'service', 'get', ahanetw))
 

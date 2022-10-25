@@ -40,8 +40,8 @@ class CortexTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf) as core01:
                 self.eq(core00.iden, core01.iden)
                 self.eq(core00.jsonstor.iden, core01.jsonstor.iden)
-                self.eq(core00.jsonstor.auth.allrole.iden, core01.jsonstor.auth.allrole.iden)
-                self.eq(core00.jsonstor.auth.rootuser.iden, core01.jsonstor.auth.rootuser.iden)
+                self.eq(core00.jsonstor.allrole.iden, core01.jsonstor.allrole.iden)
+                self.eq(core00.jsonstor.rootuser.iden, core01.jsonstor.rootuser.iden)
 
     async def test_cortex_handoff(self):
 
@@ -139,7 +139,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async def testUserNotifs(core):
             async with core.getLocalProxy() as proxy:
-                root = core.auth.rootuser.iden
+                root = core.rootuser.iden
                 indx = await proxy.addUserNotif(root, 'hehe', {'foo': 'bar'})
                 self.nn(indx)
                 item = await proxy.getUserNotif(indx)
@@ -943,7 +943,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
 
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
             await visi.setPasswd('secret')
 
             self.eq('asdf', await core.callStorm('return (asdf)'))
@@ -978,7 +978,7 @@ class CortexTest(s_t_utils.SynTest):
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
-                body = {'query': 'return(asdf)', 'opts': {'user': core.auth.rootuser.iden}}
+                body = {'query': 'return(asdf)', 'opts': {'user': core.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
                     self.eq(resp.status, 403)
 
@@ -1067,23 +1067,23 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.eq(core._userFromOpts(None), core.auth.rootuser)
-            self.eq(core._userFromOpts({'user': None}), core.auth.rootuser)
+            self.eq(core._userFromOpts(None), core.rootuser)
+            self.eq(core._userFromOpts({'user': None}), core.rootuser)
 
             with self.raises(s_exc.NoSuchUser):
-                opts = {'user': 'newp'}
+                opts = {'user': s_common.guid()}
                 await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=opts)
 
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
             async with core.getLocalProxy(user='visi') as proxy:
 
                 with self.raises(s_exc.AuthDeny):
-                    opts = {'user': core.auth.rootuser.iden}
+                    opts = {'user': core.rootuser.iden}
                     await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list()
 
                 await visi.addRule((True, ('impersonate',)))
 
-                opts = {'user': core.auth.rootuser.iden}
+                opts = {'user': core.rootuser.iden}
                 self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
 
     async def test_nodes(self):
@@ -3845,7 +3845,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
 
             await visi.addRule((True, ('node', 'add')))
             await visi.addRule((True, ('node', 'prop', 'set')))
@@ -5198,7 +5198,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url00 = core00.getLocalUrl()
 
-                lowuser = await core00.auth.addUser('low')
+                lowuser = await core00.addUser('low')
                 opts = {'user': lowuser.iden}
                 await self.asyncraises(s_exc.AuthDeny, core00.callStorm('$lib.cell.trimNexsLog()', opts=opts))
 
@@ -5977,12 +5977,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
             await visi.setAdmin(True)
 
             asvisi = {'user': visi.iden}
             await core.stormlist('cron.add --daily 13:37 {$lib.print(woot)}', opts=asvisi)
-            await core.auth.delUser(visi.iden)
+            await core.delUser(visi.iden)
 
             self.len(1, await core.callStorm('return($lib.cron.list())'))
             msgs = await core.stormlist('cron.list')
@@ -6203,7 +6203,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.auth.addUser('visi')
+            await core.addUser('visi')
             async with core.getLocalProxy(user='visi') as proxy:
                 with self.raises(s_exc.AuthDeny):
                     await proxy.setStormVar('hehe', 'haha')
@@ -6411,23 +6411,25 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_all_layr_read(self):
         async with self.getTestCore() as core:
-            layr = core.getView().layers[0].iden
-            visi = await core.auth.addUser('visi')
-            visi.confirm(('layer', 'read'), gateiden=layr)
+            view = core.getView()
+            layr = view.layers[0].iden
+            visi = await core.addUser('visi')
+            await visi.confirm(('layer', 'read'), gateiden=layr)
 
+        print('REGRESSION TIME')
         async with self.getRegrCore('2.0-layerv2tov3') as core:
             layr = core.getView().layers[0].iden
-            visi = await core.auth.addUser('visi')
-            visi.confirm(('layer', 'read'), gateiden=layr)
+            visi = await core.addUser('visi')
+            await visi.confirm(('layer', 'read'), gateiden=layr)
 
     async def test_cortex_export(self):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
             await visi.setPasswd('secret')
 
-            await core.auth.rootuser.setPasswd('secret')
+            await core.rootuser.setPasswd('secret')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
@@ -6476,7 +6478,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(401, resp.status)
 
             async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
-                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                body = {'query': 'inet:ipv4', 'opts': {'user': core.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/export', json=body) as resp:
                     self.eq(resp.status, 403)
 
@@ -6542,7 +6544,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
             asvisi = {'user': visi.iden}
 
             self.len(0, await core.callStorm('return($lib.model.tags.list())'))

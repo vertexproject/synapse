@@ -36,6 +36,16 @@ async def agen(item):
     for x in item:
         yield x
 
+async def safeiter(item):
+    '''
+    An async wrapper which implements asyncio.sleep(0) between each yield.
+
+    This should be used for all iterators which might do IO.
+    '''
+    for i in item:
+        yield i
+        await asyncio.sleep(0)
+
 def executor(func, *args, **kwargs):
     '''
     Execute a non-coroutine function in the ioloop executor pool.

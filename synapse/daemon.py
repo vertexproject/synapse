@@ -40,10 +40,10 @@ class Sess(s_base.Base):
         ret = {'items': {name: f'{item.__module__}.{item.__class__.__name__}' for name, item in self.items.items()},
                'conninfo': self.conninfo,
                }
+
         if self.user:
-            ret['user'] = {'iden': self.user.iden,
-                           'name': self.user.name,
-                           }
+            ret['user'] = {'iden': self.user.iden, 'name': self.user.get('name')}
+
         return ret
 
 class Genr(s_share.Share):

@@ -16,6 +16,7 @@ import synapse.lib.config as s_config
 import synapse.lib.scrape as s_scrape
 import synapse.lib.spooled as s_spooled
 import synapse.lib.trigger as s_trigger
+import synapse.lib.cellauth as s_cellauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
@@ -46,7 +47,7 @@ class ViewApi(s_cell.CellApi):
         await s_cell.CellApi.__anit__(self, core, link, user)
         self.view = view
         layriden = view.layers[0].iden
-        self.allowedits = user.allowed(('node',), gateiden=layriden)
+        self.allowedits = await user.allowed(('node',), gateiden=layriden)
 
     async def storNodeEdits(self, edits, meta):
 
@@ -82,7 +83,7 @@ class ViewApi(s_cell.CellApi):
     async def getCellIden(self):
         return self.view.iden
 
-class View(s_nexus.Pusher):  # type: ignore
+class View(s_nexus.Pusher, s_cellauth.CellGate):  # type: ignore
     '''
     A view represents a cortex as seen from a specific set of layers.
 
@@ -102,6 +103,8 @@ class View(s_nexus.Pusher):  # type: ignore
         self.node = node
         self.iden = node.name()
         self.info = await node.dict()
+
+        s_cellauth.CellGate.__init__(self, core, self.iden)
 
         self.core = core
         self.dirn = s_common.gendir(core.dirn, 'views', self.iden)
@@ -144,7 +147,7 @@ class View(s_nexus.Pusher):  # type: ignore
         (priority, value) tuples and merge results from multiple generators
         yielded in ascending priority order.
         '''
-        root = self.core.auth.rootuser
+        root = self.core.rootuser
         funcname, funcargs, funckwargs = todo
 
         genrs = []
@@ -177,7 +180,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def callStormIface(self, name, todo):
 
-        root = self.core.auth.rootuser
+        root = self.core.rootuser
         funcname, funcargs, funckwargs = todo
 
         async with await self.snap(user=root) as snap:
@@ -707,9 +710,9 @@ class View(s_nexus.Pusher):  # type: ignore
         fromlayr = self.layers[0]
 
         if useriden is None:
-            user = await self.core.auth.getUserByName('root')
+            user = self.core.getUserByName('root')
         else:
-            user = await self.core.auth.reqUser(useriden)
+            user = self.core.reqUser(useriden)
 
         await self.mergeAllowed(user, force=force)
 
@@ -728,9 +731,9 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
 
         if useriden is None:
-            user = await self.core.auth.getUserByName('root')
+            user = self.core.getUserByName('root')
         else:
-            user = await self.core.auth.reqUser(useriden)
+            user = self.core.reqUser(useriden)
 
         await self.wipeAllowed(user)
 
@@ -740,9 +743,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 await snap.getNodeByBuid(nodeedit[0])  # to load into livenodes for callbacks
                 await snap.saveNodeEdits([nodeedit], meta)
 
-    def _confirm(self, user, perms):
+    async def _confirm(self, user, perms):
         layriden = self.layers[0].iden
-        if user.allowed(perms, gateiden=layriden):
+        if await user.allowed(perms, gateiden=layriden):
             return
 
         perm = '.'.join(perms)
@@ -777,7 +780,7 @@ class View(s_nexus.Pusher):  # type: ignore
         async with await self.parent.snap(user=user) as snap:
             async for nodeedit in fromlayr.iterLayerNodeEdits():
                 for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                    self.parent._confirm(user, perm)
+                    await self.parent._confirm(user, perm)
                     await asyncio.sleep(0)
 
     async def wipeAllowed(self, user=None):
@@ -789,7 +792,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async for nodeedit in self.layers[0].iterWipeNodeEdits():
             for offs, perm in s_layer.getNodeEditPerms([nodeedit]):
-                self._confirm(user, perm)
+                await self._confirm(user, perm)
                 await asyncio.sleep(0)
 
     async def runTagAdd(self, node, tag, valu, view=None):
@@ -866,7 +869,7 @@ class View(s_nexus.Pusher):  # type: ignore
         elif self.triggers.get(iden) is not None:
             raise s_exc.DupIden(mesg='A trigger with this iden already exists')
 
-        root = await self.core.auth.getUserByName('root')
+        root = self.core.getUserByName('root')
 
         tdef.setdefault('user', root.iden)
         tdef.setdefault('async', False)
@@ -885,18 +888,14 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is not None:
             return self.triggers.get(tdef['iden']).pack()
 
-        gate = self.core.auth.getAuthGate(tdef['iden'])
-        if gate is not None:
-            raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
-
-        user = self.core.auth.user(tdef['user'])
+        user = self.core.getUser(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])
 
         trig = await self.triggers.load(tdef)
 
         await self.trigdict.set(trig.iden, tdef)
-        await self.core.auth.addAuthGate(trig.iden, 'trigger')
-        await user.setAdmin(True, gateiden=tdef.get('iden'), logged=False)
+        gate = await self.core.addAuthGate(trig.iden, 'trigger')
+        gate.setUserAdmin(user.iden, True)
 
         return trig.pack()
 
@@ -924,7 +923,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         await self.trigdict.pop(trig.iden)
-        await self.core.auth.delAuthGate(trig.iden)
+        await self.core.delAuthGate(trig.iden)
 
     @s_nexus.Pusher.onPushAuto('trigger:set')
     async def setTriggerInfo(self, iden, name, valu):
@@ -948,6 +947,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         await self.fini()
         await self.node.pop()
+        await s_cellauth.CellGate.delete(self)
         shutil.rmtree(self.dirn, ignore_errors=True)
 
     async def addNodeEdits(self, edits, meta):
@@ -956,7 +956,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         NOTE: This does cause trigger execution.
         '''
-        user = await self.core.auth.reqUser(meta.get('user'))
+        user = await self.core.reqUser(meta.get('user'))
         async with await self.snap(user=user) as snap:
             # go with the anti-pattern for now...
             await snap.saveNodeEdits(edits, None)

@@ -72,30 +72,23 @@ class SlabDict:
         self.db = db
         self.slab = slab
         self.pref = pref
-        self.info = self._getPrefProps(pref)
-
-    def _getPrefProps(self, bidn):
-
-        size = len(bidn)
-
-        props = {}
-        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
-            name = lkey[size:].decode('utf8')
-            props[name] = s_msgpack.un(lval)
-
-        return props
+        self.prefsize = len(pref)
 
     def keys(self):
         return self.info.keys()
 
-    def items(self):
+    async def items(self):
         '''
-        Return a tuple of (prop, valu) tuples from the SlabDict.
+        Yield (name, valu) tuples from the dictionary-like object.
+        '''
+        for lkey, lval in self.slab.scanByPref(self.pref, db=self.db):
+            yield lkey[self.prefsize:].decode(), s_msgpack.un(lval)
+            await asyncio.sleep(0)
 
-        Returns:
-            (((str, object), ...)): Tuple of (name, valu) tuples.
-        '''
-        return tuple(self.info.items())
+    async def clear(self):
+        for lkey, lval in self.slab.scanByPref(self.pref, db=self.db):
+            self.slab.pop(lkey, db=self.db)
+            await asyncio.sleep(0)
 
     def get(self, name, defval=None):
         '''
@@ -108,7 +101,10 @@ class SlabDict:
         Returns:
             (obj): The return value, or None.
         '''
-        return self.info.get(name, defval)
+        byts = self.slab.get(self.pref + name.encode('utf8'), db=self.db)
+        if byts is not None:
+            return s_msgpack.un(byts)
+        return defval
 
     def set(self, name, valu):
         '''
@@ -124,7 +120,6 @@ class SlabDict:
         byts = s_msgpack.en(valu)
         lkey = self.pref + name.encode('utf8')
         self.slab.put(lkey, byts, db=self.db)
-        self.info[name] = valu
         return valu
 
     def pop(self, name, defval=None):
@@ -138,16 +133,205 @@ class SlabDict:
         Returns:
             object: The object stored in the SlabDict, or defval if the object was not present.
         '''
-        valu = self.info.pop(name, defval)
-        lkey = self.pref + name.encode('utf8')
-        self.slab.pop(lkey, db=self.db)
-        return valu
+        byts = self.slab.pop(self.pref + name.encode('utf8'), db=self.db)
+        if byts is not None:
+            return s_msgpack.un(byts)
+        return defval
 
     def inc(self, name, valu=1):
-        curv = self.info.get(name, 0)
-        curv += valu
+        curv = self.get(name, 0)
+        curv += 1
         self.set(name, curv)
         return curv
+
+class SlabUniqIndx:
+
+    def __init__(self, slab, db, indxinfo):
+        self.db = db
+        self.slab = slab
+        self.indxinfo = indxinfo
+
+    def get(self, valu):
+        return self.slab.get(self.indxvalu(valu), db=self.db)
+
+    def pop(self, bidn, valu):
+        indxvalu = self.indxvalu(valu)
+        return self.slab.pop(indxvalu, bidn, db=self.db)
+
+    def put(self, bidn, indxvalu):
+        return self.slab.put(indxvalu, bidn, db=self.db)
+
+    def indxvalu(self, valu):
+        return s_common.buid(valu)
+
+    def validate(self, bidn, valu):
+
+        indxvalu = self.indxvalu(valu)
+
+        curvbidn = self.slab.get(indxvalu, db=self.db)
+
+        if curvbidn is None:
+            return indxvalu
+
+        if curvbidn == bidn:
+            return indxvalu
+
+        raise IndexError('value already exists')
+
+indxtypes = {
+    'uniq': SlabUniqIndx,
+}
+
+class SlabBidnDict:
+
+    def __init__(self, slab, name):
+        self.db = slab.initdb(name)
+        self.name = name
+        self.slab = slab
+        self.indexes = {}
+
+    def get(self, bidn, name, defv=None):
+        byts = self.slab.get(bidn + name.encode(), db=self.db)
+        if byts is not None:
+            return s_msgpack.un(byts)
+        return defv
+
+    def set(self, bidn, name, valu):
+
+        lkey = bidn + name.encode()
+
+        indx = self.indexes.get(name)
+        if indx is not None:
+            indxvalu = indx.validate(bidn, valu)
+
+        self.slab.put(lkey, s_msgpack.en(valu), db=self.db)
+
+        if indx is not None:
+            indx.put(bidn, indxvalu)
+
+    def pop(self, bidn, name, defv=None):
+
+        byts = self.slab.pop(bidn + name.encode(), db=self.db)
+        if byts is None:
+            return defv
+
+        valu = s_msgpack.un(byts)
+
+        indx = self.indexes.get(name)
+        if indx is not None:
+            indx.pop(bidn, valu)
+
+        return valu
+
+    async def clear(self, bidn):
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            self.pop(lkey, db=self.db)
+            await asyncio.sleep(0)
+
+    async def update(self, bidn, info):
+
+        todo = []
+        for name, valu in info.items():
+
+            indxvalu = None
+
+            indx = self.indexes.get(name)
+            if indx is not None:
+                indxvalu = indx.validate(bidn, valu)
+
+            todo.append((name, valu, indx, indxvalu))
+            await asyncio.sleep(0)
+
+        for name, valu, indx, indxvalu in todo:
+            self.slab.put(bidn + name.encode(), s_msgpack.en(valu), db=self.db)
+            if indx is not None:
+                indx.put(bidn, indxvalu)
+            await asyncio.sleep(0)
+
+    async def pack(self, bidn):
+        size = len(bidn)
+        retn = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            retn[lkey[size:].decode()] = s_msgpack.un(lval)
+            await asyncio.sleep(0)
+        return retn
+
+    def dict(self, bidn):
+        size = len(bidn)
+        retn = {}
+        for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
+            retn[lkey[size:].decode()] = s_msgpack.un(lval)
+        return retn
+
+    def addIndex(self, name, indxtype, indxinfo=None):
+
+        if indxinfo is None:
+            indxinfo = {}
+
+        ctor = indxtypes.get(indxtype)
+        if ctor is None:
+            raise s_exc.BadArg(mesg=f'No such index type: {indxtype}.')
+
+        db = self.slab.initdb(f'{self.name}:by:{name}')
+
+        self.indexes[name] = ctor(self.slab, db, indxinfo)
+
+    def by(self, name, valu):
+
+        indx = self.indexes.get(name)
+        if indx is None:
+            raise s_exc.BadArg(mesg=f'No such index: {name}.')
+
+        return indx.get(valu)
+
+    def look(self, bidn):
+        return SlabBidnLook(self, bidn)
+
+class SlabBidnLook:
+
+    def __init__(self, bidndict, bidn):
+        self.bidn = bidn
+        self.bidndict = bidndict
+
+    def set(self, name, valu):
+        return self.bidndict.set(self.bidn, name, valu)
+
+    def get(self, name, defv=None):
+        return self.bidndict.get(self.bidn, name, defv=defv)
+
+    async def clear(self):
+        return await self.bidndict.clear(bidn)
+
+    async def pack(self):
+        return await self.bidndict.pack(bidn)
+
+class SlabBidnLink:
+
+    def __init__(self, slab, name):
+        self.slab = slab
+        self.db = slab.initdb(name, dupsort=True)
+
+    def add(self, bidn1, bidn2):
+
+        # prevent dups...
+        if self.slab.hasdup(bidn1, bidn2, db=self.db):
+            return False
+
+        self.slab.put(bidn1, bidn2, db=self.db, dupdata=True)
+        self.slab.put(bidn2, bidn1, db=self.db, dupdata=True)
+        return True
+
+    def pop(self, bidn1, bidn2):
+        self.slab.pop(bidn1, bidn2, db=self.db, dupdata=True)
+        self.slab.pop(bidn2, bidn1, db=self.db, dupdata=True)
+
+    def has(self, bidn1, bidn2):
+        return self.slab.hasdup(bidn1, bidn2, db=self.db)
+
+    async def iter(self, bidn):
+        for item in self.slab.scanByDups(bidn, db=self.db):
+            yield item[1]
+            await asyncio.sleep(0)
 
 class SlabAbrv:
     '''

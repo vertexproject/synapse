@@ -35,7 +35,7 @@ class ModelRev:
             for propname in todoprops:
 
                 nodeedits = []
-                meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+                meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
                 def sortuniq(valu):
                     return tuple(sorted({v: True for v in valu}.keys()))
@@ -156,7 +156,7 @@ class ModelRev:
             done = set()
             nodeedits = []
 
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+            meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
             async def save():
                 await layr.storNodeEdits(nodeedits, meta)
@@ -197,7 +197,7 @@ class ModelRev:
         for layr in layers:
 
             nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+            meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
             async def save():
                 await layr.storNodeEdits(nodeedits, meta)
@@ -223,7 +223,7 @@ class ModelRev:
         for layr in layers:
 
             nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+            meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
             # uniq values of some array types....
             def uniq(valu):
@@ -262,7 +262,7 @@ class ModelRev:
         for layr in layers:
 
             nodeedits = []
-            meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+            meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
             async def save():
                 await layr.storNodeEdits(nodeedits, meta)
@@ -295,7 +295,7 @@ class ModelRev:
     async def _normHugeTagProps(self, layr, tagprops):
 
         nodeedits = []
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+        meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
         async def save():
             await layr.storNodeEdits(nodeedits, meta)
@@ -355,7 +355,7 @@ class ModelRev:
 
     async def revModel20220315(self, layers):
 
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+        meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
         nodeedits = []
         for layr in layers:
@@ -496,7 +496,7 @@ class ModelRev:
         await self._normPropValu(layers, 'ps:contact:title')
         await self._propToForm(layers, 'ps:contact:title', 'ou:jobtitle')
 
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+        meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
         valid = regex.compile(r'^[0-9a-f]{40}$')
         repl = regex.compile(r'[\s:]')
@@ -650,7 +650,7 @@ class ModelRev:
 
     async def _normPropValu(self, layers, propfull):
 
-        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+        meta = {'time': s_common.now(), 'user': self.core.rootuser.iden}
 
         nodeedits = []
         for layr in layers:
