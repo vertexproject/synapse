@@ -326,7 +326,7 @@ class TrigTest(s_t_utils.SynTest):
 
             # A rando user can't manipulate triggers
 
-            user = await core.auth.addUser('fred')
+            user = await core.addUser('fred')
             await user.setPasswd('fred')
 
             url = core.getLocalUrl()
@@ -382,7 +382,7 @@ class TrigTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            root = await core.auth.getUserByName('root')
+            root = core.getUserByName('root')
 
             tdef = {'iden': '1', 'user': root.iden, 'cond': 'tag:add', 'storm': '$lib.queue.get(foo).put(count0)',
                     'tag': 'foo.*.bar', 'enabled': True}
@@ -422,7 +422,7 @@ class TrigTest(s_t_utils.SynTest):
 
     async def test_trigger_running_perms(self):
         async with self.getTestCore() as core:
-            visi = await core.auth.addUser('visi')
+            visi = await core.addUser('visi')
 
             # Verify that triggers are run as user
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': '[ test:guid="*" +#nodeadd]', 'user': visi.iden}
@@ -444,8 +444,8 @@ class TrigTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
-            newb = await core.auth.addUser('newb')
+            visi = await core.addUser('visi')
+            newb = await core.addUser('newb')
 
             await visi.addRule((True, ('node', 'tag', 'add', 'foo')))
 

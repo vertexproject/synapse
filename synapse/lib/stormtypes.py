@@ -6726,7 +6726,7 @@ class View(Prim):
                     mesg = f'No layer with iden: {layriden}'
                     raise s_exc.NoSuchLayer(mesg=mesg)
 
-                self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
+                await self.runt.confirm(('layer', 'read'), gateiden=layr.iden)
 
             if not self.runt.isAdmin(gateiden=view.iden):
                 mesg = 'You must be an admin of the view to set the layers.'
@@ -6984,7 +6984,7 @@ class LibTrigger(Lib):
         if trigger is None:
             return None
 
-        self.runt.confirm(('trigger', 'get'), gateiden=iden)
+        await self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
         return Trigger(self.runt, trigger.pack())
 
@@ -7089,9 +7089,9 @@ class Trigger(Prim):
             raise s_exc.NoSuchView(mesg=viewiden)
 
         trigview = self.valu.get('view')
-        self.runt.confirm(('view', 'read'), gateiden=viewiden)
-        self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
-        self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
+        await self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        await self.runt.confirm(('trigger', 'add'), gateiden=viewiden)
+        await self.runt.confirm(('trigger', 'del'), gateiden=trigiden)
 
         useriden = self.runt.user.iden
         tdef = dict(self.valu)
@@ -7215,7 +7215,7 @@ class LibUsers(Lib):
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        self.runt.confirm(('auth', 'user', 'add'))
+        await self.runt.confirm(('auth', 'user', 'add'))
         name = await tostr(name)
         iden = await tostr(iden, True)
         email = await tostr(email, True)
@@ -7224,7 +7224,7 @@ class LibUsers(Lib):
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        self.runt.confirm(('auth', 'user', 'del'))
+        await self.runt.confirm(('auth', 'user', 'del'))
         await self.runt.snap.core.delUser(iden)
 
 @registry.registerLib
@@ -7288,12 +7288,12 @@ class LibRoles(Lib):
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name):
-        self.runt.confirm(('auth', 'role', 'add'))
+        await self.runt.confirm(('auth', 'role', 'add'))
         rdef = await self.runt.snap.core.addRole(name)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        self.runt.confirm(('auth', 'role', 'del'))
+        await self.runt.confirm(('auth', 'role', 'del'))
         await self.runt.snap.core.delRole(iden)
 
 @registry.registerLib
@@ -7592,17 +7592,17 @@ class UserProfile(Prim):
         self.runt = runt
 
     async def deref(self, name):
-        self.runt.confirm(('auth', 'user', 'get', 'profile', name))
+        await self.runt.confirm(('auth', 'user', 'get', 'profile', name))
         return copy.deepcopy(await self.runt.snap.core.getUserProfInfo(self.valu, name))
 
     async def setitem(self, name, valu):
         if valu is undef:
-            self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
+            await self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
             await self.runt.snap.core.popUserProfInfo(self.valu, name)
             return
 
         valu = await toprim(valu)
-        self.runt.confirm(('auth', 'user', 'set', 'profile', name))
+        await self.runt.confirm(('auth', 'user', 'set', 'profile', name))
         await self.runt.snap.core.setUserProfInfo(self.valu, name, valu)
 
     async def iter(self):
@@ -7611,7 +7611,7 @@ class UserProfile(Prim):
             yield item
 
     async def value(self):
-        self.runt.confirm(('auth', 'user', 'get', 'profile'))
+        await self.runt.confirm(('auth', 'user', 'get', 'profile'))
         return copy.deepcopy(await self.runt.snap.core.getUserProfile(self.valu))
 
 @registry.registerType
@@ -7674,7 +7674,7 @@ class UserJson(Prim):
 
         fullpath = ('users', self.valu, 'json') + path
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'get'))
+            await self.runt.confirm(('user', 'json', 'get'))
 
         return await self.runt.snap.core.hasJsonObj(fullpath)
 
@@ -7688,7 +7688,7 @@ class UserJson(Prim):
         fullpath = ('users', self.valu, 'json') + path
 
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'get'))
+            await self.runt.confirm(('user', 'json', 'get'))
 
         if prop is None:
             return await self.runt.snap.core.getJsonObj(fullpath)
@@ -7706,7 +7706,7 @@ class UserJson(Prim):
         fullpath = ('users', self.valu, 'json') + path
 
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'set'))
+            await self.runt.confirm(('user', 'json', 'set'))
 
         if prop is None:
             await self.runt.snap.core.setJsonObj(fullpath, valu)
@@ -7724,7 +7724,7 @@ class UserJson(Prim):
         fullpath = ('users', self.valu, 'json') + path
 
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'set'))
+            await self.runt.confirm(('user', 'json', 'set'))
 
         if prop is None:
             await self.runt.snap.core.delJsonObj(fullpath)
@@ -7737,7 +7737,7 @@ class UserJson(Prim):
         path = await toprim(path)
 
         if self.runt.user.iden != self.valu:
-            self.runt.confirm(('user', 'json', 'get'))
+            await self.runt.confirm(('user', 'json', 'get'))
 
         fullpath = ('users', self.valu, 'json')
         if path is not None:
@@ -7954,7 +7954,7 @@ class User(Prim):
             'text': await tostr(text),
             'from': self.runt.user.iden,
         }
-        self.runt.confirm(('tell', self.valu), default=True)
+        await self.runt.confirm(('tell', self.valu), default=True)
         return await self.runt.snap.core.addUserNotif(self.valu, 'tell', mesgdata)
 
     async def _methUserNotify(self, mesgtype, mesgdata):
@@ -7969,11 +7969,11 @@ class User(Prim):
 
         name = await tostr(name)
         if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'name'), default=True)
+            await self.runt.confirm(('auth', 'self', 'set', 'name'), default=True)
             await self.runt.snap.core.setUserName(self.valu, name)
             return
 
-        self.runt.confirm(('auth', 'user', 'set', 'name'))
+        await self.runt.confirm(('auth', 'user', 'set', 'name'))
         await self.runt.snap.core.setUserName(self.valu, name)
 
     async def _derefGet(self, name):
@@ -7998,43 +7998,43 @@ class User(Prim):
         return user.allowed(perm, gateiden=gateiden, default=default)
 
     async def _methUserGrant(self, iden):
-        self.runt.confirm(('auth', 'user', 'grant'))
+        await self.runt.confirm(('auth', 'user', 'grant'))
         await self.runt.snap.core.addUserRole(self.valu, iden)
 
     async def _methUserSetRoles(self, idens):
-        self.runt.confirm(('auth', 'user', 'grant'))
-        self.runt.confirm(('auth', 'user', 'revoke'))
+        await self.runt.confirm(('auth', 'user', 'grant'))
+        await self.runt.confirm(('auth', 'user', 'revoke'))
         idens = await toprim(idens)
         await self.runt.snap.core.setUserRoles(self.valu, idens)
 
     async def _methUserRevoke(self, iden):
-        self.runt.confirm(('auth', 'user', 'revoke'))
+        await self.runt.confirm(('auth', 'user', 'revoke'))
         await self.runt.snap.core.delUserRole(self.valu, iden)
 
     async def _methUserSetRules(self, rules, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setUserRules(self.valu, rules, gateiden=gateiden)
 
     async def _methUserAddRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserDelRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'user', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delUserRule(self.valu, rule, gateiden=gateiden)
 
     async def _methUserSetEmail(self, email):
         email = await tostr(email)
         if self.runt.user.iden == self.valu:
-            self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
+            await self.runt.confirm(('auth', 'self', 'set', 'email'), default=True)
             await self.runt.snap.core.setUserEmail(self.valu, email)
             return
 
-        self.runt.confirm(('auth', 'user', 'set', 'email'))
+        await self.runt.confirm(('auth', 'user', 'set', 'email'))
         await self.runt.snap.core.setUserEmail(self.valu, email)
 
     async def _methUserSetAdmin(self, admin, gateiden=None):
-        self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'user', 'set', 'admin'), gateiden=gateiden)
         admin = await tobool(admin)
 
         await self.runt.snap.core.setUserAdmin(self.valu, admin, gateiden=gateiden)
@@ -8042,14 +8042,14 @@ class User(Prim):
     async def _methUserSetPasswd(self, passwd):
         if self.runt.user.iden == self.valu:
             passwd = await tostr(passwd, noneok=True)
-            self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
+            await self.runt.confirm(('auth', 'self', 'set', 'passwd'), default=True)
             return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
-        self.runt.confirm(('auth', 'user', 'set', 'passwd'))
+        await self.runt.confirm(('auth', 'user', 'set', 'passwd'))
         return await self.runt.snap.core.setUserPasswd(self.valu, passwd)
 
     async def _methUserSetLocked(self, locked):
-        self.runt.confirm(('auth', 'user', 'set', 'locked'))
+        await self.runt.confirm(('auth', 'user', 'set', 'locked'))
         await self.runt.snap.core.setUserLocked(self.valu, await tobool(locked))
 
     async def value(self):
@@ -8142,7 +8142,7 @@ class Role(Prim):
     async def _setRoleName(self, name):
         name = await tostr(name)
 
-        self.runt.confirm(('auth', 'role', 'set', 'name'))
+        await self.runt.confirm(('auth', 'role', 'set', 'name'))
         await self.runt.snap.core.setRoleName(self.valu, name)
 
     async def _methRoleGet(self, name):
@@ -8153,15 +8153,15 @@ class Role(Prim):
         return await self.value()
 
     async def _methRoleSetRules(self, rules, gateiden=None):
-        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.setRoleRules(self.valu, rules, gateiden=gateiden)
 
     async def _methRoleAddRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.addRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def _methRoleDelRule(self, rule, gateiden=None):
-        self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
+        await self.runt.confirm(('auth', 'role', 'set', 'rules'), gateiden=gateiden)
         await self.runt.snap.core.delRoleRule(self.valu, rule, gateiden=gateiden)
 
     async def value(self):
@@ -8626,7 +8626,7 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'set'))
         iden = cron['iden']
 
-        self.runt.confirm(('cron', 'set'), gateiden=iden)
+        await self.runt.confirm(('cron', 'set'), gateiden=iden)
         return await self.runt.snap.core.moveCronJob(self.runt.user.iden, iden, view)
 
     async def _methCronList(self):

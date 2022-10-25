@@ -112,7 +112,7 @@ class CellTest(s_t_utils.SynTest):
                 await root.setPasswd('secretsauce')
 
                 self.eq('root', echo.getUserName(root.iden))
-                self.eq('<unknown>', echo.getUserName('derp'))
+                self.eq('<unknown>', echo.getUserName(s_common.guid()))
 
                 host, port = await echo.dmon.listen('tcp://127.0.0.1:0/')
 
@@ -1570,9 +1570,11 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestAxon(conf={'auth:passwd': 'root'}) as axon:
             addr, port = await axon.addHttpsPort(0)
             url = f'https+insecure://root:root@localhost:{port}/api/v1/axon/files/by/sha256/'
+            conf = {'dmon:listen': 'tcp://127.0.0.1:0'}
 
             # Make our first backup
-            async with self.getTestCore() as core:
+            async with self.getTestCore(conf=conf) as core:
+                s_common.yamlsave(conf, core.dirn, 'cell.yaml')
                 self.len(1, await core.nodes('[inet:ipv4=1.2.3.4]'))
 
                 # Punch in a value to the cell.yaml to ensure it persists

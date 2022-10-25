@@ -3642,7 +3642,6 @@ class Cortex(s_cell.Cell):  # type: ignore
             ldef = await self.addLayer({'name': 'default'})
             layriden = ldef.get('iden')
 
-            print(f'ADDING layer.read on {layriden} to all role')
             await self.allrole.addRule((True, ('layer', 'read')), gateiden=layriden)
 
             vdef = {

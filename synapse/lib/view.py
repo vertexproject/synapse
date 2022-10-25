@@ -956,7 +956,7 @@ class View(s_nexus.Pusher, s_cellauth.CellGate):  # type: ignore
 
         NOTE: This does cause trigger execution.
         '''
-        user = await self.core.reqUser(meta.get('user'))
+        user = self.core.reqUser(meta.get('user'))
         async with await self.snap(user=user) as snap:
             # go with the anti-pattern for now...
             await snap.saveNodeEdits(edits, None)

@@ -170,7 +170,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             async with self.getTestCore() as core:
 
-                visi = await core.auth.addUser('visi')
+                visi = await core.addUser('visi')
                 await visi.setAdmin(True)
 
                 agenda = core.agenda
@@ -179,7 +179,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq([], agenda.list())
 
                 # Missing reqs
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
+                cdef = {'creator': core.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Missing creator
@@ -188,19 +188,19 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Missing storm
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden',
+                cdef = {'creator': core.rootuser.iden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Missing incvals
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'creator': core.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Cannot schedule a recurring job with 'now'
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'creator': core.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -209,7 +209,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': doit,
+                cdef = {'creator': core.rootuser.iden, 'iden': doit,
                         'storm': '$lib.queue.gen(visi).put(woot)',
                         'reqs': {s_agenda.TimeUnit.NOW: True}}
                 await agenda.add(cdef)
@@ -226,7 +226,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(doit)
 
                 # Schedule a one-shot 1 minute from now
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(woot)',
+                cdef = {'creator': core.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(woot)',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await agenda.add(cdef)
                 unixtime += 61
@@ -238,7 +238,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
+                cdef = {'creator': core.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
@@ -246,7 +246,7 @@ class AgendaTest(s_t_utils.SynTest):
                 guid = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(baz)',
+                cdef = {'creator': core.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(baz)',
                         'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -257,7 +257,7 @@ class AgendaTest(s_t_utils.SynTest):
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(happyholidays)',
+                cdef = {'creator': core.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(happyholidays)',
                         'reqs': (xmas, lasthanu)}
                 await agenda.add(cdef)
 
@@ -312,7 +312,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # Test that isrunning updated, cancelling works
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
+                cdef = {'creator': core.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
@@ -331,7 +331,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
+                cdef = {'creator': core.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(boom) $lib.raise(OmgWtfBbq, boom)',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
                         'incvals': 1}
@@ -500,8 +500,8 @@ class AgendaTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            visi = await core.auth.addUser('visi')
-            newb = await core.auth.addUser('newb')
+            visi = await core.addUser('visi')
+            newb = await core.addUser('newb')
             async with core.getLocalProxy(user='visi') as proxy:
 
                 cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}}
@@ -568,7 +568,7 @@ class AgendaTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchView):
                 await prox.callStorm('cron.add --view $fakeiden --minute +2 { $lib.queue.get(testq).put((43)) }', opts=opts)
 
-            fail = await core.auth.addUser('fail')
+            fail = await core.addUser('fail')
 
             # can't move a thing that doesn't exist
             with self.raises(s_exc.StormRuntimeError):

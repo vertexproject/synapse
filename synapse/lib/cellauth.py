@@ -48,7 +48,7 @@ reqValidUser = s_config.getJsValidator({
         'locked': {'type': 'boolean', 'default': False},
         'archived': {'type': 'boolean', 'default': False},
         'created': {'type': 'number'},
-        'roles': {'type': 'array', 'items': {'type': 'string', 'pattern': s_config.re_iden}},
+        'roles': {'type': 'array', 'maxItems': 200, 'items': {'type': 'string', 'pattern': s_config.re_iden}},
         # 'rules': rulestype,
         'authgates': {'type': 'array', 'items': {'type': 'string', 'pattern': s_config.re_iden}},
     },
@@ -58,11 +58,10 @@ reqValidUser = s_config.getJsValidator({
 reqValidGateUserInfo = s_config.getJsValidator({
     'type': 'object',
     'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'admin': {'type': 'boolean', 'default': False},
         # 'rules': s_msgpack.deepcopy(rulestype),
     },
-    'required': ['iden', 'name', 'admin', 'rules'],
+    'required': ['admin', 'rules'],
 })
 
 reqValidGateRoleInfo = s_config.getJsValidator({
@@ -104,7 +103,6 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
         self.rolecache = weakref.WeakValueDictionary()
         self.gatecache = weakref.WeakValueDictionary()
 
-        print(f'AUTH VERSION: {self.cellmeta.get("auth:version")}')
         if self.cellmeta.get('auth:version', 0) == 0:
             await self._migrCellAuthV0()
 
@@ -224,7 +222,7 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
             iden = s_common.guid()
 
         info = {'iden': iden, 'name': name, 'created': s_common.now()}
-        return self._push('role:add', info)
+        return await self._push('role:add', info)
 
     @s_nexus.Pusher.onPush('user:add')
     async def _addUser(self, info):
@@ -263,8 +261,9 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
         return user
 
     @s_nexus.Pusher.onPushAuto('user:del')
-    async def _delUser(self, bidn):
+    async def delUser(self, iden):
 
+        bidn = s_common.uhex(iden)
         user = self._getUser(bidn)
         if user is not None:
             await self._delUserHook(user)
@@ -305,8 +304,9 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
         return role
 
     @s_nexus.Pusher.onPushAuto('role:del')
-    async def _delRole(self, bidn):
+    async def delRole(self, iden):
 
+        bidn = s_common.uhex(iden)
         role = self._getRole(bidn)
         if role is None:
             return
@@ -368,30 +368,85 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
         if bidn is not None:
             return self._getRole(bidn)
 
-    @s_nexus.Pusher.onPushAuto('user:set')
     async def setUserInfo(self, iden, prop, valu, gateiden=None):
+        return await self._push('user:set', iden, prop, valu, gateiden=gateiden)
 
-        stor = self.users
+    @s_nexus.Pusher.onPush('user:set')
+    async def _setUserInfo(self, iden, prop, valu):
+
         bidn = s_common.uhex(iden)
 
-        # we don't want to actually construct the CellUser
-        # if it is not already in the cache (mirrors etc)
-        if not self.users.get(bidn, 'iden'):
-            raise s_exc.NoSuchUser(mesg=f'No user with iden {iden}.')
+        self._reqUserBidn(bidn)
 
         user = self.usercache.get(bidn)
 
-        if gateiden is not None:
-            stor = self.gateusers
-            bidn = s_common.uhex(gateiden) + bidn
+        info = await self.users.dict(bidn)
+        info[prop] = valu
 
-        stor.set(bidn, prop, valu)
+        reqValidUser(info)
+
+        valu = self.users.set(bidn, prop, valu)
 
         if user is not None:
-            user.updated()
+            user.clearAuthCache()
+            user.info[prop] = valu
 
-    @s_nexus.Pusher.onPushAuto('role:set')
-    async def setRoleInfo(self, iden, prop, valu, gateiden=None):
+    async def setGateUserProp(self, gateiden, useriden, prop, valu):
+        return await self._push('gate:user:set', gateiden, useriden, prop, valu)
+
+    async def setGateRoleProp(self, gateiden, roleiden, prop, valu):
+        return await self._push('gate:role:set', gateiden, roleiden, prop, valu)
+
+    @s_nexus.Pusher.onPush('gate:user:set')
+    async def _setGateUserProp(self, gateiden, useriden, prop, valu):
+
+        gatebidn = s_common.uhex(gateiden)
+        userbidn = s_common.uhex(useriden)
+
+        self._reqUserBidn(userbidn)
+        self._reqGateBidn(gatebidn)
+
+        bidn = gatebidn + userbidn
+
+        info = await self.gateusers.dict(bidn)
+
+        info[prop] = valu
+        reqValidGateUser(info)
+
+        await self.gateusers.set(bidn, prop, valu)
+
+        user = self.usercache.get(userbidn)
+        if user is not None:
+            user.clearAuthCache()
+
+    @s_nexus.Pusher.onPush('gate:role:set')
+    async def _setGateRoleProp(self, gateiden, roleiden, prop, valu):
+
+        gatebidn = s_common.uhex(gateiden)
+        rolebidn = s_common.uhex(roleiden)
+
+        self._reqUserBidn(rolebidn)
+        self._reqGateBidn(gatebidn)
+
+        bidn = gatebidn + rolebidn
+
+        info = await self.gateroles.dict(bidn)
+
+        info[prop] = valu
+        reqValidGateUser(info)
+
+        await self.gateroles.set(bidn, prop, valu)
+
+        async for userbidn in self.userroles.iter(rolebidn):
+            user = self.usercache.get(userbidn)
+            if user is not None:
+                user.clearAuthCache()
+
+    async def setRoleInfo(self, iden, prop, valu):
+        return await self._push('role:set', iden, prop, valu)
+
+    @s_nexus.Pusher.onPush('role:set')
+    async def setRoleInfo(self, iden, prop, valu):
 
         stor = self.roles
         bidn = s_common.uhex(iden)
@@ -468,7 +523,7 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
                 if user is not None:
                     user.clearAuthCache()
 
-        await self.gates.clear()
+        await self.gates.clear(bidn)
 
     def getAuthGates(self):
         return list(self.authgates.values())
@@ -530,30 +585,7 @@ class CellAuthMixin(metaclass=s_nexus.RegMethType):
             raise s_exc.NoSuchRole(mesg=mesg)
         return role
 
-class CellRoleProto:
-
-    def get(self, name, defv=None, gateiden=None):
-        raise s_exc.NotImplemented()
-
-    def set(self, name, valu, gateiden=None):
-        raise s_exc.NotImplemented()
-
-    def getRules(self, gateiden=None):
-        return list(role.get('rules', defv=(), gateiden=gateiden))
-
-    def setRules(self, rules, gateiden=None):
-        rules = reqValidRules(rules)
-        return role.set('rules', rules, gateiden=gateiden)
-
-class CellUserProto(CellRoleProto):
-
-    def isAdmin(self, gateiden=None):
-        return bool(self.get('admin', gateiden=gateiden))
-
-    def setAdmin(self, admin, gateiden=None):
-        return self.set('admin', bool(admin), gateiden=None)
-
-class CellUser(CellUserProto):
+class CellUser:
 
     def __init__(self, cell, info):
         self.cell = cell
@@ -568,9 +600,8 @@ class CellUser(CellUserProto):
         self.vars = self.cell.uservars.look(self.bidn)
         self.profile = self.cell.profiles.look(self.bidn)
 
-    async def set(self, name, valu, gateiden=None):
-        # NOTE: This does go through nexus!
-        return await self.cell.setUserInfo(self.iden, name, valu, gateiden=gateiden)
+    async def set(self, name, valu):
+        return await self.cell.setUserInfo(self.iden, name, valu)
 
     def get(self, name, defv=None, gateiden=None):
 
@@ -585,36 +616,51 @@ class CellUser(CellUserProto):
         # we keep the base user info cached
         self.info = self.cell.users.dict(self.bidn)
 
+    def isAdmin(self, gateiden=None):
+        return bool(self.get('admin', gateiden=gateiden))
+
+    async def setAdmin(self, admin, gateiden=None):
+        return await self.set('admin', bool(admin), gateiden=None)
+
     def isLocked(self):
         return self.info.get('locked')
 
-    def setLocked(self, locked):
-        return self.info.set('locked', bool(locked))
+    async def setLocked(self, locked):
+        return await self.set('locked', bool(locked))
 
     def getRules(self, gateiden=None):
 
         if gateiden is None:
             return list(self.info.get('rules', ()))
 
-        userinfo = self.cell.getGateUserInfo(gateiden, self.iden)
-        if userinfo is None:
-            return []
-
-        return list(userinfo.get('rules', ()))
+        gatebidn = s_common.uhex(gateiden)
+        return list(self.cell.gateusers.get(gatebidn + self.bidn, 'rules', ()))
 
     async def addRule(self, rule, indx=None, gateiden=None):
+
+        if gateiden is not None:
+            self.cell.reqAuthGate(gateiden)
+            rules = list(self.cell.getGateUserProp(self.iden, 'rules', ()))
+
+        gate = self.cell.reqAuthGate(gateiden)
+
         rules = self.getRules(gateiden=gateiden)
+
         if indx is None:
             rules.append(rule)
         else:
             rules.insert(indx, rule)
-        await self.cell.setUserInfo(self.iden, 'rules', rules, gateiden=gateiden)
+
+        await self.cell.setUserInfo(self.iden, 'rules', rules)
 
     async def setPasswd(self, passwd, nexs=True):
+
         if passwd is None:
             shadow = None
+
         elif passwd and isinstance(passwd, str):
             shadow = await s_passwd.getShadowV2(passwd=passwd)
+
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
 
@@ -737,7 +783,6 @@ class CellUser(CellUserProto):
 
         # 4. check role rules
         async for rolebidn in self.cell.userroles.iter(self.bidn):
-            rolebidn = s_common.uhex(roleiden)
             for allow, path in self.cell.roles.get(rolebidn, 'rules', defv=()):
                 if perm[:len(path)] == path:
                     return allow
@@ -801,6 +846,9 @@ class CellRole:
     def get(self, name, defv=None):
         return self.info.get(name, defv)
 
+    async def set(self, name, valu, gateiden=None):
+        return await self.cell.setRoleInfo(self.iden, name, valu, gateiden=gateiden)
+
     def getRules(self, gateiden=None):
 
         if gateiden is None:
@@ -845,17 +893,7 @@ class CellGate:
         '''
         WARNING: not nexusified
         '''
-        userbidn = s_common.uhex(useriden)
-
-        self._gate_cell._reqUserBidn(userbidn)
-
-        # this API automatically prevents dups...
-        self._gate_cell.usergates.add(self._gate_bidn, userbidn)
-        self._gate_cell.gateusers.set(self._gate_bidn + userbidn, 'admin', bool(admin))
-
-        user = self._gate_cell.usercache.get(userbidn)
-        if user is not None:
-            user.clearAuthCache()
+        return self._gate_cell._setGateUserProp(self._gate_iden, useriden, 'admin', bool(admin))
 
     def getUserRules(self, useriden):
         userbidn = s_common.uhex(useriden)
@@ -869,32 +907,13 @@ class CellGate:
         '''
         WARNING: not nexusified
         '''
-        reqValidRules(rules)
-
-        userbidn = s_common.uhex(useriden)
-
-        self._gate_cell.usergates.add(self._gate_bidn, rolebidn)
-        self._gate_cell.gateusers.set(self._gate_bidn + userbidn, 'rules', rules)
-
-        user = self._gate_cell.usercache.get(userbidn)
-        if user is not None:
-            user.clearAuthCache()
+        return self._gate_cell._setGateUserProp(self._gate_iden, useriden, 'rules', tuple(rules))
 
     async def setRoleRules(self, roleiden, rules):
         '''
         WARNING: not nexusified
         '''
-        reqValidRules(rules)
-
-        rolebidn = s_common.uhex(roleiden)
-
-        self._gate_cell.rolegates.add(self._gate_bidn, rolebidn)
-        self._gate_cell.gateroles.set(self._gate_bidn + rolebidn, 'rules', rules)
-
-        async for userbidn in self._gate_cell.userroles.iter(rolebidn):
-            user = self._gate_cell.usercache.get(userbidn)
-            if user is not None:
-                user.clearAuthCache()
+        return self._gate_cell._setGateRoleProp(self._gate_iden, useriden, 'rules', tuple(rules))
 
     async def addRoleRule(self, roleiden, rule):
 
@@ -918,46 +937,22 @@ class CellGate:
 
         async for userbidn in self._gate_cell.usergates.iter(self._gate_bidn):
 
-            await self._gate_cell.gateusers.clear(bidn + userbidn)
-            self._gate_cell.usergates.pop(userbidn, bidn)
+            await self._gate_cell.gateusers.clear(self._gate_bidn + userbidn)
+            self._gate_cell.usergates.pop(userbidn, self._gate_bidn)
 
             user = self._gate_cell.usercache.get(userbidn)
             if user is not None:
-                usear.clearAuthCache()
+                user.clearAuthCache()
 
         async for rolebidn in self._gate_cell.rolegates.iter(self._gate_bidn):
 
-            await self._gate_cell.gateusers.clear(bidn + userbidn)
-            self._gate_cell.rolegates.pop(userbidn, bidn)
+            await self._gate_cell.gateusers.clear(self._gate_bidn + userbidn)
+            self._gate_cell.rolegates.pop(rolebidn, self._gate_bidn)
 
             async for userbidn in self._gate_cell.userroles.iter(rolebidn):
                 user = self.cell._gate_cell.usercache.get(userbidn)
                 if user is not None:
                     user.clearAuthCache()
-
-class CellGateUser(CellUserProto):
-
-    def __init__(self, gate, iden):
-        self.gate = gate
-        self.bidn = self.gate.bidn + s_common.uhex(iden)
-
-    def get(self, name, defv=None):
-        return self.gate.cell.gateusers.get(self.bidn, name, defv=defv)
-
-    def set(self, name, valu):
-        return self.gate.cell.gateusers.set(self.bidn, name, valu)
-
-class CellGateRole(CellRoleProto):
-
-    def __init__(self, gate, iden):
-        self.gate = gate
-        self.bidn = self.gate.bidn + s_common.uhex(iden)
-
-    def get(self, name, defv=None):
-        return self.gate.cell.gateroles.get(self.bidn, name, defv=defv)
-
-    def set(self, name, valu):
-        return self.gate.cell.gateroles.set(self.bidn, name, valu)
 
 class HiveAuthNexs():
     '''

@@ -68,7 +68,7 @@ class SynModule(s_module.CoreModule):
 
     async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
 
-        view = await self.core.getView(iden=view)
+        view = self.core.getView(iden=view)
         genr = view.triggers.triggers.values
 
         async for node in self._doRuntLift(genr, full, valu, cmpr):

@@ -209,6 +209,9 @@ class SlabBidnDict:
         if indx is not None:
             indx.put(bidn, indxvalu)
 
+        # TODO allow this to normalize and return
+        return valu
+
     def pop(self, bidn, name, defv=None):
 
         byts = self.slab.pop(bidn + name.encode(), db=self.db)
@@ -225,7 +228,7 @@ class SlabBidnDict:
 
     async def clear(self, bidn):
         for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
-            self.pop(lkey, db=self.db)
+            self.slab.pop(lkey, db=self.db)
             await asyncio.sleep(0)
 
     async def update(self, bidn, info):
@@ -322,8 +325,8 @@ class SlabBidnLink:
         return True
 
     def pop(self, bidn1, bidn2):
-        self.slab.pop(bidn1, bidn2, db=self.db, dupdata=True)
-        self.slab.pop(bidn2, bidn1, db=self.db, dupdata=True)
+        self.slab.delete(bidn1, bidn2, db=self.db)
+        self.slab.delete(bidn2, bidn1, db=self.db)
 
     def has(self, bidn1, bidn2):
         return self.slab.hasdup(bidn1, bidn2, db=self.db)
