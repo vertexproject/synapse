@@ -2206,7 +2206,7 @@ class InetModelTest(s_t_utils.SynTest):
 
                 await self.checkNodes(core, expected_nodes)
 
-                nodes = await core.nodes('[ inet:web:post:link=* :post={inet:web:post} :url=https://vtx.lk :text=Vertex ]')
+                nodes = await core.nodes('[ inet:web:post:link=* :post={inet:web:post | limit 1} :url=https://vtx.lk :text=Vertex ]')
                 self.len(1, nodes)
                 self.nn(nodes[0].get('post'))
                 self.eq('https://vtx.lk', nodes[0].get('url'))

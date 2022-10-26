@@ -494,7 +494,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 self.eq(node.get('url'), url0)
 
-                self.len(1, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft:taxonomy'))
+                self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
                 self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
 
                 # it:prod:softver - this does test a bunch of property related callbacks

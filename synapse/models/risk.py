@@ -108,6 +108,7 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
+                ('risk:tool:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (
                     ('tag', ('syn:tag', {}), {
                         'ex': 'rep.mandiant.tabcteng',
