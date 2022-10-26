@@ -46,14 +46,14 @@ _editoper: editnodeadd
 // Parenthesis in an edit block don't have incoming nodes
 editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
-editunivdel: "-" univprop
-edittagdel: "-" tagname
+editunivdel: EXPRMINUS univprop
+edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-editpropdel: "-" relprop
+editpropdel: EXPRMINUS relprop
 editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-edittagpropdel: "-" tagprop
+edittagpropdel: EXPRMINUS tagprop
 EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
 TRYSETPLUS: "?+="
@@ -408,7 +408,8 @@ dollarexpr: "$"? "(" expror ")"
 // A dollar expression with a required dollar
 reqdollarexpr: "$" "(" expror ")"
 EXPRPLUS.2: "+"
-EXPRMINUS.2: "-"
+EXPRMINUS.2: /(?<!-)-/
+EXPRNEG.2: /-(?![^$:.#(\-]|(?>(?<EXPRNEGRECUR>\(((?>[^()"'`]+|(?&EXPRNEGRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^,)}])*,)/
 EXPRTIMES.2: "*"
 EXPRDIVIDE.2: "/"
 EXPRPOW.2: "**"
@@ -425,6 +426,7 @@ AND.2: "and"
 ?exprnot: exprcmp | NOT exprcmp
 ?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
-?exprproduct: exprpow | exprproduct (EXPRTIMES | EXPRDIVIDE) exprpow
+?exprproduct: exprunary | exprproduct (EXPRTIMES | EXPRDIVIDE) exprunary
+?exprunary: exprpow | EXPRNEG exprunary
 ?exprpow: _expratom | exprpow EXPRPOW _expratom
 _expratom: _exprvalu
