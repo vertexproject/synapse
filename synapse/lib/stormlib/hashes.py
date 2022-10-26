@@ -1,3 +1,4 @@
+import hmac
 import hashlib
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -54,3 +55,19 @@ class LibHashes(s_stormtypes.Lib):
 
     async def _sha512(self, byts):
         return hashlib.sha512(byts).hexdigest()
+
+@s_stormtypes.registry.registerLib
+class LibHmac(s_stormtypes.Lib):
+    _storm_lib_path = ('crypto', 'hmac')
+
+    def getObjLocals(self):
+        return {
+            'sign': self._sign,
+        }
+
+    async def _sign(self, key, mesg, digest='sha256') -> bytes:
+        key = await s_stormtypes.toprim(key)
+        mesg = await s_stormtypes.toprim(mesg)
+        digest = await s_stormtypes.tostr(digest)
+        valu = hmac.digest(key=key, msg=mesg, digest=digest)
+        return valu
