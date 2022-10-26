@@ -426,7 +426,7 @@ class HttpResp(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': None, },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'surrogatepass', },
                    ),
                    'returns': {'type': 'prim'}
                  }
@@ -452,18 +452,16 @@ class HttpResp(s_stormtypes.Prim):
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def _httpRespJson(self, encoding=None, errors=None):
+    async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
         try:
-            parms = {}
-            if encoding is not None:
-                parms['encoding'] = await s_stormtypes.tostr(encoding)
-            if errors is not None:
-                parms['errors'] = await s_stormtypes.tostr(errors)
-
             valu = self.valu.get('body')
-            if parms:
-                return json.loads(valu.decode(**parms))
-            return json.loads(valu)
+
+            if encoding is None:
+                encoding = json.detect_encoding(valu)
+            else:
+                encoding = await s_stormtypes.tostr(encoding)
+
+            return json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=str(e), valu=valu[:1024]) from None
