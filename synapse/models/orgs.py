@@ -445,6 +445,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The conflict in which this campaign is a primary participant.',
                     }),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                 )),
@@ -566,6 +567,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                 )),

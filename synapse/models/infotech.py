@@ -1102,6 +1102,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set to True if the software is a library.'}),
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
+                        'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
 

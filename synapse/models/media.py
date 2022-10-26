@@ -40,7 +40,7 @@ class MediaModule(s_module.CoreModule):
 
 
                 ('publisher:name', ('ou:name', {}), {
-                    'doc': 'The name the publishing org used to publish the news.'}),
+                    'doc': 'The name of the publishing org used to publish the news.'}),
 
                 ('published', ('time', {}), {
                     'ex': '20161201180433',
