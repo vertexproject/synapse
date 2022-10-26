@@ -1816,6 +1816,7 @@ class InetModelTest(s_t_utils.SynTest):
             valu = ('blogs.Vertex.link', 'Brutus')
             input_props = {
                 'avatar': 'sha256:' + 64 * 'a',
+                'banner': 'sha256:' + 64 * 'b',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
                 'linked:accts': (('twitter.com', 'brutus'), ('linkedin.com', 'brutester'), ('linkedin.com', 'brutester')),
@@ -2102,6 +2103,7 @@ class InetModelTest(s_t_utils.SynTest):
             'url': 'https://vertex.link/messages/0',
             'client': 'tcp://1.2.3.4',
             'text': 'a cool Message',
+            'deleted': True,
             'file': 'sha256:' + 64 * 'F'
         }
         expected_props = {
@@ -2111,6 +2113,7 @@ class InetModelTest(s_t_utils.SynTest):
             'url': 'https://vertex.link/messages/0',
             'client': 'tcp://1.2.3.4',
             'client:ipv4': 0x01020304,
+            'deleted': True,
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'f'
         }
