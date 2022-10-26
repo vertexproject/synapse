@@ -26,13 +26,13 @@ perms:
     - perm: [ power-ups, testpkg, user ]
       gate: cortex
       desc: Controls user access to testpkg.
-      scopes: [ global, self ]
       workflowconfig: true
 
 configvars:
     - name: API key
       varname: testpkg:apikey
       desc: API key to use for querying the testpkg API.
+      scopes: [ global, self ]
       workflowconfig: true
 
     - name: Tag Prefix

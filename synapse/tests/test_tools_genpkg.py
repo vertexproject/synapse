@@ -95,12 +95,12 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['perms'][0]['perm'], ['power-ups', 'testpkg', 'user'])
             self.eq(pdef['perms'][0]['gate'], 'cortex')
             self.eq(pdef['perms'][0]['desc'], 'Controls user access to testpkg.')
-            self.eq(pdef['perms'][0]['scopes'], ['global', 'self'])
             self.eq(pdef['perms'][0]['workflowconfig'], True)
 
             self.eq(pdef['configvars'][0]['name'], 'API key')
             self.eq(pdef['configvars'][0]['varname'], 'testpkg:apikey')
             self.eq(pdef['configvars'][0]['desc'], 'API key to use for querying the testpkg API.')
+            self.eq(pdef['configvars'][0]['scopes'], ['global', 'self'])
             self.eq(pdef['configvars'][0]['workflowconfig'], True)
             self.eq(pdef['configvars'][1]['name'], 'Tag Prefix')
             self.eq(pdef['configvars'][1]['varname'], 'testpkg:tag:prefix')
