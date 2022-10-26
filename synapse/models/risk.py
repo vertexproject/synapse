@@ -39,7 +39,7 @@ class RiskModule(s_module.CoreModule):
                     'ex': 'cno.breach',
                     'interfaces': ('taxonomy',),
                 }),
-                ('risk:tool:taxonomy', ('taxonomy', {}), {
+                ('risk:tool:software:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('taxonomy',),
                 }),
                 ('risk:tool:software', ('guid', {}), {
@@ -108,7 +108,7 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
-                ('risk:tool:taxonomy', {}, ()),
+                ('risk:tool:software:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (
                     ('tag', ('syn:tag', {}), {
                         'ex': 'rep.mandiant.tabcteng',
@@ -117,7 +117,7 @@ class RiskModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': "A description of the tool's use in threat activity.",
                     }),
-                    ('type', ('risk:tool:taxonomy', {}), {
+                    ('type', ('risk:tool:software:taxonomy', {}), {
                         'doc': 'An analyst specified taxonomy of software tool types.',
                     }),
                     ('reporter', ('ou:org', {}), {
