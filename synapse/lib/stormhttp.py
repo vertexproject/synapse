@@ -455,6 +455,7 @@ class HttpResp(s_stormtypes.Prim):
     async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
         try:
             valu = self.valu.get('body')
+            errors = await s_stormtypes.tostr(errors)
 
             if encoding is None:
                 encoding = json.detect_encoding(valu)
