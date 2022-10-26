@@ -47,14 +47,38 @@ class RiskModule(s_module.CoreModule):
                 }),
             ),
             'edges': (
+                # some explicit examples...
+                (('risk:attack', 'uses', 'ou:technique'), {
+                    'doc': 'The attack used the technique.'}),
+                (('risk:threat', 'uses', 'ou:technique'), {
+                    'doc': 'The threat cluster uses the technique.'}),
+                (('risk:tool:software', 'uses', 'ou:technique'), {
+                    'doc': 'The tool uses the technique.'}),
+
+                (('risk:attack', 'uses', 'risk:vuln'), {
+                    'doc': 'The attack used the vulnerability.'}),
+                (('risk:threat', 'uses', 'risk:vuln'), {
+                    'doc': 'The threat cluster uses the vulnerability.'}),
+                (('risk:tool:software', 'uses', 'risk:vuln'), {
+                    'doc': 'The tool uses the vulnerability.'}),
+
+                (('risk:attack', 'targets', 'ou:industry'), {
+                    'doc': 'The attack targeted the industry.'}),
+                (('risk:threat', 'targets', 'ou:industry'), {
+                    'doc': 'The threat cluster targets the industry.'}),
+
                 (('risk:threat', 'targets', None), {
-                    'doc': 'The threat cluster targeted the target nodes.'}),
+                    'doc': 'The threat cluster targeted the target node.'}),
                 (('risk:threat', 'uses', None), {
-                    'doc': 'The threat cluster uses the target nodes.'}),
+                    'doc': 'The threat cluster uses the target node.'}),
                 (('risk:attack', 'targets', None), {
-                    'doc': 'The attack targeted the target nodes.'}),
+                    'doc': 'The attack targeted the target node.'}),
                 (('risk:attack', 'uses', None), {
                     'doc': 'The attack used the target nodes to facilitate the attack.'}),
+                (('risk:tool:software', 'uses', None), {
+                    'doc': 'The tool uses the target node.'}),
+                (('risk:compromise', 'stole', None), {
+                    'doc': 'The target node was stolen or copied as a result of the compromise.'}),
             ),
             'forms': (
                 ('risk:threat', {}, (
@@ -81,7 +105,8 @@ class RiskModule(s_module.CoreModule):
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'The assessed goals of the threat cluster activity.'}),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed within the threat cluster.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
                 ('risk:tool:software', {}, (
                     ('tag', ('syn:tag', {}), {
@@ -110,7 +135,8 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'An array of reported alterate names for the tool.',
                     }),
                     ('techniques', ('array', {'type': 'ou:technique'}), {
-                        'doc': 'An array of techniques reportedly used by the tool.',
+                        'deprecated': True,
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                 )),
                 ('risk:mitigation', {}, (
@@ -280,6 +306,10 @@ class RiskModule(s_module.CoreModule):
                     ('attack', ('risk:attack', {}), {
                         'doc': 'A confirmed attack that this alert indicates.',
                     }),
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the alert.'}),
+                    ('ext:id', ('str', {}), {
+                        'doc': 'An external identifier for the alert.'}),
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (

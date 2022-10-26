@@ -251,6 +251,7 @@ class BaseTest(s_t_utils.SynTest):
                     :created=20200202 :updated=20220401 :author=*
                     :name=" My  Rule" :desc="My cool rule"
                     :text="while TRUE { BAD }"
+                    :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
                     +(matches)> { [inet:ipv4=123.123.123] }
                 ]
@@ -263,6 +264,8 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'my rule')
             self.eq(nodes[0].get('desc'), 'My cool rule')
             self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
+            self.eq(nodes[0].get('url'), 'https://vertex.link/rules/WOOT-20')
+            self.eq(nodes[0].get('ext:id'), 'WOOT-20')
 
             self.len(1, await core.nodes('meta:rule -> ps:contact'))
             self.len(1, await core.nodes('meta:ruleset -> ps:contact'))

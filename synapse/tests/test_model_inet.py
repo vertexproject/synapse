@@ -2206,6 +2206,12 @@ class InetModelTest(s_t_utils.SynTest):
 
                 await self.checkNodes(core, expected_nodes)
 
+                nodes = await core.nodes('[ inet:web:post:link=* :post={inet:web:post} :url=https://vtx.lk :text=Vertex ]')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('post'))
+                self.eq('https://vtx.lk', nodes[0].get('url'))
+                self.eq('Vertex', nodes[0].get('text'))
+
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
         valu = (('vertex.link', '@2015'), 'regiStrar')
@@ -2558,15 +2564,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :subject="hi there"
                 :date=2015
                 :body="there are mad sploitz here!"
-                :headers=((foo, bar),)
+                :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :bytes="*"
             ]
 
-            {[ inet:email:message:link=($node, https://www.vertex.link) ]}
-
-            {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
-
-            {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+            {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
+            {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2577,8 +2580,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:subject="hi there"'))
             self.len(1, await core.nodes('inet:email:message:replyto=root@root.com'))
 
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> edge:has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
-            self.len(1, await core.nodes('inet:email:message:headers*[=(foo,bar)]'))

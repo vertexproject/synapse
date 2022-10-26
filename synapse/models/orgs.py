@@ -131,7 +131,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An assessed or stated goal which may be abstract or org specific.',
                 }),
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
-                    'doc': 'An org has an assessed or stated goal.',
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:org:goals.',
                 }),
                 ('ou:camptype', ('taxonomy', {}), {
                     'doc': 'An campaign type taxonomy.',
@@ -189,6 +190,11 @@ class OuModule(s_module.CoreModule):
                 }),
             ),
             'edges': (
+                (('ou:campaign', 'uses', 'ou:technique'), {
+                    'doc': 'The campaign used the technique.'}),
+                (('ou:org', 'uses', 'ou:technique'), {
+                    'doc': 'The org uses the technique.'}),
+
                 (('ou:org', 'uses', None), {
                     'doc': 'The ou:org makes use of the target node.'}),
                 (('ou:org', 'targets', None), {
@@ -439,7 +445,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The conflict in which this campaign is a primary participant.',
                     }),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed as part of the campaign.',
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                 )),
                 ('ou:conflict', {}, (
@@ -560,7 +566,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
                     }),
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed by the organization.',
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                 )),
                 ('ou:team', {}, (
