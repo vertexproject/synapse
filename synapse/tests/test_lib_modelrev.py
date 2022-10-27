@@ -312,3 +312,8 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, await core.nodes('pol:country -> geo:name'))
             self.len(1, await core.nodes('risk:alert:taxonomy=hehe'))
             self.len(1, await core.nodes('risk:alert -> risk:alert:taxonomy'))
+
+    async def test_modelrev_0_2_13(self):
+        async with self.getRegrCore('model-0.2.13') as core:
+            self.len(1, await core.nodes('risk:tool:software:taxonomy=testtype'))
+            self.len(1, await core.nodes('risk:tool:software -> risk:tool:software:taxonomy'))
