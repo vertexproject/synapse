@@ -136,6 +136,8 @@ class RiskModelTest(s_t_utils.SynTest):
                     :detected=20501217
                     :attack=*
                     :vuln=*
+                    :url=https://vertex.link/alerts/WOOT-20
+                    :ext:id=WOOT-20
                 ]
             ''')
             self.len(1, nodes)
@@ -143,6 +145,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('FooBar', nodes[0].get('name'))
             self.eq('BlahBlah', nodes[0].get('desc'))
             self.eq(2554848000000, nodes[0].get('detected'))
+            self.eq('WOOT-20', nodes[0].get('ext:id'))
+            self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
 
