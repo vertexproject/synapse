@@ -10,8 +10,8 @@ Storm Reference - Advanced - Control Flow
 Storm includes a number of common programming control flow structures to facilitate more advanced Storm
 queries. These include:
 
-- `Init block`_
-- `Fini block`_
+- `Init Block`_
+- `Fini Block`_
 - `If-Else Statement`_
 - `Switch Statement`_
 - `For Loop`_
@@ -117,8 +117,8 @@ troubleshooting comes down to figuring out that the current working set is not w
 
 Storm supports both runtime-safe ("runtsafe") and non-runtime-safe ("non-runtsafe") variables. Non-runtsafe
 variables have values that may **change** based on the current node in the Storm pipeline. Another significant
-part of Storm troubleshooting involves understanding the value of a non-runtsafe variable at any given point in
-your Storm code. (See :ref:`var-concepts` for addditional information.)
+part of Storm troubleshooting involves understanding the values of any variables at any given point in your
+Storm code. (See :ref:`var-concepts` for addditional information.)
 
 **Operations may execute multiple times.**
 
@@ -191,10 +191,9 @@ Control Flow Operations
 Init Block
 ++++++++++
 
-An **init block** allows you to execute the specified Storm **once** at the beginning of your overall
-Storm query. This allows you to use Storm to perform a set of initial operations "outside" of the normal
-Storm pipeline; without the init block, the code would be executed once for **each** node passing through
-the Storm query.
+An **init block** allows you to execute the specified Storm **once** at the beginning of your Storm query.
+This allows you to use Storm to perform a set of operations a single time only. Without the init block,
+the code would be executed once for **each** node passing through the Storm query.
 
 See also :ref:`flow-fini`.
 
@@ -232,10 +231,10 @@ Initializing the variables to default values can:
 Fini Block
 ++++++++++
 
-A **fini block** allows you to execute the specified Storm **once** at the end of your overall Storm
-query. This allows you to use Storm to perform a set of final operations "outside" of the normal
-Storm pipeline; without the fini block, the code would be executed once for **each** node passing through
-the Storm query. A fini block executes a single time after all other Storm has completed.
+A **fini block** allows you to execute the specified Storm **once** after all nodes have passed through
+the preceding code in the Storm pipeline. This allows you to use Storm to perform a set of operations
+a single time "outside" of the normal Storm pipeline; without the fini block, the code would be executed
+once for **each** node passing through the query.
 
 See also :ref:`flow-init`.
 
@@ -247,8 +246,8 @@ See also :ref:`flow-init`.
 
 **Example:**
 
-You ran a Storm query that processed a series of ``inet:fqdn`` nodes, adding nodes that met certain criteria
-to a set (specified with the variable ``$fqdns``). Once your query completes, you want to print a message
+You have a Storm query that processes a series of ``inet:fqdn`` nodes, adding nodes that meet certain criteria
+to a set (specified with the variable ``$fqdns``). After processing the nodes, you want to print a message
 with the total number of nodes in your set (which you stored in the variable ``$fqdn_count``) and return the
 set of nodes.
 
@@ -256,7 +255,7 @@ set of nodes.
   
   fini {
   
-      $lib.print("Total count is {fqdn_count}", fqdn_count=$fqdn_count)
+      $lib.print(`Total count is {$fqdn_count}`)
       return($fqdns)
   }
 
@@ -442,7 +441,7 @@ The default case above is not strictly necessary - any inbound nodes that fail t
 pass through the switch statement with no action taken. It is used above to illustrate the optional use of a
 default case for any non-matching nodes.
 
-**Note:** the Storm service names used above are examples only. Services with those names do not exist in the
+**Note:** the Storm command names used above are examples only. Commands with those names do not exist in the
 base Synapse code.  
 
 .. _flow-for:
@@ -467,7 +466,7 @@ of using a for loop to iterate over the rows of a CSV-formatted file (i.e., ``fo
 
 **Example:**
 
-You routinely apply tags to files (``file:bytes``) node to annotate things such as whether the file is
+You routinely apply tags to files (``file:bytes`` nodes) to annotate things such as whether the file is
 associated with a particular malware family (``cno.mal.redtree``) or threat group (``cno.threat.viciouswombat``).
 When you apply any of these tags to a file, you want to automatically apply those same tags to the file's
 associated hashes (e.g., ``hash:md5``, etc.)
@@ -589,7 +588,7 @@ In the catch block above, ``<name>`` can be the name of a single error type, a s
 ( ``*`` ) to represent any error. When using multiple catch blocks, the asterisk can be used in the final block
 as a default case to catch any error not explicitly handled by a previous catch block.
 
-The catch block can return a status (e.g.,. ``return((1))``) or output a warning message (e.g., using ``$lib.warn()``
+The catch block can return a status (e.g., ``return((1))``) or output a warning message (e.g., using ``$lib.warn()``
 - see :ref:`stormlibs-lib-warn`).
 
 **Example:**
@@ -717,13 +716,7 @@ completes. So what's different?
 
 One of the key features of a subquery is that by default (i.e., unless the ``yield`` option is used), **the nodes
 that go into a subquery also come out of a subquery,** regardless of what occurs inside the subquery itself. In
-other words, **subqueries do not "consume" nodes**, and any changes that occur within the subquery do not exit
-the subquery (you can also think of this as "what happens in a subquery, stays in a subquery").
-
-.. NOTE::
-  
-  Technically, any variables that are set within a subquery are available outside of the subquery, but any
-  nodes that are added (or removed) from the Storm pipeline **inside** the subquery do not exit the subquery.
+other words, **subqueries do not "consume" nodes**.
 
 We still have our single FQDN inbound to the subquery. Inside the subquery, our for loop still executes, effectively
 "splitting" the Storm pipeline into three pipelines that execute in sequence. But once we complete the for loop and

@@ -121,7 +121,7 @@ Remove a name from the array of names associated with an organization:
 
 Use the specialized "edit try" operator to attempt to add a single value to the ``:authors`` array property
 of an article (``media:news`` node). (**Note:** a type-inappropriate value (a name) is used below to show
-the "fail silenetly" behavior for the "edit try" operator. The ``:authors`` property is an array of
+the "fail silently" behavior for the "edit try" operator. The ``:authors`` property is an array of
 ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
