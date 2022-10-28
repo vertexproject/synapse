@@ -64,8 +64,8 @@ class LibHmac(s_stormtypes.Lib):
     A Storm library for computing RFC2140 HMAC values.
     '''
     _storm_locals = (
-        {'name': 'md5', 'desc': 'Retrieve an MD5 hash of a byte string.',
-         'type': {'type': 'function', '_funcname': '_md5',
+        {'name': 'sign', 'desc': 'Sign a message with a key using RFC2140 HMAC.',
+         'type': {'type': 'function', '_funcname': '_sign',
                   'args': (
                       {'name': 'key', 'type': 'bytes', 'desc': 'The key to use for the HMAC calculation.'},
                       {'name': 'mesg', 'type': 'bytes', 'desc': 'The mesg to sign.'},
