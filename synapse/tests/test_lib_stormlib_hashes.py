@@ -1,3 +1,4 @@
+import base64
 import binascii
 
 import synapse.common as s_common
@@ -43,7 +44,45 @@ class CryptoHashesTest(s_test.SynTest):
             ret = await core.callStorm(q, opts=opts)
             self.eq(ret, s_common.uhex(digest))
 
-            # rfc4231 vectors
+            # some rfc4231 vectors
+            mode = 'sha224'
+            digest = 'a30e01098bc6dbbf45690f3a7e9e6d0f8bbea2a39e6148008fd05e44'
+            opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, s_common.uhex(digest))
+
+            mode = 'sha256'
+            digest = '5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843'
+            opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, s_common.uhex(digest))
+
+            mode = 'sha384'
+            digest = 'af45d2e376484031617f78d2b58a6b1b9c7ef464f5a01b47e42ec3736322445e8' \
+                     'e2240ca5e69e2c78b3239ecfab21649'
+            opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, s_common.uhex(digest))
+
+            mode = 'sha512'
+            digest = '164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549' \
+                     '758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737'
+            opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
+            ret = await core.callStorm(q, opts=opts)
+            self.eq(ret, s_common.uhex(digest))
+
+            # rfc4231 - part of test case 3
+            key = base64.b64encode(b'\xaa' * 20)
+            data = base64.b64encode(b'\xdd' * 50)
+            mode = 'sha256'
+            digest = '773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe'
+            b64q = '''
+            $key=$lib.base64.decode($key) $mesg=$lib.base64.decode($mesg)
+            return ( $lib.crypto.hmac.sign(key=$key, mesg=$mesg, digest=$mode) )
+            '''
+            opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
+            ret = await core.callStorm(b64q, opts=opts)
+            self.eq(ret, s_common.uhex(digest))
 
             # Test vector for aws sig4 / signing key derivation
             # https://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
@@ -62,7 +101,6 @@ class CryptoHashesTest(s_test.SynTest):
             return ( $kSigning )
             '''
             ret = await core.callStorm(q)
-            print('---------------------------')
             self.eq(ret, s_common.uhex(digest))
 
             q = """

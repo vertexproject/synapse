@@ -1,6 +1,8 @@
 import hmac
 import hashlib
 
+import synapse.common as s_common
+
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -58,6 +60,20 @@ class LibHashes(s_stormtypes.Lib):
 
 @s_stormtypes.registry.registerLib
 class LibHmac(s_stormtypes.Lib):
+    '''
+    A Storm library for computing RFC2140 HMAC values.
+    '''
+    _storm_locals = (
+        {'name': 'md5', 'desc': 'Retrieve an MD5 hash of a byte string.',
+         'type': {'type': 'function', '_funcname': '_md5',
+                  'args': (
+                      {'name': 'key', 'type': 'bytes', 'desc': 'The key to use for the HMAC calculation.'},
+                      {'name': 'mesg', 'type': 'bytes', 'desc': 'The mesg to sign.'},
+                      {'name': 'digest', 'type': 'str', 'default': 'sha256',
+                       'desc': 'The digest algorithm to use.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The hex digest of the HMAC value.'}}},
+    )
     _storm_lib_path = ('crypto', 'hmac')
 
     def getObjLocals(self):
