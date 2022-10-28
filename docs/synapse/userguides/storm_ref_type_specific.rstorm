@@ -1530,7 +1530,7 @@ Lift a set of DNS A records whose window of observation includes March 16, 2019 
 
 .. NOTE::
   
-  Both lower resolution times and wildcard time can be used for valuess specified within the ``@=`` operator.
+  Both lower resolution times and wildcard time can be used for values specified within the ``@=`` operator.
   Because the interval operator is a shorthand syntax for "greater than or equal to `<ival_min>` and less than
   `<ival_max>`", users should be aware of differences in behavior between each kind of time value with greater
   than / less than operators.
