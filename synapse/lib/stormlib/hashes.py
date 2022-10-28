@@ -1,7 +1,7 @@
 import hmac
 import hashlib
 
-import synapse.common as s_common
+import synapse.exc as s_exc
 
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -72,7 +72,7 @@ class LibHmac(s_stormtypes.Lib):
                       {'name': 'digest', 'type': 'str', 'default': 'sha256',
                        'desc': 'The digest algorithm to use.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The hex digest of the HMAC value.'}}},
+                  'returns': {'type': 'bytes', 'desc': 'The binary digest of the HMAC value.'}}},
     )
     _storm_lib_path = ('crypto', 'hmac')
 
@@ -83,7 +83,16 @@ class LibHmac(s_stormtypes.Lib):
 
     async def _sign(self, key, mesg, digest='sha256') -> bytes:
         key = await s_stormtypes.toprim(key)
+        if not isinstance(key, bytes):
+            raise s_exc.BadArg(mesg='key is not bytes.', name='key')
         mesg = await s_stormtypes.toprim(mesg)
+        if not isinstance(mesg, bytes):
+            raise s_exc.BadArg(mesg='mesg is not bytes.', name='mesg')
         digest = await s_stormtypes.tostr(digest)
-        valu = hmac.digest(key=key, msg=mesg, digest=digest)
+        try:
+            valu = hmac.digest(key=key, msg=mesg, digest=digest)
+        except ValueError as e:
+            if 'unsupported' in str(e):
+                raise s_exc.BadArg(mesg=f'Invalid hmac digest provided: {digest}', digest=digest)
+            raise s_exc.StormRuntimeError(mesg=f'Error computing hmac: {e}')
         return valu

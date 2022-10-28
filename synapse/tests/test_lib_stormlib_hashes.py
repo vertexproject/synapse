@@ -1,6 +1,7 @@
 import base64
 import binascii
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.hashset as s_hashset
@@ -70,6 +71,24 @@ class CryptoHashesTest(s_test.SynTest):
             opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
             ret = await core.callStorm(q, opts=opts)
             self.eq(ret, s_common.uhex(digest))
+
+            # A few sad paths
+            # bad mode
+            mode = 'md4'
+            opts = {'vars': {'key': key, 'mesg': data, 'mode': mode}}
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(q, opts=opts)
+
+            # bad key and data
+            opts = {'vars': {'mesg': data}}
+            bq = 'return( $lib.crypto.hmac.sign(key=1234, mesg=$mesg.encode()) )'
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(bq, opts=opts)
+
+            opts = {'vars': {'key': key}}
+            bq = 'return( $lib.crypto.hmac.sign(key=$key.encode(), mesg=1234) )'
+            with self.raises(s_exc.BadArg):
+                await core.callStorm(bq, opts=opts)
 
             # rfc4231 - part of test case 3
             key = base64.b64encode(b'\xaa' * 20)
