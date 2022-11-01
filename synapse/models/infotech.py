@@ -380,6 +380,9 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
                     'doc': 'A software product name.',
                 }),
+                ('it:prod:soft:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A software type taxonomy.',
+                }),
                 ('it:prod:hardware', ('guid', {}), {
                     'doc': 'A specification for a piece of IT hardware.',
                 }),
@@ -577,6 +580,8 @@ class ItModule(s_module.CoreModule):
                 }),
             ),
             'edges': (
+                (('it:prod:soft', 'uses', 'ou:technique'), {
+                    'doc': 'The software uses the technique.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
             ),
@@ -869,6 +874,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'A description of the ATT&CK group.',
                         'disp': {'hint': 'text'},
                     }),
+                    ('isnow', ('it:mitre:attack:group', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the group.',
+                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK group.',
                     }),
@@ -952,6 +960,9 @@ class ItModule(s_module.CoreModule):
                     ('desc', ('str', {'strip': True}), {
                         'doc': 'A description of the ATT&CK software.',
                         'disp': {'hint': 'text'},
+                    }),
+                    ('isnow', ('it:mitre:attack:software', {}), {
+                        'doc': 'If deprecated, this field may contain the current value for the software.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK software.',
@@ -1040,10 +1051,13 @@ class ItModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The it:host which has this component installed.'}),
                 )),
+                ('it:prod:soft:taxonomy', {}, ()),
                 ('it:prod:soft', {}, (
                     ('name', ('it:prod:softname', {}), {
                         'doc': 'Name of the software.',
                     }),
+                    ('type', ('it:prod:soft:taxonomy', {}), {
+                        'doc': 'The software type.'}),
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'Observed/variant names for this software.',
                     }),
@@ -1062,20 +1076,20 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('author:org', ('ou:org', {}), {
                         'deprecated': True,
-                        'doc': 'Organization which authored the software.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
                     ('author:acct', ('inet:web:acct', {}), {
                         'deprecated': True,
-                        'doc': 'Web account of the software author.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
                     ('author:email', ('inet:email', {}), {
                         'deprecated': True,
-                        'doc': 'Email address of the software author.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
 
                     ('author:person', ('ps:person', {}), {
                         'deprecated': True,
-                        'doc': 'Person who authored the software.',
+                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'URL relevant for the software.',
@@ -1083,10 +1097,13 @@ class ItModule(s_module.CoreModule):
 
                     ('isos', ('bool', {}), {
                         'doc': 'Set to True if the software is an operating system.'}),
+
                     ('islib', ('bool', {}), {
                         'doc': 'Set to True if the software is a library.'}),
+
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'doc': 'A list of techniques employed by the author of the software.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
 
                 ('it:prod:softname', {}, ()),

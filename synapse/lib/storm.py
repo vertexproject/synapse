@@ -1998,10 +1998,14 @@ class Runtime(s_base.Base):
                 self.runtvars[name] = isrunt
 
     async def execute(self, genr=None):
-        with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
-            async for item in self.query.iterNodePaths(self, genr=genr):
-                self.tick()
-                yield item
+        try:
+            with s_provenance.claim('storm', q=self.query.text, user=self.user.iden):
+                async for item in self.query.iterNodePaths(self, genr=genr):
+                    self.tick()
+                    yield item
+        except RecursionError:
+            mesg = 'Maximum Storm pipeline depth exceeded.'
+            raise s_exc.RecursionLimitHit(mesg=mesg, query=self.query.text) from None
 
     async def _snapFromOpts(self, opts):
 

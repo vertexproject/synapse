@@ -1876,6 +1876,12 @@ class AstTest(s_test.SynTest):
             self.eq(4.84, await core.callStorm('return((2.2 ** 2))'))
             self.eq(5.76, await core.callStorm('return((2 ** 2.4))'))
 
+            self.eq(-5.2, await core.callStorm('$foo=5.2 return((-$foo))'))
+            self.eq(5.2, await core.callStorm('$foo=5.2 return((--$foo))'))
+            self.eq(6.2, await core.callStorm('$foo=5.2 return((1--$foo))'))
+            self.eq(-4.2, await core.callStorm('$foo=5.2 return((1---$foo))'))
+            self.eq(-7, await core.callStorm('$foo=5.2 return((-(3+4)))'))
+
             self.eq(2.43, await core.callStorm('return((1.23 + $lib.cast(float, 1.2)))'))
             self.eq(0.03, await core.callStorm('return((1.23 - $lib.cast(float, 1.2)))'))
             self.eq(1.476, await core.callStorm('return((1.23 * $lib.cast(float, 1.2)))'))
@@ -2348,3 +2354,15 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.NoSuchVar) as err:
                 await core.nodes(q)
             self.false(err.exception.errinfo.get('runtsafe'))
+
+    async def test_ast_maxdepth(self):
+
+        async with self.getTestCore() as core:
+
+            q = '['
+            for x in range(1000):
+                q += f'inet:ipv4={x} '
+            q += ']'
+
+            with self.raises(s_exc.RecursionLimitHit) as err:
+                msgs = await core.nodes(q)
