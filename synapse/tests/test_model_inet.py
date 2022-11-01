@@ -1816,6 +1816,7 @@ class InetModelTest(s_t_utils.SynTest):
             valu = ('blogs.Vertex.link', 'Brutus')
             input_props = {
                 'avatar': 'sha256:' + 64 * 'a',
+                'banner': 'sha256:' + 64 * 'b',
                 'dob': -64836547200000,
                 'email': 'brutus@vertex.link',
                 'linked:accts': (('twitter.com', 'brutus'), ('linkedin.com', 'brutester'), ('linkedin.com', 'brutester')),
@@ -2102,6 +2103,7 @@ class InetModelTest(s_t_utils.SynTest):
             'url': 'https://vertex.link/messages/0',
             'client': 'tcp://1.2.3.4',
             'text': 'a cool Message',
+            'deleted': True,
             'file': 'sha256:' + 64 * 'F'
         }
         expected_props = {
@@ -2111,6 +2113,7 @@ class InetModelTest(s_t_utils.SynTest):
             'url': 'https://vertex.link/messages/0',
             'client': 'tcp://1.2.3.4',
             'client:ipv4': 0x01020304,
+            'deleted': True,
             'text': 'a cool Message',
             'file': 'sha256:' + 64 * 'f'
         }
@@ -2202,6 +2205,12 @@ class InetModelTest(s_t_utils.SynTest):
                 self.len(2, await core.nodes('inet:web:post -> inet:web:hashtag'))
 
                 await self.checkNodes(core, expected_nodes)
+
+                nodes = await core.nodes('[ inet:web:post:link=* :post={inet:web:post | limit 1} :url=https://vtx.lk :text=Vertex ]')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('post'))
+                self.eq('https://vtx.lk', nodes[0].get('url'))
+                self.eq('Vertex', nodes[0].get('text'))
 
     async def test_whois_contact(self):
         formname = 'inet:whois:contact'
@@ -2555,15 +2564,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :subject="hi there"
                 :date=2015
                 :body="there are mad sploitz here!"
-                :headers=((foo, bar),)
+                :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :bytes="*"
             ]
 
-            {[ inet:email:message:link=($node, https://www.vertex.link) ]}
-
-            {[ inet:email:message:attachment=($node, "*") ] -inet:email:message [ :name=sploit.exe ]}
-
-            {[ edge:has=($node, ('inet:email:header', ('to', 'Visi Kensho <visi@vertex.link>'))) ]}
+            {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
+            {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
@@ -2574,8 +2580,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:subject="hi there"'))
             self.len(1, await core.nodes('inet:email:message:replyto=root@root.com'))
 
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> edge:has -> inet:email:header +:name=to +:value="Visi Kensho <visi@vertex.link>"'))
-            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link -> inet:url +inet:url=https://www.vertex.link'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:header +:name=to +:value="Visi Stark <visi@vertex.link>"'))
+            self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:link +:text=Vertex -> inet:url'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> inet:email:message:attachment +:name=sploit.exe -> file:bytes'))
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
-            self.len(1, await core.nodes('inet:email:message:headers*[=(foo,bar)]'))

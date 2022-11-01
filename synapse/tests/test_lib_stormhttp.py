@@ -42,6 +42,10 @@ class HttpNotJson(s_httpapi.Handler):
     async def get(self):
         self.write(b"{'not':'json!'}")
 
+class HttpBadJson(s_httpapi.Handler):
+    async def get(self):
+        self.write(b'{"foo": "bar\x80"}')
+
 class StormHttpTest(s_test.SynTest):
 
     async def test_storm_http_get(self):
@@ -54,6 +58,7 @@ class StormHttpTest(s_test.SynTest):
 
             core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
             core.addHttpApi('/api/v0/notjson', HttpNotJson, {'cell': core})
+            core.addHttpApi('/api/v0/badjson', HttpBadJson, {'cell': core})
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
             opts = {'vars': {'url': url}}
 
@@ -144,6 +149,21 @@ class StormHttpTest(s_test.SynTest):
 
             retn = await core.callStorm('return($lib.inet.http.urldecode("http%3A%2F%2Fgo+ogle.com"))')
             self.eq('http://go ogle.com', retn)
+
+            badurl = f'https://root:root@127.0.0.1:{port}/api/v0/badjson'
+            badopts = {'vars': {'url': badurl}}
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                resp = await core.callStorm(q, opts=badopts)
+
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.json(encoding=utf8, errors=ignore) )
+            '''
+            self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
 
     async def test_storm_http_inject_ca(self):
 

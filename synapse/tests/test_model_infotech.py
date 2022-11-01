@@ -54,6 +54,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.g0100
                     :references=(https://foo.com,https://bar.com)
                     :software=(S0200,S0100,S0100)
+                    :isnow=G0110
                     :techniques=(T0200,T0100,T0100)
             ]''')
             self.len(1, nodes)
@@ -67,6 +68,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('software'), ('S0100', 'S0200'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('isnow'), 'G0110')
 
             nodes = await core.nodes('''[
                 it:mitre:attack:tactic=TA0100
@@ -118,6 +120,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :tag=cno.mitre.s0100
                     :references=(https://foo.com,https://bar.com)
                     :techniques=(T0200,T0100,T0100)
+                    :isnow=S0110
             ]''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:mitre:attack:software', 'S0100'))
@@ -129,6 +132,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://redtree.link')
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
+            self.eq(nodes[0].get('isnow'), 'S0110')
             self.len(3, await core.nodes('it:prod:softname=redtree -> it:mitre:attack:software -> it:prod:softname'))
 
             nodes = await core.nodes('''[
@@ -460,6 +464,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 url0 = 'https://vertex.link/products/balloonmaker'
                 sprops = {
                     'name': 'Balloon Maker',
+                    'type': 'hehe.haha',
                     'names': ('clowns inc',),
                     'desc': "Pennywise's patented balloon blower upper",
                     'desc:short': 'Balloon blower',
@@ -489,6 +494,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                 self.eq(node.get('url'), url0)
 
+                self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
                 self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
 
                 # it:prod:softver - this does test a bunch of property related callbacks
