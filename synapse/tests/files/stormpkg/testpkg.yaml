@@ -34,12 +34,14 @@ configvars:
       desc: API key to use for querying the testpkg API.
       scopes: [ global, self ]
       workflowconfig: true
+      type: hugenum
 
     - name: Tag Prefix
       varname: testpkg:tag:prefix
       desc: Tag prefix to use when recording tags.
       default: rep.testpkg
       workflowconfig: true
+      type: syn:tag:part
 
 commands:
     - name: testpkgcmd

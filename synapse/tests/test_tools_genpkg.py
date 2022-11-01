@@ -102,11 +102,13 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][0]['desc'], 'API key to use for querying the testpkg API.')
             self.eq(pdef['configvars'][0]['scopes'], ['global', 'self'])
             self.eq(pdef['configvars'][0]['workflowconfig'], True)
+            self.eq(pdef['configvars'][0]['type'], 'hugenum')
             self.eq(pdef['configvars'][1]['name'], 'Tag Prefix')
             self.eq(pdef['configvars'][1]['varname'], 'testpkg:tag:prefix')
             self.eq(pdef['configvars'][1]['desc'], 'Tag prefix to use when recording tags.')
             self.eq(pdef['configvars'][1]['default'], 'rep.testpkg')
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
+            self.eq(pdef['configvars'][1]['type'], 'syn:tag:part')
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
 

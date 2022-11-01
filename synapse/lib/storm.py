@@ -242,9 +242,13 @@ reqValidPkgdef = s_config.getJsValidator({
                 'properties': {
                     'name': {'type': 'string'},
                     'varname': {'type': 'string'},
-                    'desc': {},
-                    'default': {'type': ['boolean', 'string', 'integer', 'array', 'object']},
+                    'desc': {'type': 'string'},
+                    'default': {},
                     'workflowconfig': {'type': 'boolean'},
+                    'type': {
+                        'type': 'string',
+                        'enum': list(s_datamodel.Model().types)
+                    },
                     'scopes': {
                         'type': 'array',
                         'items': {
