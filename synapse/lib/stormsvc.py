@@ -37,7 +37,7 @@ stormcmds = (
                 }
             }
 
-            $count = $svcs.length()
+            $count = $svcs.size()
 
             if $( $count = 1 ) {
                 $sdef = $svcs.index(0)
