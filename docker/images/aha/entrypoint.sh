@@ -10,10 +10,10 @@ then
     then
         echo "Executing $PREBOOT_SCRIPT"
         ./$PREBOOT_SCRIPT
-        PREBOOT_CODE=$?
-        if [ $PREBOOT_CODE -ne 0 ]
+        PREBOOT_RET=$?
+        if [ $PREBOOT_RET -ne 0 ]
         then
-            echo "$PREBOOT_SCRIPT script failed with return value $PREBOOT_CODE"
+            echo "$PREBOOT_SCRIPT script failed with return value $PREBOOT_RET"
             exit 1
         fi
     else
@@ -22,19 +22,18 @@ then
     fi
 fi
 
-if [ -f $CONCURRENT_SCRIPT ]
-then
-    if [ -x $CONCURRENT_SCRIPT ]
-    then
-        echo "Executing $CONCURRENT_SCRIPT"
-        # FIXME is this correct?
-        # Can we redirect stdout / stderr here?
-#         nohup exec $CONCURRENT_SCRIPT
-    else
-        echo "$CONCURRENT_SCRIPT exists but is not marked executable."
-        exit 1
-    fi
-fi
+# if [ -f $CONCURRENT_SCRIPT ]
+# then
+#     if [ -x $CONCURRENT_SCRIPT ]
+#     then
+#         echo "Executing $CONCURRENT_SCRIPT"
+#         # FIXME Can we redirect stdout / stderr here?
+# #         nohup exec $CONCURRENT_SCRIPT
+#     else
+#         echo "$CONCURRENT_SCRIPT exists but is not marked executable."
+#         exit 1
+#     fi
+# fi
 
 # Execute our service
 exec python -O -m synapse.servers.aha /vertex/storage
