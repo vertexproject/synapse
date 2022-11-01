@@ -1217,6 +1217,10 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A post made by a web account.'
                     }),
 
+                    ('inet:web:post:link', ('guid', {}), {
+                        'doc': 'A link contained within post text.'
+                    }),
+
                     ('inet:web:instance', ('guid', {}), {
                         'doc': 'An instance of a web service such as slack or discord.'
                     }),
@@ -1396,6 +1400,8 @@ class InetModule(s_module.CoreModule):
                         ('url', ('inet:url', {}), {
                             'ro': True,
                             'doc': 'The url contained within the email message.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
                     )),
 
                     ('inet:asn', {}, (
@@ -2528,6 +2534,15 @@ class InetModule(s_module.CoreModule):
                         ('channel', ('inet:web:channel', {}), {
                             'doc': 'The channel where the post was made.',
                         }),
+                    )),
+
+                    ('inet:web:post:link', {}, (
+                        ('post', ('inet:web:post', {}), {
+                            'doc': 'The post containing the embedded link.'}),
+                        ('url', ('inet:url', {}), {
+                            'doc': 'The url that the link forwards to.'}),
+                        ('text', ('str', {}), {
+                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
                     )),
 
                     ('inet:web:instance', {}, (
