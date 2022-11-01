@@ -41,7 +41,7 @@ configvars:
       desc: Tag prefix to use when recording tags.
       default: rep.testpkg
       workflowconfig: true
-      type: syn:tag:part
+      type: [str, [str, str]]
 
 commands:
     - name: testpkgcmd

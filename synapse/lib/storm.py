@@ -245,10 +245,7 @@ reqValidPkgdef = s_config.getJsValidator({
                     'desc': {'type': 'string'},
                     'default': {},
                     'workflowconfig': {'type': 'boolean'},
-                    'type': {
-                        'type': 'string',
-                        'enum': list(s_datamodel.Model().types)
-                    },
+                    'type': {'$ref': '#/definitions/configvartype'},
                     'scopes': {
                         'type': 'array',
                         'items': {
@@ -257,7 +254,7 @@ reqValidPkgdef = s_config.getJsValidator({
                         },
                     },
                 },
-                'required': ['name', 'varname', 'desc'],
+                'required': ['name', 'varname', 'desc', 'type'],
             },
         },
     },
@@ -343,6 +340,12 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': True,
             'required': ['form'],
+        },
+        'configvartype': {
+            'anyOf': [
+                {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
+                {'enum': list(s_datamodel.Model().types)},
+            ]
         },
         # deprecated
         'cmdformhints': {

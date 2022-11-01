@@ -108,7 +108,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['configvars'][1]['desc'], 'Tag prefix to use when recording tags.')
             self.eq(pdef['configvars'][1]['default'], 'rep.testpkg')
             self.eq(pdef['configvars'][1]['workflowconfig'], True)
-            self.eq(pdef['configvars'][1]['type'], 'syn:tag:part')
+            self.eq(pdef['configvars'][1]['type'], ['str', ['str', 'str']])
 
             self.eq(pdef['optic']['files']['index.html']['file'], 'aGkK')
 
