@@ -470,7 +470,7 @@ class TrigTest(s_t_utils.SynTest):
                 nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
                 self.nn(nodes[0].tags.get('foo'))
 
-                await aspin(proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': iden1}}))
+                await proxy.storm('$lib.trigger.del($iden)', opts={'vars': {'iden': iden1}}).list()
 
             trigs = await core.view.listTriggers()
             trigiden = trigs[0][0]
@@ -478,24 +478,24 @@ class TrigTest(s_t_utils.SynTest):
 
             async with core.getLocalProxy(user='newb') as proxy:
 
-                await self.agenlen(1, proxy.eval('syn:trigger'))
+                self.eq(1, await proxy.count('syn:trigger'))
 
                 await newb.addRule((True, ('trigger', 'get')))
                 with self.raises(s_exc.AuthDeny):
-                    await proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': trigs[0][0]}}).list()
+                    await proxy.callStorm('$lib.trigger.del($iden)', opts={'vars': {'iden': trigs[0][0]}})
 
-                await self.agenlen(1, proxy.eval('syn:trigger'))
+                self.eq(1, await proxy.count('syn:trigger'))
 
                 with self.raises(s_exc.AuthDeny):
                     opts = {'vars': {'iden': trigiden}}
-                    await proxy.eval('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts).list()
+                    await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'set')))
                 opts = {'vars': {'iden': trigiden}}
-                await aspin(proxy.eval('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts))
+                await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'del')))
-                await aspin(proxy.eval('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}}))
+                await proxy.callStorm('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}})
 
             # If the trigger owner loses read perms on the trigger's view, it doesn't fire.
             # Regression test:  it also doesn't stop the pipeline/raise an exception
