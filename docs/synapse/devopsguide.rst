@@ -557,6 +557,30 @@ The Telepath URLs can be provided to the Storm API as follows::
     $lib.cell.trimNexsLog(consumers=$mirrors)
 
 
+.. _devops-deprecation-warnings:
+
+Viewing Deprecation Warnings
+----------------------------
+
+When functionality in Synapse is deprecated, it is marked with with the standard Python warnings_ mechanism to note
+that it is deprecated. Deprecated functionality is also noted in service changelogs as well. To view these warnings
+in your environment, you can set the ``PYTHONWARNINGS`` environment variable to display them.
+The following shows this being enabled for a Cortex deployment::
+
+    version: "3.3"
+    services:
+      00.cortex:
+        user: "999"
+        image: vertexproject/synapse-cortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+            - ./storage:/vertex/storage
+        environment:
+            - SYN_CORTEX_AXON=aha://axon...
+            - SYN_CORTEX_JSONSTOR=aha://jsonstor...
+            - PYTHONWARNINGS=default::DeprecationWarning:synapse.common
+
 Synapse Services
 ================
 
@@ -858,3 +882,4 @@ Cortex Configuration Options
 .. _Synapse-Backup: ../../../projects/backup/en/latest/
 .. _Synapse-S3: ../../../projects/s3/en/latest/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
+.. _warnings: https://docs.python.org/3/library/warnings.html
