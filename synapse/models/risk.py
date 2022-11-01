@@ -153,6 +153,16 @@ class RiskModule(s_module.CoreModule):
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'A hardware version which implements a fix for the vulnerability.'}),
                 )),
+                # TODO discuss...
+                ('risk:exploit', {}, ( # A specific implementation of an exploit for a vulnerability.
+                    # -(uses)> risk:vuln or :vuln?
+                    # media:news -(refs)> risk:exploit
+                    ('name', ('str', {}), {}),
+                    ('desc', ('str', {}), {}),
+                    ('url', ('inet:url', {}), {}),
+                    ('file', ('file:bytes', {}), {}),
+                    ('tag', ('syn:tag', {}), {}),
+                )),
                 ('risk:vuln', {}, (
                     ('name', ('str', {}), {
                         'doc': 'A user specified name for the vulnerability.',
@@ -164,96 +174,132 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the vulnerability.',
                         'disp': {'hint': 'text'},
                     }),
+
+                    ('exploit:published', ('time', {}), {}),
+
+                    # TODO discuss * -(has)> risk:vuln and/or :tag
+
                     ('cve', ('it:sec:cve', {}), {
-                        'doc': 'The CVE ID of the vulnerability.',
-                    }),
+                        'doc': 'The CVE ID of the vulnerability.'}),
+
+                    # TODO embed CVE props here and deprecate the it:sec:cve form
+
+                    ('nist:nvd:source', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
+
+                    ('nist:nvd:published', ('time', {}), {
+                        'doc': 'The date the vulnerability was first published in the NVD.'}),
+
+                    ('nist:nvd:modified', ('time', {}), {
+                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
+
+                    ('cisa:kev:name', ('str', {}), {
+                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:desc', ('str', {}), {
+                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:action', ('str', {}), {
+                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:vendor', ('ou:name', {}), {
+                        'doc': 'The vendor name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:product', ('it:prod:softname', {}), {
+                        'doc': 'The product name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:added', ('time', {}), {
+                        'doc': 'The the date the vulnerability was added to the CISA KEV database.'}),
+
+                    ('cisa:kev:duedate', ('time', {}), {
+                        'doc': 'The the date the action is due according to the CISA KEV database.'}),
+
                     ('cvss:av', ('str', {'enums': 'N,A,V,L'}), {
-                        'doc': 'The CVSS Attack Vector (AV) value.',
-                    }),
+                        'doc': 'The CVSS Attack Vector (AV) value.'}),
+
                     ('cvss:ac', ('str', {'enums': 'L,H'}), {
-                        'doc': 'The CVSS Attack Complexity (AC) value.',
                         'disp': {'enums': (('Low', 'L'), ('High', 'H'))},
-                    }),
+                        'doc': 'The CVSS Attack Complexity (AC) value.'}),
+
                     ('cvss:pr', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Privileges Required (PR) value.',
                         'disp': {'enums': (
                             {'title': 'None', 'value': 'N', 'doc': 'FIXME privs stuff'},
                             {'title': 'Low', 'value': 'L', 'doc': 'FIXME privs stuff'},
                             {'title': 'High', 'value': 'H', 'doc': 'FIXME privs stuff'},
                         )},
-                    }),
+                        'doc': 'The CVSS Privileges Required (PR) value.'}),
+
                     ('cvss:ui', ('str', {'enums': 'N,R'}), {
-                        'doc': 'The CVSS User Interaction (UI) value.',
-                    }),
+                        'doc': 'The CVSS User Interaction (UI) value.'}),
+
                     ('cvss:s', ('str', {'enums': 'U,C'}), {
-                        'doc': 'The CVSS Scope (S) value.',
-                    }),
+                        'doc': 'The CVSS Scope (S) value.'}),
+
                     ('cvss:c', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Confidentiality Impact (C) value.',
-                    }),
+                        'doc': 'The CVSS Confidentiality Impact (C) value.'}),
+
                     ('cvss:i', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Integrity Impact (I) value.',
-                    }),
+                        'doc': 'The CVSS Integrity Impact (I) value.'}),
+
                     ('cvss:a', ('str', {'enums': 'N,L,H'}), {
-                        'doc': 'The CVSS Availability Impact (A) value.',
-                    }),
+                        'doc': 'The CVSS Availability Impact (A) value.'}),
+
                     ('cvss:e', ('str', {'enums': 'X,U,P,F,H'}), {
-                        'doc': 'The CVSS Exploit Code Maturity (E) value.',
-                    }),
+                        'doc': 'The CVSS Exploit Code Maturity (E) value.'}),
+
                     ('cvss:rl', ('str', {'enums': 'X,O,T,W,U'}), {
-                        'doc': 'The CVSS Remediation Level (RL) value.',
-                    }),
+                        'doc': 'The CVSS Remediation Level (RL) value.'}),
+
                     ('cvss:rc', ('str', {'enums': 'X,U,R,C'}), {
-                        'doc': 'The CVSS Report Confidence (AV) value.',
-                    }),
+                        'doc': 'The CVSS Report Confidence (AV) value.'}),
+
                     ('cvss:mav', ('str', {'enums': 'X,N,A,L,P'}), {
-                        'doc': 'The CVSS Environmental Attack Vector (MAV) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Attack Vector (MAV) value.'}),
+
                     ('cvss:mac', ('str', {'enums': 'X,L,H'}), {
-                        'doc': 'The CVSS Environmental Attack Complexity (MAC) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Attack Complexity (MAC) value.'}),
+
                     ('cvss:mpr', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Privileges Required (MPR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Privileges Required (MPR) value.'}),
+
                     ('cvss:mui', ('str', {'enums': 'X,N,R'}), {
-                        'doc': 'The CVSS Environmental User Interaction (MUI) value.',
-                    }),
+                        'doc': 'The CVSS Environmental User Interaction (MUI) value.'}),
+
                     ('cvss:ms', ('str', {'enums': 'X,U,C'}), {
-                        'doc': 'The CVSS Environmental Scope (MS) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Scope (MS) value.'}),
+
                     ('cvss:mc', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Confidentiality Impact (MC) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Confidentiality Impact (MC) value.'}),
+
                     ('cvss:mi', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Integrity Impact (MI) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Integrity Impact (MI) value.'}),
+
                     ('cvss:ma', ('str', {'enums': 'X,N,L,H'}), {
-                        'doc': 'The CVSS Environmental Accessibility Impact (MA) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Accessibility Impact (MA) value.'}),
+
                     ('cvss:cr', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Confidentiality Requirement (CR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Confidentiality Requirement (CR) value.'}),
+
                     ('cvss:ir', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Integrity Requirement (IR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Integrity Requirement (IR) value.'}),
+
                     ('cvss:ar', ('str', {'enums': 'X,L,M,H'}), {
-                        'doc': 'The CVSS Environmental Availability Requirement (AR) value.',
-                    }),
+                        'doc': 'The CVSS Environmental Availability Requirement (AR) value.'}),
+
                     ('cvss:score', ('float', {}), {
-                        'doc': 'The Overall CVSS Score value.',
-                    }),
+                        'doc': 'The Overall CVSS Score value.'}),
+
                     ('cvss:score:base', ('float', {}), {
-                        'doc': 'The CVSS Base Score value.',
-                    }),
+                        'doc': 'The CVSS Base Score value.'}),
+
                     ('cvss:score:temporal', ('float', {}), {
-                        'doc': 'The CVSS Temporal Score value.',
-                    }),
+                        'doc': 'The CVSS Temporal Score value.'}),
+
                     ('cvss:score:environmental', ('float', {}), {
-                        'doc': 'The CVSS Environmental Score value.',
-                    }),
+                        'doc': 'The CVSS Environmental Score value.'}),
+
                     ('cwes', ('array', {'type': 'it:sec:cwe', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of MITRE CWE values that apply to the vulnerability.',
-                    }),
+                        'doc': 'An array of MITRE CWE values that apply to the vulnerability.'}),
                 )),
 
                 ('risk:hasvuln', {}, (
