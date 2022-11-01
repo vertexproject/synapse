@@ -1084,7 +1084,7 @@ class CortexTest(s_t_utils.SynTest):
                 await visi.addRule((True, ('impersonate',)))
 
                 opts = {'user': core.auth.rootuser.iden}
-                self.len(1, await proxy.eval('[ inet:ipv4=1.2.3.4 ]', opts=opts).list())
+                self.eq(1, await proxy.count('[ inet:ipv4=1.2.3.4 ]', opts=opts))
 
     async def test_nodes(self):
 
@@ -1319,11 +1319,8 @@ class CortexTest(s_t_utils.SynTest):
 
                 self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
 
-            nodes = [n.pack() async for n in core.eval('test:str=foo +#lol@=2014')]
-            self.len(0, nodes)
-
-            nodes = [n.pack() async for n in core.eval('test:str=foo +#lol@=2016')]
-            self.len(1, nodes)
+            self.len(0, await core.nodes('test:str=foo +#lol@=2014'))
+            self.len(1, await core.nodes('test:str=foo +#lol@=2016'))
 
     async def test_cortex_noderefs(self):
 
@@ -1391,13 +1388,13 @@ class CortexTest(s_t_utils.SynTest):
                 comps = [(20, 'lulzlulz'), (40, 'lulz')]
                 await snap.addNode('test:compcomp', comps)
 
-            self.len(0, await alist(core.eval('test:comp:haha~="^zerg"')))
-            self.len(1, await alist(core.eval('test:comp:haha~="^lulz$"')))
-            self.len(1, await alist(core.eval('test:compcomp~="^lulz"')))
-            self.len(0, await alist(core.eval('test:compcomp~="^newp"')))
+            self.len(0, await core.nodes('test:comp:haha~="^zerg"'))
+            self.len(1, await core.nodes('test:comp:haha~="^lulz$"'))
+            self.len(1, await core.nodes('test:compcomp~="^lulz"'))
+            self.len(0, await core.nodes('test:compcomp~="^newp"'))
 
-            self.len(1, await alist(core.eval('test:str~="zip"')))
-            self.len(1, await alist(core.eval('.favcolor~="^r"')))
+            self.len(1, await core.nodes('test:str~="zip"'))
+            self.len(1, await core.nodes('.favcolor~="^r"'))
 
     async def test_indxchop(self):
 
@@ -1600,13 +1597,13 @@ class CortexTest(s_t_utils.SynTest):
                 nodes = await snap.nodes('.created*range=(2010,?)')
                 self.len(1 + 1, nodes)
 
-                await self.agenlen(2, core.eval('.created'))
-                await self.agenlen(1, core.eval(f'.created="{created}"'))
-                await self.agenlen(2, core.eval('.created>2010'))
-                await self.agenlen(0, core.eval('.created<2010'))
+                self.len(2, await core.nodes('.created'))
+                self.len(1, await core.nodes(f'.created="{created}"'))
+                self.len(2, await core.nodes('.created>2010'))
+                self.len(0, await core.nodes('.created<2010'))
                 # The year the monolith returns
-                await self.agenlen(2, core.eval('.created*range=(2010, 3001)'))
-                await self.agenlen(2, core.eval('.created*range=("2010", "?")'))
+                self.len(2, await core.nodes('.created*range=(2010, 3001)'))
+                self.len(2, await core.nodes('.created*range=("2010", "?")'))
 
             # The .created time is ro
             with self.raises(s_exc.ReadOnlyProp):
@@ -1678,6 +1675,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
     async def test_eval(self):
+        # FIXME - This should test eval() ? Most of this is just general storm() api stuff.
         ''' Cortex.eval test '''
 
         async with self.getTestCore() as core:
@@ -1688,10 +1686,11 @@ class CortexTest(s_t_utils.SynTest):
                 self.none(node.getTag('foo.bar'))
 
             # Make sure the 'view' key in optional opts parameter works
-            nodes = await alist(core.eval('test:comp', opts={'view': core.view.iden}))
+            nodes = await core.nodes('test:comp', opts={'view': core.view.iden})
             self.len(1, nodes)
 
-            await self.asyncraises(s_exc.NoSuchView, alist(core.eval('test:comp', opts={'view': 'xxx'})))
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('test:comp', opts={'view': 'xxx'})
 
             async for node in core.eval('[ test:str="foo bar" :tick=2018]'):
                 self.eq(1514764800000, node.get('tick'))
@@ -1741,24 +1740,24 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenraises(s_exc.NoSuchIden, core.eval('', opts=opts))
 
             # Test and/or/not
-            await alist(core.eval('[test:comp=(1, test) +#meep.morp +#bleep.blorp +#cond]'))
-            await alist(core.eval('[test:comp=(2, test) +#meep.morp +#bleep.zlorp +#cond]'))
-            await alist(core.eval('[test:comp=(3, foob) +#meep.gorp +#bleep.zlorp +#cond]'))
+            await core.nodes('[test:comp=(1, test) +#meep.morp +#bleep.blorp +#cond]')
+            await core.nodes('[test:comp=(2, test) +#meep.morp +#bleep.zlorp +#cond]')
+            await core.nodes('[test:comp=(3, foob) +#meep.gorp +#bleep.zlorp +#cond]')
 
             q = 'test:comp +(:hehe<2 and :haha=test)'
-            self.len(1, await alist(core.eval(q)))
+            self.len(1, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 and :haha=foob)'
-            self.len(0, await alist(core.eval(q)))
+            self.len(0, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 or :haha=test)'
-            self.len(2, await alist(core.eval(q)))
+            self.len(1, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 or :haha=foob)'
-            self.len(2, await alist(core.eval(q)))
+            self.len(1, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 or #meep.gorp)'
-            self.len(2, await alist(core.eval(q)))
+            self.len(1, await core.nodes(q))
             # TODO Add not tests
 
             await self.agenraises(s_exc.NoSuchCmpr, core.eval('test:str*near=newp'))
@@ -1772,7 +1771,7 @@ class CortexTest(s_t_utils.SynTest):
             # Scrape is not a default behavior
             await self.agenraises(s_exc.BadSyntax, core.eval('pennywise@vertex.link'))
 
-            await self.agenlen(2, core.eval(('[ test:str=foo test:str=bar ]')))
+            self.len(2, await core.nodes(('[ test:str=foo test:str=bar ]')))
 
             opts = {'vars': {'foo': 'bar'}}
 
@@ -2179,7 +2178,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            await alist(wcore.eval('[ test:str=woot .seen=(2014,2015) ]'))
+            self.eq(1, await wcore.count('[ test:str=woot .seen=(2014,2015) ]'))
 
             async with await core.snap() as snap:
 
@@ -2231,129 +2230,129 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            await self.agenlen(1, wcore.eval('[ test:str=woot +#foo=(2015,2018) +#bar .seen=(2014,2016) ]'))
+            self.len(1, await wcore.nodes('[ test:str=woot +#foo=(2015,2018) +#bar .seen=(2014,2016) ]'))
 
-            await self.agenlen(1, core.eval('test:str=woot +.seen@=2015'))
-            await self.agenlen(0, core.eval('test:str=woot +.seen@=2012'))
-            await self.agenlen(1, core.eval('test:str=woot +.seen@=(2012,2015)'))
-            await self.agenlen(0, core.eval('test:str=woot +.seen@=(2012,2013)'))
+            self.len(1, await core.nodes('test:str=woot +.seen@=2015'))
+            self.len(0, await core.nodes('test:str=woot +.seen@=2012'))
+            self.len(1, await core.nodes('test:str=woot +.seen@=(2012,2015)'))
+            self.len(0, await core.nodes('test:str=woot +.seen@=(2012,2013)'))
 
-            await self.agenlen(1, core.eval('test:str=woot +.seen@=#foo'))
-            await self.agenlen(0, core.eval('test:str=woot +.seen@=#bar'))
-            await self.agenlen(0, core.eval('test:str=woot +.seen@=#baz'))
+            self.len(1, await core.nodes('test:str=woot +.seen@=#foo'))
+            self.len(0, await core.nodes('test:str=woot +.seen@=#bar'))
+            self.len(0, await core.nodes('test:str=woot +.seen@=#baz'))
 
-            await self.agenlen(1, core.eval('test:str=woot $foo=#foo +.seen@=$foo'))
+            self.len(1, await core.nodes('test:str=woot $foo=#foo +.seen@=$foo'))
 
-            await self.agenlen(1, core.eval('test:str +#foo@=2016'))
-            await self.agenlen(1, core.eval('test:str +#foo@=(2015, 2018)'))
-            await self.agenlen(1, core.eval('test:str +#foo@=(2014, 2019)'))
-            await self.agenlen(0, core.eval('test:str +#foo@=(2014, 20141231)'))
+            self.len(1, await core.nodes('test:str +#foo@=2016'))
+            self.len(1, await core.nodes('test:str +#foo@=(2015, 2018)'))
+            self.len(1, await core.nodes('test:str +#foo@=(2014, 2019)'))
+            self.len(0, await core.nodes('test:str +#foo@=(2014, 20141231)'))
 
-            await self.agenlen(1, wcore.eval('[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]'))
-            await self.agenlen(1, wcore.eval('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
+            self.len(1, await wcore.nodes('[ inet:dns:a=(woot.com,1.2.3.4) .seen=(2015,2016) ]'))
+            self.len(1, await wcore.nodes('[ inet:fqdn=woot.com +#bad=(2015,2016) ]'))
 
-            await self.agenlen(1, core.eval('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +.seen@=$fqdnbad'))
+            self.len(1, await core.nodes('inet:fqdn +#bad $fqdnbad=#bad -> inet:dns:a:fqdn +.seen@=$fqdnbad'))
 
     async def test_cortex_storm_tagform(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            await self.agenlen(1, wcore.eval('[ test:str=hehe ]'))
-            await self.agenlen(1, wcore.eval('[ test:str=haha +#foo ]'))
-            await self.agenlen(1, wcore.eval('[ test:str=woot +#foo=(2015,2018) ]'))
+            self.len(1, await wcore.nodes('[ test:str=hehe ]'))
+            self.len(1, await wcore.nodes('[ test:str=haha +#foo ]'))
+            self.len(1, await wcore.nodes('[ test:str=woot +#foo=(2015,2018) ]'))
 
-            await self.agenlen(2, core.eval('#foo'))
-            await self.agenlen(3, core.eval('test:str'))
+            self.len(2, await core.nodes('#foo'))
+            self.len(3, await core.nodes('test:str'))
 
-            await self.agenlen(2, core.eval('test:str#foo'))
-            await self.agenlen(1, core.eval('test:str#foo@=2016'))
-            await self.agenlen(0, core.eval('test:str#foo@=2020'))
+            self.len(2, await core.nodes('test:str#foo'))
+            self.len(1, await core.nodes('test:str#foo@=2016'))
+            self.len(0, await core.nodes('test:str#foo@=2020'))
 
             # test the overlap variants
-            await self.agenlen(0, core.eval('test:str#foo@=(2012,2013)'))
-            await self.agenlen(0, core.eval('test:str#foo@=(2020,2022)'))
-            await self.agenlen(1, core.eval('test:str#foo@=(2012,2017)'))
-            await self.agenlen(1, core.eval('test:str#foo@=(2017,2022)'))
-            await self.agenlen(1, core.eval('test:str#foo@=(2012,2022)'))
+            self.len(0, await core.nodes('test:str#foo@=(2012,2013)'))
+            self.len(0, await core.nodes('test:str#foo@=(2020,2022)'))
+            self.len(1, await core.nodes('test:str#foo@=(2012,2017)'))
+            self.len(1, await core.nodes('test:str#foo@=(2017,2022)'))
+            self.len(1, await core.nodes('test:str#foo@=(2012,2022)'))
 
     async def test_cortex_int_indx(self):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            await alist(wcore.eval('[test:int=20]'))
+            await wcore.nodes('[test:int=20]')
 
-            await self.agenlen(0, core.eval('test:int>=30'))
-            await self.agenlen(1, core.eval('test:int>=20'))
-            await self.agenlen(1, core.eval('test:int>=10'))
+            self.len(0, await core.nodes('test:int>=30'))
+            self.len(1, await core.nodes('test:int>=20'))
+            self.len(1, await core.nodes('test:int>=10'))
 
-            await self.agenlen(0, core.eval('test:int>30'))
-            await self.agenlen(0, core.eval('test:int>20'))
-            await self.agenlen(1, core.eval('test:int>10'))
+            self.len(0, await core.nodes('test:int>30'))
+            self.len(0, await core.nodes('test:int>20'))
+            self.len(1, await core.nodes('test:int>10'))
 
-            await self.agenlen(0, core.eval('test:int<=10'))
-            await self.agenlen(1, core.eval('test:int<=20'))
-            await self.agenlen(1, core.eval('test:int<=30'))
+            self.len(0, await core.nodes('test:int<=10'))
+            self.len(1, await core.nodes('test:int<=20'))
+            self.len(1, await core.nodes('test:int<=30'))
 
-            await self.agenlen(0, core.eval('test:int<10'))
-            await self.agenlen(0, core.eval('test:int<20'))
-            await self.agenlen(1, core.eval('test:int<30'))
+            self.len(0, await core.nodes('test:int<10'))
+            self.len(0, await core.nodes('test:int<20'))
+            self.len(1, await core.nodes('test:int<30'))
 
-            await self.agenlen(0, core.eval('test:int +test:int>=30'))
-            await self.agenlen(1, core.eval('test:int +test:int>=20'))
-            await self.agenlen(1, core.eval('test:int +test:int>=10'))
+            self.len(0, await core.nodes('test:int +test:int>=30'))
+            self.len(1, await core.nodes('test:int +test:int>=20'))
+            self.len(1, await core.nodes('test:int +test:int>=10'))
 
-            await self.agenlen(0, core.eval('test:int +test:int>30'))
-            await self.agenlen(0, core.eval('test:int +test:int>20'))
-            await self.agenlen(1, core.eval('test:int +test:int>10'))
+            self.len(0, await core.nodes('test:int +test:int>30'))
+            self.len(0, await core.nodes('test:int +test:int>20'))
+            self.len(1, await core.nodes('test:int +test:int>10'))
 
-            await self.agenlen(0, core.eval('test:int +test:int<=10'))
-            await self.agenlen(1, core.eval('test:int +test:int<=20'))
-            await self.agenlen(1, core.eval('test:int +test:int<=30'))
+            self.len(0, await core.nodes('test:int +test:int<=10'))
+            self.len(1, await core.nodes('test:int +test:int<=20'))
+            self.len(1, await core.nodes('test:int +test:int<=30'))
 
-            await self.agenlen(0, core.eval('test:int +test:int<10'))
-            await self.agenlen(0, core.eval('test:int +test:int<20'))
-            await self.agenlen(1, core.eval('test:int +test:int<30'))
+            self.len(0, await core.nodes('test:int +test:int<10'))
+            self.len(0, await core.nodes('test:int +test:int<20'))
+            self.len(1, await core.nodes('test:int +test:int<30'))
 
             # time indx is derived from the same lift helpers
-            await alist(wcore.eval('[test:str=foo :tick=201808021201]'))
+            await wcore.nodes('[test:str=foo :tick=201808021201]')
 
-            await self.agenlen(0, core.eval('test:str:tick>=201808021202'))
-            await self.agenlen(1, core.eval('test:str:tick>=201808021201'))
-            await self.agenlen(1, core.eval('test:str:tick>=201808021200'))
+            self.len(0, await core.nodes('test:str:tick>=201808021202'))
+            self.len(1, await core.nodes('test:str:tick>=201808021201'))
+            self.len(1, await core.nodes('test:str:tick>=201808021200'))
 
-            await self.agenlen(0, core.eval('test:str:tick>201808021202'))
-            await self.agenlen(0, core.eval('test:str:tick>201808021201'))
-            await self.agenlen(1, core.eval('test:str:tick>201808021200'))
+            self.len(0, await core.nodes('test:str:tick>201808021202'))
+            self.len(0, await core.nodes('test:str:tick>201808021201'))
+            self.len(1, await core.nodes('test:str:tick>201808021200'))
 
-            await self.agenlen(1, core.eval('test:str:tick<=201808021202'))
-            await self.agenlen(1, core.eval('test:str:tick<=201808021201'))
-            await self.agenlen(0, core.eval('test:str:tick<=201808021200'))
+            self.len(1, await core.nodes('test:str:tick<=201808021202'))
+            self.len(1, await core.nodes('test:str:tick<=201808021201'))
+            self.len(0, await core.nodes('test:str:tick<=201808021200'))
 
-            await self.agenlen(1, core.eval('test:str:tick<201808021202'))
-            await self.agenlen(0, core.eval('test:str:tick<201808021201'))
-            await self.agenlen(0, core.eval('test:str:tick<201808021200'))
+            self.len(1, await core.nodes('test:str:tick<201808021202'))
+            self.len(0, await core.nodes('test:str:tick<201808021201'))
+            self.len(0, await core.nodes('test:str:tick<201808021200'))
 
-            await self.agenlen(0, core.eval('test:str +test:str:tick>=201808021202'))
-            await self.agenlen(1, core.eval('test:str +test:str:tick>=201808021201'))
-            await self.agenlen(1, core.eval('test:str +test:str:tick>=201808021200'))
+            self.len(0, await core.nodes('test:str +test:str:tick>=201808021202'))
+            self.len(1, await core.nodes('test:str +test:str:tick>=201808021201'))
+            self.len(1, await core.nodes('test:str +test:str:tick>=201808021200'))
 
-            await self.agenlen(0, core.eval('test:str +test:str:tick>201808021202'))
-            await self.agenlen(0, core.eval('test:str +test:str:tick>201808021201'))
-            await self.agenlen(1, core.eval('test:str +test:str:tick>201808021200'))
+            self.len(0, await core.nodes('test:str +test:str:tick>201808021202'))
+            self.len(0, await core.nodes('test:str +test:str:tick>201808021201'))
+            self.len(1, await core.nodes('test:str +test:str:tick>201808021200'))
 
-            await self.agenlen(1, core.eval('test:str +test:str:tick<=201808021202'))
-            await self.agenlen(1, core.eval('test:str +test:str:tick<=201808021201'))
-            await self.agenlen(0, core.eval('test:str +test:str:tick<=201808021200'))
+            self.len(1, await core.nodes('test:str +test:str:tick<=201808021202'))
+            self.len(1, await core.nodes('test:str +test:str:tick<=201808021201'))
+            self.len(0, await core.nodes('test:str +test:str:tick<=201808021200'))
 
-            await self.agenlen(1, core.eval('test:str +test:str:tick<201808021202'))
-            await self.agenlen(0, core.eval('test:str +test:str:tick<201808021201'))
-            await self.agenlen(0, core.eval('test:str +test:str:tick<201808021200'))
+            self.len(1, await core.nodes('test:str +test:str:tick<201808021202'))
+            self.len(0, await core.nodes('test:str +test:str:tick<201808021201'))
+            self.len(0, await core.nodes('test:str +test:str:tick<201808021200'))
 
-            await alist(wcore.eval('[test:int=99999]'))
-            await self.agenlen(1, core.eval('test:int<=20'))
-            await self.agenlen(2, core.eval('test:int>=20'))
-            await self.agenlen(1, core.eval('test:int>20'))
-            await self.agenlen(0, core.eval('test:int<20'))
+            await wcore.nodes('[test:int=99999]')
+            self.len(1, await core.nodes('test:int<=20'))
+            self.len(2, await core.nodes('test:int>=20'))
+            self.len(1, await core.nodes('test:int>20'))
+            self.len(0, await core.nodes('test:int<20'))
 
     async def test_cortex_univ(self):
 
@@ -2366,12 +2365,12 @@ class CortexTest(s_t_utils.SynTest):
             # Add a univprop directly via API for testing
             core.model.addUnivProp('hehe', ('int', {}), {})
 
-            await self.agenlen(1, core.eval('[ test:str=woot .hehe=20 ]'))
-            await self.agenlen(1, core.eval('.hehe'))
-            await self.agenlen(1, core.eval('test:str.hehe=20'))
-            await self.agenlen(0, core.eval('test:str.hehe=19'))
-            await self.agenlen(1, core.eval('.hehe [ -.hehe ]'))
-            await self.agenlen(0, core.eval('.hehe'))
+            self.len(1, await core.nodes('[ test:str=woot .hehe=20 ]'))
+            self.len(1, await core.nodes('.hehe'))
+            self.len(1, await core.nodes('test:str.hehe=20'))
+            self.len(0, await core.nodes('test:str.hehe=19'))
+            self.len(1, await core.nodes('.hehe [ -.hehe ]'))
+            self.len(0, await core.nodes('.hehe'))
 
         # ensure that we can delete univ props in a authenticated setting
         async with self.getTestCoreAndProxy() as (realcore, core):
@@ -2380,9 +2379,11 @@ class CortexTest(s_t_utils.SynTest):
             await self.agenlen(1, realcore.eval('[ test:str=woot .hehe=20 ]'))
             await self.agenlen(1, realcore.eval('[ test:str=pennywise .hehe=8086 ]'))
 
-            podes = await alist(core.eval('test:str=woot [-.hehe]'))
+            msgs = await core.storm('test:str=woot [-.hehe]').list()
+            podes = [m[1] for m in msgs if m[0] == 'node']
             self.none(s_node.prop(podes[0], '.hehe'))
-            podes = await alist(core.eval('test:str=pennywise [-.hehe]'))
+            msgs = await core.storm('test:str=pennywise [-.hehe]')
+            podes = [m[1] for m in msgs if m[0] == 'node']
             self.none(s_node.prop(podes[0], '.hehe'))
 
     async def test_storm_cond_has(self):
@@ -2398,35 +2399,35 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await self.agenlen(1, core.eval('[ test:str=foo +#bar ]'))
-            await self.agenlen(1, core.eval('[ test:str=foo +#bar ] +(not .seen)'))
-            await self.agenlen(1, core.eval('[ test:str=foo +#bar ] +(#baz or not .seen)'))
+            self.len(1, await core.nodes('[ test:str=foo +#bar ]'))
+            self.len(1, await core.nodes('[ test:str=foo +#bar ] +(not .seen)'))
+            self.len(1, await core.nodes('[ test:str=foo +#bar ] +(#baz or not .seen)'))
 
     async def test_storm_totags(self):
 
         async with self.getTestCore() as core:
 
-            nodes = await alist(core.eval('[ test:str=visi +#foo.bar ] -> #'))
+            nodes = await core.nodes('[ test:str=visi +#foo.bar ] -> #')
 
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo.bar')
 
-            await self.agenlen(2, core.eval('test:str=visi -> #*'))
-            await self.agenlen(1, core.eval('test:str=visi -> #foo.bar'))
-            await self.agenlen(1, core.eval('test:str=visi -> #foo.*'))
-            await self.agenlen(0, core.eval('test:str=visi -> #baz.*'))
+            self.len(2, await core.nodes('test:str=visi -> #*'))
+            self.len(1, await core.nodes('test:str=visi -> #foo.bar'))
+            self.len(1, await core.nodes('test:str=visi -> #foo.*'))
+            self.len(0, await core.nodes('test:str=visi -> #baz.*'))
 
     async def test_storm_fromtags(self):
 
         async with self.getTestCore() as core:
 
-            await alist(core.eval('[ test:str=visi test:int=20 +#foo.bar ]'))
+            await core.nodes('[ test:str=visi test:int=20 +#foo.bar ]')
 
-            nodes = await alist(core.eval('syn:tag=foo.bar -> test:str'))
+            nodes = await core.nodes('syn:tag=foo.bar -> test:str')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'visi')
 
-            await self.agenlen(2, core.eval('syn:tag=foo.bar -> *'))
+            self.len(2, await core.nodes('syn:tag=foo.bar -> *'))
 
             # Attempt a formpivot from a syn:tag node to a secondary property
             # which is not valid
@@ -2787,8 +2788,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pack = await proxy.setNodeProp(node[1].get('iden'), 'tick', '2015')
             self.eq(pack[1]['props'].get('tick'), 1420070400000)
 
-            self.len(1, await alist(proxy.eval('test:str#foo.bar')))
-            self.len(1, await alist(proxy.eval('test:str:tick=2015')))
+            self.len(1, await proxy.count('test:str#foo.bar'))
+            self.len(1, await proxy.count('test:str:tick=2015'))
 
             pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
             self.none(pack[1]['props'].get('tick'))
@@ -2911,16 +2912,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await alist(core.eval('[ inet:user=visi inet:user=whippit ]'))
 
-            await self.agenlen(2, core.eval('inet:user'))
+            self.len(2, await core.count('inet:user'))
 
             # test cmd as last text syntax
-            await self.agenlen(1, core.eval('inet:user | limit 1'))
+            self.len(1, await core.count('inet:user | limit 1'))
 
-            await self.agenlen(1, core.eval('inet:user | limit 1      '))
+            self.len(1, await core.count('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
-            await self.agenlen(2, core.eval('inet:user | limit 10 | [ +#foo.bar ]'))
-            await self.agenlen(1, core.eval('inet:user | limit 10 | +inet:user=visi'))
+            self.len(2, await core.count('inet:user | limit 10 | [ +#foo.bar ]'))
+            self.len(1, await core.count('inet:user | limit 10 | +inet:user=visi'))
 
             # test invalid option syntax
             msgs = await alist(core.storm('inet:user | limit --woot'))
@@ -3114,7 +3115,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
 
             # Ensure that the module load creates a node.
-            await self.agenlen(1, core.eval('meta:source=8f1401de15918358d5247e21ca29a814'))
+            self.len(1, await core.nodes('meta:source=8f1401de15918358d5247e21ca29a814'))
 
             mods = dict(await prox.getCoreMods())
 
@@ -3951,43 +3952,44 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             opts = {'vars': {'foo': '1.2.3.4'}}
 
-            await self.agenlen(1, core.eval('[ inet:ipv4=$foo ]', opts=opts))
-            await self.agenlen(1, core.eval('$bar=5.5.5.5 [ inet:ipv4=$bar ]'))
+            self.len(1, await core.nodes('[ inet:ipv4=$foo ]', opts=opts))
+            self.len(1, await core.nodes('$bar=5.5.5.5 [ inet:ipv4=$bar ]'))
 
-            await self.agenlen(1, core.eval('[ inet:dns:a=(woot.com,1.2.3.4) ]'))
+            self.len(1, await core.nodes('[ inet:dns:a=(woot.com,1.2.3.4) ]'))
 
-            await self.agenlen(2, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn inet:fqdn=$hehe'))
+            self.len(2, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn inet:fqdn=$hehe'))
 
-            await self.agenlen(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn +:fqdn=$hehe'))
-            await self.agenlen(0, core.eval('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn -:fqdn=$hehe'))
+            self.len(1, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn +:fqdn=$hehe'))
+            self.len(0, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $hehe=:fqdn -:fqdn=$hehe'))
 
-            await self.agenlen(1, core.eval('[ test:pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
-            await self.agenlen(1, core.eval('test:pivtarg=hehe [ .seen=2015 ]'))
+            self.len(1, await core.nodes('[ test:pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
+            self.len(1, await core.nodes('test:pivtarg=hehe [ .seen=2015 ]'))
 
-            await self.agenlen(1,
-                               core.eval('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +.seen@=$ticktock'))
+            self.len(1, core.nodes('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +.seen@=$ticktock'))
 
-            await self.agenlen(1, core.eval('inet:dns:a=(woot.com,1.2.3.4) [ .seen=(2015,2018) ]'))
+            self.len(1, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) [ .seen=(2015,2018) ]'))
 
-            async for node in core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]'):
-                self.eq(node.get('.seen'), (1420070400000, 1514764800000))
+            nodes = await core.eval('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]')
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.get('.seen'), (1420070400000, 1514764800000))
 
             await self.agenraises(s_exc.NoSuchProp, core.eval('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp'))
 
             # Vars can also be provided as tuple
             opts = {'vars': {'foo': ('hehe', 'haha')}}
-            await self.agenlen(1, core.eval('test:pivcomp=$foo', opts=opts))
+            self.len(1, await core.nodes('test:pivcomp=$foo', opts=opts))
 
             # Vars can also be provided as integers
             norm = core.model.type('time').norm('2015')[0]
             opts = {'vars': {'foo': norm}}
-            await self.agenlen(1, core.eval('test:pivcomp:tick=$foo', opts=opts))
+            self.len(1, await core.nodes('test:pivcomp:tick=$foo', opts=opts))
 
     async def test_cortex_snap_eval(self):
         async with self.getTestCore() as core:
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
-            await self.agenlen(2, core.eval('test:str'))
+            self.len(2, await core.nodes('test:str'))
 
     async def test_cortex_nexslogen_off(self):
         '''
@@ -4001,7 +4003,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore(conf=conf) as core:
             async with await core.snap() as snap:
                 await self.agenlen(2, snap.eval('[test:str=foo test:str=bar]'))
-            await self.agenlen(2, core.eval('test:str'))
+            self.len(2, await core.nodes('test:str'))
 
     async def test_cortex_logedits_off(self):
         '''
@@ -4400,58 +4402,58 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(node.getTag('baz'))
 
             nodes = await alist(core.eval('[ test:str=oof +#bar ] { [ test:int=0xdeadbeef ] }'))
-            await self.agenlen(1, core.eval('test:int=3735928559'))
+            self.len(1, await core.nodes('test:int=3735928559'))
 
         # Test using subqueries for filtering
         async with self.getTestCore() as core:
             # Generic tests
 
-            await self.agenlen(1, core.eval('[ test:str=bar +#baz ]'))
-            await self.agenlen(1, core.eval('[ test:pivcomp=(foo,bar) ]'))
+            self.len(1, await core.nodes('[ test:str=bar +#baz ]'))
+            self.len(1, await core.nodes('[ test:pivcomp=(foo,bar) ]'))
 
-            await self.agenlen(0, core.eval('test:pivcomp=(foo,bar) -{ :lulz -> test:str +#baz }'))
-            await self.agenlen(1, core.eval('test:pivcomp=(foo,bar) +{ :lulz -> test:str +#baz } +test:pivcomp'))
+            self.len(0, await core.nodes('test:pivcomp=(foo,bar) -{ :lulz -> test:str +#baz }'))
+            self.len(1, await core.nodes('test:pivcomp=(foo,bar) +{ :lulz -> test:str +#baz } +test:pivcomp'))
 
             # Practical real world example
 
-            await self.agenlen(2, core.eval('[ inet:ipv4=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]'))
-            await self.agenlen(2, core.eval('[ inet:ipv4=4.3.2.1 :loc=zz inet:dns:a=(example.com,4.3.2.1) ]'))
-            await self.agenlen(1, core.eval('inet:ipv4:loc=us'))
-            await self.agenlen(1, core.eval('inet:dns:a:fqdn=vertex.link'))
-            await self.agenlen(1, core.eval('inet:ipv4:loc=zz'))
-            await self.agenlen(1, core.eval('inet:dns:a:fqdn=example.com'))
+            self.len(2, await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us inet:dns:a=(vertex.link,1.2.3.4) ]'))
+            self.len(2, await core.nodes('[ inet:ipv4=4.3.2.1 :loc=zz inet:dns:a=(example.com,4.3.2.1) ]'))
+            self.len(1, await core.nodes('inet:ipv4:loc=us'))
+            self.len(1, await core.nodes('inet:dns:a:fqdn=vertex.link'))
+            self.len(1, await core.nodes('inet:ipv4:loc=zz'))
+            self.len(1, await core.nodes('inet:dns:a:fqdn=example.com'))
 
             # lift all dns, pivot to ipv4 where loc=us, remove the results
             # this should return the example node because the vertex node matches the filter and should be removed
-            nodes = await alist(core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 +:loc=us }'))
+            nodes = await core.nodes('inet:dns:a -{ :ipv4 -> inet:ipv4 +:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('example.com', 67305985))
 
             # lift all dns, pivot to ipv4 where loc=us, add the results
             # this should return the vertex node because only the vertex node matches the filter
-            nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:loc=us }'))
+            nodes = await core.nodes('inet:dns:a +{ :ipv4 -> inet:ipv4 +:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', 16909060))
 
             # lift all dns, pivot to ipv4 where cc!=us, remove the results
             # this should return the vertex node because the example node matches the filter and should be removed
-            nodes = await alist(core.eval('inet:dns:a -{ :ipv4 -> inet:ipv4 -:loc=us }'))
+            nodes = await core.nodes('inet:dns:a -{ :ipv4 -> inet:ipv4 -:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('vertex.link', 16909060))
 
             # lift all dns, pivot to ipv4 where cc!=us, add the results
             # this should return the example node because only the example node matches the filter
-            nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:loc=us }'))
+            nodes = await core.nodes('inet:dns:a +{ :ipv4 -> inet:ipv4 -:loc=us }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], ('example.com', 67305985))
 
             # lift all dns, pivot to ipv4 where asn=1234, add the results
             # this should return nothing because no nodes have asn=1234
-            await self.agenlen(0, core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
+            self.len(0, await core.nodes('inet:dns:a +{ :ipv4 -> inet:ipv4 +:asn=1234 }'))
 
             # lift all dns, pivot to ipv4 where asn!=1234, add the results
             # this should return everything because no nodes have asn=1234
-            nodes = await alist(core.eval('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }'))
+            nodes = await core.nodes('inet:dns:a +{ :ipv4 -> inet:ipv4 -:asn=1234 }')
             self.len(2, nodes)
 
     async def test_storm_switchcase(self):
@@ -4767,7 +4769,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             opts = {'vars': {'blob': 'woot.com|1.2.3.4'}}
-            nodes = await alist(core.eval('[ inet:dns:a=$blob.split("|") ]', opts=opts))
+            nodes = await core.nodes('[ inet:dns:a=$blob.split("|") ]', opts=opts)
 
             self.len(1, nodes)
             for node in nodes:
@@ -4778,16 +4780,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await alist(core.eval('[ inet:dns:a=(woot.com,1.2.3.4) ]'))
+            nodes = await core.nodes('[ inet:dns:a=(woot.com,1.2.3.4) ]')
 
             # this tests getdst()
-            nodes = await alist(core.eval('inet:fqdn=woot.com -> inet:dns:a'))
+            nodes = await core.nodes('inet:fqdn=woot.com -> inet:dns:a')
             self.len(1, nodes)
             for node in nodes:
                 self.eq(node.ndef, ('inet:dns:a', ('woot.com', 0x01020304)))
 
             # this tests getsrc()
-            nodes = await alist(core.eval('inet:fqdn=woot.com -> inet:dns:a -> inet:ipv4'))
+            nodes = await core.nodes('inet:fqdn=woot.com -> inet:dns:a -> inet:ipv4')
             self.len(1, nodes)
             for node in nodes:
                 self.eq(node.ndef, ('inet:ipv4', 0x01020304))
@@ -5922,11 +5924,11 @@ class CortexBasicTest(s_t_utils.SynTest):
         Test that the view opts work
         '''
         async with self.getTestCore() as core:
-            nodes = await alist(core.eval('[ test:int=11 ]'))
+            nodes = await core.nodes('[ test:int=11 ]')
             self.len(1, nodes)
             viewiden = core.view.iden
 
-            nodes = await alist(core.eval('test:int=11', opts={'view': viewiden}))
+            nodes = await core.nodes('test:int=11', opts={'view': viewiden})
             self.len(1, nodes)
 
             await self.agenraises(s_exc.NoSuchView, core.eval('test:int=11', opts={'view': 'NOTAVIEW'}))
