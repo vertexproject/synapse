@@ -581,6 +581,14 @@ The following shows this being enabled for a Cortex deployment::
             - SYN_CORTEX_JSONSTOR=aha://jsonstor...
             - PYTHONWARNINGS=default::DeprecationWarning:synapse.common
 
+With this set, our deprecation warnings are emitted the first time the deprecated functionality is used. For example,
+if a remote caller uses the ``eval()`` API on a Cortex, it would log the following message::
+
+    /usr/local/lib/python3.8/dist-packages/synapse/common.py:913: DeprecationWarning: "CoreApi.eval" is deprecated in 2.x and will be removed in 3.0.0
+      warnings.warn(mesg, DeprecationWarning)
+
+This would indicate the use of a deprecated API.
+
 Synapse Services
 ================
 
