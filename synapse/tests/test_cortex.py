@@ -1369,7 +1369,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('meta:seen:source=$sorc -> *', opts=opts)
 
             self.len(2, nodes)
-            self.eq('inet:dns:a', nodes[0].ndef[0])
+            self.isin('inet:dns:a', {n.ndef[0] for n in nodes})
 
             opts = {'vars': {'sorc': sorc}}
             nodes = await core.nodes('meta:seen:source=$sorc :node -> *', opts=opts)
@@ -1675,7 +1675,6 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(nodes[0].ndef[1], (33, 'thirty three'))
 
     async def test_eval(self):
-        # FIXME - This should test eval() ? Most of this is just general storm() api stuff.
         ''' Cortex.eval test '''
 
         async with self.getTestCore() as core:
@@ -1735,10 +1734,10 @@ class CortexTest(s_t_utils.SynTest):
             self.none(nodes[0].getTag('foo'))
 
             # Seed nodes in the query with idens
-            opts = {'idens': (nodes[0][1].get('iden'),)}
+            opts = {'idens': (s_common.ehex(s_common.buid(('test:str', 'foo bar'))),)}
             nodes = await core.nodes('', opts=opts)
             self.len(1, nodes)
-            self.eq(nodes[0].pack()[0], ('test:str', 'foo bar'))
+            self.eq(nodes[0].ndef, ('test:str', 'foo bar'))
 
             # Seed nodes in the query invalid idens
             opts = {'idens': ('deadb33f',)}
@@ -1757,13 +1756,13 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 or :haha=test)'
-            self.len(1, await core.nodes(q))
+            self.len(2, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 or :haha=foob)'
-            self.len(1, await core.nodes(q))
+            self.len(2, await core.nodes(q))
 
             q = 'test:comp +(:hehe<2 or #meep.gorp)'
-            self.len(1, await core.nodes(q))
+            self.len(2, await core.nodes(q))
             # TODO Add not tests
 
             with self.raises(s_exc.NoSuchCmpr):
@@ -2398,7 +2397,7 @@ class CortexTest(s_t_utils.SynTest):
             msgs = await core.storm('test:str=woot [-.hehe]').list()
             podes = [m[1] for m in msgs if m[0] == 'node']
             self.none(s_node.prop(podes[0], '.hehe'))
-            msgs = await core.storm('test:str=pennywise [-.hehe]')
+            msgs = await core.storm('test:str=pennywise [-.hehe]').list()
             podes = [m[1] for m in msgs if m[0] == 'node']
             self.none(s_node.prop(podes[0], '.hehe'))
 
@@ -2807,8 +2806,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pack = await proxy.setNodeProp(node[1].get('iden'), 'tick', '2015')
             self.eq(pack[1]['props'].get('tick'), 1420070400000)
 
-            self.len(1, await proxy.count('test:str#foo.bar'))
-            self.len(1, await proxy.count('test:str:tick=2015'))
+            self.eq(1, await proxy.count('test:str#foo.bar'))
+            self.eq(1, await proxy.count('test:str:tick=2015'))
 
             pack = await proxy.delNodeProp(node[1].get('iden'), 'tick')
             self.none(pack[1]['props'].get('tick'))
@@ -2932,16 +2931,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await realcore.nodes('[ inet:user=visi inet:user=whippit ]')
 
-            self.len(2, await core.count('inet:user'))
+            self.eq(2, await core.count('inet:user'))
 
             # test cmd as last text syntax
-            self.len(1, await core.count('inet:user | limit 1'))
+            self.eq(1, await core.count('inet:user | limit 1'))
 
-            self.len(1, await core.count('inet:user | limit 1      '))
+            self.eq(1, await core.count('inet:user | limit 1      '))
 
             # test cmd and trailing pipe and whitespace syntax
-            self.len(2, await core.count('inet:user | limit 10 | [ +#foo.bar ]'))
-            self.len(1, await core.count('inet:user | limit 10 | +inet:user=visi'))
+            self.eq(2, await core.count('inet:user | limit 10 | [ +#foo.bar ]'))
+            self.eq(1, await core.count('inet:user | limit 10 | +inet:user=visi'))
 
             # test invalid option syntax
             msgs = await alist(core.storm('inet:user | limit --woot'))
@@ -3984,7 +3983,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ test:pivcomp=(hehe,haha) :tick=2015 +#foo=(2014,2016) ]'))
             self.len(1, await core.nodes('test:pivtarg=hehe [ .seen=2015 ]'))
 
-            self.len(1, core.nodes('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +.seen@=$ticktock'))
+            self.len(1, await core.nodes('test:pivcomp=(hehe,haha) $ticktock=#foo -> test:pivtarg +.seen@=$ticktock'))
 
             self.len(1, await core.nodes('inet:dns:a=(woot.com,1.2.3.4) [ .seen=(2015,2018) ]'))
 
